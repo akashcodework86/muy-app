@@ -7,6 +7,7 @@ use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\DistrictDeliverableTarget;
 use App\Models\FiscalYear;
+use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
 use App\Services\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
@@ -122,10 +123,8 @@ class TargetController extends Controller
 
         $stateTarget = null;
         if ($fiscalYearId && $deliverableId) {
-            $stateTarget = StateDeliverableTarget::query()
-                ->where('fiscal_year_id', $fiscalYearId)
-                ->where('deliverable_id', $deliverableId)
-                ->value('target_total');
+            $stateRow = $this->ensureStateDeliverableTargetRow($fiscalYearId, $deliverableId);
+            $stateTarget = (int) $stateRow->target_total;
         }
 
         $districts = District::query()
@@ -174,16 +173,8 @@ class TargetController extends Controller
         $state = StateDeliverableTarget::query()
             ->where('fiscal_year_id', $fyId)
             ->where('deliverable_id', $deliverableId)
-            ->first();
-
-        if (! $state) {
-            return redirect()
-                ->route('admin.targets.district', [
-                    'fiscal_year_id' => $fyId,
-                    'deliverable_id' => $deliverableId,
-                ])
-                ->withErrors(['deliverable' => 'Set the state target for this deliverable first.']);
-        }
+            ->first()
+            ?? $this->ensureStateDeliverableTargetRow($fyId, $deliverableId);
 
         $sum = 0;
         foreach ($districtIds as $districtId) {
@@ -249,5 +240,32 @@ class TargetController extends Controller
                 'deliverable_id' => $deliverableId,
             ])
             ->with('status', $status);
+    }
+
+    /**
+     * State targets are not filled by legacy staff import (that writes staff_monthly_targets only).
+     * When opening district allocation, auto-create a state row from imported monthlies if missing.
+     */
+    private function ensureStateDeliverableTargetRow(int $fiscalYearId, int $deliverableId): StateDeliverableTarget
+    {
+        $existing = StateDeliverableTarget::query()
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->where('deliverable_id', $deliverableId)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $fromStaff = (int) StaffMonthlyTarget::query()
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->where('deliverable_id', $deliverableId)
+            ->sum('target_count');
+
+        return StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fiscalYearId,
+            'deliverable_id' => $deliverableId,
+            'target_total' => $fromStaff,
+        ]);
     }
 }

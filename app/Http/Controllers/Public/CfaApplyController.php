@@ -90,8 +90,7 @@ class CfaApplyController extends Controller
         CfaSubmissionValidator $cfaValidator,
         CfaBusinessStageService $stageService,
         CfaApplicationNumberGenerator $applicationNumbers,
-    ): RedirectResponse
-    {
+    ): RedirectResponse {
         $staff = User::query()
             ->where('referral_token', $token)
             ->where('role', 'district_staff')

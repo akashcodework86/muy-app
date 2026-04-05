@@ -270,7 +270,7 @@
                             </table>
                         </div>
                     </div>
-                    <p class="staff-mis-footnote">“—” for monthly achievement means the system does not record that activity per month yet (only CFA is wired today).</p>
+                    <p class="staff-mis-footnote">Imported Phase 2 achievement pura historical count hota hai (FY date filter nahi), zyada tar <strong>M1</strong> par. Naye CFA referrals is FY ke <code>cfa_submissions</code> se mahine ke hisaab se add hote hain.</p>
                 </div>
             </details>
         @endforeach

@@ -3,13 +3,13 @@
 namespace Database\Seeders;
 
 use App\Models\Deliverable;
+use App\Models\Designation;
 use App\Models\District;
 use App\Models\DistrictDeliverableTarget;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
-use App\Models\Designation;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -18,7 +18,8 @@ class DemoTargetSeeder extends Seeder
 {
     public function run(): void
     {
-        $fy = FiscalYear::query()->first();
+        $fy = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first()
+            ?? FiscalYear::query()->orderByDesc('starts_on')->first();
         if (! $fy) {
             return;
         }

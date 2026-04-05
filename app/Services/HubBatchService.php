@@ -5,14 +5,14 @@ namespace App\Services;
 use App\Models\CfaHubChoiceState;
 use App\Models\CfaSubmission;
 use App\Models\District;
-use App\Models\Hub;
+use App\Models\FiscalYear;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
 use App\Models\OnboardingBatchDocument;
 use App\Models\OnboardingBatchDraftCfa;
-use App\Models\FiscalYear;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -560,7 +560,7 @@ class HubBatchService
         return ['ok' => true, 'data' => []];
     }
 
-    public function storeCdoDocument(OnboardingBatch $batch, User $user, \Illuminate\Http\UploadedFile $file): void
+    public function storeCdoDocument(OnboardingBatch $batch, User $user, UploadedFile $file): void
     {
         $path = $file->store('onboarding_batch_docs/'.$batch->id, 'local');
         OnboardingBatchDocument::query()->updateOrCreate(

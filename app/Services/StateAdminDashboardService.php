@@ -134,6 +134,7 @@ class StateAdminDashboardService
                 $topLabels[] = 'Other';
                 $topValues[] = $otherSum;
             }
+
             return ['labels' => $topLabels, 'values' => $topValues];
         }
 

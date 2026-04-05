@@ -7,12 +7,16 @@ use App\Models\Deliverable;
 use App\Models\FiscalYear;
 use App\Models\StaffMonthlyTarget;
 use App\Models\User;
+use App\Services\LegacyPhase2\LegacyRbiServicesAssignedAchievementService;
+use App\Services\LegacyPhase2\Phase2TargetsPhpAchievementService;
 use Carbon\Carbon;
 
 class StaffMonthlyTargetsDashboardService
 {
     public function __construct(
         private StaffDeliverableMonthlyTargetService $targets,
+        private LegacyRbiServicesAssignedAchievementService $legacyServicesAchievement,
+        private Phase2TargetsPhpAchievementService $phase2TargetsAchievement,
     ) {}
 
     /**
@@ -20,17 +24,7 @@ class StaffMonthlyTargetsDashboardService
      */
     public function fiscalMonthIndex(Carbon $at, FiscalYear $fy): ?int
     {
-        $fyStart = Carbon::parse($fy->starts_on)->startOfMonth();
-        $fyEnd = Carbon::parse($fy->ends_on)->endOfMonth();
-        if ($at->lt($fyStart) || $at->gt($fyEnd)) {
-            return null;
-        }
-
-        $t = $at->copy()->startOfMonth();
-        $months = (int) $fyStart->diffInMonths($t);
-        $idx = $months + 1;
-
-        return ($idx >= 1 && $idx <= 12) ? $idx : null;
+        return $fy->fiscalMonthIndex($at);
     }
 
     /**
@@ -94,6 +88,14 @@ class StaffMonthlyTargetsDashboardService
 
         $cfaAchievement = $this->cfaAchievementByFiscalMonth($userId, $fy);
 
+        $usePhase2 = $user->legacy_user_id
+            && filled($user->district?->name)
+            && filled((string) config('database.connections.legacy.database', ''));
+
+        $legacyAchievement = $usePhase2
+            ? $this->phase2TargetsAchievement->countsByDeliverableAndFiscalMonth($user, $fy)
+            : $this->legacyServicesAchievement->countsByDeliverableAndFiscalMonth($user, $fy);
+
         $rows = [];
         $deliverables = Deliverable::query()
             ->where('is_active', true)
@@ -121,19 +123,36 @@ class StaffMonthlyTargetsDashboardService
 
             $slot = $districtTarget !== null ? max(0, $districtTarget - $othersAnnual) : null;
 
+            $legacyMonthly = $legacyAchievement[$d->id] ?? array_fill(1, 12, 0);
+            $legacyAnnualTotal = array_sum($legacyMonthly);
+
+            $hasDistrictTarget = $districtTarget !== null && (int) $districtTarget > 0;
+            $tracksAchievement = $d->code === 'cfa'
+                || $legacyAnnualTotal > 0
+                || $monthlySum > 0
+                || $hasDistrictTarget;
+
             $monthlyAchievement = array_fill(1, 12, null);
             $achievementAnnual = 0;
+
             if ($d->code === 'cfa') {
                 foreach (range(1, 12) as $m) {
-                    $monthlyAchievement[$m] = $cfaAchievement[$m];
-                    $achievementAnnual += $cfaAchievement[$m];
+                    $v = max($cfaAchievement[$m], $legacyMonthly[$m]);
+                    $monthlyAchievement[$m] = $v;
+                    $achievementAnnual += $v;
+                }
+            } elseif ($tracksAchievement) {
+                foreach (range(1, 12) as $m) {
+                    $monthlyAchievement[$m] = (int) $legacyMonthly[$m];
+                    $achievementAnnual += (int) $legacyMonthly[$m];
                 }
             }
 
-            $tracksAchievement = $d->code === 'cfa';
             $expandByDefault = $d->code === 'cfa'
                 || $monthlySum > 0
-                || $achievementAnnual > 0;
+                || $achievementAnnual > 0
+                || $legacyAnnualTotal > 0
+                || $hasDistrictTarget;
 
             $rows[] = [
                 'deliverable' => $d,

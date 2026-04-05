@@ -10,6 +10,7 @@ use App\Models\StaffMonthlyTarget;
 use App\Models\User;
 use App\Services\AdminAuditLogger;
 use App\Services\StaffDeliverableMonthlyTargetService;
+use App\Services\StaffMonthlyTargetsDashboardService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,7 @@ class StaffDeliverableMonthlyTargetController extends Controller
             ->firstOrFail();
     }
 
-    public function index(Request $request, User $user): View|RedirectResponse
+    public function index(Request $request, User $user, StaffMonthlyTargetsDashboardService $dashboard): View|RedirectResponse
     {
         if ($user->role !== 'district_staff') {
             abort(404);
@@ -57,12 +58,22 @@ class StaffDeliverableMonthlyTargetController extends Controller
             ->whereIn('deliverable_id', $deliverables->pluck('id'))
             ->pluck('target_total', 'deliverable_id');
 
+        $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId);
+        $achievementByDeliverableId = [];
+        if ($fiscalYear) {
+            foreach ($dashboard->buildRows($user, $fiscalYear) as $row) {
+                $achievementByDeliverableId[$row['deliverable']->id] = $row;
+            }
+        }
+
         return view('admin.staff.monthly-targets-index', [
             'user' => $user->load(['district', 'hub', 'designationRecord']),
             'fiscalYears' => $fiscalYears,
             'fiscalYearId' => $fiscalYearId,
+            'fiscalYear' => $fiscalYear,
             'deliverables' => $deliverables,
             'districtTargets' => $districtTargets,
+            'achievementByDeliverableId' => $achievementByDeliverableId,
         ]);
     }
 
