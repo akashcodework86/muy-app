@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DesignationController;
@@ -8,8 +7,9 @@ use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\TargetController;
-use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Models\Deliverable;
@@ -85,15 +85,19 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('staff/{user}', [StaffController::class, 'destroy'])->name('staff.destroy');
         Route::post('staff/{user}/toggle-active', [StaffController::class, 'toggleActive'])->name('staff.toggle-active');
         Route::get('staff/{user}/monthly-targets', [StaffDeliverableMonthlyTargetController::class, 'index'])->name('staff.monthly-targets.index');
-        Route::get('staff/{user}/monthly-targets/{deliverable:code}/edit', [StaffDeliverableMonthlyTargetController::class, 'edit'])->name('staff.monthly-targets.edit');
-        Route::post('staff/{user}/monthly-targets/{deliverable:code}', [StaffDeliverableMonthlyTargetController::class, 'update'])->name('staff.monthly-targets.update');
+        Route::get('staff/{user}/monthly-targets/{deliverable_code}/edit', [StaffDeliverableMonthlyTargetController::class, 'edit'])
+            ->where('deliverable_code', '[a-z0-9_]+')
+            ->name('staff.monthly-targets.edit');
+        Route::post('staff/{user}/monthly-targets/{deliverable_code}', [StaffDeliverableMonthlyTargetController::class, 'update'])
+            ->where('deliverable_code', '[a-z0-9_]+')
+            ->name('staff.monthly-targets.update');
         Route::get('staff/{user}/cfa-targets', function (Request $request, User $user) {
             $q = [];
             if ($request->filled('fiscal_year_id')) {
                 $q['fiscal_year_id'] = (int) $request->query('fiscal_year_id');
             }
 
-            return redirect()->route('admin.staff.monthly-targets.edit', array_merge(['user' => $user, 'deliverable' => 'cfa'], $q), 301);
+            return redirect()->route('admin.staff.monthly-targets.edit', array_merge(['user' => $user, 'deliverable_code' => 'cfa'], $q), 301);
         })->name('staff.cfa-targets');
         Route::post('staff/{user}/cfa-targets', [StaffDeliverableMonthlyTargetController::class, 'updateCfaLegacy'])->name('staff.cfa-targets.update');
 
@@ -121,7 +125,7 @@ Route::get('/status', function () {
             'database' => config('database.default'),
             'connected' => true,
         ]);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         return response()->json([
             'app' => config('app.name'),
             'phase' => 0,
@@ -143,7 +147,7 @@ Route::get('/status/catalog', function () {
             'service_categories' => DB::table('service_categories')->count(),
             'services' => DB::table('services')->count(),
         ]);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         return response()->json(['error' => $e->getMessage()], 500);
     }
 });
@@ -169,7 +173,7 @@ Route::get('/status/targets', function (TargetValidationService $validation) {
             'state_matches_districts' => $stateOk,
             'district_almora_matches_staff_monthly' => $districtOk,
         ]);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         return response()->json(['phase' => 2, 'error' => $e->getMessage()], 500);
     }
 });

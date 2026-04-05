@@ -46,7 +46,7 @@
                             @endif
                         </td>
                         <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5;">
-                            <a href="{{ route('admin.staff.monthly-targets.edit', ['user' => $user, 'deliverable' => $d->code, 'fiscal_year_id' => $fiscalYearId]) }}">Edit months</a>
+                            <a href="{{ route('admin.staff.monthly-targets.edit', ['user' => $user, 'deliverable_code' => $d->code, 'fiscal_year_id' => $fiscalYearId]) }}">Edit months</a>
                         </td>
                     </tr>
                 @endforeach

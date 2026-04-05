@@ -16,7 +16,7 @@
         <a href="{{ route('admin.staff.monthly-targets.index', ['user' => $user, 'fiscal_year_id' => $fiscalYearId]) }}" style="font-size:0.88rem;">← All deliverables</a>
     </p>
 
-    <form method="get" action="{{ route('admin.staff.monthly-targets.edit', ['user' => $user, 'deliverable' => $deliverable->code]) }}" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:flex-end;">
+    <form method="get" action="{{ route('admin.staff.monthly-targets.edit', ['user' => $user, 'deliverable_code' => $deliverable->code]) }}" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:flex-end;">
         <div>
             <label for="fy" style="display:block; font-size:0.8rem; font-weight:500; margin-bottom:0.25rem;">Fiscal year</label>
             <select id="fy" name="fiscal_year_id" onchange="this.form.submit()" style="padding:0.4rem 0.5rem; border-radius:6px; border:1px solid #d4d4d8; min-width:12rem;">
@@ -42,7 +42,7 @@
             <div><strong>This staff’s share (12‑month sum to aim for when final):</strong> {{ number_format($slot) }}</div>
         </div>
 
-        <form method="post" action="{{ route('admin.staff.monthly-targets.update', ['user' => $user, 'deliverable' => $deliverable->code]) }}" id="monthly-target-form" data-slot="{{ $slot }}">
+        <form method="post" action="{{ route('admin.staff.monthly-targets.update', ['user' => $user, 'deliverable_code' => $deliverable->code]) }}" id="monthly-target-form" data-slot="{{ $slot }}">
             @csrf
             <input type="hidden" name="fiscal_year_id" value="{{ $fiscalYearId }}">
 

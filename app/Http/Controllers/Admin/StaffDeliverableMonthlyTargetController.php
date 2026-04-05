@@ -22,6 +22,14 @@ class StaffDeliverableMonthlyTargetController extends Controller
         private AdminAuditLogger $auditLogger,
     ) {}
 
+    private function resolveActiveDeliverable(string $code): Deliverable
+    {
+        return Deliverable::query()
+            ->where('code', $code)
+            ->where('is_active', true)
+            ->firstOrFail();
+    }
+
     public function index(Request $request, User $user): View|RedirectResponse
     {
         if ($user->role !== 'district_staff') {
@@ -58,15 +66,13 @@ class StaffDeliverableMonthlyTargetController extends Controller
         ]);
     }
 
-    public function edit(Request $request, User $user, Deliverable $deliverable): View|RedirectResponse
+    public function edit(Request $request, User $user, string $deliverable_code): View|RedirectResponse
     {
         if ($user->role !== 'district_staff') {
             abort(404);
         }
 
-        if (! $deliverable->is_active) {
-            abort(404);
-        }
+        $deliverable = $this->resolveActiveDeliverable($deliverable_code);
 
         if (! $user->district_id) {
             return redirect()->route('admin.staff.index')->withErrors(['user' => 'Assign a district to this staff user first.']);
@@ -99,15 +105,13 @@ class StaffDeliverableMonthlyTargetController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $user, Deliverable $deliverable): RedirectResponse
+    public function update(Request $request, User $user, string $deliverable_code): RedirectResponse
     {
         if ($user->role !== 'district_staff') {
             abort(404);
         }
 
-        if (! $deliverable->is_active) {
-            abort(404);
-        }
+        $deliverable = $this->resolveActiveDeliverable($deliverable_code);
 
         if (! $user->district_id) {
             return redirect()->route('admin.staff.index')->withErrors(['user' => 'Assign a district to this staff user first.']);
@@ -127,7 +131,7 @@ class StaffDeliverableMonthlyTargetController extends Controller
         $districtTarget = $this->monthlyTargets->districtTargetTotal($fyId, (int) $user->district_id, $deliverable->id);
         if ($districtTarget === null) {
             return redirect()
-                ->route('admin.staff.monthly-targets.edit', ['user' => $user, 'deliverable' => $deliverable->code, 'fiscal_year_id' => $fyId])
+                ->route('admin.staff.monthly-targets.edit', ['user' => $user, 'deliverable_code' => $deliverable->code, 'fiscal_year_id' => $fyId])
                 ->withErrors(['district' => 'Set the district target for this deliverable first (Admin → District targets).']);
         }
 
@@ -191,7 +195,7 @@ class StaffDeliverableMonthlyTargetController extends Controller
         };
 
         return redirect()
-            ->route('admin.staff.monthly-targets.edit', ['user' => $user, 'deliverable' => $deliverable->code, 'fiscal_year_id' => $fyId])
+            ->route('admin.staff.monthly-targets.edit', ['user' => $user, 'deliverable_code' => $deliverable->code, 'fiscal_year_id' => $fyId])
             ->with('status', $status);
     }
 
@@ -200,8 +204,6 @@ class StaffDeliverableMonthlyTargetController extends Controller
      */
     public function updateCfaLegacy(Request $request, User $user): RedirectResponse
     {
-        $deliverable = Deliverable::query()->where('code', 'cfa')->firstOrFail();
-
-        return $this->update($request, $user, $deliverable);
+        return $this->update($request, $user, 'cfa');
     }
 }
