@@ -14,6 +14,7 @@ use App\Services\StaffMonthlyTargetsDashboardService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class StaffDeliverableMonthlyTargetController extends Controller
@@ -41,10 +42,9 @@ class StaffDeliverableMonthlyTargetController extends Controller
             return redirect()->route('admin.staff.index')->withErrors(['user' => 'Assign a district to this staff user first.']);
         }
 
-        $fiscalYears = FiscalYear::query()->orderByDesc('starts_on')->get();
-        $fiscalYearId = (int) ($request->query('fiscal_year_id')
-            ?: FiscalYear::query()->where('is_active', true)->value('id')
-            ?: $fiscalYears->first()?->id);
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
+            $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
+        );
 
         $deliverables = Deliverable::query()
             ->where('is_active', true)
@@ -89,10 +89,9 @@ class StaffDeliverableMonthlyTargetController extends Controller
             return redirect()->route('admin.staff.index')->withErrors(['user' => 'Assign a district to this staff user first.']);
         }
 
-        $fiscalYears = FiscalYear::query()->orderByDesc('starts_on')->get();
-        $fiscalYearId = (int) ($request->query('fiscal_year_id')
-            ?: FiscalYear::query()->where('is_active', true)->value('id')
-            ?: $fiscalYears->first()?->id);
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
+            $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
+        );
 
         $districtTarget = $this->monthlyTargets->districtTargetTotal($fiscalYearId, (int) $user->district_id, $deliverable->id);
         $othersAnnual = $this->monthlyTargets->otherStaffDistrictTotal($fiscalYearId, (int) $user->district_id, $deliverable->id, $user->id);
@@ -129,7 +128,7 @@ class StaffDeliverableMonthlyTargetController extends Controller
         }
 
         $rules = [
-            'fiscal_year_id' => ['required', 'integer', 'exists:fiscal_years,id'],
+            'fiscal_year_id' => ['required', 'integer', Rule::exists('fiscal_years', 'id')->whereIn('code', FiscalYear::UI_SELECTABLE_CODES)],
         ];
         foreach (range(1, 12) as $m) {
             $rules['months.'.$m] = ['nullable', 'integer', 'min:0', 'max:999999999'];

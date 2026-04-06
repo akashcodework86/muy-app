@@ -39,12 +39,16 @@ class StaffPortalController extends Controller
             ]);
         }
 
-        $fiscalYears = FiscalYear::query()->orderByDesc('starts_on')->get();
-        $fiscalYearId = (int) ($request->query('fiscal_year_id')
-            ?: FiscalYear::query()->where('is_active', true)->value('id')
-            ?: $fiscalYears->first()?->id);
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
+            $request->query('fiscal_year_id') !== null && $request->query('fiscal_year_id') !== ''
+                ? (int) $request->query('fiscal_year_id')
+                : null
+        );
 
-        $fiscalYear = FiscalYear::query()->findOrFail($fiscalYearId);
+        $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId);
+        if ($fiscalYear === null) {
+            abort(404);
+        }
         $rows = $dashboard->buildRows($user, $fiscalYear);
         $monthLabels = $dashboard->fiscalMonthLabels($fiscalYear);
 

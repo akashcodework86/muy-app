@@ -20,6 +20,16 @@ class FiscalYearSeeder extends Seeder
         );
 
         FiscalYear::query()->updateOrCreate(
+            ['code' => '2025-26'],
+            [
+                'name' => 'FY 2025-26',
+                'starts_on' => '2025-04-02',
+                'ends_on' => '2026-04-01',
+                'is_active' => false,
+            ]
+        );
+
+        FiscalYear::query()->updateOrCreate(
             ['code' => '2026-27'],
             [
                 'name' => 'FY 2026-27',

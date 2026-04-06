@@ -13,6 +13,7 @@ use App\Services\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class TargetController extends Controller
@@ -23,10 +24,9 @@ class TargetController extends Controller
 
     public function stateForm(Request $request): View
     {
-        $fiscalYears = FiscalYear::query()->orderByDesc('starts_on')->get();
-        $fiscalYearId = (int) ($request->query('fiscal_year_id')
-            ?: FiscalYear::query()->where('is_active', true)->value('id')
-            ?: $fiscalYears->first()?->id);
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
+            $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
+        );
 
         $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId) ?? $fiscalYears->first();
         if ($fiscalYear) {
@@ -56,7 +56,7 @@ class TargetController extends Controller
         $deliverableIds = Deliverable::query()->where('is_active', true)->pluck('id');
 
         $rules = [
-            'fiscal_year_id' => ['required', 'integer', 'exists:fiscal_years,id'],
+            'fiscal_year_id' => ['required', 'integer', Rule::exists('fiscal_years', 'id')->whereIn('code', FiscalYear::UI_SELECTABLE_CODES)],
         ];
         foreach ($deliverableIds as $id) {
             $rules['targets.'.$id] = ['nullable', 'integer', 'min:0', 'max:999999999'];
@@ -108,10 +108,9 @@ class TargetController extends Controller
 
     public function districtForm(Request $request): View
     {
-        $fiscalYears = FiscalYear::query()->orderByDesc('starts_on')->get();
-        $fiscalYearId = (int) ($request->query('fiscal_year_id')
-            ?: FiscalYear::query()->where('is_active', true)->value('id')
-            ?: $fiscalYears->first()?->id);
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
+            $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
+        );
 
         $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId) ?? $fiscalYears->first();
         if ($fiscalYear) {
@@ -158,7 +157,7 @@ class TargetController extends Controller
         $districtIds = District::query()->pluck('id');
 
         $rules = [
-            'fiscal_year_id' => ['required', 'integer', 'exists:fiscal_years,id'],
+            'fiscal_year_id' => ['required', 'integer', Rule::exists('fiscal_years', 'id')->whereIn('code', FiscalYear::UI_SELECTABLE_CODES)],
             'deliverable_id' => ['required', 'integer', 'exists:deliverables,id'],
         ];
         foreach ($districtIds as $id) {

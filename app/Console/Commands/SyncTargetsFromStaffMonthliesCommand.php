@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 class SyncTargetsFromStaffMonthliesCommand extends Command
 {
     protected $signature = 'targets:sync-from-staff-monthlies
-                            {--fy-code=2024-25 : Fiscal year code}
+                            {--fy-code=2025-26 : Fiscal year code}
                             {--districts : Also sync district_deliverable_targets from staff (by user district)}
                             {--dry-run : Show counts only}
                             {--force : Overwrite state/district rows even when target_total > 0}';
@@ -74,7 +74,7 @@ class SyncTargetsFromStaffMonthliesCommand extends Command
             $updatedState++;
         }
 
-        $this->info('State targets: '.($dry ? 'would write ' : 'wrote ').$updatedState.' deliverable row(s); skipped (already non-zero, use --force): '.$skippedState);
+        $this->info("State targets: ".($dry ? 'would write ' : 'wrote ').$updatedState.' deliverable row(s); skipped (already non-zero, use --force): '.$skippedState);
 
         if (! $withDistricts) {
             $this->newLine();

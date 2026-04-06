@@ -23,8 +23,9 @@
 
     @if ($fiscalYear ?? null)
         <p style="font-size:0.8rem; color:#64748b; margin:-0.25rem 0 1rem;">
-            <strong>Imported Phase 2 (legacy DB):</strong> poora historical achievement count hota hai (koi FY date filter nahi); monthly grid mein yeh total <strong>M1</strong> par dikhega.
-            <strong>Naya phase:</strong> CFA referrals <code>cfa_submissions</code> isi FY (<strong>{{ \Illuminate\Support\Carbon::parse($fiscalYear->starts_on)->format('d M Y') }}</strong>–<strong>{{ \Illuminate\Support\Carbon::parse($fiscalYear->ends_on)->format('d M Y') }}</strong>) ke hisaab se count hote hain.
+            <strong>Phase 2 achievements</strong> is dropdown wale FY ke beech count hote hain:
+            <strong>{{ \Illuminate\Support\Carbon::parse($fiscalYear->starts_on)->format('d M Y') }}</strong>–<strong>{{ \Illuminate\Support\Carbon::parse($fiscalYear->ends_on)->format('d M Y') }}</strong>
+            (M1–M12 buckets). <strong>CFA (MUY):</strong> <code>cfa_submissions</code> bhi isi <code>fiscal_year_id</code> par.
         </p>
     @endif
 

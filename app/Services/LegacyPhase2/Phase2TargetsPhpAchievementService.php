@@ -5,23 +5,17 @@ namespace App\Services\LegacyPhase2;
 use App\Models\Deliverable;
 use App\Models\FiscalYear;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Achievement counts from imported Phase 2 (legacy DB). No fiscal-year date window:
- * all qualifying historical rows count. Totals are placed in **M1** only so the FY annual
- * sum matches “everything we brought from last phase”. New-phase activity (e.g. MUY
- * cfa_submissions) stays FY-scoped in StaffMonthlyTargetsDashboardService.
- *
- * Rules mirror admin/targets.php (CFA by submitted_by_name, workshops, onboarding, BST,
- * market partners, rbi_services_assigned, ATF roll-up).
+ * Phase 2 legacy achievements scoped to the **selected** fiscal year (starts_on … ends_on).
+ * Each event is bucketed into M1–M12 via {@see FiscalYear::fiscalMonthIndex()}.
+ * Mirrors admin/targets.php rules (CFA, workshops, onboarding, BST, partners, services, ATF).
  */
 class Phase2TargetsPhpAchievementService
 {
-    /** Imported legacy totals go to month 1 (annual = sum of M1..M12 still correct). */
-    private const LEGACY_BUCKET_MONTH = 1;
-
     /** @var array<string, string> */
     private array $normToDeliverable;
 
@@ -59,7 +53,6 @@ class Phase2TargetsPhpAchievementService
             ->all();
 
         $out = [];
-        $bucket = self::LEGACY_BUCKET_MONTH;
         $add = function (int $deliverableId, int $monthIdx, int $delta = 1) use (&$out): void {
             if ($monthIdx < 1 || $monthIdx > 12) {
                 return;
@@ -70,6 +63,8 @@ class Phase2TargetsPhpAchievementService
             $out[$deliverableId][$monthIdx] += $delta;
         };
 
+        $fyStart = Carbon::parse($fy->starts_on)->startOfDay();
+        $fyEnd = Carbon::parse($fy->ends_on)->endOfDay();
         $legacyUserId = (int) $user->legacy_user_id;
         $role = strtolower((string) ($user->role ?? ''));
         $isCdo = $role === 'cdo';
@@ -77,13 +72,13 @@ class Phase2TargetsPhpAchievementService
         $districtWide = $isCdo || $isStateTeam;
         $nameLower = mb_strtolower(trim($user->name));
 
-        $this->addCfaCounts($add, $codeToId, $bucket, $variants, $districtWide, $nameLower);
-        $this->addWorkshopCounts($add, $codeToId, $bucket, $variants, $districtWide, $legacyUserId);
-        $this->addOnboardingCounts($add, $codeToId, $bucket, $variants);
-        $this->addBstSessionCounts($add, $codeToId, $bucket, $variants, $districtWide, $legacyUserId);
-        $this->addMarketPartnerCounts($add, $codeToId, $bucket, $variants, $districtWide, $legacyUserId);
-        $this->addGenericServiceCounts($add, $codeToId, $bucket, $variants, $districtWide, $legacyUserId);
-        $this->addAccessToFinanceRollup($add, $codeToId, $bucket, $variants, $districtWide, $legacyUserId);
+        $this->addCfaCounts($add, $codeToId, $fy, $fyStart, $fyEnd, $variants, $districtWide, $nameLower);
+        $this->addWorkshopCounts($add, $codeToId, $fy, $fyStart, $fyEnd, $variants, $districtWide, $legacyUserId);
+        $this->addOnboardingCounts($add, $codeToId, $fy, $fyStart, $fyEnd, $variants);
+        $this->addBstSessionCounts($add, $codeToId, $fy, $fyStart, $fyEnd, $variants, $districtWide, $legacyUserId);
+        $this->addMarketPartnerCounts($add, $codeToId, $fy, $fyStart, $fyEnd, $variants, $districtWide, $legacyUserId);
+        $this->addGenericServiceCounts($add, $codeToId, $fy, $fyStart, $fyEnd, $variants, $districtWide, $legacyUserId);
+        $this->addAccessToFinanceRollup($add, $codeToId, $fy, $fyStart, $fyEnd, $variants, $districtWide, $legacyUserId);
 
         return $out;
     }
@@ -96,7 +91,9 @@ class Phase2TargetsPhpAchievementService
     private function addCfaCounts(
         callable $add,
         array $codeToId,
-        int $bucket,
+        FiscalYear $fy,
+        Carbon $fyStart,
+        Carbon $fyEnd,
         array $variants,
         bool $districtWide,
         string $nameLower,
@@ -107,19 +104,26 @@ class Phase2TargetsPhpAchievementService
             return;
         }
 
-        $count = (int) DB::connection('legacy')
+        $q = DB::connection('legacy')
             ->table('rbi_applications as a')
             ->leftJoin('rbi_applicant_details as d', 'a.id', '=', 'd.application_id')
             ->whereNotNull('a.submission_date')
+            ->whereBetween(DB::raw('DATE(a.submission_date)'), [$fyStart->toDateString(), $fyEnd->toDateString()])
             ->whereIn(DB::raw('LOWER(TRIM(d.district))'), $variants)
             ->when(! $districtWide, function ($q) use ($nameLower) {
                 $q->whereRaw('LOWER(d.submitted_by_name) LIKE ?', ['%'.$nameLower.'%']);
             })
-            ->distinct()
-            ->count('a.id');
+            ->selectRaw('a.submission_date as ev');
 
-        if ($count > 0) {
-            $add((int) $codeToId['cfa'], $bucket, $count);
+        foreach ($q->cursor() as $row) {
+            $at = $this->parseEventDate($row->ev ?? null);
+            if ($at === null) {
+                continue;
+            }
+            $i = $fy->fiscalMonthIndex($at);
+            if ($i !== null) {
+                $add((int) $codeToId['cfa'], $i);
+            }
         }
     }
 
@@ -131,7 +135,9 @@ class Phase2TargetsPhpAchievementService
     private function addWorkshopCounts(
         callable $add,
         array $codeToId,
-        int $bucket,
+        FiscalYear $fy,
+        Carbon $fyStart,
+        Carbon $fyEnd,
         array $variants,
         bool $districtWide,
         int $legacyUserId,
@@ -140,9 +146,10 @@ class Phase2TargetsPhpAchievementService
             return;
         }
 
-        $workshopCount = function (callable $applyConstraints) use ($districtWide, $legacyUserId, $variants): int {
+        $scan = function (int $deliverableId, callable $applyConstraints) use ($add, $districtWide, $legacyUserId, $variants, $fy, $fyStart, $fyEnd): void {
             $q = DB::connection('legacy')
                 ->table('block_workshop_entries as bwe')
+                ->whereBetween('bwe.workshop_date', [$fyStart->toDateString(), $fyEnd->toDateString()])
                 ->whereNotNull('bwe.workshop_date');
             if ($districtWide) {
                 $q->leftJoin('users as u', 'u.id', '=', 'bwe.user_id')
@@ -151,37 +158,35 @@ class Phase2TargetsPhpAchievementService
                 $q->where('bwe.user_id', $legacyUserId);
             }
             $applyConstraints($q);
+            $q->selectRaw('bwe.workshop_date as ev');
 
-            return (int) $q->count();
+            foreach ($q->cursor() as $row) {
+                $at = $this->parseEventDate($row->ev ?? null);
+                $i = $at ? $fy->fiscalMonthIndex($at) : null;
+                if ($i !== null) {
+                    $add($deliverableId, $i);
+                }
+            }
         };
 
         if (isset($codeToId['lakhpati_block'])) {
-            $n = $workshopCount(function ($q): void {
+            $scan((int) $codeToId['lakhpati_block'], function ($q): void {
                 $q->whereRaw("(bwe.block IS NOT NULL AND TRIM(bwe.block) <> '')")
                     ->whereRaw("(bwe.enworkshop IS NULL OR LOWER(TRIM(bwe.enworkshop)) <> 'yes')");
             });
-            if ($n > 0) {
-                $add((int) $codeToId['lakhpati_block'], $bucket, $n);
-            }
         }
 
         if (isset($codeToId['awareness_district'])) {
-            $n = $workshopCount(function ($q): void {
+            $scan((int) $codeToId['awareness_district'], function ($q): void {
                 $q->whereRaw("(bwe.block IS NULL OR TRIM(bwe.block) = '')")
                     ->whereRaw("(bwe.enworkshop IS NULL OR LOWER(TRIM(bwe.enworkshop)) <> 'yes')");
             });
-            if ($n > 0) {
-                $add((int) $codeToId['awareness_district'], $bucket, $n);
-            }
         }
 
         if (isset($codeToId['edp_workshop'])) {
-            $n = $workshopCount(function ($q): void {
+            $scan((int) $codeToId['edp_workshop'], function ($q): void {
                 $q->whereRaw("LOWER(TRIM(bwe.enworkshop)) = 'yes'");
             });
-            if ($n > 0) {
-                $add((int) $codeToId['edp_workshop'], $bucket, $n);
-            }
         }
     }
 
@@ -193,7 +198,9 @@ class Phase2TargetsPhpAchievementService
     private function addOnboardingCounts(
         callable $add,
         array $codeToId,
-        int $bucket,
+        FiscalYear $fy,
+        Carbon $fyStart,
+        Carbon $fyEnd,
         array $variants,
     ): void {
         if (! isset($codeToId['onboarding'])
@@ -205,15 +212,20 @@ class Phase2TargetsPhpAchievementService
         $dateCol = Schema::connection('legacy')->hasColumn('rbi_onboarded_applicants', 'onboarded_at')
             ? 'boa.onboarded_at' : 'boa.created_at';
 
-        $count = (int) DB::connection('legacy')
+        $q = DB::connection('legacy')
             ->table('rbi_onboarded_applicants as boa')
             ->join('rbi_onboarding_batches as b', 'boa.onboarding_batch_id', '=', 'b.id')
             ->whereNotNull($dateCol)
+            ->whereBetween(DB::raw('DATE('.$dateCol.')'), [$fyStart->toDateString(), $fyEnd->toDateString()])
             ->whereIn(DB::raw('LOWER(TRIM(b.onboard_district))'), $variants)
-            ->count();
+            ->selectRaw($dateCol.' as ev');
 
-        if ($count > 0) {
-            $add((int) $codeToId['onboarding'], $bucket, $count);
+        foreach ($q->cursor() as $row) {
+            $at = $this->parseEventDate($row->ev ?? null);
+            $i = $at ? $fy->fiscalMonthIndex($at) : null;
+            if ($i !== null) {
+                $add((int) $codeToId['onboarding'], $i);
+            }
         }
     }
 
@@ -225,7 +237,9 @@ class Phase2TargetsPhpAchievementService
     private function addBstSessionCounts(
         callable $add,
         array $codeToId,
-        int $bucket,
+        FiscalYear $fy,
+        Carbon $fyStart,
+        Carbon $fyEnd,
         array $variants,
         bool $districtWide,
         int $legacyUserId,
@@ -238,6 +252,7 @@ class Phase2TargetsPhpAchievementService
 
         $q = DB::connection('legacy')
             ->table('training_sessions as ts')
+            ->whereBetween('ts.session_date', [$fyStart->toDateString(), $fyEnd->toDateString()])
             ->whereNotNull('ts.session_date')
             ->whereIn('ts.service_name', $packages);
 
@@ -249,9 +264,14 @@ class Phase2TargetsPhpAchievementService
             $q->where('ts.served_by', $legacyUserId);
         }
 
-        $count = (int) $q->count();
-        if ($count > 0) {
-            $add((int) $codeToId['bst_sessions'], $bucket, $count);
+        $q->selectRaw('ts.session_date as ev');
+
+        foreach ($q->cursor() as $row) {
+            $at = $this->parseEventDate($row->ev ?? null);
+            $i = $at ? $fy->fiscalMonthIndex($at) : null;
+            if ($i !== null) {
+                $add((int) $codeToId['bst_sessions'], $i);
+            }
         }
     }
 
@@ -263,7 +283,9 @@ class Phase2TargetsPhpAchievementService
     private function addMarketPartnerCounts(
         callable $add,
         array $codeToId,
-        int $bucket,
+        FiscalYear $fy,
+        Carbon $fyStart,
+        Carbon $fyEnd,
         array $variants,
         bool $districtWide,
         int $legacyUserId,
@@ -274,10 +296,11 @@ class Phase2TargetsPhpAchievementService
             return;
         }
 
-        $row = DB::connection('legacy')
+        $q = DB::connection('legacy')
             ->table('rbi_service_partners as sp')
             ->leftJoin('rbi_services_assigned as sa', 'sa.id', '=', 'sp.service_assigned_id')
             ->join('rbi_applicant_details as d', 'd.application_id', '=', 'sp.application_id')
+            ->whereBetween(DB::raw('DATE(COALESCE(sp.added_at, sa.assigned_date, sa.doc_date))'), [$fyStart->toDateString(), $fyEnd->toDateString()])
             ->whereRaw("COALESCE(sp.status,'Active') = 'Active'")
             ->whereIn(DB::raw('LOWER(TRIM(d.district))'), $variants)
             ->when(! $districtWide, fn ($q) => $q->where('sp.added_by', $legacyUserId))
@@ -286,12 +309,24 @@ class Phase2TargetsPhpAchievementService
                 OR (COALESCE(sp.partner_type,\'online\') = \'offline\'
                     AND EXISTS (SELECT 1 FROM rbi_service_partner_products spp WHERE spp.partner_id = sp.id))
             )')
-            ->selectRaw('COUNT(DISTINCT sp.application_id) as c')
-            ->first();
+            ->select([
+                'sp.application_id',
+                DB::raw('COALESCE(sp.added_at, sa.assigned_date, sa.doc_date) as ev'),
+            ]);
 
-        $count = (int) ($row->c ?? 0);
-        if ($count > 0) {
-            $add((int) $codeToId['market_link'], $bucket, $count);
+        $seen = [];
+        foreach ($q->cursor() as $row) {
+            $at = $this->parseEventDate($row->ev ?? null);
+            $i = $at ? $fy->fiscalMonthIndex($at) : null;
+            if ($i === null) {
+                continue;
+            }
+            $k = ((string) ($row->application_id ?? '')).'-'.$i;
+            if (isset($seen[$k])) {
+                continue;
+            }
+            $seen[$k] = true;
+            $add((int) $codeToId['market_link'], $i);
         }
     }
 
@@ -303,7 +338,9 @@ class Phase2TargetsPhpAchievementService
     private function addGenericServiceCounts(
         callable $add,
         array $codeToId,
-        int $bucket,
+        FiscalYear $fy,
+        Carbon $fyStart,
+        Carbon $fyEnd,
         array $variants,
         bool $districtWide,
         int $legacyUserId,
@@ -355,18 +392,23 @@ class Phase2TargetsPhpAchievementService
             $q = DB::connection('legacy')
                 ->table('rbi_services_assigned as sa')
                 ->leftJoin('rbi_applicant_details as d', 'sa.application_id', '=', 'd.application_id')
-                ->whereRaw('COALESCE(sa.assigned_date, sa.doc_date) IS NOT NULL')
+                ->whereBetween(DB::raw('DATE(COALESCE(sa.assigned_date, sa.doc_date))'), [$fyStart->toDateString(), $fyEnd->toDateString()])
+                ->whereRaw('DATE(COALESCE(sa.assigned_date, sa.doc_date)) <= CURDATE()')
                 ->whereIn(DB::raw('LOWER(TRIM(d.district))'), $variants)
                 ->when(! $districtWide, fn ($q) => $q->where('sa.served_by', $legacyUserId));
 
             $q->whereRaw('('.$clause['sql'].')', $clause['bindings']);
+            $q->selectRaw('COALESCE(sa.assigned_date, sa.doc_date) as ev');
 
-            $n = (int) $q->count();
-            if ($n <= 0) {
-                continue;
-            }
-            foreach ($deliverableIds as $did) {
-                $add($did, $bucket, $n);
+            foreach ($q->cursor() as $row) {
+                $at = $this->parseEventDate($row->ev ?? null);
+                $i = $at ? $fy->fiscalMonthIndex($at) : null;
+                if ($i === null) {
+                    continue;
+                }
+                foreach ($deliverableIds as $did) {
+                    $add($did, $i);
+                }
             }
         }
     }
@@ -379,7 +421,9 @@ class Phase2TargetsPhpAchievementService
     private function addAccessToFinanceRollup(
         callable $add,
         array $codeToId,
-        int $bucket,
+        FiscalYear $fy,
+        Carbon $fyStart,
+        Carbon $fyEnd,
         array $variants,
         bool $districtWide,
         int $legacyUserId,
@@ -393,17 +437,23 @@ class Phase2TargetsPhpAchievementService
         $q = DB::connection('legacy')
             ->table('rbi_services_assigned as sa')
             ->leftJoin('rbi_applicant_details as d', 'sa.application_id', '=', 'd.application_id')
-            ->whereRaw('COALESCE(sa.assigned_date, sa.doc_date) IS NOT NULL')
+            ->whereBetween(DB::raw('DATE(COALESCE(sa.assigned_date, sa.doc_date))'), [$fyStart->toDateString(), $fyEnd->toDateString()])
+            ->whereRaw('DATE(COALESCE(sa.assigned_date, sa.doc_date)) <= CURDATE()')
             ->whereIn(DB::raw('LOWER(TRIM(d.district))'), $variants)
             ->when(! $districtWide, fn ($q) => $q->where('sa.served_by', $legacyUserId))
-            ->selectRaw("TRIM(COALESCE(sa.service_name,'-')) AS service_name, TRIM(COALESCE(sa.category,'')) AS category");
+            ->selectRaw("TRIM(COALESCE(sa.service_name,'-')) AS service_name, TRIM(COALESCE(sa.category,'')) AS category, COALESCE(sa.assigned_date, sa.doc_date) as ev");
 
         foreach ($q->cursor() as $row) {
+            $at = $this->parseEventDate($row->ev ?? null);
+            $i = $at ? $fy->fiscalMonthIndex($at) : null;
+            if ($i === null) {
+                continue;
+            }
             $cat = strtolower(trim((string) ($row->category ?? '')));
             $akey = $this->normType((string) ($row->service_name ?? ''));
             $isAtf = $cat === 'convergence' || $this->isAccessToFinanceComponent($akey);
             if ($isAtf) {
-                $add((int) $codeToId['access_to_finance'], $bucket, 1);
+                $add((int) $codeToId['access_to_finance'], $i);
             }
         }
     }
@@ -460,6 +510,18 @@ class Phase2TargetsPhpAchievementService
         ];
 
         return $simple[$s] ?? $s;
+    }
+
+    private function parseEventDate(mixed $v): ?Carbon
+    {
+        if ($v === null || $v === '') {
+            return null;
+        }
+        try {
+            return Carbon::parse($v);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function isAccessToFinanceComponent(string $activityKey): bool

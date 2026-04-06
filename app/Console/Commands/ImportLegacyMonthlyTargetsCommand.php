@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 class ImportLegacyMonthlyTargetsCommand extends Command
 {
     protected $signature = 'import:legacy-monthly-targets
-                            {--fy-code=2024-25 : Fiscal year code in muy.fiscal_years (e.g. 2024-25)}
+                            {--fy-code=2025-26 : Fiscal year code in muy.fiscal_years (legacy Phase 2 data → FY 2025-26)}
                             {--dry-run : Count only; do not write to staff_monthly_targets}
                             {--unmapped-limit=20 : How many distinct unmapped activity types to print}';
 

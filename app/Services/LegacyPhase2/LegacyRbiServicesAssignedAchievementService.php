@@ -10,13 +10,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Achievement counts from rbiphase2.rbi_services_assigned (served_by = legacy users.id).
- * All historical rows count (no FY date filter); totals go to M1 (same as Phase2TargetsPhpAchievementService).
+ * Fallback: rbi_services_assigned only, scoped to selected FY (event date in starts_on…ends_on).
  */
 class LegacyRbiServicesAssignedAchievementService
 {
-    private const LEGACY_BUCKET_MONTH = 1;
-
     /**
      * @return array<int, array<int, int>> deliverable_id => [ 1..12 => count ]
      */
@@ -46,11 +43,10 @@ class LegacyRbiServicesAssignedAchievementService
             ->cursor();
 
         $out = [];
-        $bucket = self::LEGACY_BUCKET_MONTH;
 
         foreach ($rows as $row) {
             $at = $this->eventCarbon((string) ($row->doc_date ?? ''), $row->assigned_date ?? null);
-            if ($at === null) {
+            if ($at === null || ! $this->carbonInFiscalYear($at, $fy)) {
                 continue;
             }
 
@@ -60,11 +56,15 @@ class LegacyRbiServicesAssignedAchievementService
             }
 
             $deliverableId = (int) $codeToId[$code];
+            $idx = $fy->fiscalMonthIndex($at);
+            if ($idx === null) {
+                continue;
+            }
 
             if (! isset($out[$deliverableId])) {
                 $out[$deliverableId] = array_fill(1, 12, 0);
             }
-            $out[$deliverableId][$bucket]++;
+            $out[$deliverableId][$idx]++;
         }
 
         return $out;
@@ -93,7 +93,7 @@ class LegacyRbiServicesAssignedAchievementService
         }
     }
 
-    /** For FY-scoped reports (e.g. unmapped services), not used for dashboard legacy totals. */
+    /** FY window check (dashboard fallback + unmapped reports). */
     public function carbonInFiscalYear(Carbon $at, FiscalYear $fy): bool
     {
         $start = Carbon::parse($fy->starts_on)->startOfDay();
@@ -136,5 +136,4 @@ class LegacyRbiServicesAssignedAchievementService
     {
         return strtolower(trim(preg_replace('/\s+/u', ' ', $s)));
     }
-
 }

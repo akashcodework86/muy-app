@@ -270,7 +270,7 @@
                             </table>
                         </div>
                     </div>
-                    <p class="staff-mis-footnote">Imported Phase 2 achievement pura historical count hota hai (FY date filter nahi), zyada tar <strong>M1</strong> par. Naye CFA referrals is FY ke <code>cfa_submissions</code> se mahine ke hisaab se add hote hain.</p>
+                    <p class="staff-mis-footnote">Phase 2 legacy achievements <strong>selected FY</strong> ki dates ke andar count hote hain (M1–M12). MUY CFA referrals alag se isi FY ke <code>cfa_submissions</code> se.</p>
                 </div>
             </details>
         @endforeach
