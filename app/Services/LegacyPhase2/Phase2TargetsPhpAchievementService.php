@@ -10,9 +10,20 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Phase 2 legacy achievements scoped to the **selected** fiscal year (starts_on … ends_on).
- * Each event is bucketed into M1–M12 via {@see FiscalYear::fiscalMonthIndex()}.
- * Mirrors admin/targets.php rules (CFA, workshops, onboarding, BST, partners, services, ATF).
+ * Phase 2 legacy achievements scoped to the **selected** fiscal year (`starts_on` … `ends_on` on `fiscal_years`).
+ * Each event is bucketed into M1–M12 via {@see FiscalYear::fiscalMonthIndex()} (calendar ladder from FY start month).
+ *
+ * Parity with legacy staff dashboard `admin/targets.php`:
+ * - CFA: `rbi_applications` + `submitted_by_name` (non-CDO / non–state_team) or district-wide (CDO/state_team).
+ * - Block / district / EDP workshops: `block_workshop_entries` + `enworkshop` / `block` rules.
+ * - Onboarding: `rbi_onboarded_applicants` + batch `onboard_district` (district-wide; no per-user filter).
+ * - BST: `training_sessions` TP1–TP4; CDO/state_team via `COALESCE(served_by, created_by)` district; else `served_by = legacy user id`.
+ * - Market link / marketing: `rbi_service_partners` + DISTINCT `application_id` + partner rules.
+ * - Other services: `rbi_services_assigned` + {@see self::serviceConditionForKey()} + `<= CURDATE()` on work date.
+ * - ATF rollup: convergence category or {@see self::isAccessToFinanceComponent()} on normalized service name.
+ *
+ * FY **2025-26** in DB should use Phase 2 window **2025-04-02 … 2026-04-01** (see migration `2026_04_21_120000_align_fiscal_year_2025_26_targets_php`).
+ * State admin `admin/24.php` uses the same tables with a **custom / quarter** date window instead of a single FY row — counts are still date-filtered the same way per activity.
  */
 class Phase2TargetsPhpAchievementService
 {

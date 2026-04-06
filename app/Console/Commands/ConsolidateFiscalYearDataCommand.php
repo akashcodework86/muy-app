@@ -17,6 +17,7 @@ class ConsolidateFiscalYearDataCommand extends Command
                             {--from=* : Source fiscal year codes to merge into --to (default: 2024-25)}
                             {--from-all : Merge every fiscal year except --to into the target (overrides --from)}
                             {--cfa : Also set cfa_submissions.fiscal_year_id from sources to target}
+                            {--cfa-only : Only retag cfa_submissions (no staff/state/district merge); use with --cfa and e.g. --from=2026-27}
                             {--sync-from-staff : After merge, run targets:sync-from-staff-monthlies for --to (state + district from staff sums)}
                             {--dry-run : Show what would change; no writes}';
 
@@ -27,8 +28,15 @@ class ConsolidateFiscalYearDataCommand extends Command
         $toCode = (string) $this->option('to');
         $dry = (bool) $this->option('dry-run');
         $fromAll = (bool) $this->option('from-all');
-        $withCfa = (bool) $this->option('cfa');
+        $cfaOnly = (bool) $this->option('cfa-only');
+        $withCfa = (bool) $this->option('cfa') || $cfaOnly;
         $syncFromStaff = (bool) $this->option('sync-from-staff');
+
+        if ($cfaOnly && $syncFromStaff) {
+            $this->error('Use --cfa-only without --sync-from-staff (no staff merge in CFA-only mode).');
+
+            return self::FAILURE;
+        }
 
         $targetFy = FiscalYear::query()->where('code', $toCode)->first();
         if ($targetFy === null) {
@@ -64,7 +72,24 @@ class ConsolidateFiscalYearDataCommand extends Command
         $this->newLine();
 
         if ($dry) {
-            $this->dryRunSummary($targetId, $sourceIds, $withCfa);
+            if ($cfaOnly) {
+                $this->dryRunCfaOnly($sourceIds, $withCfa);
+            } else {
+                $this->dryRunSummary($targetId, $sourceIds, $withCfa);
+            }
+
+            return self::SUCCESS;
+        }
+
+        if ($cfaOnly) {
+            DB::transaction(function () use ($targetId, $sourceIds): void {
+                $n = DB::table('cfa_submissions')
+                    ->whereIn('fiscal_year_id', $sourceIds)
+                    ->update(['fiscal_year_id' => $targetId]);
+                $this->info("cfa_submissions: updated {$n} row(s) to target FY (id {$targetId}).");
+            });
+            $this->newLine();
+            $this->info('CFA retag complete.');
 
             return self::SUCCESS;
         }
@@ -123,6 +148,24 @@ class ConsolidateFiscalYearDataCommand extends Command
             ]
         );
         $this->info('Dry-run: no changes. Run without --dry-run to merge into target FY.');
+    }
+
+    /**
+     * @param  list<int>  $sourceIds
+     */
+    private function dryRunCfaOnly(array $sourceIds, bool $withCfa): void
+    {
+        if (! $withCfa) {
+            $this->warn('Nothing to preview (enable CFA retag).');
+
+            return;
+        }
+        $cfa = DB::table('cfa_submissions')->whereIn('fiscal_year_id', $sourceIds)->count();
+        $this->table(
+            ['Table', 'Rows to retag'],
+            [['cfa_submissions', (string) $cfa]]
+        );
+        $this->info('Dry-run: no changes. Run: data:consolidate-fiscal-year-data --cfa-only --from=… (same as above)');
     }
 
     /**

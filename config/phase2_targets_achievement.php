@@ -1,8 +1,14 @@
 <?php
 
+use App\Services\LegacyPhase2\Phase2TargetsPhpAchievementService;
+
 /**
- * Mirror admin/targets.php (Phase 2 staff dashboard) achievement → Laravel deliverables.code
- * Norm types use space-separated keys (targets.php norm_type output style).
+ * Mirror admin/targets.php (Phase 2 staff dashboard) achievement → Laravel `deliverables.code`.
+ * Norm types use space-separated keys (targets.php `norm_type` output style).
+ *
+ * Achievement **dates** for a selected FY come from `fiscal_years.starts_on` / `ends_on` in
+ * {@see Phase2TargetsPhpAchievementService}. FY 2025-26 uses
+ * 2025-04-02 … 2026-04-01 (Phase 2 / 24.php quarter alignment), not calendar Apr 1 – Mar 31 only.
  */
 return [
 

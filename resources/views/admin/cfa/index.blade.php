@@ -4,7 +4,19 @@
 @section('heading', 'CFA applications')
 
 @section('content')
-    <p style="color:#64748b;font-size:0.9rem;margin:0 0 1rem;">Public form submissions (referral-linked). Newest first.</p>
+    @if ($fiscalYears->isEmpty())
+        <p>No fiscal year configured. Add FY rows in the database first.</p>
+    @else
+        <form method="get" action="{{ route('admin.cfa.index') }}" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+            <label for="cfa-fy" style="font-size:0.9rem; font-weight:500;">Fiscal year</label>
+            <select id="cfa-fy" name="fiscal_year_id" onchange="this.form.submit()" style="padding:0.4rem 0.5rem; border-radius:6px; border:1px solid #d4d4d8; min-width:12rem;">
+                @foreach ($fiscalYears as $fy)
+                    <option value="{{ $fy->id }}" @selected((int) $fiscalYearId === (int) $fy->id)>{{ $fy->name }}</option>
+                @endforeach
+            </select>
+        </form>
+
+        <p style="color:#64748b;font-size:0.9rem;margin:0 0 1rem;">Public form submissions (referral-linked) for the selected FY. Newest first.</p>
 
     <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e4e7;border-radius:8px;font-size:0.875rem;">
@@ -45,5 +57,6 @@
 
     @if ($submissions->hasPages())
         <div style="margin-top:1rem;">{{ $submissions->links() }}</div>
+    @endif
     @endif
 @endsection

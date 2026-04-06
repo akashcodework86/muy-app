@@ -19,6 +19,7 @@
     $activeNav = match (true) {
         $r === 'dashboard' => 'dashboard',
         str_starts_with($r, 'admin.cfa') => 'cfa',
+        str_starts_with($r, 'admin.phase2-cfa') => 'phase2-cfa',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
         str_starts_with($r, 'admin.staff') => 'staff',
@@ -49,6 +50,7 @@
         <nav class="admin-topbar__nav" aria-label="Main">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">Dashboard</a>
             <a href="{{ route('admin.cfa.index') }}" class="admin-topbar__link @if ($activeNav === 'cfa') is-active @endif">CFA applications</a>
+            <a href="{{ route('admin.phase2-cfa.index') }}" class="admin-topbar__link @if ($activeNav === 'phase2-cfa') is-active @endif">CFA (Phase 2 legacy)</a>
             <a href="{{ route('admin.targets.state') }}" class="admin-topbar__link @if ($activeNav === 'state') is-active @endif">State targets</a>
             <a href="{{ route('admin.targets.district') }}" class="admin-topbar__link @if ($activeNav === 'district') is-active @endif">District targets</a>
             <a href="{{ route('admin.staff.index') }}" class="admin-topbar__link @if ($activeNav === 'staff') is-active @endif">Staff</a>

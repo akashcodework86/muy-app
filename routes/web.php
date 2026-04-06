@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
+use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\TargetController;
@@ -62,6 +63,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('cfa-applications', [CfaSubmissionController::class, 'index'])->name('cfa.index');
         Route::get('cfa-applications/{cfa_submission}', [CfaSubmissionController::class, 'show'])->name('cfa.show');
+        Route::get('cfa-applications-phase2-legacy', [LegacyPhase2CfaApplicationController::class, 'index'])->name('phase2-cfa.index');
 
         Route::get('audit-log', [AuditLogController::class, 'index'])->name('audit.index');
 
