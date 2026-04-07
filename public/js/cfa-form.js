@@ -554,23 +554,23 @@
         rawTurnover = rawTurnover.replace(/,/g, '');
         const turnover = parseFloat(rawTurnover) || 0;
         let stage = 'Seed';
-        const logic = ['Business Stage Calculation Details:', '- Enterprise Registered: ' + reg, '- Turnover Last FY: ₹' + turnover.toLocaleString('en-IN')];
+        const logic = ['How your stage was determined:', '- Enterprise registered: ' + reg, '- Turnover in last FY: ₹' + turnover.toLocaleString('en-IN')];
         if (reg === 'No' && turnover === 0) {
             stage = 'Seed';
-            logic.push('Condition Met: Enterprise not registered and turnover is 0 → Stage: Seed');
-        } else if (reg === 'No' && turnover > 0 && turnover <= 500000) {
+            logic.push('Enterprise is not registered and turnover is zero.');
+        } else if (reg === 'No' && turnover > 0) {
             stage = 'Early';
-            logic.push('Condition Met: Enterprise not registered and turnover between 1 and 5 Lakh → Stage: Early');
+            logic.push('Enterprise is not registered, but turnover has started (> 0).');
         } else if (reg === 'Yes' && turnover > 0 && turnover <= 500000) {
             stage = 'Early';
-            logic.push('Condition Met: Enterprise registered and turnover between 1 and 5 Lakh → Stage: Early');
+            logic.push('Enterprise is registered and turnover is between 1 and 5 lakh.');
         } else if (reg === 'Yes' && turnover > 500000) {
             stage = 'Growth';
-            logic.push('Condition Met: Enterprise registered and turnover above 5 Lakh → Stage: Growth');
+            logic.push('Enterprise is registered and turnover is above 5 lakh.');
         } else {
-            logic.push('No specific condition met. Defaulting to Seed stage.');
+            logic.push('No matching rule found. Keeping stage as Seed.');
         }
-        logic.push('Stage Determined: ' + stage);
+        logic.push('Final stage: ' + stage);
         const stageResult = $('stageResult');
         const detected = $('detected_stage');
         if (stageResult) stageResult.value = stage;

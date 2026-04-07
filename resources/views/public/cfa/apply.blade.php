@@ -106,10 +106,10 @@
 <div class="modal" id="stageLogicModal" style="display: none;">
     <div class="modal-content">
         <button class="modal-close" type="button" onclick="closeStageModal()" aria-label="Close">×</button>
-        <h3 class="section-header" style="margin-bottom: 1rem;">Stage calculation</h3>
+        <h3 class="section-header" style="margin-bottom: 1rem;">Stage Calculation</h3>
         <div class="stage-logic" id="stageLogic"></div>
         <div style="margin-top:1.5rem;text-align:center;">
-            <button type="button" class="btn-primary" onclick="closeStageModal()">OK</button>
+            <button type="button" class="btn-primary" onclick="closeStageModal()">Got it</button>
         </div>
     </div>
 </div>

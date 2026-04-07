@@ -21,9 +21,9 @@ class CfaBusinessStageService
         if (! $reg && $turnover === 0.0) {
             $stage = 'Seed';
             $logic[] = 'Condition Met: Enterprise not registered and turnover is 0 → Stage: Seed';
-        } elseif (! $reg && $turnover > 0 && $turnover <= 500_000) {
+        } elseif (! $reg && $turnover > 0) {
             $stage = 'Early';
-            $logic[] = 'Condition Met: Enterprise not registered and turnover between 1 and 5 Lakh → Stage: Early';
+            $logic[] = 'Condition Met: Enterprise not registered and turnover is above 0 → Stage: Early';
         } elseif ($reg && $turnover > 0 && $turnover <= 500_000) {
             $stage = 'Early';
             $logic[] = 'Condition Met: Enterprise registered and turnover between 1 and 5 Lakh → Stage: Early';
