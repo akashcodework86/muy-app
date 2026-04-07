@@ -172,7 +172,7 @@
         </div>
 
         <div>
-            <label class="form-label" for="empwomen">Empower women / SHGs / marginalized communities? <span style="color:red">*</span></label>
+            <label class="form-label" for="empwomen">Does your project or work support or empower women, Self Help Groups (SHGs), or people from marginalized communities? / क्या आपका प्रोजेक्ट/कार्य महिलाओं, स्वयं सहायता समूहों (SHGs), या वंचित समुदायों के लोगों को सहयोग या सशक्त करता है? <span style="color:red">*</span></label>
             <select class="form-select" name="empwomen" id="empwomen" required>
                 <option value="">Select</option>
                 <option value="Yes" @selected(old('empwomen') === 'Yes')>Yes</option>

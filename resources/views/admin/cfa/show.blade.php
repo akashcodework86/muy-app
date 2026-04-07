@@ -239,7 +239,7 @@
                 <dt>Department name</dt><dd>{{ $cell('department_name') }}</dd>
                 <dt>Technology use</dt><dd>{{ $cell('techuse') }}</dd>
                 <dt>Environmental sustainability</dt><dd>{{ $cell('sustainability') }}</dd>
-                <dt>Empower women / SHGs</dt><dd>{{ $cell('empwomen') }}</dd>
+                <dt>Supports/empowers women, SHGs, or marginalized communities</dt><dd>{{ $cell('empwomen') }}</dd>
                 <dt class="full">Expectations from MUY / RBI</dt>
                 <dd class="full">{{ $expectationText !== '' ? $expectationText : $dash }}</dd>
                 <dt>If Other — specify</dt><dd>{{ $cell('expectation_other_text') }}</dd>

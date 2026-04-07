@@ -9,7 +9,7 @@
     </div>
 
     @if ($legacyUnavailable ?? false)
-        <p style="color:#b45309;">Legacy database is not configured. Set <code>DB_LEGACY_*</code> in <code>.env</code> and <code>config/database.php</code> <code>legacy</code> connection.</p>
+        <p style="color:#b45309;">Legacy database is not configured. Set <code>LEGACY_DB_DATABASE</code> (and if needed <code>LEGACY_DB_*</code>) in <code>.env</code> — see <code>config/database.php</code> connection <code>legacy</code>.</p>
     @elseif ($legacyMissingTables ?? false)
         <p style="color:#b45309;">Legacy connection works but required tables were not found (<code>rbi_applications</code>, <code>rbi_applicant_details</code>).</p>
     @elseif ($fiscalYears->isEmpty())
