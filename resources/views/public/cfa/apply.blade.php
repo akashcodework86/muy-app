@@ -126,7 +126,7 @@ window.CFA_CHECK_PHONE_URL = @json(
         : route('cfa.apply.check-phone', ['token' => $token])
 );
 </script>
-<script src="{{ asset('js/cfa-form.js') }}"></script>
+<script src="{{ asset('js/cfa-form.js') }}?v={{ filemtime(public_path('js/cfa-form.js')) }}"></script>
 @endpush
 @endif
 @endsection
