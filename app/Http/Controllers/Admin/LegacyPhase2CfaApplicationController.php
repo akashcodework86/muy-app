@@ -57,8 +57,22 @@ class LegacyPhase2CfaApplicationController extends Controller
             ]);
         }
 
-        if (! Schema::connection('legacy')->hasTable('rbi_applications')
-            || ! Schema::connection('legacy')->hasTable('rbi_applicant_details')) {
+        try {
+            $hasTables = Schema::connection('legacy')->hasTable('rbi_applications')
+                && Schema::connection('legacy')->hasTable('rbi_applicant_details');
+        } catch (\Exception $e) {
+            // Connection failed (wrong credentials, host unreachable, etc.)
+            return view('admin.phase2-cfa.index', [
+                'rows' => $this->emptyPaginator(),
+                'fiscalYears' => $fiscalYears,
+                'fiscalYearId' => $fiscalYearId,
+                'fiscalYear' => $fiscalYear,
+                'legacyUnavailable' => true,
+                'legacyMissingTables' => false,
+            ]);
+        }
+
+        if (! $hasTables) {
             return view('admin.phase2-cfa.index', [
                 'rows' => $this->emptyPaginator(),
                 'fiscalYears' => $fiscalYears,
