@@ -13,6 +13,7 @@ use App\Services\CfaSubmissionValidator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
@@ -73,7 +74,24 @@ class CfaApplyController extends Controller
         }
 
         $phone = $validator->validated()['phone'];
-        $exists = CfaSubmission::query()->where('phone', $phone)->exists();
+
+        // Check new CFA submissions table
+        $existsNew = CfaSubmission::query()->where('phone', $phone)->exists();
+
+        // Check old Phase 2 legacy database (rbi_applicant_details)
+        $existsLegacy = false;
+        if (config('database.connections.legacy.database', '') !== '') {
+            try {
+                $existsLegacy = DB::connection('legacy')
+                    ->table('rbi_applicant_details')
+                    ->where('phone', $phone)
+                    ->exists();
+            } catch (\Exception $e) {
+                // Legacy DB unavailable — skip silently
+            }
+        }
+
+        $exists = $existsNew || $existsLegacy;
 
         return response()->json([
             'ok' => true,
