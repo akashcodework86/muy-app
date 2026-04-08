@@ -35,15 +35,28 @@
         const e = $('mobile-duplicate-error');
         if (e) {
             e.classList.add('hidden');
-            e.textContent = '';
+            e.style.display = '';
+        }
+        const input = $('mobile');
+        if (input) {
+            input.style.borderColor = '';
+            input.style.boxShadow = '';
         }
     }
 
     function showMobileDuplicateError(msg) {
         const e = $('mobile-duplicate-error');
         if (e) {
-            e.textContent = msg || '';
+            const textEl = $('mobile-duplicate-error-text');
+            if (textEl) textEl.textContent = msg || '';
             e.classList.remove('hidden');
+            e.style.display = 'flex';
+        }
+        // Highlight the mobile input with red border
+        const input = $('mobile');
+        if (input) {
+            input.style.borderColor = '#ef4444';
+            input.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.18)';
         }
     }
 

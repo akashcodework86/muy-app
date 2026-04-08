@@ -75,7 +75,13 @@
             <label class="form-label" for="mobile">Mobile / WhatsApp / मोबाइल नंबर <span style="color:red">*</span></label>
             <input type="tel" class="form-control" name="phone" id="mobile" value="{{ old('phone') }}" maxlength="10" inputmode="numeric" required autocomplete="tel">
             <p id="mobile-error" class="text-red-500 hidden">Valid 10-digit mobile starting with 6–9.</p>
-            <p id="mobile-duplicate-error" class="text-red-500 hidden" style="font-size:0.85rem;margin-top:0.35rem;"></p>
+            <div id="mobile-duplicate-error" class="hidden" style="margin-top:0.6rem;padding:0.75rem 1rem;background:#fef2f2;border:1.5px solid #f87171;border-radius:8px;display:flex;align-items:flex-start;gap:0.6rem;">
+                <span style="font-size:1.25rem;line-height:1;flex-shrink:0;">🚫</span>
+                <div>
+                    <p style="margin:0;font-weight:700;color:#b91c1c;font-size:0.9rem;" id="mobile-duplicate-error-text"></p>
+                    <p style="margin:0.2rem 0 0;font-size:0.8rem;color:#ef4444;">Please use a different mobile number to apply. / कृपया दूसरे मोबाइल नंबर से आवेदन करें।</p>
+                </div>
+            </div>
         </div>
 
         <div>
