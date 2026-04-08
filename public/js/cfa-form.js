@@ -339,14 +339,12 @@
                 casteSelect.value = '';
             }
             if (genderSelect) {
-                // SHG: force Gender = Female (unchangeable, but still submitted)
-                // CBO: allow selection; no default
+                // SHG/CBO: force Gender = Female (unchangeable, but still submitted)
                 genderSelect.disabled = false;
                 if (category === 'SHG') {
                     lockGenderToFemale();
                 } else if (category === 'CBO') {
-                    unlockGender();
-                    if (!genderSelect.value || genderSelect.value === 'NA') genderSelect.value = 'Female';
+                    lockGenderToFemale();
                 }
             }
             if (educationSelect) {
