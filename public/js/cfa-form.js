@@ -346,7 +346,7 @@
                     lockGenderToFemale();
                 } else if (category === 'CBO') {
                     unlockGender();
-                    if (genderSelect.value === 'NA') genderSelect.value = '';
+                    if (!genderSelect.value || genderSelect.value === 'NA') genderSelect.value = 'Female';
                 }
             }
             if (educationSelect) {
