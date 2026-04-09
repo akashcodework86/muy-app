@@ -1,5 +1,5 @@
 @php
-    $logoUrl = asset('images/muy.jpg');
+    $logoUrl = asset('https://ukrbi.in/new/admin/muy.jpg');
     $u = auth()->user();
     $showAdminNav = $u && $u->role === 'state_admin';
     $showHubNav = $u && $u->role === 'hub_admin';
