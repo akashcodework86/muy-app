@@ -406,6 +406,7 @@
         <nav class="staff-portal-links" aria-label="Quick pages">
             <a href="{{ route('staff.monthly-targets') }}" class="staff-portal-link">Monthly targets</a>
             <a href="{{ route('staff.applications') }}" class="staff-portal-link">Application list</a>
+            <a href="{{ route('staff.phase2-data') }}" class="staff-portal-link">Phase 2 data</a>
         </nav>
 
         @php

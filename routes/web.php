@@ -58,6 +58,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('applications/{cfa_submission}/check-phone', [StaffPortalController::class, 'checkPhoneForEdit'])
             ->middleware('throttle:45,1')
             ->name('applications.check-phone');
+        Route::get('phase2-data', [StaffPortalController::class, 'phase2Data'])->name('phase2-data');
+        Route::get('phase2-data/export', [StaffPortalController::class, 'exportPhase2Data'])->name('phase2-data.export');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
