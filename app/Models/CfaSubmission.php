@@ -16,6 +16,7 @@ class CfaSubmission extends Model
         'lgd_district_code',
         'lgd_block_code',
         'referral_user_id',
+        'source',
         'applicant_name',
         'phone',
         'payload',

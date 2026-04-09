@@ -48,7 +48,7 @@
                         <th class="px-3 py-3">Phone</th>
                         <th class="px-3 py-3">District</th>
                         <th class="px-3 py-3">LGD (st / dist / blk)</th>
-                        <th class="px-3 py-3">Referral staff</th>
+                        <th class="px-3 py-3">Source / Referral staff</th>
                         <th class="no-print-col whitespace-nowrap px-3 py-3">View</th>
                     </tr>
                 </thead>
@@ -61,7 +61,15 @@
                             <td class="whitespace-nowrap px-3 py-3 text-slate-500">{{ $row->phone }}</td>
                             <td class="px-3 py-3 text-slate-500">{{ $row->district?->name ?? '—' }}</td>
                             <td class="whitespace-nowrap px-3 py-3 text-xs text-slate-500" title="MoPR LGD snapshot at submit">{{ $row->lgd_state_code ?? '—' }} / {{ $row->lgd_district_code ?? '—' }} / {{ $row->lgd_block_code ?? '—' }}</td>
-                            <td class="px-3 py-3 text-slate-500">{{ $row->referralUser?->name ?? '—' }}</td>
+                            <td class="px-3 py-3 text-slate-500">
+                                @if ($row->source === 'public_form')
+                                    <span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
+                                        🌐 Public / Walk-in
+                                    </span>
+                                @else
+                                    {{ $row->referralUser?->name ?? '—' }}
+                                @endif
+                            </td>
                             <td class="no-print-col px-3 py-3">
                                 <a href="{{ route('admin.cfa.show', $row) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800">
                                     View

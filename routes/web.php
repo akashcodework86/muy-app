@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Public\CfaApplyController;
+use App\Http\Controllers\Public\PublicCfaWalkInController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Models\Deliverable;
 use App\Models\District;
@@ -34,6 +35,16 @@ Route::post('/cfa/apply/{token}', [CfaApplyController::class, 'store'])
     ->middleware('throttle:30,1')
     ->name('cfa.apply.store');
 Route::get('/cfa/thanks', [CfaApplyController::class, 'thanks'])->name('cfa.thanks');
+
+/** Public walk-in CFA (no referral token — self-noted, not counted in staff achievements) */
+Route::get('/cfa/public', [PublicCfaWalkInController::class, 'show'])->name('cfa.public.show');
+Route::get('/api/cfa/blocks', [PublicCfaWalkInController::class, 'blocks'])->name('api.cfa.blocks');
+Route::post('/cfa/public/check-phone', [PublicCfaWalkInController::class, 'checkPhone'])
+    ->middleware('throttle:45,1')
+    ->name('cfa.public.check-phone');
+Route::post('/cfa/public', [PublicCfaWalkInController::class, 'store'])
+    ->middleware('throttle:30,1')
+    ->name('cfa.public.store');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'create'])->name('login');
