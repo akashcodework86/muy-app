@@ -19,12 +19,12 @@ class LegacyPhase2CfaApplicationController extends Controller
      */
     public function index(Request $request): View
     {
-        // Default this page to FY 2025-26 when no explicit choice is made.
+        // Default this page to FY 2025-26 (the legacy Phase 2 data year) when no explicit FY is chosen.
         if ($request->query('fiscal_year_id')) {
             $requestedFyId = (int) $request->query('fiscal_year_id');
         } else {
-            $fy2526 = (int) (FiscalYear::query()->where('code', '2025-26')->value('id') ?? 0);
-            $requestedFyId = $fy2526 > 0 ? $fy2526 : null;
+            $fy2526Id = (int) (FiscalYear::query()->where('code', '2025-26')->value('id') ?? 0);
+            $requestedFyId = $fy2526Id > 0 ? $fy2526Id : null;
         }
 
         [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi($requestedFyId);
