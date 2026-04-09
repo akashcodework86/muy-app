@@ -19,9 +19,15 @@ class LegacyPhase2CfaApplicationController extends Controller
      */
     public function index(Request $request): View
     {
-        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
-            $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
-        );
+        // Default this page to FY 2025-26 when no explicit choice is made.
+        if ($request->query('fiscal_year_id')) {
+            $requestedFyId = (int) $request->query('fiscal_year_id');
+        } else {
+            $fy2526 = (int) (FiscalYear::query()->where('code', '2025-26')->value('id') ?? 0);
+            $requestedFyId = $fy2526 > 0 ? $fy2526 : null;
+        }
+
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi($requestedFyId);
 
         if ($fiscalYears->isEmpty()) {
             return view('admin.phase2-cfa.index', [
