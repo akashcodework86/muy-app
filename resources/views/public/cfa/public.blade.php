@@ -145,7 +145,7 @@ window.CFA_CHECK_PHONE_URL       = @json(route('cfa.public.check-phone'));
         if (loadingMsg) loadingMsg.style.display = 'block';
         blockSelect.disabled = true;
 
-        fetch('/api/cfa/blocks?district_id=' + districtId)
+        fetch('{{ route("api.cfa.blocks") }}?district_id=' + districtId)
             .then(function (r) { return r.json(); })
             .then(function (blocks) {
                 blockSelect.innerHTML = '<option value="">Select Block</option>';
