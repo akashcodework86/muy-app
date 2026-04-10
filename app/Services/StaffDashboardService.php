@@ -47,6 +47,14 @@ class StaffDashboardService
             );
         }
 
+        $districtCfaThisFy = null;
+        if ($activeFy && $user->district_id) {
+            $districtCfaThisFy = CfaSubmission::query()
+                ->where('district_id', (int) $user->district_id)
+                ->where('fiscal_year_id', (int) $activeFy->id)
+                ->count();
+        }
+
         $base = CfaSubmission::query()->where('referral_user_id', $user->id);
 
         $cfaTotal = (clone $base)->count();
@@ -124,6 +132,7 @@ class StaffDashboardService
 
         $payloadCharts = $this->referralPayloadChartAggregates((int) $user->id);
         $registrationRate = $payloadCharts['registrationRate'];
+        $registrationNoRate = $payloadCharts['registrationNoRate'];
         $trainingRate = $payloadCharts['trainingRate'];
 
         $performanceScore = null;
@@ -154,6 +163,7 @@ class StaffDashboardService
             'referralUrl' => $user->referralApplyUrl(),
             'staffAnnualTarget' => $staffAnnualTarget,
             'districtCfaTarget' => $districtCfaTarget,
+            'districtCfaThisFy' => $districtCfaThisFy,
             'cfaTotal' => $cfaTotal,
             'cfaThisMonth' => $cfaThisMonth,
             'cfaLast30' => $cfaLast30,
@@ -179,6 +189,7 @@ class StaffDashboardService
             'heatmap30' => $heatmap30,
             'submissionStreakDays' => $submissionStreakDays,
             'registrationRate' => $registrationRate,
+            'registrationNoRate' => $registrationNoRate,
             'trainingRate' => $trainingRate,
             'overallTargetPct' => $overallTargetPct,
             'daysToTargetAtPace' => $daysToTargetAtPace,
@@ -336,6 +347,7 @@ class StaffDashboardService
             });
 
         $registrationRate = $regAnswered > 0 ? round(100 * $regYes / $regAnswered) : null;
+        $registrationNoRate = $regAnswered > 0 ? (100 - (int) $registrationRate) : null;
         $trainingRate = $trAnswered > 0 ? round(100 * $trYes / $trAnswered) : null;
 
         return [
@@ -349,6 +361,7 @@ class StaffDashboardService
             'educationMix' => $this->sortAndCapChart($education, 8),
             'registeredMix' => $this->sortCountMapToChart($registered),
             'registrationRate' => $registrationRate,
+            'registrationNoRate' => $registrationNoRate,
             'trainingRate' => $trainingRate,
         ];
     }

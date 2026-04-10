@@ -413,6 +413,19 @@
             $heatMax = max(1, collect($heatmap30 ?? [])->max('count') ?: 0);
         @endphp
         <div class="insight-grid" aria-label="Key performance insights">
+            <div class="insight-card insight-card--rose">
+                <div class="insight-label"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> District overall CFA</div>
+                @if ($districtCfaThisFy !== null && $districtCfaTarget !== null)
+                    <div class="insight-val">{{ number_format($districtCfaThisFy) }} / {{ number_format($districtCfaTarget) }}</div>
+                    <div class="insight-sub">Achievement / target for your district (this FY)</div>
+                @elseif ($districtCfaThisFy !== null)
+                    <div class="insight-val">{{ number_format($districtCfaThisFy) }}</div>
+                    <div class="insight-sub">District achievement this FY (target not available)</div>
+                @else
+                    <div class="insight-val">—</div>
+                    <div class="insight-sub">District overall data not available</div>
+                @endif
+            </div>
             <div class="insight-card insight-card--indigo">
                 <div class="insight-label"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> Target progress</div>
                 @if ($overallTargetPct !== null)
@@ -435,22 +448,12 @@
             </div>
             <div class="insight-card insight-card--amber">
                 <div class="insight-label"><i class="fa-solid fa-id-card" aria-hidden="true"></i> Registered (sample)</div>
-                @if ($registrationRate !== null)
-                    <div class="insight-val">{{ (int) $registrationRate }}%</div>
-                    <div class="insight-sub">Yes among Yes/No answers in recent forms</div>
+                @if ($registrationRate !== null && $registrationNoRate !== null)
+                    <div class="insight-val">Yes {{ (int) $registrationRate }}% · No {{ (int) $registrationNoRate }}%</div>
+                    <div class="insight-sub">Split among Yes/No answers in recent forms</div>
                 @else
                     <div class="insight-val">—</div>
                     <div class="insight-sub">No Yes/No registration data in sample yet</div>
-                @endif
-            </div>
-            <div class="insight-card insight-card--rose">
-                <div class="insight-label"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Training (sample)</div>
-                @if ($trainingRate !== null)
-                    <div class="insight-val">{{ (int) $trainingRate }}%</div>
-                    <div class="insight-sub">Yes among Yes/No answers in recent forms</div>
-                @else
-                    <div class="insight-val">—</div>
-                    <div class="insight-sub">No Yes/No training data in sample yet</div>
                 @endif
             </div>
         </div>
