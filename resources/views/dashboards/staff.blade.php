@@ -23,45 +23,170 @@
 
         :root {
             --text: #0f172a;
-            --text-muted: #64748b;
+            --text-muted: #5f6f86;
             --accent: #4f46e5;
             --accent2: #0d9488;
-            --border: #e2e8f0;
-            --radius: 14px;
-            --shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+            --accent3: #ec4899;
+            --border: rgba(255, 255, 255, 0.72);
+            --radius: 24px;
+            --shadow: 0 24px 60px rgba(99, 102, 241, 0.12);
+            --glass: rgba(255, 255, 255, 0.66);
+            --glass-strong: rgba(255, 255, 255, 0.84);
+        }
+        .dashboard-shell {
+            position: relative;
+        }
+        .dashboard-shell::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto;
+            height: 16rem;
+            background:
+                radial-gradient(circle at 10% 10%, rgba(251, 191, 36, 0.22), transparent 22%),
+                radial-gradient(circle at 85% 10%, rgba(59, 130, 246, 0.18), transparent 20%),
+                radial-gradient(circle at 55% 40%, rgba(236, 72, 153, 0.12), transparent 24%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .dashboard-shell > * {
+            position: relative;
+            z-index: 1;
         }
         .dashboard-intro {
             display: flex;
             flex-wrap: wrap;
-            align-items: flex-start;
+            align-items: stretch;
             justify-content: space-between;
-            gap: 1rem;
-            margin-bottom: 1.75rem;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            padding: 1.75rem;
+            border-radius: 32px;
+            background:
+                linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.58)),
+                linear-gradient(120deg, rgba(79, 70, 229, 0.08), rgba(45, 212, 191, 0.04));
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: var(--shadow);
+            overflow: hidden;
         }
-        .dashboard-intro h2 { font-family: 'DM Sans', sans-serif; font-size: 1.65rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; color: var(--text); }
-        .dashboard-intro p { margin: 0.35rem 0 0; color: var(--text-muted); font-size: 0.95rem; max-width: 44rem; line-height: 1.5; }
+        .dashboard-intro::after {
+            content: '';
+            position: absolute;
+            right: -3rem;
+            top: -3rem;
+            width: 14rem;
+            height: 14rem;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(129, 140, 248, 0.28), rgba(129, 140, 248, 0));
+            pointer-events: none;
+        }
+        .dashboard-intro__content {
+            flex: 1 1 34rem;
+            max-width: 48rem;
+        }
+        .dashboard-intro__eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.45rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            color: #5b21b6;
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.95rem;
+        }
+        .dashboard-intro h2 {
+            font-family: 'DM Sans', sans-serif;
+            font-size: clamp(2rem, 5vw, 3.4rem);
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -0.05em;
+            color: var(--text);
+            line-height: 0.98;
+            max-width: 12ch;
+        }
+        .dashboard-intro p {
+            margin: 0.8rem 0 0;
+            color: var(--text-muted);
+            font-size: 1.02rem;
+            max-width: 44rem;
+            line-height: 1.7;
+        }
+        .dashboard-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1.15rem;
+        }
+        .dashboard-meta-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.62rem 0.92rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            color: #334155;
+            font-size: 0.86rem;
+            font-weight: 600;
+            box-shadow: 0 10px 24px rgba(148, 163, 184, 0.12);
+        }
+        .dashboard-highlight-card {
+            flex: 0 1 18rem;
+            align-self: center;
+            padding: 1.25rem;
+            border-radius: 28px;
+            background: linear-gradient(135deg, #fff 0%, #eff6ff 100%);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 20px 36px rgba(56, 189, 248, 0.16);
+        }
+        .dashboard-highlight-card .label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #7c3aed;
+        }
+        .dashboard-highlight-card .value {
+            margin-top: 0.45rem;
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+            color: #0f172a;
+            letter-spacing: -0.05em;
+        }
+        .dashboard-highlight-card .sub {
+            margin-top: 0.45rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
             gap: 1rem;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.5rem;
         }
         .kpi {
-            background: #fff;
+            background: var(--glass);
             border-radius: var(--radius);
-            padding: 1.15rem 1.25rem;
+            padding: 1.15rem 1.25rem 1.25rem;
             border: 1px solid var(--border);
             box-shadow: var(--shadow);
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(18px);
         }
         .kpi::before {
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0;
-            height: 3px;
+            height: 5px;
             background: linear-gradient(90deg, var(--accent), var(--accent2));
-            opacity: 0.85;
+            opacity: 0.95;
         }
         .kpi:nth-child(2)::before { background: linear-gradient(90deg, #7c3aed, #4f46e5); }
         .kpi:nth-child(3)::before { background: linear-gradient(90deg, #0d9488, #14b8a6); }
@@ -70,12 +195,13 @@
         .kpi .val { font-family: 'DM Sans', sans-serif; font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
         .kpi .sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; }
         .referral-card {
-            background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(238, 242, 255, 0.74) 100%);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 1.25rem 1.35rem;
-            margin-bottom: 1.25rem;
+            padding: 1.35rem 1.45rem;
+            margin-bottom: 1.5rem;
             box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
         }
         .referral-card h3 { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 700; color: var(--text); }
         .referral-card p { margin: 0 0 0.75rem; font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; }
@@ -90,17 +216,18 @@
             background: #fff;
         }
         .referral-row button {
-            padding: 0.55rem 1rem;
+            padding: 0.7rem 1.05rem;
             border: none;
-            border-radius: 8px;
-            background: #18181b;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #4f46e5, #ec4899);
             color: #fff;
             font-weight: 600;
             font-size: 0.85rem;
             cursor: pointer;
             font-family: inherit;
+            box-shadow: 0 12px 24px rgba(129, 140, 248, 0.24);
         }
-        .referral-row button:hover { background: #27272a; }
+        .referral-row button:hover { filter: brightness(1.04); }
         .referral-row button.copied { background: #059669; }
         .warn-banner {
             background: #fffbeb;
@@ -113,17 +240,19 @@
             line-height: 1.5;
         }
         .target-banner {
-            background: linear-gradient(120deg, #134e4a 0%, #115e59 45%, #1e3a5f 100%);
-            color: #ccfbf1;
+            background:
+                radial-gradient(circle at top right, rgba(255,255,255,0.2), transparent 20%),
+                linear-gradient(120deg, #2563eb 0%, #4f46e5 35%, #db2777 100%);
+            color: #eff6ff;
             border-radius: var(--radius);
-            padding: 1.35rem 1.5rem;
-            margin-bottom: 1.25rem;
+            padding: 1.6rem 1.6rem;
+            margin-bottom: 1.5rem;
             display: flex;
             flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
-            box-shadow: 0 12px 40px rgba(17, 94, 89, 0.28);
+            box-shadow: 0 24px 44px rgba(79, 70, 229, 0.25);
         }
         .target-banner h3 { margin: 0; font-size: 1rem; font-weight: 600; opacity: 0.92; }
         .target-banner .big { font-family: 'DM Sans', sans-serif; font-size: 2rem; font-weight: 700; margin: 0.25rem 0 0; color: #fff; }
@@ -180,33 +309,35 @@
             letter-spacing: -0.02em;
         }
         .chart-card {
-            background: #fff;
+            background: var(--glass-strong);
             border-radius: var(--radius);
             border: 1px solid var(--border);
             box-shadow: var(--shadow);
-            padding: 1.15rem 1.25rem 1.35rem;
+            padding: 1.2rem 1.3rem 1.4rem;
+            backdrop-filter: blur(14px);
         }
         .chart-card h4 { margin: 0 0 0.15rem; font-size: 0.95rem; font-weight: 700; font-family: 'DM Sans', sans-serif; color: var(--text); }
         .chart-card .hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; }
         .chart-card .canvas-wrap { position: relative; height: 260px; }
         .chart-card.tall .canvas-wrap { height: 280px; }
         .recent-table-wrap {
-            background: #fff;
+            background: var(--glass-strong);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             overflow-x: auto;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.5rem;
+            backdrop-filter: blur(14px);
         }
         .recent-table-wrap h4 { margin: 0; padding: 1rem 1.15rem 0.5rem; font-size: 0.95rem; font-weight: 700; color: var(--text); }
         .recent-table-wrap table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         .recent-table-wrap th, .recent-table-wrap td { padding: 0.55rem 1rem; text-align: left; border-bottom: 1px solid #f1f5f9; }
         .recent-table-wrap th { color: var(--text-muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
         .staff-note {
-            background: #fff;
+            background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.72));
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 1rem 1.25rem;
+            padding: 1.15rem 1.3rem;
             font-size: 0.9rem;
             color: var(--text-muted);
             line-height: 1.5;
@@ -215,26 +346,30 @@
         .staff-portal-links {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.65rem;
-            margin-bottom: 1.25rem;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
         }
         .staff-portal-link {
             display: inline-flex;
             align-items: center;
-            padding: 0.5rem 1rem;
-            background: #fff;
-            border: 1px solid var(--border);
-            border-radius: 10px;
+            gap: 0.5rem;
+            padding: 0.75rem 1.05rem;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.92);
+            border-radius: 16px;
             font-size: 0.875rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text);
             text-decoration: none;
-            box-shadow: var(--shadow);
+            box-shadow: 0 14px 30px rgba(99, 102, 241, 0.08);
             font-family: 'DM Sans', sans-serif;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease;
         }
         .staff-portal-link:hover {
-            border-color: #4f46e5;
+            transform: translateY(-2px);
+            border-color: rgba(99, 102, 241, 0.28);
             color: #4f46e5;
+            box-shadow: 0 18px 34px rgba(99, 102, 241, 0.16);
         }
         .insight-grid {
             display: grid;
@@ -293,12 +428,13 @@
         .insight-card--amber { background: linear-gradient(135deg, #b45309 0%, #ea580c 45%, #fbbf24 100%); }
         .insight-card--rose { background: linear-gradient(135deg, #9f1239 0%, #e11d48 50%, #fb7185 100%); }
         .intel-panel {
-            background: #fff;
+            background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.72));
             border: 1px solid var(--border);
             border-radius: var(--radius);
             box-shadow: var(--shadow);
-            padding: 1.15rem 1.25rem 1.25rem;
-            margin-bottom: 1.25rem;
+            padding: 1.2rem 1.3rem 1.35rem;
+            margin-bottom: 1.5rem;
+            backdrop-filter: blur(14px);
         }
         .intel-panel h3 {
             margin: 0 0 0.35rem;
@@ -348,14 +484,24 @@
         }
         .velocity-pill {
             flex: 1 1 12rem;
-            background: #f8fafc;
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-            border: 1px solid #e2e8f0;
+            background: rgba(248, 250, 252, 0.82);
+            border-radius: 16px;
+            padding: 0.95rem 1rem;
+            border: 1px solid rgba(255,255,255,0.82);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
         }
         .velocity-pill strong { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.25rem; }
         .velocity-pill .num { font-family: 'DM Sans', sans-serif; font-size: 1.35rem; font-weight: 700; color: var(--text); }
         .velocity-pill .meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
+        @media (max-width: 900px) {
+            .dashboard-intro {
+                padding: 1.35rem;
+                border-radius: 26px;
+            }
+            .dashboard-highlight-card {
+                width: 100%;
+            }
+        }
     </style>
     @if (isset($cfaTotal))
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -380,9 +526,14 @@
             </form>
         </div>
     @else
+        <div class="dashboard-shell">
         <div class="dashboard-intro">
-            <div>
-                <h2>Welcome, {{ $staff->name }}</h2>
+            <div class="dashboard-intro__content">
+                <div class="dashboard-intro__eyebrow">
+                    <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
+                    District staff cockpit
+                </div>
+                <h2>Welcome back, {{ $staff->name }}</h2>
                 <p>
                     Your CFA referral activity
                     @if ($staff->district?->name)
@@ -400,12 +551,45 @@
                         · District CFA target: <strong>{{ number_format($districtCfaTarget) }}</strong>
                     @endif
                 </p>
+                <div class="dashboard-meta-row">
+                    <span class="dashboard-meta-pill">
+                        <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                        FY {{ $activeFy?->name ?? '—' }}
+                    </span>
+                    @if ($districtCfaTarget !== null)
+                        <span class="dashboard-meta-pill">
+                            <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
+                            District target {{ number_format($districtCfaTarget) }}
+                        </span>
+                    @endif
+                    <span class="dashboard-meta-pill">
+                        <i class="fa-solid fa-link" aria-hidden="true"></i>
+                        Referral activity dashboard
+                    </span>
+                </div>
             </div>
+            <aside class="dashboard-highlight-card" aria-label="Quick summary">
+                <div class="label">Applications this FY</div>
+                <div class="value">{{ number_format($cfaThisFy) }}</div>
+                <div class="sub">
+                    @if ($staffAnnualTarget !== null && (int) $staffAnnualTarget > 0)
+                        Against your annual CFA allocation of {{ number_format($staffAnnualTarget) }}.
+                    @else
+                        Keep sharing your form link to build momentum this cycle.
+                    @endif
+                </div>
+            </aside>
         </div>
 
         <nav class="staff-portal-links" aria-label="Quick pages">
-            <a href="{{ route('staff.monthly-targets') }}" class="staff-portal-link">Monthly targets</a>
-            <a href="{{ route('staff.applications') }}" class="staff-portal-link">Application list</a>
+            <a href="{{ route('staff.monthly-targets') }}" class="staff-portal-link">
+                <i class="fa-solid fa-chart-column" aria-hidden="true"></i>
+                Monthly targets
+            </a>
+            <a href="{{ route('staff.applications') }}" class="staff-portal-link">
+                <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
+                Application list
+            </a>
         </nav>
 
         @php
@@ -588,7 +772,7 @@
         </div>
 
         @if ($monthlyTargetsByMonth !== [])
-            <div class="referral-card" style="background:#fff;">
+            <div class="referral-card" style="background:linear-gradient(135deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84));">
                 <h3 style="margin-bottom:0.35rem;">Your monthly CFA allocation (M1–M12)</h3>
                 <p style="margin-bottom:0;">Set by state admin. Sum should match your share of the district CFA target.</p>
                 <div class="month-strip">
@@ -755,6 +939,7 @@
         </div>
 
         <p class="staff-note">To change CFA monthly targets, designation, or account status, contact your <strong>state admin</strong>. Open <strong>Applications</strong> in the top bar to view, print, or edit submissions from your referral link.</p>
+        </div>
 
         @php
             $chartColors = ['#4f46e5', '#0d9488', '#ea580c', '#7c3aed', '#0891b2', '#db2777', '#ca8a04', '#16a34a'];

@@ -7,7 +7,47 @@
         color: #0f172a;
     }
     .admin-app-body--dashboard {
-        background: linear-gradient(145deg, #f0f4ff 0%, #ecfeff 40%, #f8fafc 100%);
+        background:
+            radial-gradient(circle at top left, rgba(251, 191, 36, 0.28), transparent 22%),
+            radial-gradient(circle at top right, rgba(45, 212, 191, 0.24), transparent 24%),
+            radial-gradient(circle at 20% 80%, rgba(129, 140, 248, 0.18), transparent 26%),
+            linear-gradient(180deg, #fff8ef 0%, #eef7ff 42%, #f8fbff 100%);
+    }
+    .admin-app-body--dashboard .admin-topbar {
+        background: rgba(255, 255, 255, 0.76);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.72);
+        box-shadow: 0 16px 40px rgba(99, 102, 241, 0.08);
+    }
+    .admin-app-body--dashboard .admin-brand {
+        color: #0f172a;
+    }
+    .admin-app-body--dashboard .admin-brand__sub {
+        color: #64748b;
+    }
+    .admin-app-body--dashboard .admin-topbar__link {
+        color: #334155;
+    }
+    .admin-app-body--dashboard .admin-topbar__link:hover {
+        color: #1e1b4b;
+        background: rgba(99, 102, 241, 0.12);
+    }
+    .admin-app-body--dashboard .admin-topbar__link.is-active {
+        color: #fff;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        box-shadow: 0 10px 24px rgba(99, 102, 241, 0.22);
+    }
+    .admin-app-body--dashboard .admin-topbar__user {
+        color: #334155;
+    }
+    .admin-app-body--dashboard .admin-topbar__logout button {
+        background: rgba(255, 255, 255, 0.8);
+        border-color: rgba(148, 163, 184, 0.55);
+        color: #334155;
+    }
+    .admin-app-body--dashboard .admin-topbar__logout button:hover {
+        background: #fff;
     }
     .admin-topbar {
         position: sticky;
