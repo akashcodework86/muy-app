@@ -166,15 +166,33 @@ class CfaApplyController extends Controller
             'payload' => $payload,
         ]);
 
+        $productDisplay = ($validated['product'] ?? '') === 'Others'
+            ? trim((string) ($validated['other_product'] ?? ''))
+            : trim((string) ($validated['product'] ?? ''));
+
         return redirect()
             ->route('cfa.thanks')
-            ->with('application_no', $applicationNo);
+            ->with('application_no', $applicationNo)
+            ->with('source', 'referral')
+            ->with('referral_token', $token)
+            ->with('thanks_name', $applicantDisplay)
+            ->with('thanks_district', $validated['district'])
+            ->with('thanks_block', $validated['block'])
+            ->with('thanks_sector', $validated['business_category'])
+            ->with('thanks_product', $productDisplay);
     }
 
     public function thanks(): View
     {
         return view('public.cfa.thanks', [
-            'applicationNo' => session('application_no'),
+            'applicationNo'   => session('application_no'),
+            'source'          => session('source', 'public'),
+            'referralToken'   => session('referral_token'),
+            'thanksName'      => session('thanks_name'),
+            'thanksDistrict'  => session('thanks_district'),
+            'thanksBlock'     => session('thanks_block'),
+            'thanksSector'    => session('thanks_sector'),
+            'thanksProduct'   => session('thanks_product'),
         ]);
     }
 

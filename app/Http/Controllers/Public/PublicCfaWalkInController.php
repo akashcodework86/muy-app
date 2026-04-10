@@ -156,9 +156,19 @@ class PublicCfaWalkInController extends Controller
             'payload'           => $payload,
         ]);
 
+        $productDisplay = ($validated['product'] ?? '') === 'Others'
+            ? trim((string) ($validated['other_product'] ?? ''))
+            : trim((string) ($validated['product'] ?? ''));
+
         return redirect()
             ->route('cfa.thanks')
-            ->with('application_no', $applicationNo);
+            ->with('application_no', $applicationNo)
+            ->with('source', 'public')
+            ->with('thanks_name', $applicantDisplay)
+            ->with('thanks_district', $validated['district'])
+            ->with('thanks_block', $validated['block'])
+            ->with('thanks_sector', $validated['business_category'])
+            ->with('thanks_product', $productDisplay);
     }
 
     private function normalizeEmptySelects(Request $request): void
