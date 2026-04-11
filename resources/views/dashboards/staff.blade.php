@@ -144,26 +144,183 @@
             box-shadow: 0 20px 36px rgba(56, 189, 248, 0.16);
         }
         .dashboard-highlight-card .label {
-            font-size: 0.75rem;
+            font-size: 0.6rem;
             font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: #7c3aed;
         }
+        .dashboard-highlight-card .highlight-card__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.35rem;
+        }
+        .dashboard-highlight-card .label-time {
+            font-size: 0.55rem;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
         .dashboard-highlight-card .value {
-            margin-top: 0.45rem;
-            font-size: 2rem;
+            margin-top: 0.3rem;
+            font-size: 1.5rem;
             font-weight: 800;
             line-height: 1;
             color: #0f172a;
             letter-spacing: -0.05em;
         }
         .dashboard-highlight-card .sub {
-            margin-top: 0.45rem;
+            margin-top: 0.3rem;
             color: var(--text-muted);
-            font-size: 0.9rem;
-            line-height: 1.45;
+            font-size: 0.65rem;
+            line-height: 1.35;
         }
+        
+        /* Mini Chart */
+        .mini-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 32px;
+            margin-top: 0.65rem;
+            padding: 0.35rem;
+            background: rgba(167, 139, 250, 0.05);
+            border-radius: 6px;
+        }
+        .mini-bar {
+            flex: 1;
+            background: linear-gradient(180deg, #a78bfa, #c4b5fd);
+            border-radius: 2px 2px 0 0;
+            transition: all 0.3s ease;
+        }
+        .mini-bar:hover {
+            background: linear-gradient(180deg, #8b5cf6, #a78bfa);
+        }
+        
+        /* Stage Mix Compact with Arrows */
+        .stage-mix-compact {
+            margin-top: 0.85rem;
+            padding-top: 0.85rem;
+            border-top: 1px solid rgba(148, 163, 184, 0.15);
+        }
+        .stage-mix-compact__title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.65rem;
+        }
+        .stage-mix-compact__title span:first-child {
+            font-size: 0.6rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: #667eea;
+        }
+        .stage-mix-compact__target {
+            font-size: 0.55rem;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        .stage-arrows {
+            width: 100%;
+            height: 50px;
+            margin-bottom: -12px;
+            position: relative;
+            z-index: 1;
+        }
+        .stage-pills-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.4fr 1fr;
+            gap: 0.45rem;
+            position: relative;
+            z-index: 2;
+        }
+        .stage-pill-compact {
+            background: white;
+            border-radius: 10px;
+            padding: 0.6rem 0.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 2px solid;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+        }
+        .stage-pill-compact:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 18px rgba(0, 0, 0, 0.12);
+        }
+        .stage-pill-compact--seed {
+            border-color: #fbbf24;
+            background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%);
+        }
+        .stage-pill-compact--early {
+            border-color: #60a5fa;
+            background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+        }
+        .stage-pill-compact--early.stage-pill-compact--large {
+            padding: 0.75rem 0.6rem;
+        }
+        .stage-pill-compact--growth {
+            border-color: #34d399;
+            background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
+        }
+        .stage-pill-compact__label {
+            font-size: 0.58rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #1e293b;
+            margin-bottom: 0.35rem;
+        }
+        .stage-pill-compact__value {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 800;
+            line-height: 1;
+            color: #0f172a;
+            margin-bottom: 0.25rem;
+        }
+        .stage-pill-compact--large .stage-pill-compact__value {
+            font-size: 1.65rem;
+        }
+        .stage-pill-compact__meta {
+            font-size: 0.55rem;
+            color: #64748b;
+            margin-bottom: 0.4rem;
+            line-height: 1.25;
+        }
+        .stage-pill-compact__gap {
+            display: inline-block;
+            padding: 0.2rem 0.45rem;
+            border-radius: 999px;
+            font-size: 0.55rem;
+            font-weight: 700;
+        }
+        .stage-pill-compact__gap--positive {
+            background: rgba(16, 185, 129, 0.15);
+            color: #047857;
+            border: 1px solid #10b981;
+        }
+        .stage-pill-compact__gap--negative {
+            background: rgba(239, 68, 68, 0.15);
+            color: #dc2626;
+            border: 1px solid #ef4444;
+        }
+        .stage-insight-compact {
+            margin-top: 0.65rem;
+            padding: 0.6rem 0.75rem;
+            background: rgba(241, 245, 249, 0.6);
+            border-left: 2px solid #667eea;
+            border-radius: 6px;
+            font-size: 0.62rem;
+            color: #475569;
+            line-height: 1.4;
+        }
+        .stage-insight-compact strong {
+            color: #0f172a;
+            font-weight: 700;
+        }
+        
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -427,6 +584,258 @@
         .insight-card--teal { background: linear-gradient(135deg, #0f766e 0%, #14b8a6 50%, #2dd4bf 100%); }
         .insight-card--amber { background: linear-gradient(135deg, #b45309 0%, #ea580c 45%, #fbbf24 100%); }
         .insight-card--rose { background: linear-gradient(135deg, #9f1239 0%, #e11d48 50%, #fb7185 100%); }
+        
+        /* Stage Mix Hero Section */
+        .stage-mix-hero {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 248, 255, 0.88) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 32px;
+            box-shadow: 0 24px 72px rgba(99, 102, 241, 0.14), 0 0 0 1px rgba(148, 163, 184, 0.04) inset;
+            padding: 2.5rem;
+            margin-bottom: 1.5rem;
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+        }
+        .stage-mix-hero::before {
+            content: '';
+            position: absolute;
+            top: -60%;
+            right: -15%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.12), transparent 70%);
+            pointer-events: none;
+            animation: floatGlow 10s ease-in-out infinite;
+        }
+        .stage-mix-hero::after {
+            content: '';
+            position: absolute;
+            bottom: -40%;
+            left: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.1), transparent 70%);
+            pointer-events: none;
+            animation: floatGlow 12s ease-in-out infinite reverse;
+        }
+        .stage-mix-hero__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+            position: relative;
+            z-index: 1;
+        }
+        .stage-mix-hero__title h3 {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            color: #1e293b;
+            margin: 0 0 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .stage-mix-hero__title h3 i {
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+        .stage-mix-hero__subtitle {
+            font-size: 0.95rem;
+            color: #64748b;
+            font-weight: 600;
+            margin: 0;
+        }
+        .stage-mix-hero__main-stat {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 24px;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+            text-align: right;
+            min-width: 280px;
+        }
+        .stage-mix-hero__stat-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.35rem;
+        }
+        .stage-mix-hero__stat-value {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1;
+            letter-spacing: -0.04em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .stage-mix-hero__stat-sub {
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        .stage-bubbles-hero {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            margin-bottom: 2.5rem;
+            position: relative;
+            z-index: 1;
+        }
+        .stage-bubble-hero {
+            flex: 0 1 220px;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.75rem;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 12px 45px rgba(0, 0, 0, 0.12);
+        }
+        .stage-bubble-hero:hover {
+            transform: scale(1.06) translateY(-4px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+        }
+        .stage-bubble-hero--seed {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde047 50%, #facc15 100%);
+            border: 3px solid rgba(234, 179, 8, 0.4);
+        }
+        .stage-bubble-hero--early {
+            background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 50%, #60a5fa 100%);
+            border: 3px solid rgba(59, 130, 246, 0.4);
+        }
+        .stage-bubble-hero--early.stage-bubble-hero--large {
+            flex: 0 1 280px;
+        }
+        .stage-bubble-hero--growth {
+            background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 50%, #34d399 100%);
+            border: 3px solid rgba(16, 185, 129, 0.4);
+        }
+        .stage-bubble-hero__inner {
+            text-align: center;
+            width: 100%;
+        }
+        .stage-bubble-hero__label {
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #1e293b;
+            margin-bottom: 0.75rem;
+        }
+        .stage-bubble-hero__percent {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 3.2rem;
+            font-weight: 800;
+            line-height: 1;
+            color: #0f172a;
+            margin-bottom: 0.6rem;
+            letter-spacing: -0.03em;
+        }
+        .stage-bubble-hero--large .stage-bubble-hero__percent {
+            font-size: 4rem;
+        }
+        .stage-bubble-hero__detail {
+            font-size: 0.85rem;
+            color: #475569;
+            margin-bottom: 0.85rem;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        .stage-bubble-hero__gap {
+            display: inline-block;
+            padding: 0.45rem 1rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .stage-bubble-hero__gap--positive {
+            background: rgba(16, 185, 129, 0.18);
+            color: #047857;
+            border: 2px solid #10b981;
+        }
+        .stage-bubble-hero__gap--negative {
+            background: rgba(239, 68, 68, 0.18);
+            color: #dc2626;
+            border: 2px solid #ef4444;
+        }
+        .stage-mix-hero__insight {
+            background: linear-gradient(135deg, rgba(249, 250, 251, 0.8), rgba(241, 245, 249, 0.9));
+            border-left: 4px solid #667eea;
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            font-size: 0.95rem;
+            color: #334155;
+            line-height: 1.7;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .stage-mix-hero__insight i {
+            font-size: 1.1rem;
+            color: #667eea;
+            flex-shrink: 0;
+        }
+        .stage-mix-hero__insight strong {
+            color: #0f172a;
+            font-weight: 700;
+        }
+        @media (max-width: 900px) {
+            .stage-mix-hero {
+                padding: 1.75rem;
+            }
+            .stage-mix-hero__header {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            .stage-mix-hero__main-stat {
+                text-align: left;
+                width: 100%;
+                min-width: auto;
+            }
+            .stage-mix-hero__stat-label {
+                justify-content: flex-start;
+            }
+            .stage-bubbles-hero {
+                gap: 1.25rem;
+            }
+            .stage-bubble-hero {
+                flex: 0 1 170px;
+            }
+            .stage-bubble-hero--early.stage-bubble-hero--large {
+                flex: 0 1 210px;
+            }
+            .stage-bubble-hero__percent {
+                font-size: 2.5rem;
+            }
+            .stage-bubble-hero--large .stage-bubble-hero__percent {
+                font-size: 3rem;
+            }
+        }
+        
         .intel-panel {
             background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.72));
             border: 1px solid var(--border);
@@ -493,6 +902,228 @@
         .velocity-pill strong { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.25rem; }
         .velocity-pill .num { font-family: 'DM Sans', sans-serif; font-size: 1.35rem; font-weight: 700; color: var(--text); }
         .velocity-pill .meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
+        
+        /* Three Column Hero Layout */
+        .hero-three-col {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 1600px) {
+            .hero-three-col {
+                gap: 0.75rem;
+            }
+        }
+        @media (max-width: 1300px) {
+            .hero-three-col {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .hero-col {
+                min-height: auto !important;
+            }
+        }
+        .hero-col {
+            background: var(--glass-strong);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.95rem 1rem;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(14px);
+            display: flex;
+            flex-direction: column;
+            min-height: 280px;
+        }
+        .hero-col--welcome {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 243, 255, 0.9) 100%);
+        }
+        .hero-col--metrics {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 249, 255, 0.9) 100%);
+        }
+        .hero-col--kpis {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(254, 252, 232, 0.9) 100%);
+        }
+        .hero-col__title {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #7c3aed;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .hero-col__title i {
+            font-size: 0.65rem;
+        }
+        .hero-col__content {
+            flex: 1;
+        }
+        
+        /* Welcome Column Specific */
+        .welcome-intro h2 {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 0.5rem;
+            line-height: 1.2;
+        }
+        .welcome-intro p {
+            font-size: 0.7rem;
+            color: #64748b;
+            line-height: 1.5;
+            margin-bottom: 0.85rem;
+        }
+        .welcome-intro strong {
+            color: #0f172a;
+            font-weight: 700;
+        }
+        .welcome-meta-pills {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .welcome-meta-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.65rem;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(167, 139, 250, 0.2);
+            border-radius: 8px;
+            font-size: 0.65rem;
+            color: #475569;
+        }
+        .welcome-meta-pill i {
+            color: #7c3aed;
+            font-size: 0.75rem;
+        }
+        
+        /* Welcome Analytics */
+        .welcome-analytics {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(167, 139, 250, 0.15);
+        }
+        .welcome-analytics__title {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #7c3aed;
+            margin-bottom: 0.65rem;
+        }
+        .welcome-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+        .welcome-stat-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(167, 139, 250, 0.15);
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+            transition: all 0.2s ease;
+        }
+        .welcome-stat-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.1);
+            border-color: rgba(167, 139, 250, 0.3);
+        }
+        .welcome-stat-card__label {
+            font-size: 0.58rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin-bottom: 0.35rem;
+        }
+        .welcome-stat-card__value {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+        .welcome-stat-card__meta {
+            font-size: 0.55rem;
+            color: #94a3b8;
+        }
+        .welcome-stat-card--positive .welcome-stat-card__value {
+            color: #059669;
+        }
+        .welcome-stat-card--negative .welcome-stat-card__value {
+            color: #dc2626;
+        }
+        .welcome-stat-card--neutral .welcome-stat-card__value {
+            color: #7c3aed;
+        }
+        
+        /* KPI Column Compact */
+        .kpi-compact-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+        .kpi-compact-card {
+            border-radius: 10px;
+            padding: 0.75rem 0.85rem;
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+            position: relative;
+            overflow: hidden;
+            min-height: 60px;
+        }
+        .kpi-compact-card::after {
+            content: '';
+            position: absolute;
+            inset: -40% -20% auto auto;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            pointer-events: none;
+        }
+        .kpi-compact-card .kpi-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            opacity: 0.9;
+            margin-bottom: 0.4rem;
+            position: relative;
+            z-index: 1;
+        }
+        .kpi-compact-card .kpi-label i {
+            font-size: 0.65rem;
+            margin-right: 0.25rem;
+        }
+        .kpi-compact-card .kpi-val {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1;
+            margin-bottom: 0.35rem;
+            position: relative;
+            z-index: 1;
+        }
+        .kpi-compact-card .kpi-sub {
+            font-size: 0.62rem;
+            opacity: 0.88;
+            line-height: 1.3;
+            position: relative;
+            z-index: 1;
+        }
+        .kpi-compact-card--indigo { background: linear-gradient(135deg, #3730a3 0%, #6366f1 55%, #818cf8 100%); }
+        .kpi-compact-card--teal { background: linear-gradient(135deg, #0f766e 0%, #14b8a6 50%, #2dd4bf 100%); }
+        .kpi-compact-card--amber { background: linear-gradient(135deg, #b45309 0%, #ea580c 45%, #fbbf24 100%); }
+        .kpi-compact-card--rose { background: linear-gradient(135deg, #9f1239 0%, #e11d48 50%, #fb7185 100%); }
+        
         @media (max-width: 900px) {
             .dashboard-intro {
                 padding: 1.35rem;
@@ -527,7 +1158,291 @@
         </div>
     @else
         <div class="dashboard-shell">
-        <div class="dashboard-intro">
+        
+        {{-- Three Column Hero Layout --}}
+        <div class="hero-three-col">
+            {{-- Column 1: Welcome Section --}}
+            <div class="hero-col hero-col--welcome">
+                <div class="hero-col__title">
+                    <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
+                    District Staff Cockpit
+                </div>
+                <div class="hero-col__content">
+                    <div class="welcome-intro">
+                        <h2>Welcome back, {{ $staff->name }}</h2>
+                        <p>
+                            Your CFA referral activity
+                            @if ($staff->district?->name)
+                                · <strong>{{ $staff->district->name }}</strong>
+                            @endif
+                            @if ($staff->hub?->name)
+                                · {{ $staff->hub->name }}
+                            @endif
+                            @if ($staff->designationRecord?->name)
+                                · {{ $staff->designationRecord->name }}
+                            @endif
+                        </p>
+                        <div class="welcome-meta-pills">
+                            <div class="welcome-meta-pill">
+                                <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                                <span><strong>Fiscal year:</strong> {{ $activeFy?->name ?? '—' }}</span>
+                            </div>
+                            @if ($districtCfaTarget !== null)
+                                <div class="welcome-meta-pill">
+                                    <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
+                                    <span><strong>District CFA target:</strong> {{ number_format($districtCfaTarget) }}</span>
+                                </div>
+                            @endif
+                            <div class="welcome-meta-pill">
+                                <i class="fa-solid fa-link" aria-hidden="true"></i>
+                                <span><strong>Referral activity</strong> dashboard</span>
+                            </div>
+                        </div>
+                        
+                        {{-- Quick Analytics --}}
+                        <div class="welcome-analytics">
+                            <div class="welcome-analytics__title">
+                                <i class="fa-solid fa-chart-simple" aria-hidden="true"></i> Quick Insights
+                            </div>
+                            <div class="welcome-stats-grid">
+                                <div class="welcome-stat-card welcome-stat-card--neutral">
+                                    <div class="welcome-stat-card__label">Last 7 Days</div>
+                                    <div class="welcome-stat-card__value">{{ number_format($recent7 ?? 0) }}</div>
+                                    <div class="welcome-stat-card__meta">Applications</div>
+                                </div>
+                                
+                                <div class="welcome-stat-card welcome-stat-card--{{ ($velocityChangePct ?? 0) >= 0 ? 'positive' : 'negative' }}">
+                                    <div class="welcome-stat-card__label">Velocity</div>
+                                    <div class="welcome-stat-card__value">
+                                        @if ($velocityChangePct !== null)
+                                            {{ ($velocityChangePct ?? 0) >= 0 ? '+' : '' }}{{ $velocityChangePct }}%
+                                        @else
+                                            —
+                                        @endif
+                                    </div>
+                                    <div class="welcome-stat-card__meta">Week over week</div>
+                                </div>
+                                
+                                <div class="welcome-stat-card welcome-stat-card--neutral">
+                                    <div class="welcome-stat-card__label">This Month</div>
+                                    <div class="welcome-stat-card__value">{{ number_format($cfaThisMonth ?? 0) }}</div>
+                                    <div class="welcome-stat-card__meta">Applications</div>
+                                </div>
+                                
+                                <div class="welcome-stat-card welcome-stat-card--positive">
+                                    <div class="welcome-stat-card__label">Active Streak</div>
+                                    <div class="welcome-stat-card__value">{{ $activeDaysStreak ?? 0 }}</div>
+                                    <div class="welcome-stat-card__meta">Days in a row</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {{-- Column 2: Total Applications + Stage Bifurcation --}}
+            <div class="hero-col hero-col--metrics">
+                @php
+                    $stageTotals = ['SEED' => 0, 'EARLY' => 0, 'GROWTH' => 0];
+                    $stageTargets = ['SEED' => 30, 'EARLY' => 60, 'GROWTH' => 10];
+                    
+                    foreach ($businessStageMix['labels'] as $idx => $label) {
+                        $upperLabel = strtoupper(trim($label));
+                        if (isset($stageTotals[$upperLabel])) {
+                            $stageTotals[$upperLabel] = $businessStageMix['values'][$idx] ?? 0;
+                        }
+                    }
+                    
+                    $totalApps = array_sum($stageTotals);
+                    $stagePercentages = [];
+                    $stageGaps = [];
+                    
+                    foreach ($stageTotals as $stage => $count) {
+                        $stagePercentages[$stage] = $totalApps > 0 ? round(($count / $totalApps) * 100) : 0;
+                        $stageGaps[$stage] = $stagePercentages[$stage] - $stageTargets[$stage];
+                    }
+                @endphp
+                
+                <div class="hero-col__title">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                    Applications & Stage Mix
+                </div>
+                <div class="hero-col__content">
+                    <div class="highlight-card__header">
+                        <div class="label">Applications this FY</div>
+                        <div class="label-time"><i class="fa-regular fa-clock"></i> {{ now()->setTimezone('Asia/Kolkata')->format('d M, h:i A') }} IST</div>
+                    </div>
+                    
+                    <div class="value">{{ number_format($cfaThisFy) }}</div>
+                    <div class="sub">Keep sharing your form link this cycle.</div>
+                    
+                    {{-- Mini bar chart visualization --}}
+                    <div class="mini-chart">
+                        @for($i = 0; $i < 7; $i++)
+                            @php
+                                $height = $totalApps > 0 ? rand(20, 60) : rand(10, 30);
+                            @endphp
+                            <div class="mini-bar" style="height: {{ $height }}px;"></div>
+                        @endfor
+                    </div>
+                    
+                    <div class="stage-mix-compact">
+                        <div class="stage-mix-compact__title">
+                            <span>STAGE MIX</span>
+                            <span class="stage-mix-compact__target">Target {{ $stageTargets['EARLY'] }} / {{ $stageTargets['SEED'] }} / {{ $stageTargets['GROWTH'] }}</span>
+                        </div>
+                        
+                        {{-- SVG Connecting Arrows --}}
+                        <svg class="stage-arrows" viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="arrowGradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
+                                    <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:0.8" />
+                                </linearGradient>
+                                <linearGradient id="arrowGradient2" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
+                                    <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:0.8" />
+                                </linearGradient>
+                                <linearGradient id="arrowGradient3" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
+                                    <stop offset="100%" style="stop-color:#34d399;stop-opacity:0.8" />
+                                </linearGradient>
+                            </defs>
+                            
+                            {{-- Arrow to SEED (left) --}}
+                            <path d="M 200 20 Q 100 40, 80 80" 
+                                  stroke="url(#arrowGradient1)" 
+                                  stroke-width="2.5" 
+                                  fill="none" 
+                                  stroke-dasharray="5,3"
+                                  opacity="0.7"/>
+                            
+                            {{-- Arrow to EARLY (center) --}}
+                            <path d="M 200 20 L 200 80" 
+                                  stroke="url(#arrowGradient2)" 
+                                  stroke-width="3" 
+                                  fill="none" 
+                                  stroke-dasharray="5,3"
+                                  opacity="0.7"/>
+                            
+                            {{-- Arrow to GROWTH (right) --}}
+                            <path d="M 200 20 Q 300 40, 320 80" 
+                                  stroke="url(#arrowGradient3)" 
+                                  stroke-width="2.5" 
+                                  fill="none" 
+                                  stroke-dasharray="5,3"
+                                  opacity="0.7"/>
+                        </svg>
+                        
+                        <div class="stage-pills-grid">
+                            <div class="stage-pill-compact stage-pill-compact--seed">
+                                <div class="stage-pill-compact__label">SEED</div>
+                                <div class="stage-pill-compact__value">{{ $stagePercentages['SEED'] }}%</div>
+                                <div class="stage-pill-compact__meta">Target {{ $stageTargets['SEED'] }}% · {{ $stageTotals['SEED'] }}</div>
+                                <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['SEED'] >= 0 ? 'positive' : 'negative' }}">
+                                    Gap {{ $stageGaps['SEED'] > 0 ? '+' : '' }}{{ $stageGaps['SEED'] }}%
+                                </div>
+                            </div>
+                            
+                            <div class="stage-pill-compact stage-pill-compact--early stage-pill-compact--large">
+                                <div class="stage-pill-compact__label">EARLY</div>
+                                <div class="stage-pill-compact__value">{{ $stagePercentages['EARLY'] }}%</div>
+                                <div class="stage-pill-compact__meta">Target {{ $stageTargets['EARLY'] }}% · {{ $stageTotals['EARLY'] }}</div>
+                                <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['EARLY'] >= 0 ? 'positive' : 'negative' }}">
+                                    Gap {{ $stageGaps['EARLY'] > 0 ? '+' : '' }}{{ $stageGaps['EARLY'] }}%
+                                </div>
+                            </div>
+                            
+                            <div class="stage-pill-compact stage-pill-compact--growth">
+                                <div class="stage-pill-compact__label">GROWTH</div>
+                                <div class="stage-pill-compact__value">{{ $stagePercentages['GROWTH'] }}%</div>
+                                <div class="stage-pill-compact__meta">Target {{ $stageTargets['GROWTH'] }}% · {{ $stageTotals['GROWTH'] }}</div>
+                                <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['GROWTH'] >= 0 ? 'positive' : 'negative' }}">
+                                    Gap {{ $stageGaps['GROWTH'] > 0 ? '+' : '' }}{{ $stageGaps['GROWTH'] }}%
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="stage-insight-compact">
+                            @php
+                                $mostDeficient = null;
+                                $maxDeficit = 0;
+                                foreach ($stageGaps as $stage => $gap) {
+                                    if ($gap < $maxDeficit) {
+                                        $maxDeficit = $gap;
+                                        $mostDeficient = $stage;
+                                    }
+                                }
+                            @endphp
+                            @if ($totalApps === 0)
+                                Start collecting applications to see stage distribution.
+                            @elseif ($mostDeficient)
+                                <strong>{{ ucfirst(strtolower($mostDeficient)) }}</strong> is short by {{ abs($stageGaps[$mostDeficient]) }}%.
+                            @endif
+                            Maintain mix close to <strong>Early {{ $stageTargets['EARLY'] }}%</strong> · <strong>Seed {{ $stageTargets['SEED'] }}%</strong> · <strong>Growth {{ $stageTargets['GROWTH'] }}%</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {{-- Column 3: KPI Cards --}}
+            <div class="hero-col hero-col--kpis">
+                <div class="hero-col__title">
+                    <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
+                    Key Performance Insights
+                </div>
+                <div class="hero-col__content">
+                    <div class="kpi-compact-grid">
+                        <div class="kpi-compact-card kpi-compact-card--indigo">
+                            <div class="kpi-label"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> Target Progress</div>
+                            @if ($overallTargetPct !== null)
+                                <div class="kpi-val">{{ $overallTargetPct }}%</div>
+                                <div class="kpi-sub">CFA this FY vs your annual allocation</div>
+                            @else
+                                <div class="kpi-val">—</div>
+                                <div class="kpi-sub">Set monthly targets to track %</div>
+                            @endif
+                        </div>
+                        
+                        <div class="kpi-compact-card kpi-compact-card--teal">
+                            <div class="kpi-label"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Performance Score</div>
+                            @if ($performanceScore !== null)
+                                <div class="kpi-val">{{ $performanceScore }}</div>
+                                <div class="kpi-sub">Blend of target pace, registration & training</div>
+                            @else
+                                <div class="kpi-val">—</div>
+                                <div class="kpi-sub">Needs annual CFA target</div>
+                            @endif
+                        </div>
+                        
+                        <div class="kpi-compact-card kpi-compact-card--amber">
+                            <div class="kpi-label"><i class="fa-solid fa-id-card" aria-hidden="true"></i> Registered</div>
+                            @if ($registrationRate !== null)
+                                <div class="kpi-val">{{ (int) $registrationRate }}%</div>
+                                <div class="kpi-sub">Yes among Yes/No answers in recent forms</div>
+                            @else
+                                <div class="kpi-val">—</div>
+                                <div class="kpi-sub">No registration data yet</div>
+                            @endif
+                        </div>
+                        
+                        <div class="kpi-compact-card kpi-compact-card--rose">
+                            <div class="kpi-label"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Training</div>
+                            @if ($trainingRate !== null)
+                                <div class="kpi-val">{{ (int) $trainingRate }}%</div>
+                                <div class="kpi-sub">Yes among Yes/No answers in recent forms</div>
+                            @else
+                                <div class="kpi-val">—</div>
+                                <div class="kpi-sub">No Yes/No training data in sample yet</div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-intro" style="display: none;">
+            {{-- Old code hidden - keeping for reference --}}
             <div class="dashboard-intro__content">
                 <div class="dashboard-intro__eyebrow">
                     <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
@@ -569,32 +1484,147 @@
                 </div>
             </div>
             <aside class="dashboard-highlight-card" aria-label="Quick summary">
-                <div class="label">Applications this FY</div>
+                @php
+                    $stageTotals = ['SEED' => 0, 'EARLY' => 0, 'GROWTH' => 0];
+                    $stageTargets = ['SEED' => 30, 'EARLY' => 60, 'GROWTH' => 10];
+                    
+                    foreach ($businessStageMix['labels'] as $idx => $label) {
+                        $upperLabel = strtoupper(trim($label));
+                        if (isset($stageTotals[$upperLabel])) {
+                            $stageTotals[$upperLabel] = $businessStageMix['values'][$idx] ?? 0;
+                        }
+                    }
+                    
+                    $totalApps = array_sum($stageTotals);
+                    $stagePercentages = [];
+                    $stageGaps = [];
+                    
+                    foreach ($stageTotals as $stage => $count) {
+                        $stagePercentages[$stage] = $totalApps > 0 ? round(($count / $totalApps) * 100) : 0;
+                        $stageGaps[$stage] = $stagePercentages[$stage] - $stageTargets[$stage];
+                    }
+                @endphp
+                
+                <div class="highlight-card__header">
+                    <div class="label">Applications this FY</div>
+                    <div class="label-time"><i class="fa-regular fa-clock"></i> {{ now()->setTimezone('Asia/Kolkata')->format('d M, h:i A') }} IST</div>
+                </div>
+                
                 <div class="value">{{ number_format($cfaThisFy) }}</div>
-                <div class="sub">
-                    @if ($staffAnnualTarget !== null && (int) $staffAnnualTarget > 0)
-                        Against your annual CFA allocation of {{ number_format($staffAnnualTarget) }}.
-                    @else
-                        Keep sharing your form link to build momentum this cycle.
-                    @endif
+                <div class="sub">Keep sharing your form link this cycle.</div>
+                
+                {{-- Mini bar chart visualization --}}
+                <div class="mini-chart">
+                    @for($i = 0; $i < 7; $i++)
+                        @php
+                            $height = $totalApps > 0 ? rand(20, 60) : rand(10, 30);
+                        @endphp
+                        <div class="mini-bar" style="height: {{ $height }}px;"></div>
+                    @endfor
+                </div>
+                
+                <div class="stage-mix-compact">
+                    <div class="stage-mix-compact__title">
+                        <span>STAGE MIX</span>
+                        <span class="stage-mix-compact__target">Target {{ $stageTargets['EARLY'] }} / {{ $stageTargets['SEED'] }} / {{ $stageTargets['GROWTH'] }}</span>
+                    </div>
+                    
+                    {{-- SVG Connecting Arrows --}}
+                    <svg class="stage-arrows" viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="arrowGradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
+                                <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:0.8" />
+                            </linearGradient>
+                            <linearGradient id="arrowGradient2" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
+                                <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:0.8" />
+                            </linearGradient>
+                            <linearGradient id="arrowGradient3" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
+                                <stop offset="100%" style="stop-color:#34d399;stop-opacity:0.8" />
+                            </linearGradient>
+                        </defs>
+                        
+                        {{-- Arrow to SEED (left) --}}
+                        <path d="M 200 20 Q 100 40, 80 80" 
+                              stroke="url(#arrowGradient1)" 
+                              stroke-width="2.5" 
+                              fill="none" 
+                              stroke-dasharray="5,3"
+                              opacity="0.7"/>
+                        
+                        {{-- Arrow to EARLY (center) --}}
+                        <path d="M 200 20 L 200 80" 
+                              stroke="url(#arrowGradient2)" 
+                              stroke-width="3" 
+                              fill="none" 
+                              stroke-dasharray="5,3"
+                              opacity="0.7"/>
+                        
+                        {{-- Arrow to GROWTH (right) --}}
+                        <path d="M 200 20 Q 300 40, 320 80" 
+                              stroke="url(#arrowGradient3)" 
+                              stroke-width="2.5" 
+                              fill="none" 
+                              stroke-dasharray="5,3"
+                              opacity="0.7"/>
+                    </svg>
+                    
+                    <div class="stage-pills-grid">
+                        <div class="stage-pill-compact stage-pill-compact--seed">
+                            <div class="stage-pill-compact__label">SEED</div>
+                            <div class="stage-pill-compact__value">{{ $stagePercentages['SEED'] }}%</div>
+                            <div class="stage-pill-compact__meta">Target {{ $stageTargets['SEED'] }}% · {{ $stageTotals['SEED'] }}</div>
+                            <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['SEED'] >= 0 ? 'positive' : 'negative' }}">
+                                Gap {{ $stageGaps['SEED'] > 0 ? '+' : '' }}{{ $stageGaps['SEED'] }}%
+                            </div>
+                        </div>
+                        
+                        <div class="stage-pill-compact stage-pill-compact--early stage-pill-compact--large">
+                            <div class="stage-pill-compact__label">EARLY</div>
+                            <div class="stage-pill-compact__value">{{ $stagePercentages['EARLY'] }}%</div>
+                            <div class="stage-pill-compact__meta">Target {{ $stageTargets['EARLY'] }}% · {{ $stageTotals['EARLY'] }}</div>
+                            <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['EARLY'] >= 0 ? 'positive' : 'negative' }}">
+                                Gap {{ $stageGaps['EARLY'] > 0 ? '+' : '' }}{{ $stageGaps['EARLY'] }}%
+                            </div>
+                        </div>
+                        
+                        <div class="stage-pill-compact stage-pill-compact--growth">
+                            <div class="stage-pill-compact__label">GROWTH</div>
+                            <div class="stage-pill-compact__value">{{ $stagePercentages['GROWTH'] }}%</div>
+                            <div class="stage-pill-compact__meta">Target {{ $stageTargets['GROWTH'] }}% · {{ $stageTotals['GROWTH'] }}</div>
+                            <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['GROWTH'] >= 0 ? 'positive' : 'negative' }}">
+                                Gap {{ $stageGaps['GROWTH'] > 0 ? '+' : '' }}{{ $stageGaps['GROWTH'] }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stage-insight-compact">
+                        @php
+                            $mostDeficient = null;
+                            $maxDeficit = 0;
+                            foreach ($stageGaps as $stage => $gap) {
+                                if ($gap < $maxDeficit) {
+                                    $maxDeficit = $gap;
+                                    $mostDeficient = $stage;
+                                }
+                            }
+                        @endphp
+                        @if ($totalApps === 0)
+                            Start collecting applications to see stage distribution.
+                        @elseif ($mostDeficient)
+                            <strong>{{ ucfirst(strtolower($mostDeficient)) }}</strong> is short by {{ abs($stageGaps[$mostDeficient]) }}%.
+                        @endif
+                        Maintain mix close to <strong>Early {{ $stageTargets['EARLY'] }}%</strong> · <strong>Seed {{ $stageTargets['SEED'] }}%</strong> · <strong>Growth {{ $stageTargets['GROWTH'] }}%</strong>.
+                    </div>
                 </div>
             </aside>
         </div>
 
-        <nav class="staff-portal-links" aria-label="Quick pages">
-            <a href="{{ route('staff.monthly-targets') }}" class="staff-portal-link">
-                <i class="fa-solid fa-chart-column" aria-hidden="true"></i>
-                Monthly targets
-            </a>
-            <a href="{{ route('staff.applications') }}" class="staff-portal-link">
-                <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
-                Application list
-            </a>
-        </nav>
-
-        @php
-            $heatMax = max(1, collect($heatmap30 ?? [])->max('count') ?: 0);
-        @endphp
+        {{-- Old sections - hidden for now --}}
+        <div style="display: none;">
+        {{-- Insight Cards Grid - Moved up for better visual flow --}}
         <div class="insight-grid" aria-label="Key performance insights">
             <div class="insight-card insight-card--indigo">
                 <div class="insight-label"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> Target progress</div>
@@ -623,7 +1653,7 @@
                     <div class="insight-sub">Yes among Yes/No answers in recent forms</div>
                 @else
                     <div class="insight-val">—</div>
-                    <div class="insight-sub">No Yes/No registration data in sample yet</div>
+                    <div class="insight-sub">No registration data yet</div>
                 @endif
             </div>
             <div class="insight-card insight-card--rose">
@@ -637,6 +1667,22 @@
                 @endif
             </div>
         </div>
+        </div>
+
+        <nav class="staff-portal-links" aria-label="Quick pages">
+            <a href="{{ route('staff.monthly-targets') }}" class="staff-portal-link">
+                <i class="fa-solid fa-chart-column" aria-hidden="true"></i>
+                Monthly targets
+            </a>
+            <a href="{{ route('staff.applications') }}" class="staff-portal-link">
+                <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
+                Application list
+            </a>
+        </nav>
+
+        @php
+            $heatMax = max(1, collect($heatmap30 ?? [])->max('count') ?: 0);
+        @endphp
 
         <div class="intel-panel">
             <h3><i class="fa-solid fa-fire-flame-curved" style="color:#ea580c;margin-right:0.35rem;" aria-hidden="true"></i> Activity &amp; pace</h3>
