@@ -15,6 +15,8 @@ $projectPath = '/home/zwkk8e2xgz4h/muy-app';
 
 // Git pull
 echo "--- git pull ---\n";
+$output = shell_exec("cd $projectPath && /usr/bin/git reset --hard origin/master 2>&1");
+echo $output."\n";
 $output = shell_exec("cd $projectPath && /usr/bin/git pull origin master 2>&1");
 echo $output."\n";
 
