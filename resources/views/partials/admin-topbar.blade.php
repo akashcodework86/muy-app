@@ -1,11 +1,5 @@
 @php
-    $logoUrl = null;
-    foreach (['images/logo.jpg', 'images/logo.JPEG', 'images/logo.jpeg', 'images/Logo.jpg'] as $rel) {
-        if (file_exists(public_path($rel))) {
-            $logoUrl = asset($rel);
-            break;
-        }
-    }
+    $logoUrl = asset('https://ukrbi.in/new/admin/muy.jpg');
     $u = auth()->user();
     $showAdminNav = $u && $u->role === 'state_admin';
     $showHubNav = $u && $u->role === 'hub_admin';
@@ -37,19 +31,16 @@
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         $r === 'staff.monthly-targets' => 'staff-targets',
         $r === 'staff.applications' => 'staff-apps',
+        str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
         default => '',
     };
 @endphp
 <header class="admin-topbar">
     <div class="admin-topbar__inner">
-        <a href="{{ route('dashboard') }}" class="admin-brand" title="{{ config('app.name') }}">
-            @if ($logoUrl)
-                <img src="{{ $logoUrl }}" alt="" width="40" height="40" class="admin-brand__img">
-            @else
-                <span class="admin-brand__fallback">{{ mb_substr(config('app.name'), 0, 3) }}</span>
-            @endif
+        <a href="{{ route('dashboard') }}" class="admin-brand" title="Mukhyamantri Udyamshala Yojana">
+            <img src="{{ $logoUrl }}" alt="MUY Logo" class="admin-brand__img">
             <span class="admin-brand__text">
-                <span class="admin-brand__name">{{ config('app.name') }}</span>
+                <span class="admin-brand__name">Mukhyamantri Udyamshala Yojana</span>
                 <span class="admin-brand__sub">{{ $brandSub }}</span>
             </span>
         </a>
@@ -58,7 +49,7 @@
         <nav class="admin-topbar__nav" aria-label="Main">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">Dashboard</a>
             <a href="{{ route('admin.cfa.index') }}" class="admin-topbar__link @if ($activeNav === 'cfa') is-active @endif">CFA applications</a>
-            <a href="{{ route('admin.phase2-cfa.index') }}" class="admin-topbar__link @if ($activeNav === 'phase2-cfa') is-active @endif">CFA (Phase 2 legacy)</a>
+            <a href="{{ route('admin.phase2-cfa.index') }}" class="admin-topbar__link @if ($activeNav === 'phase2-cfa') is-active @endif">CFA (FY 2025-26 Data)</a>
             <a href="{{ route('admin.targets.state') }}" class="admin-topbar__link @if ($activeNav === 'state') is-active @endif">State targets</a>
             <a href="{{ route('admin.targets.district') }}" class="admin-topbar__link @if ($activeNav === 'district') is-active @endif">District targets</a>
             <a href="{{ route('admin.staff.index') }}" class="admin-topbar__link @if ($activeNav === 'staff') is-active @endif">Staff</a>
@@ -80,6 +71,7 @@
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">Dashboard</a>
             <a href="{{ route('staff.monthly-targets') }}" class="admin-topbar__link @if ($activeNav === 'staff-targets') is-active @endif">Monthly targets</a>
             <a href="{{ route('staff.applications') }}" class="admin-topbar__link @if ($activeNav === 'staff-apps') is-active @endif">Applications</a>
+            <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase2-data') is-active @endif">FY 2025-26 Data</a>
         </nav>
         @endif
 

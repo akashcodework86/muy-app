@@ -41,6 +41,11 @@ class StateAdminDashboardService
         $cfaTotal = CfaSubmission::query()->count();
         $cfaThisMonth = CfaSubmission::query()->whereYear('created_at', now()->year)->whereMonth('created_at', now()->month)->count();
         $cfaLast30 = CfaSubmission::query()->where('created_at', '>=', now()->subDays(30))->count();
+        $stageCounts = DB::table('cfa_submissions')
+            ->selectRaw("LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.form_stage')))) as stage_key")
+            ->selectRaw('COUNT(*) as total')
+            ->groupBy('stage_key')
+            ->pluck('total', 'stage_key');
 
         $cfaByDistrict = DB::table('cfa_submissions')
             ->join('districts', 'cfa_submissions.district_id', '=', 'districts.id')
@@ -80,6 +85,9 @@ class StateAdminDashboardService
             'cfaTotal' => $cfaTotal,
             'cfaThisMonth' => $cfaThisMonth,
             'cfaLast30' => $cfaLast30,
+            'seedCount' => (int) ($stageCounts['seed'] ?? 0),
+            'earlyCount' => (int) ($stageCounts['early'] ?? 0),
+            'growthCount' => (int) ($stageCounts['growth'] ?? 0),
             'hubsCount' => DB::table('hubs')->count(),
             'districtsCount' => District::query()->count(),
             'deliverablesCount' => Deliverable::query()->where('is_active', true)->count(),

@@ -1,11 +1,27 @@
 @extends('public.cfa.layout-cfa')
 
-@section('title', 'Call for Application')
+@section('title', 'Call for Application — Public')
+
+@push('head')
+<style>
+    .public-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        background: rgba(255,255,255,0.15);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 6px;
+        padding: 0.3rem 0.7rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        margin-top: 0.6rem;
+    }
+</style>
+@endpush
 
 @section('content')
-@php
-    $cfaEditingSubmission = $cfaEditingSubmission ?? null;
-@endphp
+
 @if ($errors->any())
     <div class="main-layout" style="padding-top:1rem;">
         <div class="cfa-error-banner" style="max-width:56rem;margin:0 auto;">
@@ -19,28 +35,11 @@
         <div class="header-text">
             <h1>मुख्यमंत्री उद्यमशाला योजना</h1>
             <p>Rural Business Incubator — Call For Application</p>
-            @if (! empty($cfaEditingSubmission))
-                <p style="font-size:0.9rem;opacity:0.95;margin-top:0.5rem;padding:0.5rem 0.75rem;background:rgba(0,0,0,0.08);border-radius:8px;">
-                    <strong>Editing</strong> application <strong>{{ $cfaEditingSubmission->application_no ?? '—' }}</strong>
-                    · <a href="{{ route('staff.applications.show', $cfaEditingSubmission) }}" style="color:inherit;font-weight:600;">View printable record</a>
-                </p>
-            @endif
-            <p style="font-size:0.9rem;opacity:0.9;margin-top:0.5rem;">
-                Referred by <strong>{{ $staff->name }}</strong>
-                @if($staff->designationRecord) ({{ $staff->designationRecord->name }}) @endif
-                · {{ $staff->district?->name ?? 'District' }}
-            </p>
+            <span class="public-badge">🌐 Public Form / सार्वजनिक आवेदन</span>
         </div>
     </div>
 </header>
 
-@if ($districtName === '' || count($blocks) === 0)
-    <div class="main-layout">
-        <div class="form-section">
-            <p>This referral link is not ready: district or block list is missing. Please contact support.</p>
-        </div>
-    </div>
-@else
 <div class="main-layout">
     <div class="form-column">
         <div class="progress-wrapper">
@@ -54,14 +53,16 @@
         </div>
 
         <form method="post"
-            action="{{ ! empty($cfaEditingSubmission) ? route('staff.applications.update', $cfaEditingSubmission) : route('cfa.apply.store', ['token' => $token]) }}"
-            id="cfaMainForm"
-            novalidate>
+              action="{{ route('cfa.public.store') }}"
+              id="cfaMainForm"
+              novalidate>
             @csrf
-            @if (! empty($cfaEditingSubmission))
-                @method('PUT')
-            @endif
-            @include('public.cfa.partials.section-a')
+            @include('public.cfa.partials.section-a', [
+                'publicMode'   => true,
+                'districts'    => $districts,
+                'districtName' => '',
+                'blocks'       => [],
+            ])
             @include('public.cfa.partials.section-b')
         </form>
     </div>
@@ -116,17 +117,70 @@
 
 @push('scripts')
 <script>
-window.CFA_PRODUCTS = @json($productsByCategory);
-window.CFA_START_SECTION_B = @json((bool) old('form_stage'));
-window.CFA_OLD_PRODUCT = @json(old('product'));
+window.CFA_PRODUCTS              = @json($productsByCategory);
+window.CFA_START_SECTION_B       = @json((bool) old('form_stage'));
+window.CFA_OLD_PRODUCT           = @json(old('product'));
 window.CFA_OLD_BUSINESS_CATEGORY = @json(old('business_category'));
-window.CFA_CHECK_PHONE_URL = @json(
-    ! empty($cfaEditingSubmission)
-        ? route('staff.applications.check-phone', $cfaEditingSubmission)
-        : route('cfa.apply.check-phone', ['token' => $token])
-);
+window.CFA_CHECK_PHONE_URL       = @json(route('cfa.public.check-phone'));
 </script>
 <script src="{{ asset('js/cfa-form.js') }}?v={{ filemtime(public_path('js/cfa-form.js')) }}"></script>
+
+{{-- Dynamic district → block loader for the public form --}}
+<script>
+(function () {
+    var districtSelect = document.getElementById('district_select');
+    var blockSelect    = document.getElementById('block');
+    var loadingMsg     = document.getElementById('blockLoadingMsg');
+    if (!districtSelect || !blockSelect) return;
+
+    var oldBlock = @json(old('block'));
+
+    function loadBlocks(districtId) {
+        if (!districtId) {
+            blockSelect.innerHTML = '<option value="">— select district first —</option>';
+            blockSelect.disabled  = true;
+            if (loadingMsg) loadingMsg.style.display = 'none';
+            return;
+        }
+        if (loadingMsg) loadingMsg.style.display = 'block';
+        blockSelect.disabled = true;
+
+        fetch('{{ route("api.cfa.blocks") }}?district_id=' + districtId)
+            .then(function (r) { return r.json(); })
+            .then(function (blocks) {
+                blockSelect.innerHTML = '<option value="">Select Block</option>';
+                blocks.forEach(function (b) {
+                    var opt         = document.createElement('option');
+                    opt.value       = b;
+                    opt.textContent = b;
+                    if (b === oldBlock) { opt.selected = true; oldBlock = null; }
+                    blockSelect.appendChild(opt);
+                });
+                blockSelect.disabled = false;
+                // Trigger counter/guide refresh after blocks load
+                blockSelect.dispatchEvent(new Event('change'));
+            })
+            .catch(function () {
+                blockSelect.innerHTML = '<option value="">Could not load blocks — please retry.</option>';
+                blockSelect.disabled  = false;
+            })
+            .finally(function () {
+                if (loadingMsg) loadingMsg.style.display = 'none';
+            });
+    }
+
+    districtSelect.addEventListener('change', function () {
+        var opt = this.options[this.selectedIndex];
+        loadBlocks(opt && opt.dataset.districtId ? opt.dataset.districtId : null);
+    });
+
+    // On page load restore previously selected district (after a validation error redirect)
+    var preSelected = districtSelect.options[districtSelect.selectedIndex];
+    if (preSelected && preSelected.dataset && preSelected.dataset.districtId && preSelected.value) {
+        loadBlocks(preSelected.dataset.districtId);
+    }
+})();
+</script>
 @endpush
-@endif
+
 @endsection

@@ -9,19 +9,54 @@
     let phoneCheckTimer = null;
     const MOBILE_OK = /^[6-9]\d{9}$/;
 
+    function lockGenderToFemale() {
+        const gender = $('gender');
+        if (!gender) return;
+        gender.value = 'Female';
+        gender.dataset.cfaLocked = '1';
+        // Don't disable: disabled fields are not submitted.
+        gender.style.pointerEvents = 'none';
+        gender.classList.add('cfa-select-locked');
+        gender.setAttribute('aria-readonly', 'true');
+        gender.setAttribute('tabindex', '-1');
+    }
+
+    function unlockGender() {
+        const gender = $('gender');
+        if (!gender) return;
+        delete gender.dataset.cfaLocked;
+        gender.style.pointerEvents = '';
+        gender.classList.remove('cfa-select-locked');
+        gender.removeAttribute('aria-readonly');
+        gender.removeAttribute('tabindex');
+    }
+
     function hideMobileDuplicateError() {
         const e = $('mobile-duplicate-error');
         if (e) {
             e.classList.add('hidden');
-            e.textContent = '';
+            e.style.display = '';
+        }
+        const input = $('mobile');
+        if (input) {
+            input.style.borderColor = '';
+            input.style.boxShadow = '';
         }
     }
 
     function showMobileDuplicateError(msg) {
         const e = $('mobile-duplicate-error');
         if (e) {
-            e.textContent = msg || '';
+            const textEl = $('mobile-duplicate-error-text');
+            if (textEl) textEl.textContent = msg || '';
             e.classList.remove('hidden');
+            e.style.display = 'flex';
+        }
+        // Highlight the mobile input with red border
+        const input = $('mobile');
+        if (input) {
+            input.style.borderColor = '#ef4444';
+            input.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.18)';
         }
     }
 
@@ -317,8 +352,13 @@
                 casteSelect.value = '';
             }
             if (genderSelect) {
-                genderSelect.value = 'NA';
-                genderSelect.disabled = true;
+                // SHG/CBO: force Gender = Female (unchangeable, but still submitted)
+                genderSelect.disabled = false;
+                if (category === 'SHG') {
+                    lockGenderToFemale();
+                } else if (category === 'CBO') {
+                    lockGenderToFemale();
+                }
             }
             if (educationSelect) {
                 educationSelect.innerHTML = '<option value="NA" selected>NA</option>';
@@ -345,7 +385,10 @@
             }
             if (casteDiv) casteDiv.style.display = 'block';
             if (casteSelect) casteSelect.required = true;
-            if (genderSelect) genderSelect.disabled = false;
+            if (genderSelect) {
+                unlockGender();
+                genderSelect.disabled = false;
+            }
             if (educationSelect) {
                 const opts = ['Below 8th', '8th pass', '10th pass', '12th pass', 'ITI', 'Diploma', 'Certificate', 'Under Graduate', 'Post Graduate', 'NA'];
                 const oldEdu = educationSelect.getAttribute('data-old-education') || educationSelect.value;
@@ -1000,6 +1043,10 @@
         }
 
         $('category') && $('category').addEventListener('change', toggleCategoryFields);
+        $('gender') &&
+            $('gender').addEventListener('change', function () {
+                if (this.dataset && this.dataset.cfaLocked === '1') lockGenderToFemale();
+            });
         $('is_member') && $('is_member').addEventListener('change', toggleShgMember);
         $('training_received') && $('training_received').addEventListener('change', toggleTrainingInstitute);
         $('current_employment') && $('current_employment').addEventListener('change', toggleEmploymentCount);

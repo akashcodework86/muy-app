@@ -50,6 +50,14 @@ class HubAdminDashboardService
             ->count();
         $cfaLast30 = (clone $cfaBase)->where('created_at', '>=', now()->subDays(30))->count();
 
+        $stageQuery = DB::table('cfa_submissions')
+            ->selectRaw("LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.form_stage')))) as stage_key")
+            ->selectRaw('COUNT(*) as total');
+        if ($districtIds !== []) {
+            $stageQuery->whereIn('district_id', $districtIds);
+        }
+        $stageCounts = $stageQuery->groupBy('stage_key')->pluck('total', 'stage_key');
+
         $cfaByDistrict = $districtIds === []
             ? collect()
             : DB::table('cfa_submissions')
@@ -94,6 +102,9 @@ class HubAdminDashboardService
             'cfaTotal' => $cfaTotal,
             'cfaThisMonth' => $cfaThisMonth,
             'cfaLast30' => $cfaLast30,
+            'seedCount' => (int) ($stageCounts['seed'] ?? 0),
+            'earlyCount' => (int) ($stageCounts['early'] ?? 0),
+            'growthCount' => (int) ($stageCounts['growth'] ?? 0),
             'cfaByDistrict' => [
                 'labels' => $cfaByDistrict->pluck('name')->all(),
                 'values' => $cfaByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),

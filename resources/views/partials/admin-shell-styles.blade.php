@@ -78,26 +78,25 @@
         flex-shrink: 0;
     }
     .admin-brand__img {
-        height: 40px;
+        height: 46px;
         width: auto;
-        max-width: 120px;
+        max-width: 56px;
         object-fit: contain;
-        border-radius: 8px;
-    }
-    .admin-brand__fallback {
-        width: 40px;
-        height: 40px;
         border-radius: 10px;
-        background: linear-gradient(135deg, #4f46e5, #0d9488);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 0.75rem;
-        color: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        flex-shrink: 0;
     }
-    .admin-brand__text { display: flex; flex-direction: column; line-height: 1.2; }
-    .admin-brand__name { font-weight: 700; font-size: 0.95rem; letter-spacing: -0.02em; }
+    .admin-brand__text { display: flex; flex-direction: column; line-height: 1.25; }
+    .admin-brand__name {
+        font-weight: 700;
+        font-size: 1rem;
+        letter-spacing: -0.01em;
+        background: linear-gradient(90deg, #ffffff 0%, #c7d2fe 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        white-space: nowrap;
+    }
     .admin-brand__sub { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
     .admin-topbar__nav {
         display: flex;

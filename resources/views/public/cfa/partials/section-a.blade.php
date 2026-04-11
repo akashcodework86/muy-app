@@ -75,7 +75,13 @@
             <label class="form-label" for="mobile">Mobile / WhatsApp / मोबाइल नंबर <span style="color:red">*</span></label>
             <input type="tel" class="form-control" name="phone" id="mobile" value="{{ old('phone') }}" maxlength="10" inputmode="numeric" required autocomplete="tel">
             <p id="mobile-error" class="text-red-500 hidden">Valid 10-digit mobile starting with 6–9.</p>
-            <p id="mobile-duplicate-error" class="text-red-500 hidden" style="font-size:0.85rem;margin-top:0.35rem;"></p>
+            <div id="mobile-duplicate-error" class="hidden" style="margin-top:0.6rem;padding:0.75rem 1rem;background:#fef2f2;border:1.5px solid #f87171;border-radius:8px;display:flex;align-items:flex-start;gap:0.6rem;">
+                <span style="font-size:1.25rem;line-height:1;flex-shrink:0;">🚫</span>
+                <div>
+                    <p style="margin:0;font-weight:700;color:#b91c1c;font-size:0.9rem;" id="mobile-duplicate-error-text"></p>
+                    <p style="margin:0.2rem 0 0;font-size:0.8rem;color:#ef4444;">Please use a different mobile number to apply. / कृपया दूसरे मोबाइल नंबर से आवेदन करें।</p>
+                </div>
+            </div>
         </div>
 
         <div>
@@ -95,21 +101,47 @@
             <input type="text" class="form-control" name="village" id="village" value="{{ old('village') }}" maxlength="191">
         </div>
 
-        <div>
-            <label class="form-label">District / जनपद <span style="color:red">*</span></label>
-            <input type="text" class="form-control" value="{{ $districtName }}" disabled>
-            <input type="hidden" name="district" value="{{ $districtName }}">
-        </div>
+        @if (!empty($publicMode))
+            {{-- Public walk-in form: applicant self-selects district, blocks load via AJAX --}}
+            <div>
+                <label class="form-label" for="district_select">District / जनपद <span style="color:red">*</span></label>
+                <select class="form-select" name="district" id="district_select" required>
+                    <option value="">Select District / जनपद चुनें</option>
+                    @foreach ($districts as $d)
+                        <option value="{{ $d->name }}"
+                                data-district-id="{{ $d->id }}"
+                                @selected(old('district') === $d->name)>
+                            {{ $d->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
 
-        <div>
-            <label class="form-label" for="block">Block / विकास खंड <span style="color:red">*</span></label>
-            <select class="form-select" name="block" id="block" required>
-                <option value="">Select Block</option>
-                @foreach ($blocks as $b)
-                    <option value="{{ $b }}" @selected(old('block') === $b)>{{ $b }}</option>
-                @endforeach
-            </select>
-        </div>
+            <div>
+                <label class="form-label" for="block">Block / विकास खंड <span style="color:red">*</span></label>
+                <select class="form-select" name="block" id="block" required disabled>
+                    <option value="">— select district first —</option>
+                </select>
+                <p id="blockLoadingMsg" style="display:none;font-size:0.8rem;color:#6b7280;margin-top:0.3rem;">Loading blocks…</p>
+            </div>
+        @else
+            {{-- Referral form: district locked to staff's district --}}
+            <div>
+                <label class="form-label">District / जनपद <span style="color:red">*</span></label>
+                <input type="text" class="form-control" value="{{ $districtName }}" disabled>
+                <input type="hidden" name="district" value="{{ $districtName }}">
+            </div>
+
+            <div>
+                <label class="form-label" for="block">Block / विकास खंड <span style="color:red">*</span></label>
+                <select class="form-select" name="block" id="block" required>
+                    <option value="">Select Block</option>
+                    @foreach ($blocks as $b)
+                        <option value="{{ $b }}" @selected(old('block') === $b)>{{ $b }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
 
         <div>
             <label class="form-label" for="pincode">Pin Code / पिनकोड <span style="color:red">*</span></label>
