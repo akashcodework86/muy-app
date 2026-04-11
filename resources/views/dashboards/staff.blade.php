@@ -178,25 +178,160 @@
             line-height: 1.35;
         }
         
-        /* Mini Chart */
-        .mini-chart {
-            display: flex;
-            align-items: flex-end;
-            gap: 3px;
-            height: 32px;
+        /* Apps Highlight Section */
+        .apps-highlight {
             margin-top: 0.65rem;
-            padding: 0.35rem;
-            background: rgba(167, 139, 250, 0.05);
+        }
+        .apps-highlight__main {
+            text-align: center;
+            padding: 1rem 0.75rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+        }
+        .apps-highlight__number {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.35rem;
+        }
+        .apps-highlight__label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+        }
+        .apps-highlight__progress {
+            margin-top: 0.85rem;
+        }
+        .apps-highlight__sub {
+            margin-top: 0.5rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.65rem;
+        }
+        .progress-bar-wrapper {
+            background: rgba(226, 232, 240, 0.6);
+            border-radius: 999px;
+            height: 18px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            border-radius: 999px;
+            transition: width 0.6s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 0.5rem;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        .progress-bar-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        .progress-bar-meta {
+            margin-top: 0.4rem;
+            font-size: 0.6rem;
+            color: #64748b;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        /* Business Mix Compact */
+        .business-mix-compact {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            border-radius: 12px;
+        }
+        .business-mix-compact__header {
+            margin-bottom: 0.85rem;
+            text-align: center;
+        }
+        .business-mix-compact__title {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #475569;
+            margin-bottom: 0.2rem;
+        }
+        .business-mix-compact__meta {
+            font-size: 0.6rem;
+            color: #94a3b8;
+        }
+        .business-mix-compact__chart {
+            position: relative;
+        }
+        .no-data-message {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: #94a3b8;
+        }
+        .no-data-message i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            display: block;
+            opacity: 0.5;
+        }
+        .no-data-message p {
+            margin: 0;
+            font-size: 0.75rem;
+        }
+        .business-mix-legend {
+            margin-top: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.65rem;
+            padding: 0.35rem 0.5rem;
+            background: rgba(255, 255, 255, 0.6);
             border-radius: 6px;
+            transition: all 0.2s ease;
         }
-        .mini-bar {
+        .legend-item:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateX(2px);
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .legend-label {
             flex: 1;
-            background: linear-gradient(180deg, #a78bfa, #c4b5fd);
-            border-radius: 2px 2px 0 0;
-            transition: all 0.3s ease;
+            color: #475569;
+            font-weight: 600;
         }
-        .mini-bar:hover {
-            background: linear-gradient(180deg, #8b5cf6, #a78bfa);
+        .legend-value {
+            color: #64748b;
+            font-weight: 700;
+            font-family: 'DM Sans', sans-serif;
+        }
+        
+        /* Quick Stats Row - Remove */
+        .quick-stats-row {
+            display: none;
         }
         
         /* Stage Mix Compact with Arrows */
@@ -477,6 +612,137 @@
         .chart-card .hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; }
         .chart-card .canvas-wrap { position: relative; height: 260px; }
         .chart-card.tall .canvas-wrap { height: 280px; }
+        
+        /* Insights Container */
+        .insights-container {
+            padding: 0.5rem 0;
+        }
+        .insight-cards-compact {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .insight-card-mini {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            border: 2px solid;
+            transition: all 0.3s ease;
+        }
+        .insight-card-mini:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+        .insight-card-mini--primary {
+            border-color: #6366f1;
+            background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+        }
+        .insight-card-mini--success {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        }
+        .insight-card-mini__icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+        .insight-card-mini--primary .insight-card-mini__icon {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+        }
+        .insight-card-mini--success .insight-card-mini__icon {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        .insight-card-mini__content {
+            flex: 1;
+        }
+        .insight-card-mini__value {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 800;
+            line-height: 1;
+            color: #0f172a;
+            margin-bottom: 0.35rem;
+        }
+        .insight-card-mini__label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #475569;
+            margin-bottom: 0.2rem;
+        }
+        .insight-card-mini__meta {
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+        
+        .insight-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.65rem;
+        }
+        .insight-stat-item {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            border-radius: 10px;
+            padding: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            transition: all 0.2s ease;
+        }
+        .insight-stat-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .insight-stat-item__icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: white;
+            font-size: 1rem;
+        }
+        .insight-stat-item__content {
+            flex: 1;
+            min-width: 0;
+        }
+        .insight-stat-item__value {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+        .insight-stat-item__label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #475569;
+            margin-bottom: 0.15rem;
+        }
+        .insight-stat-item__meta {
+            font-size: 0.65rem;
+            color: #94a3b8;
+        }
+        
         .recent-table-wrap {
             background: var(--glass-strong);
             border: 1px solid var(--border);
@@ -1273,17 +1539,55 @@
                         <div class="label-time"><i class="fa-regular fa-clock"></i> {{ now()->setTimezone('Asia/Kolkata')->format('d M, h:i A') }} IST</div>
                     </div>
                     
-                    <div class="value">{{ number_format($cfaThisFy) }}</div>
-                    <div class="sub">Keep sharing your form link this cycle.</div>
-                    
-                    {{-- Mini bar chart visualization --}}
-                    <div class="mini-chart">
-                        @for($i = 0; $i < 7; $i++)
+                    <div class="apps-highlight">
+                        <div class="apps-highlight__main">
+                            <div class="apps-highlight__number">{{ number_format($cfaThisFy) }}</div>
+                            <div class="apps-highlight__label">Total Applications</div>
+                        </div>
+                        @if ($staffAnnualTarget !== null && (int) $staffAnnualTarget > 0)
                             @php
-                                $height = $totalApps > 0 ? rand(20, 60) : rand(10, 30);
+                                $targetProgress = round(($cfaThisFy / $staffAnnualTarget) * 100);
                             @endphp
-                            <div class="mini-bar" style="height: {{ $height }}px;"></div>
-                        @endfor
+                            <div class="apps-highlight__progress">
+                                <div class="progress-bar-wrapper">
+                                    <div class="progress-bar-fill" style="width: {{ min($targetProgress, 100) }}%;">
+                                        <span class="progress-bar-label">{{ $targetProgress }}%</span>
+                                    </div>
+                                </div>
+                                <div class="progress-bar-meta">
+                                    {{ number_format($cfaThisFy) }} of {{ number_format($staffAnnualTarget) }} target
+                                </div>
+                            </div>
+                        @else
+                            <div class="apps-highlight__sub">Keep sharing your form link this cycle.</div>
+                        @endif
+                    </div>
+                    
+                    {{-- Business Category Mix Pie Chart --}}
+                    <div class="business-mix-compact">
+                        <div class="business-mix-compact__header">
+                            <div class="business-mix-compact__title">Business Categories</div>
+                            <div class="business-mix-compact__meta">Category distribution</div>
+                        </div>
+                        <div class="business-mix-compact__chart">
+                            @if (count($businessMix['labels']) === 0)
+                                <div class="no-data-message">
+                                    <i class="fa-solid fa-chart-pie"></i>
+                                    <p>No category data yet</p>
+                                </div>
+                            @else
+                                <canvas id="staffBusinessMixCompact" style="max-height: 180px;"></canvas>
+                                <div class="business-mix-legend">
+                                    @foreach ($businessMix['labels'] as $idx => $label)
+                                        <div class="legend-item">
+                                            <span class="legend-color" style="background-color: {{ $businessMix['colors'][$idx] ?? '#6366f1' }};"></span>
+                                            <span class="legend-label">{{ $label }}</span>
+                                            <span class="legend-value">{{ $businessMix['values'][$idx] ?? 0 }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
                     </div>
                     
                     <div class="stage-mix-compact">
@@ -1839,14 +2143,110 @@
                 <div class="canvas-wrap"><canvas id="staffChartTrend"></canvas></div>
             </div>
             <div class="chart-card tall">
-                <h4>Business category mix</h4>
-                <p class="hint">Recent applications via your link (sample)</p>
-                <div class="canvas-wrap">
-                    @if (count($businessMix['labels']) === 0)
-                        <p style="display:flex;align-items:center;justify-content:center;height:100%;margin:0;color:var(--text-muted);font-size:0.9rem;text-align:center;padding:1rem;">No category data yet.</p>
-                    @else
-                        <canvas id="staffChartDoughnut"></canvas>
-                    @endif
+                <h4>Key Insights</h4>
+                <p class="hint">Performance highlights from your referrals</p>
+                <div class="insights-container">
+                    {{-- Top Insight Cards --}}
+                    <div class="insight-cards-compact">
+                        <div class="insight-card-mini insight-card-mini--primary">
+                            <div class="insight-card-mini__icon">
+                                <i class="fa-solid fa-bullseye"></i>
+                            </div>
+                            <div class="insight-card-mini__content">
+                                <div class="insight-card-mini__value">
+                                    @if ($overallTargetPct !== null)
+                                        {{ $overallTargetPct }}%
+                                    @else
+                                        —
+                                    @endif
+                                </div>
+                                <div class="insight-card-mini__label">Target Progress</div>
+                                <div class="insight-card-mini__meta">
+                                    @if ($overallTargetPct !== null)
+                                        vs annual allocation
+                                    @else
+                                        Set targets to track
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="insight-card-mini insight-card-mini--success">
+                            <div class="insight-card-mini__icon">
+                                <i class="fa-solid fa-chart-line"></i>
+                            </div>
+                            <div class="insight-card-mini__content">
+                                <div class="insight-card-mini__value">
+                                    @if ($velocityChangePct !== null)
+                                        {{ ($velocityChangePct ?? 0) >= 0 ? '+' : '' }}{{ $velocityChangePct }}%
+                                    @else
+                                        —
+                                    @endif
+                                </div>
+                                <div class="insight-card-mini__label">Velocity Change</div>
+                                <div class="insight-card-mini__meta">Week over week growth</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {{-- Stats Grid --}}
+                    <div class="insight-stats-grid">
+                        <div class="insight-stat-item">
+                            <div class="insight-stat-item__icon" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                                <i class="fa-solid fa-id-card"></i>
+                            </div>
+                            <div class="insight-stat-item__content">
+                                <div class="insight-stat-item__value">
+                                    @if ($registrationRate !== null)
+                                        {{ (int) $registrationRate }}%
+                                    @else
+                                        —
+                                    @endif
+                                </div>
+                                <div class="insight-stat-item__label">Registered</div>
+                                <div class="insight-stat-item__meta">Udyam registered</div>
+                            </div>
+                        </div>
+                        
+                        <div class="insight-stat-item">
+                            <div class="insight-stat-item__icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                            </div>
+                            <div class="insight-stat-item__content">
+                                <div class="insight-stat-item__value">
+                                    @if ($trainingRate !== null)
+                                        {{ (int) $trainingRate }}%
+                                    @else
+                                        —
+                                    @endif
+                                </div>
+                                <div class="insight-stat-item__label">Trained</div>
+                                <div class="insight-stat-item__meta">Received training</div>
+                            </div>
+                        </div>
+                        
+                        <div class="insight-stat-item">
+                            <div class="insight-stat-item__icon" style="background: linear-gradient(135deg, #14b8a6, #0d9488);">
+                                <i class="fa-solid fa-fire-flame-curved"></i>
+                            </div>
+                            <div class="insight-stat-item__content">
+                                <div class="insight-stat-item__value">{{ $activeDaysStreak ?? 0 }}</div>
+                                <div class="insight-stat-item__label">Day Streak</div>
+                                <div class="insight-stat-item__meta">Active days in row</div>
+                            </div>
+                        </div>
+                        
+                        <div class="insight-stat-item">
+                            <div class="insight-stat-item__icon" style="background: linear-gradient(135deg, #ec4899, #be185d);">
+                                <i class="fa-solid fa-calendar-check"></i>
+                            </div>
+                            <div class="insight-stat-item__content">
+                                <div class="insight-stat-item__value">{{ number_format($cfaThisMonth ?? 0) }}</div>
+                                <div class="insight-stat-item__label">This Month</div>
+                                <div class="insight-stat-item__meta">Applications</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2049,6 +2449,50 @@
             const mixLabels = @json($businessMix['labels']);
             const mixValues = @json($businessMix['values']);
             const mixColors = @json($chartColors);
+            
+            // Compact Business Mix Chart in Hero Section
+            if (document.getElementById('staffBusinessMixCompact')) {
+                new Chart(document.getElementById('staffBusinessMixCompact'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: mixLabels,
+                        datasets: [{
+                            data: mixValues,
+                            backgroundColor: mixLabels.map((_, i) => mixColors[i % mixColors.length]),
+                            borderWidth: 3,
+                            borderColor: '#fff',
+                            hoverBorderWidth: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        cutout: '65%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                                titleColor: '#fff',
+                                bodyColor: '#fff',
+                                padding: 12,
+                                cornerRadius: 8,
+                                displayColors: true,
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const value = context.parsed;
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return context.label + ': ' + value + ' (' + percentage + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Original chart if it exists
+            if (document.getElementById('staffChartDoughnut')) {
             new Chart(document.getElementById('staffChartDoughnut'), {
                 type: 'doughnut',
                 data: {
@@ -2068,6 +2512,7 @@
                     }
                 }
             });
+            }
             @endif
 
             @if (count($applicantCategoryMix['labels']) > 0)
