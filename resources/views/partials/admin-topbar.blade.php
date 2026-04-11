@@ -15,6 +15,14 @@
         'hub_admin' => 'Hub admin',
         default => 'State admin',
     };
+    $initials = collect(preg_split('/\s+/', trim((string) ($u->name ?? 'MUY'))) ?: [])
+        ->filter()
+        ->map(fn ($part) => mb_substr($part, 0, 1))
+        ->take(2)
+        ->implode('');
+    if ($initials === '') {
+        $initials = 'MU';
+    }
     $r = request()->route()?->getName() ?? '';
     $activeNav = match (true) {
         $r === 'dashboard' => 'dashboard',
@@ -76,7 +84,13 @@
         @endif
 
         <div class="admin-topbar__right">
-            <span class="admin-topbar__user" title="{{ auth()->user()->email }}">{{ auth()->user()->name }}</span>
+            <div class="admin-topbar__profile" title="{{ auth()->user()->email }}">
+                <span class="admin-topbar__avatar">{{ strtoupper($initials) }}</span>
+                <span class="admin-topbar__user-wrap">
+                    <span class="admin-topbar__user">{{ auth()->user()->name }}</span>
+                    <span class="admin-topbar__user-role">{{ str_replace('_', ' ', auth()->user()->role ?? 'user') }}</span>
+                </span>
+            </div>
             <form method="post" action="{{ route('logout') }}" class="admin-topbar__logout">
                 @csrf
                 <button type="submit">Log out</button>

@@ -41,6 +41,9 @@
     .admin-app-body--dashboard .admin-topbar__user {
         color: #334155;
     }
+    .admin-app-body--dashboard .admin-topbar__user-role {
+        color: #64748b;
+    }
     .admin-app-body--dashboard .admin-topbar__logout button {
         background: rgba(255, 255, 255, 0.8);
         border-color: rgba(148, 163, 184, 0.55);
@@ -134,26 +137,69 @@
         flex-shrink: 0;
         margin-left: auto;
     }
+    .admin-topbar__profile {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        min-width: 0;
+        padding: 0.2rem 0.2rem 0.2rem 0.25rem;
+        border-radius: 999px;
+    }
+    .admin-topbar__avatar {
+        width: 2.2rem;
+        height: 2.2rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f59e0b, #ec4899 55%, #6366f1);
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        box-shadow: 0 10px 24px rgba(99, 102, 241, 0.18);
+        flex-shrink: 0;
+    }
+    .admin-topbar__user-wrap {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
     .admin-topbar__user {
-        font-size: 0.8rem;
+        font-size: 0.82rem;
+        font-weight: 600;
         color: #e2e8f0;
         max-width: 12rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    .admin-topbar__user-role {
+        font-size: 0.66rem;
+        line-height: 1.2;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #94a3b8;
+        white-space: nowrap;
+    }
     .admin-topbar__logout button {
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(148, 163, 184, 0.35);
         color: #e2e8f0;
-        padding: 0.4rem 0.85rem;
-        border-radius: 8px;
+        padding: 0.5rem 0.95rem;
+        border-radius: 999px;
         font-size: 0.8rem;
         font-family: inherit;
+        font-weight: 600;
         cursor: pointer;
     }
     .admin-topbar__logout button:hover {
         background: rgba(255, 255, 255, 0.12);
+    }
+    @media (max-width: 720px) {
+        .admin-topbar__user-wrap {
+            display: none;
+        }
     }
     .admin-main {
         max-width: none;
