@@ -265,32 +265,52 @@
             font-weight: 600;
         }
         
-        /* Business Mix Compact */
+        /* Business categories — ranked bars (replaces doughnut) */
         .business-mix-compact {
             margin-top: 1rem;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.5);
-            border: 1px solid rgba(148, 163, 184, 0.15);
-            border-radius: 12px;
+            padding: 1rem 1rem 1.1rem;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(248, 250, 252, 0.45));
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 16px;
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.55) inset,
+                0 12px 32px rgba(79, 70, 229, 0.06);
+            position: relative;
+            overflow: hidden;
+        }
+        .business-mix-compact::before {
+            content: '';
+            position: absolute;
+            top: -40%;
+            right: -20%;
+            width: 12rem;
+            height: 12rem;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.12), transparent 68%);
+            pointer-events: none;
         }
         .business-mix-compact__header {
-            margin-bottom: 0.85rem;
-            text-align: center;
+            margin-bottom: 0.75rem;
+            text-align: left;
+            position: relative;
+            z-index: 1;
         }
         .business-mix-compact__title {
             font-size: 0.7rem;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: #475569;
-            margin-bottom: 0.2rem;
+            letter-spacing: 0.08em;
+            color: #334155;
+            margin-bottom: 0.15rem;
         }
         .business-mix-compact__meta {
-            font-size: 0.6rem;
-            color: #94a3b8;
+            font-size: 0.62rem;
+            color: #64748b;
         }
         .business-mix-compact__chart {
             position: relative;
+            z-index: 1;
+            min-width: 0;
         }
         .no-data-message {
             text-align: center;
@@ -307,41 +327,112 @@
             margin: 0;
             font-size: 0.75rem;
         }
-        .business-mix-legend {
-            margin-top: 0.85rem;
+        .biz-cat-lb {
             display: flex;
             flex-direction: column;
-            gap: 0.4rem;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
             gap: 0.5rem;
-            font-size: 0.65rem;
-            padding: 0.35rem 0.5rem;
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: 6px;
-            transition: all 0.2s ease;
         }
-        .legend-item:hover {
-            background: rgba(255, 255, 255, 0.9);
-            transform: translateX(2px);
+        .biz-cat-lb__row {
+            display: grid;
+            grid-template-columns: 1.6rem minmax(0, 1fr);
+            align-items: stretch;
+            gap: 0.45rem;
+            padding: 0.4rem 0.45rem 0.45rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
         }
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-            flex-shrink: 0;
+        .biz-cat-lb__row:hover {
+            border-color: rgba(99, 102, 241, 0.35);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.09);
+            transform: translateY(-1px);
         }
-        .legend-label {
-            flex: 1;
-            color: #475569;
-            font-weight: 600;
+        .biz-cat-lb__rank {
+            font-size: 0.58rem;
+            font-weight: 800;
+            color: #94a3b8;
+            font-variant-numeric: tabular-nums;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 0.15rem;
         }
-        .legend-value {
-            color: #64748b;
+        .biz-cat-lb__main {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.32rem;
+        }
+        .biz-cat-lb__label-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.5rem;
+            min-width: 0;
+        }
+        .biz-cat-lb__name {
+            font-size: 0.68rem;
             font-weight: 700;
+            color: #0f172a;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .biz-cat-lb__nums {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-shrink: 0;
+            font-variant-numeric: tabular-nums;
+        }
+        .biz-cat-lb__pct {
+            font-size: 0.58rem;
+            font-weight: 700;
+            color: #64748b;
+        }
+        .biz-cat-lb__count {
             font-family: 'DM Sans', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .biz-cat-lb__track {
+            height: 7px;
+            border-radius: 999px;
+            background: rgba(241, 245, 249, 0.95);
+            overflow: hidden;
+            border: 1px solid rgba(226, 232, 240, 0.85);
+        }
+        .biz-cat-lb__fill {
+            height: 100%;
+            width: 0;
+            max-width: 100%;
+            border-radius: inherit;
+            background: var(--biz-color);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.42),
+                0 0 18px rgba(15, 23, 42, 0.12);
+            animation: bizCatFillBar 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            animation-delay: var(--biz-delay, 0s);
+        }
+        @keyframes bizCatFillBar {
+            from {
+                width: 0;
+                opacity: 0.88;
+            }
+            to {
+                width: var(--biz-pct);
+                opacity: 1;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .biz-cat-lb__fill {
+                animation: none;
+                width: var(--biz-pct);
+                opacity: 1;
+            }
         }
         
         /* Quick Stats Row - Remove */
@@ -2429,26 +2520,47 @@
                         @endif
                     </div>
                     
-                    {{-- Business Category Mix Pie Chart --}}
+                    {{-- Business categories: ranked leaderboard (bar width = share of your mix) --}}
                     <div class="business-mix-compact">
                         <div class="business-mix-compact__header">
-                            <div class="business-mix-compact__title">Business Categories</div>
-                            <div class="business-mix-compact__meta">Category distribution</div>
+                            <div class="business-mix-compact__title">Business categories</div>
+                            <div class="business-mix-compact__meta">Ranked mix · share of your referral applications</div>
                         </div>
                         <div class="business-mix-compact__chart">
                             @if (count($businessMix['labels']) === 0)
                                 <div class="no-data-message">
-                                    <i class="fa-solid fa-chart-pie"></i>
+                                    <i class="fa-solid fa-layer-group"></i>
                                     <p>No category data yet</p>
                                 </div>
                             @else
-                                <canvas id="staffBusinessMixCompact" style="max-height: 180px;"></canvas>
-                                <div class="business-mix-legend">
+                                @php
+                                    $bizMixTotal = (int) array_sum($businessMix['values']);
+                                @endphp
+                                <div class="biz-cat-lb" role="list" aria-label="Business category mix">
                                     @foreach ($businessMix['labels'] as $idx => $label)
-                                        <div class="legend-item">
-                                            <span class="legend-color" style="background-color: {{ $businessMix['colors'][$idx] ?? '#6366f1' }};"></span>
-                                            <span class="legend-label">{{ $label }}</span>
-                                            <span class="legend-value">{{ $businessMix['values'][$idx] ?? 0 }}</span>
+                                        @php
+                                            $bizV = (int) ($businessMix['values'][$idx] ?? 0);
+                                            $bizPct = $bizMixTotal > 0 ? (int) round(100 * $bizV / $bizMixTotal) : 0;
+                                            $bizCol = $businessMix['colors'][$idx] ?? '#6366f1';
+                                        @endphp
+                                        <div
+                                            class="biz-cat-lb__row"
+                                            role="listitem"
+                                            style="--biz-color: {{ $bizCol }}; --biz-pct: {{ $bizPct }}%; --biz-delay: {{ $idx * 0.055 }}s;"
+                                        >
+                                            <div class="biz-cat-lb__rank" aria-hidden="true">#{{ $idx + 1 }}</div>
+                                            <div class="biz-cat-lb__main">
+                                                <div class="biz-cat-lb__label-row">
+                                                    <span class="biz-cat-lb__name" title="{{ $label }}">{{ $label }}</span>
+                                                    <span class="biz-cat-lb__nums">
+                                                        <span class="biz-cat-lb__pct">{{ $bizPct }}%</span>
+                                                        <span class="biz-cat-lb__count">{{ number_format($bizV) }}</span>
+                                                    </span>
+                                                </div>
+                                                <div class="biz-cat-lb__track" aria-hidden="true">
+                                                    <div class="biz-cat-lb__fill"></div>
+                                                </div>
+                                            </div>
                                         </div>
                                     @endforeach
                                 </div>
@@ -3357,53 +3469,8 @@
             @if (count($businessMix['labels']) > 0)
             const mixLabels = @json($businessMix['labels']);
             const mixValues = @json($businessMix['values']);
-            const mixColors = @json($chartColors);
+            const mixColors = @json($businessMix['colors'] ?? $chartColors);
             
-            // Compact Business Mix Chart in Hero Section
-            if (document.getElementById('staffBusinessMixCompact')) {
-                new Chart(document.getElementById('staffBusinessMixCompact'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: mixLabels,
-                        datasets: [{
-                            data: mixValues,
-                            backgroundColor: mixLabels.map((_, i) => mixColors[i % mixColors.length]),
-                            borderWidth: 4,
-                            borderColor: 'rgba(255,255,255,0.95)',
-                            hoverBorderWidth: 5,
-                            offset: mixValues.map((_, i) => 4 + (i % 4) * 3),
-                            hoverOffset: 16
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        cutout: '62%',
-                        spacing: 4,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                                titleColor: '#fff',
-                                bodyColor: '#fff',
-                                padding: 12,
-                                cornerRadius: 8,
-                                displayColors: true,
-                                callbacks: {
-                                    label: function(context) {
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const value = context.parsed;
-                                        const percentage = ((value / total) * 100).toFixed(1);
-                                        return context.label + ': ' + value + ' (' + percentage + '%)';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            
-            // Original chart if it exists
             if (document.getElementById('staffChartDoughnut')) {
             new Chart(document.getElementById('staffChartDoughnut'), {
                 type: 'doughnut',

@@ -516,8 +516,11 @@ class StaffDashboardService
         $registrationNoRate = $regAnswered > 0 ? (100 - (int) $registrationRate) : null;
         $trainingRate = $trAnswered > 0 ? round(100 * $trYes / $trAnswered) : null;
 
+        $businessMixChart = $this->sortAndCapChart($business, 8);
+        $businessMixChart['colors'] = $this->chartColorsForLabels($businessMixChart['labels']);
+
         return [
-            'businessMix' => $this->sortAndCapChart($business, 8),
+            'businessMix' => $businessMixChart,
             'applicantCategoryMix' => $this->sortCountMapToChart($applicantCategory),
             'genderMix' => $this->sortCountMapToChart($gender),
             'businessStageMix' => $this->sortCountMapToChart($stage),
@@ -530,6 +533,32 @@ class StaffDashboardService
             'registrationNoRate' => $registrationNoRate,
             'trainingRate' => $trainingRate,
         ];
+    }
+
+    /**
+     * Distinct colors per label so legend / bar charts match chart segments (aligned by index).
+     *
+     * @param  list<string>  $labels
+     * @return list<string>
+     */
+    private function chartColorsForLabels(array $labels): array
+    {
+        $palette = [
+            '#4f46e5', '#0d9488', '#ea580c', '#7c3aed', '#0891b2',
+            '#db2777', '#ca8a04', '#16a34a', '#e11d48', '#2563eb',
+            '#059669', '#d946ef', '#f97316',
+        ];
+        $out = [];
+        foreach ($labels as $i => $label) {
+            if ($i < count($palette)) {
+                $out[] = $palette[$i];
+            } else {
+                $h = abs(crc32((string) $label)) % 360;
+                $out[] = sprintf('hsl(%d, 62%%, 48%%)', $h);
+            }
+        }
+
+        return $out;
     }
 
     /**
