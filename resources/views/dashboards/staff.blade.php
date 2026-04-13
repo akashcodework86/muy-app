@@ -28,10 +28,21 @@
             --accent2: #0d9488;
             --accent3: #ec4899;
             --border: rgba(255, 255, 255, 0.72);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-blur: 30px;
             --radius: 24px;
             --shadow: 0 24px 60px rgba(99, 102, 241, 0.12);
             --glass: rgba(255, 255, 255, 0.66);
             --glass-strong: rgba(255, 255, 255, 0.84);
+        }
+        .glass-surface {
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.46) 0%, rgba(255, 255, 255, 0.28) 100%);
+            border: 1px solid var(--glass-border);
+            box-shadow:
+                0 8px 32px rgba(31, 38, 135, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5);
         }
         .dashboard-shell {
             position: relative;
@@ -601,12 +612,13 @@
             letter-spacing: -0.02em;
         }
         .chart-card {
-            background: var(--glass-strong);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.2));
             border-radius: var(--radius);
-            border: 1px solid var(--border);
+            border: 1px solid var(--glass-border);
             box-shadow: var(--shadow);
             padding: 1.2rem 1.3rem 1.4rem;
-            backdrop-filter: blur(14px);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
         }
         .chart-card h4 { margin: 0 0 0.15rem; font-size: 0.95rem; font-weight: 700; font-family: 'DM Sans', sans-serif; color: var(--text); }
         .chart-card .hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; }
@@ -1192,22 +1204,21 @@
             }
         }
         .hero-col {
-            background: var(--glass-strong);
-            border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 0.95rem 1rem;
-            box-shadow: var(--shadow);
-            backdrop-filter: blur(14px);
             display: flex;
             flex-direction: column;
             align-self: stretch;
             min-height: 280px;
         }
+        .hero-col.glass-surface {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.22) 100%);
+        }
         .hero-col--welcome {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 243, 255, 0.9) 100%);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.42) 0%, rgba(245, 243, 255, 0.2) 100%);
         }
         .hero-col--metrics {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 249, 255, 0.9) 100%);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.42) 0%, rgba(240, 249, 255, 0.22) 100%);
         }
         .hero-col__title {
             font-size: 0.6rem;
@@ -1243,9 +1254,7 @@
             margin-top: 0.75rem;
             padding: 0.75rem 0.65rem;
             border-radius: 14px;
-            background: linear-gradient(145deg, rgba(238, 242, 255, 0.95), rgba(224, 250, 248, 0.4));
-            border: 1px solid rgba(129, 140, 248, 0.28);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+            background: linear-gradient(145deg, rgba(238, 242, 255, 0.35), rgba(224, 250, 248, 0.15));
         }
         .welcome-district-embed__head {
             display: flex;
@@ -1437,6 +1446,157 @@
             font-size: 0.55rem;
             line-height: 1.35;
             color: #94a3b8;
+        }
+
+        /* Bento quick insights + predictive + top category */
+        .staff-bento {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem;
+            margin-top: 0.65rem;
+        }
+        .staff-bento__span2 {
+            grid-column: 1 / -1;
+        }
+        .bento-tile {
+            border-radius: 12px;
+            padding: 0.45rem 0.5rem 0.5rem;
+            min-height: 3.4rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 0.2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .bento-tile__top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.35rem;
+        }
+        .bento-tile__icon {
+            width: 1.35rem;
+            height: 1.35rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            color: #4f46e5;
+            background: rgba(99, 102, 241, 0.12);
+        }
+        .bento-tile__label {
+            font-size: 0.52rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+        }
+        .bento-tile__value-row {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+        }
+        .bento-tile__value {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1;
+        }
+        .metric-glow {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 0 10px currentColor;
+        }
+        .metric-glow--up { color: #22c55e; background: #22c55e; }
+        .metric-glow--down { color: #f43f5e; background: #f43f5e; }
+        .metric-glow--neutral { color: #94a3b8; background: #94a3b8; box-shadow: 0 0 8px rgba(148, 163, 184, 0.6); }
+        .trend-pill {
+            font-size: 0.52rem;
+            font-weight: 800;
+            padding: 0.12rem 0.38rem;
+            border-radius: 999px;
+            line-height: 1.2;
+            letter-spacing: 0.02em;
+        }
+        .trend-pill--up {
+            color: #15803d;
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.35);
+        }
+        .trend-pill--down {
+            color: #be123c;
+            background: rgba(244, 63, 94, 0.16);
+            border: 1px solid rgba(244, 63, 94, 0.35);
+        }
+        .trend-pill--flat {
+            color: #64748b;
+            background: rgba(148, 163, 184, 0.15);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .predictive-widget {
+            border-radius: 14px;
+            padding: 0.6rem 0.65rem;
+            background: linear-gradient(120deg, rgba(99, 102, 241, 0.14), rgba(45, 212, 191, 0.1));
+        }
+        .predictive-widget__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.35rem;
+        }
+        .predictive-widget__title {
+            font-size: 0.58rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #4338ca;
+        }
+        .predictive-widget__sub {
+            font-size: 0.58rem;
+            color: #64748b;
+            line-height: 1.35;
+            margin: 0 0 0.35rem;
+        }
+        .predictive-widget__nums {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+        }
+        .predictive-widget__big {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .top-cat-card {
+            border-radius: 14px;
+            padding: 0.55rem 0.6rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transition: background 0.3s ease;
+        }
+        .top-cat-card__row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .top-cat-card__name {
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .top-cat-card__meta {
+            font-size: 0.58rem;
+            color: rgba(15, 23, 42, 0.75);
+            margin-top: 0.15rem;
         }
         
         /* Welcome Column Specific */
@@ -1862,7 +2022,7 @@
         {{-- Two column hero --}}
         <div class="hero-three-col">
             {{-- Column 1: Welcome Section --}}
-            <div class="hero-col hero-col--welcome">
+            <div class="hero-col hero-col--welcome glass-surface">
                 <div class="hero-col__title">
                     <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
                     District Staff Cockpit
@@ -1900,7 +2060,7 @@
                         </div>
 
                         @if ($staff->district_id && $activeFy)
-                        <div class="welcome-district-embed">
+                        <div class="welcome-district-embed glass-surface">
                             <div class="welcome-district-embed__head">
                                 <span class="welcome-district-embed__eyebrow"><i class="fa-solid fa-landmark" aria-hidden="true"></i> District pulse</span>
                                 <span class="welcome-district-embed__where">{{ $staff->district?->name ?? 'District' }} · {{ $activeFy->name }}</span>
@@ -1988,41 +2148,101 @@
                         </div>
                         @endif
                         
-                        {{-- Quick Analytics --}}
+                        {{-- Bento: Quick Insights + Predictive + Top category --}}
                         <div class="welcome-analytics">
                             <div class="welcome-analytics__title">
                                 <i class="fa-solid fa-chart-simple" aria-hidden="true"></i> Quick Insights
                             </div>
-                            <div class="welcome-stats-grid">
-                                <div class="welcome-stat-card welcome-stat-card--neutral">
-                                    <div class="welcome-stat-card__label">Last 7 Days</div>
-                                    <div class="welcome-stat-card__value">{{ number_format($recent7 ?? 0) }}</div>
-                                    <div class="welcome-stat-card__meta">Applications</div>
-                                </div>
-                                
-                                <div class="welcome-stat-card welcome-stat-card--{{ ($velocityChangePct ?? 0) >= 0 ? 'positive' : 'negative' }}">
-                                    <div class="welcome-stat-card__label">Velocity</div>
-                                    <div class="welcome-stat-card__value">
+                            <div class="staff-bento">
+                                <div class="bento-tile glass-surface">
+                                    <div class="bento-tile__top">
+                                        <span class="bento-tile__icon" title="Last 7 days"><i class="fa-solid fa-calendar-week" aria-hidden="true"></i></span>
                                         @if ($velocityChangePct !== null)
-                                            {{ ($velocityChangePct ?? 0) >= 0 ? '+' : '' }}{{ $velocityChangePct }}%
-                                        @else
-                                            —
+                                            <span class="trend-pill {{ ($velocityChangePct ?? 0) > 0 ? 'trend-pill--up' : (($velocityChangePct ?? 0) < 0 ? 'trend-pill--down' : 'trend-pill--flat') }}">
+                                                {{ ($velocityChangePct ?? 0) >= 0 ? '↑' : '↓' }} {{ abs((int) $velocityChangePct) }}%
+                                            </span>
                                         @endif
                                     </div>
-                                    <div class="welcome-stat-card__meta">Week over week</div>
+                                    <span class="bento-tile__label">Last 7 days</span>
+                                    <div class="bento-tile__value-row">
+                                        <span class="bento-tile__value">{{ number_format($recent7 ?? 0) }}</span>
+                                    </div>
                                 </div>
-                                
-                                <div class="welcome-stat-card welcome-stat-card--neutral">
-                                    <div class="welcome-stat-card__label">This Month</div>
-                                    <div class="welcome-stat-card__value">{{ number_format($cfaThisMonth ?? 0) }}</div>
-                                    <div class="welcome-stat-card__meta">Applications</div>
+                                <div class="bento-tile glass-surface">
+                                    <div class="bento-tile__top">
+                                        <span class="bento-tile__icon" title="Velocity"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+                                        <span class="metric-glow {{ ($velocityChangePct ?? 0) >= 0 ? 'metric-glow--up' : 'metric-glow--down' }}" aria-hidden="true"></span>
+                                    </div>
+                                    <span class="bento-tile__label">Velocity</span>
+                                    <div class="bento-tile__value-row">
+                                        <span class="bento-tile__value">
+                                            @if ($velocityChangePct !== null)
+                                                {{ ($velocityChangePct ?? 0) >= 0 ? '+' : '' }}{{ $velocityChangePct }}%
+                                            @else
+                                                —
+                                            @endif
+                                        </span>
+                                        @if ($velocityChangePct !== null)
+                                            <span class="trend-pill {{ ($velocityChangePct ?? 0) >= 0 ? 'trend-pill--up' : 'trend-pill--down' }}">WoW</span>
+                                        @endif
+                                    </div>
                                 </div>
-                                
-                                <div class="welcome-stat-card welcome-stat-card--positive">
-                                    <div class="welcome-stat-card__label">Active Streak</div>
-                                    <div class="welcome-stat-card__value">{{ $submissionStreakDays ?? 0 }}</div>
-                                    <div class="welcome-stat-card__meta">Days in a row</div>
+                                <div class="bento-tile glass-surface">
+                                    <div class="bento-tile__top">
+                                        <span class="bento-tile__icon"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i></span>
+                                        @if ($monthOverMonthTrendPct !== null)
+                                            <span class="trend-pill {{ $monthOverMonthTrendPct > 0 ? 'trend-pill--up' : ($monthOverMonthTrendPct < 0 ? 'trend-pill--down' : 'trend-pill--flat') }}">
+                                                {{ $monthOverMonthTrendPct >= 0 ? '↑' : '↓' }} {{ abs((int) $monthOverMonthTrendPct) }}%
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <span class="bento-tile__label">This month</span>
+                                    <div class="bento-tile__value-row">
+                                        <span class="bento-tile__value">{{ number_format($cfaThisMonth ?? 0) }}</span>
+                                    </div>
                                 </div>
+                                <div class="bento-tile glass-surface">
+                                    <div class="bento-tile__top">
+                                        <span class="bento-tile__icon"><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i></span>
+                                        @if (($submissionStreakDays ?? 0) > 0)
+                                            <span class="trend-pill trend-pill--up">On</span>
+                                        @else
+                                            <span class="metric-glow metric-glow--neutral" aria-hidden="true"></span>
+                                        @endif
+                                    </div>
+                                    <span class="bento-tile__label">Active streak</span>
+                                    <div class="bento-tile__value-row">
+                                        <span class="bento-tile__value">{{ $submissionStreakDays ?? 0 }}</span>
+                                        <span class="trend-pill trend-pill--flat">days</span>
+                                    </div>
+                                </div>
+
+                                <div class="staff-bento__span2 predictive-widget glass-surface">
+                                    <div class="predictive-widget__head">
+                                        <span class="predictive-widget__title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Predictive analysis</span>
+                                        <span class="trend-pill trend-pill--up">Next 7 days</span>
+                                    </div>
+                                    <p class="predictive-widget__sub">
+                                        Projected applications use your last 7-day pace, adjusted by current velocity. The main chart below shows this as a dashed continuation.
+                                    </p>
+                                    <div class="predictive-widget__nums">
+                                        <span class="predictive-widget__big">{{ number_format((int) ($cfaTrendForecast['projection_sum'] ?? 0)) }}</span>
+                                        <span class="trend-pill trend-pill--flat">est. total referrals</span>
+                                    </div>
+                                </div>
+
+                                @if ($topBusinessCategory)
+                                    <div class="staff-bento__span2 top-cat-card glass-surface" style="background: linear-gradient(125deg, hsla({{ $topBusinessCategory['hue'] }}, 85%, 92%, 0.85), hsla({{ ($topBusinessCategory['hue'] + 40) % 360 }}, 70%, 88%, 0.55));">
+                                        <div class="top-cat-card__row">
+                                            <div>
+                                                <div class="bento-tile__label" style="margin-bottom:0.15rem;">Top business category</div>
+                                                <div class="top-cat-card__name">{{ $topBusinessCategory['label'] }}</div>
+                                                <div class="top-cat-card__meta">{{ number_format($topBusinessCategory['count']) }} apps · {{ $topBusinessCategory['share_pct'] }}% of your mix</div>
+                                            </div>
+                                            <span class="trend-pill trend-pill--up">#1</span>
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -2030,7 +2250,7 @@
             </div>
             
             {{-- Column 2: Total Applications + Stage Bifurcation --}}
-            <div class="hero-col hero-col--metrics">
+            <div class="hero-col hero-col--metrics glass-surface">
                 @php
                     $stageTotals = ['SEED' => 0, 'EARLY' => 0, 'GROWTH' => 0];
                     $stageTargets = ['SEED' => 30, 'EARLY' => 60, 'GROWTH' => 10];
@@ -2606,8 +2826,8 @@
 
         <div class="charts-grid">
             <div class="chart-card tall">
-                <h4>Applications (last 14 days)</h4>
-                <p class="hint">Daily count for your referral link only</p>
+                <h4>Applications — 14-day actual + 7-day projection</h4>
+                <p class="hint">Solid gradient area = your referrals by day · dashed line = projected next week from velocity</p>
                 <div class="canvas-wrap"><canvas id="staffChartTrend"></canvas></div>
             </div>
             <div class="chart-card tall">
@@ -2884,40 +3104,88 @@
             const accent = '#4f46e5';
             const grid = { color: 'rgba(148, 163, 184, 0.25)' };
             const barPal = @json($barColors);
-            const trendLabels = @json($cfaTrend['labels']);
-            const trendValues = @json($cfaTrend['values']);
-            new Chart(document.getElementById('staffChartTrend'), {
-                type: 'line',
-                data: {
-                    labels: trendLabels,
-                    datasets: [{
-                        label: 'Applications',
-                        data: trendValues,
-                        borderColor: accent,
-                        backgroundColor: 'rgba(79, 70, 229, 0.12)',
-                        fill: true,
-                        tension: 0.35,
-                        borderWidth: 2,
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } },
-                        y: { beginAtZero: true, grid: { color: grid.color }, ticks: { stepSize: 1 } }
+            const fcLabels = @json($cfaTrendForecast['labels'] ?? []);
+            const fcHist = @json($cfaTrendForecast['historical'] ?? []);
+            const fcProj = @json($cfaTrendForecast['projected'] ?? []);
+            const trendCanvas = document.getElementById('staffChartTrend');
+            if (trendCanvas && fcLabels.length) {
+                const ctxT = trendCanvas.getContext('2d');
+                const h = trendCanvas.parentElement?.clientHeight || 260;
+                const gArea = ctxT.createLinearGradient(0, 0, 0, h);
+                gArea.addColorStop(0, 'rgba(79, 70, 229, 0.38)');
+                gArea.addColorStop(0.5, 'rgba(45, 212, 191, 0.14)');
+                gArea.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                new Chart(trendCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: fcLabels,
+                        datasets: [
+                            {
+                                label: 'Actual',
+                                data: fcHist,
+                                borderColor: 'rgba(79, 70, 229, 0.95)',
+                                backgroundColor: gArea,
+                                fill: true,
+                                tension: 0.4,
+                                borderWidth: 2.5,
+                                pointRadius: 2,
+                                pointHoverRadius: 5,
+                                spanGaps: false
+                            },
+                            {
+                                label: 'Projected',
+                                data: fcProj,
+                                borderColor: 'rgba(14, 165, 233, 0.95)',
+                                backgroundColor: 'transparent',
+                                borderDash: [7, 5],
+                                fill: false,
+                                tension: 0.38,
+                                borderWidth: 2,
+                                pointRadius: 3,
+                                pointBackgroundColor: 'rgba(14, 165, 233, 1)',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 1,
+                                spanGaps: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: { boxWidth: 12, font: { size: 10 } }
+                            },
+                            tooltip: {
+                                filter: function (item) {
+                                    return item.parsed.y !== null && item.parsed.y !== undefined;
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: { maxRotation: 45, minRotation: 0, font: { size: 9 }, color: '#64748b' }
+                            },
+                            y: { beginAtZero: true, grid: { color: grid.color }, ticks: { stepSize: 1 } }
+                        }
                     }
-                }
-            });
+                });
+            }
 
             @if ($staff->district_id)
             const dTrendLabels = @json($districtCfaTrend['labels'] ?? []);
             const dTrendVals = @json($districtCfaTrend['values'] ?? []);
             const dChartEl = document.getElementById('districtTrendCurveChart');
             if (dChartEl && dTrendLabels.length) {
+                const dx = dChartEl.getContext('2d');
+                const dh = dChartEl.parentElement?.clientHeight || 130;
+                const dFill = dx.createLinearGradient(0, 0, 0, dh);
+                dFill.addColorStop(0, 'rgba(13, 148, 136, 0.32)');
+                dFill.addColorStop(1, 'rgba(45, 212, 191, 0.02)');
                 new Chart(dChartEl, {
                     type: 'line',
                     data: {
@@ -2926,7 +3194,7 @@
                             label: 'District CFA',
                             data: dTrendVals,
                             borderColor: 'rgba(13, 148, 136, 0.95)',
-                            backgroundColor: 'rgba(45, 212, 191, 0.16)',
+                            backgroundColor: dFill,
                             fill: true,
                             tension: 0.5,
                             borderWidth: 2.5,
@@ -2977,15 +3245,18 @@
                         datasets: [{
                             data: mixValues,
                             backgroundColor: mixLabels.map((_, i) => mixColors[i % mixColors.length]),
-                            borderWidth: 3,
-                            borderColor: '#fff',
-                            hoverBorderWidth: 4
+                            borderWidth: 4,
+                            borderColor: 'rgba(255,255,255,0.95)',
+                            hoverBorderWidth: 5,
+                            offset: mixValues.map((_, i) => 4 + (i % 4) * 3),
+                            hoverOffset: 16
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: true,
-                        cutout: '65%',
+                        cutout: '62%',
+                        spacing: 4,
                         plugins: {
                             legend: { display: false },
                             tooltip: {

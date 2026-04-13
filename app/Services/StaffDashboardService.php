@@ -170,6 +170,51 @@ class StaffDashboardService
             }
         }
 
+        $prevCalendarMonth = now()->copy()->subMonth();
+        $cfaPrevCalendarMonth = (clone $base)
+            ->whereYear('created_at', $prevCalendarMonth->year)
+            ->whereMonth('created_at', $prevCalendarMonth->month)
+            ->count();
+        $monthOverMonthTrendPct = null;
+        if ($cfaPrevCalendarMonth > 0) {
+            $monthOverMonthTrendPct = (int) round((($cfaThisMonth - $cfaPrevCalendarMonth) / $cfaPrevCalendarMonth) * 100);
+        } elseif ($cfaThisMonth > 0) {
+            $monthOverMonthTrendPct = 100;
+        }
+
+        $projectionLabels = [];
+        for ($i = 1; $i <= 7; $i++) {
+            $projectionLabels[] = now()->copy()->addDays($i)->format('d M');
+        }
+        $avgDailyRecent = $recent7 > 0 ? $recent7 / 7.0 : 0.0;
+        $velAdj = ($velocityChangePct ?? 0) / 100.0;
+        $projFactor = max(0.2, min(2.2, 1 + $velAdj * 0.4));
+        $projectionValues = [];
+        for ($i = 0; $i < 7; $i++) {
+            $projectionValues[] = max(0, (int) round($avgDailyRecent * $projFactor));
+        }
+        $forecastLabels = array_merge($trendLabels, $projectionLabels);
+        $forecastHistorical = array_merge($trendValues, array_fill(0, 7, null));
+        $forecastProjected = array_merge(array_fill(0, 14, null), $projectionValues);
+
+        $topBusinessCategory = null;
+        $bm = $payloadCharts['businessMix'];
+        if (($bm['labels'] ?? []) !== [] && ($bm['values'] ?? []) !== []) {
+            $bVals = $bm['values'];
+            $maxVal = max($bVals);
+            $maxIdx = array_search($maxVal, $bVals, true);
+            if ($maxIdx !== false) {
+                $bLbl = (string) ($bm['labels'][$maxIdx] ?? '');
+                $bSum = (int) array_sum($bVals);
+                $topBusinessCategory = [
+                    'label' => $bLbl,
+                    'count' => (int) $maxVal,
+                    'share_pct' => $bSum > 0 ? (int) round(100 * $maxVal / $bSum) : 0,
+                    'hue' => abs(crc32($bLbl)) % 360,
+                ];
+            }
+        }
+
         return [
             'staff' => $user,
             'activeFy' => $activeFy,
@@ -190,6 +235,14 @@ class StaffDashboardService
                 'labels' => $trendLabels,
                 'values' => $trendValues,
             ],
+            'cfaTrendForecast' => [
+                'labels' => $forecastLabels,
+                'historical' => $forecastHistorical,
+                'projected' => $forecastProjected,
+                'projection_sum' => array_sum($projectionValues),
+            ],
+            'monthOverMonthTrendPct' => $monthOverMonthTrendPct,
+            'topBusinessCategory' => $topBusinessCategory,
             'businessMix' => $payloadCharts['businessMix'],
             'applicantCategoryMix' => $payloadCharts['applicantCategoryMix'],
             'genderMix' => $payloadCharts['genderMix'],
