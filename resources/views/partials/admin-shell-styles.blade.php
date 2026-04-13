@@ -12,6 +12,8 @@
             radial-gradient(circle at top right, rgba(45, 212, 191, 0.24), transparent 24%),
             radial-gradient(circle at 20% 80%, rgba(129, 140, 248, 0.18), transparent 26%),
             linear-gradient(180deg, #fff8ef 0%, #eef7ff 42%, #f8fbff 100%);
+        overflow-x: clip;
+        max-width: 100%;
     }
     .admin-app-body--dashboard .admin-topbar {
         background: rgba(255, 255, 255, 0.76);
@@ -201,10 +203,12 @@
         }
     }
     .admin-main {
-        max-width: none;
+        max-width: 100%;
         width: 100%;
         padding: 1.5rem clamp(1rem, 3vw, 2.25rem) 2.5rem;
         box-sizing: border-box;
+        overflow-x: clip;
+        min-width: 0;
     }
     .admin-page-head {
         margin-bottom: 1.25rem;

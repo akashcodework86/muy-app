@@ -46,6 +46,9 @@
         }
         .dashboard-shell {
             position: relative;
+            max-width: 100%;
+            overflow-x: clip;
+            box-sizing: border-box;
         }
         .dashboard-shell::before {
             content: '';
@@ -64,6 +67,7 @@
             z-index: 1;
         }
         .dashboard-intro {
+            position: relative;
             display: flex;
             flex-wrap: wrap;
             align-items: stretch;
@@ -593,6 +597,15 @@
             grid-template-columns: repeat(2, 1fr);
             gap: 1.25rem;
             margin-bottom: 1.25rem;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+        .charts-grid > *,
+        .charts-grid--2 > *,
+        .charts-grid--3 > * {
+            min-width: 0;
         }
         @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
         .charts-grid--3 {
@@ -619,10 +632,13 @@
             padding: 1.2rem 1.3rem 1.4rem;
             backdrop-filter: blur(30px);
             -webkit-backdrop-filter: blur(30px);
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
         }
         .chart-card h4 { margin: 0 0 0.15rem; font-size: 0.95rem; font-weight: 700; font-family: 'DM Sans', sans-serif; color: var(--text); }
         .chart-card .hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; }
-        .chart-card .canvas-wrap { position: relative; height: 260px; }
+        .chart-card .canvas-wrap { position: relative; height: 260px; max-width: 100%; overflow: hidden; }
         .chart-card.tall .canvas-wrap { height: 280px; }
         
         /* Insights Container */
@@ -936,7 +952,9 @@
             padding: 1.5rem 2rem;
             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
             text-align: right;
-            min-width: 280px;
+            min-width: 0;
+            max-width: 100%;
+            flex: 1 1 260px;
         }
         .stage-mix-hero__stat-label {
             font-size: 0.72rem;
@@ -1188,6 +1206,10 @@
             gap: 0.85rem;
             margin-bottom: 1.5rem;
             align-items: stretch;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
         }
         @media (max-width: 1600px) {
             .hero-three-col {
@@ -1210,6 +1232,8 @@
             flex-direction: column;
             align-self: stretch;
             min-height: 280px;
+            min-width: 0;
+            max-width: 100%;
         }
         .hero-col.glass-surface {
             background: linear-gradient(145deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.22) 100%);
