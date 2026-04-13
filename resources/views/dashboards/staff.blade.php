@@ -1175,6 +1175,7 @@
             grid-template-columns: repeat(2, 1fr);
             gap: 0.85rem;
             margin-bottom: 1.5rem;
+            align-items: stretch;
         }
         @media (max-width: 1600px) {
             .hero-three-col {
@@ -1199,6 +1200,7 @@
             backdrop-filter: blur(14px);
             display: flex;
             flex-direction: column;
+            align-self: stretch;
             min-height: 280px;
         }
         .hero-col--welcome {
@@ -1223,6 +1225,21 @@
         }
         .hero-col__content {
             flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .hero-col--metrics .hero-col__content {
+            gap: 0.35rem;
+        }
+        .hero-col--welcome .welcome-intro {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        .hero-col--welcome .welcome-analytics {
+            margin-top: auto;
         }
         
         /* Welcome Column Specific */
