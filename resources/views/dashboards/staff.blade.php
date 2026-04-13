@@ -1409,6 +1409,85 @@
             color: #0f172a;
             margin-top: 0.15rem;
         }
+        .welcome-district-embed__referrers {
+            margin-top: 0.55rem;
+            padding-top: 0.55rem;
+            border-top: 1px dashed rgba(148, 163, 184, 0.45);
+            min-width: 0;
+        }
+        .welcome-district-embed__referrers-hint {
+            margin: 0 0 0.4rem;
+            font-size: 0.55rem;
+            line-height: 1.35;
+            color: #94a3b8;
+        }
+        .welcome-d-ref-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.28rem;
+            max-height: 11rem;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+        .welcome-d-ref-list__row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            align-items: center;
+            gap: 0.35rem 0.5rem;
+            font-size: 0.62rem;
+            padding: 0.28rem 0.4rem;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid rgba(226, 232, 240, 0.85);
+        }
+        .welcome-d-ref-list__row--you {
+            border-color: rgba(99, 102, 241, 0.45);
+            background: rgba(238, 242, 255, 0.85);
+        }
+        .welcome-d-ref-list__name {
+            font-weight: 600;
+            color: #0f172a;
+            min-width: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            flex-wrap: nowrap;
+            overflow: hidden;
+        }
+        .welcome-d-ref-list__name-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .welcome-d-ref-list__you {
+            flex-shrink: 0;
+            font-size: 0.5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #4f46e5;
+            padding: 0.1rem 0.28rem;
+            border-radius: 4px;
+            background: rgba(99, 102, 241, 0.12);
+        }
+        .welcome-d-ref-list__pct {
+            font-variant-numeric: tabular-nums;
+            color: #64748b;
+            font-weight: 600;
+            text-align: right;
+        }
+        .welcome-d-ref-list__cnt {
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            color: #0f172a;
+            text-align: right;
+            min-width: 2ch;
+        }
         .welcome-district-embed__mix {
             margin-top: 0.5rem;
         }
@@ -2150,6 +2229,26 @@
                                     </span>
                                 </div>
                             </div>
+                            @if (! empty($districtCfaByReferrer['rows']))
+                            <div class="welcome-district-embed__referrers" aria-label="District FY applications by referral staff">
+                                <span class="welcome-district-embed__mix-title">FY applications by referrer</span>
+                                <p class="welcome-district-embed__referrers-hint">Each CFA is counted under the staff link used. This sums to “District FY”.</p>
+                                <ul class="welcome-d-ref-list">
+                                    @foreach ($districtCfaByReferrer['rows'] as $refRow)
+                                    <li class="welcome-d-ref-list__row @if (! empty($refRow['is_you'])) welcome-d-ref-list__row--you @endif">
+                                        <span class="welcome-d-ref-list__name" title="{{ $refRow['name'] }}">
+                                            <span class="welcome-d-ref-list__name-text">{{ $refRow['name'] }}</span>
+                                            @if (! empty($refRow['is_you']))
+                                                <span class="welcome-d-ref-list__you">You</span>
+                                            @endif
+                                        </span>
+                                        <span class="welcome-d-ref-list__pct">{{ $refRow['share_pct'] }}%</span>
+                                        <span class="welcome-d-ref-list__cnt">{{ number_format((int) $refRow['count']) }}</span>
+                                    </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                            @endif
                             <div class="welcome-district-embed__mix">
                                 <span class="welcome-district-embed__mix-title">District stage mix</span>
                                 <div class="welcome-d-stage-row">

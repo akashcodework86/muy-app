@@ -7,6 +7,7 @@ use App\Models\Deliverable;
 use App\Models\FiscalYear;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class StaffDashboardService
@@ -50,6 +51,7 @@ class StaffDashboardService
         $districtCfaThisFy = null;
         $districtCfaTrend = ['labels' => [], 'values' => []];
         $districtBusinessStageMix = ['labels' => [], 'values' => []];
+        $districtCfaByReferrer = ['rows' => [], 'total' => 0];
         if ($activeFy && $user->district_id) {
             $districtCfaThisFy = CfaSubmission::query()
                 ->where('district_id', (int) $user->district_id)
@@ -57,6 +59,11 @@ class StaffDashboardService
                 ->count();
             $districtCfaTrend = $this->districtDailyTrend14((int) $user->district_id, (int) $activeFy->id);
             $districtBusinessStageMix = $this->districtStageMixAggregates((int) $user->district_id, (int) $activeFy->id);
+            $districtCfaByReferrer = $this->districtCfaBreakdownByReferrer(
+                (int) $user->district_id,
+                (int) $activeFy->id,
+                (int) $user->id
+            );
         }
 
         $districtProgressPct = null;
@@ -223,6 +230,7 @@ class StaffDashboardService
             'staffAnnualTarget' => $staffAnnualTarget,
             'districtCfaTarget' => $districtCfaTarget,
             'districtCfaThisFy' => $districtCfaThisFy,
+            'districtCfaByReferrer' => $districtCfaByReferrer,
             'districtCfaTrend' => $districtCfaTrend,
             'districtBusinessStageMix' => $districtBusinessStageMix,
             'districtProgressPct' => $districtProgressPct,
@@ -266,6 +274,93 @@ class StaffDashboardService
             'daysToTargetAtPace' => $daysToTargetAtPace,
             'performanceScore' => $performanceScore,
         ];
+    }
+
+    /**
+     * District FY CFA totals split by referral link owner (who attributed each application).
+     *
+     * @return array{rows: list<array{user_id: int|null, name: string, count: int, is_you: bool, share_pct: int}>, total: int}
+     */
+    private function districtCfaBreakdownByReferrer(int $districtId, int $fiscalYearId, int $viewerUserId): array
+    {
+        /** @var Collection<int, object{referral_user_id: int|null, cnt: int|string}> $aggregates */
+        $aggregates = DB::table('cfa_submissions')
+            ->where('district_id', $districtId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->selectRaw('referral_user_id, COUNT(*) as cnt')
+            ->groupBy('referral_user_id')
+            ->orderByDesc('cnt')
+            ->orderBy('referral_user_id')
+            ->get();
+
+        if ($aggregates->isEmpty()) {
+            return ['rows' => [], 'total' => 0];
+        }
+
+        $total = (int) $aggregates->sum(fn ($r) => (int) $r->cnt);
+        $userIds = $aggregates
+            ->pluck('referral_user_id')
+            ->filter(fn ($id) => $id !== null)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+        /** @var Collection<int, string> $names */
+        $names = $userIds === []
+            ? collect()
+            : User::query()->whereIn('id', $userIds)->pluck('name', 'id');
+
+        $rows = [];
+        foreach ($aggregates as $row) {
+            $rid = $row->referral_user_id;
+            $cnt = (int) $row->cnt;
+            $sharePct = $total > 0 ? (int) min(100, round(100 * $cnt / $total)) : 0;
+
+            if ($rid === null) {
+                $rows[] = [
+                    'user_id' => null,
+                    'name' => 'Not linked to a referral',
+                    'count' => $cnt,
+                    'is_you' => false,
+                    'share_pct' => $sharePct,
+                ];
+            } else {
+                $rid = (int) $rid;
+                $rows[] = [
+                    'user_id' => $rid,
+                    'name' => (string) ($names[$rid] ?? ('User #'.$rid)),
+                    'count' => $cnt,
+                    'is_you' => $rid === $viewerUserId,
+                    'share_pct' => $sharePct,
+                ];
+            }
+        }
+
+        usort($rows, function (array $a, array $b): int {
+            if ($a['is_you'] !== $b['is_you']) {
+                return $a['is_you'] ? -1 : 1;
+            }
+
+            return $b['count'] <=> $a['count'];
+        });
+
+        $maxDisplay = 10;
+        if (count($rows) > $maxDisplay) {
+            $head = array_slice($rows, 0, $maxDisplay - 1);
+            $tail = array_slice($rows, $maxDisplay - 1);
+            $mergedCount = (int) array_sum(array_column($tail, 'count'));
+            $nPeople = count($tail);
+            $head[] = [
+                'user_id' => null,
+                'name' => 'Other referrers ('.$nPeople.')',
+                'count' => $mergedCount,
+                'is_you' => false,
+                'share_pct' => $total > 0 ? (int) min(100, round(100 * $mergedCount / $total)) : 0,
+            ];
+            $rows = $head;
+        }
+
+        return ['rows' => $rows, 'total' => $total];
     }
 
     /**
