@@ -42,15 +42,6 @@ class LoginController extends Controller
         return redirect()->intended(route('dashboard'));
     }
 
-    /**
-     * Confirm logout (GET). Avoids 419 when someone opens /logout in the address bar;
-     * actual sign-out is still POST with CSRF.
-     */
-    public function showLogout(): View
-    {
-        return view('auth.logout-confirm');
-    }
-
     public function destroy(Request $request): RedirectResponse
     {
         Auth::logout();

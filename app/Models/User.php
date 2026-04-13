@@ -85,11 +85,6 @@ class User extends Authenticatable
         return $this->hasMany(CfaSubmission::class, 'referral_user_id');
     }
 
-    public function attendanceMarks(): HasMany
-    {
-        return $this->hasMany(AttendanceMark::class);
-    }
-
     public function referralApplyUrl(): ?string
     {
         if (! $this->referral_token) {

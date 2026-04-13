@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\EnsureAttendanceParticipant;
 use App\Http\Middleware\EnsureDistrictStaff;
 use App\Http\Middleware\EnsureHubAdmin;
 use App\Http\Middleware\EnsureStateAdmin;
@@ -19,12 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         __DIR__.'/../app/Console/Commands',
     ])
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trustProxies(at: '*');
         $middleware->alias([
             'state_admin' => EnsureStateAdmin::class,
             'hub_admin' => EnsureHubAdmin::class,
             'district_staff' => EnsureDistrictStaff::class,
-            'attendance_participant' => EnsureAttendanceParticipant::class,
             'active' => EnsureUserIsActive::class,
         ]);
     })

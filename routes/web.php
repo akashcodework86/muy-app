@@ -6,11 +6,9 @@ use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
-use App\Http\Controllers\Admin\PublicHolidayController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\TargetController;
-use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Hub\HubBatchController;
@@ -56,13 +54,7 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('logout', [LoginController::class, 'showLogout'])->name('logout.show');
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
-
-    Route::middleware(['attendance_participant'])->prefix('attendance')->name('attendance.')->group(function () {
-        Route::get('status', [AttendanceController::class, 'status'])->name('status');
-        Route::post('mark', [AttendanceController::class, 'store'])->middleware('throttle:40,1')->name('mark');
-    });
 
     Route::prefix('account')->name('account.')->group(function () {
         /** Serves file from disk so images work even if public/storage symlink is missing */
@@ -114,13 +106,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('designations/{designation}/edit', [DesignationController::class, 'edit'])->name('designations.edit');
         Route::put('designations/{designation}', [DesignationController::class, 'update'])->name('designations.update');
         Route::delete('designations/{designation}', [DesignationController::class, 'destroy'])->name('designations.destroy');
-
-        Route::get('holidays', [PublicHolidayController::class, 'index'])->name('holidays.index');
-        Route::get('holidays/create', [PublicHolidayController::class, 'create'])->name('holidays.create');
-        Route::post('holidays', [PublicHolidayController::class, 'store'])->name('holidays.store');
-        Route::get('holidays/{holiday}/edit', [PublicHolidayController::class, 'edit'])->name('holidays.edit');
-        Route::put('holidays/{holiday}', [PublicHolidayController::class, 'update'])->name('holidays.update');
-        Route::delete('holidays/{holiday}', [PublicHolidayController::class, 'destroy'])->name('holidays.destroy');
 
         Route::get('staff', [StaffController::class, 'index'])->name('staff.index');
         Route::get('staff/create', [StaffController::class, 'create'])->name('staff.create');

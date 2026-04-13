@@ -3719,7 +3719,5 @@
     @endunless
 
     </main>
-
-    @include('partials.attendance-modal')
 </body>
 </html>

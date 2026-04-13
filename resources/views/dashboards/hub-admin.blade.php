@@ -425,7 +425,5 @@
     });
 })();
 </script>
-
-    @include('partials.attendance-modal')
 </body>
 </html>
