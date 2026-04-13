@@ -26,5 +26,8 @@
         @yield('content')
     </main>
     @stack('scripts')
+    @if (auth()->check() && in_array(auth()->user()->role, ['district_staff', 'hub_admin'], true))
+        @include('partials.attendance-modal')
+    @endif
 </body>
 </html>

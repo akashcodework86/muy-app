@@ -26,6 +26,7 @@
         str_starts_with($r, 'admin.targets.district') => 'district',
         str_starts_with($r, 'admin.staff') => 'staff',
         str_starts_with($r, 'admin.designations') => 'designations',
+        str_starts_with($r, 'admin.holidays') => 'holidays',
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
@@ -55,6 +56,7 @@
             <a href="{{ route('admin.targets.district') }}" class="admin-topbar__link @if ($activeNav === 'district') is-active @endif">District targets</a>
             <a href="{{ route('admin.staff.index') }}" class="admin-topbar__link @if ($activeNav === 'staff') is-active @endif">Staff</a>
             <a href="{{ route('admin.designations.index') }}" class="admin-topbar__link @if ($activeNav === 'designations') is-active @endif">Designations</a>
+            <a href="{{ route('admin.holidays.index') }}" class="admin-topbar__link @if ($activeNav === 'holidays') is-active @endif">Public holidays</a>
             <a href="{{ route('admin.audit.index') }}" class="admin-topbar__link @if ($activeNav === 'audit') is-active @endif">Audit log</a>
             <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-batch-compliance') is-active @endif">Batch CDO PDF</a>
         </nav>
