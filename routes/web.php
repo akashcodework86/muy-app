@@ -56,6 +56,7 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('logout', [LoginController::class, 'showLogout'])->name('logout.show');
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
     Route::middleware(['attendance_participant'])->prefix('attendance')->name('attendance.')->group(function () {
