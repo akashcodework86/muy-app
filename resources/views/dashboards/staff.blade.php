@@ -1949,7 +1949,7 @@
             <div class="hero-col hero-col--kpis">
                 <div class="hero-col__title">
                     <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
-                    Key Performance Insights
+                    District insights
                 </div>
                 <div class="hero-col__content">
                     <div class="kpi-compact-grid">
@@ -2335,7 +2335,7 @@
         {{-- Old sections - hidden for now --}}
         <div style="display: none;">
         {{-- Insight Cards Grid - Moved up for better visual flow --}}
-        <div class="insight-grid" aria-label="Key performance insights">
+        <div class="insight-grid" aria-label="District insights">
             <div class="insight-card insight-card--indigo">
                 <div class="insight-label"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> Target progress</div>
                 @if ($overallTargetPct !== null)
