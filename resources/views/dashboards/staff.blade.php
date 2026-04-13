@@ -1390,6 +1390,262 @@
         .kpi-compact-card--amber { background: linear-gradient(135deg, #b45309 0%, #ea580c 45%, #fbbf24 100%); }
         .kpi-compact-card--rose { background: linear-gradient(135deg, #9f1239 0%, #e11d48 50%, #fb7185 100%); }
         
+        /* District performance — curved glass panel */
+        .district-curve-panel {
+            position: relative;
+            margin-bottom: 1.5rem;
+            border-radius: 28px;
+            overflow: hidden;
+            background: linear-gradient(145deg,
+                rgba(255, 255, 255, 0.95) 0%,
+                rgba(224, 242, 254, 0.55) 38%,
+                rgba(237, 233, 254, 0.65) 100%);
+            border: 1px solid rgba(167, 139, 250, 0.22);
+            box-shadow:
+                0 18px 40px -18px rgba(15, 23, 42, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+        }
+        .district-curve-panel__waves {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 72px;
+            pointer-events: none;
+            opacity: 0.85;
+        }
+        .district-curve-panel__waves svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .district-curve-panel__body {
+            position: relative;
+            z-index: 1;
+            padding: 1.15rem 1.35rem 1.35rem;
+        }
+        .district-curve-panel__head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.1rem;
+        }
+        .district-curve-panel__eyebrow {
+            font-size: 0.58rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #6366f1;
+            margin: 0 0 0.35rem;
+        }
+        .district-curve-panel__title {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0;
+            line-height: 1.2;
+        }
+        .district-curve-panel__sub {
+            margin: 0.35rem 0 0;
+            font-size: 0.78rem;
+            color: #64748b;
+            max-width: 36rem;
+            line-height: 1.45;
+        }
+        .district-curve-panel__badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #3730a3;
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(99, 102, 241, 0.28);
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.1);
+        }
+        .district-curve-panel__grid {
+            display: grid;
+            grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 1.35fr) minmax(12rem, 1fr);
+            gap: 1.1rem;
+            align-items: stretch;
+        }
+        @media (max-width: 1200px) {
+            .district-curve-panel__grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .district-curve-panel__col--chart {
+                grid-column: 1 / -1;
+                min-height: 200px;
+            }
+        }
+        @media (max-width: 700px) {
+            .district-curve-panel__grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .district-curve-panel__col {
+            background: rgba(255, 255, 255, 0.62);
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            padding: 1rem 1.05rem;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+        }
+        .district-curve-panel__col--chart {
+            min-height: 210px;
+            display: flex;
+            flex-direction: column;
+        }
+        .district-curve-panel__col--chart .district-chart-canvas-wrap {
+            flex: 1;
+            min-height: 170px;
+            position: relative;
+        }
+        .district-ring-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.65rem;
+            text-align: center;
+            padding: 0.35rem 0;
+        }
+        .district-ring {
+            width: 132px;
+            height: 132px;
+            transform: rotate(-90deg);
+        }
+        .district-ring__bg {
+            fill: none;
+            stroke: rgba(148, 163, 184, 0.25);
+            stroke-width: 10;
+        }
+        .district-ring__progress {
+            fill: none;
+            stroke: url(#districtRingGrad);
+            stroke-width: 10;
+            stroke-linecap: round;
+            stroke-dasharray: 339.292;
+            transition: stroke-dashoffset 0.6s ease;
+        }
+        .district-ring-meta {
+            margin-top: -0.25rem;
+        }
+        .district-ring-meta__big {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.65rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1;
+        }
+        .district-ring-meta__small {
+            font-size: 0.68rem;
+            color: #64748b;
+            margin-top: 0.3rem;
+        }
+        .district-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.65rem;
+            justify-content: center;
+        }
+        .district-chip {
+            border-radius: 999px;
+            padding: 0.3rem 0.55rem;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+        .district-chip--seed { background: rgba(250, 204, 21, 0.22); color: #a16207; }
+        .district-chip--early { background: rgba(59, 130, 246, 0.18); color: #1d4ed8; }
+        .district-chip--growth { background: rgba(16, 185, 129, 0.2); color: #047857; }
+        .district-stage-bars {
+            margin-top: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .district-stage-bar {
+            display: grid;
+            grid-template-columns: 4.5rem 1fr 2.2rem;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.68rem;
+        }
+        .district-stage-bar__label {
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .district-stage-bar__track {
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(241, 245, 249, 0.95);
+            overflow: hidden;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+        .district-stage-bar__fill {
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #818cf8, #34d399);
+            transition: width 0.5s ease;
+        }
+        .district-stage-bar__fill--seed {
+            background: linear-gradient(90deg, #facc15, #f97316);
+        }
+        .district-stage-bar__fill--early {
+            background: linear-gradient(90deg, #60a5fa, #6366f1);
+        }
+        .district-stage-bar__fill--growth {
+            background: linear-gradient(90deg, #34d399, #14b8a6);
+        }
+        .district-stage-bar__pct {
+            text-align: right;
+            font-weight: 800;
+            color: #0f172a;
+            font-variant-numeric: tabular-nums;
+        }
+        .district-compare-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+        .district-compare-card__label {
+            font-size: 0.58rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+        }
+        .district-compare-card__row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: #334155;
+        }
+        .district-compare-card__row strong {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.05rem;
+            color: #0f172a;
+        }
+        .district-footnote {
+            font-size: 0.68rem;
+            color: #64748b;
+            line-height: 1.45;
+            margin: 1rem 0 0;
+            padding-top: 0.85rem;
+            border-top: 1px dashed rgba(148, 163, 184, 0.45);
+        }
+        
         @media (max-width: 900px) {
             .dashboard-intro {
                 padding: 1.35rem;
@@ -1497,7 +1753,7 @@
                                 
                                 <div class="welcome-stat-card welcome-stat-card--positive">
                                     <div class="welcome-stat-card__label">Active Streak</div>
-                                    <div class="welcome-stat-card__value">{{ $activeDaysStreak ?? 0 }}</div>
+                                    <div class="welcome-stat-card__value">{{ $submissionStreakDays ?? 0 }}</div>
                                     <div class="welcome-stat-card__meta">Days in a row</div>
                                 </div>
                             </div>
@@ -1744,6 +2000,156 @@
                 </div>
             </div>
         </div>
+
+        @if ($staff->district_id && $activeFy)
+            @php
+                $dStageTotals = ['SEED' => 0, 'EARLY' => 0, 'GROWTH' => 0];
+                foreach ($districtBusinessStageMix['labels'] ?? [] as $dIdx => $dLabel) {
+                    $u = strtoupper(trim((string) $dLabel));
+                    if (isset($dStageTotals[$u])) {
+                        $dStageTotals[$u] = (int) ($districtBusinessStageMix['values'][$dIdx] ?? 0);
+                    }
+                }
+                $dStageSum = array_sum($dStageTotals);
+                $dStagePct = [
+                    'SEED' => $dStageSum > 0 ? (int) round(($dStageTotals['SEED'] / $dStageSum) * 100) : 0,
+                    'EARLY' => $dStageSum > 0 ? (int) round(($dStageTotals['EARLY'] / $dStageSum) * 100) : 0,
+                    'GROWTH' => $dStageSum > 0 ? (int) round(($dStageTotals['GROWTH'] / $dStageSum) * 100) : 0,
+                ];
+                $ringCirc = 339.292;
+                $ringPct = $districtProgressPct !== null ? (int) min(100, max(0, $districtProgressPct)) : null;
+                $ringOffset = $ringPct !== null ? $ringCirc * (1 - $ringPct / 100) : $ringCirc;
+            @endphp
+            <section class="district-curve-panel" aria-labelledby="district-performance-title">
+                <div class="district-curve-panel__waves" aria-hidden="true">
+                    <svg viewBox="0 0 1440 48" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="districtWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#818cf8;stop-opacity:0.35"/>
+                                <stop offset="50%" style="stop-color:#22d3ee;stop-opacity:0.28"/>
+                                <stop offset="100%" style="stop-color:#34d399;stop-opacity:0.3"/>
+                            </linearGradient>
+                        </defs>
+                        <path fill="url(#districtWaveGrad)" d="M0,32 C180,8 360,42 540,22 C720,2 900,38 1080,24 C1260,10 1380,28 1440,18 L1440,0 L0,0 Z"/>
+                    </svg>
+                </div>
+                <div class="district-curve-panel__body">
+                    <div class="district-curve-panel__head">
+                        <div>
+                            <p class="district-curve-panel__eyebrow"><i class="fa-solid fa-landmark" aria-hidden="true"></i> District pulse</p>
+                            <h2 id="district-performance-title" class="district-curve-panel__title">Overall district performance</h2>
+                            <p class="district-curve-panel__sub">
+                                All CFA applications recorded in <strong>{{ $staff->district?->name ?? 'your district' }}</strong> for
+                                <strong>{{ $activeFy->name }}</strong> — including every referral and channel — so you can situate your own numbers in the wider picture.
+                            </p>
+                        </div>
+                        <span class="district-curve-panel__badge">
+                            <i class="fa-solid fa-chart-area" aria-hidden="true"></i>
+                            District scope · this FY
+                        </span>
+                    </div>
+                    <div class="district-curve-panel__grid">
+                        <div class="district-curve-panel__col">
+                            <div class="district-ring-wrap">
+                                <svg class="district-ring" viewBox="0 0 120 120" aria-hidden="true">
+                                    <defs>
+                                        <linearGradient id="districtRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#6366f1"/>
+                                            <stop offset="100%" style="stop-color:#2dd4bf"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <circle class="district-ring__bg" cx="60" cy="60" r="54"/>
+                                    <circle class="district-ring__progress" cx="60" cy="60" r="54"
+                                        stroke-dasharray="{{ $ringCirc }}"
+                                        style="stroke-dashoffset: {{ $ringOffset }}"/>
+                                </svg>
+                                <div class="district-ring-meta">
+                                    @if ($districtProgressPct !== null)
+                                        <div class="district-ring-meta__big">{{ $districtProgressPct }}%</div>
+                                        <div class="district-ring-meta__small">of district CFA target</div>
+                                    @else
+                                        <div class="district-ring-meta__big">—</div>
+                                        <div class="district-ring-meta__small">Set district target to track %</div>
+                                    @endif
+                                    <div class="district-chip-row">
+                                        <span class="district-chip district-chip--seed">Seed {{ $dStagePct['SEED'] }}%</span>
+                                        <span class="district-chip district-chip--early">Early {{ $dStagePct['EARLY'] }}%</span>
+                                        <span class="district-chip district-chip--growth">Growth {{ $dStagePct['GROWTH'] }}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="district-curve-panel__col district-curve-panel__col--chart">
+                            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.35rem;gap:0.5rem;flex-wrap:wrap;">
+                                <span class="district-compare-card__label" style="margin:0;">14-day intake curve (district)</span>
+                                <span style="font-size:0.72rem;color:#64748b;">Rolling daily CFA in {{ $staff->district?->name ?? 'district' }}</span>
+                            </div>
+                            <div class="district-chart-canvas-wrap">
+                                <canvas id="districtTrendCurveChart" aria-label="District CFA applications per day, last 14 days"></canvas>
+                            </div>
+                        </div>
+                        <div class="district-curve-panel__col">
+                            <div class="district-compare-card">
+                                <span class="district-compare-card__label">District totals</span>
+                                <div class="district-compare-card__row">
+                                    <span>Applications this FY</span>
+                                    <strong>{{ number_format((int) ($districtCfaThisFy ?? 0)) }}</strong>
+                                </div>
+                                @if ($districtCfaTarget !== null)
+                                    <div class="district-compare-card__row">
+                                        <span>District CFA target</span>
+                                        <strong>{{ number_format((int) $districtCfaTarget) }}</strong>
+                                    </div>
+                                @endif
+                                <div class="district-compare-card__row">
+                                    <span>Your referrals this FY</span>
+                                    <strong>{{ number_format($cfaThisFy) }}</strong>
+                                </div>
+                                <div class="district-compare-card__row">
+                                    <span>Your share of district CFA</span>
+                                    <strong>
+                                        @if ($staffShareOfDistrictPct !== null)
+                                            {{ $staffShareOfDistrictPct }}%
+                                        @else
+                                            —
+                                        @endif
+                                    </strong>
+                                </div>
+                            </div>
+                            <div class="district-stage-bars" aria-label="District stage mix">
+                                <span class="district-compare-card__label" style="margin-top:0.15rem;">Stage mix (district)</span>
+                                <div class="district-stage-bar">
+                                    <span class="district-stage-bar__label">Seed</span>
+                                    <div class="district-stage-bar__track">
+                                        <div class="district-stage-bar__fill district-stage-bar__fill--seed" style="width: {{ $dStagePct['SEED'] }}%;"></div>
+                                    </div>
+                                    <span class="district-stage-bar__pct">{{ $dStagePct['SEED'] }}%</span>
+                                </div>
+                                <div class="district-stage-bar">
+                                    <span class="district-stage-bar__label">Early</span>
+                                    <div class="district-stage-bar__track">
+                                        <div class="district-stage-bar__fill district-stage-bar__fill--early" style="width: {{ $dStagePct['EARLY'] }}%;"></div>
+                                    </div>
+                                    <span class="district-stage-bar__pct">{{ $dStagePct['EARLY'] }}%</span>
+                                </div>
+                                <div class="district-stage-bar">
+                                    <span class="district-stage-bar__label">Growth</span>
+                                    <div class="district-stage-bar__track">
+                                        <div class="district-stage-bar__fill district-stage-bar__fill--growth" style="width: {{ $dStagePct['GROWTH'] }}%;"></div>
+                                    </div>
+                                    <span class="district-stage-bar__pct">{{ $dStagePct['GROWTH'] }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="district-footnote">
+                        District totals count every CFA tied to {{ $staff->district?->name ?? 'this district' }} in {{ $activeFy->name }}.
+                        Your column shows only applications submitted through your referral link. District stage mix scans up to the 2,000
+                        most recent district applications with saved form data (capped for performance).
+                    </p>
+                </div>
+            </section>
+        @endif
 
         <div class="dashboard-intro" style="display: none;">
             {{-- Old code hidden - keeping for reference --}}
@@ -2230,7 +2636,7 @@
                                 <i class="fa-solid fa-fire-flame-curved"></i>
                             </div>
                             <div class="insight-stat-item__content">
-                                <div class="insight-stat-item__value">{{ $activeDaysStreak ?? 0 }}</div>
+                                <div class="insight-stat-item__value">{{ $submissionStreakDays ?? 0 }}</div>
                                 <div class="insight-stat-item__label">Day Streak</div>
                                 <div class="insight-stat-item__meta">Active days in row</div>
                             </div>
@@ -2444,6 +2850,56 @@
                     }
                 }
             });
+
+            @if ($staff->district_id)
+            const dTrendLabels = @json($districtCfaTrend['labels'] ?? []);
+            const dTrendVals = @json($districtCfaTrend['values'] ?? []);
+            const dChartEl = document.getElementById('districtTrendCurveChart');
+            if (dChartEl && dTrendLabels.length) {
+                new Chart(dChartEl, {
+                    type: 'line',
+                    data: {
+                        labels: dTrendLabels,
+                        datasets: [{
+                            label: 'District CFA',
+                            data: dTrendVals,
+                            borderColor: 'rgba(13, 148, 136, 0.95)',
+                            backgroundColor: 'rgba(45, 212, 191, 0.16)',
+                            fill: true,
+                            tension: 0.5,
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            pointHoverBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                                padding: 10,
+                                cornerRadius: 10
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false, drawBorder: false },
+                                ticks: { maxRotation: 0, font: { size: 9 }, color: '#64748b' }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: grid.color },
+                                ticks: { stepSize: 1, font: { size: 10 } }
+                            }
+                        }
+                    }
+                });
+            }
+            @endif
 
             @if (count($businessMix['labels']) > 0)
             const mixLabels = @json($businessMix['labels']);

@@ -48,11 +48,20 @@ class StaffDashboardService
         }
 
         $districtCfaThisFy = null;
+        $districtCfaTrend = ['labels' => [], 'values' => []];
+        $districtBusinessStageMix = ['labels' => [], 'values' => []];
         if ($activeFy && $user->district_id) {
             $districtCfaThisFy = CfaSubmission::query()
                 ->where('district_id', (int) $user->district_id)
                 ->where('fiscal_year_id', (int) $activeFy->id)
                 ->count();
+            $districtCfaTrend = $this->districtDailyTrend14((int) $user->district_id, (int) $activeFy->id);
+            $districtBusinessStageMix = $this->districtStageMixAggregates((int) $user->district_id, (int) $activeFy->id);
+        }
+
+        $districtProgressPct = null;
+        if ($districtCfaTarget !== null && (int) $districtCfaTarget > 0 && $districtCfaThisFy !== null) {
+            $districtProgressPct = (int) min(100, round(($districtCfaThisFy / (int) $districtCfaTarget) * 100));
         }
 
         $base = CfaSubmission::query()->where('referral_user_id', $user->id);
@@ -67,6 +76,11 @@ class StaffDashboardService
         $cfaThisFy = 0;
         if ($activeFy) {
             $cfaThisFy = (clone $base)->where('fiscal_year_id', $activeFy->id)->count();
+        }
+
+        $staffShareOfDistrictPct = null;
+        if ($districtCfaThisFy !== null && (int) $districtCfaThisFy > 0) {
+            $staffShareOfDistrictPct = (int) min(100, round(($cfaThisFy / (int) $districtCfaThisFy) * 100));
         }
 
         $recent7 = (clone $base)->where('created_at', '>=', now()->copy()->subDays(7))->count();
@@ -164,6 +178,10 @@ class StaffDashboardService
             'staffAnnualTarget' => $staffAnnualTarget,
             'districtCfaTarget' => $districtCfaTarget,
             'districtCfaThisFy' => $districtCfaThisFy,
+            'districtCfaTrend' => $districtCfaTrend,
+            'districtBusinessStageMix' => $districtBusinessStageMix,
+            'districtProgressPct' => $districtProgressPct,
+            'staffShareOfDistrictPct' => $staffShareOfDistrictPct,
             'cfaTotal' => $cfaTotal,
             'cfaThisMonth' => $cfaThisMonth,
             'cfaLast30' => $cfaLast30,
@@ -409,5 +427,59 @@ class StaffDashboardService
         }
 
         return ['labels' => $topLabels, 'values' => $topValues];
+    }
+
+    /**
+     * District-wide CFA submissions per calendar day for the last 14 days (current FY only).
+     *
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function districtDailyTrend14(int $districtId, int $fiscalYearId): array
+    {
+        $labels = [];
+        $values = [];
+        for ($i = 13; $i >= 0; $i--) {
+            $day = Carbon::now()->subDays($i)->startOfDay();
+            $labels[] = $day->format('d M');
+            $values[] = (int) CfaSubmission::query()
+                ->where('district_id', $districtId)
+                ->where('fiscal_year_id', $fiscalYearId)
+                ->whereDate('created_at', $day->toDateString())
+                ->count();
+        }
+
+        return ['labels' => $labels, 'values' => $values];
+    }
+
+    /**
+     * Stage distribution from stored payloads for all CFA in this district in the FY (capped scan).
+     *
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function districtStageMixAggregates(int $districtId, int $fiscalYearId, int $limit = 2000): array
+    {
+        $stage = [];
+
+        CfaSubmission::query()
+            ->where('district_id', $districtId)
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->whereNotNull('payload')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->cursor()
+            ->each(function (CfaSubmission $row) use (&$stage): void {
+                $p = $row->payload;
+                if (! is_array($p)) {
+                    return;
+                }
+
+                $st = $p['form_stage'] ?? null;
+                if (! is_string($st) || $st === '') {
+                    $st = 'Not specified';
+                }
+                $stage[$st] = ($stage[$st] ?? 0) + 1;
+            });
+
+        return $this->sortCountMapToChart($stage);
     }
 }
