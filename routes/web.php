@@ -57,6 +57,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
     Route::prefix('account')->name('account.')->group(function () {
+        /** Serves file from disk so images work even if public/storage symlink is missing */
+        Route::get('avatar', [ProfileController::class, 'showAvatar'])
+            ->middleware('throttle:120,1')
+            ->name('avatar.show');
         Route::get('settings', [ProfileController::class, 'edit'])->name('settings.edit');
         Route::put('settings/profile', [ProfileController::class, 'updateProfile'])->name('settings.profile.update');
         Route::put('settings/password', [ProfileController::class, 'updatePassword'])->name('settings.password.update');

@@ -100,6 +100,12 @@ class User extends Authenticatable
             return null;
         }
 
+        if (auth()->check() && (int) auth()->id() === (int) $this->id) {
+            return route('account.avatar.show', [
+                'v' => $this->updated_at?->getTimestamp() ?? $this->id,
+            ]);
+        }
+
         return Storage::disk('public')->url($this->avatar_path);
     }
 }

@@ -7,11 +7,28 @@ use App\Http\Requests\UpdateAvatarRequest;
 use App\Http\Requests\UpdatePasswordRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class ProfileController extends Controller
 {
+    /**
+     * Stream the signed-in user's avatar from the public disk (avoids relying on the web server symlink).
+     */
+    public function showAvatar(Request $request): Response
+    {
+        $user = $request->user();
+        if (! $user->avatar_path || ! Storage::disk('public')->exists($user->avatar_path)) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->response($user->avatar_path, null, [
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
+    }
+
     public function edit(): View
     {
         return view('account.settings', [
