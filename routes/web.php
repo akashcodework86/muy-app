@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Account\ProfileController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DesignationController;
@@ -54,6 +55,16 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
+
+    Route::prefix('account')->name('account.')->group(function () {
+        Route::get('settings', [ProfileController::class, 'edit'])->name('settings.edit');
+        Route::put('settings/profile', [ProfileController::class, 'updateProfile'])->name('settings.profile.update');
+        Route::put('settings/password', [ProfileController::class, 'updatePassword'])->name('settings.password.update');
+        Route::post('settings/avatar', [ProfileController::class, 'updateAvatar'])
+            ->middleware('throttle:20,1')
+            ->name('settings.avatar.update');
+        Route::delete('settings/avatar', [ProfileController::class, 'destroyAvatar'])->name('settings.avatar.destroy');
+    });
 
     Route::middleware('district_staff')->prefix('my')->name('staff.')->group(function () {
         Route::get('monthly-targets', [StaffPortalController::class, 'monthlyTargets'])->name('monthly-targets');

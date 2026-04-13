@@ -54,6 +54,21 @@
     .admin-app-body--dashboard .admin-topbar__logout button:hover {
         background: #fff;
     }
+    .admin-app-body--dashboard .admin-topbar__settings {
+        background: rgba(255, 255, 255, 0.8);
+        border-color: rgba(148, 163, 184, 0.55);
+        color: #334155;
+    }
+    .admin-app-body--dashboard .admin-topbar__settings:hover {
+        background: #fff;
+        border-color: rgba(99, 102, 241, 0.45);
+        color: #1e1b4b;
+    }
+    .admin-app-body--dashboard .admin-topbar__settings.is-active {
+        color: #fff;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        border-color: transparent;
+    }
     .admin-topbar {
         position: sticky;
         top: 0;
@@ -160,6 +175,36 @@
         letter-spacing: 0.04em;
         box-shadow: 0 10px 24px rgba(99, 102, 241, 0.18);
         flex-shrink: 0;
+    }
+    .admin-topbar__avatar--photo {
+        object-fit: cover;
+        padding: 0;
+        display: block;
+        box-sizing: border-box;
+    }
+    .admin-topbar__settings {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 0.95rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-family: inherit;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(255, 255, 255, 0.08);
+        color: #e2e8f0;
+        flex-shrink: 0;
+    }
+    .admin-topbar__settings:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+    }
+    .admin-topbar__settings.is-active {
+        background: rgba(79, 70, 229, 0.45);
+        border-color: rgba(129, 140, 248, 0.5);
+        color: #fff;
     }
     .admin-topbar__user-wrap {
         display: flex;

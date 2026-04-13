@@ -32,6 +32,7 @@
         $r === 'staff.monthly-targets' => 'staff-targets',
         $r === 'staff.applications' => 'staff-apps',
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
+        str_starts_with($r, 'account.') => 'account',
         default => '',
     };
 @endphp
@@ -77,12 +78,17 @@
 
         <div class="admin-topbar__right">
             <div class="admin-topbar__profile" title="{{ auth()->user()->email }}">
-                <span class="admin-topbar__avatar">{{ strtoupper($initials) }}</span>
+                @if ($u->avatar_path)
+                    <img src="{{ $u->avatarUrl() }}" alt="" class="admin-topbar__avatar admin-topbar__avatar--photo" width="35" height="35">
+                @else
+                    <span class="admin-topbar__avatar">{{ strtoupper($initials) }}</span>
+                @endif
                 <span class="admin-topbar__user-wrap">
                     <span class="admin-topbar__user">{{ auth()->user()->name }}</span>
                     <span class="admin-topbar__user-role">{{ str_replace('_', ' ', auth()->user()->role ?? 'user') }}</span>
                 </span>
             </div>
+            <a href="{{ route('account.settings.edit') }}" class="admin-topbar__settings @if (request()->routeIs('account.settings.*')) is-active @endif">Settings</a>
             <form method="post" action="{{ route('logout') }}" class="admin-topbar__logout">
                 @csrf
                 <button type="submit">Log out</button>
