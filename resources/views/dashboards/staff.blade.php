@@ -1169,10 +1169,10 @@
         .velocity-pill .num { font-family: 'DM Sans', sans-serif; font-size: 1.35rem; font-weight: 700; color: var(--text); }
         .velocity-pill .meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
         
-        /* Three Column Hero Layout */
+        /* Two column hero (welcome + applications / stage mix) */
         .hero-three-col {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 0.85rem;
             margin-bottom: 1.5rem;
         }
@@ -1206,9 +1206,6 @@
         }
         .hero-col--metrics {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 249, 255, 0.9) 100%);
-        }
-        .hero-col--kpis {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(254, 252, 232, 0.9) 100%);
         }
         .hero-col__title {
             font-size: 0.6rem;
@@ -1328,67 +1325,6 @@
         .welcome-stat-card--neutral .welcome-stat-card__value {
             color: #7c3aed;
         }
-        
-        /* KPI Column Compact */
-        .kpi-compact-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 0.65rem;
-        }
-        .kpi-compact-card {
-            border-radius: 10px;
-            padding: 0.75rem 0.85rem;
-            color: #fff;
-            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
-            position: relative;
-            overflow: hidden;
-            min-height: 60px;
-        }
-        .kpi-compact-card::after {
-            content: '';
-            position: absolute;
-            inset: -40% -20% auto auto;
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.12);
-            pointer-events: none;
-        }
-        .kpi-compact-card .kpi-label {
-            font-size: 0.6rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            opacity: 0.9;
-            margin-bottom: 0.4rem;
-            position: relative;
-            z-index: 1;
-        }
-        .kpi-compact-card .kpi-label i {
-            font-size: 0.65rem;
-            margin-right: 0.25rem;
-        }
-        .kpi-compact-card .kpi-val {
-            font-family: 'DM Sans', sans-serif;
-            font-size: 1.5rem;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-            line-height: 1;
-            margin-bottom: 0.35rem;
-            position: relative;
-            z-index: 1;
-        }
-        .kpi-compact-card .kpi-sub {
-            font-size: 0.62rem;
-            opacity: 0.88;
-            line-height: 1.3;
-            position: relative;
-            z-index: 1;
-        }
-        .kpi-compact-card--indigo { background: linear-gradient(135deg, #3730a3 0%, #6366f1 55%, #818cf8 100%); }
-        .kpi-compact-card--teal { background: linear-gradient(135deg, #0f766e 0%, #14b8a6 50%, #2dd4bf 100%); }
-        .kpi-compact-card--amber { background: linear-gradient(135deg, #b45309 0%, #ea580c 45%, #fbbf24 100%); }
-        .kpi-compact-card--rose { background: linear-gradient(135deg, #9f1239 0%, #e11d48 50%, #fb7185 100%); }
         
         /* District performance — curved glass panel */
         .district-curve-panel {
@@ -1681,7 +1617,7 @@
     @else
         <div class="dashboard-shell">
         
-        {{-- Three Column Hero Layout --}}
+        {{-- Two column hero --}}
         <div class="hero-three-col">
             {{-- Column 1: Welcome Section --}}
             <div class="hero-col hero-col--welcome">
@@ -1940,61 +1876,6 @@
                                 <strong>{{ ucfirst(strtolower($mostDeficient)) }}</strong> is short by {{ abs($stageGaps[$mostDeficient]) }}%.
                             @endif
                             Maintain mix close to <strong>Early {{ $stageTargets['EARLY'] }}%</strong> · <strong>Seed {{ $stageTargets['SEED'] }}%</strong> · <strong>Growth {{ $stageTargets['GROWTH'] }}%</strong>.
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Column 3: KPI Cards --}}
-            <div class="hero-col hero-col--kpis">
-                <div class="hero-col__title">
-                    <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
-                    District insights
-                </div>
-                <div class="hero-col__content">
-                    <div class="kpi-compact-grid">
-                        <div class="kpi-compact-card kpi-compact-card--indigo">
-                            <div class="kpi-label"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> Target Progress</div>
-                            @if ($overallTargetPct !== null)
-                                <div class="kpi-val">{{ $overallTargetPct }}%</div>
-                                <div class="kpi-sub">CFA this FY vs your annual allocation</div>
-                            @else
-                                <div class="kpi-val">—</div>
-                                <div class="kpi-sub">Set monthly targets to track %</div>
-                            @endif
-                        </div>
-                        
-                        <div class="kpi-compact-card kpi-compact-card--teal">
-                            <div class="kpi-label"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Performance Score</div>
-                            @if ($performanceScore !== null)
-                                <div class="kpi-val">{{ $performanceScore }}</div>
-                                <div class="kpi-sub">Blend of target pace, registration & training</div>
-                            @else
-                                <div class="kpi-val">—</div>
-                                <div class="kpi-sub">Needs annual CFA target</div>
-                            @endif
-                        </div>
-                        
-                        <div class="kpi-compact-card kpi-compact-card--amber">
-                            <div class="kpi-label"><i class="fa-solid fa-id-card" aria-hidden="true"></i> Registered</div>
-                            @if ($registrationRate !== null)
-                                <div class="kpi-val">{{ (int) $registrationRate }}%</div>
-                                <div class="kpi-sub">Yes among Yes/No answers in recent forms</div>
-                            @else
-                                <div class="kpi-val">—</div>
-                                <div class="kpi-sub">No registration data yet</div>
-                            @endif
-                        </div>
-                        
-                        <div class="kpi-compact-card kpi-compact-card--rose">
-                            <div class="kpi-label"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Training</div>
-                            @if ($trainingRate !== null)
-                                <div class="kpi-val">{{ (int) $trainingRate }}%</div>
-                                <div class="kpi-sub">Yes among Yes/No answers in recent forms</div>
-                            @else
-                                <div class="kpi-val">—</div>
-                                <div class="kpi-sub">No Yes/No training data in sample yet</div>
-                            @endif
                         </div>
                     </div>
                 </div>
