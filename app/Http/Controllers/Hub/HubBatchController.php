@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Hub;
 
 use App\Http\Controllers\Controller;
 use App\Models\District;
+use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\OnboardingBatch;
 use App\Services\HubBatchService;
@@ -27,10 +28,15 @@ class HubBatchController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'name', 'slug']);
+        [$selectedFiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
+            $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
+        );
 
         return view('hub.batches.index', [
             'hub' => $hub,
             'districts' => $districts,
+            'fiscalYears' => $fiscalYears,
+            'selectedFiscalYearId' => $selectedFiscalYearId,
             'stats' => [
                 'blocked' => $this->batches->hubWriteBlocked($hub->id),
                 'overdue_cdo' => $this->batches->countOverdueBatches($hub->id),

@@ -258,11 +258,17 @@ class HubBatchService
             return ['ok' => false, 'error' => 'Invalid district'];
         }
         $q = trim((string) ($input['q'] ?? ''));
-        $fyId = $this->activeFiscalYearId();
+        $requestedFyId = (int) ($input['fiscal_year_id'] ?? 0);
+        $fyId = $requestedFyId > 0
+            ? (int) FiscalYear::query()->whereKey($requestedFyId)->value('id')
+            : ($this->activeFiscalYearId() ?? 0);
+        if ($requestedFyId > 0 && $fyId <= 0) {
+            return ['ok' => false, 'error' => 'Invalid fiscal year'];
+        }
 
         $query = CfaSubmission::query()
             ->where('district_id', $districtId)
-            ->when($fyId, fn ($qq) => $qq->where('fiscal_year_id', $fyId))
+            ->when($fyId > 0, fn ($qq) => $qq->where('fiscal_year_id', $fyId))
             ->whereDoesntHave('onboardingBatchMembership')
             ->whereDoesntHave('draftBatchMembership', function ($q) {
                 $q->whereHas('batch', fn ($b) => $b->where('status', 'draft'));

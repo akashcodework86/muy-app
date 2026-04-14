@@ -167,7 +167,17 @@
             </div>
             <div>
                 <div class="hb-card" style="margin-bottom:1rem">
-                    <input type="search" id="inpSearch" class="hb-input" placeholder="Search application no., name, phone…">
+                    <div style="display:grid;grid-template-columns:1fr 200px;gap:0.6rem;align-items:end">
+                        <input type="search" id="inpSearch" class="hb-input" placeholder="Search application no., name, phone…">
+                        <div>
+                            <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:0.28rem">Fiscal year</label>
+                            <select id="selFiscalYear" class="hb-select">
+                                @foreach ($fiscalYears as $fy)
+                                    <option value="{{ $fy->id }}" @selected((int) $selectedFiscalYearId === (int) $fy->id)>{{ $fy->code }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
                 </div>
                 <div class="hb-card" style="padding:0;overflow:hidden">
                     <div style="padding:0.65rem 1rem;border-bottom:1px solid var(--border);background:#f8fafc;font-weight:700;font-size:0.9rem">CFA choice pool</div>
@@ -272,6 +282,7 @@
         let currentBatchId = 0;
         let blocked = @json($stats['blocked']);
         let searchTimer = null;
+        let selectedFiscalYearId = parseInt(@json($selectedFiscalYearId), 10) || 0;
         let mixState = { seed: 0, early: 0, growth: 0, unknown: 0, count: 0, targetN: 0 };
         let latestPoolRows = [];
         let bulkAddBusy = false;
@@ -459,7 +470,7 @@
             }
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1.5rem">Loading…</td></tr>';
             try {
-                const data = await api('pool_list', { district_id: currentDistrictId, q });
+                const data = await api('pool_list', { district_id: currentDistrictId, q, fiscal_year_id: selectedFiscalYearId });
                 const rows = data.candidates || [];
                 latestPoolRows = rows.map(r => ({ id: parseInt(r.id, 10), stage_key: normalizeStageKey(r.stage) })).filter(r => Number.isFinite(r.id));
                 if (!rows.length) {
@@ -688,6 +699,10 @@
         document.getElementById('inpSearch').addEventListener('input', () => {
             clearTimeout(searchTimer);
             searchTimer = setTimeout(loadPool, 280);
+        });
+        document.getElementById('selFiscalYear').addEventListener('change', (e) => {
+            selectedFiscalYearId = parseInt(e.target.value, 10) || 0;
+            loadPool();
         });
 
         document.getElementById('btnCreateDraft').addEventListener('click', async () => {
