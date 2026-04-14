@@ -69,6 +69,11 @@
         background: linear-gradient(135deg, #4f46e5, #7c3aed);
         border-color: transparent;
     }
+    .admin-app-body--dashboard .admin-topbar__dropdown-panel {
+        background: rgba(255, 255, 255, 0.96);
+        border-color: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 20px 48px rgba(79, 70, 229, 0.14);
+    }
     .admin-topbar {
         position: sticky;
         top: 0;
@@ -79,7 +84,7 @@
         border-bottom: 1px solid rgba(255, 255, 255, 0.72);
         box-shadow: 0 16px 40px rgba(99, 102, 241, 0.08);
         border-radius: 0 0 20px 20px;
-        overflow: hidden;
+        overflow: visible;
     }
     .admin-topbar::before,
     .admin-topbar::after {
@@ -154,6 +159,77 @@
     }
     @media (min-width: 1100px) {
         .admin-topbar__nav { justify-content: flex-start; margin-left: 1rem; }
+    }
+    @media (min-width: 1100px) {
+        .admin-topbar__nav--state-admin {
+            flex-wrap: nowrap;
+        }
+    }
+    .admin-topbar__details {
+        position: relative;
+        display: inline-block;
+    }
+    .admin-topbar__details > summary {
+        list-style: none;
+        cursor: pointer;
+    }
+    .admin-topbar__details > summary::-webkit-details-marker {
+        display: none;
+    }
+    .admin-topbar__dropdown-trigger {
+        padding-right: 1.65rem;
+        position: relative;
+        user-select: none;
+    }
+    .admin-topbar__dropdown-trigger::after {
+        content: '';
+        position: absolute;
+        right: 0.55rem;
+        top: 50%;
+        width: 0.35rem;
+        height: 0.35rem;
+        margin-top: -0.2rem;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        opacity: 0.65;
+    }
+    .admin-topbar__details[open] > .admin-topbar__dropdown-trigger::after {
+        margin-top: 0;
+        transform: rotate(225deg);
+    }
+    .admin-topbar__dropdown-panel {
+        position: absolute;
+        left: 0;
+        top: calc(100% + 0.35rem);
+        min-width: 13.5rem;
+        padding: 0.4rem;
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(226, 232, 240, 0.95);
+        border-radius: 18px;
+        box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+        z-index: 220;
+    }
+    .admin-topbar__dropdown-item {
+        display: block;
+        padding: 0.55rem 0.85rem;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #334155;
+        text-decoration: none;
+        transition: background 0.15s, color 0.15s;
+    }
+    .admin-topbar__dropdown-item:hover {
+        background: rgba(99, 102, 241, 0.12);
+        color: #1e1b4b;
+    }
+    .admin-topbar__dropdown-item.is-active {
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.15), rgba(124, 58, 237, 0.12));
+        color: #3730a3;
+        font-weight: 600;
     }
     .admin-topbar__link {
         color: #334155;
