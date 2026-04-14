@@ -46,29 +46,6 @@
     .admin-app-body--dashboard .admin-topbar__user-role {
         color: #64748b;
     }
-    .admin-app-body--dashboard .admin-topbar__logout button {
-        background: rgba(255, 255, 255, 0.8);
-        border-color: rgba(148, 163, 184, 0.55);
-        color: #334155;
-    }
-    .admin-app-body--dashboard .admin-topbar__logout button:hover {
-        background: #fff;
-    }
-    .admin-app-body--dashboard .admin-topbar__settings {
-        background: rgba(255, 255, 255, 0.8);
-        border-color: rgba(148, 163, 184, 0.55);
-        color: #334155;
-    }
-    .admin-app-body--dashboard .admin-topbar__settings:hover {
-        background: #fff;
-        border-color: rgba(99, 102, 241, 0.45);
-        color: #1e1b4b;
-    }
-    .admin-app-body--dashboard .admin-topbar__settings.is-active {
-        color: #fff;
-        background: linear-gradient(135deg, #4f46e5, #7c3aed);
-        border-color: transparent;
-    }
     .admin-app-body--dashboard .admin-topbar__dropdown-panel {
         background: rgba(255, 255, 255, 0.96);
         border-color: rgba(255, 255, 255, 0.85);
@@ -230,6 +207,75 @@
         background: linear-gradient(135deg, rgba(79, 70, 229, 0.15), rgba(124, 58, 237, 0.12));
         color: #3730a3;
         font-weight: 600;
+    }
+    .admin-topbar__dropdown-kicker {
+        margin: 0 0.5rem 0.5rem;
+        padding-bottom: 0.45rem;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+        font-size: 0.65rem;
+        letter-spacing: 0.1em;
+        color: #64748b;
+        font-weight: 700;
+    }
+    .admin-topbar__dropdown-hr {
+        border: none;
+        border-top: 1px solid #e2e8f0;
+        margin: 0.15rem 0.35rem 0.35rem;
+    }
+    .admin-topbar__details--profile {
+        position: relative;
+    }
+    .admin-topbar__profile-summary {
+        list-style: none;
+        cursor: pointer;
+        border-radius: 999px;
+        outline: none;
+    }
+    .admin-topbar__profile-summary::-webkit-details-marker {
+        display: none;
+    }
+    .admin-topbar__profile-summary:focus-visible {
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35);
+    }
+    .admin-topbar__details--profile[open] .admin-topbar__profile {
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+    }
+    .admin-topbar__dropdown-panel--profile {
+        left: auto;
+        right: 0;
+        min-width: 15rem;
+        padding: 0.65rem 0.45rem 0.45rem;
+        z-index: 240;
+    }
+    .admin-topbar__dropdown-profile-name {
+        margin: 0 0.5rem 0.2rem;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .admin-topbar__dropdown-profile-email {
+        margin: 0 0.5rem 0.35rem;
+        font-size: 0.75rem;
+        color: #64748b;
+        line-height: 1.35;
+        word-break: break-all;
+    }
+    .admin-topbar__dropdown-logout {
+        margin: 0;
+        padding: 0;
+    }
+    .admin-topbar__dropdown-item.admin-topbar__dropdown-item--button {
+        width: 100%;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        color: #b91c1c;
+    }
+    .admin-topbar__dropdown-item.admin-topbar__dropdown-item--button:hover {
+        background: rgba(248, 113, 113, 0.1);
+        color: #991b1b;
     }
     .admin-topbar__link {
         color: #334155;
