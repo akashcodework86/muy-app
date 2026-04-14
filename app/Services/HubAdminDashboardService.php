@@ -44,6 +44,14 @@ class HubAdminDashboardService
 
         $cfaBase = CfaSubmission::query()->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds));
         $cfaTotal = (clone $cfaBase)->count();
+
+        $hubCfaThisFy = null;
+        if ($activeFy && $districtIds !== []) {
+            $hubCfaThisFy = (int) CfaSubmission::query()
+                ->whereIn('district_id', $districtIds)
+                ->where('fiscal_year_id', $activeFy->id)
+                ->count();
+        }
         $cfaThisMonth = (clone $cfaBase)
             ->whereYear('created_at', now()->year)
             ->whereMonth('created_at', now()->month)
@@ -100,6 +108,7 @@ class HubAdminDashboardService
             'staffTotal' => $staffTotal,
             'staffActive' => $staffActive,
             'cfaTotal' => $cfaTotal,
+            'hubCfaThisFy' => $hubCfaThisFy,
             'cfaThisMonth' => $cfaThisMonth,
             'cfaLast30' => $cfaLast30,
             'seedCount' => (int) ($stageCounts['seed'] ?? 0),
