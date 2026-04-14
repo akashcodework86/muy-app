@@ -10,7 +10,7 @@
     @include('partials.admin-shell-styles')
     @stack('styles')
 </head>
-<body class="admin-app-body @yield('body_class')">
+<body class="admin-app-body @if(auth()->user()?->role === 'state_admin') admin-app-body--dashboard @endif @yield('body_class')">
     @include('partials.admin-topbar')
     <main class="admin-main">
         <div class="admin-page-head">

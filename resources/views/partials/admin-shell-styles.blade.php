@@ -73,9 +73,35 @@
         position: sticky;
         top: 0;
         z-index: 100;
-        background: linear-gradient(90deg, #0b1220 0%, #151f32 55%, #1e293b 100%);
-        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-        box-shadow: 0 4px 24px rgba(15, 23, 42, 0.25);
+        background: rgba(255, 255, 255, 0.76);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.72);
+        box-shadow: 0 16px 40px rgba(99, 102, 241, 0.08);
+        border-radius: 0 0 20px 20px;
+        overflow: hidden;
+    }
+    .admin-topbar::before,
+    .admin-topbar::after {
+        content: '';
+        position: absolute;
+        pointer-events: none;
+        border-radius: 999px;
+        z-index: 0;
+    }
+    .admin-topbar::before {
+        width: 280px;
+        height: 280px;
+        top: -220px;
+        left: -80px;
+        background: radial-gradient(circle, rgba(129, 140, 248, 0.22) 0%, rgba(129, 140, 248, 0) 72%);
+    }
+    .admin-topbar::after {
+        width: 260px;
+        height: 260px;
+        top: -205px;
+        right: -70px;
+        background: radial-gradient(circle, rgba(45, 212, 191, 0.2) 0%, rgba(45, 212, 191, 0) 72%);
     }
     .admin-topbar__inner {
         max-width: 100%;
@@ -85,13 +111,15 @@
         flex-wrap: wrap;
         align-items: center;
         gap: 0.75rem 1.25rem;
+        position: relative;
+        z-index: 1;
     }
     .admin-brand {
         display: flex;
         align-items: center;
         gap: 0.65rem;
         text-decoration: none;
-        color: #f8fafc;
+        color: #0f172a;
         flex-shrink: 0;
     }
     .admin-brand__img {
@@ -108,13 +136,13 @@
         font-weight: 700;
         font-size: 1rem;
         letter-spacing: -0.01em;
-        background: linear-gradient(90deg, #ffffff 0%, #c7d2fe 100%);
+        background: linear-gradient(90deg, #0f172a 0%, #3730a3 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         white-space: nowrap;
     }
-    .admin-brand__sub { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
+    .admin-brand__sub { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
     .admin-topbar__nav {
         display: flex;
         flex-wrap: wrap;
@@ -128,7 +156,7 @@
         .admin-topbar__nav { justify-content: flex-start; margin-left: 1rem; }
     }
     .admin-topbar__link {
-        color: #cbd5e1;
+        color: #334155;
         text-decoration: none;
         font-size: 0.875rem;
         font-weight: 500;
@@ -138,13 +166,13 @@
         transition: background 0.15s, color 0.15s;
     }
     .admin-topbar__link:hover {
-        color: #fff;
-        background: rgba(255, 255, 255, 0.08);
+        color: #1e1b4b;
+        background: rgba(99, 102, 241, 0.12);
     }
     .admin-topbar__link.is-active {
         color: #fff;
-        background: rgba(79, 70, 229, 0.35);
-        box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.35);
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        box-shadow: 0 10px 24px rgba(99, 102, 241, 0.22);
     }
     .admin-topbar__right {
         display: flex;
@@ -192,18 +220,19 @@
         font-family: inherit;
         font-weight: 600;
         text-decoration: none;
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: rgba(255, 255, 255, 0.08);
-        color: #e2e8f0;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        background: rgba(255, 255, 255, 0.8);
+        color: #334155;
         flex-shrink: 0;
     }
     .admin-topbar__settings:hover {
-        background: rgba(255, 255, 255, 0.12);
-        color: #fff;
+        background: #fff;
+        border-color: rgba(99, 102, 241, 0.45);
+        color: #1e1b4b;
     }
     .admin-topbar__settings.is-active {
-        background: rgba(79, 70, 229, 0.45);
-        border-color: rgba(129, 140, 248, 0.5);
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        border-color: transparent;
         color: #fff;
     }
     .admin-topbar__user-wrap {
@@ -214,7 +243,7 @@
     .admin-topbar__user {
         font-size: 0.82rem;
         font-weight: 600;
-        color: #e2e8f0;
+        color: #334155;
         max-width: 12rem;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -225,13 +254,13 @@
         line-height: 1.2;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: #94a3b8;
+        color: #64748b;
         white-space: nowrap;
     }
     .admin-topbar__logout button {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        color: #e2e8f0;
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        color: #334155;
         padding: 0.5rem 0.95rem;
         border-radius: 999px;
         font-size: 0.8rem;
@@ -240,7 +269,7 @@
         cursor: pointer;
     }
     .admin-topbar__logout button:hover {
-        background: rgba(255, 255, 255, 0.12);
+        background: #fff;
     }
     @media (max-width: 720px) {
         .admin-topbar__user-wrap {
