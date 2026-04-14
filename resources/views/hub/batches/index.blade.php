@@ -205,6 +205,7 @@
                             <th>Members</th>
                             <th>CDO PDF</th>
                             <th style="text-align:right">Upload</th>
+                            <th style="text-align:right">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="batchesBody"></tbody>
@@ -245,6 +246,23 @@
         </div>
     </div>
 
+    <div class="hb-modal-bg" id="modalEditBatch">
+        <div class="hb-modal">
+            <h3 style="margin:0 0 0.75rem">Edit draft batch</h3>
+            <label style="font-size:0.78rem;color:var(--muted)">Batch name</label>
+            <input type="text" id="editBatchName" class="hb-input" maxlength="120" style="margin:0.35rem 0 0.75rem">
+            <label style="font-size:0.78rem;color:var(--muted)">Target size (N)</label>
+            <input type="number" id="editBatchTarget" class="hb-input" min="1" max="500" style="margin:0.35rem 0 0.75rem">
+            <label style="font-size:0.78rem;color:var(--muted)">Onboarding date</label>
+            <input type="date" id="editBatchDate" class="hb-input" style="margin:0.35rem 0 0.75rem">
+            <p style="margin:0;font-size:0.72rem;color:var(--muted)">Note: only draft batches can be edited or deleted.</p>
+            <div style="display:flex;gap:0.75rem;margin-top:1.1rem">
+                <button type="button" class="hb-btn hb-btn--ghost" id="editBatchCancel" style="flex:1">Cancel</button>
+                <button type="button" class="hb-btn hb-btn--primary" id="editBatchSave" style="flex:1">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
     (function () {
         const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -257,6 +275,8 @@
         let mixState = { seed: 0, early: 0, growth: 0, unknown: 0, count: 0, targetN: 0 };
         let latestPoolRows = [];
         let bulkAddBusy = false;
+        let latestBatches = [];
+        let editingBatchId = 0;
 
         function idealMixFromN(N) {
             N = Math.max(0, parseInt(N, 10) || 0);
@@ -551,6 +571,7 @@
             try {
                 const data = await api('batches_list', {});
                 const rows = data.batches || [];
+                latestBatches = rows;
                 tbody.innerHTML = rows.length ? rows.map(b => {
                     let cdo = '—';
                     if (b.status === 'locked' && b.locked_at) {
@@ -569,6 +590,10 @@
                     const st = b.status === 'draft'
                         ? '<span style="background:#fef3c7;color:#92400e;padding:0.15rem 0.5rem;border-radius:999px;font-size:0.72rem;font-weight:700">Draft</span>'
                         : '<span style="background:#d1fae5;color:#065f46;padding:0.15rem 0.5rem;border-radius:999px;font-size:0.72rem;font-weight:700">Locked</span>';
+                    const actions = b.status === 'draft'
+                        ? `<button type="button" class="link-mini batch-edit" data-id="${b.id}">Edit</button>
+                           <button type="button" class="link-mini batch-delete" style="color:#dc2626" data-id="${b.id}">Delete</button>`
+                        : '<span style="color:#94a3b8">—</span>';
                     return `<tr>
                         <td style="font-weight:600">${esc(b.name)}</td>
                         <td>${esc(b.district_name)}</td>
@@ -576,11 +601,64 @@
                         <td>${b.member_count}</td>
                         <td>${cdo}</td>
                         <td style="text-align:right">${up}</td>
+                        <td style="text-align:right;white-space:nowrap">${actions}</td>
                     </tr>`;
-                }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">No batches yet.</td></tr>';
+                }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">No batches yet.</td></tr>';
+                tbody.querySelectorAll('.batch-edit').forEach(btn => btn.addEventListener('click', () => openEditBatch(parseInt(btn.dataset.id, 10))));
+                tbody.querySelectorAll('.batch-delete').forEach(btn => btn.addEventListener('click', () => deleteBatchRow(parseInt(btn.dataset.id, 10))));
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="6" style="color:#dc2626">' + esc(e.message) + '</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="color:#dc2626">' + esc(e.message) + '</td></tr>';
             }
+        }
+
+        function openEditBatch(batchId) {
+            const b = latestBatches.find(x => parseInt(x.id, 10) === batchId);
+            if (!b || b.status !== 'draft') return;
+            editingBatchId = batchId;
+            document.getElementById('editBatchName').value = b.name || '';
+            document.getElementById('editBatchTarget').value = b.target_size || '';
+            document.getElementById('editBatchDate').value = b.onboarding_date || '';
+            document.getElementById('modalEditBatch').classList.add('is-open');
+        }
+
+        function closeEditBatch() {
+            editingBatchId = 0;
+            document.getElementById('modalEditBatch').classList.remove('is-open');
+        }
+
+        async function saveEditBatch() {
+            if (!editingBatchId) return;
+            try {
+                await api('edit_batch', {
+                    batch_id: editingBatchId,
+                    name: document.getElementById('editBatchName').value.trim(),
+                    target_size: parseInt(document.getElementById('editBatchTarget').value, 10),
+                    onboarding_date: document.getElementById('editBatchDate').value,
+                });
+                closeEditBatch();
+                await loadBatches();
+                if (currentBatchId === editingBatchId) await loadDraft();
+                alert('Draft batch updated.');
+            } catch (e) { alert(e.message); }
+        }
+
+        async function deleteBatchRow(batchId) {
+            const b = latestBatches.find(x => parseInt(x.id, 10) === batchId);
+            if (!b || b.status !== 'draft') {
+                alert('Only draft batches can be deleted.');
+                return;
+            }
+            if (!confirm('Delete draft "' + (b.name || 'batch') + '"? This cannot be undone.')) return;
+            try {
+                await api('delete_batch', { batch_id: batchId });
+                if (currentBatchId === batchId) {
+                    currentBatchId = 0;
+                    document.getElementById('activeDraftCard').style.display = 'none';
+                }
+                await loadBatches();
+                await loadPool();
+                alert('Draft batch deleted.');
+            } catch (e) { alert(e.message); }
         }
 
         document.getElementById('selDistrict').addEventListener('change', async (e) => {
@@ -653,6 +731,8 @@
         document.getElementById('btnClearSelection').addEventListener('click', () => markSelectedPoolIds([]));
         document.getElementById('btnAutoSelectMix').addEventListener('click', autoSelectByIdealMix);
         document.getElementById('btnAddSelected').addEventListener('click', addSelectedToDraft);
+        document.getElementById('editBatchCancel').addEventListener('click', closeEditBatch);
+        document.getElementById('editBatchSave').addEventListener('click', saveEditBatch);
 
         document.getElementById('btnShowLater').addEventListener('click', async () => {
             try {

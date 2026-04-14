@@ -42,7 +42,7 @@ class HubBatchController extends Controller
     public function api(Request $request): JsonResponse
     {
         $action = (string) $request->input('action', '');
-        $result = $this->batches->handleApi($action, $request->user(), $request->all());
+        $result = $this->batches->handleApi($action, $request->user(), $request->all(), $request);
 
         if (! $result['ok']) {
             return response()->json(['ok' => false, 'error' => $result['error'] ?? 'Error'], 422);

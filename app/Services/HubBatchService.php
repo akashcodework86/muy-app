@@ -12,6 +12,7 @@ use App\Models\OnboardingBatchDocument;
 use App\Models\OnboardingBatchDraftCfa;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -19,6 +20,10 @@ use Illuminate\Validation\ValidationException;
 class HubBatchService
 {
     public const DOC_CDO = 'cdo_signed';
+
+    public function __construct(
+        private AdminAuditLogger $auditLogger
+    ) {}
 
     /**
      * @return list<int>
@@ -197,7 +202,7 @@ class HubBatchService
     /**
      * @return array{ok: bool, error?: string, data?: mixed}
      */
-    public function handleApi(string $action, User $user, array $input): array
+    public function handleApi(string $action, User $user, array $input, ?Request $request = null): array
     {
         if ($user->role !== 'hub_admin' || ! $user->hub_id) {
             return ['ok' => false, 'error' => 'Unauthorized'];
@@ -232,6 +237,8 @@ class HubBatchService
             'cancel_draft' => $this->cancelDraft($hubId, $input),
             'add_to_draft' => $this->addToDraft($hubId, $input),
             'remove_from_draft' => $this->removeFromDraft($hubId, $input),
+            'edit_batch' => $this->editBatch($hubId, $user, $input, $request),
+            'delete_batch' => $this->deleteBatch($hubId, $user, $input, $request),
             'lock_batch' => $this->lockBatch($hubId, $user, $input),
             'set_choice' => $this->setChoice($hubId, $user, $districtIds, $input),
             'restore_later' => $this->restoreLater($hubId, $user, $districtIds, $input),
@@ -336,6 +343,7 @@ class HubBatchService
                     'district_name' => $b->district?->name ?? '',
                     'status' => $b->status,
                     'target_size' => $b->target_size,
+                    'onboarding_date' => optional($b->onboarding_date)->toDateString(),
                     'locked_at' => $b->locked_at?->toIso8601String(),
                     'member_count' => $memberCount,
                     'has_cdo_pdf' => $this->hasCdoPdf($b),
@@ -471,6 +479,104 @@ class HubBatchService
             ->delete();
 
         return ['ok' => true, 'data' => ['count' => $this->draftMemberCount($batchId)]];
+    }
+
+    private function editBatch(int $hubId, User $user, array $input, ?Request $request): array
+    {
+        $batchId = (int) ($input['batch_id'] ?? 0);
+        $batch = OnboardingBatch::query()->find($batchId);
+        if (! $batch || $batch->hub_id !== $hubId || ! $batch->isDraft()) {
+            return ['ok' => false, 'error' => 'Only draft batches can be edited'];
+        }
+
+        $name = trim((string) ($input['name'] ?? $batch->name));
+        $targetSize = (int) ($input['target_size'] ?? $batch->target_size);
+        $onboardingDate = (string) ($input['onboarding_date'] ?? $batch->onboarding_date?->toDateString() ?? now()->toDateString());
+
+        if ($name === '' || mb_strlen($name) > 120) {
+            return ['ok' => false, 'error' => 'Batch name is required (max 120 chars)'];
+        }
+        if ($targetSize < 1 || $targetSize > 500) {
+            return ['ok' => false, 'error' => 'Target size 1–500'];
+        }
+        $currentCount = $this->draftMemberCount($batch->id);
+        if ($targetSize < $currentCount) {
+            return ['ok' => false, 'error' => 'Target size cannot be less than current members ('.$currentCount.').'];
+        }
+
+        $before = [
+            'name' => (string) $batch->name,
+            'target_size' => (int) $batch->target_size,
+            'onboarding_date' => optional($batch->onboarding_date)->toDateString(),
+            'member_count' => $currentCount,
+        ];
+
+        $batch->update([
+            'name' => $name,
+            'target_size' => $targetSize,
+            'onboarding_date' => $onboardingDate,
+            'updated_by' => $user->id,
+        ]);
+
+        $after = [
+            'name' => (string) $batch->name,
+            'target_size' => (int) $batch->target_size,
+            'onboarding_date' => optional($batch->onboarding_date)->toDateString(),
+            'member_count' => $currentCount,
+        ];
+
+        if ($request) {
+            $this->auditLogger->record(
+                $request,
+                'hub_batch.updated',
+                OnboardingBatch::class,
+                (int) $batch->id,
+                $before,
+                $after,
+                'Hub admin updated draft batch settings'
+            );
+        }
+
+        return ['ok' => true, 'data' => ['batch_id' => $batch->id]];
+    }
+
+    private function deleteBatch(int $hubId, User $user, array $input, ?Request $request): array
+    {
+        $batchId = (int) ($input['batch_id'] ?? 0);
+        $batch = OnboardingBatch::query()->find($batchId);
+        if (! $batch || $batch->hub_id !== $hubId || ! $batch->isDraft()) {
+            return ['ok' => false, 'error' => 'Only draft batches can be deleted'];
+        }
+
+        $memberCount = $this->draftMemberCount($batch->id);
+        $before = [
+            'name' => (string) $batch->name,
+            'district_id' => (int) $batch->district_id,
+            'target_size' => (int) $batch->target_size,
+            'onboarding_date' => optional($batch->onboarding_date)->toDateString(),
+            'member_count' => $memberCount,
+            'status' => (string) $batch->status,
+        ];
+
+        DB::transaction(function () use ($batch, $user): void {
+            $batch->draftCfas()->delete();
+            $batch->update(['updated_by' => $user->id]);
+            $batch->delete();
+        });
+
+        if ($request) {
+            $this->auditLogger->record(
+                $request,
+                'hub_batch.deleted',
+                OnboardingBatch::class,
+                $batchId,
+                $before,
+                null,
+                'Hub admin deleted draft batch'
+            );
+        }
+
+        return ['ok' => true, 'data' => ['batch_id' => $batchId]];
     }
 
     private function lockBatch(int $hubId, User $user, array $input): array
