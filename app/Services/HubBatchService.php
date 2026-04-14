@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class HubBatchService
@@ -265,40 +266,184 @@ class HubBatchService
         if ($requestedFyId > 0 && $fyId <= 0) {
             return ['ok' => false, 'error' => 'Invalid fiscal year'];
         }
+        $fy = $fyId > 0 ? FiscalYear::query()->find($fyId) : null;
+        if (! $fy) {
+            return ['ok' => false, 'error' => 'Fiscal year not found'];
+        }
+        $district = District::query()->find($districtId);
+        if (! $district) {
+            return ['ok' => false, 'error' => 'District not found'];
+        }
 
-        $query = CfaSubmission::query()
-            ->where('district_id', $districtId)
-            ->when($fyId > 0, fn ($qq) => $qq->where('fiscal_year_id', $fyId))
-            ->whereDoesntHave('onboardingBatchMembership')
-            ->whereDoesntHave('draftBatchMembership', function ($q) {
-                $q->whereHas('batch', fn ($b) => $b->where('status', 'draft'));
-            })
-            ->whereNotExists(function ($sub) use ($hubId, $districtId) {
-                $sub->selectRaw('1')
-                    ->from('cfa_hub_choice_states as c')
-                    ->whereColumn('c.cfa_submission_id', 'cfa_submissions.id')
-                    ->where('c.hub_id', $hubId)
-                    ->where('c.district_id', $districtId)
-                    ->whereIn('c.state', ['reject', 'later']);
-            });
+        return $this->poolListFromLegacy($hubId, $district, $fy, $q);
+    }
+
+    private function poolListFromLegacy(int $hubId, District $district, FiscalYear $fy, string $q): array
+    {
+        if ((string) config('database.connections.legacy.database', '') === '') {
+            return ['ok' => false, 'error' => 'Legacy database is not configured'];
+        }
+        try {
+            $hasLegacyTables = Schema::connection('legacy')->hasTable('rbi_applications')
+                && Schema::connection('legacy')->hasTable('rbi_applicant_details');
+        } catch (\Throwable) {
+            return ['ok' => false, 'error' => 'Legacy database is unavailable'];
+        }
+        if (! $hasLegacyTables) {
+            return ['ok' => false, 'error' => 'Legacy CFA tables are missing'];
+        }
+
+        $start = Carbon::parse($fy->starts_on)->toDateString();
+        $end = Carbon::parse($fy->ends_on)->toDateString();
+        $districtNames = $this->legacyDistrictNamesFor($district);
+
+        $query = DB::connection('legacy')
+            ->table('rbi_applications as a')
+            ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
+            ->whereNotNull('a.submission_date')
+            ->whereBetween(DB::raw('DATE(a.submission_date)'), [$start, $end])
+            ->whereIn('d.district', $districtNames)
+            ->select([
+                'a.id as legacy_id',
+                'a.application_no',
+                'a.form_stage',
+                'a.submission_date',
+                'd.applicant_name',
+                'd.phone',
+                'd.district',
+                'd.block',
+            ]);
 
         if ($q !== '') {
             $like = '%'.$q.'%';
             $query->where(function ($qq) use ($like) {
-                $qq->where('application_no', 'like', $like)
-                    ->orWhere('applicant_name', 'like', $like)
-                    ->orWhere('phone', 'like', $like);
+                $qq->where('a.application_no', 'like', $like)
+                    ->orWhere('d.applicant_name', 'like', $like)
+                    ->orWhere('d.phone', 'like', $like);
             });
         }
 
-        $rows = $query->orderByDesc('id')->limit(200)->get()->map(fn (CfaSubmission $c) => [
-            'id' => $c->id,
-            'application_no' => $c->application_no ?? (string) $c->id,
-            'applicant_name' => $c->applicant_name,
-            'stage' => strtoupper((string) ($c->payload['form_stage'] ?? $c->payload['stage'] ?? '—')),
-        ]);
+        // Exclude applicants already onboarded in legacy onboarding tables (if present).
+        if (Schema::connection('legacy')->hasTable('rbi_onboarded_applicants')) {
+            $query->leftJoin('rbi_onboarded_applicants as oa', 'oa.application_id', '=', 'a.id')
+                ->whereNull('oa.id');
+        }
+
+        $legacyRows = $query->orderByDesc('a.submission_date')->orderByDesc('a.id')->limit(300)->get();
+        if ($legacyRows->isEmpty()) {
+            return ['ok' => true, 'data' => ['candidates' => []]];
+        }
+
+        $localRows = collect();
+        foreach ($legacyRows as $row) {
+            $localRows->push($this->syncLegacyCfaIntoLocal($row, (int) $district->id, (int) $fy->id));
+        }
+
+        $ids = $localRows->pluck('id')->map(fn ($v) => (int) $v)->all();
+        if ($ids === []) {
+            return ['ok' => true, 'data' => ['candidates' => []]];
+        }
+
+        $lockedIds = OnboardingBatchCfa::query()
+            ->whereIn('cfa_submission_id', $ids)
+            ->pluck('cfa_submission_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+        $draftIds = OnboardingBatchDraftCfa::query()
+            ->whereIn('cfa_submission_id', $ids)
+            ->whereNotIn('cfa_submission_id', $lockedIds)
+            ->pluck('cfa_submission_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+        $choiceBlocked = CfaHubChoiceState::query()
+            ->where('hub_id', $hubId)
+            ->where('district_id', (int) $district->id)
+            ->whereIn('cfa_submission_id', $ids)
+            ->whereIn('state', ['reject', 'later'])
+            ->pluck('cfa_submission_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+
+        $exclude = array_flip(array_unique(array_merge($lockedIds, $draftIds, $choiceBlocked)));
+
+        $rows = $localRows
+            ->reject(fn (CfaSubmission $c) => isset($exclude[(int) $c->id]))
+            ->take(200)
+            ->map(fn (CfaSubmission $c) => [
+                'id' => $c->id,
+                'application_no' => $c->application_no ?? (string) $c->id,
+                'applicant_name' => $c->applicant_name,
+                'stage' => strtoupper((string) ($c->payload['form_stage'] ?? $c->payload['stage'] ?? '—')),
+            ])
+            ->values();
 
         return ['ok' => true, 'data' => ['candidates' => $rows]];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function legacyDistrictNamesFor(District $district): array
+    {
+        $canonical = trim((string) $district->name);
+        $aliasesMap = (array) config('legacy_phase2.staff_import.district_aliases', []);
+        $rawAliases = (array) ($aliasesMap[$canonical] ?? []);
+        $names = [$canonical];
+        foreach ($rawAliases as $alias) {
+            $a = trim((string) $alias);
+            if ($a !== '') {
+                $names[] = $a;
+            }
+        }
+
+        return array_values(array_unique($names));
+    }
+
+    private function syncLegacyCfaIntoLocal(object $legacyRow, int $districtId, int $fiscalYearId): CfaSubmission
+    {
+        $applicationNo = trim((string) ($legacyRow->application_no ?? ''));
+        $legacyId = (int) ($legacyRow->legacy_id ?? 0);
+        $lookupNo = $applicationNo !== '' ? $applicationNo : ('legacy-'.$legacyId);
+
+        /** @var CfaSubmission $submission */
+        $submission = CfaSubmission::query()->firstOrCreate(
+            [
+                'source' => 'legacy_phase2',
+                'application_no' => $lookupNo,
+            ],
+            [
+                'fiscal_year_id' => $fiscalYearId,
+                'district_id' => $districtId,
+                'referral_user_id' => null,
+                'applicant_name' => (string) ($legacyRow->applicant_name ?? 'Unknown'),
+                'phone' => (string) ($legacyRow->phone ?? ''),
+                'payload' => [
+                    'legacy_application_id' => $legacyId,
+                    'form_stage' => strtolower(trim((string) ($legacyRow->form_stage ?? ''))),
+                    'legacy_district' => (string) ($legacyRow->district ?? ''),
+                    'legacy_block' => (string) ($legacyRow->block ?? ''),
+                    'legacy_submission_date' => (string) ($legacyRow->submission_date ?? ''),
+                ],
+            ]
+        );
+
+        // Keep local mirror fresh without changing identity.
+        $submission->fill([
+            'fiscal_year_id' => $fiscalYearId,
+            'district_id' => $districtId,
+            'applicant_name' => (string) ($legacyRow->applicant_name ?? $submission->applicant_name),
+            'phone' => (string) ($legacyRow->phone ?? $submission->phone),
+            'payload' => [
+                'legacy_application_id' => $legacyId,
+                'form_stage' => strtolower(trim((string) ($legacyRow->form_stage ?? ''))),
+                'legacy_district' => (string) ($legacyRow->district ?? ''),
+                'legacy_block' => (string) ($legacyRow->block ?? ''),
+                'legacy_submission_date' => (string) ($legacyRow->submission_date ?? ''),
+            ],
+        ]);
+        $submission->save();
+
+        return $submission;
     }
 
     private function draftMembers(int $hubId, array $input): array
