@@ -101,7 +101,7 @@
 
         <div class="hb-hero">
             <h1>Batch &amp; CFA pool</h1>
-            <p>Pick CFA only, reject / later, fixed batch size (N), lock, then CDO signed PDF within 7 days.</p>
+            <p>Pick CFA only, reject / later, fixed batch size (N), keep draft open across days, then lock and upload CDO signed PDF within 7 days.</p>
             <div class="hb-stats">
                 <div class="hb-stat"><div class="l">PDF pending</div><div class="v" id="statPending">{{ (int) $stats['pending_cdo'] }}</div></div>
                 <div class="hb-stat"><div class="l">Overdue</div><div class="v" id="statOverdue" style="color:{{ $stats['overdue_cdo'] ? '#dc2626' : '#94a3b8' }}">{{ (int) $stats['overdue_cdo'] }}</div></div>
@@ -591,7 +591,8 @@
                         ? '<span style="background:#fef3c7;color:#92400e;padding:0.15rem 0.5rem;border-radius:999px;font-size:0.72rem;font-weight:700">Draft</span>'
                         : '<span style="background:#d1fae5;color:#065f46;padding:0.15rem 0.5rem;border-radius:999px;font-size:0.72rem;font-weight:700">Locked</span>';
                     const actions = b.status === 'draft'
-                        ? `<button type="button" class="link-mini batch-edit" data-id="${b.id}">Edit</button>
+                        ? `<button type="button" class="link-mini batch-continue" data-id="${b.id}">Continue</button>
+                           <button type="button" class="link-mini batch-edit" data-id="${b.id}">Edit</button>
                            <button type="button" class="link-mini batch-delete" style="color:#dc2626" data-id="${b.id}">Delete</button>`
                         : '<span style="color:#94a3b8">—</span>';
                     return `<tr>
@@ -604,11 +605,25 @@
                         <td style="text-align:right;white-space:nowrap">${actions}</td>
                     </tr>`;
                 }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">No batches yet.</td></tr>';
+                tbody.querySelectorAll('.batch-continue').forEach(btn => btn.addEventListener('click', () => continueDraft(parseInt(btn.dataset.id, 10))));
                 tbody.querySelectorAll('.batch-edit').forEach(btn => btn.addEventListener('click', () => openEditBatch(parseInt(btn.dataset.id, 10))));
                 tbody.querySelectorAll('.batch-delete').forEach(btn => btn.addEventListener('click', () => deleteBatchRow(parseInt(btn.dataset.id, 10))));
             } catch (e) {
                 tbody.innerHTML = '<tr><td colspan="7" style="color:#dc2626">' + esc(e.message) + '</td></tr>';
             }
+        }
+
+        async function continueDraft(batchId) {
+            const b = latestBatches.find(x => parseInt(x.id, 10) === batchId);
+            if (!b || b.status !== 'draft') return;
+            currentDistrictId = parseInt(b.district_id, 10) || 0;
+            currentBatchId = parseInt(b.id, 10) || 0;
+            const districtSel = document.getElementById('selDistrict');
+            districtSel.value = String(currentDistrictId || '');
+            document.getElementById('draftCreateWrap').style.display = currentDistrictId ? 'block' : 'none';
+            await loadDraft();
+            await loadPool();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function openEditBatch(batchId) {
