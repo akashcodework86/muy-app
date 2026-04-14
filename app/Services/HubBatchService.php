@@ -275,7 +275,51 @@ class HubBatchService
             return ['ok' => false, 'error' => 'District not found'];
         }
 
-        return $this->poolListFromLegacy($hubId, $district, $fy, $q);
+        // Hybrid source:
+        // - FY 2025-26 uses legacy Phase-2 CFA rows.
+        // - Current/new FYs use local cfa_submissions.
+        if ((string) $fy->code === '2025-26') {
+            return $this->poolListFromLegacy($hubId, $district, $fy, $q);
+        }
+
+        return $this->poolListFromLocal($hubId, (int) $district->id, (int) $fy->id, $q);
+    }
+
+    private function poolListFromLocal(int $hubId, int $districtId, int $fyId, string $q): array
+    {
+        $query = CfaSubmission::query()
+            ->where('district_id', $districtId)
+            ->where('fiscal_year_id', $fyId)
+            ->whereDoesntHave('onboardingBatchMembership')
+            ->whereDoesntHave('draftBatchMembership', function ($q) {
+                $q->whereHas('batch', fn ($b) => $b->where('status', 'draft'));
+            })
+            ->whereNotExists(function ($sub) use ($hubId, $districtId) {
+                $sub->selectRaw('1')
+                    ->from('cfa_hub_choice_states as c')
+                    ->whereColumn('c.cfa_submission_id', 'cfa_submissions.id')
+                    ->where('c.hub_id', $hubId)
+                    ->where('c.district_id', $districtId)
+                    ->whereIn('c.state', ['reject', 'later']);
+            });
+
+        if ($q !== '') {
+            $like = '%'.$q.'%';
+            $query->where(function ($qq) use ($like) {
+                $qq->where('application_no', 'like', $like)
+                    ->orWhere('applicant_name', 'like', $like)
+                    ->orWhere('phone', 'like', $like);
+            });
+        }
+
+        $rows = $query->orderByDesc('id')->limit(200)->get()->map(fn (CfaSubmission $c) => [
+            'id' => $c->id,
+            'application_no' => $c->application_no ?? (string) $c->id,
+            'applicant_name' => $c->applicant_name,
+            'stage' => strtoupper((string) ($c->payload['form_stage'] ?? $c->payload['stage'] ?? '—')),
+        ]);
+
+        return ['ok' => true, 'data' => ['candidates' => $rows]];
     }
 
     private function poolListFromLegacy(int $hubId, District $district, FiscalYear $fy, string $q): array
