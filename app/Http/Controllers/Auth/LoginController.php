@@ -39,6 +39,14 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
+        $user = Auth::user();
+        if ($user->role === 'district_staff' && empty($user->avatar_path)) {
+            $request->session()->flash(
+                'profile_photo_reminder',
+                'Please upload your profile picture first. You can add it from Settings.'
+            );
+        }
+
         return redirect()->intended(route('dashboard'));
     }
 

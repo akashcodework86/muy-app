@@ -438,6 +438,11 @@
         margin-bottom: 1rem;
         font-size: 0.9rem;
     }
+    .banner.banner--warning {
+        background: #fffbeb;
+        border-color: #fcd34d;
+        color: #92400e;
+    }
     .error-banner {
         background: #fef2f2;
         border: 1px solid #fecaca;

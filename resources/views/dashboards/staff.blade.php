@@ -2175,6 +2175,7 @@
 <body class="admin-app-body admin-app-body--dashboard">
     @include('partials.admin-topbar')
     <main class="admin-main">
+    @include('partials.flash-profile-photo-reminder')
 
     @unless (isset($cfaTotal))
         <div class="admin-page-head">
