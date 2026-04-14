@@ -86,6 +86,10 @@
         .hb-stage-mix__box--early { background: linear-gradient(180deg, #eff6ff, #fff); border-color: #93c5fd; }
         .hb-stage-mix__box--growth { background: linear-gradient(180deg, #f5f3ff, #fff); border-color: #c4b5fd; }
         .hb-stage-mix__note { font-size: 0.65rem; color: #92400e; margin: 0.5rem 0 0; line-height: 1.4; }
+        .hb-pool-tools { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); background: #fcfcfd; }
+        .hb-pool-tools .hb-btn { padding: 0.32rem 0.55rem; font-size: 0.72rem; border-radius: 8px; }
+        .hb-pool-tools__note { margin-left: auto; font-size: 0.72rem; color: var(--muted); }
+        .hb-pool-check { width: 16px; height: 16px; vertical-align: middle; }
     </style>
 </head>
 <body class="admin-app-body hub-batch-page">
@@ -167,11 +171,18 @@
                 </div>
                 <div class="hb-card" style="padding:0;overflow:hidden">
                     <div style="padding:0.65rem 1rem;border-bottom:1px solid var(--border);background:#f8fafc;font-weight:700;font-size:0.9rem">CFA choice pool</div>
+                    <div class="hb-pool-tools">
+                        <button type="button" class="hb-btn hb-btn--ghost" id="btnSelectAllVisible">Select visible</button>
+                        <button type="button" class="hb-btn hb-btn--ghost" id="btnClearSelection">Clear</button>
+                        <button type="button" class="hb-btn hb-btn--ghost" id="btnAutoSelectMix">Auto-select for ideal mix</button>
+                        <button type="button" class="hb-btn hb-btn--primary" id="btnAddSelected">Add selected</button>
+                        <span class="hb-pool-tools__note" id="poolBulkStatus">0 selected</span>
+                    </div>
                     <div class="hb-table-wrap">
                         <table class="hb-table">
-                            <thead><tr><th>App</th><th>Name</th><th>Stage</th><th style="text-align:right">Actions</th></tr></thead>
+                            <thead><tr><th style="width:46px">Pick</th><th>App</th><th>Name</th><th>Stage</th><th style="text-align:right">Actions</th></tr></thead>
                             <tbody id="poolBody">
-                                <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem">Select a district.</td></tr>
+                                <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Select a district.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -244,6 +255,8 @@
         let blocked = @json($stats['blocked']);
         let searchTimer = null;
         let mixState = { seed: 0, early: 0, growth: 0, unknown: 0, count: 0, targetN: 0 };
+        let latestPoolRows = [];
+        let bulkAddBusy = false;
 
         function idealMixFromN(N) {
             N = Math.max(0, parseInt(N, 10) || 0);
@@ -292,6 +305,107 @@
             document.getElementById('modalRatioGap').classList.remove('is-open');
         }
 
+        function normalizeStageKey(stage) {
+            const s = String(stage || '').trim().toLowerCase();
+            if (s === 'seed') return 'seed';
+            if (s === 'early') return 'early';
+            if (s === 'growth') return 'growth';
+            return 'unknown';
+        }
+
+        function selectedPoolIds() {
+            return Array.from(document.querySelectorAll('.pool-pick:checked'))
+                .map(x => parseInt(x.value, 10))
+                .filter(Number.isFinite);
+        }
+
+        function refreshBulkStatus(label) {
+            const el = document.getElementById('poolBulkStatus');
+            if (!el) return;
+            if (label) {
+                el.textContent = label;
+                return;
+            }
+            el.textContent = selectedPoolIds().length + ' selected';
+        }
+
+        function markSelectedPoolIds(ids) {
+            const set = new Set(ids);
+            document.querySelectorAll('.pool-pick').forEach(cb => {
+                cb.checked = set.has(parseInt(cb.value, 10));
+            });
+            refreshBulkStatus();
+        }
+
+        async function addSelectedToDraft() {
+            if (bulkAddBusy) return;
+            if (!currentBatchId) { alert('Create or resume a draft batch first.'); return; }
+            const ids = selectedPoolIds();
+            if (!ids.length) { alert('Select applicants first.'); return; }
+            bulkAddBusy = true;
+            const btn = document.getElementById('btnAddSelected');
+            const oldText = btn.textContent;
+            btn.disabled = true;
+            refreshBulkStatus('Adding 0 / ' + ids.length + ' ...');
+            let ok = 0;
+            let firstErr = '';
+            for (let i = 0; i < ids.length; i++) {
+                try {
+                    await api('add_to_draft', { batch_id: currentBatchId, cfa_submission_id: ids[i] });
+                    ok++;
+                } catch (e) {
+                    firstErr = firstErr || String(e.message || 'Add failed');
+                    break;
+                }
+                if (i % 10 === 0 || i === ids.length - 1) {
+                    refreshBulkStatus('Adding ' + (i + 1) + ' / ' + ids.length + ' ...');
+                }
+            }
+            await loadDraft();
+            await loadPool();
+            btn.disabled = false;
+            btn.textContent = oldText;
+            bulkAddBusy = false;
+            if (firstErr) {
+                alert('Added ' + ok + ' applicant(s). Stopped: ' + firstErr);
+            } else {
+                alert('Added ' + ok + ' applicant(s) to draft.');
+            }
+            refreshBulkStatus();
+        }
+
+        function autoSelectByIdealMix() {
+            if (!currentBatchId) { alert('Create or resume a draft batch first.'); return; }
+            const remainingSlots = Math.max(0, (mixState.targetN || 0) - (mixState.count || 0));
+            if (!remainingSlots) { alert('Draft is already full.'); return; }
+            const ideal = idealMixFromN(mixState.targetN || 0);
+            const want = {
+                seed: Math.max(0, ideal.seed - mixState.seed),
+                early: Math.max(0, ideal.early - mixState.early),
+                growth: Math.max(0, ideal.growth - mixState.growth),
+            };
+            const byStage = { seed: [], early: [], growth: [], unknown: [] };
+            latestPoolRows.forEach(r => {
+                const key = byStage[r.stage_key] ? r.stage_key : 'unknown';
+                byStage[key].push(r.id);
+            });
+            const selected = [];
+            ['seed', 'early', 'growth'].forEach(stage => {
+                const take = Math.min(want[stage], byStage[stage].length);
+                for (let i = 0; i < take; i++) selected.push(byStage[stage][i]);
+            });
+            if (selected.length < remainingSlots) {
+                const picked = new Set(selected);
+                for (const row of latestPoolRows) {
+                    if (picked.has(row.id)) continue;
+                    selected.push(row.id);
+                    picked.add(row.id);
+                    if (selected.length >= remainingSlots) break;
+                }
+            }
+            markSelectedPoolIds(selected.slice(0, remainingSlots));
+        }
+
         async function api(action, body = {}) {
             const r = await fetch(API_URL, {
                 method: 'POST',
@@ -317,20 +431,25 @@
         async function loadPool() {
             const tbody = document.getElementById('poolBody');
             const q = document.getElementById('inpSearch').value.trim();
+            latestPoolRows = [];
             if (!currentDistrictId) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem">Select a district.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Select a district.</td></tr>';
+                refreshBulkStatus();
                 return;
             }
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem">Loading…</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1.5rem">Loading…</td></tr>';
             try {
                 const data = await api('pool_list', { district_id: currentDistrictId, q });
                 const rows = data.candidates || [];
+                latestPoolRows = rows.map(r => ({ id: parseInt(r.id, 10), stage_key: normalizeStageKey(r.stage) })).filter(r => Number.isFinite(r.id));
                 if (!rows.length) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem">No eligible CFA in pool.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">No eligible CFA in pool.</td></tr>';
+                    refreshBulkStatus();
                     return;
                 }
                 tbody.innerHTML = rows.map(c => `
                     <tr>
+                        <td><input class="hb-pool-check pool-pick" type="checkbox" value="${c.id}" ${blocked || !currentBatchId ? 'disabled' : ''}></td>
                         <td style="font-family:monospace;font-size:0.75rem">${esc(c.application_no)}</td>
                         <td>${esc(c.applicant_name)}</td>
                         <td><span style="background:#f1f5f9;padding:0.15rem 0.45rem;border-radius:6px;font-size:0.75rem">${esc(c.stage)}</span></td>
@@ -343,8 +462,11 @@
                 tbody.querySelectorAll('.add-btn').forEach(btn => btn.addEventListener('click', () => addToDraft(parseInt(btn.dataset.id, 10))));
                 tbody.querySelectorAll('[data-later]').forEach(btn => btn.addEventListener('click', () => setChoice(parseInt(btn.dataset.later, 10), 'later')));
                 tbody.querySelectorAll('[data-reject]').forEach(btn => btn.addEventListener('click', () => setChoice(parseInt(btn.dataset.reject, 10), 'reject')));
+                tbody.querySelectorAll('.pool-pick').forEach(cb => cb.addEventListener('change', () => refreshBulkStatus()));
+                refreshBulkStatus();
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#dc2626;padding:1rem">' + esc(e.message) + '</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#dc2626;padding:1rem">' + esc(e.message) + '</td></tr>';
+                refreshBulkStatus();
             }
         }
 
@@ -524,6 +646,13 @@
         });
 
         document.getElementById('btnRefreshBatches').addEventListener('click', loadBatches);
+        document.getElementById('btnSelectAllVisible').addEventListener('click', () => {
+            const ids = latestPoolRows.map(r => r.id);
+            markSelectedPoolIds(ids);
+        });
+        document.getElementById('btnClearSelection').addEventListener('click', () => markSelectedPoolIds([]));
+        document.getElementById('btnAutoSelectMix').addEventListener('click', autoSelectByIdealMix);
+        document.getElementById('btnAddSelected').addEventListener('click', addSelectedToDraft);
 
         document.getElementById('btnShowLater').addEventListener('click', async () => {
             try {
