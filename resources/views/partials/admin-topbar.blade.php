@@ -64,7 +64,6 @@
                 </div>
             </details>
             <a href="{{ route('admin.designations.index') }}" class="admin-topbar__link @if ($activeNav === 'designations') is-active @endif">Designations</a>
-            <a href="{{ route('admin.audit.index') }}" class="admin-topbar__link @if ($activeNav === 'audit') is-active @endif">Audit log</a>
             <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-batch-compliance') is-active @endif">Batch CDO PDF</a>
         </nav>
         @endif
@@ -107,6 +106,9 @@
                     <p class="admin-topbar__dropdown-profile-email">{{ $u->email }}</p>
                     <hr class="admin-topbar__dropdown-hr" aria-hidden="true">
                     <a href="{{ route('account.settings.edit') }}" class="admin-topbar__dropdown-item @if (request()->routeIs('account.settings.*')) is-active @endif" role="menuitem">Settings</a>
+                    @if ($showAdminNav)
+                        <a href="{{ route('admin.audit.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'audit') is-active @endif" role="menuitem">Audit log</a>
+                    @endif
                     <form method="post" action="{{ route('logout') }}" class="admin-topbar__dropdown-logout">
                         @csrf
                         <button type="submit" class="admin-topbar__dropdown-item admin-topbar__dropdown-item--button" role="menuitem">Log out</button>
