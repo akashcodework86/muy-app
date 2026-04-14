@@ -23,6 +23,24 @@ class HubBatchService
     /**
      * @return list<int>
      */
+    /**
+     * Normalized stage for onboarding mix (seed / early / growth).
+     */
+    public function stageKeyFromCfa(?CfaSubmission $c): string
+    {
+        if (! $c) {
+            return 'unknown';
+        }
+        $raw = strtolower(trim((string) ($c->payload['form_stage'] ?? $c->payload['stage'] ?? '')));
+
+        return match ($raw) {
+            'seed' => 'seed',
+            'early' => 'early',
+            'growth' => 'growth',
+            default => 'unknown',
+        };
+    }
+
     public function districtIdsForHub(int $hubId): array
     {
         return District::query()->where('hub_id', $hubId)->pluck('id')->map(fn ($id) => (int) $id)->all();
@@ -282,6 +300,7 @@ class HubBatchService
             'id' => $r->cfa_submission_id,
             'application_no' => $r->cfaSubmission->application_no ?? (string) $r->cfa_submission_id,
             'applicant_name' => $r->cfaSubmission->applicant_name,
+            'stage_key' => $this->stageKeyFromCfa($r->cfaSubmission),
         ]);
 
         return ['ok' => true, 'data' => [

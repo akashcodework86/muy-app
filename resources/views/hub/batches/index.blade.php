@@ -74,6 +74,18 @@
         .hb-modal-bg.is-open { display: flex; }
         .hb-modal { background: #fff; border-radius: var(--radius); padding: 1.25rem; max-width: 420px; width: 100%; box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
         .link-mini { font-size: 0.75rem; font-weight: 600; color: var(--accent); background: none; border: none; cursor: pointer; }
+        .hb-stage-mix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.35rem; }
+        .hb-stage-mix__box {
+            border-radius: 10px; padding: 0.5rem 0.45rem; text-align: center;
+            border: 1px solid var(--border); font-size: 0.72rem; line-height: 1.35;
+        }
+        .hb-stage-mix__box .lbl { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.6rem; color: var(--muted); }
+        .hb-stage-mix__box .cnt { font-size: 1.35rem; font-weight: 800; font-family: 'DM Sans', sans-serif; margin: 0.15rem 0; }
+        .hb-stage-mix__box .ideal { font-size: 0.62rem; color: var(--muted); }
+        .hb-stage-mix__box--seed { background: linear-gradient(180deg, #fffbeb, #fff); border-color: #fcd34d; }
+        .hb-stage-mix__box--early { background: linear-gradient(180deg, #eff6ff, #fff); border-color: #93c5fd; }
+        .hb-stage-mix__box--growth { background: linear-gradient(180deg, #f5f3ff, #fff); border-color: #c4b5fd; }
+        .hb-stage-mix__note { font-size: 0.65rem; color: #92400e; margin: 0.5rem 0 0; line-height: 1.4; }
     </style>
 </head>
 <body class="admin-app-body hub-batch-page">
@@ -119,6 +131,27 @@
                     <h2>Current draft</h2>
                     <p id="draftName" style="font-weight:700;color:var(--accent);margin:0"></p>
                     <span id="draftCountBadge" style="float:right;font-size:0.75rem;background:#d1fae5;padding:0.2rem 0.5rem;border-radius:999px;font-weight:700"></span>
+                    <div id="hubStageMixWrap" style="clear:both;margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border)">
+                        <p style="font-size:0.7rem;color:var(--muted);margin:0 0 0.35rem;line-height:1.4">Onboarding mix (contract): <strong>10% Growth</strong> · <strong>60% Early</strong> · <strong>30% Seed</strong> — counts update as you add applicants.</p>
+                        <div class="hb-stage-mix" id="hubStageMix" aria-live="polite">
+                            <div class="hb-stage-mix__box hb-stage-mix__box--seed">
+                                <div class="lbl">Seed</div>
+                                <div class="cnt" id="cntSeed">0</div>
+                                <div class="ideal">Ideal <span id="idealSeed">0</span></div>
+                            </div>
+                            <div class="hb-stage-mix__box hb-stage-mix__box--early">
+                                <div class="lbl">Early</div>
+                                <div class="cnt" id="cntEarly">0</div>
+                                <div class="ideal">Ideal <span id="idealEarly">0</span></div>
+                            </div>
+                            <div class="hb-stage-mix__box hb-stage-mix__box--growth">
+                                <div class="lbl">Growth</div>
+                                <div class="cnt" id="cntGrowth">0</div>
+                                <div class="ideal">Ideal <span id="idealGrowth">0</span></div>
+                            </div>
+                        </div>
+                        <p class="hb-stage-mix__note" id="stageUnknownNote" style="display:none">Some rows have no Seed/Early/Growth stage in the form — they are not counted in the three boxes.</p>
+                    </div>
                     <ul id="draftMembers" style="list-style:none;padding:0;margin:0.75rem 0;max-height:200px;overflow:auto;font-size:0.875rem"></ul>
                     <button type="button" class="hb-btn hb-btn--dark" id="btnLock" style="width:100%;margin-bottom:0.5rem">Lock batch</button>
                     <button type="button" class="hb-btn hb-btn--ghost" id="btnCancelDraft" style="width:100%">Cancel draft</button>
@@ -169,6 +202,17 @@
         </div>
     </main>
 
+    <div class="hb-modal-bg" id="modalRatioGap">
+        <div class="hb-modal">
+            <h3 style="margin:0 0 0.5rem">Onboarding mix (contract)</h3>
+            <p id="ratioGapText" style="margin:0;font-size:0.875rem;color:var(--muted);line-height:1.5"></p>
+            <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
+                <button type="button" class="hb-btn hb-btn--ghost" id="modalRatioGapBack" style="flex:1">Back</button>
+                <button type="button" class="hb-btn hb-btn--primary" id="modalRatioGapContinue" style="flex:1">Continue to lock</button>
+            </div>
+        </div>
+    </div>
+
     <div class="hb-modal-bg" id="modalLock">
         <div class="hb-modal">
             <h3 style="margin:0 0 0.5rem">Lock this batch?</h3>
@@ -199,6 +243,54 @@
         let currentBatchId = 0;
         let blocked = @json($stats['blocked']);
         let searchTimer = null;
+        let mixState = { seed: 0, early: 0, growth: 0, unknown: 0, count: 0, targetN: 0 };
+
+        function idealMixFromN(N) {
+            N = Math.max(0, parseInt(N, 10) || 0);
+            if (!N) return { seed: 0, early: 0, growth: 0 };
+            const growth = Math.round(0.1 * N);
+            const early = Math.round(0.6 * N);
+            const seed = N - growth - early;
+            return { seed, early, growth };
+        }
+
+        function ratioGapApplies() {
+            const { seed, early, growth, unknown, count, targetN } = mixState;
+            const ideal = idealMixFromN(targetN);
+            if (unknown > 0) return true;
+            if (!targetN || count === 0) return false;
+            if (count !== targetN) return false;
+            return seed !== ideal.seed || early !== ideal.early || growth !== ideal.growth;
+        }
+
+        function buildRatioGapMessage() {
+            const { seed, early, growth, unknown, count, targetN } = mixState;
+            const ideal = idealMixFromN(targetN);
+            const parts = [];
+            parts.push('The contract onboarding mix for a full batch of <strong>' + esc(targetN) + '</strong> is <strong>10% Growth</strong>, <strong>60% Early</strong>, <strong>30% Seed</strong> (ideal: Seed ' + ideal.seed + ', Early ' + ideal.early + ', Growth ' + ideal.growth + ').');
+            if (unknown > 0) {
+                parts.push('<br><br><strong>' + unknown + '</strong> applicant(s) could not be classified as Seed, Early, or Growth from the form data.');
+            }
+            if (count === targetN) {
+                parts.push('<br><br>Classified in this batch: Seed <strong>' + seed + '</strong>, Early <strong>' + early + '</strong>, Growth <strong>' + growth + '</strong>.');
+            }
+            parts.push('<br><br>This batch does not fully match that contract mix. You can still lock. Please try to align the next batch closer to the split.');
+            document.getElementById('ratioGapText').innerHTML = parts.join('');
+        }
+
+        function openLockFlow() {
+            if (!currentBatchId) return;
+            if (ratioGapApplies()) {
+                buildRatioGapMessage();
+                document.getElementById('modalRatioGap').classList.add('is-open');
+            } else {
+                document.getElementById('modalLock').classList.add('is-open');
+            }
+        }
+
+        function closeRatioGap() {
+            document.getElementById('modalRatioGap').classList.remove('is-open');
+        }
 
         async function api(action, body = {}) {
             const r = await fetch(API_URL, {
@@ -270,7 +362,7 @@
                 const data = await api('add_to_draft', { batch_id: currentBatchId, cfa_submission_id: cfaId });
                 await loadDraft();
                 loadPool();
-                if (data.ready_lock) document.getElementById('modalLock').classList.add('is-open');
+                if (data.ready_lock) openLockFlow();
             } catch (e) { alert(e.message); }
         }
 
@@ -280,11 +372,29 @@
             try {
                 const data = await api('draft_members', { batch_id: currentBatchId });
                 const b = data.batch;
-                const ts = parseInt(b.target_size, 10);
+                const ts = parseInt(b.target_size, 10) || 0;
                 document.getElementById('draftName').textContent = b.name;
                 document.getElementById('draftCountBadge').textContent = (data.count || 0) + ' / ' + ts;
                 const ul = document.getElementById('draftMembers');
                 const mem = data.members || [];
+                let seed = 0, early = 0, growth = 0, unknown = 0;
+                mem.forEach(m => {
+                    const k = String(m.stage_key || 'unknown').toLowerCase();
+                    if (k === 'seed') seed++;
+                    else if (k === 'early') early++;
+                    else if (k === 'growth') growth++;
+                    else unknown++;
+                });
+                mixState = { seed, early, growth, unknown, count: mem.length, targetN: ts };
+                document.getElementById('cntSeed').textContent = String(seed);
+                document.getElementById('cntEarly').textContent = String(early);
+                document.getElementById('cntGrowth').textContent = String(growth);
+                const ideal = idealMixFromN(ts);
+                document.getElementById('idealSeed').textContent = String(ideal.seed);
+                document.getElementById('idealEarly').textContent = String(ideal.early);
+                document.getElementById('idealGrowth').textContent = String(ideal.growth);
+                const unkNote = document.getElementById('stageUnknownNote');
+                if (unkNote) unkNote.style.display = unknown > 0 ? 'block' : 'none';
                 ul.innerHTML = mem.length ? mem.map(m => `<li style="display:flex;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding:0.35rem 0">
                     <span>${esc(m.applicant_name)} <span style="opacity:0.6;font-size:0.75rem">${esc(m.application_no)}</span></span>
                     ${blocked ? '' : '<button type="button" class="link-mini rm" data-rm="' + m.id + '">Remove</button>'}
@@ -398,6 +508,7 @@
             try {
                 await api('lock_batch', { batch_id: currentBatchId, confirm: true });
                 closeLock();
+                closeRatioGap();
                 currentBatchId = 0;
                 document.getElementById('activeDraftCard').style.display = 'none';
                 loadPool();
@@ -405,7 +516,12 @@
                 alert('Batch locked. Upload CDO signed PDF within 7 days.');
             } catch (e) { alert(e.message); }
         });
-        document.getElementById('btnLock').addEventListener('click', () => document.getElementById('modalLock').classList.add('is-open'));
+        document.getElementById('btnLock').addEventListener('click', openLockFlow);
+        document.getElementById('modalRatioGapBack').addEventListener('click', closeRatioGap);
+        document.getElementById('modalRatioGapContinue').addEventListener('click', () => {
+            closeRatioGap();
+            document.getElementById('modalLock').classList.add('is-open');
+        });
 
         document.getElementById('btnRefreshBatches').addEventListener('click', loadBatches);
 
