@@ -69,14 +69,41 @@ class StaffPortalController extends Controller
 
     public function applications(Request $request): View
     {
-        $submissions = CfaSubmission::query()
-            ->where('referral_user_id', $request->user()->id)
-            ->with(['district'])
-            ->orderByDesc('created_at')
-            ->paginate(25);
+        $staff = $request->user()->load('district');
+        $scope = (string) $request->query('scope', 'mine');
+        $scope = in_array($scope, ['mine', 'district'], true) ? $scope : 'mine';
+        $forceMineNotice = false;
+
+        $query = CfaSubmission::query()
+            ->with(['district', 'referralUser'])
+            ->orderByDesc('created_at');
+
+        if ($scope === 'district' && (int) $staff->district_id > 0) {
+            $query->where('district_id', (int) $staff->district_id);
+        } else {
+            if ($scope === 'district') {
+                $forceMineNotice = true;
+            }
+            $scope = 'mine';
+            $query->where('referral_user_id', (int) $staff->id);
+        }
+
+        $submissions = $query->paginate(25)->withQueryString();
+
+        $mineCount = CfaSubmission::query()
+            ->where('referral_user_id', (int) $staff->id)
+            ->count();
+        $districtCount = (int) $staff->district_id > 0
+            ? CfaSubmission::query()->where('district_id', (int) $staff->district_id)->count()
+            : 0;
 
         return view('staff.applications', [
             'submissions' => $submissions,
+            'scope' => $scope,
+            'mineCount' => $mineCount,
+            'districtCount' => $districtCount,
+            'districtName' => (string) ($staff->district?->name ?? ''),
+            'forceMineNotice' => $forceMineNotice,
         ]);
     }
 

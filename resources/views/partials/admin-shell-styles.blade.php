@@ -453,6 +453,18 @@
         font-size: 0.9rem;
     }
 
+    /* Laravel pagination arrow SVGs can render oversized without utility CSS. */
+    nav[aria-label="Pagination Navigation"] svg,
+    nav[aria-label="pagination"] svg,
+    nav[role="navigation"][aria-label*="Pagination"] svg,
+    nav[role="navigation"][aria-label*="pagination"] svg {
+        width: 1rem;
+        height: 1rem;
+        display: inline-block;
+        vertical-align: middle;
+        flex-shrink: 0;
+    }
+
     /* Guest / login / public confirmation — same visual language as admin */
     .app-auth-body {
         margin: 0;
