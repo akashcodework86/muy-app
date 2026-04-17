@@ -90,6 +90,60 @@
         .hb-pool-tools .hb-btn { padding: 0.32rem 0.55rem; font-size: 0.72rem; border-radius: 8px; }
         .hb-pool-tools__note { margin-left: auto; font-size: 0.72rem; color: var(--muted); }
         .hb-pool-check { width: 16px; height: 16px; vertical-align: middle; }
+        .hb-batch-link {
+            background: none;
+            border: none;
+            padding: 0;
+            color: #0f766e;
+            font-weight: 700;
+            text-align: left;
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 2px;
+        }
+        .hb-batch-link:hover { color: #0f172a; }
+        .hb-row-active td { background: #ecfeff !important; }
+        .hb-detail-card {
+            margin-top: 1rem;
+            border: 1px solid #bae6fd;
+            background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 85%);
+            border-radius: 12px;
+            padding: 1rem;
+            display: none;
+        }
+        .hb-detail-card.is-open { display: block; }
+        .hb-detail-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; margin-bottom: 0.8rem; }
+        .hb-detail-title { margin: 0; font-size: 1rem; color: #0f172a; }
+        .hb-detail-sub { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--muted); }
+        .hb-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; margin-bottom: 0.8rem; }
+        .hb-kpi {
+            border: 1px solid #dbeafe;
+            border-radius: 10px;
+            padding: 0.65rem 0.75rem;
+            background: #fff;
+        }
+        .hb-kpi .k { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 700; }
+        .hb-kpi .v { font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem; }
+        .hb-detail-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75rem; }
+        .hb-detail-box {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.7rem;
+            background: #fff;
+        }
+        .hb-detail-box h4 { margin: 0 0 0.55rem; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+        .hb-cat-list { margin: 0; padding: 0; list-style: none; max-height: 230px; overflow: auto; }
+        .hb-cat-list li { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; padding: 0.35rem 0; border-bottom: 1px dashed #e2e8f0; }
+        .hb-cat-list li:last-child { border-bottom: none; }
+        .hb-member-table-wrap { max-height: 230px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .hb-member-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+        .hb-member-table th, .hb-member-table td { padding: 0.45rem 0.5rem; border-bottom: 1px solid #f1f5f9; text-align: left; }
+        .hb-member-table th { background: #f8fafc; color: var(--muted); font-size: 0.65rem; text-transform: uppercase; position: sticky; top: 0; }
+        @media (max-width: 980px) {
+            .hb-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .hb-detail-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body class="admin-app-body hub-batch-page">
@@ -221,6 +275,31 @@
                     <tbody id="batchesBody"></tbody>
                 </table>
             </div>
+            <div class="hb-detail-card" id="batchDetailCard" aria-live="polite">
+                <div class="hb-detail-head">
+                    <div>
+                        <h3 class="hb-detail-title" id="batchDetailTitle">Batch insight</h3>
+                        <p class="hb-detail-sub" id="batchDetailMeta">Click any batch name to view KPI breakdown.</p>
+                    </div>
+                    <button type="button" class="hb-btn hb-btn--ghost" id="btnCloseBatchDetail" style="padding:0.35rem 0.65rem;font-size:0.76rem">Close</button>
+                </div>
+                <div class="hb-kpi-grid">
+                    <div class="hb-kpi"><div class="k">Members</div><div class="v" id="kpiMembers">0</div></div>
+                    <div class="hb-kpi"><div class="k">Seed</div><div class="v" id="kpiSeed">0</div></div>
+                    <div class="hb-kpi"><div class="k">Early</div><div class="v" id="kpiEarly">0</div></div>
+                    <div class="hb-kpi"><div class="k">Growth</div><div class="v" id="kpiGrowth">0</div></div>
+                </div>
+                <div class="hb-detail-grid">
+                    <div class="hb-detail-box">
+                        <h4>Member List</h4>
+                        <div class="hb-member-table-wrap" id="batchDetailMembersWrap"></div>
+                    </div>
+                    <div class="hb-detail-box">
+                        <h4>Business Category Mix</h4>
+                        <ul class="hb-cat-list" id="batchCategoryMixList"></ul>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -288,6 +367,7 @@
         let bulkAddBusy = false;
         let latestBatches = [];
         let editingBatchId = 0;
+        let openedBatchDetailId = 0;
 
         function idealMixFromN(N) {
             N = Math.max(0, parseInt(N, 10) || 0);
@@ -606,8 +686,8 @@
                            <button type="button" class="link-mini batch-edit" data-id="${b.id}">Edit</button>
                            <button type="button" class="link-mini batch-delete" style="color:#dc2626" data-id="${b.id}">Delete</button>`
                         : '<span style="color:#94a3b8">—</span>';
-                    return `<tr>
-                        <td style="font-weight:600">${esc(b.name)}</td>
+                    return `<tr data-batch-row="${b.id}">
+                        <td><button type="button" class="hb-batch-link batch-open" data-id="${b.id}" title="View batch KPI details">${esc(b.name)}</button></td>
                         <td>${esc(b.district_name)}</td>
                         <td>${st}</td>
                         <td>${b.member_count}</td>
@@ -616,11 +696,87 @@
                         <td style="text-align:right;white-space:nowrap">${actions}</td>
                     </tr>`;
                 }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">No batches yet.</td></tr>';
+                tbody.querySelectorAll('.batch-open').forEach(btn => btn.addEventListener('click', () => openBatchDetail(parseInt(btn.dataset.id, 10))));
                 tbody.querySelectorAll('.batch-continue').forEach(btn => btn.addEventListener('click', () => continueDraft(parseInt(btn.dataset.id, 10))));
                 tbody.querySelectorAll('.batch-edit').forEach(btn => btn.addEventListener('click', () => openEditBatch(parseInt(btn.dataset.id, 10))));
                 tbody.querySelectorAll('.batch-delete').forEach(btn => btn.addEventListener('click', () => deleteBatchRow(parseInt(btn.dataset.id, 10))));
+                if (openedBatchDetailId) {
+                    highlightBatchRow(openedBatchDetailId);
+                }
             } catch (e) {
                 tbody.innerHTML = '<tr><td colspan="7" style="color:#dc2626">' + esc(e.message) + '</td></tr>';
+            }
+        }
+
+        function highlightBatchRow(batchId) {
+            document.querySelectorAll('[data-batch-row]').forEach(row => {
+                const id = parseInt(row.getAttribute('data-batch-row'), 10) || 0;
+                row.classList.toggle('hb-row-active', id === batchId);
+            });
+        }
+
+        function closeBatchDetail() {
+            openedBatchDetailId = 0;
+            document.getElementById('batchDetailCard').classList.remove('is-open');
+            document.getElementById('batchDetailMeta').textContent = 'Click any batch name to view KPI breakdown.';
+            highlightBatchRow(0);
+        }
+
+        function renderBatchDetail(detail) {
+            const batch = detail.batch || {};
+            const summary = detail.summary || {};
+            const stageMix = summary.stage_mix || {};
+            const members = Array.isArray(detail.members) ? detail.members : [];
+            const categoryMix = summary.business_category_mix || {};
+            document.getElementById('batchDetailTitle').textContent = (batch.name || 'Batch insight') + ' — KPI breakdown';
+            document.getElementById('batchDetailMeta').textContent = (batch.district_name || 'District') + ' | ' + String((batch.status || '').toUpperCase()) + ' | Target ' + (batch.target_size || 0);
+            document.getElementById('kpiMembers').textContent = String(summary.members_count || 0);
+            document.getElementById('kpiSeed').textContent = String(stageMix.seed || 0);
+            document.getElementById('kpiEarly').textContent = String(stageMix.early || 0);
+            document.getElementById('kpiGrowth').textContent = String(stageMix.growth || 0);
+
+            const membersWrap = document.getElementById('batchDetailMembersWrap');
+            membersWrap.innerHTML = members.length
+                ? `<table class="hb-member-table">
+                    <thead><tr><th>App no.</th><th>Name</th><th>Stage</th><th>Category</th></tr></thead>
+                    <tbody>${members.map(m => `
+                        <tr>
+                            <td style="font-family:monospace">${esc(m.application_no)}</td>
+                            <td>${esc(m.applicant_name)}</td>
+                            <td>${esc(m.stage_label || m.stage_key || 'UNKNOWN')}</td>
+                            <td>${esc(m.business_category || 'Unspecified')}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`
+                : '<p style="margin:0;color:var(--muted);font-size:0.82rem">No members in this batch.</p>';
+
+            const catList = document.getElementById('batchCategoryMixList');
+            const catEntries = Object.entries(categoryMix);
+            catList.innerHTML = catEntries.length
+                ? catEntries.map(([name, count]) => `<li><span>${esc(name)}</span><strong>${count}</strong></li>`).join('')
+                : '<li><span style="color:var(--muted)">No category data</span><strong>0</strong></li>';
+            document.getElementById('batchDetailCard').classList.add('is-open');
+        }
+
+        async function openBatchDetail(batchId) {
+            if (!batchId) return;
+            openedBatchDetailId = batchId;
+            highlightBatchRow(batchId);
+            const membersWrap = document.getElementById('batchDetailMembersWrap');
+            const catList = document.getElementById('batchCategoryMixList');
+            document.getElementById('batchDetailTitle').textContent = 'Loading batch insight...';
+            document.getElementById('batchDetailMeta').textContent = 'Please wait while KPI data is loading.';
+            membersWrap.innerHTML = '<p style="margin:0;color:var(--muted);font-size:0.82rem">Loading members...</p>';
+            catList.innerHTML = '<li><span style="color:var(--muted)">Loading...</span><strong>...</strong></li>';
+            document.getElementById('batchDetailCard').classList.add('is-open');
+            try {
+                const data = await api('batch_detail', { batch_id: batchId });
+                renderBatchDetail(data);
+            } catch (e) {
+                document.getElementById('batchDetailTitle').textContent = 'Batch insight';
+                document.getElementById('batchDetailMeta').textContent = e.message || 'Could not load batch detail.';
+                membersWrap.innerHTML = '<p style="margin:0;color:#dc2626;font-size:0.82rem">Failed to load members.</p>';
+                catList.innerHTML = '<li><span style="color:#dc2626">Failed</span><strong>!</strong></li>';
             }
         }
 
@@ -763,6 +919,7 @@
         document.getElementById('btnAddSelected').addEventListener('click', addSelectedToDraft);
         document.getElementById('editBatchCancel').addEventListener('click', closeEditBatch);
         document.getElementById('editBatchSave').addEventListener('click', saveEditBatch);
+        document.getElementById('btnCloseBatchDetail').addEventListener('click', closeBatchDetail);
 
         document.getElementById('btnShowLater').addEventListener('click', async () => {
             try {

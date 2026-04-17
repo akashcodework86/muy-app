@@ -233,6 +233,7 @@ class HubBatchService
             'pool_list' => $this->poolList($hubId, $districtIds, $input),
             'draft_members' => $this->draftMembers($hubId, $input),
             'batches_list' => $this->batchesList($hubId),
+            'batch_detail' => $this->batchDetail($hubId, $input),
             'later_list' => $this->laterList($hubId, $districtIds),
             'create_draft' => $this->createDraft($hubId, $user, $districtIds, $input),
             'cancel_draft' => $this->cancelDraft($hubId, $input),
@@ -548,6 +549,78 @@ class HubBatchService
             });
 
         return ['ok' => true, 'data' => ['batches' => $list]];
+    }
+
+    private function batchDetail(int $hubId, array $input): array
+    {
+        $batchId = (int) ($input['batch_id'] ?? 0);
+        $batch = OnboardingBatch::query()->with('district')->find($batchId);
+        if (! $batch || (int) $batch->hub_id !== $hubId) {
+            return ['ok' => false, 'error' => 'Batch not found'];
+        }
+
+        $members = ($batch->isDraft()
+            ? $batch->draftCfas()->with('cfaSubmission')
+            : $batch->batchCfas()->with('cfaSubmission'))
+            ->orderBy('id')
+            ->get()
+            ->map(function (OnboardingBatchDraftCfa|OnboardingBatchCfa $row) {
+                $cfa = $row->cfaSubmission;
+                $payload = is_array($cfa?->payload) ? $cfa->payload : [];
+                $stageKey = $this->stageKeyFromCfa($cfa);
+                $stageLabel = $stageKey !== 'unknown' ? strtoupper($stageKey) : 'UNKNOWN';
+                $bizCategory = trim((string) ($payload['business_category'] ?? ''));
+                if ($bizCategory === '') {
+                    $bizCategory = 'Unspecified';
+                }
+
+                return [
+                    'id' => (int) ($cfa?->id ?? 0),
+                    'application_no' => (string) ($cfa?->application_no ?? $row->cfa_submission_id),
+                    'applicant_name' => (string) ($cfa?->applicant_name ?? 'N/A'),
+                    'phone' => (string) ($cfa?->phone ?? ''),
+                    'stage_key' => $stageKey,
+                    'stage_label' => $stageLabel,
+                    'business_category' => $bizCategory,
+                ];
+            })
+            ->values();
+
+        $stageMix = [
+            'seed' => 0,
+            'early' => 0,
+            'growth' => 0,
+            'unknown' => 0,
+        ];
+        $categoryMix = [];
+        foreach ($members as $member) {
+            $stageKey = (string) ($member['stage_key'] ?? 'unknown');
+            if (! array_key_exists($stageKey, $stageMix)) {
+                $stageKey = 'unknown';
+            }
+            $stageMix[$stageKey]++;
+            $biz = (string) ($member['business_category'] ?? 'Unspecified');
+            $categoryMix[$biz] = (int) ($categoryMix[$biz] ?? 0) + 1;
+        }
+        arsort($categoryMix);
+
+        return ['ok' => true, 'data' => [
+            'batch' => [
+                'id' => (int) $batch->id,
+                'name' => (string) $batch->name,
+                'district_name' => (string) ($batch->district?->name ?? ''),
+                'status' => (string) $batch->status,
+                'target_size' => (int) $batch->target_size,
+                'onboarding_date' => optional($batch->onboarding_date)->toDateString(),
+                'locked_at' => $batch->locked_at?->toIso8601String(),
+            ],
+            'summary' => [
+                'members_count' => $members->count(),
+                'stage_mix' => $stageMix,
+                'business_category_mix' => $categoryMix,
+            ],
+            'members' => $members,
+        ]];
     }
 
     /**
