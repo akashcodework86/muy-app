@@ -352,6 +352,7 @@ class HubBatchService
                 'a.id as legacy_id',
                 'a.application_no',
                 'a.form_stage',
+                'a.business_category',
                 'a.submission_date',
                 'd.applicant_name',
                 'd.phone',
@@ -465,6 +466,7 @@ class HubBatchService
                 'payload' => [
                     'legacy_application_id' => $legacyId,
                     'form_stage' => strtolower(trim((string) ($legacyRow->form_stage ?? ''))),
+                    'business_category' => trim((string) ($legacyRow->business_category ?? '')),
                     'legacy_district' => (string) ($legacyRow->district ?? ''),
                     'legacy_block' => (string) ($legacyRow->block ?? ''),
                     'legacy_submission_date' => (string) ($legacyRow->submission_date ?? ''),
@@ -481,6 +483,7 @@ class HubBatchService
             'payload' => [
                 'legacy_application_id' => $legacyId,
                 'form_stage' => strtolower(trim((string) ($legacyRow->form_stage ?? ''))),
+                'business_category' => trim((string) ($legacyRow->business_category ?? '')),
                 'legacy_district' => (string) ($legacyRow->district ?? ''),
                 'legacy_block' => (string) ($legacyRow->block ?? ''),
                 'legacy_submission_date' => (string) ($legacyRow->submission_date ?? ''),
@@ -570,21 +573,65 @@ class HubBatchService
                 $stageKey = $this->stageKeyFromCfa($cfa);
                 $stageLabel = $stageKey !== 'unknown' ? strtoupper($stageKey) : 'UNKNOWN';
                 $bizCategory = trim((string) ($payload['business_category'] ?? ''));
-                if ($bizCategory === '') {
-                    $bizCategory = 'Unspecified';
-                }
 
                 return [
                     'id' => (int) ($cfa?->id ?? 0),
                     'application_no' => (string) ($cfa?->application_no ?? $row->cfa_submission_id),
                     'applicant_name' => (string) ($cfa?->applicant_name ?? 'N/A'),
                     'phone' => (string) ($cfa?->phone ?? ''),
+                    'source' => (string) ($cfa?->source ?? ''),
                     'stage_key' => $stageKey,
                     'stage_label' => $stageLabel,
                     'business_category' => $bizCategory,
                 ];
             })
             ->values();
+
+        // Backfill missing business category from legacy DB for legacy-sourced members.
+        $legacyCategoryByAppNo = [];
+        $missingLegacyAppNos = $members
+            ->filter(function (array $member): bool {
+                return trim((string) ($member['business_category'] ?? '')) === ''
+                    && (string) ($member['source'] ?? '') === 'legacy_phase2'
+                    && trim((string) ($member['application_no'] ?? '')) !== '';
+            })
+            ->pluck('application_no')
+            ->map(fn ($v) => trim((string) $v))
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($missingLegacyAppNos !== [] && (string) config('database.connections.legacy.database', '') !== '') {
+            try {
+                if (Schema::connection('legacy')->hasTable('rbi_applications')) {
+                    $legacyRows = DB::connection('legacy')
+                        ->table('rbi_applications')
+                        ->whereIn('application_no', $missingLegacyAppNos)
+                        ->select(['application_no', 'business_category'])
+                        ->get();
+                    foreach ($legacyRows as $legacyRow) {
+                        $appNo = trim((string) ($legacyRow->application_no ?? ''));
+                        $cat = trim((string) ($legacyRow->business_category ?? ''));
+                        if ($appNo !== '' && $cat !== '') {
+                            $legacyCategoryByAppNo[$appNo] = $cat;
+                        }
+                    }
+                }
+            } catch (\Throwable) {
+                // Ignore legacy lookup failures; keep fallback category label.
+            }
+        }
+
+        $members = $members->map(function (array $member) use ($legacyCategoryByAppNo): array {
+            $bizCategory = trim((string) ($member['business_category'] ?? ''));
+            if ($bizCategory === '') {
+                $appNo = trim((string) ($member['application_no'] ?? ''));
+                $bizCategory = $legacyCategoryByAppNo[$appNo] ?? 'Not specified';
+            }
+            $member['business_category'] = $bizCategory;
+
+            return $member;
+        })->values();
 
         $stageMix = [
             'seed' => 0,
