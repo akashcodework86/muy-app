@@ -129,6 +129,22 @@
         .hb-kpi.is-active { border-color: #0ea5e9; box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.12); }
         .hb-kpi .k { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 700; }
         .hb-kpi .v { font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem; }
+        .hb-filter-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.1rem 0 0.7rem; }
+        .hb-filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.5rem;
+            border-radius: 999px;
+            border: 1px solid #67e8f9;
+            background: #ecfeff;
+            color: #0f172a;
+            font-size: 0.74rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .hb-filter-chip:hover { background: #cffafe; }
+        .hb-filter-chip .x { font-size: 0.85rem; line-height: 1; color: #0f766e; }
         .hb-detail-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75rem; }
         .hb-detail-box {
             border: 1px solid var(--border);
@@ -310,6 +326,7 @@
                     <div class="hb-kpi" id="kpiCardEarly"><div class="k">Early</div><div class="v" id="kpiEarly">0</div></div>
                     <div class="hb-kpi" id="kpiCardGrowth"><div class="k">Growth</div><div class="v" id="kpiGrowth">0</div></div>
                 </div>
+                <div id="batchDetailFilters" class="hb-filter-chips" style="display:none"></div>
                 <div class="hb-detail-grid">
                     <div class="hb-detail-box">
                         <h4>Member List</h4>
@@ -781,6 +798,22 @@
             document.querySelectorAll('.hb-cat-btn').forEach(btn => {
                 btn.classList.toggle('is-active', String(btn.dataset.category || '') === detailFilters.category);
             });
+            const chipWrap = document.getElementById('batchDetailFilters');
+            const chips = [];
+            if (detailFilters.stage) {
+                chips.push(`<button type="button" class="hb-filter-chip" data-clear="stage"><span>Stage: ${esc(String(detailFilters.stage).toUpperCase())}</span><span class="x">&times;</span></button>`);
+            }
+            if (detailFilters.category) {
+                chips.push(`<button type="button" class="hb-filter-chip" data-clear="category"><span>Category: ${esc(String(detailFilters.category))}</span><span class="x">&times;</span></button>`);
+            }
+            chipWrap.innerHTML = chips.join('');
+            chipWrap.style.display = chips.length ? 'flex' : 'none';
+            chipWrap.querySelectorAll('[data-clear]').forEach(btn => btn.addEventListener('click', () => {
+                const what = String(btn.dataset.clear || '');
+                if (what === 'stage') detailFilters.stage = '';
+                if (what === 'category') detailFilters.category = '';
+                if (batchDetailData) renderBatchDetail(batchDetailData, true);
+            }));
         }
 
         function renderBatchDetail(detail, preserveFilters = false) {
