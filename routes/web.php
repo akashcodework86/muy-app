@@ -141,6 +141,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('batches', [HubBatchController::class, 'index'])->name('batches.index');
         Route::post('batches/api', [HubBatchController::class, 'api'])->name('batches.api');
         Route::post('batches/upload-cdo', [HubBatchController::class, 'uploadCdo'])->name('batches.upload-cdo');
+        Route::get('cfa-applications/{cfa_submission}', [HubBatchController::class, 'showCfaSubmission'])->name('batches.cfa.show');
     });
 });
 

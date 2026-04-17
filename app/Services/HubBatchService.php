@@ -579,6 +579,7 @@ class HubBatchService
                     'application_no' => (string) ($cfa?->application_no ?? $row->cfa_submission_id),
                     'applicant_name' => (string) ($cfa?->applicant_name ?? 'N/A'),
                     'phone' => (string) ($cfa?->phone ?? ''),
+                    'profile_url' => $cfa ? route('hub.batches.cfa.show', ['cfa_submission' => $cfa->id]) : null,
                     'source' => (string) ($cfa?->source ?? ''),
                     'stage_key' => $stageKey,
                     'stage_label' => $stageLabel,

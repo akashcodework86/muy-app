@@ -122,7 +122,11 @@
             border-radius: 10px;
             padding: 0.65rem 0.75rem;
             background: #fff;
+            cursor: pointer;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
         }
+        .hb-kpi:hover { border-color: #7dd3fc; transform: translateY(-1px); }
+        .hb-kpi.is-active { border-color: #0ea5e9; box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.12); }
         .hb-kpi .k { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 700; }
         .hb-kpi .v { font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem; }
         .hb-detail-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75rem; }
@@ -134,8 +138,25 @@
         }
         .hb-detail-box h4 { margin: 0 0 0.55rem; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
         .hb-cat-list { margin: 0; padding: 0; list-style: none; max-height: 230px; overflow: auto; }
-        .hb-cat-list li { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; padding: 0.35rem 0; border-bottom: 1px dashed #e2e8f0; }
+        .hb-cat-list li { font-size: 0.82rem; padding: 0.2rem 0; border-bottom: 1px dashed #e2e8f0; }
         .hb-cat-list li:last-child { border-bottom: none; }
+        .hb-cat-btn {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid transparent;
+            background: transparent;
+            border-radius: 8px;
+            padding: 0.3rem 0.35rem;
+            cursor: pointer;
+            color: #0f172a;
+            text-align: left;
+        }
+        .hb-cat-btn:hover { background: #f0f9ff; border-color: #bae6fd; }
+        .hb-cat-btn.is-active { background: #ecfeff; border-color: #67e8f9; }
+        .hb-member-link { color: #0f766e; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+        .hb-member-link:hover { color: #0f172a; }
         .hb-member-table-wrap { max-height: 230px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
         .hb-member-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
         .hb-member-table th, .hb-member-table td { padding: 0.45rem 0.5rem; border-bottom: 1px solid #f1f5f9; text-align: left; }
@@ -284,10 +305,10 @@
                     <button type="button" class="hb-btn hb-btn--ghost" id="btnCloseBatchDetail" style="padding:0.35rem 0.65rem;font-size:0.76rem">Close</button>
                 </div>
                 <div class="hb-kpi-grid">
-                    <div class="hb-kpi"><div class="k">Members</div><div class="v" id="kpiMembers">0</div></div>
-                    <div class="hb-kpi"><div class="k">Seed</div><div class="v" id="kpiSeed">0</div></div>
-                    <div class="hb-kpi"><div class="k">Early</div><div class="v" id="kpiEarly">0</div></div>
-                    <div class="hb-kpi"><div class="k">Growth</div><div class="v" id="kpiGrowth">0</div></div>
+                    <div class="hb-kpi" id="kpiCardMembers"><div class="k">Members (all)</div><div class="v" id="kpiMembers">0</div></div>
+                    <div class="hb-kpi" id="kpiCardSeed"><div class="k">Seed</div><div class="v" id="kpiSeed">0</div></div>
+                    <div class="hb-kpi" id="kpiCardEarly"><div class="k">Early</div><div class="v" id="kpiEarly">0</div></div>
+                    <div class="hb-kpi" id="kpiCardGrowth"><div class="k">Growth</div><div class="v" id="kpiGrowth">0</div></div>
                 </div>
                 <div class="hb-detail-grid">
                     <div class="hb-detail-box">
@@ -368,6 +389,8 @@
         let latestBatches = [];
         let editingBatchId = 0;
         let openedBatchDetailId = 0;
+        let batchDetailData = null;
+        let detailFilters = { stage: '', category: '' };
 
         function idealMixFromN(N) {
             N = Math.max(0, parseInt(N, 10) || 0);
@@ -717,44 +740,96 @@
 
         function closeBatchDetail() {
             openedBatchDetailId = 0;
+            batchDetailData = null;
+            detailFilters = { stage: '', category: '' };
             document.getElementById('batchDetailCard').classList.remove('is-open');
             document.getElementById('batchDetailMeta').textContent = 'Click any batch name to view KPI breakdown.';
             highlightBatchRow(0);
         }
 
-        function renderBatchDetail(detail) {
+        function categoryMixFromMembers(members) {
+            const out = {};
+            members.forEach(m => {
+                const cat = String(m.business_category || 'Not specified');
+                out[cat] = (out[cat] || 0) + 1;
+            });
+            return Object.entries(out).sort((a, b) => b[1] - a[1]);
+        }
+
+        function stageMixFromMembers(members) {
+            const out = { seed: 0, early: 0, growth: 0 };
+            members.forEach(m => {
+                const key = String(m.stage_key || '').toLowerCase();
+                if (Object.prototype.hasOwnProperty.call(out, key)) out[key]++;
+            });
+            return out;
+        }
+
+        function applyDetailFilters(members) {
+            return members.filter(m => {
+                const okStage = !detailFilters.stage || String(m.stage_key || '').toLowerCase() === detailFilters.stage;
+                const okCat = !detailFilters.category || String(m.business_category || '') === detailFilters.category;
+                return okStage && okCat;
+            });
+        }
+
+        function updateDetailFilterUI() {
+            document.getElementById('kpiCardMembers').classList.toggle('is-active', !detailFilters.stage);
+            document.getElementById('kpiCardSeed').classList.toggle('is-active', detailFilters.stage === 'seed');
+            document.getElementById('kpiCardEarly').classList.toggle('is-active', detailFilters.stage === 'early');
+            document.getElementById('kpiCardGrowth').classList.toggle('is-active', detailFilters.stage === 'growth');
+            document.querySelectorAll('.hb-cat-btn').forEach(btn => {
+                btn.classList.toggle('is-active', String(btn.dataset.category || '') === detailFilters.category);
+            });
+        }
+
+        function renderBatchDetail(detail, preserveFilters = false) {
+            if (!preserveFilters) {
+                detailFilters = { stage: '', category: '' };
+            }
+            batchDetailData = detail;
             const batch = detail.batch || {};
             const summary = detail.summary || {};
-            const stageMix = summary.stage_mix || {};
-            const members = Array.isArray(detail.members) ? detail.members : [];
-            const categoryMix = summary.business_category_mix || {};
+            const allMembers = Array.isArray(detail.members) ? detail.members : [];
+            const filteredMembers = applyDetailFilters(allMembers);
+            const stageMix = stageMixFromMembers(filteredMembers);
+            const categoryEntries = categoryMixFromMembers(filteredMembers);
             document.getElementById('batchDetailTitle').textContent = (batch.name || 'Batch insight') + ' — KPI breakdown';
-            document.getElementById('batchDetailMeta').textContent = (batch.district_name || 'District') + ' | ' + String((batch.status || '').toUpperCase()) + ' | Target ' + (batch.target_size || 0);
-            document.getElementById('kpiMembers').textContent = String(summary.members_count || 0);
-            document.getElementById('kpiSeed').textContent = String(stageMix.seed || 0);
-            document.getElementById('kpiEarly').textContent = String(stageMix.early || 0);
-            document.getElementById('kpiGrowth').textContent = String(stageMix.growth || 0);
+            const filterParts = [];
+            if (detailFilters.stage) filterParts.push('Stage: ' + detailFilters.stage.toUpperCase());
+            if (detailFilters.category) filterParts.push('Category: ' + detailFilters.category);
+            const filterText = filterParts.length ? ' | Filtered by ' + filterParts.join(' + ') : '';
+            document.getElementById('batchDetailMeta').textContent = (batch.district_name || 'District') + ' | ' + String((batch.status || '').toUpperCase()) + ' | Target ' + (batch.target_size || 0) + filterText;
+            document.getElementById('kpiMembers').textContent = String(filteredMembers.length);
+            document.getElementById('kpiSeed').textContent = String(stageMix.seed);
+            document.getElementById('kpiEarly').textContent = String(stageMix.early);
+            document.getElementById('kpiGrowth').textContent = String(stageMix.growth);
 
             const membersWrap = document.getElementById('batchDetailMembersWrap');
-            membersWrap.innerHTML = members.length
+            membersWrap.innerHTML = filteredMembers.length
                 ? `<table class="hb-member-table">
                     <thead><tr><th>App no.</th><th>Name</th><th>Stage</th><th>Category</th></tr></thead>
-                    <tbody>${members.map(m => `
+                    <tbody>${filteredMembers.map(m => `
                         <tr>
-                            <td style="font-family:monospace">${esc(m.application_no)}</td>
-                            <td>${esc(m.applicant_name)}</td>
+                            <td style="font-family:monospace">${m.profile_url ? `<a class="hb-member-link" href="${esc(m.profile_url)}" target="_blank" rel="noopener noreferrer">${esc(m.application_no)}</a>` : esc(m.application_no)}</td>
+                            <td>${m.profile_url ? `<a class="hb-member-link" href="${esc(m.profile_url)}" target="_blank" rel="noopener noreferrer">${esc(m.applicant_name)}</a>` : esc(m.applicant_name)}</td>
                             <td>${esc(m.stage_label || m.stage_key || 'UNKNOWN')}</td>
-                            <td>${esc(m.business_category || 'Unspecified')}</td>
+                            <td>${esc(m.business_category || 'Not specified')}</td>
                         </tr>`).join('')}
                     </tbody>
                 </table>`
-                : '<p style="margin:0;color:var(--muted);font-size:0.82rem">No members in this batch.</p>';
+                : '<p style="margin:0;color:var(--muted);font-size:0.82rem">No members matched current filter.</p>';
 
             const catList = document.getElementById('batchCategoryMixList');
-            const catEntries = Object.entries(categoryMix);
-            catList.innerHTML = catEntries.length
-                ? catEntries.map(([name, count]) => `<li><span>${esc(name)}</span><strong>${count}</strong></li>`).join('')
+            catList.innerHTML = categoryEntries.length
+                ? categoryEntries.map(([name, count]) => `<li><button type="button" class="hb-cat-btn" data-category="${esc(name)}"><span>${esc(name)}</span><strong>${count}</strong></button></li>`).join('')
                 : '<li><span style="color:var(--muted)">No category data</span><strong>0</strong></li>';
+            catList.querySelectorAll('.hb-cat-btn').forEach(btn => btn.addEventListener('click', () => {
+                const selected = String(btn.dataset.category || '');
+                detailFilters.category = detailFilters.category === selected ? '' : selected;
+                renderBatchDetail(batchDetailData, true);
+            }));
+            updateDetailFilterUI();
             document.getElementById('batchDetailCard').classList.add('is-open');
         }
 
@@ -920,6 +995,22 @@
         document.getElementById('editBatchCancel').addEventListener('click', closeEditBatch);
         document.getElementById('editBatchSave').addEventListener('click', saveEditBatch);
         document.getElementById('btnCloseBatchDetail').addEventListener('click', closeBatchDetail);
+        document.getElementById('kpiCardMembers').addEventListener('click', () => {
+            detailFilters.stage = '';
+            if (batchDetailData) renderBatchDetail(batchDetailData, true);
+        });
+        document.getElementById('kpiCardSeed').addEventListener('click', () => {
+            detailFilters.stage = detailFilters.stage === 'seed' ? '' : 'seed';
+            if (batchDetailData) renderBatchDetail(batchDetailData, true);
+        });
+        document.getElementById('kpiCardEarly').addEventListener('click', () => {
+            detailFilters.stage = detailFilters.stage === 'early' ? '' : 'early';
+            if (batchDetailData) renderBatchDetail(batchDetailData, true);
+        });
+        document.getElementById('kpiCardGrowth').addEventListener('click', () => {
+            detailFilters.stage = detailFilters.stage === 'growth' ? '' : 'growth';
+            if (batchDetailData) renderBatchDetail(batchDetailData, true);
+        });
 
         document.getElementById('btnShowLater').addEventListener('click', async () => {
             try {

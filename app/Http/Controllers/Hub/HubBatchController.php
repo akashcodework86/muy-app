@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Hub;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
+use App\Models\CfaSubmission;
 use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\OnboardingBatch;
+use App\Services\CfaSubmissionAuditSnapshot;
 use App\Services\HubBatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -76,5 +79,33 @@ class HubBatchController extends Controller
         return redirect()
             ->route('hub.batches.index')
             ->with('status', 'CDO signed PDF uploaded.');
+    }
+
+    public function showCfaSubmission(Request $request, CfaSubmission $cfa_submission): View
+    {
+        $hubId = (int) $request->user()->hub_id;
+        $submissionDistrictHubId = (int) District::query()
+            ->whereKey($cfa_submission->district_id)
+            ->value('hub_id');
+        if ($hubId <= 0 || $submissionDistrictHubId !== $hubId) {
+            abort(403);
+        }
+
+        $cfa_submission->load(['district', 'referralUser', 'fiscalYear']);
+
+        $cfaEditLogs = AuditLog::query()
+            ->where('subject_type', CfaSubmission::class)
+            ->where('subject_id', $cfa_submission->id)
+            ->where('action', CfaSubmissionAuditSnapshot::ACTION_UPDATED)
+            ->with('user')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('admin.cfa.show', [
+            'submission' => $cfa_submission,
+            'cfaIndexUrl' => route('hub.batches.index'),
+            'cfaEditUrl' => null,
+            'cfaEditLogs' => $cfaEditLogs,
+        ]);
     }
 }
