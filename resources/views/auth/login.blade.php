@@ -93,7 +93,7 @@
     <div class="app-auth-wrap">
         <div class="app-auth-card">
             <div class="app-auth-brand">
-                <img class="app-auth-logo" src="{{ asset('https://ukrbi.in/new/admin/muy.jpg') }}" alt="Mukhyamantri Udyamshala Yojana">
+                <img class="app-auth-logo" src="{{ asset('https://ukrbi.in/new/admin/muy.png') }}" alt="Mukhyamantri Udyamshala Yojana">
                 <h1>Welcome to MIS</h1>
                 <h2>(Mukhyamantri Udyamshala Yojana)</h2>
                 <p class="app-auth-subtitle">RBI • Incubation Support Platform</p>

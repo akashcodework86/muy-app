@@ -1,5 +1,5 @@
 @php
-    $logoUrl = asset('https://ukrbi.in/new/admin/muy.jpg');
+    $logoUrl = asset('https://ukrbi.in/new/admin/muy.png');
 @endphp
 <!DOCTYPE html>
 <html lang="en">
