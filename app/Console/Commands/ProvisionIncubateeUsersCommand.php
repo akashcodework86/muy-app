@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CfaSubmission;
+use App\Models\OnboardingBatch;
 use App\Models\User;
 use App\Services\IncubateeLoginEmailResolver;
 use Illuminate\Console\Command;
@@ -10,7 +11,9 @@ use Illuminate\Support\Facades\Hash;
 
 class ProvisionIncubateeUsersCommand extends Command
 {
-    protected $signature = 'incubatees:provision-users {--dry-run : Show actions without writing}';
+    protected $signature = 'incubatees:provision-users
+                            {--batch-id= : Only CFAs in this onboarding_batches.id (locked member list)}
+                            {--dry-run : Show actions without writing}';
 
     protected $description = 'Create incubatee portal users (login email + default password) for CFA submissions in a locked batch';
 
@@ -25,8 +28,22 @@ class ProvisionIncubateeUsersCommand extends Command
         }
 
         $query = CfaSubmission::query()
-            ->whereHas('onboardingBatchMembership')
+            ->whereHas('onboardingBatchMembership', function ($q): void {
+                $batchId = $this->option('batch-id');
+                if ($batchId !== null && $batchId !== '') {
+                    $q->where('onboarding_batch_id', (int) $batchId);
+                }
+            })
             ->with(['onboardingBatchMembership.batch']);
+
+        if ($this->option('batch-id') !== null && $this->option('batch-id') !== '') {
+            $bid = (int) $this->option('batch-id');
+            if (! OnboardingBatch::query()->whereKey($bid)->exists()) {
+                $this->error("No onboarding batch with id {$bid}.");
+
+                return self::FAILURE;
+            }
+        }
 
         $created = 0;
         $skipped = 0;

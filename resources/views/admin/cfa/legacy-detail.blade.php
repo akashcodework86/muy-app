@@ -67,6 +67,7 @@
 
     <div class="cfa-legacy-banner no-print" role="status">
         <strong>Phase 2 legacy database.</strong> This screen loads the full applicant record from <code>rbi_applications</code> / <code>rbi_applicant_details</code> (same source as district staff “FY 2025-26 Data”). Laravel row is a mirror — details below are read-only from legacy.
+        <span style="display:block;margin-top:0.5rem;font-weight:500">Many old records have <strong>no email</strong> in legacy — that is why you may see “—” in the raw columns. Incubatee portal login does not depend on that field; use <strong>Incubatee portal login</strong> in the reference block below.</span>
     </div>
 
     @if (! empty($legacyDetail['district_mismatch_warning'] ?? null))
@@ -74,6 +75,15 @@
             <strong>District note.</strong> {{ $legacyDetail['district_mismatch_warning'] }}
         </div>
     @endif
+
+    @php
+        $incubateePortalUser = \App\Models\User::query()
+            ->where('cfa_submission_id', $submission->id)
+            ->where('role', 'incubatee')
+            ->first();
+        $portalLoginEmail = $incubateePortalUser?->email
+            ?? \App\Services\IncubateeLoginEmailResolver::forSubmission($submission);
+    @endphp
 
     <section class="cfa-legacy-section">
         <h2>Laravel mirror (reference)</h2>
@@ -83,6 +93,13 @@
             <dt>District (Laravel)</dt><dd>{{ $submission->district?->name ?? $dash }}</dd>
             <dt>Fiscal year</dt><dd>{{ $submission->fiscalYear?->name ?? $submission->fiscalYear?->code ?? $dash }}</dd>
             <dt>Legacy application id</dt><dd>{{ $legacyDetail['legacy_application_id'] }}</dd>
+            <dt>Incubatee portal login</dt>
+            <dd>
+                <code style="font-size:0.95em">{{ $portalLoginEmail }}</code>
+                @if ($incubateePortalUser === null)
+                    <span style="color:#64748b;font-size:0.85rem"> — created when you run <code style="font-size:0.85em">php artisan incubatees:provision-users</code> (same ID).</span>
+                @endif
+            </dd>
         </dl>
     </section>
 
