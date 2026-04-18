@@ -647,7 +647,9 @@ class HubBatchService
         $members = $members->map(function (array $member) use ($userEmails, $cfaModels): array {
             $cid = (int) $member['id'];
             $email = $userEmails[$cid] ?? null;
-            if (is_string($email) && $email !== '') {
+            $hasAccount = is_string($email) && $email !== '';
+            $member['incubatee_account_ready'] = $hasAccount;
+            if ($hasAccount) {
                 $member['portal_username'] = $email;
             } else {
                 $cfa = $cfaModels->get($cid);

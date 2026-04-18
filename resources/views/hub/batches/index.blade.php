@@ -331,7 +331,7 @@
                 <div class="hb-detail-grid">
                     <div class="hb-detail-box">
                         <h4>Member List</h4>
-                        <p class="hb-portal-note" id="batchPortalLoginNote">Incubatee portal login: Username and default Password are shown per row (same initial password for new accounts until changed).</p>
+                        <p class="hb-portal-note" id="batchPortalLoginNote">Loading portal login hints…</p>
                         <div class="hb-member-table-wrap" id="batchDetailMembersWrap"></div>
                     </div>
                     <div class="hb-detail-box">
@@ -840,29 +840,46 @@
             document.getElementById('kpiEarly').textContent = String(stageMix.early);
             document.getElementById('kpiGrowth').textContent = String(stageMix.growth);
 
-            const portalPwd = (batch.incubatee_default_password && String(batch.incubatee_default_password).trim())
-                ? esc(String(batch.incubatee_default_password))
-                : '—';
+            const defaultPwd = (batch.incubatee_default_password && String(batch.incubatee_default_password).trim())
+                ? String(batch.incubatee_default_password)
+                : '';
             const noteEl = document.getElementById('batchPortalLoginNote');
             if (noteEl) {
-                noteEl.textContent = (batch.incubatee_default_password && String(batch.incubatee_default_password).trim())
-                    ? 'Incubatee portal: Username = login email per row. Password column shows the default initial password (same for all new accounts from `incubatees:provision-users`). If someone changes their password, use reset instead.'
-                    : 'Set INCUBATEE_DEFAULT_PASSWORD in .env to show the default password in the table.';
+                const bid = batch.id != null ? String(batch.id) : '';
+                if (!defaultPwd) {
+                    noteEl.textContent = 'Set INCUBATEE_DEFAULT_PASSWORD in .env so the default password can be shown after accounts exist.';
+                } else {
+                    noteEl.innerHTML = 'Login works only after an incubatee user row exists. On the server run: <code style="font-size:0.7rem">php artisan incubatees:provision-users --batch-id=' + esc(bid) + '</code> then Password column fills in. Until then Username is the ID that <em>will</em> be used; login will fail. Same initial password for new accounts; if someone changed it, use reset.';
+                }
             }
 
             const membersWrap = document.getElementById('batchDetailMembersWrap');
             membersWrap.innerHTML = filteredMembers.length
                 ? `<table class="hb-member-table">
                     <thead><tr><th>App no.</th><th>Name</th><th>Username</th><th>Password</th><th>Stage</th><th>Category</th></tr></thead>
-                    <tbody>${filteredMembers.map(m => `
+                    <tbody>${filteredMembers.map(m => {
+                        const ready = !!m.incubatee_account_ready;
+                        let pwdCell;
+                        if (!ready) {
+                            pwdCell = '<span style="color:#b45309;font-weight:600">Pending</span>';
+                        } else if (defaultPwd) {
+                            pwdCell = esc(defaultPwd);
+                        } else {
+                            pwdCell = '<span style="color:#64748b">—</span>';
+                        }
+                        const userCell = (m.portal_username || '')
+                            ? `<div style="word-break:break-all">${esc(m.portal_username)}</div>${ready ? '' : '<div style="font-size:0.62rem;color:#b45309;margin-top:0.15rem">Account not created yet</div>'}`
+                            : '—';
+                        return `
                         <tr>
                             <td style="font-family:monospace">${m.profile_url ? `<a class="hb-member-link" href="${esc(m.profile_url)}" target="_blank" rel="noopener noreferrer">${esc(m.application_no)}</a>` : esc(m.application_no)}</td>
                             <td>${m.profile_url ? `<a class="hb-member-link" href="${esc(m.profile_url)}" target="_blank" rel="noopener noreferrer">${esc(m.applicant_name)}</a>` : esc(m.applicant_name)}</td>
-                            <td style="font-family:ui-monospace,monospace;font-size:0.72rem;word-break:break-all">${esc(m.portal_username || '')}</td>
-                            <td style="font-family:ui-monospace,monospace;font-size:0.72rem">${portalPwd}</td>
+                            <td style="font-family:ui-monospace,monospace;font-size:0.72rem">${userCell}</td>
+                            <td style="font-family:ui-monospace,monospace;font-size:0.72rem">${pwdCell}</td>
                             <td>${esc(m.stage_label || m.stage_key || 'UNKNOWN')}</td>
                             <td>${esc(m.business_category || 'Not specified')}</td>
-                        </tr>`).join('')}
+                        </tr>`;
+                    }).join('')}
                     </tbody>
                 </table>`
                 : '<p style="margin:0;color:var(--muted);font-size:0.82rem">No members matched current filter.</p>';
