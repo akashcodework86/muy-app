@@ -4,9 +4,11 @@
     $showAdminNav = $u && $u->role === 'state_admin';
     $showHubNav = $u && $u->role === 'hub_admin';
     $showStaffNav = $u && $u->role === 'district_staff';
+    $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
         'district_staff' => 'District staff',
         'hub_admin' => 'Hub admin',
+        'incubatee' => 'Incubatee',
         default => 'State admin',
     };
     $initials = collect(preg_split('/\s+/', trim((string) ($u->name ?? 'MUY'))) ?: [])
@@ -34,6 +36,7 @@
         $r === 'staff.applications' => 'staff-apps',
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
         str_starts_with($r, 'account.') => 'account',
+        str_starts_with($r, 'incubatee.') => 'incubatee',
         default => '',
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff'], true);
@@ -83,6 +86,12 @@
             <a href="{{ route('staff.monthly-targets') }}" class="admin-topbar__link @if ($activeNav === 'staff-targets') is-active @endif">Monthly targets</a>
             <a href="{{ route('staff.applications') }}" class="admin-topbar__link @if ($activeNav === 'staff-apps') is-active @endif">Applications</a>
             <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase2-data') is-active @endif">FY 2025-26 Data</a>
+        </nav>
+        @endif
+
+        @if ($showIncubateeNav)
+        <nav class="admin-topbar__nav" aria-label="Incubatee">
+            <a href="{{ route('incubatee.dashboard') }}" class="admin-topbar__link @if ($activeNav === 'incubatee') is-active @endif">Dashboard</a>
         </nav>
         @endif
 
