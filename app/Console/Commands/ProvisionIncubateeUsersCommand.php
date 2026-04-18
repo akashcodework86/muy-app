@@ -4,15 +4,15 @@ namespace App\Console\Commands;
 
 use App\Models\CfaSubmission;
 use App\Models\User;
+use App\Services\IncubateeLoginEmailResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class ProvisionIncubateeUsersCommand extends Command
 {
     protected $signature = 'incubatees:provision-users {--dry-run : Show actions without writing}';
 
-    protected $description = 'Create incubatee portal users (email + default password) for CFA submissions in a locked batch';
+    protected $description = 'Create incubatee portal users (login email + default password) for CFA submissions in a locked batch';
 
     public function handle(): int
     {
@@ -30,18 +30,19 @@ class ProvisionIncubateeUsersCommand extends Command
 
         $created = 0;
         $skipped = 0;
+        $syntheticEmailCount = 0;
 
-        $query->chunkById(100, function ($submissions) use ($dry, $plain, &$created, &$skipped) {
+        $query->chunkById(100, function ($submissions) use ($dry, $plain, &$created, &$skipped, &$syntheticEmailCount) {
             foreach ($submissions as $submission) {
+                $email = IncubateeLoginEmailResolver::forSubmission($submission);
                 $payload = is_array($submission->payload) ? $submission->payload : [];
-                $emailRaw = $payload['email'] ?? null;
-                if (! is_string($emailRaw) || trim($emailRaw) === '') {
-                    $this->warn("Skip CFA #{$submission->id}: no email in payload.");
-                    $skipped++;
-
-                    continue;
+                $hadRealEmail = is_string($payload['email'] ?? null) && trim((string) $payload['email']) !== '';
+                if (! $hadRealEmail) {
+                    $syntheticEmailCount++;
+                    if ($this->output->isVerbose()) {
+                        $this->comment("CFA #{$submission->id}: no email in payload — placeholder login {$email}");
+                    }
                 }
-                $email = Str::lower(trim($emailRaw));
 
                 $existing = User::query()->where('email', $email)->first();
                 if ($existing !== null) {
@@ -87,6 +88,9 @@ class ProvisionIncubateeUsersCommand extends Command
         });
 
         $this->info("Done. Created: {$created}, skipped: {$skipped}.");
+        if ($syntheticEmailCount > 0) {
+            $this->comment("Placeholder login email (no CFA email): {$syntheticEmailCount} row(s). Use -v to list each.");
+        }
         if (! $dry) {
             $this->comment('Default password is set from INCUBATEE_DEFAULT_PASSWORD / config.');
         }
