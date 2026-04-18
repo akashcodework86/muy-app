@@ -69,6 +69,12 @@
         <strong>Phase 2 legacy database.</strong> This screen loads the full applicant record from <code>rbi_applications</code> / <code>rbi_applicant_details</code> (same source as district staff “FY 2025-26 Data”). Laravel row is a mirror — details below are read-only from legacy.
     </div>
 
+    @if (! empty($legacyDetail['district_mismatch_warning'] ?? null))
+        <div class="no-print" style="margin-bottom:1rem;padding:0.75rem 1rem;border-radius:8px;border:1px solid #fbbf24;background:#fffbeb;color:#92400e;font-size:0.9rem;" role="alert">
+            <strong>District note.</strong> {{ $legacyDetail['district_mismatch_warning'] }}
+        </div>
+    @endif
+
     <section class="cfa-legacy-section">
         <h2>Laravel mirror (reference)</h2>
         <dl class="cfa-legacy-grid">

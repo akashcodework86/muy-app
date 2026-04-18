@@ -18,8 +18,9 @@ class LegacyPhase2ApplicationDetailService
      *   viewRow: array<string, string>,
      *   legacy_application_id: int,
      *   rbi_applications: array<string, mixed>,
-     *   rbi_applicant_details: array<string, mixed>
-     * }|array{error: string, message: string}|null
+     *   rbi_applicant_details: array<string, mixed>,
+     *   district_mismatch_warning: ?string
+     * }|null
      */
     public function tryBuild(CfaSubmission $submission): ?array
     {
@@ -50,19 +51,9 @@ class LegacyPhase2ApplicationDetailService
         $districtName = trim((string) ($district?->name ?? ''));
         $legacyDistrict = trim((string) ($row->district ?? ''));
 
-        if ($districtName !== '' && $legacyDistrict !== '') {
-            if (mb_strtolower($legacyDistrict) !== mb_strtolower($districtName)) {
-                $aliasesMap = (array) config('legacy_phase2.staff_import.district_aliases', []);
-                $aliases = array_map('trim', (array) ($aliasesMap[$districtName] ?? []));
-                $allowed = array_merge([$districtName], $aliases);
-                $allowedNorm = array_map(fn ($n) => mb_strtolower(trim((string) $n)), $allowed);
-                if (! in_array(mb_strtolower($legacyDistrict), $allowedNorm, true)) {
-                    return [
-                        'error' => 'district_mismatch',
-                        'message' => 'Legacy district does not match this application’s district.',
-                    ];
-                }
-            }
+        $districtMismatchWarning = null;
+        if ($districtName !== '' && $legacyDistrict !== '' && ! $this->legacyDistrictMatchesLaravel($districtName, $legacyDistrict)) {
+            $districtMismatchWarning = 'Legacy row district ('.$legacyDistrict.') does not match this CFA’s district ('.$districtName.'). Data below is still shown from legacy; verify the correct application.';
         }
 
         $serviceRows = $this->servicesByApplicationIds([$legacyAppId])[$legacyAppId] ?? [];
@@ -85,7 +76,48 @@ class LegacyPhase2ApplicationDetailService
             'legacy_application_id' => $legacyAppId,
             'rbi_applications' => $appFull ? (array) $appFull : [],
             'rbi_applicant_details' => $detailFull ? (array) $detailFull : [],
+            'district_mismatch_warning' => $districtMismatchWarning,
         ];
+    }
+
+    private function normDistrict(string $s): string
+    {
+        $s = trim(preg_replace('/\s+/u', ' ', $s) ?? '');
+
+        return mb_strtolower($s);
+    }
+
+    /**
+     * Same spirit as {@see HubBatchService::legacyDistrictNamesFor} — allow config aliases.
+     */
+    private function legacyDistrictMatchesLaravel(string $laravelDistrictName, string $legacyDistrictFromRow): bool
+    {
+        $legacyNorm = $this->normDistrict($legacyDistrictFromRow);
+        $canonicalNorm = $this->normDistrict($laravelDistrictName);
+        if ($legacyNorm === $canonicalNorm) {
+            return true;
+        }
+
+        $aliasesMap = (array) config('legacy_phase2.staff_import.district_aliases', []);
+        $aliases = array_map('trim', (array) ($aliasesMap[$laravelDistrictName] ?? []));
+        foreach (array_merge([$laravelDistrictName], $aliases) as $a) {
+            if ($this->normDistrict((string) $a) === $legacyNorm) {
+                return true;
+            }
+        }
+
+        foreach ($aliasesMap as $canonical => $aliasList) {
+            if ($this->normDistrict((string) $canonical) !== $canonicalNorm) {
+                continue;
+            }
+            foreach (array_merge([(string) $canonical], (array) $aliasList) as $a) {
+                if ($this->normDistrict((string) $a) === $legacyNorm) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function legacyAvailable(): bool

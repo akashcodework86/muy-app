@@ -54,9 +54,6 @@ class CfaSubmissionController extends Controller
             ->get();
 
         $legacyDetail = app(LegacyPhase2ApplicationDetailService::class)->tryBuild($cfa_submission);
-        if (is_array($legacyDetail) && isset($legacyDetail['error'])) {
-            abort(403, $legacyDetail['message'] ?? 'Access denied.');
-        }
         if (is_array($legacyDetail) && isset($legacyDetail['viewRow'])) {
             return view('admin.cfa.legacy-detail', [
                 'submission' => $cfa_submission,
