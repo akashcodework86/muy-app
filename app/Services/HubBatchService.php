@@ -634,6 +634,29 @@ class HubBatchService
             return $member;
         })->values();
 
+        $cfaIds = $members->pluck('id')->filter()->unique()->values()->all();
+        $cfaModels = $cfaIds === [] ? collect() : CfaSubmission::query()
+            ->whereIn('id', $cfaIds)
+            ->get()
+            ->keyBy('id');
+        $userEmails = $cfaIds === [] ? collect() : User::query()
+            ->where('role', 'incubatee')
+            ->whereIn('cfa_submission_id', $cfaIds)
+            ->pluck('email', 'cfa_submission_id');
+
+        $members = $members->map(function (array $member) use ($userEmails, $cfaModels): array {
+            $cid = (int) $member['id'];
+            $email = $userEmails[$cid] ?? null;
+            if (is_string($email) && $email !== '') {
+                $member['portal_username'] = $email;
+            } else {
+                $cfa = $cfaModels->get($cid);
+                $member['portal_username'] = $cfa ? IncubateeLoginEmailResolver::forSubmission($cfa) : '';
+            }
+
+            return $member;
+        })->values();
+
         $stageMix = [
             'seed' => 0,
             'early' => 0,
@@ -661,6 +684,7 @@ class HubBatchService
                 'target_size' => (int) $batch->target_size,
                 'onboarding_date' => optional($batch->onboarding_date)->toDateString(),
                 'locked_at' => $batch->locked_at?->toIso8601String(),
+                'incubatee_default_password' => (string) config('incubatee.default_password', ''),
             ],
             'summary' => [
                 'members_count' => $members->count(),

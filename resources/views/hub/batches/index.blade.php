@@ -173,7 +173,8 @@
         .hb-cat-btn.is-active { background: #ecfeff; border-color: #67e8f9; }
         .hb-member-link { color: #0f766e; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
         .hb-member-link:hover { color: #0f172a; }
-        .hb-member-table-wrap { max-height: 230px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .hb-member-table-wrap { max-height: min(52vh, 480px); overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .hb-portal-note { font-size: 0.72rem; color: var(--muted); margin: 0 0 0.45rem; line-height: 1.4; }
         .hb-member-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
         .hb-member-table th, .hb-member-table td { padding: 0.45rem 0.5rem; border-bottom: 1px solid #f1f5f9; text-align: left; }
         .hb-member-table th { background: #f8fafc; color: var(--muted); font-size: 0.65rem; text-transform: uppercase; position: sticky; top: 0; }
@@ -330,6 +331,7 @@
                 <div class="hb-detail-grid">
                     <div class="hb-detail-box">
                         <h4>Member List</h4>
+                        <p class="hb-portal-note" id="batchPortalLoginNote">Incubatee portal login: Username and default Password are shown per row (same initial password for new accounts until changed).</p>
                         <div class="hb-member-table-wrap" id="batchDetailMembersWrap"></div>
                     </div>
                     <div class="hb-detail-box">
@@ -838,14 +840,26 @@
             document.getElementById('kpiEarly').textContent = String(stageMix.early);
             document.getElementById('kpiGrowth').textContent = String(stageMix.growth);
 
+            const portalPwd = (batch.incubatee_default_password && String(batch.incubatee_default_password).trim())
+                ? esc(String(batch.incubatee_default_password))
+                : '—';
+            const noteEl = document.getElementById('batchPortalLoginNote');
+            if (noteEl) {
+                noteEl.textContent = (batch.incubatee_default_password && String(batch.incubatee_default_password).trim())
+                    ? 'Incubatee portal: Username = login email per row. Password column shows the default initial password (same for all new accounts from `incubatees:provision-users`). If someone changes their password, use reset instead.'
+                    : 'Set INCUBATEE_DEFAULT_PASSWORD in .env to show the default password in the table.';
+            }
+
             const membersWrap = document.getElementById('batchDetailMembersWrap');
             membersWrap.innerHTML = filteredMembers.length
                 ? `<table class="hb-member-table">
-                    <thead><tr><th>App no.</th><th>Name</th><th>Stage</th><th>Category</th></tr></thead>
+                    <thead><tr><th>App no.</th><th>Name</th><th>Username</th><th>Password</th><th>Stage</th><th>Category</th></tr></thead>
                     <tbody>${filteredMembers.map(m => `
                         <tr>
                             <td style="font-family:monospace">${m.profile_url ? `<a class="hb-member-link" href="${esc(m.profile_url)}" target="_blank" rel="noopener noreferrer">${esc(m.application_no)}</a>` : esc(m.application_no)}</td>
                             <td>${m.profile_url ? `<a class="hb-member-link" href="${esc(m.profile_url)}" target="_blank" rel="noopener noreferrer">${esc(m.applicant_name)}</a>` : esc(m.applicant_name)}</td>
+                            <td style="font-family:ui-monospace,monospace;font-size:0.72rem;word-break:break-all">${esc(m.portal_username || '')}</td>
+                            <td style="font-family:ui-monospace,monospace;font-size:0.72rem">${portalPwd}</td>
                             <td>${esc(m.stage_label || m.stage_key || 'UNKNOWN')}</td>
                             <td>${esc(m.business_category || 'Not specified')}</td>
                         </tr>`).join('')}
