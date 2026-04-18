@@ -15,6 +15,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
+use App\Http\Controllers\Incubatee\MentorshipRequestController;
 use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
@@ -62,6 +63,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('incubatee')->prefix('incubatee')->name('incubatee.')->group(function () {
         Route::get('dashboard', [IncubateeDashboardController::class, 'index'])->name('dashboard');
+        Route::post('mentorship-requests', [MentorshipRequestController::class, 'store'])
+            ->middleware('throttle:15,1')
+            ->name('mentorship-requests.store');
     });
 
     Route::prefix('account')->name('account.')->group(function () {

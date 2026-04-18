@@ -130,16 +130,198 @@
     .inc-pill { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
     .inc-pill--ok { background: #d1fae5; color: #047857; }
     .inc-pill--open { background: #fef3c7; color: #b45309; }
+
+    .inc-hero__top {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+    .inc-hero__intro { flex: 1; min-width: 12rem; }
+    .inc-btn-mentor {
+        flex-shrink: 0;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        color: #fff;
+        border: none;
+        padding: 0.55rem 1.1rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        font-family: inherit;
+        box-shadow: 0 10px 24px rgba(99, 102, 241, 0.22);
+    }
+    .inc-btn-mentor:hover { filter: brightness(1.05); }
+
+    .inc-flash {
+        padding: 0.65rem 1rem;
+        border-radius: 10px;
+        font-size: 0.88rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e2e8f0;
+    }
+    .inc-flash--ok { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+    .inc-flash--err { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+
+    .mentorship-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 300;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .mentorship-modal.is-open { display: flex; }
+    .mentorship-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+    }
+    .mentorship-modal__panel {
+        position: relative;
+        background: #fff;
+        border-radius: 14px;
+        max-width: 28rem;
+        width: 100%;
+        max-height: min(90vh, 640px);
+        overflow: auto;
+        padding: 1.35rem 1.4rem;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.18);
+        border: 1px solid #e2e8f0;
+    }
+    .mentorship-modal__title {
+        margin: 0 0 0.35rem;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .mentorship-modal__lead {
+        margin: 0 0 1rem;
+        font-size: 0.85rem;
+        color: #64748b;
+        line-height: 1.45;
+    }
+    .mentorship-modal__close {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        width: 2rem;
+        height: 2rem;
+        border: none;
+        background: #f1f5f9;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1.1rem;
+        line-height: 1;
+        color: #64748b;
+    }
+    .mentorship-cats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    @media (min-width: 420px) {
+        .mentorship-cats { grid-template-columns: repeat(3, 1fr); }
+    }
+    .mentorship-cat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.25rem;
+        padding: 0.6rem 0.45rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        background: #fff;
+        cursor: pointer;
+        font-family: inherit;
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .mentorship-cat:hover { border-color: #a5b4fc; background: #f8fafc; }
+    .mentorship-cat.is-selected {
+        border-color: #6366f1;
+        background: #eef2ff;
+    }
+    .mentorship-cat__label { font-size: 0.78rem; font-weight: 700; color: #0f172a; }
+    .mentorship-cat__hint { font-size: 0.65rem; font-weight: 500; color: #64748b; line-height: 1.3; }
+    .mentorship-icon-svg { width: 2rem; height: 2rem; color: #4f46e5; flex-shrink: 0; }
+
+    .mentorship-field label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 0.35rem;
+    }
+    .mentorship-field textarea {
+        width: 100%;
+        min-height: 5rem;
+        padding: 0.55rem 0.65rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-family: inherit;
+        resize: vertical;
+    }
+    .mentorship-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        justify-content: flex-end;
+    }
+    .mentorship-actions button[type="button"] {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        font-family: inherit;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+    }
+    .mentorship-actions button[type="submit"] {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        font-family: inherit;
+        border: none;
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
+        color: #fff;
+    }
 </style>
 @endpush
 
 @section('content')
 <div class="inc-wrap">
+    @if (session('status'))
+        <p class="inc-flash inc-flash--ok" role="status">{{ session('status') }}</p>
+    @endif
+    @if ($errors->any())
+        <div class="inc-flash inc-flash--err" role="alert">
+            @foreach ($errors->all() as $err)
+                <div>{{ $err }}</div>
+            @endforeach
+        </div>
+    @endif
+
     <section class="inc-hero">
-        <h2 class="inc-hero__h">Welcome back, {{ $user->name }}</h2>
-        <p class="inc-hero__sub">
-            Your entrepreneur hub — track programme support, and soon showcase your products and pitch.
-        </p>
+        <div class="inc-hero__top">
+            <div class="inc-hero__intro">
+                <h2 class="inc-hero__h">Welcome back, {{ $user->name }}</h2>
+                <p class="inc-hero__sub">
+                    Your entrepreneur hub — track programme support, and soon showcase your products and pitch.
+                </p>
+            </div>
+            <button type="button" class="inc-btn-mentor" id="openMentorshipModal">Request mentorship</button>
+        </div>
         <div class="inc-hero__badges">
             <span class="inc-badge inc-badge--accent">CFA {{ $submission->application_no ?? '—' }}</span>
             @if($submission->district?->name)
@@ -241,5 +423,87 @@
             </div>
         </div>
     </section>
+
+    <div class="mentorship-modal" id="mentorshipModal" role="dialog" aria-modal="true" aria-labelledby="mentorshipModalTitle" hidden>
+        <div class="mentorship-modal__backdrop" id="mentorshipModalBackdrop" tabindex="-1"></div>
+        <div class="mentorship-modal__panel">
+            <button type="button" class="mentorship-modal__close" id="closeMentorshipModal" aria-label="Close">&times;</button>
+            <h3 class="mentorship-modal__title" id="mentorshipModalTitle">Request mentorship</h3>
+            <p class="mentorship-modal__lead">Choose the type of help you need. Your district hub, district staff, and state team will be notified.</p>
+
+            <form method="post" action="{{ route('incubatee.mentorship-requests.store') }}" id="mentorshipForm">
+                @csrf
+                <input type="hidden" name="category" id="mentorshipCategoryField" value="">
+
+                <div class="mentorship-cats" role="group" aria-label="Mentorship type">
+                    @foreach(config('mentorship.categories') as $slug => $meta)
+                        <button type="button" class="mentorship-cat" data-category="{{ $slug }}">
+                            @include('incubatee.partials.mentorship-icon', ['slug' => $slug])
+                            <span class="mentorship-cat__label">{{ $meta['label'] }}</span>
+                            <span class="mentorship-cat__hint">{{ $meta['hint'] }}</span>
+                        </button>
+                    @endforeach
+                </div>
+
+                <div class="mentorship-field">
+                    <label for="mentorshipComment">Your message (optional)</label>
+                    <textarea id="mentorshipComment" name="comment" maxlength="2000" placeholder="Describe what you need — goals, timeline, or questions."></textarea>
+                </div>
+
+                <div class="mentorship-actions">
+                    <button type="button" id="cancelMentorshipModal">Cancel</button>
+                    <button type="submit">Send request</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    const modal = document.getElementById('mentorshipModal');
+    const openBtn = document.getElementById('openMentorshipModal');
+    const closeBtn = document.getElementById('closeMentorshipModal');
+    const cancelBtn = document.getElementById('cancelMentorshipModal');
+    const backdrop = document.getElementById('mentorshipModalBackdrop');
+    const form = document.getElementById('mentorshipForm');
+    const categoryField = document.getElementById('mentorshipCategoryField');
+
+    function openModal() {
+        modal.hidden = false;
+        modal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+        modal.classList.remove('is-open');
+        modal.hidden = true;
+        document.body.style.overflow = '';
+    }
+
+    openBtn?.addEventListener('click', openModal);
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    backdrop?.addEventListener('click', closeModal);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+    });
+
+    document.querySelectorAll('.mentorship-cat').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.mentorship-cat').forEach(function (b) { b.classList.remove('is-selected'); });
+            btn.classList.add('is-selected');
+            categoryField.value = btn.getAttribute('data-category') || '';
+        });
+    });
+
+    form?.addEventListener('submit', function (e) {
+        if (!categoryField.value.trim()) {
+            e.preventDefault();
+            alert('Please select a mentorship category.');
+        }
+    });
+})();
+</script>
+@endpush
