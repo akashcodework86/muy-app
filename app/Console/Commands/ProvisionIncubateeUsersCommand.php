@@ -2,12 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Models\CfaSubmission;
-use App\Models\OnboardingBatch;
-use App\Models\User;
-use App\Services\IncubateeLoginEmailResolver;
+use App\Services\IncubateeProvisioningService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Hash;
 
 class ProvisionIncubateeUsersCommand extends Command
 {
@@ -20,93 +16,24 @@ class ProvisionIncubateeUsersCommand extends Command
     public function handle(): int
     {
         $dry = (bool) $this->option('dry-run');
-        $plain = (string) config('incubatee.default_password', '');
-        if ($plain === '') {
-            $this->error('config incubatee.default_password is empty. Set INCUBATEE_DEFAULT_PASSWORD in .env');
+        $batchIdOpt = $this->option('batch-id');
+        $batchId = ($batchIdOpt !== null && $batchIdOpt !== '') ? (int) $batchIdOpt : null;
+
+        try {
+            $result = app(IncubateeProvisioningService::class)->provision($batchId, $dry);
+        } catch (\RuntimeException $e) {
+            $this->error($e->getMessage());
+
+            return self::FAILURE;
+        } catch (\InvalidArgumentException $e) {
+            $this->error($e->getMessage());
 
             return self::FAILURE;
         }
 
-        $query = CfaSubmission::query()
-            ->whereHas('onboardingBatchMembership', function ($q): void {
-                $batchId = $this->option('batch-id');
-                if ($batchId !== null && $batchId !== '') {
-                    $q->where('onboarding_batch_id', (int) $batchId);
-                }
-            })
-            ->with(['onboardingBatchMembership.batch']);
-
-        if ($this->option('batch-id') !== null && $this->option('batch-id') !== '') {
-            $bid = (int) $this->option('batch-id');
-            if (! OnboardingBatch::query()->whereKey($bid)->exists()) {
-                $this->error("No onboarding batch with id {$bid}.");
-
-                return self::FAILURE;
-            }
-        }
-
-        $created = 0;
-        $skipped = 0;
-        $syntheticEmailCount = 0;
-
-        $query->chunkById(100, function ($submissions) use ($dry, $plain, &$created, &$skipped, &$syntheticEmailCount) {
-            foreach ($submissions as $submission) {
-                $email = IncubateeLoginEmailResolver::forSubmission($submission);
-                $payload = is_array($submission->payload) ? $submission->payload : [];
-                $hadRealEmail = is_string($payload['email'] ?? null) && trim((string) $payload['email']) !== '';
-                if (! $hadRealEmail) {
-                    $syntheticEmailCount++;
-                    if ($this->output->isVerbose()) {
-                        $this->comment("CFA #{$submission->id}: no email in payload — placeholder login {$email}");
-                    }
-                }
-
-                $existing = User::query()->where('email', $email)->first();
-                if ($existing !== null) {
-                    if ($existing->role === 'incubatee' && (int) $existing->cfa_submission_id === (int) $submission->id) {
-                        $skipped++;
-
-                        continue;
-                    }
-                    $this->warn("Skip {$email}: user exists (role {$existing->role}).");
-
-                    $skipped++;
-
-                    continue;
-                }
-
-                if (User::query()->where('cfa_submission_id', $submission->id)->exists()) {
-                    $skipped++;
-
-                    continue;
-                }
-
-                $name = $submission->applicant_name ?: 'Incubatee';
-
-                if ($dry) {
-                    $this->line("[dry-run] Would create incubatee user {$email} for CFA submission {$submission->id}");
-                    $created++;
-
-                    continue;
-                }
-
-                User::query()->create([
-                    'name' => $name,
-                    'email' => $email,
-                    'password' => Hash::make($plain),
-                    'role' => 'incubatee',
-                    'cfa_submission_id' => $submission->id,
-                    'is_active' => true,
-                    'hub_id' => null,
-                    'district_id' => $submission->district_id,
-                ]);
-                $created++;
-            }
-        });
-
-        $this->info("Done. Created: {$created}, skipped: {$skipped}.");
-        if ($syntheticEmailCount > 0) {
-            $this->comment("Placeholder login email (no CFA email): {$syntheticEmailCount} row(s). Use -v to list each.");
+        $this->info("Done. Created: {$result['created']}, skipped: {$result['skipped']}.");
+        if ($result['placeholder_email_rows'] > 0) {
+            $this->comment("Placeholder login email (no CFA email): {$result['placeholder_email_rows']} row(s). Use -v to list each.");
         }
         if (! $dry) {
             $this->comment('Default password is set from INCUBATEE_DEFAULT_PASSWORD / config.');

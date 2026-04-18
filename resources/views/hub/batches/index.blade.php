@@ -319,7 +319,10 @@
                         <h3 class="hb-detail-title" id="batchDetailTitle">Batch insight</h3>
                         <p class="hb-detail-sub" id="batchDetailMeta">Click any batch name to view KPI breakdown.</p>
                     </div>
-                    <button type="button" class="hb-btn hb-btn--ghost" id="btnCloseBatchDetail" style="padding:0.35rem 0.65rem;font-size:0.76rem">Close</button>
+                    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+                        <button type="button" class="hb-btn hb-btn--primary" id="btnProvisionIncubatees" style="display:none;padding:0.35rem 0.65rem;font-size:0.76rem" title="Creates incubatee users on the server (no SSH needed)">Create portal logins</button>
+                        <button type="button" class="hb-btn hb-btn--ghost" id="btnCloseBatchDetail" style="padding:0.35rem 0.65rem;font-size:0.76rem">Close</button>
+                    </div>
                 </div>
                 <div class="hb-kpi-grid">
                     <div class="hb-kpi" id="kpiCardMembers"><div class="k">Members (all)</div><div class="v" id="kpiMembers">0</div></div>
@@ -894,6 +897,12 @@
                 renderBatchDetail(batchDetailData, true);
             }));
             updateDetailFilterUI();
+            const btnProv = document.getElementById('btnProvisionIncubatees');
+            if (btnProv) {
+                const locked = String(batch.status || '').toLowerCase() === 'locked';
+                btnProv.style.display = locked ? 'inline-flex' : 'none';
+                btnProv.dataset.batchId = String(batch.id || '');
+            }
             document.getElementById('batchDetailCard').classList.add('is-open');
         }
 
@@ -1059,6 +1068,24 @@
         document.getElementById('editBatchCancel').addEventListener('click', closeEditBatch);
         document.getElementById('editBatchSave').addEventListener('click', saveEditBatch);
         document.getElementById('btnCloseBatchDetail').addEventListener('click', closeBatchDetail);
+        document.getElementById('btnProvisionIncubatees')?.addEventListener('click', async () => {
+            const btn = document.getElementById('btnProvisionIncubatees');
+            const bid = parseInt(btn?.dataset.batchId || '0', 10);
+            if (!bid) return;
+            if (!confirm('Create incubatee portal accounts for everyone in this locked batch? Large batches may take a minute.')) return;
+            btn.disabled = true;
+            try {
+                const res = await api('provision_incubatees', { batch_id: bid });
+                const c = res.created ?? 0;
+                const s = res.skipped ?? 0;
+                alert('Done. Created: ' + c + ', skipped: ' + s + '. Refresh the member list below.');
+                await openBatchDetail(bid);
+            } catch (e) {
+                alert(e.message || 'Failed');
+            } finally {
+                btn.disabled = false;
+            }
+        });
         document.getElementById('kpiCardMembers').addEventListener('click', () => {
             detailFilters.stage = '';
             if (batchDetailData) renderBatchDetail(batchDetailData, true);

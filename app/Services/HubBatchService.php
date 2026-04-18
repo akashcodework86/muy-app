@@ -218,6 +218,7 @@ class HubBatchService
         $blockedExempt = in_array($action, [
             'dashboard_stats', 'pool_list', 'draft_members', 'batches_list', 'later_list',
             'lock_batch', 'cancel_draft', 'remove_from_draft', 'add_to_draft',
+            'provision_incubatees',
         ], true);
 
         if ($blocked && ! $blockedExempt) {
@@ -245,8 +246,39 @@ class HubBatchService
             'set_choice' => $this->setChoice($hubId, $user, $districtIds, $input),
             'restore_later' => $this->restoreLater($hubId, $user, $districtIds, $input),
             'undo_reject' => $this->undoReject($hubId, $user, $districtIds, $input),
+            'provision_incubatees' => $this->provisionIncubatees($hubId, $input),
             default => ['ok' => false, 'error' => 'Unknown action'],
         };
+    }
+
+    /**
+     * @return array{ok: bool, error?: string, data?: array<string, mixed>}
+     */
+    private function provisionIncubatees(int $hubId, array $input): array
+    {
+        $batchId = (int) ($input['batch_id'] ?? 0);
+        if ($batchId <= 0) {
+            return ['ok' => false, 'error' => 'batch_id required'];
+        }
+
+        $batch = OnboardingBatch::query()->find($batchId);
+        if ($batch === null || (int) $batch->hub_id !== $hubId) {
+            return ['ok' => false, 'error' => 'Batch not found'];
+        }
+
+        if (! $batch->isLocked()) {
+            return ['ok' => false, 'error' => 'Lock the batch first, then create incubatee portal accounts.'];
+        }
+
+        try {
+            $result = app(IncubateeProvisioningService::class)->provision($batchId, dryRun: false);
+        } catch (\RuntimeException $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        } catch (\InvalidArgumentException $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        return ['ok' => true, 'data' => $result];
     }
 
     /**
