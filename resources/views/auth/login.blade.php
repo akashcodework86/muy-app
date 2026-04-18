@@ -99,6 +99,9 @@
                 <p class="app-auth-subtitle">RBI • Incubation Support Platform</p>
             </div>
             <p class="app-auth-lead">Sign in to your account.</p>
+            <p class="app-auth-hint" style="font-size:0.82rem; color:#64748b; margin:0 0 1rem; line-height:1.45;">
+                <strong>Incubatees:</strong> use the <strong>same email</strong> as on your CFA form, and the default password shared by your hub / programme team.
+            </p>
 
             @if ($errors->any())
                 <div class="app-auth-error">{{ $errors->first() }}</div>

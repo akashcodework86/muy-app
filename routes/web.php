@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Hub\HubBatchController;
+use App\Http\Controllers\Incubatee\IncubateeDashboardController;
 use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
@@ -58,6 +59,10 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
+
+    Route::middleware('incubatee')->prefix('incubatee')->name('incubatee.')->group(function () {
+        Route::get('dashboard', [IncubateeDashboardController::class, 'index'])->name('dashboard');
+    });
 
     Route::prefix('account')->name('account.')->group(function () {
         /** Serves file from disk so images work even if public/storage symlink is missing */

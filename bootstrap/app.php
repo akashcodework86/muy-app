@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureDistrictStaff;
 use App\Http\Middleware\EnsureHubAdmin;
+use App\Http\Middleware\EnsureIncubatee;
 use App\Http\Middleware\EnsureStateAdmin;
 use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'state_admin' => EnsureStateAdmin::class,
             'hub_admin' => EnsureHubAdmin::class,
             'district_staff' => EnsureDistrictStaff::class,
+            'incubatee' => EnsureIncubatee::class,
             'active' => EnsureUserIsActive::class,
         ]);
     })

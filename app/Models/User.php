@@ -23,6 +23,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'legacy_user_id',
+        'cfa_submission_id',
         'name',
         'email',
         'phone',
@@ -83,6 +84,11 @@ class User extends Authenticatable
     public function cfaSubmissions(): HasMany
     {
         return $this->hasMany(CfaSubmission::class, 'referral_user_id');
+    }
+
+    public function cfaSubmission(): BelongsTo
+    {
+        return $this->belongsTo(CfaSubmission::class);
     }
 
     public function referralApplyUrl(): ?string

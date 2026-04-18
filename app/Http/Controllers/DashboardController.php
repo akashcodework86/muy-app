@@ -16,6 +16,10 @@ class DashboardController extends Controller
     ): View {
         $user = auth()->user();
 
+        if ($user?->role === 'incubatee') {
+            return redirect()->route('incubatee.dashboard');
+        }
+
         if ($user?->role === 'state_admin') {
             return view('dashboards.state-admin', $stateDashboard->metrics());
         }
