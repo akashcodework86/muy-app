@@ -29,5 +29,24 @@ class ServiceCategorySeeder extends Seeder
                 'updated_at' => now(),
             ]);
         }
+
+        foreach ($rows as [$parentSlug, $parentName, $sort]) {
+            $parentId = (int) DB::table('service_categories')->where('slug', $parentSlug)->value('id');
+            if ($parentId === 0) {
+                continue;
+            }
+            $subSlug = $parentSlug.'_services';
+            if (DB::table('service_categories')->where('slug', $subSlug)->exists()) {
+                continue;
+            }
+            DB::table('service_categories')->insert([
+                'parent_id' => $parentId,
+                'slug' => $subSlug,
+                'name' => 'Services',
+                'sort_order' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 }
