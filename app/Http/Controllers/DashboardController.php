@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\HubAdminDashboardService;
 use App\Services\StaffDashboardService;
 use App\Services\StateAdminDashboardService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -13,7 +14,7 @@ class DashboardController extends Controller
         StateAdminDashboardService $stateDashboard,
         HubAdminDashboardService $hubDashboard,
         StaffDashboardService $staffDashboard,
-    ): View {
+    ): View|RedirectResponse {
         $user = auth()->user();
 
         if ($user?->role === 'incubatee') {
