@@ -15,7 +15,7 @@ class IncubateeDashboardController extends Controller
             'cfaSubmission.district',
             'cfaSubmission.fiscalYear',
             'cfaSubmission.onboardingBatchMembership.batch.hub',
-            'cfaSubmission.serviceCases.service.category.parent',
+            'cfaSubmission.serviceCases.service',
         ]);
 
         /** @var CfaSubmission|null $submission */
@@ -32,10 +32,29 @@ class IncubateeDashboardController extends Controller
         $batch = $submission->onboardingBatchMembership?->batch;
         $hubName = $batch?->hub?->name;
 
+        $scalar = static function ($value, string $fallback = '—'): string {
+            if ($value === null || $value === '') {
+                return $fallback;
+            }
+            if (is_scalar($value)) {
+                return (string) $value;
+            }
+
+            return (string) json_encode($value, JSON_UNESCAPED_UNICODE);
+        };
+
+        $emailFromPayload = $payload['email'] ?? null;
+        $displayEmail = (is_scalar($emailFromPayload) && trim((string) $emailFromPayload) !== '')
+            ? (string) $emailFromPayload
+            : ($user->email ?? '—');
+
         return view('incubatee.dashboard', [
             'user' => $user,
             'submission' => $submission,
             'payload' => $payload,
+            'displayEmail' => $displayEmail,
+            'displayFormStage' => $scalar($payload['form_stage'] ?? null),
+            'displayProduct' => $scalar($payload['product'] ?? ($payload['business_category'] ?? null)),
             'batch' => $batch,
             'hubName' => $hubName,
             'serviceCases' => $cases,

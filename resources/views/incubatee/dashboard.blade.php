@@ -185,11 +185,11 @@
             <dt>Phone</dt>
             <dd>{{ $submission->phone ?: '—' }}</dd>
             <dt>Email</dt>
-            <dd>{{ $payload['email'] ?? $user->email }}</dd>
+            <dd>{{ $displayEmail }}</dd>
             <dt>Business stage</dt>
-            <dd>{{ $payload['form_stage'] ?? '—' }}</dd>
+            <dd>{{ $displayFormStage }}</dd>
             <dt>Product / focus</dt>
-            <dd>{{ $payload['product'] ?? ($payload['business_category'] ?? '—') }}</dd>
+            <dd>{{ $displayProduct }}</dd>
         </dl>
     </section>
 

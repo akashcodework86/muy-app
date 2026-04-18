@@ -852,7 +852,7 @@
                 if (!defaultPwd) {
                     noteEl.textContent = 'Set INCUBATEE_DEFAULT_PASSWORD in .env so the default password can be shown after accounts exist.';
                 } else {
-                    noteEl.innerHTML = 'Login works only after an incubatee user row exists. On the server run: <code style="font-size:0.7rem">php artisan incubatees:provision-users --batch-id=' + esc(bid) + '</code> then Password column fills in. Until then Username is the ID that <em>will</em> be used; login will fail. Same initial password for new accounts; if someone changed it, use reset.';
+                    noteEl.innerHTML = 'Click <strong>Create portal logins</strong> (top right). A message will show <strong>Created</strong> and <strong>skipped</strong> counts — that confirms how many portal accounts were made. The list then reloads; <strong>Password</strong> appears only for rows where an account exists. Until then login will not work. (Advanced: <code style="font-size:0.7rem">php artisan incubatees:provision-users --batch-id=' + esc(bid) + '</code> does the same on the server.)';
                 }
             }
 
@@ -1078,7 +1078,7 @@
                 const res = await api('provision_incubatees', { batch_id: bid });
                 const c = res.created ?? 0;
                 const s = res.skipped ?? 0;
-                alert('Done. Created: ' + c + ', skipped: ' + s + '. Refresh the member list below.');
+                alert('Portal accounts: ' + c + ' created, ' + s + ' skipped (already had account or conflict). The member list will refresh now.');
                 await openBatchDetail(bid);
             } catch (e) {
                 alert(e.message || 'Failed');

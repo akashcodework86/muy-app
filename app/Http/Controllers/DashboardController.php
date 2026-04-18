@@ -32,6 +32,6 @@ class DashboardController extends Controller
             return view('dashboards.staff', $staffDashboard->metrics($user));
         }
 
-        return view('dashboards.staff');
+        abort(403, 'No dashboard for this account type.');
     }
 }

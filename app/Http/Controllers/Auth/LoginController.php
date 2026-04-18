@@ -47,6 +47,10 @@ class LoginController extends Controller
             );
         }
 
+        if ($user->role === 'incubatee') {
+            return redirect()->route('incubatee.dashboard');
+        }
+
         return redirect()->intended(route('dashboard'));
     }
 
