@@ -2,10 +2,12 @@
 
 use App\Http\Controllers\Account\ProfileController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\CatalogServiceController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
+use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\TargetController;
@@ -14,6 +16,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
+use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Models\Deliverable;
 use App\Models\District;
@@ -81,6 +84,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('applications/{cfa_submission}', [StaffPortalController::class, 'updateCfaSubmission'])
             ->middleware('throttle:30,1')
             ->name('applications.update');
+        Route::post('applications/{cfa_submission}/service-cases', [IncubateeServiceCaseController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('applications.service-cases.store');
+        Route::patch('applications/{cfa_submission}/service-cases/{service_case}', [IncubateeServiceCaseController::class, 'complete'])
+            ->middleware('throttle:30,1')
+            ->name('applications.service-cases.complete');
         Route::post('applications/{cfa_submission}/check-phone', [StaffPortalController::class, 'checkPhoneForEdit'])
             ->middleware('throttle:45,1')
             ->name('applications.check-phone');
@@ -99,6 +108,18 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('targets/state', [TargetController::class, 'stateUpdate'])->name('targets.state.update');
         Route::get('targets/district', [TargetController::class, 'districtForm'])->name('targets.district');
         Route::post('targets/district', [TargetController::class, 'districtUpdate'])->name('targets.district.update');
+
+        Route::get('service-catalog', [ServiceCategoryController::class, 'index'])->name('service-catalog.index');
+        Route::get('service-catalog/categories/create', [ServiceCategoryController::class, 'create'])->name('service-catalog.categories.create');
+        Route::post('service-catalog/categories', [ServiceCategoryController::class, 'store'])->name('service-catalog.categories.store');
+        Route::get('service-catalog/categories/{service_category}/edit', [ServiceCategoryController::class, 'edit'])->name('service-catalog.categories.edit');
+        Route::put('service-catalog/categories/{service_category}', [ServiceCategoryController::class, 'update'])->name('service-catalog.categories.update');
+        Route::delete('service-catalog/categories/{service_category}', [ServiceCategoryController::class, 'destroy'])->name('service-catalog.categories.destroy');
+        Route::get('service-catalog/services/create', [CatalogServiceController::class, 'create'])->name('service-catalog.services.create');
+        Route::post('service-catalog/services', [CatalogServiceController::class, 'store'])->name('service-catalog.services.store');
+        Route::get('service-catalog/services/{service}/edit', [CatalogServiceController::class, 'edit'])->name('service-catalog.services.edit');
+        Route::put('service-catalog/services/{service}', [CatalogServiceController::class, 'update'])->name('service-catalog.services.update');
+        Route::delete('service-catalog/services/{service}', [CatalogServiceController::class, 'destroy'])->name('service-catalog.services.destroy');
 
         Route::get('designations', [DesignationController::class, 'index'])->name('designations.index');
         Route::get('designations/create', [DesignationController::class, 'create'])->name('designations.create');

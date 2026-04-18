@@ -255,6 +255,10 @@
             @endif
         </section>
 
+        @isset($serviceCasesUi)
+            @include('partials.incubatee-service-cases', ['serviceCasesUi' => $serviceCasesUi])
+        @endisset
+
         @if ($cfaEditLogs->isNotEmpty())
             <section class="cfa-print-section">
                 <h2>Edit history (staff portal)</h2>

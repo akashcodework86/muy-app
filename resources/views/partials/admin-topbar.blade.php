@@ -28,6 +28,7 @@
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
+        str_starts_with($r, 'admin.service-catalog') => 'service-catalog',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         $r === 'staff.monthly-targets' => 'staff-targets',
         $r === 'staff.applications' => 'staff-apps',
@@ -63,6 +64,7 @@
                     <a href="{{ route('admin.staff.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff') is-active @endif" role="menuitem">Staff</a>
                 </div>
             </details>
+            <a href="{{ route('admin.service-catalog.index') }}" class="admin-topbar__link @if ($activeNav === 'service-catalog') is-active @endif">Service catalog</a>
             <a href="{{ route('admin.designations.index') }}" class="admin-topbar__link @if ($activeNav === 'designations') is-active @endif">Designations</a>
             <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-batch-compliance') is-active @endif">Batch CDO PDF</a>
         </nav>

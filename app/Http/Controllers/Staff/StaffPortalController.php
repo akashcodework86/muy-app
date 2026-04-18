@@ -8,15 +8,17 @@ use App\Models\CfaSubmission;
 use App\Models\Deliverable;
 use App\Models\DistrictBlock;
 use App\Models\FiscalYear;
+use App\Models\Service;
+use App\Models\ServiceCase;
 use App\Services\AdminAuditLogger;
 use App\Services\CfaBusinessStageService;
 use App\Services\CfaSubmissionAuditSnapshot;
 use App\Services\CfaSubmissionValidator;
 use App\Services\StaffMonthlyTargetsDashboardService;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
@@ -120,11 +122,31 @@ class StaffPortalController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        $serviceCases = ServiceCase::query()
+            ->where('cfa_submission_id', $cfa_submission->id)
+            ->with(['service.category.parent'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $pickerServices = Service::query()
+            ->where('is_active', true)
+            ->with(['category.parent'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (Service $s) => $s->category && $s->category->parent_id !== null)
+            ->values();
+
         return view('admin.cfa.show', [
             'submission' => $cfa_submission,
             'cfaIndexUrl' => route('staff.applications'),
             'cfaEditUrl' => route('staff.applications.edit', $cfa_submission),
             'cfaEditLogs' => $cfaEditLogs,
+            'serviceCasesUi' => [
+                'cases' => $serviceCases,
+                'pickerServices' => $pickerServices,
+                'submission' => $cfa_submission,
+            ],
         ]);
     }
 
@@ -353,6 +375,7 @@ class StaffPortalController extends Controller
         $rows->setCollection(
             $rows->getCollection()->map(function ($row) use ($servicesByApp) {
                 $serviceRows = $servicesByApp[(int) ($row->application_id ?? 0)] ?? [];
+
                 return $this->buildPhase2ViewRow($row, $serviceRows);
             })
         );
