@@ -303,6 +303,147 @@
         flex-shrink: 0;
         margin-left: auto;
     }
+    .admin-topbar__details--notifications {
+        position: relative;
+    }
+    .admin-topbar__notif-summary {
+        list-style: none;
+        cursor: pointer;
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        background: rgba(255, 255, 255, 0.85);
+        color: #334155;
+        outline: none;
+    }
+    .admin-topbar__notif-summary::-webkit-details-marker {
+        display: none;
+    }
+    .admin-topbar__notif-summary:focus-visible {
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35);
+    }
+    .admin-topbar__details--notifications[open] .admin-topbar__notif-summary {
+        border-color: rgba(99, 102, 241, 0.55);
+        color: #4338ca;
+        background: rgba(99, 102, 241, 0.1);
+    }
+    .admin-topbar__notif-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .admin-topbar__notif-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 1.15rem;
+        height: 1.15rem;
+        padding: 0 0.28rem;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #ef4444, #f97316);
+        color: #fff;
+        font-size: 0.62rem;
+        font-weight: 800;
+        line-height: 1.15rem;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.45);
+    }
+    .admin-topbar__dropdown-panel--notifications {
+        left: auto;
+        right: 0;
+        min-width: min(22rem, calc(100vw - 2.5rem));
+        max-height: min(70vh, 22rem);
+        overflow-y: auto;
+        padding: 0;
+        z-index: 250;
+    }
+    .admin-topbar__notif-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.65rem 0.75rem 0.45rem;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #64748b;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .admin-topbar__notif-markall {
+        margin: 0;
+    }
+    .admin-topbar__notif-markall button {
+        border: none;
+        background: none;
+        padding: 0.15rem 0.35rem;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #4f46e5;
+        cursor: pointer;
+        font-family: inherit;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+    .admin-topbar__notif-markall button:hover {
+        color: #3730a3;
+    }
+    .admin-topbar__notif-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.12s ease;
+    }
+    .admin-topbar__notif-item:hover {
+        background: rgba(99, 102, 241, 0.06);
+    }
+    .admin-topbar__notif-item.is-unread {
+        background: rgba(99, 102, 241, 0.08);
+    }
+    .admin-topbar__notif-item-title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .admin-topbar__notif-item-body {
+        font-size: 0.75rem;
+        color: #64748b;
+        line-height: 1.35;
+    }
+    .admin-topbar__notif-item-time {
+        font-size: 0.65rem;
+        color: #94a3b8;
+    }
+    .admin-topbar__notif-empty {
+        margin: 0;
+        padding: 1rem 0.75rem;
+        font-size: 0.82rem;
+        color: #64748b;
+    }
+    .admin-topbar__notif-footer {
+        display: block;
+        text-align: center;
+        padding: 0.55rem 0.75rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #4f46e5;
+        text-decoration: none;
+        border-top: 1px solid #e2e8f0;
+        background: rgba(248, 250, 252, 0.9);
+    }
+    .admin-topbar__notif-footer:hover {
+        background: #eef2ff;
+        color: #3730a3;
+    }
     .admin-topbar__profile {
         display: inline-flex;
         align-items: center;

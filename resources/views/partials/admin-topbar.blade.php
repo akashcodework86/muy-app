@@ -37,6 +37,7 @@
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
         str_starts_with($r, 'account.') => 'account',
         str_starts_with($r, 'incubatee.') => 'incubatee',
+        str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff'], true);
@@ -96,6 +97,46 @@
         @endif
 
         <div class="admin-topbar__right">
+            @if (!empty($showNotificationBell))
+            <details class="admin-topbar__details admin-topbar__details--notifications">
+                <summary class="admin-topbar__notif-summary" aria-label="Notifications">
+                    <span class="admin-topbar__notif-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                    </span>
+                    @if (($unreadNotificationCount ?? 0) > 0)
+                        <span class="admin-topbar__notif-badge">{{ $unreadNotificationCount > 99 ? '99+' : $unreadNotificationCount }}</span>
+                    @endif
+                </summary>
+                <div class="admin-topbar__dropdown-panel admin-topbar__dropdown-panel--notifications" role="menu">
+                    <div class="admin-topbar__notif-head">
+                        <span>Notifications</span>
+                        @if (($unreadNotificationCount ?? 0) > 0)
+                            <form method="post" action="{{ route('notifications.read-all') }}" class="admin-topbar__notif-markall">
+                                @csrf
+                                <button type="submit">Mark all read</button>
+                            </form>
+                        @endif
+                    </div>
+                    @forelse ($notificationsPreview ?? [] as $n)
+                        @php
+                            $d = $n->data ?? [];
+                            $isUnread = $n->read_at === null;
+                        @endphp
+                        <a href="{{ route('notifications.open', $n->id) }}" class="admin-topbar__notif-item @if($isUnread) is-unread @endif" role="menuitem">
+                            <span class="admin-topbar__notif-item-title">{{ $d['title'] ?? 'Notification' }}</span>
+                            <span class="admin-topbar__notif-item-body">{{ \Illuminate\Support\Str::limit($d['body'] ?? '', 120) }}</span>
+                            <span class="admin-topbar__notif-item-time">{{ $n->created_at?->timezone(config('app.timezone'))->diffForHumans() }}</span>
+                        </a>
+                    @empty
+                        <p class="admin-topbar__notif-empty">No notifications yet.</p>
+                    @endforelse
+                    <a href="{{ route('notifications.index') }}" class="admin-topbar__notif-footer">View all</a>
+                </div>
+            </details>
+            @endif
+
             <details class="admin-topbar__details admin-topbar__details--profile">
                 <summary class="admin-topbar__profile-summary" aria-label="Account menu">
                     <div class="admin-topbar__profile" title="{{ $u->email }}">

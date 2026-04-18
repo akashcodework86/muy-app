@@ -33,6 +33,7 @@ class MentorshipRequestedNotification extends Notification
         return [
             'title' => 'Mentorship request',
             'body' => ($this->mentorshipRequest->requestedBy->name ?? 'An incubatee').' requested '.$label.' mentorship.',
+            'cfa_submission_id' => $this->mentorshipRequest->cfa_submission_id,
             'mentorship_request_id' => $this->mentorshipRequest->id,
             'category' => $cat,
             'category_label' => $label,
