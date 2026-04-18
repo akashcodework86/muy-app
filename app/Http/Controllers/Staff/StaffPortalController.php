@@ -14,6 +14,7 @@ use App\Services\AdminAuditLogger;
 use App\Services\CfaBusinessStageService;
 use App\Services\CfaSubmissionAuditSnapshot;
 use App\Services\CfaSubmissionValidator;
+use App\Services\LegacyPhase2ApplicationDetailService;
 use App\Services\StaffMonthlyTargetsDashboardService;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
@@ -136,6 +137,23 @@ class StaffPortalController extends Controller
             ->get()
             ->filter(fn (Service $s) => $s->category && $s->category->parent_id !== null)
             ->values();
+
+        $legacyDetail = app(LegacyPhase2ApplicationDetailService::class)->tryBuild($cfa_submission);
+        if (is_array($legacyDetail) && isset($legacyDetail['error'])) {
+            abort(403, $legacyDetail['message'] ?? 'Access denied.');
+        }
+        if (is_array($legacyDetail) && isset($legacyDetail['viewRow'])) {
+            return view('admin.cfa.legacy-detail', [
+                'submission' => $cfa_submission,
+                'legacyDetail' => $legacyDetail,
+                'cfaIndexUrl' => route('staff.applications'),
+                'serviceCasesUi' => [
+                    'cases' => $serviceCases,
+                    'pickerServices' => $pickerServices,
+                    'submission' => $cfa_submission,
+                ],
+            ]);
+        }
 
         return view('admin.cfa.show', [
             'submission' => $cfa_submission,

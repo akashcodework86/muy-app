@@ -11,6 +11,7 @@ use App\Models\Hub;
 use App\Models\OnboardingBatch;
 use App\Services\CfaSubmissionAuditSnapshot;
 use App\Services\HubBatchService;
+use App\Services\LegacyPhase2ApplicationDetailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -100,6 +101,18 @@ class HubBatchController extends Controller
             ->with('user')
             ->orderByDesc('created_at')
             ->get();
+
+        $legacyDetail = app(LegacyPhase2ApplicationDetailService::class)->tryBuild($cfa_submission);
+        if (is_array($legacyDetail) && isset($legacyDetail['error'])) {
+            abort(403, $legacyDetail['message'] ?? 'Access denied.');
+        }
+        if (is_array($legacyDetail) && isset($legacyDetail['viewRow'])) {
+            return view('admin.cfa.legacy-detail', [
+                'submission' => $cfa_submission,
+                'legacyDetail' => $legacyDetail,
+                'cfaIndexUrl' => route('hub.batches.index'),
+            ]);
+        }
 
         return view('admin.cfa.show', [
             'submission' => $cfa_submission,

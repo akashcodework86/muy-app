@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\CfaSubmission;
 use App\Models\FiscalYear;
 use App\Services\CfaSubmissionAuditSnapshot;
+use App\Services\LegacyPhase2ApplicationDetailService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -51,6 +52,20 @@ class CfaSubmissionController extends Controller
             ->with('user')
             ->orderByDesc('created_at')
             ->get();
+
+        $legacyDetail = app(LegacyPhase2ApplicationDetailService::class)->tryBuild($cfa_submission);
+        if (is_array($legacyDetail) && isset($legacyDetail['error'])) {
+            abort(403, $legacyDetail['message'] ?? 'Access denied.');
+        }
+        if (is_array($legacyDetail) && isset($legacyDetail['viewRow'])) {
+            return view('admin.cfa.legacy-detail', [
+                'submission' => $cfa_submission,
+                'legacyDetail' => $legacyDetail,
+                'cfaIndexUrl' => route('admin.cfa.index', array_filter([
+                    'fiscal_year_id' => $cfa_submission->fiscal_year_id,
+                ])),
+            ]);
+        }
 
         return view('admin.cfa.show', [
             'submission' => $cfa_submission,
