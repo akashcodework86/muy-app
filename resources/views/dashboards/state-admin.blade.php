@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>State Admin â€” {{ config('app.name') }}</title>
+    <title>State Admin â?? {{ config('app.name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
@@ -435,7 +435,7 @@
                                     @elseif ($todayDelta < 0)
                                         <span class="hero-today__delta is-down"><i class="fa-solid fa-caret-down" aria-hidden="true"></i> {{ abs($todayDelta) }} vs yest.</span>
                                     @else
-                                        <span class="hero-today__delta">â€” same as yest.</span>
+                                        <span class="hero-today__delta">â?? same as yest.</span>
                                     @endif
                                 </div>
                                 <div class="hero-today hero-today--mentor">
@@ -474,7 +474,7 @@
                                     <span class="hero-today__delta @if ($sparkTrend > 0) is-up @elseif ($sparkTrend < 0) is-down @endif" style="font-size:0.62rem;">
                                         @if ($sparkTrend > 0)<i class="fa-solid fa-caret-up"></i> +{{ $sparkTrend }}%
                                         @elseif ($sparkTrend < 0)<i class="fa-solid fa-caret-down"></i> {{ $sparkTrend }}%
-                                        @else â€” flat @endif
+                                        @else â?? flat @endif
                                     </span>
                                     <div style="font-size:0.5rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:0.15rem;">vs prev 15d</div>
                                 </div>
@@ -497,7 +497,7 @@
                                 </div>
                             </div>
                             <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 0.5rem;line-height:1.45;">
-                                All-time submissions: {{ number_format($cfaTotal) }} Ã‚Â· Last 30 days: {{ number_format($cfaLast30) }}
+                                All-time submissions: {{ number_format($cfaTotal) }} Ã?Â· Last 30 days: {{ number_format($cfaLast30) }}
                             </p>
 
                             @if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0 && $districtAllocPct !== null)
@@ -520,7 +520,7 @@
                             <div class="business-mix-compact">
                                 <div class="business-mix-compact__header">
                                     <div class="business-mix-compact__title">Business categories</div>
-                                    <div class="business-mix-compact__meta">Ranked mix Ã‚Â· all {{ $activeFy->name }} applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
+                                    <div class="business-mix-compact__meta">Ranked mix Ã?Â· all {{ $activeFy->name }} applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
                                 </div>
                                 @if (count($businessMix['labels']) === 0)
                                     <div class="no-data-message">No category data yet</div>
@@ -604,7 +604,7 @@
                                             <span class="welcome-district-embed__pct">{{ $stateProgressPct }}%</span>
                                             <span class="welcome-district-embed__pct-label">vs state CFA target</span>
                                         @else
-                                            <span class="welcome-district-embed__pct">â€”</span>
+                                            <span class="welcome-district-embed__pct">â??</span>
                                             <span class="welcome-district-embed__pct-label">Set state target</span>
                                         @endif
                                     </div>
@@ -665,7 +665,7 @@
                 <div class="charts-grid">
                     <div class="chart-card tall">
                         <h4>Applications by district</h4>
-                        <p class="hint">CFA count this fiscal year Ã‚Â· top districts</p>
+                        <p class="hint">CFA count this fiscal year Ã?Â· top districts</p>
                         <div class="canvas-wrap"><canvas id="chartDistrictCfa"></canvas></div>
                     </div>
                     <div class="chart-card tall">
@@ -680,7 +680,7 @@
                     <a href="{{ route('admin.cfa.index') }}">
                         <div class="qi"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></div>
                         <strong>CFA applications</strong>
-                        <span>All districts â€” review submissions</span>
+                        <span>All districts â?? review submissions</span>
                     </a>
                     <a href="{{ route('admin.targets.state') }}">
                         <div class="qi"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></div>
@@ -829,5 +829,6 @@
 </script>
 @endif
 
+@include('partials.app-footer')
 </body>
 </html>

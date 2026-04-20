@@ -331,5 +331,6 @@
     });
 })();
 </script>
+@include('partials.app-footer')
 </body>
 </html>

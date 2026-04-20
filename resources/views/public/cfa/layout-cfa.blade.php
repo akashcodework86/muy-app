@@ -12,6 +12,7 @@
 </head>
 <body class="cfa-body">
 @yield('content')
+@include('partials.app-footer')
 @stack('scripts')
 </body>
 </html>

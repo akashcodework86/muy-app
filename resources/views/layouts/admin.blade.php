@@ -26,6 +26,7 @@
         @endif
         @yield('content')
     </main>
+    @include('partials.app-footer')
     @stack('scripts')
 </body>
 </html>

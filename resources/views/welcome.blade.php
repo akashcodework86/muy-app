@@ -21,5 +21,6 @@
             @endif
         </div>
     </div>
+    @include('partials.app-footer')
     </body>
 </html>

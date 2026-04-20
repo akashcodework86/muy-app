@@ -3850,5 +3850,6 @@
     @endunless
 
     </main>
+    @include('partials.app-footer')
 </body>
 </html>
