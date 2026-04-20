@@ -394,7 +394,7 @@
         <div class="muy-hero__center">
             <span class="muy-hero__eyebrow">Incubation Support Platform</span>
             <h2 class="muy-hero__title">
-                Helping Uttarakhand's <em>young founders</em> turn ideas into real businesses.
+                Helping Uttarakhand's <em>founders &amp; entrepreneurs</em> turn ideas into real businesses.
             </h2>
             <p class="muy-hero__lead">
                 A single space where incubatees, district hubs, and the state team work together — from application to mentorship to scale.
@@ -431,7 +431,6 @@
         <footer class="muy-hero__foot">
             <div class="muy-stat"><b>13</b><span>Districts</span></div>
             <div class="muy-stat"><b>2+</b><span>Regional hubs</span></div>
-            <div class="muy-stat"><b>40k</b><span>FY target intake</span></div>
         </footer>
     </aside>
 
