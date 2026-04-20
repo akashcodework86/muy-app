@@ -181,9 +181,19 @@
             display: grid; grid-template-columns: 1.6rem minmax(0, 1fr); gap: 0.45rem; padding: 0.4rem 0.45rem;
             border-radius: 12px; background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(226, 232, 240, 0.95);
         }
-        .biz-cat-lb__rank { font-size: 0.58rem; font-weight: 800; color: #94a3b8; padding-top: 0.15rem; text-align: center; }
+        .biz-cat-lb__rank { font-size: 0.58rem; font-weight: 800; color: #94a3b8; padding-top: 0.55rem; text-align: center; }
         .biz-cat-lb__main { min-width: 0; display: flex; flex-direction: column; gap: 0.32rem; }
-        .biz-cat-lb__label-row { display: flex; justify-content: space-between; gap: 0.5rem; min-width: 0; }
+        .biz-cat-lb__label-row { display: flex; justify-content: space-between; gap: 0.5rem; min-width: 0; align-items: center; }
+        .biz-cat-lb__name-wrap { display: inline-flex; align-items: center; gap: 0.45rem; min-width: 0; }
+        .biz-cat-lb__icon {
+            width: 1.5rem; height: 1.5rem; flex-shrink: 0;
+            display: inline-grid; place-items: center;
+            border-radius: 8px;
+            color: var(--biz-color, #6366f1);
+            background: color-mix(in srgb, var(--biz-color, #6366f1) 14%, transparent);
+            border: 1px solid color-mix(in srgb, var(--biz-color, #6366f1) 30%, transparent);
+            font-size: 0.72rem;
+        }
         .biz-cat-lb__name { font-size: 0.68rem; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .biz-cat-lb__nums { display: inline-flex; gap: 0.45rem; flex-shrink: 0; }
         .biz-cat-lb__pct { font-size: 0.58rem; font-weight: 700; color: #64748b; }
@@ -339,19 +349,41 @@
                                 @if (count($businessMix['labels']) === 0)
                                     <div class="no-data-message">No category data yet</div>
                                 @else
-                                    @php $bizMixTotal = (int) array_sum($businessMix['values']); @endphp
+                                    @php
+                                        $bizMixTotal = (int) array_sum($businessMix['values']);
+                                        $bizIconMap = [
+                                            'agri allied' => 'fa-wheat-awn',
+                                            'food processing' => 'fa-utensils',
+                                            'handloom & handicraft' => 'fa-shirt',
+                                            'handloom and handicraft' => 'fa-shirt',
+                                            'herbal and aromatic' => 'fa-leaf',
+                                            'herbal & aromatic' => 'fa-leaf',
+                                            'homestay' => 'fa-house-chimney',
+                                            'others' => 'fa-shapes',
+                                            'other' => 'fa-shapes',
+                                            'not specified' => 'fa-circle-question',
+                                        ];
+                                        $bizIconFor = function (string $label) use ($bizIconMap): string {
+                                            $key = strtolower(trim($label));
+                                            return $bizIconMap[$key] ?? 'fa-briefcase';
+                                        };
+                                    @endphp
                                     <div class="biz-cat-lb" role="list">
                                         @foreach ($businessMix['labels'] as $idx => $label)
                                             @php
                                                 $bizV = (int) ($businessMix['values'][$idx] ?? 0);
                                                 $bizPct = $bizMixTotal > 0 ? (int) round(100 * $bizV / $bizMixTotal) : 0;
                                                 $bizCol = $businessMix['colors'][$idx] ?? '#6366f1';
+                                                $bizIcon = $bizIconFor((string) $label);
                                             @endphp
                                             <div class="biz-cat-lb__row" style="--biz-color: {{ $bizCol }}; --biz-pct: {{ $bizPct }}%; --biz-delay: {{ $idx * 0.05 }}s;">
                                                 <div class="biz-cat-lb__rank">#{{ $idx + 1 }}</div>
                                                 <div class="biz-cat-lb__main">
                                                     <div class="biz-cat-lb__label-row">
-                                                        <span class="biz-cat-lb__name">{{ $label }}</span>
+                                                        <span class="biz-cat-lb__name-wrap">
+                                                            <span class="biz-cat-lb__icon" aria-hidden="true"><i class="fa-solid {{ $bizIcon }}"></i></span>
+                                                            <span class="biz-cat-lb__name">{{ $label }}</span>
+                                                        </span>
                                                         <span class="biz-cat-lb__nums">
                                                             <span class="biz-cat-lb__pct">{{ $bizPct }}%</span>
                                                             <span class="biz-cat-lb__count">{{ number_format($bizV) }}</span>
