@@ -193,24 +193,74 @@
         .muy-hero__foot {
             position: relative;
             z-index: 1;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1.25rem 2rem;
             padding-top: 1.25rem;
             border-top: 1px solid rgba(255, 255, 255, 0.15);
         }
-        .muy-stat b {
+        .muy-hero__foot-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: #fef3c7;
+            margin: 0 0 0.9rem;
+        }
+        .muy-hero__foot-title::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #34d399;
+            box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.25);
+            animation: muyPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes muyPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.25); opacity: 0.75; }
+        }
+        .muy-achievements {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+            gap: 0.75rem;
+        }
+        .muy-achieve {
+            padding: 0.85rem 0.95rem;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(10px);
+        }
+        .muy-achieve b {
             display: block;
             font-size: 1.35rem;
-            font-weight: 700;
-            color: #fff;
+            font-weight: 800;
             line-height: 1;
+            letter-spacing: -0.02em;
+            background: linear-gradient(90deg, #fde68a, #5eead4);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
-        .muy-stat span {
+        .muy-achieve span {
+            display: block;
+            margin-top: 0.35rem;
             font-size: 0.7rem;
-            color: rgba(226, 232, 240, 0.75);
+            line-height: 1.35;
+            color: rgba(226, 232, 240, 0.9);
+        }
+        .muy-hero__counting {
+            margin: 0.85rem 0 0;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            color: rgba(226, 232, 240, 0.7);
+        }
+        .muy-hero__counting em {
+            font-style: normal;
+            color: #fbbf24;
+            font-weight: 700;
         }
 
         /* Right form panel */
@@ -429,8 +479,26 @@
         </div>
 
         <footer class="muy-hero__foot">
-            <div class="muy-stat"><b>13</b><span>Districts</span></div>
-            <div class="muy-stat"><b>2+</b><span>Regional hubs</span></div>
+            <p class="muy-hero__foot-title">Key achievements · so far</p>
+            <div class="muy-achievements">
+                <div class="muy-achieve">
+                    <b>38,000+</b>
+                    <span>Applications received</span>
+                </div>
+                <div class="muy-achieve">
+                    <b>10,000+</b>
+                    <span>Incubatees onboarded &amp; supported</span>
+                </div>
+                <div class="muy-achieve">
+                    <b>13</b>
+                    <span>Districts covered across Uttarakhand</span>
+                </div>
+                <div class="muy-achieve">
+                    <b>2+</b>
+                    <span>Regional incubation hubs</span>
+                </div>
+            </div>
+            <p class="muy-hero__counting"><em>and counting…</em> the journey continues.</p>
         </footer>
     </aside>
 
