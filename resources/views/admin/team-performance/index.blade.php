@@ -382,15 +382,18 @@
     </section>
 </div>
 
-<script id="tpTreeData" type="application/json">@json([
-    'state' => [
-        'name' => 'Uttarakhand',
-        'sub' => 'State HQ',
-        'count' => $stateTotal,
-        'pct' => 100,
-    ],
-    'hubs' => $hubs,
-])</script>
+@php
+    $tpTreeData = [
+        'state' => [
+            'name' => 'Uttarakhand',
+            'sub' => 'State HQ',
+            'count' => (int) $stateTotal,
+            'pct' => 100,
+        ],
+        'hubs' => $hubs,
+    ];
+@endphp
+<script id="tpTreeData" type="application/json">{!! json_encode($tpTreeData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
 @endsection
 
 @push('scripts')
