@@ -90,24 +90,28 @@
     @keyframes ukHalo { to { transform: rotate(360deg); } }
     .uk-mascot__img {
         position: relative;
-        width: 144px;
-        height: 144px;
-        object-fit: cover;
+        width: 170px;
+        height: 170px;
+        object-fit: contain;
+        object-position: center bottom;
         border-radius: 999px;
         border: 3px solid rgba(255, 255, 255, 0.95);
-        background: #fff;
+        background:
+            radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.95) 0%, rgba(254, 243, 199, 0.95) 55%, rgba(196, 181, 253, 0.85) 100%);
         box-shadow: 0 18px 32px rgba(0, 0, 0, 0.3);
         animation: ukFloat 6s ease-in-out infinite;
         display: block;
+        padding: 6px 6px 0;
     }
     .uk-mascot__img.is-broken {
         background: linear-gradient(135deg, #fde68a, #5eead4);
         color: #1e1b4b;
         font-weight: 800;
-        font-size: 2.2rem;
+        font-size: 2.4rem;
         text-align: center;
-        line-height: 138px;
+        line-height: 164px;
         font-family: inherit;
+        padding: 0;
     }
     @keyframes ukFloat {
         0%, 100% { transform: translateY(0); }
