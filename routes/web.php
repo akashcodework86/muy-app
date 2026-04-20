@@ -33,6 +33,16 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('/assets/mascot/lakhpati-didi.png', function () {
+    $path = public_path('lakhpati_didi.png');
+    abort_unless(is_file($path), 404);
+
+    return response()->file($path, [
+        'Content-Type' => 'image/png',
+        'Cache-Control' => 'public, max-age=86400',
+    ]);
+})->name('assets.mascot.lakhpati-didi');
+
 /** Public CFA (referral link from district staff) */
 Route::get('/cfa/apply/{token}', [CfaApplyController::class, 'show'])->name('cfa.apply');
 Route::post('/cfa/apply/{token}/check-phone', [CfaApplyController::class, 'checkPhone'])

@@ -98,6 +98,16 @@
         background: #fff;
         box-shadow: 0 18px 32px rgba(0, 0, 0, 0.3);
         animation: ukFloat 6s ease-in-out infinite;
+        display: block;
+    }
+    .uk-mascot__img.is-broken {
+        background: linear-gradient(135deg, #fde68a, #5eead4);
+        color: #1e1b4b;
+        font-weight: 800;
+        font-size: 2.2rem;
+        text-align: center;
+        line-height: 138px;
+        font-family: inherit;
     }
     @keyframes ukFloat {
         0%, 100% { transform: translateY(0); }
@@ -628,7 +638,13 @@
     <aside class="uk-side" aria-label="Udmita Kosh sidebar">
         <div class="uk-mascot">
             <div class="uk-mascot__stage">
-                <img class="uk-mascot__img" src="{{ asset('lakhpati_didi.png') }}" alt="Lakhpati Didi mascot" onerror="this.style.display='none'">
+                <img
+                    class="uk-mascot__img"
+                    src="{{ route('assets.mascot.lakhpati-didi') }}?v={{ time() }}"
+                    alt="Lakhpati Didi mascot"
+                    loading="eager"
+                    onerror="this.classList.add('is-broken'); this.setAttribute('alt','LD');"
+                >
             </div>
             <p class="uk-mascot__name">Lakhpati Didi</p>
             <p class="uk-mascot__tag">आपकी सीखने की साथी</p>
