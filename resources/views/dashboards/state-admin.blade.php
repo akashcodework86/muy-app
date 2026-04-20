@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>State Admin â€” {{ config('app.name') }}</title>
+    <title>State Admin — {{ config('app.name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
@@ -604,7 +604,7 @@
                                             <span class="welcome-district-embed__pct">{{ $stateProgressPct }}%</span>
                                             <span class="welcome-district-embed__pct-label">vs state CFA target</span>
                                         @else
-                                            <span class="welcome-district-embed__pct">â€”</span>
+                                            <span class="welcome-district-embed__pct">—</span>
                                             <span class="welcome-district-embed__pct-label">Set state target</span>
                                         @endif
                                     </div>
@@ -678,32 +678,32 @@
                 <h3 style="font-family:'DM Sans',sans-serif;font-size:1rem;margin:0 0 0.65rem;color:var(--text);font-weight:800;">Quick actions</h3>
                 <div class="state-bento">
                     <a href="{{ route('admin.cfa.index') }}">
-                        <div class="qi">ðŸ“‹</div>
+                        <div class="qi"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></div>
                         <strong>CFA applications</strong>
-                        <span>All districts â€” review submissions</span>
+                        <span>All districts — review submissions</span>
                     </a>
                     <a href="{{ route('admin.targets.state') }}">
-                        <div class="qi">ðŸ“Š</div>
+                        <div class="qi"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></div>
                         <strong>State targets</strong>
                         <span>MIS totals by deliverable</span>
                     </a>
                     <a href="{{ route('admin.targets.district') }}">
-                        <div class="qi">ðŸ—ºï¸</div>
+                        <div class="qi"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i></div>
                         <strong>District targets</strong>
                         <span>Per-district allocation</span>
                     </a>
                     <a href="{{ route('admin.staff.index') }}">
-                        <div class="qi">ðŸ‘¤</div>
+                        <div class="qi"><i class="fa-solid fa-user-tie" aria-hidden="true"></i></div>
                         <strong>Staff &amp; links</strong>
                         <span>Referral URLs &amp; targets</span>
                     </a>
                     <a href="{{ route('admin.designations.index') }}">
-                        <div class="qi">ðŸ·ï¸</div>
+                        <div class="qi"><i class="fa-solid fa-tags" aria-hidden="true"></i></div>
                         <strong>Designations</strong>
                         <span>Role titles</span>
                     </a>
                     <a href="{{ route('admin.audit.index') }}">
-                        <div class="qi">ðŸ“œ</div>
+                        <div class="qi"><i class="fa-solid fa-scroll" aria-hidden="true"></i></div>
                         <strong>Audit log</strong>
                         <span>Activity trail</span>
                     </a>
