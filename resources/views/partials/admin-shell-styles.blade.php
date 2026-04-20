@@ -898,9 +898,12 @@
     }
     .admin-topbar__link {
         position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
         color: #334155;
         font-weight: 600;
-        padding: 0.5rem 0.9rem;
+        padding: 0.5rem 0.9rem 0.5rem 0.75rem;
         border-radius: 999px;
         border: 1px solid transparent;
         transition:
@@ -1095,5 +1098,73 @@
         .admin-topbar__avatar::after {
             animation: none !important;
         }
+    }
+
+    /* --- Nav & dropdown icons --------------------------------------- */
+    .admin-topbar__link-ico {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.1rem;
+        height: 1.1rem;
+        flex-shrink: 0;
+        color: #0d9488;
+        transition: color 0.2s ease, transform 0.2s ease;
+    }
+    .admin-topbar__link-ico svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+    .admin-topbar__link:hover .admin-topbar__link-ico {
+        color: #0f766e;
+        transform: scale(1.08);
+    }
+    .admin-topbar__link.is-active .admin-topbar__link-ico {
+        color: #ffffff;
+    }
+
+    .admin-topbar__link-text {
+        display: inline;
+        line-height: 1;
+    }
+
+    /* Dropdown items: icon + text flex layout */
+    .admin-topbar__dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+    }
+    .admin-topbar__dropdown-item .admin-topbar__link-ico {
+        width: 1rem;
+        height: 1rem;
+        color: #0d9488;
+    }
+    .admin-topbar__dropdown-item:hover .admin-topbar__link-ico {
+        color: #0f766e;
+    }
+    .admin-topbar__dropdown-item.is-active .admin-topbar__link-ico {
+        color: #0d9488;
+    }
+    .admin-topbar__dropdown-item--button {
+        /* ensure the logout button aligns like other items */
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+    }
+    .admin-topbar__dropdown-item--button .admin-topbar__link-ico {
+        color: #b91c1c;
+    }
+    .admin-topbar__dropdown-item--button:hover .admin-topbar__link-ico {
+        color: #991b1b;
+    }
+
+    /* Compact icons at mid widths so the nav never clips */
+    @media (max-width: 1360px) {
+        .admin-topbar__link-ico { width: 1rem; height: 1rem; }
+        .admin-topbar__link { padding-left: 0.6rem; padding-right: 0.7rem; gap: 0.38rem; }
+    }
+    @media (max-width: 900px) {
+        .admin-topbar__link-ico { width: 0.95rem; height: 0.95rem; }
     }
 </style>
