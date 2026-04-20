@@ -99,6 +99,8 @@
         @endif
 
         <div class="admin-topbar__right">
+            @include('partials.live-ops-drawer')
+
             @if (!empty($showNotificationBell))
             <details class="admin-topbar__details admin-topbar__details--notifications">
                 <summary class="admin-topbar__notif-summary" aria-label="Notifications">

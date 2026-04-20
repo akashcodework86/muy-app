@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>State Admin — {{ config('app.name') }}</title>
+    <title>State Admin â€” {{ config('app.name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
@@ -207,47 +207,6 @@
         @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
         .charts-grid > * { min-width: 0; }
 
-        /* Live Ops Console */
-        .live-ops { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
-        @media (max-width: 900px) { .live-ops { grid-template-columns: 1fr; } }
-        .lo-card { background: linear-gradient(145deg, rgba(255, 255, 255, 0.55), rgba(248, 250, 252, 0.35)); border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 16px; padding: 1rem 1.1rem; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 0.75rem; }
-        .lo-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
-        .lo-head__title { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0; font-size: 0.82rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #4338ca; }
-        .lo-head__sub { font-size: 0.62rem; color: #64748b; font-weight: 600; }
-        .lo-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2); animation: loPulse 1.8s ease-in-out infinite; }
-        @keyframes loPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45); } 50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } }
-
-        /* Presence */
-        .lo-count { font-family: 'DM Sans', sans-serif; font-size: 2.1rem; font-weight: 800; line-height: 1; color: #0f172a; letter-spacing: -0.02em; }
-        .lo-count__label { display: block; font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-top: 0.15rem; }
-        .lo-role-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
-        .lo-role { padding: 0.55rem 0.65rem; border-radius: 10px; background: rgba(255, 255, 255, 0.65); border: 1px solid rgba(226, 232, 240, 0.9); }
-        .lo-role__name { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
-        .lo-role__val { font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 800; color: #0f172a; margin-top: 0.15rem; }
-        .lo-role__val b { color: #16a34a; font-weight: 800; }
-        .lo-role__val span { color: #94a3b8; font-weight: 600; font-size: 0.82rem; }
-        .lo-avatars { display: flex; gap: 0.25rem; flex-wrap: wrap; padding-top: 0.25rem; }
-        .lo-avatar { position: relative; width: 30px; height: 30px; border-radius: 999px; background: linear-gradient(135deg, #eef2ff, #ede9fe); color: #4338ca; font-size: 0.68rem; font-weight: 800; display: inline-grid; place-items: center; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1); }
-        .lo-avatar::after { content: ''; position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: 999px; background: #22c55e; border: 2px solid #fff; }
-        .lo-avatar[data-role="state_admin"] { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
-        .lo-avatar[data-role="hub_admin"] { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1e40af; }
-        .lo-avatar[data-role="district_staff"] { background: linear-gradient(135deg, #cffafe, #a5f3fc); color: #0e7490; }
-        .lo-avatar[data-role="incubatee"] { background: linear-gradient(135deg, #fce7f3, #fbcfe8); color: #9d174d; }
-
-        /* Activity feed */
-        .lo-feed { min-height: 14rem; max-height: 22rem; overflow: auto; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.25rem; }
-        .lo-feed__row { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto; gap: 0.55rem; padding: 0.55rem 0.6rem; border-radius: 10px; background: rgba(255, 255, 255, 0.65); border: 1px solid rgba(226, 232, 240, 0.9); transition: background 200ms ease; }
-        .lo-feed__row.is-new { animation: loSlide 500ms cubic-bezier(0.22, 1, 0.36, 1); background: rgba(219, 234, 254, 0.85); }
-        @keyframes loSlide { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-        .lo-feed__icon { width: 1.7rem; height: 1.7rem; border-radius: 8px; display: inline-grid; place-items: center; font-size: 0.78rem; color: var(--lo-color, #4f46e5); background: color-mix(in srgb, var(--lo-color, #4f46e5) 14%, transparent); border: 1px solid color-mix(in srgb, var(--lo-color, #4f46e5) 30%, transparent); flex-shrink: 0; }
-        .lo-feed__body { min-width: 0; }
-        .lo-feed__title { margin: 0; font-size: 0.78rem; font-weight: 600; color: #0f172a; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-        .lo-feed__meta { font-size: 0.6rem; color: #64748b; margin-top: 0.15rem; display: flex; gap: 0.4rem; flex-wrap: wrap; }
-        .lo-feed__meta strong { color: #475569; font-weight: 700; }
-        .lo-feed__time { font-size: 0.62rem; color: #94a3b8; font-weight: 600; text-align: right; flex-shrink: 0; white-space: nowrap; align-self: start; }
-        .lo-empty { text-align: center; padding: 1.5rem 1rem; color: #94a3b8; font-size: 0.82rem; }
-        .lo-refresh { font-size: 0.6rem; color: #94a3b8; font-weight: 600; }
-        .lo-refresh.is-loading { color: #4f46e5; }
         .chart-card {
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.2));
             border-radius: var(--radius);
@@ -324,7 +283,7 @@
                         <div class="dashboard-intro__eyebrow"><i class="fa-solid fa-flag" aria-hidden="true"></i> State overview</div>
                         <h2>Welcome back, {{ auth()->user()->name }}</h2>
                         <p>
-                            All districts · CFA picture for <strong>{{ $activeFy->name }}</strong>.
+                            All districts Â· CFA picture for <strong>{{ $activeFy->name }}</strong>.
                             Totals below use this fiscal year unless noted.
                         </p>
                         <div class="welcome-meta-pills">
@@ -363,7 +322,7 @@
                                 </div>
                             </div>
                             <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 0.5rem;line-height:1.45;">
-                                All-time submissions: {{ number_format($cfaTotal) }} · Last 30 days: {{ number_format($cfaLast30) }}
+                                All-time submissions: {{ number_format($cfaTotal) }} Â· Last 30 days: {{ number_format($cfaLast30) }}
                             </p>
 
                             @if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0 && $districtAllocPct !== null)
@@ -386,7 +345,7 @@
                             <div class="business-mix-compact">
                                 <div class="business-mix-compact__header">
                                     <div class="business-mix-compact__title">Business categories</div>
-                                    <div class="business-mix-compact__meta">Ranked mix · all {{ $activeFy->name }} applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
+                                    <div class="business-mix-compact__meta">Ranked mix Â· all {{ $activeFy->name }} applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
                                 </div>
                                 @if (count($businessMix['labels']) === 0)
                                     <div class="no-data-message">No category data yet</div>
@@ -470,7 +429,7 @@
                                             <span class="welcome-district-embed__pct">{{ $stateProgressPct }}%</span>
                                             <span class="welcome-district-embed__pct-label">vs state CFA target</span>
                                         @else
-                                            <span class="welcome-district-embed__pct">—</span>
+                                            <span class="welcome-district-embed__pct">â€”</span>
                                             <span class="welcome-district-embed__pct-label">Set state target</span>
                                         @endif
                                     </div>
@@ -528,40 +487,10 @@
                     </div>
                 </div>
 
-                <section class="live-ops" id="liveOps" aria-label="Live operations console">
-                    <div class="lo-card" id="loPresence">
-                        <div class="lo-head">
-                            <h3 class="lo-head__title"><span class="lo-dot" aria-hidden="true"></span> Online now</h3>
-                            <span class="lo-head__sub" id="loPresenceStamp">Loading…</span>
-                        </div>
-                        <div>
-                            <span class="lo-count" id="loPresenceCount">—</span>
-                            <span class="lo-count__label">Active in last 3 min · <span id="loTodayCount">—</span> today</span>
-                        </div>
-                        <div class="lo-role-grid" id="loRoleGrid">
-                            <div class="lo-role"><div class="lo-role__name">State admin</div><div class="lo-role__val" data-role="state_admin"><b>0</b> <span>/ 0</span></div></div>
-                            <div class="lo-role"><div class="lo-role__name">Hub admins</div><div class="lo-role__val" data-role="hub_admin"><b>0</b> <span>/ 0</span></div></div>
-                            <div class="lo-role"><div class="lo-role__name">District staff</div><div class="lo-role__val" data-role="district_staff"><b>0</b> <span>/ 0</span></div></div>
-                            <div class="lo-role"><div class="lo-role__name">Incubatees</div><div class="lo-role__val" data-role="incubatee"><b>0</b> <span>/ 0</span></div></div>
-                        </div>
-                        <div class="lo-avatars" id="loAvatars" aria-label="Users online"></div>
-                    </div>
-
-                    <div class="lo-card" id="loActivity">
-                        <div class="lo-head">
-                            <h3 class="lo-head__title"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Live activity</h3>
-                            <span class="lo-refresh" id="loActivityStamp">Loading…</span>
-                        </div>
-                        <div class="lo-feed" id="loFeed">
-                            <div class="lo-empty">Waiting for activity…</div>
-                        </div>
-                    </div>
-                </section>
-
                 <div class="charts-grid">
                     <div class="chart-card tall">
                         <h4>Applications by district</h4>
-                        <p class="hint">CFA count this fiscal year · top districts</p>
+                        <p class="hint">CFA count this fiscal year Â· top districts</p>
                         <div class="canvas-wrap"><canvas id="chartDistrictCfa"></canvas></div>
                     </div>
                     <div class="chart-card tall">
@@ -574,32 +503,32 @@
                 <h3 style="font-family:'DM Sans',sans-serif;font-size:1rem;margin:0 0 0.65rem;color:var(--text);font-weight:800;">Quick actions</h3>
                 <div class="state-bento">
                     <a href="{{ route('admin.cfa.index') }}">
-                        <div class="qi">📋</div>
+                        <div class="qi">ðŸ“‹</div>
                         <strong>CFA applications</strong>
-                        <span>All districts — review submissions</span>
+                        <span>All districts â€” review submissions</span>
                     </a>
                     <a href="{{ route('admin.targets.state') }}">
-                        <div class="qi">📊</div>
+                        <div class="qi">ðŸ“Š</div>
                         <strong>State targets</strong>
                         <span>MIS totals by deliverable</span>
                     </a>
                     <a href="{{ route('admin.targets.district') }}">
-                        <div class="qi">🗺️</div>
+                        <div class="qi">ðŸ—ºï¸</div>
                         <strong>District targets</strong>
                         <span>Per-district allocation</span>
                     </a>
                     <a href="{{ route('admin.staff.index') }}">
-                        <div class="qi">👤</div>
+                        <div class="qi">ðŸ‘¤</div>
                         <strong>Staff &amp; links</strong>
                         <span>Referral URLs &amp; targets</span>
                     </a>
                     <a href="{{ route('admin.designations.index') }}">
-                        <div class="qi">🏷️</div>
+                        <div class="qi">ðŸ·ï¸</div>
                         <strong>Designations</strong>
                         <span>Role titles</span>
                     </a>
                     <a href="{{ route('admin.audit.index') }}">
-                        <div class="qi">📜</div>
+                        <div class="qi">ðŸ“œ</div>
                         <strong>Audit log</strong>
                         <span>Activity trail</span>
                     </a>
@@ -725,190 +654,5 @@
 </script>
 @endif
 
-<script>
-(function () {
-    const presenceEndpoint = @json(route('live-ops.presence'));
-    const activitiesEndpoint = @json(route('live-ops.activities'));
-    const pollMs = 30000;
-
-    const els = {
-        presenceCount: document.getElementById('loPresenceCount'),
-        presenceStamp: document.getElementById('loPresenceStamp'),
-        todayCount: document.getElementById('loTodayCount'),
-        roleGrid: document.getElementById('loRoleGrid'),
-        avatars: document.getElementById('loAvatars'),
-        feed: document.getElementById('loFeed'),
-        activityStamp: document.getElementById('loActivityStamp'),
-    };
-    if (! els.feed) return;
-
-    const iconByType = {
-        'user.login':            { icon: 'fa-right-to-bracket', color: '#0891b2' },
-        'cfa.created':           { icon: 'fa-user-plus',        color: '#4f46e5' },
-        'mentorship.requested':  { icon: 'fa-handshake',        color: '#db2777' },
-        'service.completed':     { icon: 'fa-circle-check',     color: '#16a34a' },
-        'service.created':       { icon: 'fa-screwdriver-wrench', color: '#ca8a04' },
-        'batch.created':         { icon: 'fa-layer-group',      color: '#7c3aed' },
-        'batch.onboarded':       { icon: 'fa-users',            color: '#0d9488' },
-    };
-
-    function roleLabel(role) {
-        switch (role) {
-            case 'state_admin': return 'State';
-            case 'hub_admin': return 'Hub';
-            case 'district_staff': return 'Staff';
-            case 'incubatee': return 'Incubatee';
-            default: return role || 'System';
-        }
-    }
-
-    function formatRelative(iso) {
-        if (! iso) return '';
-        const t = new Date(iso).getTime();
-        const diffSec = Math.max(0, Math.round((Date.now() - t) / 1000));
-        if (diffSec < 10) return 'just now';
-        if (diffSec < 60) return diffSec + 's ago';
-        const m = Math.round(diffSec / 60);
-        if (m < 60) return m + 'm ago';
-        const h = Math.round(m / 60);
-        if (h < 24) return h + 'h ago';
-        const d = Math.round(h / 24);
-        return d + 'd ago';
-    }
-
-    function setStamp(el, text, loading) {
-        if (! el) return;
-        el.textContent = text;
-        el.classList.toggle('is-loading', !! loading);
-    }
-
-    let lastActivityId = 0;
-    let firstActivityLoad = true;
-
-    async function fetchJson(url) {
-        const res = await fetch(url, {
-            credentials: 'same-origin',
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        });
-        if (! res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
-    }
-
-    async function pollPresence() {
-        try {
-            setStamp(els.presenceStamp, 'Refreshing…', true);
-            const data = await fetchJson(presenceEndpoint);
-            els.presenceCount.textContent = Number(data.total_online || 0).toLocaleString('en-IN');
-            els.todayCount.textContent = Number(data.active_today || 0).toLocaleString('en-IN');
-
-            const byOnline = data.by_role_online || {};
-            const byTotal = data.by_role_total || {};
-            els.roleGrid.querySelectorAll('.lo-role__val').forEach(function (cell) {
-                const role = cell.getAttribute('data-role');
-                const on = Number(byOnline[role] || 0);
-                const total = Number(byTotal[role] || 0);
-                cell.innerHTML = '<b>' + on.toLocaleString('en-IN') + '</b> <span>/ ' + total.toLocaleString('en-IN') + '</span>';
-            });
-
-            els.avatars.innerHTML = '';
-            (data.online_list || []).forEach(function (u) {
-                const a = document.createElement('span');
-                a.className = 'lo-avatar';
-                a.setAttribute('title', (u.name || '—') + ' · ' + roleLabel(u.role));
-                a.setAttribute('data-role', u.role || '');
-                a.textContent = (u.initials || (u.name || '?').slice(0, 1)).toUpperCase();
-                els.avatars.appendChild(a);
-            });
-
-            setStamp(els.presenceStamp, 'Updated ' + new Date().toLocaleTimeString(), false);
-        } catch (e) {
-            setStamp(els.presenceStamp, 'Offline', false);
-        }
-    }
-
-    function renderActivityRow(item, isNew) {
-        const meta = iconByType[item.type] || { icon: 'fa-circle-info', color: '#64748b' };
-        const row = document.createElement('div');
-        row.className = 'lo-feed__row' + (isNew ? ' is-new' : '');
-        row.style.setProperty('--lo-color', meta.color);
-
-        const iconEl = document.createElement('span');
-        iconEl.className = 'lo-feed__icon';
-        iconEl.innerHTML = '<i class="fa-solid ' + meta.icon + '"></i>';
-        row.appendChild(iconEl);
-
-        const body = document.createElement('div');
-        body.className = 'lo-feed__body';
-        const title = document.createElement('p');
-        title.className = 'lo-feed__title';
-        title.textContent = item.title || '';
-        body.appendChild(title);
-        const metaRow = document.createElement('div');
-        metaRow.className = 'lo-feed__meta';
-        const parts = [];
-        if (item.actor_role) parts.push('<strong>' + roleLabel(item.actor_role) + '</strong>');
-        if (item.district_name) parts.push(item.district_name);
-        metaRow.innerHTML = parts.join(' · ') || '<strong>System</strong>';
-        body.appendChild(metaRow);
-        row.appendChild(body);
-
-        const time = document.createElement('span');
-        time.className = 'lo-feed__time';
-        time.setAttribute('data-time', item.created_at || '');
-        time.textContent = formatRelative(item.created_at);
-        row.appendChild(time);
-
-        return row;
-    }
-
-    async function pollActivities() {
-        try {
-            setStamp(els.activityStamp, 'Refreshing…', true);
-            const url = activitiesEndpoint + (lastActivityId ? ('?since=' + lastActivityId) : '');
-            const data = await fetchJson(url);
-            const items = data.items || [];
-
-            if (items.length > 0) {
-                if (firstActivityLoad) {
-                    els.feed.innerHTML = '';
-                    firstActivityLoad = false;
-                    items.forEach(function (it) { els.feed.appendChild(renderActivityRow(it, false)); });
-                } else {
-                    items.slice().reverse().forEach(function (it) {
-                        els.feed.insertBefore(renderActivityRow(it, true), els.feed.firstChild);
-                    });
-                    while (els.feed.childElementCount > 50) {
-                        els.feed.removeChild(els.feed.lastChild);
-                    }
-                }
-                lastActivityId = Math.max(lastActivityId, Number(data.last_id || 0));
-            } else if (firstActivityLoad) {
-                els.feed.innerHTML = '<div class="lo-empty">No recent activity yet.</div>';
-                firstActivityLoad = false;
-            }
-            setStamp(els.activityStamp, 'Updated ' + new Date().toLocaleTimeString(), false);
-        } catch (e) {
-            setStamp(els.activityStamp, 'Offline', false);
-        }
-    }
-
-    function tickRelativeTimes() {
-        els.feed.querySelectorAll('.lo-feed__time').forEach(function (t) {
-            const iso = t.getAttribute('data-time');
-            if (iso) t.textContent = formatRelative(iso);
-        });
-    }
-
-    pollPresence();
-    pollActivities();
-    setInterval(pollPresence, pollMs);
-    setInterval(pollActivities, pollMs);
-    setInterval(tickRelativeTimes, 15000);
-
-    document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible') { pollPresence(); pollActivities(); }
-    });
-})();
-</script>
 </body>
 </html>
