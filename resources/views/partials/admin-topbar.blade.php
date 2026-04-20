@@ -32,10 +32,12 @@
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
         str_starts_with($r, 'admin.service-catalog') => 'service-catalog',
+        str_starts_with($r, 'admin.batches') => 'admin-batches',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         $r === 'staff.monthly-targets' => 'staff-targets',
         $r === 'staff.applications' => 'staff-apps',
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
+        str_starts_with($r, 'staff.batches') => 'staff-batches',
         str_starts_with($r, 'account.') => 'account',
         str_starts_with($r, 'incubatee.') => 'incubatee',
         str_starts_with($r, 'notifications.') => 'notifications',
@@ -43,7 +45,7 @@
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'team-performance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase2-cfa'], true);
-    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance'], true);
+    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -135,6 +137,9 @@
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Operations</p>
+                    <a href="{{ route('admin.batches.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'admin-batches') is-active @endif" role="menuitem">
+                        {!! $i('batches') !!}<span>Batches</span>
+                    </a>
                     <a href="{{ route('admin.designations.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'designations') is-active @endif" role="menuitem">
                         {!! $i('badge') !!}<span>Designations</span>
                     </a>
@@ -167,6 +172,9 @@
             </a>
             <a href="{{ route('staff.applications') }}" class="admin-topbar__link @if ($activeNav === 'staff-apps') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Applications</span>
+            </a>
+            <a href="{{ route('staff.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-batches') is-active @endif">
+                {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
             </a>
             <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase2-data') is-active @endif">
                 {!! $i('pie') !!}<span class="admin-topbar__link-text">FY 2025-26 Data</span>

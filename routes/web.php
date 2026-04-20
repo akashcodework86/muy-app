@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
@@ -132,6 +133,10 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('applications.check-phone');
         Route::get('phase2-data', [StaffPortalController::class, 'phase2Data'])->name('phase2-data');
         Route::get('phase2-data/export', [StaffPortalController::class, 'exportPhase2Data'])->name('phase2-data.export');
+
+        /** Read-only batches view for district staff (scoped to their own district) */
+        Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
+        Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -190,6 +195,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('staff/{user}/cfa-targets', [StaffDeliverableMonthlyTargetController::class, 'updateCfaLegacy'])->name('staff.cfa-targets.update');
 
         Route::get('team-performance', [TeamPerformanceController::class, 'index'])->name('team-performance.index');
+
+        /** Read-only batches view for state admin (all hubs/districts, filterable) */
+        Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
+        Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
 
         Route::get('hub-batch-compliance', [HubBatchComplianceController::class, 'index'])->name('hub-batch-compliance.index');
         Route::post('hub-batch-compliance/extend', [HubBatchComplianceController::class, 'extend'])->name('hub-batch-compliance.extend');
