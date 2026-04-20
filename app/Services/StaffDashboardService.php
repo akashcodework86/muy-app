@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Models\CfaSubmission;
 use App\Models\Deliverable;
 use App\Models\FiscalYear;
+use App\Models\MentorshipRequest;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class StaffDashboardService
 {
@@ -222,6 +224,34 @@ class StaffDashboardService
             }
         }
 
+        $heroCfaToday = (int) (clone $base)->whereDate('created_at', now()->toDateString())->count();
+        $heroCfaYesterday = (int) (clone $base)->whereDate('created_at', now()->subDay()->toDateString())->count();
+        $heroCfaTodayDelta = $heroCfaToday - $heroCfaYesterday;
+
+        $heroMentorshipPending = 0;
+        try {
+            if (Schema::hasTable('mentorship_requests') && $user->district_id) {
+                $heroMentorshipPending = (int) MentorshipRequest::query()
+                    ->where('status', MentorshipRequest::STATUS_PENDING)
+                    ->whereHas('cfaSubmission', function ($q) use ($user): void {
+                        $q->where('district_id', (int) $user->district_id);
+                    })
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            $heroMentorshipPending = 0;
+        }
+
+        $heroDistrictOnlineNow = 0;
+        if (Schema::hasColumn('users', 'last_seen_at') && $user->district_id) {
+            $heroDistrictOnlineNow = (int) User::query()
+                ->where('district_id', (int) $user->district_id)
+                ->where('last_seen_at', '>=', now()->subMinutes(3))
+                ->count();
+        }
+
+        $heroSparkline30 = $this->staffDailyCfaSparkline((int) $user->id, 30);
+
         return [
             'staff' => $user,
             'activeFy' => $activeFy,
@@ -273,7 +303,37 @@ class StaffDashboardService
             'overallTargetPct' => $overallTargetPct,
             'daysToTargetAtPace' => $daysToTargetAtPace,
             'performanceScore' => $performanceScore,
+            'heroCfaToday' => $heroCfaToday,
+            'heroCfaYesterday' => $heroCfaYesterday,
+            'heroCfaTodayDelta' => $heroCfaTodayDelta,
+            'heroMentorshipPending' => $heroMentorshipPending,
+            'heroDistrictOnlineNow' => $heroDistrictOnlineNow,
+            'heroSparkline30' => $heroSparkline30,
         ];
+    }
+
+    /**
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function staffDailyCfaSparkline(int $staffUserId, int $days): array
+    {
+        $start = now()->subDays($days - 1)->startOfDay();
+        $rows = DB::table('cfa_submissions')
+            ->selectRaw('DATE(created_at) as d, COUNT(*) as total')
+            ->where('referral_user_id', $staffUserId)
+            ->where('created_at', '>=', $start)
+            ->groupBy('d')
+            ->pluck('total', 'd');
+
+        $labels = [];
+        $values = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $day = now()->subDays($i);
+            $labels[] = $day->format('d M');
+            $values[] = (int) ($rows[$day->toDateString()] ?? 0);
+        }
+
+        return ['labels' => $labels, 'values' => $values];
     }
 
     /**

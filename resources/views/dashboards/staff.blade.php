@@ -1302,6 +1302,33 @@
             min-width: 0;
             box-sizing: border-box;
         }
+
+        /* Staff hero-today pills + sparkline (shared pattern with state/hub) */
+        .hero-today-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45rem; margin-top: 0.9rem; }
+        .hero-today { padding: 0.55rem 0.65rem; border-radius: 12px; background: rgba(255, 255, 255, 0.94); border: 1px solid rgba(226, 232, 240, 0.95); display: flex; flex-direction: column; gap: 0.15rem; position: relative; min-width: 0; transition: transform 200ms ease, box-shadow 200ms ease; }
+        .hero-today:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08); }
+        .hero-today__head { display: flex; align-items: center; gap: 0.35rem; font-size: 0.54rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; }
+        .hero-today__head i { font-size: 0.7rem; }
+        .hero-today__value { font-family: 'DM Sans', sans-serif; font-size: 1.2rem; font-weight: 800; color: #0f172a; line-height: 1; letter-spacing: -0.02em; }
+        .hero-today__delta { font-size: 0.56rem; font-weight: 700; color: #64748b; display: inline-flex; align-items: center; gap: 0.15rem; }
+        .hero-today__delta.is-up { color: #16a34a; }
+        .hero-today__delta.is-down { color: #dc2626; }
+        .hero-today--cfa .hero-today__head { color: #4338ca; }
+        .hero-today--mentor .hero-today__head { color: #be185d; }
+        .hero-today--online .hero-today__head { color: #15803d; }
+        .hero-today--online::after { content: ''; position: absolute; top: 0.55rem; right: 0.55rem; width: 7px; height: 7px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); animation: heroDotStaff 1.8s ease-in-out infinite; }
+        @keyframes heroDotStaff { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); } 50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); } }
+
+        .hero-spark { padding: 0.6rem 0.8rem; margin-top: 0.6rem; border-radius: 14px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(236, 254, 255, 0.55)); border: 1px solid rgba(226, 232, 240, 0.95); display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+        .hero-spark__left { min-width: 0; flex-shrink: 0; }
+        .hero-spark__eyebrow { font-size: 0.52rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #0891b2; line-height: 1; }
+        .hero-spark__value { font-family: 'DM Sans', sans-serif; font-size: 0.92rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem; line-height: 1; }
+        .hero-spark__value small { color: #64748b; font-weight: 600; font-size: 0.6rem; margin-left: 0.2rem; }
+        .hero-spark__chart { flex: 1; min-width: 0; height: 34px; position: relative; }
+        .hero-spark__chart svg { width: 100%; height: 100%; overflow: visible; }
+        .hero-spark__chart .spark-fill { fill: url(#heroSparkGradStaff); opacity: 0.55; }
+        .hero-spark__chart .spark-line { fill: none; stroke: #0891b2; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+        .hero-spark__chart .spark-dot { fill: #0891b2; stroke: #fff; stroke-width: 1.5; }
         @media (max-width: 1600px) {
             .hero-three-col {
                 gap: 0.75rem;
@@ -2253,6 +2280,86 @@
                                 <span><strong>Referral activity</strong> dashboard</span>
                             </div>
                         </div>
+
+                        @php
+                            $stfTodayDelta = (int) ($heroCfaTodayDelta ?? 0);
+                            $stfSparkVals = $heroSparkline30['values'] ?? [];
+                            $stfSparkSum = (int) array_sum($stfSparkVals);
+                            $stfSparkMax = ! empty($stfSparkVals) ? max(max($stfSparkVals), 1) : 1;
+                            $stfSparkW = 160;
+                            $stfSparkH = 34;
+                            $stfSparkPts = [];
+                            $stfSparkCount = count($stfSparkVals);
+                            if ($stfSparkCount > 1) {
+                                foreach ($stfSparkVals as $i => $v) {
+                                    $sx = round(($i / ($stfSparkCount - 1)) * $stfSparkW, 2);
+                                    $sy = round($stfSparkH - (($v / $stfSparkMax) * ($stfSparkH - 4)) - 2, 2);
+                                    $stfSparkPts[] = $sx . ',' . $sy;
+                                }
+                            }
+                            $stfSparkLine = implode(' ', $stfSparkPts);
+                            $stfSparkFill = $stfSparkPts ? ('0,' . $stfSparkH . ' ' . $stfSparkLine . ' ' . $stfSparkW . ',' . $stfSparkH) : '';
+                            $stfSparkLastX = $stfSparkPts ? (float) explode(',', end($stfSparkPts))[0] : 0;
+                            $stfSparkLastY = $stfSparkPts ? (float) explode(',', end($stfSparkPts))[1] : 0;
+                            $stfHalf = (int) floor($stfSparkCount / 2);
+                            $stfFirstHalf = array_sum(array_slice($stfSparkVals, 0, $stfHalf));
+                            $stfSecondHalf = array_sum(array_slice($stfSparkVals, $stfHalf));
+                            $stfSparkTrend = $stfFirstHalf > 0 ? (int) round((($stfSecondHalf - $stfFirstHalf) / $stfFirstHalf) * 100) : 0;
+                        @endphp
+
+                        <div class="hero-today-row">
+                            <div class="hero-today hero-today--cfa">
+                                <div class="hero-today__head"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> CFA today</div>
+                                <div class="hero-today__value">{{ number_format((int) ($heroCfaToday ?? 0)) }}</div>
+                                @if ($stfTodayDelta > 0)
+                                    <span class="hero-today__delta is-up"><i class="fa-solid fa-caret-up"></i> {{ $stfTodayDelta }} vs yest.</span>
+                                @elseif ($stfTodayDelta < 0)
+                                    <span class="hero-today__delta is-down"><i class="fa-solid fa-caret-down"></i> {{ abs($stfTodayDelta) }} vs yest.</span>
+                                @else
+                                    <span class="hero-today__delta">— same as yest.</span>
+                                @endif
+                            </div>
+                            <div class="hero-today hero-today--mentor">
+                                <div class="hero-today__head"><i class="fa-solid fa-handshake" aria-hidden="true"></i> Mentorship</div>
+                                <div class="hero-today__value">{{ number_format((int) ($heroMentorshipPending ?? 0)) }}</div>
+                                <span class="hero-today__delta">pending in district</span>
+                            </div>
+                            <div class="hero-today hero-today--online">
+                                <div class="hero-today__head"><i class="fa-solid fa-signal" aria-hidden="true"></i> Online now</div>
+                                <div class="hero-today__value">{{ number_format((int) ($heroDistrictOnlineNow ?? 0)) }}</div>
+                                <span class="hero-today__delta">in your district</span>
+                            </div>
+                        </div>
+
+                        @if (! empty($stfSparkLine))
+                        <div class="hero-spark" title="Your daily CFA referrals · last 30 days">
+                            <div class="hero-spark__left">
+                                <div class="hero-spark__eyebrow">YOUR 30-DAY PULSE</div>
+                                <div class="hero-spark__value">{{ number_format($stfSparkSum) }} <small>CFAs referred</small></div>
+                            </div>
+                            <div class="hero-spark__chart" aria-hidden="true">
+                                <svg viewBox="0 0 {{ $stfSparkW }} {{ $stfSparkH }}" preserveAspectRatio="none">
+                                    <defs>
+                                        <linearGradient id="heroSparkGradStaff" x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" stop-color="#0891b2" stop-opacity="0.45"/>
+                                            <stop offset="100%" stop-color="#0891b2" stop-opacity="0"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <polygon class="spark-fill" points="{{ $stfSparkFill }}"/>
+                                    <polyline class="spark-line" points="{{ $stfSparkLine }}"/>
+                                    <circle class="spark-dot" cx="{{ $stfSparkLastX }}" cy="{{ $stfSparkLastY }}" r="2.4"/>
+                                </svg>
+                            </div>
+                            <div style="text-align:right;flex-shrink:0;">
+                                <span class="hero-today__delta @if ($stfSparkTrend > 0) is-up @elseif ($stfSparkTrend < 0) is-down @endif" style="font-size:0.62rem;">
+                                    @if ($stfSparkTrend > 0)<i class="fa-solid fa-caret-up"></i> +{{ $stfSparkTrend }}%
+                                    @elseif ($stfSparkTrend < 0)<i class="fa-solid fa-caret-down"></i> {{ $stfSparkTrend }}%
+                                    @else — flat @endif
+                                </span>
+                                <div style="font-size:0.5rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:0.15rem;">vs prev 15d</div>
+                            </div>
+                        </div>
+                        @endif
 
                         @if ($staff->district_id && $activeFy)
                         <div class="welcome-district-embed glass-surface">
