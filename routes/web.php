@@ -79,6 +79,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::middleware('incubatee')->prefix('incubatee')->name('incubatee.')->group(function () {
         Route::get('dashboard', [IncubateeDashboardController::class, 'index'])->name('dashboard');
         Route::get('udmita-kosh', [IncubateeDashboardController::class, 'udmitaKosh'])->name('udmita-kosh');
+        Route::get('mentorship', [MentorshipRequestController::class, 'index'])->name('mentorship.index');
         Route::post('mentorship-requests', [MentorshipRequestController::class, 'store'])
             ->middleware('throttle:15,1')
             ->name('mentorship-requests.store');

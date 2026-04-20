@@ -8,9 +8,32 @@ use App\Services\MentorshipRequestNotifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 class MentorshipRequestController extends Controller
 {
+    public function index(Request $request): View
+    {
+        $user = $request->user()->load(['cfaSubmission.district']);
+        $submission = $user->cfaSubmission;
+        if ($submission === null) {
+            abort(404, 'No CFA profile is linked to this account.');
+        }
+
+        $requests = MentorshipRequest::query()
+            ->where('cfa_submission_id', $submission->id)
+            ->latest('id')
+            ->limit(50)
+            ->get();
+
+        return view('incubatee.mentorship', [
+            'user' => $user,
+            'submission' => $submission,
+            'requests' => $requests,
+            'categories' => config('mentorship.categories', []),
+        ]);
+    }
+
     public function store(Request $request, MentorshipRequestNotifier $notifier): RedirectResponse
     {
         $slugs = array_keys(config('mentorship.categories', []));

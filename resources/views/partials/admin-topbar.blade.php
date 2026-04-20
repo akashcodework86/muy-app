@@ -93,6 +93,7 @@
         @if ($showIncubateeNav)
         <nav class="admin-topbar__nav" aria-label="Incubatee">
             <a href="{{ route('incubatee.dashboard') }}" class="admin-topbar__link @if ($activeNav === 'incubatee' && request()->routeIs('incubatee.dashboard')) is-active @endif">Dashboard</a>
+            <a href="{{ route('incubatee.mentorship.index') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.mentorship.*')) is-active @endif">Request mentorship</a>
             <a href="{{ route('incubatee.udmita-kosh') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.udmita-kosh')) is-active @endif">Udmita Kosh</a>
         </nav>
         @endif
