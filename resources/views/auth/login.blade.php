@@ -506,6 +506,10 @@
                     <b data-count="2" data-format="plain" data-suffix="+">0</b>
                     <span>Regional incubation hubs</span>
                 </div>
+                <div class="muy-achieve">
+                    <b data-count="50" data-format="plain" data-suffix="+">0</b>
+                    <span>In-house mentors</span>
+                </div>
             </div>
             <p class="muy-hero__counting"><em>and counting…</em> the journey continues.</p>
         </footer>
