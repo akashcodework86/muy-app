@@ -106,15 +106,14 @@
 
     .tp-world {
         position: relative;
-        min-height: 420px;
     }
     .tp-connectors {
         position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
+        top: 0;
+        left: 0;
         pointer-events: none;
         overflow: visible;
+        display: block;
     }
 
     /* --- Card --- */
