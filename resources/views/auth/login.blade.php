@@ -214,7 +214,7 @@
                 </div>
                 <p class="app-auth-kicker">Mukhyamantri Udyamshala Yojana</p>
                 <h1>Welcome to MIS</h1>
-                <p class="app-auth-subtitle">RBI • Incubation Support Platform</p>
+                <p class="app-auth-subtitle">MUY • Incubation Support Platform</p>
             </div>
             <p class="app-auth-lead">Sign in to your account.</p>
 
