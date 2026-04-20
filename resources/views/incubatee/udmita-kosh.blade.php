@@ -167,15 +167,47 @@
     .uk-card__thumb {
         position: relative;
         aspect-ratio: 16 / 9;
-        background: #0f172a;
         display: block;
         overflow: hidden;
-    }
-    .uk-card__thumb img {
+        border: none;
+        padding: 0;
+        cursor: pointer;
         width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
+        color: #fff;
+        text-align: left;
+    }
+    .uk-card__thumb::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.18), transparent 45%),
+            radial-gradient(circle at 80% 85%, rgba(255, 255, 255, 0.1), transparent 45%);
+        pointer-events: none;
+    }
+    .uk-card__thumb--starting-business { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 60%, #0d9488 100%); }
+    .uk-card__thumb--finance-funding { background: linear-gradient(135deg, #047857 0%, #059669 55%, #fbbf24 100%); }
+    .uk-card__thumb--marketing { background: linear-gradient(135deg, #db2777 0%, #f97316 60%, #facc15 100%); }
+    .uk-card__thumb--legal-compliance { background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%); }
+    .uk-card__thumb--pitch-growth { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #06b6d4 100%); }
+
+    .uk-card__thumb-cat {
+        position: absolute;
+        top: 0.65rem;
+        left: 0.65rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.2rem 0.55rem;
+        background: rgba(15, 23, 42, 0.35);
+        backdrop-filter: blur(6px);
+        color: #fff;
+        border-radius: 999px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        z-index: 2;
     }
     .uk-card__play {
         position: absolute;
@@ -183,26 +215,38 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(180deg, rgba(15, 23, 42, 0) 55%, rgba(15, 23, 42, 0.45) 100%);
+        z-index: 1;
     }
     .uk-card__play svg {
-        width: 54px;
-        height: 54px;
-        color: #fff;
-        filter: drop-shadow(0 4px 12px rgba(0,0,0,0.45));
+        width: 30px;
+        height: 30px;
+        color: #0f172a;
+        filter: none;
         transition: transform 0.15s;
     }
-    .uk-card:hover .uk-card__play svg { transform: scale(1.08); }
+    .uk-card__play-bg {
+        width: 64px;
+        height: 64px;
+        border-radius: 999px;
+        background: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        transition: transform 0.15s;
+    }
+    .uk-card:hover .uk-card__play-bg { transform: scale(1.06); }
     .uk-card__duration {
         position: absolute;
-        bottom: 0.5rem;
-        right: 0.5rem;
-        padding: 0.15rem 0.4rem;
-        border-radius: 5px;
-        background: rgba(15, 23, 42, 0.8);
+        bottom: 0.55rem;
+        right: 0.55rem;
+        padding: 0.15rem 0.45rem;
+        border-radius: 6px;
+        background: rgba(15, 23, 42, 0.75);
         color: #fff;
         font-size: 0.7rem;
         font-weight: 600;
+        z-index: 2;
     }
     .uk-card__body {
         padding: 0.85rem 0.95rem 1rem;
@@ -316,58 +360,6 @@
     .uk-coming h3 { margin: 0 0 0.35rem; font-size: 0.95rem; font-weight: 700; }
     .uk-coming p { margin: 0; font-size: 0.85rem; color: #64748b; line-height: 1.5; }
 
-    /* Modal player */
-    .uk-modal {
-        display: none;
-        position: fixed;
-        inset: 0;
-        z-index: 500;
-        align-items: center;
-        justify-content: center;
-        padding: 1rem;
-    }
-    .uk-modal.is-open { display: flex; }
-    .uk-modal__backdrop {
-        position: absolute;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.75);
-        backdrop-filter: blur(6px);
-    }
-    .uk-modal__panel {
-        position: relative;
-        width: 100%;
-        max-width: 56rem;
-        background: #0f172a;
-        border-radius: 14px;
-        overflow: hidden;
-        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
-    }
-    .uk-modal__close {
-        position: absolute;
-        top: 0.65rem;
-        right: 0.65rem;
-        width: 2.25rem;
-        height: 2.25rem;
-        border: none;
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.9);
-        color: #0f172a;
-        cursor: pointer;
-        font-size: 1.2rem;
-        font-weight: 700;
-        z-index: 2;
-    }
-    .uk-modal__video {
-        position: relative;
-        aspect-ratio: 16 / 9;
-    }
-    .uk-modal__video iframe {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        border: 0;
-    }
 </style>
 @endpush
 
@@ -400,23 +392,28 @@
 
             <div class="uk-grid">
                 @foreach ($cat['videos'] as $v)
+                    @php
+                        $searchQ = urlencode($v['title'].' '.($v['channel'] ?? '').' Hindi');
+                        $ytUrl = 'https://www.youtube.com/results?search_query='.$searchQ;
+                    @endphp
                     <article class="uk-card">
-                        <button
-                            type="button"
-                            class="uk-card__thumb"
-                            style="border:none;padding:0;cursor:pointer;width:100%;"
-                            data-yt-open="{{ $v['youtube_id'] }}"
-                            data-yt-title="{{ $v['title'] }}"
-                            aria-label="Play {{ $v['title'] }}"
+                        <a
+                            class="uk-card__thumb uk-card__thumb--{{ $cat['slug'] }}"
+                            href="{{ $ytUrl }}"
+                            target="_blank"
+                            rel="noopener"
+                            aria-label="Watch {{ $v['title'] }} on YouTube"
                         >
-                            <img loading="lazy" src="https://i.ytimg.com/vi/{{ $v['youtube_id'] }}/hqdefault.jpg" alt="">
+                            <span class="uk-card__thumb-cat">{{ $cat['emoji'] }} {{ $cat['title'] }}</span>
                             <span class="uk-card__play" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+                                <span class="uk-card__play-bg">
+                                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+                                </span>
                             </span>
                             @if(!empty($v['duration']))
                                 <span class="uk-card__duration">{{ $v['duration'] }}</span>
                             @endif
-                        </button>
+                        </a>
                         <div class="uk-card__body">
                             <span class="uk-tag">Video · Hindi</span>
                             <h3 class="uk-card__title">{{ $v['title'] }}</h3>
@@ -462,46 +459,4 @@
     </div>
 </div>
 
-<div class="uk-modal" id="ukModal" role="dialog" aria-modal="true" aria-label="Video player" hidden>
-    <div class="uk-modal__backdrop" data-yt-close></div>
-    <div class="uk-modal__panel">
-        <button type="button" class="uk-modal__close" data-yt-close aria-label="Close">&times;</button>
-        <div class="uk-modal__video" id="ukModalVideo"></div>
-    </div>
-</div>
 @endsection
-
-@push('scripts')
-<script>
-(function () {
-    const modal = document.getElementById('ukModal');
-    const videoBox = document.getElementById('ukModalVideo');
-
-    function open(id, title) {
-        if (!id) return;
-        videoBox.innerHTML = '<iframe src="https://www.youtube.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0" title="' + (title || '') + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
-        modal.hidden = false;
-        modal.classList.add('is-open');
-        document.body.style.overflow = 'hidden';
-    }
-    function close() {
-        videoBox.innerHTML = '';
-        modal.classList.remove('is-open');
-        modal.hidden = true;
-        document.body.style.overflow = '';
-    }
-
-    document.querySelectorAll('[data-yt-open]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            open(btn.getAttribute('data-yt-open'), btn.getAttribute('data-yt-title'));
-        });
-    });
-    document.querySelectorAll('[data-yt-close]').forEach(function (el) {
-        el.addEventListener('click', close);
-    });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && modal.classList.contains('is-open')) close();
-    });
-})();
-</script>
-@endpush
