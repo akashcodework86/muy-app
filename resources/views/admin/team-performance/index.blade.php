@@ -257,9 +257,9 @@
     .tp-toggle:hover { background: var(--tp-teal); color: #fff; border-color: var(--tp-teal); transform: scale(1.08); }
     .tp-toggle__count {
         position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translate(-50%, 3px);
+        top: 50%;
+        left: 100%;
+        transform: translate(4px, -50%);
         font-size: 0.68rem;
         color: #475569;
         font-weight: 700;
@@ -408,16 +408,15 @@
     const canvas = document.getElementById('tpCanvas');
     if (!world || !svg || !canvas) return;
 
-    // ----- Layout config -----
+    // ----- Layout config (VERTICAL tree: state on top, children below) -----
     const CFG = {
-        cardW: 230,
-        cardH: 78,
-        cardHStaff: 72,
-        colGap: 72,      // horizontal gap between columns
-        rowGap: 14,      // vertical gap between sibling cards
-        padTop: 24,
+        cardW: 220,
+        cardH: 82,
+        cardHStaff: 78,
+        levelGap: 64,    // vertical gap between parent and child row
+        siblingGap: 20,  // horizontal gap between sibling cards
+        padTop: 20,
         padLeft: 24,
-        paren: 18,       // gap on either side for connector logic
     };
 
     // ----- Build tree model with ids -----
@@ -511,7 +510,7 @@
         root.children.push(hub);
     });
 
-    // ----- Tree layout (post-order + pre-order) -----
+    // ----- Tree layout (vertical: parent on top, children below) -----
     function effectiveH(node) {
         return node.kind === 'staff' ? CFG.cardHStaff : CFG.cardH;
     }
@@ -521,35 +520,38 @@
         return node.children || [];
     }
 
-    function computeSubtreeH(node) {
+    // Horizontal space required by this node's subtree (incl. self + descendants).
+    function computeSubtreeW(node) {
         const kids = visibleChildren(node);
-        if (kids.length === 0) return effectiveH(node);
-        let h = 0;
+        if (kids.length === 0) return CFG.cardW;
+        let w = 0;
         kids.forEach((c, i) => {
-            h += computeSubtreeH(c);
-            if (i > 0) h += CFG.rowGap;
+            w += computeSubtreeW(c);
+            if (i > 0) w += CFG.siblingGap;
         });
-        return Math.max(h, effectiveH(node));
+        return Math.max(w, CFG.cardW);
     }
 
-    function placeNode(node, depth, subtreeTop) {
-        const subtreeH = computeSubtreeH(node);
+    // Place `node` with its subtree starting at horizontal position `subtreeLeft`,
+    // at vertical depth `depth` (each depth adds cardH + levelGap to y).
+    function placeNode(node, depth, subtreeLeft) {
+        const subtreeW = computeSubtreeW(node);
         node._layout = {
             depth,
-            x: CFG.padLeft + depth * (CFG.cardW + CFG.colGap),
-            y: subtreeTop + (subtreeH - effectiveH(node)) / 2,
+            x: subtreeLeft + (subtreeW - CFG.cardW) / 2,
+            y: CFG.padTop + depth * (CFG.cardH + CFG.levelGap),
             w: CFG.cardW,
             h: effectiveH(node),
-            subtreeH,
-            subtreeTop,
+            subtreeW,
+            subtreeLeft,
         };
 
         const kids = visibleChildren(node);
-        let cursor = subtreeTop;
+        let cursor = subtreeLeft;
         kids.forEach((c) => {
-            const ch = computeSubtreeH(c);
+            const cw = computeSubtreeW(c);
             placeNode(c, depth + 1, cursor);
-            cursor += ch + CFG.rowGap;
+            cursor += cw + CFG.siblingGap;
         });
     }
 
@@ -561,13 +563,13 @@
 
     // ----- Render -----
     function render() {
-        placeNode(root, 0, CFG.padTop);
+        placeNode(root, 0, CFG.padLeft);
 
         const nodes = flatten(root, []);
         const maxX = Math.max(...nodes.map(n => n._layout.x + n._layout.w));
         const maxY = Math.max(...nodes.map(n => n._layout.y + n._layout.h));
-        const worldW = maxX + CFG.padLeft + 40; // breathing room for toggle
-        const worldH = maxY + CFG.padTop;
+        const worldW = maxX + CFG.padLeft;
+        const worldH = maxY + CFG.padTop + 40; // breathing room for toggle below bottom row
 
         world.style.width = worldW + 'px';
         world.style.height = worldH + 'px';
@@ -579,21 +581,21 @@
         world.querySelectorAll('.tp-card, .tp-toggle').forEach(el => el.remove());
         while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-        // --- Draw connectors (behind cards) ---
+        // --- Draw connectors (parent bottom-center -> child top-center) ---
         nodes.forEach((parent) => {
             const kids = visibleChildren(parent);
             if (!kids.length) return;
             const pl = parent._layout;
-            const startX = pl.x + pl.w;
-            const startY = pl.y + pl.h / 2;
+            const startX = pl.x + pl.w / 2;
+            const startY = pl.y + pl.h;
             kids.forEach((child) => {
                 const cl = child._layout;
-                const endX = cl.x;
-                const endY = cl.y + cl.h / 2;
-                const mid = (startX + endX) / 2;
+                const endX = cl.x + cl.w / 2;
+                const endY = cl.y;
+                const mid = (startY + endY) / 2;
                 const d = 'M ' + startX + ' ' + startY +
-                          ' C ' + mid + ' ' + startY +
-                          ', ' + mid + ' ' + endY +
+                          ' C ' + startX + ' ' + mid +
+                          ', ' + endX + ' ' + mid +
                           ', ' + endX + ' ' + endY;
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', d);
@@ -612,7 +614,7 @@
             world.appendChild(el);
         });
 
-        // --- Draw toggle buttons (between parent and its children's column) ---
+        // --- Draw toggle buttons (between parent bottom and child row) ---
         nodes.forEach((node) => {
             if (!node.children || !node.children.length) return;
             const pl = node._layout;
@@ -622,13 +624,13 @@
             toggle.setAttribute('aria-label', node.collapsed ? 'Expand' : 'Collapse');
             toggle.innerHTML = node.collapsed ? '+' : '−';
 
-            // Position: just to the right of parent card, midpoint
-            const tx = pl.x + pl.w + (CFG.colGap / 2) - 13; // 26/2 = 13
-            const ty = pl.y + pl.h / 2 - 13;
+            // Position: just below the parent card, horizontally centered
+            const tx = pl.x + pl.w / 2 - 13; // 26/2 = 13
+            const ty = pl.y + pl.h + (CFG.levelGap / 2) - 13;
             toggle.style.left = tx + 'px';
             toggle.style.top = ty + 'px';
 
-            // Badge with count
+            // Badge with count (positioned to the right of toggle in vertical layout)
             const count = document.createElement('span');
             count.className = 'tp-toggle__count';
             count.textContent = node.children.length;
