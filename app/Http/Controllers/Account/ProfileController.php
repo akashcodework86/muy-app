@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateAvatarRequest;
 use App\Http\Requests\UpdatePasswordRequest;
 use App\Http\Requests\UpdateProfileRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +21,21 @@ class ProfileController extends Controller
     public function showAvatar(Request $request): Response
     {
         $user = $request->user();
+        if (! $user->avatar_path || ! Storage::disk('public')->exists($user->avatar_path)) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->response($user->avatar_path, null, [
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
+    }
+
+    /**
+     * Stream any user's avatar for authenticated internal users (admins/staff view each other's photos
+     * in team pages, org charts, etc.). Works without the public/storage symlink.
+     */
+    public function showUserAvatar(Request $request, User $user): Response
+    {
         if (! $user->avatar_path || ! Storage::disk('public')->exists($user->avatar_path)) {
             abort(404);
         }

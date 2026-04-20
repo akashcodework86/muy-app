@@ -97,6 +97,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('avatar', [ProfileController::class, 'showAvatar'])
             ->middleware('throttle:120,1')
             ->name('avatar.show');
+        /** Stream another user's avatar for authenticated internal users (team pages, org charts, etc.) */
+        Route::get('users/{user}/avatar', [ProfileController::class, 'showUserAvatar'])
+            ->middleware('throttle:240,1')
+            ->name('user.avatar.show');
         Route::get('settings', [ProfileController::class, 'edit'])->name('settings.edit');
         Route::put('settings/profile', [ProfileController::class, 'updateProfile'])->name('settings.profile.update');
         Route::put('settings/password', [ProfileController::class, 'updatePassword'])->name('settings.password.update');

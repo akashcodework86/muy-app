@@ -107,12 +107,23 @@ class User extends Authenticatable
             return null;
         }
 
-        if (auth()->check() && (int) auth()->id() === (int) $this->id) {
-            return route('account.avatar.show', [
-                'v' => $this->updated_at?->getTimestamp() ?? $this->id,
+        $version = $this->updated_at?->getTimestamp() ?? $this->id;
+
+        if (auth()->check()) {
+            // Self: use the self route (cheaper, no model binding).
+            if ((int) auth()->id() === (int) $this->id) {
+                return route('account.avatar.show', ['v' => $version]);
+            }
+
+            // Other users: stream through an auth-gated route so images work
+            // even when the public/storage symlink is missing on the server.
+            return route('account.user.avatar.show', [
+                'user' => $this->id,
+                'v' => $version,
             ]);
         }
 
+        // Unauthenticated fallback (rarely used): public disk URL, requires storage:link.
         return Storage::disk('public')->url($this->avatar_path);
     }
 }
