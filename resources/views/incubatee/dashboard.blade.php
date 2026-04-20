@@ -8,7 +8,153 @@
 
 @push('styles')
 <style>
-    .inc-wrap { max-width: 64rem; margin: 0 auto; }
+    .inc-wrap { max-width: 72rem; margin: 0 auto; }
+    .inc-layout { display: grid; grid-template-columns: 1fr; gap: 1.1rem; align-items: start; }
+    @media (min-width: 960px) {
+        .inc-layout { grid-template-columns: minmax(0, 1fr) 320px; }
+    }
+    .inc-main { min-width: 0; }
+    .inc-side { position: relative; }
+    @media (min-width: 960px) {
+        .inc-side { position: sticky; top: 1rem; }
+    }
+
+    /* Journey timeline */
+    .jrny {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 1.1rem 1.1rem 1.2rem;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+    }
+    .jrny__head {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.1rem;
+    }
+    .jrny__h {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #4338ca;
+        letter-spacing: -0.01em;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .jrny__meta {
+        margin: 0.15rem 0 0.95rem;
+        font-size: 0.78rem;
+        color: #475569;
+    }
+    .jrny__meta b { color: #0f172a; }
+    .jrny__status {
+        display: inline-block;
+        margin-left: 0.35rem;
+        padding: 0.12rem 0.5rem;
+        border-radius: 999px;
+        background: #dbeafe;
+        color: #1d4ed8;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .jrny__status--on-track { background: #dcfce7; color: #166534; }
+    .jrny__list {
+        position: relative;
+        list-style: none;
+        margin: 0;
+        padding: 0.35rem 0 0 0;
+    }
+    .jrny__list::before {
+        content: '';
+        position: absolute;
+        left: 12px;
+        top: 16px;
+        bottom: 16px;
+        width: 2px;
+        background: #e2e8f0;
+        border-radius: 2px;
+    }
+    .jrny__item {
+        position: relative;
+        display: grid;
+        grid-template-columns: 26px 1fr;
+        gap: 0.7rem;
+        padding: 0.55rem 0 0.55rem 0;
+    }
+    .jrny__dot {
+        position: relative;
+        z-index: 1;
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        background: #fff;
+        border: 2px solid #cbd5e1;
+        display: grid;
+        place-items: center;
+        color: #94a3b8;
+        font-size: 0.8rem;
+    }
+    .jrny__item--done .jrny__dot {
+        background: #dcfce7;
+        border-color: #22c55e;
+        color: #16a34a;
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+    }
+    .jrny__item--current .jrny__dot {
+        background: #dbeafe;
+        border-color: #3b82f6;
+        color: #1d4ed8;
+        animation: jrnyPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes jrnyPulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.35); }
+        50%      { box-shadow: 0 0 0 7px rgba(59, 130, 246, 0); }
+    }
+    .jrny__body { min-width: 0; padding-top: 0.1rem; }
+    .jrny__title {
+        margin: 0;
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #0f172a;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .jrny__item--done .jrny__title { color: #166534; }
+    .jrny__item--current .jrny__title { color: #1d4ed8; }
+    .jrny__item--upcoming .jrny__title { color: #334155; }
+    .jrny__date {
+        margin: 0.1rem 0 0;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #64748b;
+        letter-spacing: 0.02em;
+    }
+    .jrny__item--done .jrny__date { color: #16a34a; }
+    .jrny__item--current .jrny__date { color: #1d4ed8; }
+    .jrny__detail {
+        margin: 0.25rem 0 0;
+        font-size: 0.78rem;
+        color: #64748b;
+        line-height: 1.45;
+    }
+    .jrny__emoji { font-size: 0.95rem; }
+    .jrny__foot {
+        margin-top: 0.85rem;
+        padding-top: 0.75rem;
+        border-top: 1px dashed #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-size: 0.72rem;
+        color: #64748b;
+    }
+    .jrny__foot b { color: #0f172a; font-weight: 700; }
     .inc-hero {
         background: #fff;
         border: 1px solid #e2e8f0;
@@ -312,6 +458,8 @@
         </div>
     @endif
 
+    <div class="inc-layout">
+    <div class="inc-main">
     <section class="inc-hero">
         <div class="inc-hero__top">
             <div class="inc-hero__intro">
@@ -423,6 +571,72 @@
             </div>
         </div>
     </section>
+    </div>{{-- /.inc-main --}}
+
+    <aside class="inc-side" aria-label="Your journey">
+        @php
+            $doneCount = collect($journey)->where('status', 'done')->count();
+            $totalCount = count($journey);
+            $onTrack = $doneCount >= 2;
+            $firstStep = collect($journey)->firstWhere('key', 'cfa');
+            $startDate = $firstStep['at'] ?? null;
+        @endphp
+        <section class="jrny">
+            <div class="jrny__head">
+                <h3 class="jrny__h"><span aria-hidden="true">🛣️</span> Your journey</h3>
+            </div>
+            <p class="jrny__meta">
+                @if ($startDate)
+                    Started: <b>{{ $startDate->format('d M Y') }}</b>
+                @else
+                    Starting soon
+                @endif
+                <span class="jrny__status @if ($onTrack) jrny__status--on-track @endif">{{ $onTrack ? 'On track' : 'Early days' }}</span>
+            </p>
+
+            <ul class="jrny__list">
+                @foreach ($journey as $step)
+                    @php
+                        $cls = 'jrny__item jrny__item--'.$step['status'];
+                        $at = $step['at'] ?? null;
+                    @endphp
+                    <li class="{{ $cls }}">
+                        <span class="jrny__dot" aria-hidden="true">
+                            @if ($step['status'] === 'done')
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            @elseif ($step['status'] === 'current')
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+                            @else
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg>
+                            @endif
+                        </span>
+                        <div class="jrny__body">
+                            <p class="jrny__title">
+                                <span class="jrny__emoji" aria-hidden="true">{{ $step['icon'] }}</span>
+                                {{ $step['title'] }}
+                            </p>
+                            @if ($at)
+                                <p class="jrny__date">{{ \Carbon\Carbon::parse($at)->format('d M Y') }}</p>
+                            @elseif ($step['status'] === 'current')
+                                <p class="jrny__date">Up next — whenever you need it</p>
+                            @else
+                                <p class="jrny__date">Coming up</p>
+                            @endif
+                            @if (!empty($step['detail']))
+                                <p class="jrny__detail">{{ $step['detail'] }}</p>
+                            @endif
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+
+            <div class="jrny__foot">
+                <span>Progress: <b>{{ $doneCount }}/{{ $totalCount }}</b></span>
+                <span>Mentorship: <b>{{ $mentorshipCount }}</b></span>
+            </div>
+        </section>
+    </aside>
+    </div>{{-- /.inc-layout --}}
 
     <div class="mentorship-modal" id="mentorshipModal" role="dialog" aria-modal="true" aria-labelledby="mentorshipModalTitle" hidden>
         <div class="mentorship-modal__backdrop" id="mentorshipModalBackdrop" tabindex="-1"></div>

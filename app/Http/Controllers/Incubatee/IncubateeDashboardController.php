@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Incubatee;
 
 use App\Http\Controllers\Controller;
 use App\Models\CfaSubmission;
+use App\Models\MentorshipRequest;
 use App\Models\ServiceCase;
 use Illuminate\View\View;
 
@@ -48,6 +49,69 @@ class IncubateeDashboardController extends Controller
             ? (string) $emailFromPayload
             : ($user->email ?? '—');
 
+        $membership = $submission->onboardingBatchMembership;
+        $firstMentorshipAt = MentorshipRequest::query()
+            ->where('cfa_submission_id', $submission->id)
+            ->min('created_at');
+        $mentorshipCount = MentorshipRequest::query()
+            ->where('cfa_submission_id', $submission->id)
+            ->count();
+
+        $firstCompletedCase = $cases->where('status', ServiceCase::STATUS_COMPLETED)
+            ->sortBy(fn ($c) => $c->completed_at ?? $c->updated_at)
+            ->first();
+
+        $journey = [
+            [
+                'key' => 'cfa',
+                'icon' => '📝',
+                'title' => 'CFA application submitted',
+                'at' => $submission->created_at,
+                'detail' => $submission->application_no
+                    ? 'Application '.$submission->application_no.' filed.'
+                    : 'Your CFA application was filed.',
+                'status' => 'done',
+            ],
+            [
+                'key' => 'onboarded',
+                'icon' => '🎉',
+                'title' => 'Onboarded into batch',
+                'at' => $batch?->onboarding_date ?? $membership?->created_at,
+                'detail' => $batch?->name
+                    ? 'Joined '.$batch->name.($hubName ? ' · '.$hubName : '').'.'
+                    : 'Waiting to be onboarded into a hub batch.',
+                'status' => $batch ? 'done' : 'upcoming',
+            ],
+            [
+                'key' => 'mentorship',
+                'icon' => '🤝',
+                'title' => 'First mentorship requested',
+                'at' => $firstMentorshipAt,
+                'detail' => $firstMentorshipAt
+                    ? $mentorshipCount.' mentorship '.($mentorshipCount === 1 ? 'request' : 'requests').' sent so far.'
+                    : 'Ask your hub for help whenever you need guidance.',
+                'status' => $firstMentorshipAt ? 'done' : 'current',
+            ],
+            [
+                'key' => 'first-service',
+                'icon' => '🛠️',
+                'title' => 'First service delivered',
+                'at' => $firstCompletedCase?->completed_at,
+                'detail' => $firstCompletedCase
+                    ? ($firstCompletedCase->service?->name ?? 'A service').' delivered by your hub team.'
+                    : 'Your hub will log your first supported service here.',
+                'status' => $firstCompletedCase ? 'done' : 'upcoming',
+            ],
+            [
+                'key' => 'milestones',
+                'icon' => '🏆',
+                'title' => 'Milestones & growth',
+                'at' => null,
+                'detail' => 'Product launches, revenue wins and pitch milestones — coming soon.',
+                'status' => 'upcoming',
+            ],
+        ];
+
         return view('incubatee.dashboard', [
             'user' => $user,
             'submission' => $submission,
@@ -60,6 +124,8 @@ class IncubateeDashboardController extends Controller
             'serviceCases' => $cases,
             'servicesCompletedCount' => $completed,
             'servicesOpenCount' => $open,
+            'journey' => $journey,
+            'mentorshipCount' => $mentorshipCount,
         ]);
     }
 
