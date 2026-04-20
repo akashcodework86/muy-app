@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureHubAdmin;
 use App\Http\Middleware\EnsureIncubatee;
 use App\Http\Middleware\EnsureStateAdmin;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\TrackUserPresence;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -26,6 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'incubatee' => EnsureIncubatee::class,
             'active' => EnsureUserIsActive::class,
         ]);
+
+        $middleware->appendToGroup('web', TrackUserPresence::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

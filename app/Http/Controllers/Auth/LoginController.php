@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,7 +17,7 @@ class LoginController extends Controller
         return view('auth.login');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, ActivityLogger $activity): RedirectResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'string', 'email'],
@@ -40,6 +41,16 @@ class LoginController extends Controller
         $request->session()->regenerate();
 
         $user = Auth::user();
+
+        if (in_array($user->role, ['state_admin', 'hub_admin', 'district_staff'], true)) {
+            $roleLabel = str_replace('_', ' ', (string) $user->role);
+            $activity->log(
+                type: 'user.login',
+                title: ucfirst($roleLabel).' '.$user->name.' signed in',
+                actor: $user,
+            );
+        }
+
         if ($user->role === 'district_staff' && empty($user->avatar_path)) {
             $request->session()->flash(
                 'profile_photo_reminder',

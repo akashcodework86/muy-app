@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Incubatee;
 
 use App\Http\Controllers\Controller;
 use App\Models\MentorshipRequest;
+use App\Services\ActivityLogger;
 use App\Services\MentorshipRequestNotifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,7 +35,7 @@ class MentorshipRequestController extends Controller
         ]);
     }
 
-    public function store(Request $request, MentorshipRequestNotifier $notifier): RedirectResponse
+    public function store(Request $request, MentorshipRequestNotifier $notifier, ActivityLogger $activity): RedirectResponse
     {
         $slugs = array_keys(config('mentorship.categories', []));
 
@@ -58,6 +59,20 @@ class MentorshipRequestController extends Controller
         ]);
 
         $count = $notifier->notify($mr);
+
+        $categoryLabel = config('mentorship.categories.'.$validated['category'].'.label', ucfirst(str_replace('_', ' ', $validated['category'])));
+        $activity->log(
+            type: 'mentorship.requested',
+            title: ($user->name ?? 'An incubatee').' requested '.$categoryLabel.' mentorship',
+            actor: $user,
+            subject: $mr,
+            districtId: $submission->district_id ? (int) $submission->district_id : null,
+            meta: [
+                'category' => $validated['category'],
+                'category_label' => $categoryLabel,
+                'application_no' => $submission->application_no,
+            ],
+        );
 
         if ($count > 0) {
             return back()->with('status', 'Mentorship request sent to '.$count.' team member(s) (state, hub, and district staff).');

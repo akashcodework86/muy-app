@@ -108,6 +108,7 @@ class CfaApplyController extends Controller
         CfaSubmissionValidator $cfaValidator,
         CfaBusinessStageService $stageService,
         CfaApplicationNumberGenerator $applicationNumbers,
+        \App\Services\ActivityLogger $activity,
     ): RedirectResponse {
         $staff = User::query()
             ->where('referral_token', $token)
@@ -153,7 +154,7 @@ class CfaApplyController extends Controller
             ->where('name', $validated['block'])
             ->first();
 
-        CfaSubmission::query()->create([
+        $submission = CfaSubmission::query()->create([
             'application_no' => $applicationNo,
             'fiscal_year_id' => $fy?->id,
             'district_id' => $staff->district_id,
@@ -165,6 +166,19 @@ class CfaApplyController extends Controller
             'phone' => $validated['phone'],
             'payload' => $payload,
         ]);
+
+        $activity->log(
+            type: 'cfa.created',
+            title: 'Staff '.$staff->name.' registered CFA '.$applicationNo.' ('.$applicantDisplay.')',
+            actor: $staff,
+            subject: $submission,
+            districtId: $staff->district_id ? (int) $staff->district_id : null,
+            meta: [
+                'application_no' => $applicationNo,
+                'block' => $validated['block'] ?? null,
+                'source' => 'referral',
+            ],
+        );
 
         $productDisplay = ($validated['product'] ?? '') === 'Others'
             ? trim((string) ($validated['other_product'] ?? ''))

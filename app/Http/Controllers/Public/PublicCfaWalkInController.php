@@ -100,6 +100,7 @@ class PublicCfaWalkInController extends Controller
         CfaSubmissionValidator $cfaValidator,
         CfaBusinessStageService $stageService,
         CfaApplicationNumberGenerator $applicationNumbers,
+        \App\Services\ActivityLogger $activity,
     ): RedirectResponse {
         $this->normalizeEmptySelects($request);
 
@@ -142,7 +143,7 @@ class PublicCfaWalkInController extends Controller
             ->where('name', $validated['block'])
             ->first();
 
-        CfaSubmission::query()->create([
+        $submission = CfaSubmission::query()->create([
             'application_no'    => $applicationNo,
             'fiscal_year_id'    => $fy?->id,
             'district_id'       => $district->id,
@@ -155,6 +156,19 @@ class PublicCfaWalkInController extends Controller
             'phone'             => $validated['phone'],
             'payload'           => $payload,
         ]);
+
+        $activity->log(
+            type: 'cfa.created',
+            title: 'Walk-in CFA '.$applicationNo.' submitted ('.$applicantDisplay.')',
+            actor: null,
+            subject: $submission,
+            districtId: (int) $district->id,
+            meta: [
+                'application_no' => $applicationNo,
+                'block' => $validated['block'] ?? null,
+                'source' => 'public_form',
+            ],
+        );
 
         $productDisplay = ($validated['product'] ?? '') === 'Others'
             ? trim((string) ($validated['other_product'] ?? ''))
