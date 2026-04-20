@@ -86,6 +86,54 @@
             letter-spacing: 0.08em;
             margin-bottom: 0.85rem;
         }
+        /* Hero 2-column split */
+        .dashboard-intro__grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1.5rem; align-items: center; width: 100%; }
+        @media (max-width: 960px) { .dashboard-intro__grid { grid-template-columns: 1fr; } }
+        .dashboard-intro__left { min-width: 0; }
+        .dashboard-intro__right { display: flex; flex-direction: column; gap: 0.8rem; min-width: 0; }
+
+        /* Hero progress ring card */
+        .hero-ring-card { position: relative; padding: 1rem 1.1rem; border-radius: 20px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(238, 242, 255, 0.55)); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 12px 30px rgba(79, 70, 229, 0.08); display: grid; grid-template-columns: auto 1fr; gap: 0.9rem; align-items: center; }
+        .hero-ring-svg { width: 98px; height: 98px; flex-shrink: 0; }
+        .hero-ring-svg .track { fill: none; stroke: rgba(148, 163, 184, 0.2); stroke-width: 9; }
+        .hero-ring-svg .bar { fill: none; stroke: url(#heroRingGrad); stroke-width: 9; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1); }
+        .hero-ring-svg .pct { font-family: 'DM Sans', sans-serif; font-weight: 800; fill: #0f172a; font-size: 20px; }
+        .hero-ring-svg .pct-sub { font-size: 7px; font-weight: 700; fill: #64748b; letter-spacing: 1px; }
+        .hero-ring-body__eyebrow { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin-bottom: 0.2rem; }
+        .hero-ring-body__value { font-family: 'DM Sans', sans-serif; font-size: 1.1rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
+        .hero-ring-body__value small { color: #94a3b8; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.02em; }
+        .hero-ring-body__label { display: block; font-size: 0.68rem; color: #64748b; margin-top: 0.2rem; font-weight: 600; }
+        .hero-ring-body__gap { display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: rgba(99, 102, 241, 0.1); color: #4338ca; font-size: 0.6rem; font-weight: 700; }
+        .hero-ring-body__gap.is-good { background: rgba(34, 197, 94, 0.12); color: #15803d; }
+
+        /* Hero "today" pills */
+        .hero-today-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45rem; }
+        .hero-today { padding: 0.55rem 0.65rem; border-radius: 12px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(226, 232, 240, 0.92); display: flex; flex-direction: column; gap: 0.15rem; transition: transform 200ms ease, box-shadow 200ms ease; position: relative; min-width: 0; }
+        .hero-today:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08); }
+        .hero-today__head { display: flex; align-items: center; gap: 0.35rem; font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; }
+        .hero-today__head i { font-size: 0.7rem; }
+        .hero-today__value { font-family: 'DM Sans', sans-serif; font-size: 1.25rem; font-weight: 800; color: #0f172a; line-height: 1; letter-spacing: -0.02em; }
+        .hero-today__delta { font-size: 0.58rem; font-weight: 700; color: #64748b; display: inline-flex; align-items: center; gap: 0.15rem; }
+        .hero-today__delta.is-up { color: #16a34a; }
+        .hero-today__delta.is-down { color: #dc2626; }
+        .hero-today--cfa .hero-today__head { color: #4338ca; }
+        .hero-today--mentor .hero-today__head { color: #be185d; }
+        .hero-today--online .hero-today__head { color: #15803d; }
+        .hero-today--online::after { content: ''; position: absolute; top: 0.55rem; right: 0.55rem; width: 7px; height: 7px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); animation: heroDot 1.8s ease-in-out infinite; }
+        @keyframes heroDot { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); } 50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); } }
+
+        /* Hero sparkline */
+        .hero-spark { padding: 0.6rem 0.8rem; border-radius: 14px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(236, 254, 255, 0.55)); border: 1px solid rgba(226, 232, 240, 0.92); display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+        .hero-spark__left { min-width: 0; flex-shrink: 0; }
+        .hero-spark__eyebrow { font-size: 0.52rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #0891b2; line-height: 1; }
+        .hero-spark__value { font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem; line-height: 1; }
+        .hero-spark__value small { color: #64748b; font-weight: 600; font-size: 0.62rem; margin-left: 0.2rem; }
+        .hero-spark__chart { flex: 1; min-width: 0; height: 36px; position: relative; }
+        .hero-spark__chart svg { width: 100%; height: 100%; overflow: visible; }
+        .hero-spark__chart .spark-fill { fill: url(#heroSparkGrad); opacity: 0.55; }
+        .hero-spark__chart .spark-line { fill: none; stroke: #0891b2; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+        .hero-spark__chart .spark-dot { fill: #0891b2; stroke: #fff; stroke-width: 1.5; }
+
         .welcome-meta-pills { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
         .welcome-meta-pill {
             display: inline-flex;
@@ -278,33 +326,160 @@
                     $ringOffset = $ringPct !== null ? $ringCirc * (1 - $ringPct / 100) : $ringCirc;
                 @endphp
 
+                @php
+                    $heroRingPct = $stateProgressPct !== null ? (int) min(100, max(0, $stateProgressPct)) : 0;
+                    $heroRingCirc = 2 * M_PI * 40;
+                    $heroRingOffset = $heroRingCirc * (1 - $heroRingPct / 100);
+
+                    $sparkVals = $heroSparkline30['values'] ?? [];
+                    $sparkSum = (int) array_sum($sparkVals);
+                    $sparkMax = ! empty($sparkVals) ? max(max($sparkVals), 1) : 1;
+                    $sparkW = 160;
+                    $sparkH = 36;
+                    $sparkPts = [];
+                    $sparkCount = count($sparkVals);
+                    if ($sparkCount > 1) {
+                        foreach ($sparkVals as $i => $v) {
+                            $x = round(($i / ($sparkCount - 1)) * $sparkW, 2);
+                            $y = round($sparkH - (($v / $sparkMax) * ($sparkH - 4)) - 2, 2);
+                            $sparkPts[] = $x . ',' . $y;
+                        }
+                    }
+                    $sparkLine = implode(' ', $sparkPts);
+                    $sparkFill = $sparkPts ? ('0,' . $sparkH . ' ' . $sparkLine . ' ' . $sparkW . ',' . $sparkH) : '';
+                    $sparkLastX = $sparkPts ? (float) explode(',', end($sparkPts))[0] : 0;
+                    $sparkLastY = $sparkPts ? (float) explode(',', end($sparkPts))[1] : 0;
+
+                    $halfMonth = (int) floor($sparkCount / 2);
+                    $firstHalf = array_sum(array_slice($sparkVals, 0, $halfMonth));
+                    $secondHalf = array_sum(array_slice($sparkVals, $halfMonth));
+                    $sparkTrend = $firstHalf > 0 ? (int) round((($secondHalf - $firstHalf) / $firstHalf) * 100) : 0;
+
+                    $todayDelta = (int) ($heroCfaTodayDelta ?? 0);
+                @endphp
+
                 <div class="dashboard-intro">
-                    <div>
-                        <div class="dashboard-intro__eyebrow"><i class="fa-solid fa-flag" aria-hidden="true"></i> State overview</div>
-                        <h2>Welcome back, {{ auth()->user()->name }}</h2>
-                        <p>
-                            All districts Â· CFA picture for <strong>{{ $activeFy->name }}</strong>.
-                            Totals below use this fiscal year unless noted.
-                        </p>
-                        <div class="welcome-meta-pills">
-                            <div class="welcome-meta-pill">
-                                <i class="fa-regular fa-calendar" aria-hidden="true"></i>
-                                <span><strong>Active FY</strong> {{ $activeFy->name }}</span>
-                            </div>
-                            @if ($stateCfaTarget !== null)
+                    <div class="dashboard-intro__grid">
+                        <div class="dashboard-intro__left">
+                            <div class="dashboard-intro__eyebrow"><i class="fa-solid fa-flag" aria-hidden="true"></i> State overview</div>
+                            <h2>Welcome back, {{ auth()->user()->name }}</h2>
+                            <p>
+                                All districts · CFA picture for <strong>{{ $activeFy->name }}</strong>.
+                                Totals below use this fiscal year unless noted.
+                            </p>
+                            <div class="welcome-meta-pills">
                                 <div class="welcome-meta-pill">
-                                    <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
-                                    <span><strong>State CFA target</strong> {{ number_format((int) $stateCfaTarget) }}</span>
+                                    <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                                    <span><strong>Active FY</strong> {{ $activeFy->name }}</span>
                                 </div>
+                                @if ($stateCfaTarget !== null)
+                                    <div class="welcome-meta-pill">
+                                        <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
+                                        <span><strong>State CFA target</strong> {{ number_format((int) $stateCfaTarget) }}</span>
+                                    </div>
+                                @endif
+                                <div class="welcome-meta-pill">
+                                    <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
+                                    <span><strong>Districts</strong> {{ number_format($districtsCount) }}</span>
+                                </div>
+                                <div class="welcome-meta-pill">
+                                    <i class="fa-solid fa-users" aria-hidden="true"></i>
+                                    <span><strong>Staff (active)</strong> {{ number_format($staffActive) }} / {{ number_format($staffTotal) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-intro__right">
+                            {{-- FY progress ring --}}
+                            <div class="hero-ring-card" title="CFA submissions vs state target for {{ $activeFy->name }}">
+                                <svg class="hero-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+                                    <defs>
+                                        <linearGradient id="heroRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#6366f1"/>
+                                            <stop offset="100%" stop-color="#14b8a6"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <circle class="track" cx="50" cy="50" r="40"/>
+                                    <circle class="bar" cx="50" cy="50" r="40"
+                                        stroke-dasharray="{{ round($heroRingCirc, 3) }}"
+                                        stroke-dashoffset="{{ round($heroRingOffset, 3) }}"/>
+                                    <text class="pct" x="50" y="52" text-anchor="middle" dominant-baseline="middle">{{ $heroRingPct }}%</text>
+                                    <text class="pct-sub" x="50" y="66" text-anchor="middle">OF TARGET</text>
+                                </svg>
+                                <div>
+                                    <div class="hero-ring-body__eyebrow">FY progress</div>
+                                    <div class="hero-ring-body__value">
+                                        {{ number_format((int) ($stateCfaThisFy ?? 0)) }}
+                                        @if ($stateCfaTarget !== null)
+                                            <small>/ {{ number_format((int) $stateCfaTarget) }}</small>
+                                        @endif
+                                    </div>
+                                    <span class="hero-ring-body__label">CFA submissions this FY</span>
+                                    @if ($stateCfaTarget !== null)
+                                        @php $remaining = max(0, (int) $stateCfaTarget - (int) ($stateCfaThisFy ?? 0)); @endphp
+                                        <span class="hero-ring-body__gap @if ($remaining === 0) is-good @endif">
+                                            <i class="fa-solid @if ($remaining === 0) fa-trophy @else fa-arrow-trend-up @endif" aria-hidden="true"></i>
+                                            @if ($remaining === 0) Target met! @else {{ number_format($remaining) }} to go @endif
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            {{-- Today pills --}}
+                            <div class="hero-today-row">
+                                <div class="hero-today hero-today--cfa">
+                                    <div class="hero-today__head"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> CFA today</div>
+                                    <div class="hero-today__value">{{ number_format((int) ($heroCfaToday ?? 0)) }}</div>
+                                    @if ($todayDelta > 0)
+                                        <span class="hero-today__delta is-up"><i class="fa-solid fa-caret-up" aria-hidden="true"></i> {{ $todayDelta }} vs yest.</span>
+                                    @elseif ($todayDelta < 0)
+                                        <span class="hero-today__delta is-down"><i class="fa-solid fa-caret-down" aria-hidden="true"></i> {{ abs($todayDelta) }} vs yest.</span>
+                                    @else
+                                        <span class="hero-today__delta">— same as yest.</span>
+                                    @endif
+                                </div>
+                                <div class="hero-today hero-today--mentor">
+                                    <div class="hero-today__head"><i class="fa-solid fa-handshake" aria-hidden="true"></i> Mentorship</div>
+                                    <div class="hero-today__value">{{ number_format((int) ($heroMentorshipPending ?? 0)) }}</div>
+                                    <span class="hero-today__delta">pending requests</span>
+                                </div>
+                                <div class="hero-today hero-today--online">
+                                    <div class="hero-today__head"><i class="fa-solid fa-signal" aria-hidden="true"></i> Online now</div>
+                                    <div class="hero-today__value">{{ number_format((int) ($heroStaffOnlineNow ?? 0)) }}</div>
+                                    <span class="hero-today__delta">active in last 3 min</span>
+                                </div>
+                            </div>
+
+                            {{-- 30-day sparkline --}}
+                            @if (! empty($sparkLine))
+                            <div class="hero-spark" title="Daily CFA submissions · last 30 days">
+                                <div class="hero-spark__left">
+                                    <div class="hero-spark__eyebrow">30-DAY PULSE</div>
+                                    <div class="hero-spark__value">{{ number_format($sparkSum) }} <small>CFAs</small></div>
+                                </div>
+                                <div class="hero-spark__chart" aria-hidden="true">
+                                    <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
+                                        <defs>
+                                            <linearGradient id="heroSparkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                                <stop offset="0%" stop-color="#0891b2" stop-opacity="0.45"/>
+                                                <stop offset="100%" stop-color="#0891b2" stop-opacity="0"/>
+                                            </linearGradient>
+                                        </defs>
+                                        <polygon class="spark-fill" points="{{ $sparkFill }}"/>
+                                        <polyline class="spark-line" points="{{ $sparkLine }}"/>
+                                        <circle class="spark-dot" cx="{{ $sparkLastX }}" cy="{{ $sparkLastY }}" r="2.4"/>
+                                    </svg>
+                                </div>
+                                <div style="text-align:right;flex-shrink:0;">
+                                    <span class="hero-today__delta @if ($sparkTrend > 0) is-up @elseif ($sparkTrend < 0) is-down @endif" style="font-size:0.62rem;">
+                                        @if ($sparkTrend > 0)<i class="fa-solid fa-caret-up"></i> +{{ $sparkTrend }}%
+                                        @elseif ($sparkTrend < 0)<i class="fa-solid fa-caret-down"></i> {{ $sparkTrend }}%
+                                        @else — flat @endif
+                                    </span>
+                                    <div style="font-size:0.5rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:0.15rem;">vs prev 15d</div>
+                                </div>
+                            </div>
                             @endif
-                            <div class="welcome-meta-pill">
-                                <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
-                                <span><strong>Districts</strong> {{ number_format($districtsCount) }}</span>
-                            </div>
-                            <div class="welcome-meta-pill">
-                                <i class="fa-solid fa-users" aria-hidden="true"></i>
-                                <span><strong>Staff (active)</strong> {{ number_format($staffActive) }} / {{ number_format($staffTotal) }}</span>
-                            </div>
                         </div>
                     </div>
                 </div>

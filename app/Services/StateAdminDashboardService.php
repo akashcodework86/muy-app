@@ -7,10 +7,12 @@ use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\DistrictDeliverableTarget;
 use App\Models\FiscalYear;
+use App\Models\MentorshipRequest;
 use App\Models\StateDeliverableTarget;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class StateAdminDashboardService
 {
@@ -96,6 +98,30 @@ class StateAdminDashboardService
         $businessMixChart = $this->businessCategoryMix($activeFy?->id);
         $businessMixChart['colors'] = $this->chartColorsForLabels($businessMixChart['labels']);
 
+        $heroCfaToday = (int) CfaSubmission::query()->whereDate('created_at', now()->toDateString())->count();
+        $heroCfaYesterday = (int) CfaSubmission::query()->whereDate('created_at', now()->subDay()->toDateString())->count();
+        $heroCfaTodayDelta = $heroCfaToday - $heroCfaYesterday;
+
+        $heroMentorshipPending = 0;
+        try {
+            if (Schema::hasTable('mentorship_requests')) {
+                $heroMentorshipPending = (int) MentorshipRequest::query()
+                    ->where('status', MentorshipRequest::STATUS_PENDING)
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            $heroMentorshipPending = 0;
+        }
+
+        $heroStaffOnlineNow = 0;
+        if (Schema::hasColumn('users', 'last_seen_at')) {
+            $heroStaffOnlineNow = (int) User::query()
+                ->where('last_seen_at', '>=', now()->subMinutes(3))
+                ->count();
+        }
+
+        $heroSparkline30 = $this->dailyCfaSparkline(30);
+
         $districtAllocPct = null;
         if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0) {
             $districtAllocPct = (int) min(100, round(((int) ($districtsCfaSum ?? 0) / (int) $stateCfaTarget) * 100));
@@ -132,7 +158,37 @@ class StateAdminDashboardService
             ],
             'cfaTrend' => $stateCfaTrend,
             'businessMix' => $businessMixChart,
+            'heroCfaToday' => $heroCfaToday,
+            'heroCfaYesterday' => $heroCfaYesterday,
+            'heroCfaTodayDelta' => $heroCfaTodayDelta,
+            'heroMentorshipPending' => $heroMentorshipPending,
+            'heroStaffOnlineNow' => $heroStaffOnlineNow,
+            'heroSparkline30' => $heroSparkline30,
         ];
+    }
+
+    /**
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function dailyCfaSparkline(int $days): array
+    {
+        $start = now()->subDays($days - 1)->startOfDay();
+        $rows = DB::table('cfa_submissions')
+            ->selectRaw('DATE(created_at) as d, COUNT(*) as total')
+            ->where('created_at', '>=', $start)
+            ->groupBy('d')
+            ->pluck('total', 'd');
+
+        $labels = [];
+        $values = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $day = now()->subDays($i);
+            $key = $day->toDateString();
+            $labels[] = $day->format('d M');
+            $values[] = (int) ($rows[$key] ?? 0);
+        }
+
+        return ['labels' => $labels, 'values' => $values];
     }
 
     /**
