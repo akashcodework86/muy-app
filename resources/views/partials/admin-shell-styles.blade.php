@@ -743,4 +743,357 @@
         padding: 0.1rem 0.35rem;
         border-radius: 4px;
     }
+
+    /* ====================================================================
+       FUTURISTIC TOPBAR — glass morphism + aurora + micro-interactions
+       Overrides earlier base topbar styles to deliver a designer feel
+       without changing any existing markup or JS behaviour.
+       ==================================================================== */
+    @keyframes muyAuroraShift {
+        0%   { background-position: 0% 50%; }
+        50%  { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    @keyframes muyScan {
+        0%   { transform: translateX(-40%); opacity: 0; }
+        15%  { opacity: 1; }
+        85%  { opacity: 1; }
+        100% { transform: translateX(140%); opacity: 0; }
+    }
+    @keyframes muyBreathe {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.55); }
+        50%      { box-shadow: 0 0 0 8px rgba(20, 184, 166, 0); }
+    }
+    @keyframes muyRingSpin {
+        to { transform: rotate(1turn); }
+    }
+    @keyframes muyShine {
+        0%   { transform: translateX(-120%) skewX(-12deg); }
+        100% { transform: translateX(260%) skewX(-12deg); }
+    }
+
+    /* --- Shell ------------------------------------------------------- */
+    .admin-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        overflow: visible;
+        background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.82) 55%, rgba(240, 253, 250, 0.86) 100%);
+        backdrop-filter: blur(22px) saturate(1.2);
+        -webkit-backdrop-filter: blur(22px) saturate(1.2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.75);
+        border-radius: 0 0 22px 22px;
+        box-shadow:
+            0 20px 50px -28px rgba(79, 70, 229, 0.28),
+            0 6px 18px -10px rgba(20, 184, 166, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+    /* Animated aurora line on top border */
+    .admin-topbar::before {
+        content: '';
+        position: absolute;
+        left: 0; right: 0;
+        top: 0;
+        height: 2px;
+        width: auto;
+        border-radius: 0;
+        background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(20, 184, 166, 0.9) 18%,
+            rgba(99, 102, 241, 0.9) 45%,
+            rgba(236, 72, 153, 0.85) 68%,
+            rgba(245, 158, 11, 0.85) 85%,
+            transparent 100%);
+        background-size: 220% 100%;
+        animation: muyAuroraShift 14s ease-in-out infinite;
+        opacity: 0.85;
+        z-index: 2;
+    }
+    /* Sweeping scan-light just below the aurora line */
+    .admin-topbar::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 2px;
+        width: 22%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+        border-radius: 0;
+        animation: muyScan 9s ease-in-out infinite;
+        z-index: 2;
+    }
+
+    /* --- Brand ------------------------------------------------------- */
+    .admin-brand {
+        position: relative;
+        padding: 0.3rem 0.55rem 0.3rem 0.3rem;
+        border-radius: 14px;
+        transition: transform 0.2s ease, background 0.2s ease;
+    }
+    .admin-brand:hover {
+        background: linear-gradient(135deg, rgba(20, 184, 166, 0.08), rgba(99, 102, 241, 0.08));
+        transform: translateY(-1px);
+    }
+    .admin-brand__img {
+        position: relative;
+        height: 44px;
+        width: 44px;
+        max-width: 44px;
+        padding: 2px;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow:
+            0 0 0 1.5px rgba(255, 255, 255, 0.9),
+            0 6px 18px -6px rgba(20, 184, 166, 0.55),
+            0 10px 24px -10px rgba(99, 102, 241, 0.4);
+        isolation: isolate;
+    }
+    /* Rotating conic halo around the logo */
+    .admin-brand::before {
+        content: '';
+        position: absolute;
+        left: 0.1rem;
+        top: 50%;
+        width: 52px;
+        height: 52px;
+        transform: translateY(-50%);
+        border-radius: 50%;
+        background: conic-gradient(from 0deg,
+            rgba(20, 184, 166, 0.55),
+            rgba(99, 102, 241, 0.55),
+            rgba(236, 72, 153, 0.45),
+            rgba(245, 158, 11, 0.45),
+            rgba(20, 184, 166, 0.55));
+        filter: blur(10px);
+        opacity: 0.45;
+        animation: muyRingSpin 16s linear infinite;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .admin-brand > * { position: relative; z-index: 1; }
+    .admin-brand__name {
+        background: linear-gradient(90deg, #0f172a 0%, #0d9488 40%, #4f46e5 80%, #0f172a 100%);
+        background-size: 240% 100%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: muyAuroraShift 12s ease-in-out infinite;
+    }
+    .admin-brand__sub {
+        display: inline-block;
+        margin-top: 0.15rem;
+        padding: 0.08rem 0.45rem;
+        border-radius: 999px;
+        background: linear-gradient(135deg, rgba(20, 184, 166, 0.14), rgba(99, 102, 241, 0.14));
+        border: 1px solid rgba(20, 184, 166, 0.3);
+        color: #0f766e !important;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+    }
+
+    /* --- Nav links --------------------------------------------------- */
+    .admin-topbar__nav {
+        gap: 0.25rem 0.25rem;
+    }
+    .admin-topbar__link {
+        position: relative;
+        color: #334155;
+        font-weight: 600;
+        padding: 0.5rem 0.9rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        transition:
+            background 0.2s ease,
+            color 0.2s ease,
+            border-color 0.2s ease,
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+        overflow: hidden;
+        isolation: isolate;
+    }
+    /* Shimmer sweep on hover */
+    .admin-topbar__link::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+        transform: translateX(-120%) skewX(-12deg);
+        pointer-events: none;
+        z-index: -1;
+        opacity: 0;
+    }
+    .admin-topbar__link:hover {
+        color: #0f766e;
+        background: linear-gradient(135deg, rgba(20, 184, 166, 0.1), rgba(99, 102, 241, 0.08));
+        border-color: rgba(20, 184, 166, 0.22);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px -8px rgba(20, 184, 166, 0.45);
+    }
+    .admin-topbar__link:hover::before {
+        opacity: 1;
+        animation: muyShine 0.9s ease-out;
+    }
+    .admin-topbar__link.is-active {
+        color: #fff;
+        background:
+            linear-gradient(135deg, #0d9488 0%, #4f46e5 55%, #7c3aed 100%);
+        border-color: transparent;
+        box-shadow:
+            0 12px 24px -10px rgba(79, 70, 229, 0.55),
+            0 6px 16px -8px rgba(20, 184, 166, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+    /* Active link keeps its sheen always flowing subtly */
+    .admin-topbar__link.is-active::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.28) 45%, transparent 100%);
+        background-size: 240% 100%;
+        animation: muyAuroraShift 6s ease-in-out infinite;
+        pointer-events: none;
+        border-radius: inherit;
+    }
+
+    /* Dropdown arrow — rotate smoothly */
+    .admin-topbar__dropdown-trigger::after {
+        transition: transform 0.2s ease, margin-top 0.2s ease;
+    }
+
+    /* Dropdown panel — glassy, with a subtle top accent */
+    .admin-topbar__dropdown-panel {
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(18px) saturate(1.15);
+        -webkit-backdrop-filter: blur(18px) saturate(1.15);
+        box-shadow:
+            0 24px 54px -18px rgba(15, 23, 42, 0.22),
+            0 8px 24px -12px rgba(20, 184, 166, 0.24);
+        overflow: hidden;
+    }
+    .admin-topbar__dropdown-panel::before {
+        content: '';
+        position: absolute;
+        left: 0; right: 0;
+        top: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #14b8a6, #6366f1, #ec4899);
+        background-size: 220% 100%;
+        animation: muyAuroraShift 10s ease-in-out infinite;
+    }
+    .admin-topbar__dropdown-item {
+        position: relative;
+    }
+    .admin-topbar__dropdown-item:hover {
+        background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(99, 102, 241, 0.12));
+        color: #0f766e;
+        transform: translateX(2px);
+    }
+    .admin-topbar__dropdown-item.is-active {
+        background: linear-gradient(135deg, rgba(20, 184, 166, 0.18), rgba(99, 102, 241, 0.16));
+        color: #0d9488;
+    }
+
+    /* --- Right side controls ---------------------------------------- */
+    .admin-topbar__right { gap: 0.65rem; }
+
+    .admin-topbar__notif-summary {
+        border: 1px solid rgba(20, 184, 166, 0.22);
+        background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(240, 253, 250, 0.92));
+        color: #0f766e;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .admin-topbar__notif-summary:hover {
+        transform: translateY(-1px);
+        border-color: rgba(20, 184, 166, 0.5);
+        box-shadow: 0 10px 22px -10px rgba(20, 184, 166, 0.45);
+    }
+    .admin-topbar__details--notifications[open] .admin-topbar__notif-summary {
+        background: linear-gradient(135deg, rgba(20, 184, 166, 0.14), rgba(99, 102, 241, 0.12));
+        border-color: rgba(20, 184, 166, 0.55);
+        color: #0d9488;
+    }
+    .admin-topbar__notif-badge {
+        background: linear-gradient(135deg, #ef4444, #f97316);
+        animation: muyBreathe 2.6s ease-in-out infinite;
+    }
+
+    /* Profile pill */
+    .admin-topbar__profile {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.22rem 0.7rem 0.22rem 0.25rem;
+        border-radius: 999px;
+        background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.9));
+        border: 1px solid rgba(20, 184, 166, 0.22);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .admin-topbar__profile-summary:hover .admin-topbar__profile {
+        transform: translateY(-1px);
+        border-color: rgba(20, 184, 166, 0.5);
+        box-shadow: 0 12px 24px -12px rgba(79, 70, 229, 0.35);
+    }
+    .admin-topbar__details--profile[open] .admin-topbar__profile {
+        background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(99, 102, 241, 0.12));
+        border-color: rgba(20, 184, 166, 0.55);
+        box-shadow: 0 12px 28px -14px rgba(79, 70, 229, 0.4);
+    }
+    .admin-topbar__avatar {
+        position: relative;
+        background: linear-gradient(135deg, #14b8a6 0%, #6366f1 55%, #ec4899 100%);
+        box-shadow:
+            0 8px 20px -6px rgba(20, 184, 166, 0.55),
+            0 0 0 2px #fff,
+            0 0 0 3px rgba(20, 184, 166, 0.35);
+    }
+    /* Online pulse dot */
+    .admin-topbar__avatar::after {
+        content: '';
+        position: absolute;
+        right: -1px;
+        bottom: -1px;
+        width: 0.58rem;
+        height: 0.58rem;
+        border-radius: 50%;
+        background: #10b981;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+        animation: muyBreathe 2.4s ease-in-out infinite;
+    }
+
+    /* Dashboard-body overrides: keep the light design consistent */
+    .admin-app-body--dashboard .admin-topbar {
+        background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.74) 55%, rgba(240, 253, 250, 0.8) 100%);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+    }
+    .admin-app-body--dashboard .admin-topbar__link:hover {
+        color: #0f766e;
+        background: linear-gradient(135deg, rgba(20, 184, 166, 0.1), rgba(99, 102, 241, 0.08));
+    }
+    .admin-app-body--dashboard .admin-topbar__link.is-active {
+        color: #fff;
+        background: linear-gradient(135deg, #0d9488 0%, #4f46e5 55%, #7c3aed 100%);
+        box-shadow:
+            0 12px 24px -10px rgba(79, 70, 229, 0.55),
+            0 6px 16px -8px rgba(20, 184, 166, 0.5);
+    }
+
+    /* Reduce motion preference */
+    @media (prefers-reduced-motion: reduce) {
+        .admin-topbar::before,
+        .admin-topbar::after,
+        .admin-brand::before,
+        .admin-brand__name,
+        .admin-topbar__link.is-active::after,
+        .admin-topbar__dropdown-panel::before,
+        .admin-topbar__notif-badge,
+        .admin-topbar__avatar::after {
+            animation: none !important;
+        }
+    }
 </style>
