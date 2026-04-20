@@ -9,12 +9,15 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     @include('partials.admin-shell-styles')
     <style>
+        html, body { height: 100%; }
         .muy-login {
             min-height: 100vh;
+            height: 100vh;
             display: grid;
             grid-template-columns: 1fr;
             font-family: 'DM Sans', system-ui, sans-serif;
             color: #0f172a;
+            overflow: hidden;
             background:
                 radial-gradient(ellipse 70% 50% at 100% 0%, rgba(45, 212, 191, 0.18), transparent 55%),
                 radial-gradient(ellipse 60% 45% at 0% 100%, rgba(129, 140, 248, 0.18), transparent 55%),
@@ -28,7 +31,7 @@
         .muy-hero {
             position: relative;
             overflow: hidden;
-            padding: 3rem 2.5rem 3.25rem;
+            padding: 1.75rem 2rem 1.75rem;
             color: #f8fafc;
             background:
                 radial-gradient(circle at 20% 0%, rgba(253, 224, 71, 0.25), transparent 45%),
@@ -37,7 +40,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            gap: 2rem;
+            gap: 1.1rem;
         }
         .muy-hero::before,
         .muy-hero::after {
@@ -63,8 +66,13 @@
             left: -90px;
         }
         @media (max-width: 959px) {
+            .muy-login {
+                height: auto;
+                overflow: visible;
+            }
             .muy-hero {
-                padding: 2.25rem 1.5rem 2.5rem;
+                padding: 1.5rem 1.25rem;
+                gap: 1rem;
             }
         }
 
@@ -76,12 +84,12 @@
             z-index: 1;
         }
         .muy-hero__logo {
-            width: 52px;
-            height: 52px;
+            width: 44px;
+            height: 44px;
             object-fit: cover;
-            border-radius: 12px;
+            border-radius: 10px;
             background: #fff;
-            padding: 4px;
+            padding: 3px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
         }
         .muy-hero__brand { display: flex; flex-direction: column; line-height: 1.2; }
@@ -103,16 +111,16 @@
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
-            padding: 0.3rem 0.7rem;
+            padding: 0.22rem 0.65rem;
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.14);
             border: 1px solid rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(8px);
-            font-size: 0.72rem;
+            font-size: 0.68rem;
             letter-spacing: 0.1em;
             text-transform: uppercase;
             color: #fef3c7;
-            margin-bottom: 1.1rem;
+            margin-bottom: 0.7rem;
         }
         .muy-hero__eyebrow::before {
             content: '';
@@ -123,9 +131,9 @@
             box-shadow: 0 0 10px #fbbf24;
         }
         .muy-hero__title {
-            margin: 0 0 0.9rem;
-            font-size: clamp(1.8rem, 3.4vw, 2.55rem);
-            line-height: 1.08;
+            margin: 0 0 0.6rem;
+            font-size: clamp(1.5rem, 2.6vw, 2rem);
+            line-height: 1.12;
             letter-spacing: -0.025em;
             font-weight: 700;
             color: #fff;
@@ -138,24 +146,24 @@
             color: transparent;
         }
         .muy-hero__lead {
-            margin: 0 0 1.85rem;
+            margin: 0 0 1rem;
             max-width: 34rem;
-            font-size: 1rem;
-            line-height: 1.6;
+            font-size: 0.88rem;
+            line-height: 1.5;
             color: rgba(241, 245, 249, 0.92);
         }
 
         .muy-pillars {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+            gap: 0.55rem;
         }
         .muy-pillar {
             display: flex;
             align-items: flex-start;
-            gap: 0.6rem;
-            padding: 0.75rem 0.9rem;
-            border-radius: 12px;
+            gap: 0.55rem;
+            padding: 0.55rem 0.7rem;
+            border-radius: 10px;
             background: rgba(255, 255, 255, 0.09);
             border: 1px solid rgba(255, 255, 255, 0.18);
             backdrop-filter: blur(10px);
@@ -167,45 +175,45 @@
         }
         .muy-pillar__icon {
             flex-shrink: 0;
-            width: 32px;
-            height: 32px;
-            border-radius: 9px;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             background: linear-gradient(135deg, rgba(251, 191, 36, 0.35), rgba(94, 234, 212, 0.35));
             color: #fff;
         }
-        .muy-pillar__icon svg { width: 18px; height: 18px; }
+        .muy-pillar__icon svg { width: 16px; height: 16px; }
         .muy-pillar__txt b {
             display: block;
-            font-size: 0.85rem;
+            font-size: 0.78rem;
             font-weight: 700;
             color: #fef3c7;
-            margin-bottom: 0.1rem;
+            margin-bottom: 0.05rem;
         }
         .muy-pillar__txt span {
-            font-size: 0.72rem;
+            font-size: 0.68rem;
             color: rgba(226, 232, 240, 0.85);
-            line-height: 1.4;
+            line-height: 1.35;
         }
 
         .muy-hero__foot {
             position: relative;
             z-index: 1;
-            padding-top: 1.25rem;
+            padding-top: 0.85rem;
             border-top: 1px solid rgba(255, 255, 255, 0.15);
         }
         .muy-hero__foot-title {
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 700;
             letter-spacing: 0.14em;
             text-transform: uppercase;
             color: #fef3c7;
-            margin: 0 0 0.9rem;
+            margin: 0 0 0.6rem;
         }
         .muy-hero__foot-title::before {
             content: '';
@@ -222,19 +230,19 @@
         }
         .muy-achievements {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+            gap: 0.55rem;
         }
         .muy-achieve {
-            padding: 0.85rem 0.95rem;
-            border-radius: 12px;
+            padding: 0.6rem 0.75rem;
+            border-radius: 10px;
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
             border: 1px solid rgba(255, 255, 255, 0.18);
             backdrop-filter: blur(10px);
         }
         .muy-achieve b {
             display: block;
-            font-size: 1.35rem;
+            font-size: 1.25rem;
             font-weight: 800;
             line-height: 1;
             letter-spacing: -0.02em;
@@ -242,17 +250,18 @@
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+            font-variant-numeric: tabular-nums;
         }
         .muy-achieve span {
             display: block;
-            margin-top: 0.35rem;
-            font-size: 0.7rem;
-            line-height: 1.35;
+            margin-top: 0.3rem;
+            font-size: 0.65rem;
+            line-height: 1.3;
             color: rgba(226, 232, 240, 0.9);
         }
         .muy-hero__counting {
-            margin: 0.85rem 0 0;
-            font-size: 0.72rem;
+            margin: 0.6rem 0 0;
+            font-size: 0.68rem;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: rgba(226, 232, 240, 0.7);
@@ -268,13 +277,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 2rem 1.5rem 3rem;
+            padding: 1.5rem 1.25rem;
         }
         .muy-card {
             width: 100%;
-            max-width: 400px;
-            padding: 2.25rem 2rem 2rem;
-            border-radius: 20px;
+            max-width: 380px;
+            padding: 1.75rem 1.75rem 1.5rem;
+            border-radius: 18px;
             background: rgba(255, 255, 255, 0.92);
             border: 1px solid rgba(255, 255, 255, 0.9);
             box-shadow:
@@ -298,14 +307,14 @@
         }
         .muy-card h1 {
             margin: 0;
-            font-size: 1.5rem;
+            font-size: 1.35rem;
             font-weight: 700;
             letter-spacing: -0.025em;
             color: #0f172a;
         }
         .muy-card__lead {
-            margin: 0.4rem 0 1.5rem;
-            font-size: 0.9rem;
+            margin: 0.3rem 0 1.1rem;
+            font-size: 0.85rem;
             color: #64748b;
         }
         .muy-card label {
@@ -319,14 +328,14 @@
         .muy-card input[type="password"],
         .muy-card input[type="text"] {
             width: 100%;
-            min-height: 2.75rem;
-            padding: 0.6rem 0.85rem;
-            margin-bottom: 1rem;
+            min-height: 2.4rem;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.75rem;
             border-radius: 10px;
             border: 1px solid #e2e8f0;
             background: #f8fafc;
             font-family: inherit;
-            font-size: 1rem;
+            font-size: 0.95rem;
             box-sizing: border-box;
             transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
         }
@@ -340,7 +349,7 @@
             border-color: #818cf8;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
         }
-        .muy-card .app-auth-password-wrap { margin-bottom: 1rem; position: relative; }
+        .muy-card .app-auth-password-wrap { margin-bottom: 0.75rem; position: relative; }
         .muy-card .app-auth-password-wrap input { margin-bottom: 0; padding-right: 48px; }
         .muy-card .app-auth-password-toggle {
             position: absolute;
@@ -384,20 +393,20 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-size: 0.875rem;
+            font-size: 0.85rem;
             color: #475569;
-            margin-bottom: 1.15rem;
+            margin-bottom: 0.9rem;
         }
         .muy-remember label { margin: 0; font-weight: 500; color: #475569; }
         .muy-btn {
             display: block;
             width: 100%;
-            min-height: 2.85rem;
-            padding: 0.65rem 1rem;
+            min-height: 2.6rem;
+            padding: 0.55rem 1rem;
             border: none;
-            border-radius: 12px;
+            border-radius: 11px;
             font-family: inherit;
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
             color: #fff;
             background: linear-gradient(135deg, #4f46e5, #0d9488);
@@ -421,10 +430,10 @@
             line-height: 1.4;
         }
         .muy-card__foot {
-            margin-top: 1.25rem;
-            padding-top: 1rem;
+            margin-top: 0.95rem;
+            padding-top: 0.75rem;
             border-top: 1px solid #e2e8f0;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #94a3b8;
             text-align: center;
         }
@@ -482,19 +491,19 @@
             <p class="muy-hero__foot-title">Key achievements · so far</p>
             <div class="muy-achievements">
                 <div class="muy-achieve">
-                    <b>38,000+</b>
+                    <b data-count="38000" data-suffix="+">0</b>
                     <span>Applications received</span>
                 </div>
                 <div class="muy-achieve">
-                    <b>10,000+</b>
+                    <b data-count="10000" data-suffix="+">0</b>
                     <span>Incubatees onboarded &amp; supported</span>
                 </div>
                 <div class="muy-achieve">
-                    <b>13</b>
+                    <b data-count="13" data-format="plain">0</b>
                     <span>Districts covered across Uttarakhand</span>
                 </div>
                 <div class="muy-achieve">
-                    <b>2+</b>
+                    <b data-count="2" data-format="plain" data-suffix="+">0</b>
                     <span>Regional incubation hubs</span>
                 </div>
             </div>
@@ -548,6 +557,27 @@
 </div>
 
 <script>
+    (() => {
+        const els = document.querySelectorAll('.muy-achieve b[data-count]');
+        const duration = 1600;
+        const fmt = new Intl.NumberFormat('en-IN');
+        els.forEach((el) => {
+            const target = parseInt(el.getAttribute('data-count') || '0', 10);
+            const suffix = el.getAttribute('data-suffix') || '';
+            const isPlain = el.getAttribute('data-format') === 'plain';
+            const start = performance.now();
+            const step = (now) => {
+                const t = Math.min(1, (now - start) / duration);
+                const eased = 1 - Math.pow(1 - t, 3);
+                const v = Math.floor(target * eased);
+                el.textContent = (isPlain ? String(v) : fmt.format(v)) + suffix;
+                if (t < 1) requestAnimationFrame(step);
+                else el.textContent = (isPlain ? String(target) : fmt.format(target)) + suffix;
+            };
+            requestAnimationFrame(step);
+        });
+    })();
+
     (() => {
         const btn = document.querySelector('[data-toggle-password]');
         const input = document.getElementById('password');
