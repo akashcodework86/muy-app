@@ -8,7 +8,7 @@
 
 @push('styles')
 <style>
-    .inc-wrap { max-width: 56rem; }
+    .inc-wrap { max-width: 64rem; margin: 0 auto; }
     .inc-hero {
         background: #fff;
         border: 1px solid #e2e8f0;
