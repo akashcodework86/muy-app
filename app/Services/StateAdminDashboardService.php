@@ -200,14 +200,16 @@ class StateAdminDashboardService
         $counts = [];
         $q = CfaSubmission::query()
             ->whereNotNull('payload')
-            ->orderByDesc('id')
-            ->limit(1200);
+            ->orderByDesc('id');
         if ($fiscalYearId !== null) {
             $q->where('fiscal_year_id', $fiscalYearId);
         }
         $q->cursor()
             ->each(function (CfaSubmission $row) use (&$counts): void {
                 $cat = $row->payload['business_category'] ?? null;
+                if (is_string($cat)) {
+                    $cat = trim($cat);
+                }
                 if (! is_string($cat) || $cat === '') {
                     $cat = 'Not specified';
                 }

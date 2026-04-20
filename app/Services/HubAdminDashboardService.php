@@ -145,10 +145,12 @@ class HubAdminDashboardService
             ->whereIn('district_id', $districtIds)
             ->whereNotNull('payload')
             ->orderByDesc('id')
-            ->limit(800)
             ->cursor()
             ->each(function (CfaSubmission $row) use (&$counts): void {
                 $cat = $row->payload['business_category'] ?? null;
+                if (is_string($cat)) {
+                    $cat = trim($cat);
+                }
                 if (! is_string($cat) || $cat === '') {
                     $cat = 'Not specified';
                 }

@@ -334,7 +334,7 @@
                             <div class="business-mix-compact">
                                 <div class="business-mix-compact__header">
                                     <div class="business-mix-compact__title">Business categories</div>
-                                    <div class="business-mix-compact__meta">Ranked mix · sample from {{ $activeFy->name }} payloads</div>
+                                    <div class="business-mix-compact__meta">Ranked mix · all {{ $activeFy->name }} applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
                                 </div>
                                 @if (count($businessMix['labels']) === 0)
                                     <div class="no-data-message">No category data yet</div>
