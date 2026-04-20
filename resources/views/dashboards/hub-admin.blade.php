@@ -42,74 +42,147 @@
                                 <a href="{{ route('hub.batches.index') }}" class="hub-batch-link">Open batch manager <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
                             </div>
                         </div>
+
+                        <div class="hub-stage-row" role="group" aria-label="Stage counts, hub-wide" style="margin-top:0.9rem;">
+                            <div class="hub-stage-pill hub-stage-pill--seed">Seed<div class="n">{{ number_format($seedCount) }}</div></div>
+                            <div class="hub-stage-pill hub-stage-pill--early">Early<div class="n">{{ number_format($earlyCount) }}</div></div>
+                            <div class="hub-stage-pill hub-stage-pill--growth">Growth<div class="n">{{ number_format($growthCount) }}</div></div>
+                        </div>
+                        <p style="margin:0.55rem 0 0;font-size:0.62rem;color:#94a3b8;line-height:1.45;">
+                            Stage counts use saved form stage across hub districts · {{ number_format($cfaThisMonth) }} this month · {{ number_format($cfaLast30) }} last 30 days.
+                        </p>
                     </div>
                 </div>
 
-                <div class="hub-hero-col hub-hero-col--metrics glass-surface">
+                @php
+                    $heroRingPct = $heroProgressPct !== null ? (int) min(100, max(0, $heroProgressPct)) : 0;
+                    $heroRingCirc = 2 * M_PI * 40;
+                    $heroRingOffset = $heroRingCirc * (1 - $heroRingPct / 100);
+
+                    $sparkVals = $heroSparkline30['values'] ?? [];
+                    $sparkSum = (int) array_sum($sparkVals);
+                    $sparkMax = ! empty($sparkVals) ? max(max($sparkVals), 1) : 1;
+                    $sparkW = 160;
+                    $sparkH = 34;
+                    $sparkPts = [];
+                    $sparkCount = count($sparkVals);
+                    if ($sparkCount > 1) {
+                        foreach ($sparkVals as $i => $v) {
+                            $x = round(($i / ($sparkCount - 1)) * $sparkW, 2);
+                            $y = round($sparkH - (($v / $sparkMax) * ($sparkH - 4)) - 2, 2);
+                            $sparkPts[] = $x . ',' . $y;
+                        }
+                    }
+                    $sparkLine = implode(' ', $sparkPts);
+                    $sparkFill = $sparkPts ? ('0,' . $sparkH . ' ' . $sparkLine . ' ' . $sparkW . ',' . $sparkH) : '';
+                    $sparkLastX = $sparkPts ? (float) explode(',', end($sparkPts))[0] : 0;
+                    $sparkLastY = $sparkPts ? (float) explode(',', end($sparkPts))[1] : 0;
+                    $halfMonth = (int) floor($sparkCount / 2);
+                    $firstHalf = array_sum(array_slice($sparkVals, 0, $halfMonth));
+                    $secondHalf = array_sum(array_slice($sparkVals, $halfMonth));
+                    $sparkTrend = $firstHalf > 0 ? (int) round((($secondHalf - $firstHalf) / $firstHalf) * 100) : 0;
+
+                    $todayDelta = (int) ($heroCfaTodayDelta ?? 0);
+                @endphp
+
+                <div class="hub-hero-col hub-hero-col--metrics glass-surface hub-hero-right">
                     <div class="hub-hero-col__title">
                         <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
-                        Applications &amp; stage mix (hub)
+                        Hub pulse · <span style="text-transform:none;letter-spacing:0;color:#64748b;font-weight:700;">{{ now()->setTimezone('Asia/Kolkata')->format('d M, h:i A') }} IST</span>
                     </div>
-                    <div class="hub-highlight-card__header">
-                        <span class="label">CFA this fiscal year · all hub districts</span>
-                        <span class="label-time"><i class="fa-regular fa-clock"></i> {{ now()->setTimezone('Asia/Kolkata')->format('d M, h:i A') }} IST</span>
-                    </div>
-                    <div class="hub-apps-highlight">
-                        <div class="hub-apps-highlight__main">
-                            <div class="hub-apps-highlight__number">{{ number_format((int) ($hubCfaThisFy ?? 0)) }}</div>
-                            <div class="hub-apps-highlight__label">Total CFA (FY, hub-wide)</div>
-                        </div>
-                        @if ($hubCfaTargetSum !== null && (int) $hubCfaTargetSum > 0 && $hubCfaThisFy !== null)
-                            @php
-                                $fyPct = min(100, (int) round(((int) $hubCfaThisFy / (int) $hubCfaTargetSum) * 100));
-                            @endphp
-                            <div class="hub-progress-bar-wrap">
-                                <div class="hub-progress-bar-fill" style="width: {{ $fyPct }}%;">
-                                    <span>{{ $fyPct }}%</span>
-                                </div>
-                            </div>
-                            <p class="hub-progress-bar-meta">
-                                {{ number_format((int) $hubCfaThisFy) }} of {{ number_format((int) $hubCfaTargetSum) }} hub CFA target (district rows summed)
-                            </p>
-                        @else
-                            <p class="hub-progress-bar-meta">Set district CFA targets for this hub to see FY progress here.</p>
-                        @endif
-                    </div>
-                    <div class="hub-stage-row" role="group" aria-label="Stage counts, hub-wide">
-                        <div class="hub-stage-pill hub-stage-pill--seed">Seed<div class="n">{{ number_format($seedCount) }}</div></div>
-                        <div class="hub-stage-pill hub-stage-pill--early">Early<div class="n">{{ number_format($earlyCount) }}</div></div>
-                        <div class="hub-stage-pill hub-stage-pill--growth">Growth<div class="n">{{ number_format($growthCount) }}</div></div>
-                    </div>
-                    <p style="margin:0.65rem 0 0;font-size:0.62rem;color:#94a3b8;line-height:1.45;">
-                        Stage counts use saved form stage across all applications in hub districts. Activity cards: {{ number_format($cfaThisMonth) }} this month · {{ number_format($cfaLast30) }} last 30 days.
-                    </p>
-                </div>
-            </div>
 
-            <div class="hub-target-strip">
-                <div>
-                    <h3>CFA progress (hub districts vs applications)</h3>
-                    @if ($hubCfaTargetSum !== null && (int) $hubCfaTargetSum > 0 && $hubCfaThisFy !== null)
-                        <p class="big">{{ number_format((int) $hubCfaThisFy) }} / {{ number_format((int) $hubCfaTargetSum) }}</p>
-                        <p class="meta">FY applications in this hub vs sum of CFA targets for hub districts. State admin sets targets under district allocation.</p>
-                    @elseif ($hubCfaTargetSum !== null)
-                        <p class="big">{{ number_format((int) ($hubCfaThisFy ?? 0)) }}</p>
-                        <p class="meta">No CFA row targets for hub districts this year yet — FY applications shown above.</p>
-                    @else
-                        <p class="big">—</p>
-                        <p class="meta">Set an active fiscal year and CFA deliverable targets for districts in this hub.</p>
+                    <div class="hero-ring-card" title="CFA submissions vs hub target for {{ $activeFy?->name ?? '—' }}">
+                        <svg class="hero-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="heroRingGradHub" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#6366f1"/>
+                                    <stop offset="100%" stop-color="#14b8a6"/>
+                                </linearGradient>
+                            </defs>
+                            <circle class="track" cx="50" cy="50" r="40"/>
+                            <circle class="bar" cx="50" cy="50" r="40"
+                                stroke-dasharray="{{ round($heroRingCirc, 3) }}"
+                                stroke-dashoffset="{{ round($heroRingOffset, 3) }}"/>
+                            <text class="pct" x="50" y="52" text-anchor="middle" dominant-baseline="middle">{{ $heroRingPct }}%</text>
+                            <text class="pct-sub" x="50" y="66" text-anchor="middle">OF TARGET</text>
+                        </svg>
+                        <div>
+                            <div class="hero-ring-body__eyebrow">Hub FY progress</div>
+                            <div class="hero-ring-body__value">
+                                {{ number_format((int) ($hubCfaThisFy ?? 0)) }}
+                                @if ($hubCfaTargetSum !== null && (int) $hubCfaTargetSum > 0)
+                                    <small>/ {{ number_format((int) $hubCfaTargetSum) }}</small>
+                                @endif
+                            </div>
+                            <span class="hero-ring-body__label">CFA submissions · {{ $activeFy?->name ?? 'FY' }}</span>
+                            @if ($heroRemaining !== null)
+                                <span class="hero-ring-body__gap @if ($heroRemaining === 0) is-good @endif">
+                                    <i class="fa-solid @if ($heroRemaining === 0) fa-trophy @else fa-arrow-trend-up @endif" aria-hidden="true"></i>
+                                    @if ($heroRemaining === 0) Target met! @else {{ number_format($heroRemaining) }} to go @endif
+                                </span>
+                            @else
+                                <span class="hero-ring-body__gap">
+                                    <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                                    No hub target set
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="hero-today-row">
+                        <div class="hero-today hero-today--cfa">
+                            <div class="hero-today__head"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> CFA today</div>
+                            <div class="hero-today__value">{{ number_format((int) ($heroCfaToday ?? 0)) }}</div>
+                            @if ($todayDelta > 0)
+                                <span class="hero-today__delta is-up"><i class="fa-solid fa-caret-up"></i> {{ $todayDelta }} vs yest.</span>
+                            @elseif ($todayDelta < 0)
+                                <span class="hero-today__delta is-down"><i class="fa-solid fa-caret-down"></i> {{ abs($todayDelta) }} vs yest.</span>
+                            @else
+                                <span class="hero-today__delta">— same as yest.</span>
+                            @endif
+                        </div>
+                        <div class="hero-today hero-today--mentor">
+                            <div class="hero-today__head"><i class="fa-solid fa-handshake" aria-hidden="true"></i> Mentorship</div>
+                            <div class="hero-today__value">{{ number_format((int) ($heroMentorshipPending ?? 0)) }}</div>
+                            <span class="hero-today__delta">pending in hub</span>
+                        </div>
+                        <div class="hero-today hero-today--online">
+                            <div class="hero-today__head"><i class="fa-solid fa-signal" aria-hidden="true"></i> Online now</div>
+                            <div class="hero-today__value">{{ number_format((int) ($heroStaffOnlineNow ?? 0)) }}</div>
+                            <span class="hero-today__delta">hub users · 3 min</span>
+                        </div>
+                    </div>
+
+                    @if (! empty($sparkLine))
+                    <div class="hero-spark" title="Daily CFA submissions in hub · last 30 days">
+                        <div class="hero-spark__left">
+                            <div class="hero-spark__eyebrow">30-DAY PULSE</div>
+                            <div class="hero-spark__value">{{ number_format($sparkSum) }} <small>CFAs</small></div>
+                        </div>
+                        <div class="hero-spark__chart" aria-hidden="true">
+                            <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
+                                <defs>
+                                    <linearGradient id="heroSparkGradHub" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stop-color="#0891b2" stop-opacity="0.45"/>
+                                        <stop offset="100%" stop-color="#0891b2" stop-opacity="0"/>
+                                    </linearGradient>
+                                </defs>
+                                <polygon class="spark-fill" points="{{ $sparkFill }}"/>
+                                <polyline class="spark-line" points="{{ $sparkLine }}"/>
+                                <circle class="spark-dot" cx="{{ $sparkLastX }}" cy="{{ $sparkLastY }}" r="2.4"/>
+                            </svg>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <span class="hero-today__delta @if ($sparkTrend > 0) is-up @elseif ($sparkTrend < 0) is-down @endif" style="font-size:0.62rem;">
+                                @if ($sparkTrend > 0)<i class="fa-solid fa-caret-up"></i> +{{ $sparkTrend }}%
+                                @elseif ($sparkTrend < 0)<i class="fa-solid fa-caret-down"></i> {{ $sparkTrend }}%
+                                @else — flat @endif
+                            </span>
+                            <div style="font-size:0.5rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:0.15rem;">vs prev 15d</div>
+                        </div>
+                    </div>
                     @endif
                 </div>
-                @if ($hubCfaTargetSum !== null && (int) $hubCfaTargetSum > 0 && $hubCfaThisFy !== null)
-                    @php $stripPct = min(100, (int) round(((int) $hubCfaThisFy / (int) $hubCfaTargetSum) * 100)); @endphp
-                    <div class="progress-wrap">
-                        <div style="display:flex;justify-content:space-between;font-size:0.85rem;opacity:0.85;">
-                            <span>FY applications vs hub CFA target</span>
-                            <span>{{ $stripPct }}%</span>
-                        </div>
-                        <div class="bar"><div class="fill" style="width: {{ $stripPct }}%"></div></div>
-                    </div>
-                @endif
             </div>
 
             <div class="hub-charts-grid">

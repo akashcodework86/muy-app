@@ -8,9 +8,11 @@ use App\Models\District;
 use App\Models\DistrictDeliverableTarget;
 use App\Models\FiscalYear;
 use App\Models\Hub;
+use App\Models\MentorshipRequest;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class HubAdminDashboardService
 {
@@ -99,6 +101,51 @@ class HubAdminDashboardService
 
         $businessMix = $this->businessCategoryMix($districtIds);
 
+        $heroCfaToday = 0;
+        $heroCfaYesterday = 0;
+        if ($districtIds !== []) {
+            $heroCfaToday = (int) CfaSubmission::query()
+                ->whereIn('district_id', $districtIds)
+                ->whereDate('created_at', now()->toDateString())
+                ->count();
+            $heroCfaYesterday = (int) CfaSubmission::query()
+                ->whereIn('district_id', $districtIds)
+                ->whereDate('created_at', now()->subDay()->toDateString())
+                ->count();
+        }
+        $heroCfaTodayDelta = $heroCfaToday - $heroCfaYesterday;
+
+        $heroMentorshipPending = 0;
+        try {
+            if (Schema::hasTable('mentorship_requests') && $districtIds !== []) {
+                $heroMentorshipPending = (int) MentorshipRequest::query()
+                    ->where('status', MentorshipRequest::STATUS_PENDING)
+                    ->whereHas('cfaSubmission', function ($q) use ($districtIds): void {
+                        $q->whereIn('district_id', $districtIds);
+                    })
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            $heroMentorshipPending = 0;
+        }
+
+        $heroStaffOnlineNow = 0;
+        if (Schema::hasColumn('users', 'last_seen_at')) {
+            $heroStaffOnlineNow = (int) User::query()
+                ->where('hub_id', $hubId)
+                ->where('last_seen_at', '>=', now()->subMinutes(3))
+                ->count();
+        }
+
+        $heroSparkline30 = $this->hubDailyCfaSparkline($districtIds, 30);
+
+        $heroProgressPct = null;
+        $heroRemaining = null;
+        if ($hubCfaTargetSum !== null && (int) $hubCfaTargetSum > 0) {
+            $heroProgressPct = (int) min(100, round(((int) ($hubCfaThisFy ?? 0) / (int) $hubCfaTargetSum) * 100));
+            $heroRemaining = max(0, (int) $hubCfaTargetSum - (int) ($hubCfaThisFy ?? 0));
+        }
+
         return [
             'hub' => $hub,
             'districtsInHub' => count($districtIds),
@@ -127,7 +174,48 @@ class HubAdminDashboardService
                 'values' => $trendValues,
             ],
             'businessMix' => $businessMix,
+            'heroCfaToday' => $heroCfaToday,
+            'heroCfaYesterday' => $heroCfaYesterday,
+            'heroCfaTodayDelta' => $heroCfaTodayDelta,
+            'heroMentorshipPending' => $heroMentorshipPending,
+            'heroStaffOnlineNow' => $heroStaffOnlineNow,
+            'heroSparkline30' => $heroSparkline30,
+            'heroProgressPct' => $heroProgressPct,
+            'heroRemaining' => $heroRemaining,
         ];
+    }
+
+    /**
+     * @param  list<int>  $districtIds
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function hubDailyCfaSparkline(array $districtIds, int $days): array
+    {
+        $labels = [];
+        $values = [];
+        if ($districtIds === []) {
+            for ($i = $days - 1; $i >= 0; $i--) {
+                $labels[] = now()->subDays($i)->format('d M');
+                $values[] = 0;
+            }
+            return ['labels' => $labels, 'values' => $values];
+        }
+
+        $start = now()->subDays($days - 1)->startOfDay();
+        $rows = DB::table('cfa_submissions')
+            ->selectRaw('DATE(created_at) as d, COUNT(*) as total')
+            ->whereIn('district_id', $districtIds)
+            ->where('created_at', '>=', $start)
+            ->groupBy('d')
+            ->pluck('total', 'd');
+
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $day = now()->subDays($i);
+            $labels[] = $day->format('d M');
+            $values[] = (int) ($rows[$day->toDateString()] ?? 0);
+        }
+
+        return ['labels' => $labels, 'values' => $values];
     }
 
     /**
