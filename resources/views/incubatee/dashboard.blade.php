@@ -486,7 +486,7 @@
 
     <div class="inc-grid">
         <div class="inc-stat">
-            <p class="inc-stat__label">Completed services</p>
+            <p class="inc-stat__label">Services received</p>
             <p class="inc-stat__val">{{ $servicesCompletedCount }}</p>
             <p class="inc-stat__hint">Delivered under MUY</p>
         </div>
