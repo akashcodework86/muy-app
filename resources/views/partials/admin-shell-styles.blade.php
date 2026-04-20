@@ -142,6 +142,32 @@
             flex-wrap: nowrap;
         }
     }
+
+    /* Compact brand at mid widths so the nav never clips */
+    @media (max-width: 1360px) {
+        .admin-topbar__inner { gap: 0.55rem 0.8rem; padding: 0.6rem 0.9rem; }
+        .admin-brand { gap: 0.55rem; }
+        .admin-brand__img { height: 40px; max-width: 48px; border-radius: 9px; }
+        .admin-brand__name { font-size: 0.92rem; }
+        .admin-brand__sub { font-size: 0.6rem; }
+        .admin-topbar__nav { gap: 0.1rem 0.1rem; }
+        .admin-topbar__link { padding: 0.4rem 0.55rem; font-size: 0.82rem; }
+        .admin-topbar__dropdown-trigger { padding-right: 1.4rem; }
+        .admin-topbar__right { gap: 0.55rem; }
+    }
+    @media (max-width: 1200px) {
+        .admin-brand__name {
+            max-width: 12rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+    @media (max-width: 1100px) {
+        /* Let the nav wrap below the brand on small laptops/tablets */
+        .admin-topbar__nav--state-admin { flex-basis: 100%; order: 3; justify-content: flex-start; margin-left: 0; }
+        .admin-topbar__right { margin-left: auto; }
+    }
     .admin-topbar__details {
         position: relative;
         display: inline-block;

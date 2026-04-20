@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\TargetController;
+use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Hub\HubBatchController;
@@ -183,6 +184,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             return redirect()->route('admin.staff.monthly-targets.edit', array_merge(['user' => $user, 'deliverable_code' => 'cfa'], $q), 301);
         })->name('staff.cfa-targets');
         Route::post('staff/{user}/cfa-targets', [StaffDeliverableMonthlyTargetController::class, 'updateCfaLegacy'])->name('staff.cfa-targets.update');
+
+        Route::get('team-performance', [TeamPerformanceController::class, 'index'])->name('team-performance.index');
 
         Route::get('hub-batch-compliance', [HubBatchComplianceController::class, 'index'])->name('hub-batch-compliance.index');
         Route::post('hub-batch-compliance/extend', [HubBatchComplianceController::class, 'extend'])->name('hub-batch-compliance.extend');

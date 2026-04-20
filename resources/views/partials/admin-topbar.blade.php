@@ -27,6 +27,7 @@
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
         str_starts_with($r, 'admin.staff') => 'staff',
+        str_starts_with($r, 'admin.team-performance') => 'team-performance',
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
@@ -40,7 +41,9 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff'], true);
+    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'team-performance'], true);
+    $cfaGroupActive = in_array($activeNav, ['cfa', 'phase2-cfa'], true);
+    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance'], true);
 @endphp
 <header class="admin-topbar">
     <div class="admin-topbar__inner">
@@ -55,22 +58,43 @@
         @if ($showAdminNav)
         <nav class="admin-topbar__nav admin-topbar__nav--state-admin" aria-label="Main">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">Dashboard</a>
-            <a href="{{ route('admin.cfa.index') }}" class="admin-topbar__link @if ($activeNav === 'cfa') is-active @endif">CFA applications</a>
-            <a href="{{ route('admin.phase2-cfa.index') }}" class="admin-topbar__link @if ($activeNav === 'phase2-cfa') is-active @endif">CFA (FY 2025-26 Data)</a>
+
             <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($targetsStaffActive) is-active @endif">
-                    Targets &amp; staff
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($cfaGroupActive) is-active @endif">
+                    CFA
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
-                    <p class="admin-topbar__dropdown-kicker" role="presentation">{{ strtoupper(str_replace('_', ' ', $u->role ?? '')) }}</p>
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Applications</p>
+                    <a href="{{ route('admin.cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'cfa') is-active @endif" role="menuitem">CFA applications</a>
+                    <a href="{{ route('admin.phase2-cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase2-cfa') is-active @endif" role="menuitem">CFA (FY 2025-26 Data)</a>
+                </div>
+            </details>
+
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($targetsStaffActive) is-active @endif">
+                    Targets &amp; team
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Planning &amp; performance</p>
                     <a href="{{ route('admin.targets.state') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'state') is-active @endif" role="menuitem">State targets</a>
                     <a href="{{ route('admin.targets.district') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'district') is-active @endif" role="menuitem">District targets</a>
                     <a href="{{ route('admin.staff.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff') is-active @endif" role="menuitem">Staff</a>
+                    <a href="{{ route('admin.team-performance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-performance') is-active @endif" role="menuitem">Team performance</a>
                 </div>
             </details>
+
             <a href="{{ route('admin.service-catalog.index') }}" class="admin-topbar__link @if ($activeNav === 'service-catalog') is-active @endif">Service catalog</a>
-            <a href="{{ route('admin.designations.index') }}" class="admin-topbar__link @if ($activeNav === 'designations') is-active @endif">Designations</a>
-            <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-batch-compliance') is-active @endif">Batch CDO PDF</a>
+
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($opsGroupActive && $activeNav !== 'service-catalog') is-active @endif">
+                    More
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Operations</p>
+                    <a href="{{ route('admin.designations.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'designations') is-active @endif" role="menuitem">Designations</a>
+                    <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batch-compliance') is-active @endif" role="menuitem">Batch CDO PDF</a>
+                </div>
+            </details>
         </nav>
         @endif
 
