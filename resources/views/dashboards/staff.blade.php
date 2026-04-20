@@ -197,6 +197,44 @@
         .apps-highlight {
             margin-top: 0.65rem;
         }
+        .apps-highlight--with-stages {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(238, 242, 255, 0.35));
+            border: 1px solid rgba(99, 102, 241, 0.14);
+            border-radius: 18px;
+            padding: 0.9rem 0.9rem 1rem;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+        .apps-highlight--with-stages .apps-highlight__main {
+            margin-bottom: 0.6rem;
+            background: transparent;
+            padding: 0.45rem 0 0.25rem;
+        }
+        .apps-stage-bridge {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin: 0.85rem 0 0.65rem;
+        }
+        .apps-stage-bridge__line {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.35), transparent);
+        }
+        .apps-stage-bridge__label {
+            font-size: 0.58rem;
+            font-weight: 700;
+            color: #6366f1;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+        }
+        .stage-mix-compact--inline {
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            border: 0;
+            box-shadow: none;
+        }
         .apps-highlight__main {
             text-align: center;
             padding: 1rem 0.75rem;
@@ -2604,7 +2642,7 @@
                         <div class="label-time"><i class="fa-regular fa-clock"></i> {{ now()->setTimezone('Asia/Kolkata')->format('d M, h:i A') }} IST</div>
                     </div>
                     
-                    <div class="apps-highlight">
+                    <div class="apps-highlight apps-highlight--with-stages">
                         <div class="apps-highlight__main">
                             <div class="apps-highlight__number">{{ number_format($cfaThisFy) }}</div>
                             <div class="apps-highlight__label">Total Applications</div>
@@ -2626,8 +2664,89 @@
                         @else
                             <div class="apps-highlight__sub">Keep sharing your form link this cycle.</div>
                         @endif
+
+                        <div class="apps-stage-bridge" aria-hidden="true">
+                            <span class="apps-stage-bridge__line"></span>
+                            <span class="apps-stage-bridge__label">Bifurcation of these {{ number_format($cfaThisFy) }} applications</span>
+                            <span class="apps-stage-bridge__line"></span>
+                        </div>
+
+                        <div class="stage-mix-compact stage-mix-compact--inline">
+                            <div class="stage-mix-compact__title">
+                                <span>STAGE MIX</span>
+                                <span class="stage-mix-compact__target">Target {{ $stageTargets['EARLY'] }} / {{ $stageTargets['SEED'] }} / {{ $stageTargets['GROWTH'] }}</span>
+                            </div>
+
+                            <svg class="stage-arrows" viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="arrowGradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
+                                        <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:0.8" />
+                                    </linearGradient>
+                                    <linearGradient id="arrowGradient2" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
+                                        <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:0.8" />
+                                    </linearGradient>
+                                    <linearGradient id="arrowGradient3" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
+                                        <stop offset="100%" style="stop-color:#34d399;stop-opacity:0.8" />
+                                    </linearGradient>
+                                </defs>
+                                <path d="M 200 20 Q 100 40, 80 80" stroke="url(#arrowGradient1)" stroke-width="2.5" fill="none" stroke-dasharray="5,3" opacity="0.7"/>
+                                <path d="M 200 20 L 200 80" stroke="url(#arrowGradient2)" stroke-width="3" fill="none" stroke-dasharray="5,3" opacity="0.7"/>
+                                <path d="M 200 20 Q 300 40, 320 80" stroke="url(#arrowGradient3)" stroke-width="2.5" fill="none" stroke-dasharray="5,3" opacity="0.7"/>
+                            </svg>
+
+                            <div class="stage-pills-grid">
+                                <div class="stage-pill-compact stage-pill-compact--seed">
+                                    <div class="stage-pill-compact__label">SEED</div>
+                                    <div class="stage-pill-compact__value">{{ $stagePercentages['SEED'] }}%</div>
+                                    <div class="stage-pill-compact__meta">Target {{ $stageTargets['SEED'] }}% · {{ $stageTotals['SEED'] }}</div>
+                                    <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['SEED'] >= 0 ? 'positive' : 'negative' }}">
+                                        Gap {{ $stageGaps['SEED'] > 0 ? '+' : '' }}{{ $stageGaps['SEED'] }}%
+                                    </div>
+                                </div>
+
+                                <div class="stage-pill-compact stage-pill-compact--early stage-pill-compact--large">
+                                    <div class="stage-pill-compact__label">EARLY</div>
+                                    <div class="stage-pill-compact__value">{{ $stagePercentages['EARLY'] }}%</div>
+                                    <div class="stage-pill-compact__meta">Target {{ $stageTargets['EARLY'] }}% · {{ $stageTotals['EARLY'] }}</div>
+                                    <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['EARLY'] >= 0 ? 'positive' : 'negative' }}">
+                                        Gap {{ $stageGaps['EARLY'] > 0 ? '+' : '' }}{{ $stageGaps['EARLY'] }}%
+                                    </div>
+                                </div>
+
+                                <div class="stage-pill-compact stage-pill-compact--growth">
+                                    <div class="stage-pill-compact__label">GROWTH</div>
+                                    <div class="stage-pill-compact__value">{{ $stagePercentages['GROWTH'] }}%</div>
+                                    <div class="stage-pill-compact__meta">Target {{ $stageTargets['GROWTH'] }}% · {{ $stageTotals['GROWTH'] }}</div>
+                                    <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['GROWTH'] >= 0 ? 'positive' : 'negative' }}">
+                                        Gap {{ $stageGaps['GROWTH'] > 0 ? '+' : '' }}{{ $stageGaps['GROWTH'] }}%
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="stage-insight-compact">
+                                @php
+                                    $mostDeficient = null;
+                                    $maxDeficit = 0;
+                                    foreach ($stageGaps as $stage => $gap) {
+                                        if ($gap < $maxDeficit) {
+                                            $maxDeficit = $gap;
+                                            $mostDeficient = $stage;
+                                        }
+                                    }
+                                @endphp
+                                @if ($totalApps === 0)
+                                    Start collecting applications to see stage distribution.
+                                @elseif ($mostDeficient)
+                                    <strong>{{ ucfirst(strtolower($mostDeficient)) }}</strong> is short by {{ abs($stageGaps[$mostDeficient]) }}%.
+                                @endif
+                                Maintain mix close to <strong>Early {{ $stageTargets['EARLY'] }}%</strong> · <strong>Seed {{ $stageTargets['SEED'] }}%</strong> · <strong>Growth {{ $stageTargets['GROWTH'] }}%</strong>.
+                            </div>
+                        </div>
                     </div>
-                    
+
                     {{-- Business categories: ranked leaderboard (bar width = share of your mix) --}}
                     <div class="business-mix-compact">
                         <div class="business-mix-compact__header">
@@ -2676,102 +2795,6 @@
                         </div>
                     </div>
                     
-                    <div class="stage-mix-compact">
-                        <div class="stage-mix-compact__title">
-                            <span>STAGE MIX</span>
-                            <span class="stage-mix-compact__target">Target {{ $stageTargets['EARLY'] }} / {{ $stageTargets['SEED'] }} / {{ $stageTargets['GROWTH'] }}</span>
-                        </div>
-                        
-                        {{-- SVG Connecting Arrows --}}
-                        <svg class="stage-arrows" viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                                <linearGradient id="arrowGradient1" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
-                                    <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:0.8" />
-                                </linearGradient>
-                                <linearGradient id="arrowGradient2" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
-                                    <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:0.8" />
-                                </linearGradient>
-                                <linearGradient id="arrowGradient3" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.6" />
-                                    <stop offset="100%" style="stop-color:#34d399;stop-opacity:0.8" />
-                                </linearGradient>
-                            </defs>
-                            
-                            {{-- Arrow to SEED (left) --}}
-                            <path d="M 200 20 Q 100 40, 80 80" 
-                                  stroke="url(#arrowGradient1)" 
-                                  stroke-width="2.5" 
-                                  fill="none" 
-                                  stroke-dasharray="5,3"
-                                  opacity="0.7"/>
-                            
-                            {{-- Arrow to EARLY (center) --}}
-                            <path d="M 200 20 L 200 80" 
-                                  stroke="url(#arrowGradient2)" 
-                                  stroke-width="3" 
-                                  fill="none" 
-                                  stroke-dasharray="5,3"
-                                  opacity="0.7"/>
-                            
-                            {{-- Arrow to GROWTH (right) --}}
-                            <path d="M 200 20 Q 300 40, 320 80" 
-                                  stroke="url(#arrowGradient3)" 
-                                  stroke-width="2.5" 
-                                  fill="none" 
-                                  stroke-dasharray="5,3"
-                                  opacity="0.7"/>
-                        </svg>
-                        
-                        <div class="stage-pills-grid">
-                            <div class="stage-pill-compact stage-pill-compact--seed">
-                                <div class="stage-pill-compact__label">SEED</div>
-                                <div class="stage-pill-compact__value">{{ $stagePercentages['SEED'] }}%</div>
-                                <div class="stage-pill-compact__meta">Target {{ $stageTargets['SEED'] }}% · {{ $stageTotals['SEED'] }}</div>
-                                <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['SEED'] >= 0 ? 'positive' : 'negative' }}">
-                                    Gap {{ $stageGaps['SEED'] > 0 ? '+' : '' }}{{ $stageGaps['SEED'] }}%
-                                </div>
-                            </div>
-                            
-                            <div class="stage-pill-compact stage-pill-compact--early stage-pill-compact--large">
-                                <div class="stage-pill-compact__label">EARLY</div>
-                                <div class="stage-pill-compact__value">{{ $stagePercentages['EARLY'] }}%</div>
-                                <div class="stage-pill-compact__meta">Target {{ $stageTargets['EARLY'] }}% · {{ $stageTotals['EARLY'] }}</div>
-                                <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['EARLY'] >= 0 ? 'positive' : 'negative' }}">
-                                    Gap {{ $stageGaps['EARLY'] > 0 ? '+' : '' }}{{ $stageGaps['EARLY'] }}%
-                                </div>
-                            </div>
-                            
-                            <div class="stage-pill-compact stage-pill-compact--growth">
-                                <div class="stage-pill-compact__label">GROWTH</div>
-                                <div class="stage-pill-compact__value">{{ $stagePercentages['GROWTH'] }}%</div>
-                                <div class="stage-pill-compact__meta">Target {{ $stageTargets['GROWTH'] }}% · {{ $stageTotals['GROWTH'] }}</div>
-                                <div class="stage-pill-compact__gap stage-pill-compact__gap--{{ $stageGaps['GROWTH'] >= 0 ? 'positive' : 'negative' }}">
-                                    Gap {{ $stageGaps['GROWTH'] > 0 ? '+' : '' }}{{ $stageGaps['GROWTH'] }}%
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="stage-insight-compact">
-                            @php
-                                $mostDeficient = null;
-                                $maxDeficit = 0;
-                                foreach ($stageGaps as $stage => $gap) {
-                                    if ($gap < $maxDeficit) {
-                                        $maxDeficit = $gap;
-                                        $mostDeficient = $stage;
-                                    }
-                                }
-                            @endphp
-                            @if ($totalApps === 0)
-                                Start collecting applications to see stage distribution.
-                            @elseif ($mostDeficient)
-                                <strong>{{ ucfirst(strtolower($mostDeficient)) }}</strong> is short by {{ abs($stageGaps[$mostDeficient]) }}%.
-                            @endif
-                            Maintain mix close to <strong>Early {{ $stageTargets['EARLY'] }}%</strong> · <strong>Seed {{ $stageTargets['SEED'] }}%</strong> · <strong>Growth {{ $stageTargets['GROWTH'] }}%</strong>.
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
