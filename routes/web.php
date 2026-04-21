@@ -71,9 +71,8 @@ Route::post('/cfa/public', [PublicCfaWalkInController::class, 'store'])
     ->middleware('throttle:30,1')
     ->name('cfa.public.store');
 
-/** DANGER: runs programme:wipe-structure. ?key= must match PROGRAMME_WIPE_SECRET (.env). Optional &app_settings=1. Remove route + ProgrammeStructureWipeController after one-time use. */
+/** DANGER: runs programme:wipe-structure. ?key= must match PROGRAMME_WIPE_SECRET (.env). Optional &app_settings=1. Remove route + ProgrammeStructureWipeController after one-time use. No throttle — key is the gate; avoids 429 during setup retries. */
 Route::get('programme-wipe-run', [ProgrammeStructureWipeController::class, 'execute'])
-    ->middleware('throttle:5,1')
     ->name('programme-wipe-run');
 
 Route::middleware('guest')->group(function () {
