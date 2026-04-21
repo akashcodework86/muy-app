@@ -38,7 +38,6 @@
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
         str_starts_with($r, 'admin.service-catalog') => 'service-catalog',
         str_starts_with($r, 'admin.service-module-settings') => 'service-module-settings',
-        str_starts_with($r, 'admin.programme-structure-wipe') => 'programme-structure-wipe',
         str_starts_with($r, 'admin.batches') => 'admin-batches',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         $r === 'staff.monthly-targets' => 'staff-targets',
@@ -53,7 +52,7 @@
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase2-cfa'], true);
-    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'programme-structure-wipe'], true);
+    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -162,9 +161,6 @@
                     </a>
                     <a href="{{ route('admin.service-module-settings.edit') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-module-settings') is-active @endif" role="menuitem">
                         {!! $i('cog') !!}<span>Service module settings</span>
-                    </a>
-                    <a href="{{ route('admin.programme-structure-wipe.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'programme-structure-wipe') is-active @endif" role="menuitem" style="color:#b91c1c;">
-                        {!! $i('database') !!}<span>Reset programme structure</span>
                     </a>
                 </div>
             </details>

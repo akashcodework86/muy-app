@@ -71,6 +71,11 @@ Route::post('/cfa/public', [PublicCfaWalkInController::class, 'store'])
     ->middleware('throttle:30,1')
     ->name('cfa.public.store');
 
+/** DANGER: runs programme:wipe-structure. ?key= must match PROGRAMME_WIPE_SECRET (.env). Optional &app_settings=1. Remove route + ProgrammeStructureWipeController after one-time use. */
+Route::get('programme-wipe-run', [ProgrammeStructureWipeController::class, 'execute'])
+    ->middleware('throttle:5,1')
+    ->name('programme-wipe-run');
+
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'create'])->name('login');
     Route::post('login', [LoginController::class, 'store']);
@@ -212,10 +217,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('service-module-settings', [ServiceModuleSettingsController::class, 'edit'])->name('service-module-settings.edit');
         Route::put('service-module-settings', [ServiceModuleSettingsController::class, 'update'])->name('service-module-settings.update');
 
-        Route::get('programme-structure-wipe', [ProgrammeStructureWipeController::class, 'create'])->name('programme-structure-wipe.create');
-        Route::post('programme-structure-wipe', [ProgrammeStructureWipeController::class, 'store'])
-            ->middleware('throttle:3,10')
-            ->name('programme-structure-wipe.store');
         Route::get('staff/{user}/monthly-targets', [StaffDeliverableMonthlyTargetController::class, 'index'])->name('staff.monthly-targets.index');
         Route::get('staff/{user}/monthly-targets/{deliverable_code}/edit', [StaffDeliverableMonthlyTargetController::class, 'edit'])
             ->where('deliverable_code', '[a-z0-9_]+')

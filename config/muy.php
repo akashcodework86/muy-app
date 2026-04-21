@@ -4,11 +4,11 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Programme structure wipe (admin UI)
+    | Programme structure wipe (one-shot URL)
     |--------------------------------------------------------------------------
     |
-    | When set (min. 8 characters), state admins can POST from the danger page
-    | to run `programme:wipe-structure`. Never commit a real secret; use .env only.
+    | GET /programme-wipe-run?key=<this value> runs `programme:wipe-structure`.
+    | Optional: &app_settings=1. Remove the route after use. Never commit a real secret.
     |
     */
     'programme_wipe_secret' => env('PROGRAMME_WIPE_SECRET'),

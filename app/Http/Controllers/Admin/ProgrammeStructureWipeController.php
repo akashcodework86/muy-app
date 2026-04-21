@@ -3,66 +3,40 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Validation\Rule;
-use Illuminate\View\View;
 
+/**
+ * One-shot HTTP trigger for {@see \App\Console\Commands\WipeProgrammeStructureCommand}.
+ * DELETE this controller and the programme-wipe-run route from web.php after you have run the wipe on production.
+ */
 class ProgrammeStructureWipeController extends Controller
 {
-    public function create(Request $request): View
+    public function execute(Request $request): Response
     {
-        return view('admin.programme-structure-wipe.create', [
-            'wipeConfigured' => $this->wipeSecretIsConfigured(),
-        ]);
-    }
+        $secret = (string) config('muy.programme_wipe_secret', '');
+        $key = (string) $request->query('key', '');
 
-    public function store(Request $request): RedirectResponse
-    {
-        if (! $this->wipeSecretIsConfigured()) {
-            abort(403, 'PROGRAMME_WIPE_SECRET is not configured.');
+        if (strlen($secret) < 8 || ! hash_equals($secret, $key)) {
+            abort(403, 'Unauthorized');
         }
 
-        $expected = (string) config('muy.programme_wipe_secret');
-
-        $request->validate([
-            'wipe_secret' => [
-                'required',
-                'string',
-                function (string $attribute, mixed $value, \Closure $fail) use ($expected): void {
-                    if (! is_string($value) || $value === '' || ! hash_equals($expected, $value)) {
-                        $fail('The wipe secret is incorrect.');
-                    }
-                },
-            ],
-            'confirm_phrase' => ['required', 'string', Rule::in(['RESET-PROGRAMME'])],
-            'wipe_app_settings' => ['sometimes', 'boolean'],
-        ]);
+        $wipeAppSettings = $request->query('app_settings') === '1'
+            || filter_var($request->query('app_settings', false), FILTER_VALIDATE_BOOLEAN);
 
         $exitCode = Artisan::call('programme:wipe-structure', [
             '--force' => true,
-            '--wipe-app-settings' => $request->boolean('wipe_app_settings'),
+            '--wipe-app-settings' => $wipeAppSettings,
         ]);
 
-        $output = trim(Artisan::output());
+        $body = "=== programme:wipe-structure ===\nTime: ".date('Y-m-d H:i:s')."\nExit code: {$exitCode}\n\n".Artisan::output();
+        $status = $exitCode === 0 ? 200 : 500;
 
-        if ($exitCode !== 0) {
-            return back()
-                ->withErrors(['run' => 'Wipe command failed (exit '.$exitCode.').'])
-                ->withInput();
-        }
-
-        return back()->with([
-            'status' => 'Programme structure wiped. Recreate categories, services, and deliverables / targets as needed.',
-            'command_output' => $output !== '' ? $output : null,
-        ]);
-    }
-
-    private function wipeSecretIsConfigured(): bool
-    {
-        $s = (string) config('muy.programme_wipe_secret', '');
-
-        return strlen($s) >= 8;
+        return response(
+            '<pre style="background:#111;color:#0f0;padding:20px;font-size:14px;white-space:pre-wrap;">'.e($body).'</pre>',
+            $status,
+            ['Content-Type' => 'text/html; charset=UTF-8']
+        );
     }
 }
