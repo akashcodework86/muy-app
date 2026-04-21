@@ -47,10 +47,17 @@ class DistrictSpocController extends Controller
             ->groupBy('state_staff_user_id')
             ->pluck('c', 'state_staff_user_id');
 
+        // SPOC -> [district_id, ...] for the By-SPOC quick-assign panel.
+        $spocDistricts = DistrictServiceSpoc::query()
+            ->get(['state_staff_user_id', 'district_id'])
+            ->groupBy('state_staff_user_id')
+            ->map(fn ($rows) => $rows->pluck('district_id')->all());
+
         return view('admin.service-spocs.index', [
             'hubs' => $hubs,
             'spocs' => $spocs,
             'counts' => $counts,
+            'spocDistricts' => $spocDistricts,
         ]);
     }
 
@@ -151,5 +158,117 @@ class DistrictSpocController extends Controller
             : "Saved {$touched} assignment change(s).";
 
         return redirect()->route('admin.service-spocs.index')->with('status', $msg);
+    }
+
+    /**
+     * Bulk-assign districts to ONE SPOC.
+     *
+     * Semantics: the submitted district_ids[] become this SPOC's complete
+     * coverage list. Any district that was previously under this SPOC but is
+     * NOT ticked now gets unassigned. Districts that currently belong to a
+     * different SPOC and are ticked here will be stolen (explicitly — the UI
+     * warns about this).
+     */
+    public function updateForSpoc(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'spoc_id' => ['required', 'integer'],
+            'district_ids' => ['nullable', 'array'],
+            'district_ids.*' => ['integer'],
+        ]);
+
+        $spoc = User::query()
+            ->where('id', $validated['spoc_id'])
+            ->where('role', 'state_staff')
+            ->where('is_active', true)
+            ->first();
+
+        if (! $spoc) {
+            return redirect()->route('admin.service-spocs.index')
+                ->withErrors(['spoc_id' => 'Selected SPOC is not a valid active State Staff user.']);
+        }
+
+        $newDistrictIds = array_values(array_unique(array_map('intval', $validated['district_ids'] ?? [])));
+        $validDistrictIds = District::query()->whereIn('id', $newDistrictIds)->pluck('id')->all();
+        $newDistrictIds = array_values(array_intersect($newDistrictIds, $validDistrictIds));
+
+        $now = now();
+        $changes = [
+            'spoc_id' => $spoc->id,
+            'spoc_name' => $spoc->name,
+            'added' => [],
+            'stolen' => [],
+            'removed' => [],
+        ];
+
+        DB::transaction(function () use ($spoc, $newDistrictIds, $request, $now, &$changes) {
+            $existingForSpoc = DistrictServiceSpoc::query()
+                ->where('state_staff_user_id', $spoc->id)
+                ->pluck('district_id')
+                ->all();
+            $existingSet = array_flip($existingForSpoc);
+            $newSet = array_flip($newDistrictIds);
+
+            foreach ($newDistrictIds as $districtId) {
+                if (isset($existingSet[$districtId])) {
+                    continue; // already held — nothing to do
+                }
+
+                $other = DistrictServiceSpoc::query()->where('district_id', $districtId)->first();
+                if ($other) {
+                    $changes['stolen'][] = [
+                        'district_id' => $districtId,
+                        'previous_spoc_id' => $other->state_staff_user_id,
+                    ];
+                    $other->state_staff_user_id = $spoc->id;
+                    $other->assigned_by = $request->user()->id;
+                    $other->assigned_at = $now;
+                    $other->save();
+                } else {
+                    DistrictServiceSpoc::query()->create([
+                        'district_id' => $districtId,
+                        'state_staff_user_id' => $spoc->id,
+                        'assigned_by' => $request->user()->id,
+                        'assigned_at' => $now,
+                    ]);
+                    $changes['added'][] = ['district_id' => $districtId];
+                }
+            }
+
+            foreach ($existingForSpoc as $districtId) {
+                if (! isset($newSet[$districtId])) {
+                    DistrictServiceSpoc::query()
+                        ->where('state_staff_user_id', $spoc->id)
+                        ->where('district_id', $districtId)
+                        ->delete();
+                    $changes['removed'][] = ['district_id' => $districtId];
+                }
+            }
+        });
+
+        $touched = count($changes['added']) + count($changes['stolen']) + count($changes['removed']);
+
+        if ($touched > 0) {
+            $this->auditLogger->record(
+                $request,
+                'service_spocs.updated_for_spoc',
+                DistrictServiceSpoc::class,
+                $spoc->id,
+                null,
+                $changes,
+                "SPOC {$spoc->name}: coverage updated ({$touched} change(s))",
+            );
+        }
+
+        $parts = [];
+        if (count($changes['added'])) $parts[] = count($changes['added']).' added';
+        if (count($changes['stolen'])) $parts[] = count($changes['stolen']).' reassigned';
+        if (count($changes['removed'])) $parts[] = count($changes['removed']).' removed';
+        $msg = $touched === 0
+            ? "No coverage changes for {$spoc->name}."
+            : "{$spoc->name}: ".implode(', ', $parts).'.';
+
+        return redirect()->route('admin.service-spocs.index', ['focus_spoc' => $spoc->id])
+            ->with('status', $msg);
     }
 }

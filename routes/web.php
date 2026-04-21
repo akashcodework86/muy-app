@@ -192,6 +192,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         /** District -> SPOC mapping used by the maker-checker service flow. */
         Route::get('service-spocs', [DistrictSpocController::class, 'index'])->name('service-spocs.index');
         Route::put('service-spocs', [DistrictSpocController::class, 'update'])->name('service-spocs.update');
+        Route::put('service-spocs/by-spoc', [DistrictSpocController::class, 'updateForSpoc'])->name('service-spocs.update-for-spoc');
         Route::get('staff/{user}/monthly-targets', [StaffDeliverableMonthlyTargetController::class, 'index'])->name('staff.monthly-targets.index');
         Route::get('staff/{user}/monthly-targets/{deliverable_code}/edit', [StaffDeliverableMonthlyTargetController::class, 'edit'])
             ->where('deliverable_code', '[a-z0-9_]+')
