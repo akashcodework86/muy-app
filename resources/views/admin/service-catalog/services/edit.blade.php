@@ -48,6 +48,18 @@
             <input id="sort_order" name="sort_order" type="number" min="0" value="{{ old('sort_order', $service->sort_order) }}" style="width:8rem; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
         </div>
 
+        <div style="margin-bottom:0.85rem;">
+            <label for="reporting_tier" style="display:block; font-weight:500; margin-bottom:0.25rem;">Reporting — Key / Non‑Key</label>
+            <select id="reporting_tier" name="reporting_tier" required style="width:100%; max-width:24rem; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
+                @php $rt = old('reporting_tier', $service->reporting_tier ?? 'unset'); @endphp
+                <option value="unset" @selected($rt === 'unset')>Unset (reports group with Non‑Key until you choose)</option>
+                <option value="key" @selected($rt === 'key')>Key</option>
+                <option value="non_key" @selected($rt === 'non_key')>Non‑Key</option>
+            </select>
+            <p style="font-size:0.75rem; color:#71717a; margin:0.25rem 0 0;">For MIS / exports only — does not change workflow.</p>
+            @error('reporting_tier')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
+        </div>
+
         <div style="margin-bottom:0.85rem; display:flex; flex-wrap:wrap; gap:1.25rem;">
             <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer;">
                 <input type="hidden" name="is_active" value="0">

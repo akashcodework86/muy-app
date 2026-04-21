@@ -63,6 +63,7 @@ class CatalogServiceController extends Controller
             'allowed_document_types' => ['nullable', 'array'],
             'allowed_document_types.*' => ['string', Rule::in(['pdf', 'image'])],
             'deliverable_id' => ['nullable', 'integer', 'exists:deliverables,id'],
+            'reporting_tier' => ['required', 'string', Rule::in(['unset', 'key', 'non_key'])],
         ]);
 
         $fieldSchema = $this->validatedFieldSchema($request);
@@ -82,6 +83,7 @@ class CatalogServiceController extends Controller
             'sort_order' => (int) ($validated['sort_order'] ?? 0),
             'is_active' => (bool) ($request->boolean('is_active', true)),
             'allows_multiple' => (bool) $request->boolean('allows_multiple', false),
+            'reporting_tier' => $validated['reporting_tier'],
             'requires_approval' => (bool) $request->boolean('requires_approval', false),
             'requires_document' => $requiresDocument,
             'allowed_document_types' => $allowedDocTypes,
@@ -143,6 +145,7 @@ class CatalogServiceController extends Controller
             'allowed_document_types' => ['nullable', 'array'],
             'allowed_document_types.*' => ['string', Rule::in(['pdf', 'image'])],
             'deliverable_id' => ['nullable', 'integer', 'exists:deliverables,id'],
+            'reporting_tier' => ['required', 'string', Rule::in(['unset', 'key', 'non_key'])],
         ]);
 
         $fieldSchema = $this->validatedFieldSchema($request);
@@ -154,6 +157,7 @@ class CatalogServiceController extends Controller
             'name' => $service->name,
             'service_category_id' => $service->service_category_id,
             'allows_multiple' => $service->allows_multiple,
+            'reporting_tier' => $service->reporting_tier,
             'requires_approval' => $service->requires_approval,
             'requires_document' => $service->requires_document,
             'allowed_document_types' => $service->allowed_document_types,
@@ -167,6 +171,7 @@ class CatalogServiceController extends Controller
         $service->sort_order = (int) ($validated['sort_order'] ?? 0);
         $service->is_active = (bool) $request->boolean('is_active', true);
         $service->allows_multiple = (bool) $request->boolean('allows_multiple', false);
+        $service->reporting_tier = $validated['reporting_tier'];
         $service->requires_approval = (bool) $request->boolean('requires_approval', false);
         $service->requires_document = $requiresDocument;
         $service->allowed_document_types = $allowedDocTypes;
@@ -184,6 +189,7 @@ class CatalogServiceController extends Controller
                 'name' => $service->name,
                 'service_category_id' => $service->service_category_id,
                 'allows_multiple' => $service->allows_multiple,
+                'reporting_tier' => $service->reporting_tier,
                 'requires_approval' => $service->requires_approval,
                 'requires_document' => $service->requires_document,
                 'allowed_document_types' => $service->allowed_document_types,

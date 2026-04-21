@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Service extends Model
 {
+    public const REPORTING_UNSET = 'unset';
+
+    public const REPORTING_KEY = 'key';
+
+    public const REPORTING_NON_KEY = 'non_key';
+
     protected $fillable = [
         'service_category_id',
         'deliverable_id',
@@ -16,6 +22,7 @@ class Service extends Model
         'sort_order',
         'is_active',
         'allows_multiple',
+        'reporting_tier',
         'requires_approval',
         'requires_document',
         'allowed_document_types',
@@ -48,6 +55,24 @@ class Service extends Model
         }
 
         return array_values(array_intersect(['pdf', 'image'], array_map('strval', $types)));
+    }
+
+    /**
+     * For dashboards / exports: Key vs Non-Key. Unset is grouped with Non-Key for counts only;
+     * the stored value stays `unset` until an admin sets it explicitly.
+     */
+    public function reportingBucketForMetrics(): string
+    {
+        return $this->reporting_tier === self::REPORTING_KEY
+            ? self::REPORTING_KEY
+            : self::REPORTING_NON_KEY;
+    }
+
+    public function isReportingUnset(): bool
+    {
+        return $this->reporting_tier === self::REPORTING_UNSET
+            || $this->reporting_tier === null
+            || $this->reporting_tier === '';
     }
 
     public function cases(): HasMany

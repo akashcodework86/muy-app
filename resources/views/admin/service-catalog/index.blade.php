@@ -15,7 +15,7 @@
         </ul>
     @endif
 
-    <p style="font-size:0.9rem; color:#52525b; margin-top:0;">Top-level <strong>categories</strong>, then <strong>subcategories</strong>. <strong>Services</strong> must sit under a subcategory (for staff case picker). Optional <code>field_schema</code> JSON is set per service when adding/editing a service.</p>
+    <p style="font-size:0.9rem; color:#52525b; margin-top:0;">Top-level <strong>categories</strong>, then <strong>subcategories</strong>. <strong>Services</strong> must sit under a subcategory (for staff case picker). Each service can be tagged <strong>Key</strong> / <strong>Non‑Key</strong> / <strong>Unset</strong> for reporting only (Unset counts with Non‑Key in roll-ups until you set it).</p>
 
     <p style="margin:0.75rem 0 1rem; display:flex; flex-wrap:wrap; gap:0.5rem;">
         <a href="{{ route('admin.service-catalog.categories.create') }}" style="display:inline-block; background:#18181b; color:#fff; padding:0.45rem 0.85rem; border-radius:6px; text-decoration:none; font-size:0.9rem;">Add top category</a>
@@ -42,7 +42,11 @@
                 <p style="font-size:0.8rem; color:#b45309; margin:0.5rem 0 0;">Services should be under a subcategory, not directly on a top category. Move these:</p>
                 <ul style="margin:0.25rem 0 0; font-size:0.85rem;">
                     @foreach ($root->services as $svc)
-                        <li><code>{{ $svc->code }}</code> — {{ $svc->name }} — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a></li>
+                        <li>
+                            <code>{{ $svc->code }}</code> — {{ $svc->name }}
+                            @include('admin.service-catalog.partials.reporting-tier-badge', ['svc' => $svc])
+                            — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
+                        </li>
                     @endforeach
                 </ul>
             @endif
@@ -67,6 +71,7 @@
                             @foreach ($child->services as $svc)
                                 <li style="margin-bottom:0.25rem;">
                                     <code>{{ $svc->code }}</code> — {{ $svc->name }}
+                                    @include('admin.service-catalog.partials.reporting-tier-badge', ['svc' => $svc])
                                     @if ($svc->requires_approval)
                                         <span title="Cases need SPOC approval before becoming active" style="background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; padding:0 0.4rem; border-radius:999px; font-size:0.72rem; font-weight:600; margin-left:0.2rem;">Needs approval</span>
                                     @endif
