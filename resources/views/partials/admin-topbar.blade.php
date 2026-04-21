@@ -296,3 +296,44 @@
         </div>
     </div>
 </header>
+<script>
+(function () {
+    function initTopbarDropdowns() {
+        var allDetails = Array.prototype.slice.call(
+            document.querySelectorAll('.admin-topbar .admin-topbar__details')
+        );
+        if (!allDetails.length) return;
+
+        /* When any <details> opens, close every other one */
+        allDetails.forEach(function (det) {
+            var summary = det.querySelector('summary');
+            if (!summary) return;
+            summary.addEventListener('click', function () {
+                if (!det.open) {
+                    /* About to open — close siblings first */
+                    allDetails.forEach(function (other) {
+                        if (other !== det && other.open) {
+                            other.removeAttribute('open');
+                        }
+                    });
+                }
+            });
+        });
+
+        /* Click anywhere outside the topbar closes all open dropdowns */
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.admin-topbar')) {
+                allDetails.forEach(function (d) {
+                    if (d.open) d.removeAttribute('open');
+                });
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTopbarDropdowns);
+    } else {
+        initTopbarDropdowns();
+    }
+}());
+</script>
