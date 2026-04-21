@@ -78,11 +78,10 @@
                         @endif
                         <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;color:#52525b;font-size:0.8rem;white-space:nowrap;">{{ $row->lgd_state_code ?? '—' }} / {{ $row->lgd_district_code ?? '—' }} / {{ $row->lgd_block_code ?? '—' }}</td>
                         <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;white-space:nowrap;">
-                            @if ($isOwn)
-                                <a href="{{ route('staff.applications.show', $row) }}" style="display:inline-block;padding:0.3rem 0.55rem;background:#18181b;color:#fff;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;margin-right:0.35rem;">View</a>
-                                <a href="{{ route('staff.applications.edit', $row) }}" style="display:inline-block;padding:0.3rem 0.55rem;background:#4f46e5;color:#fff;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;">Edit</a>
-                            @else
-                                <span style="font-size:0.78rem;color:#a1a1aa;">View-only in district list</span>
+                            <a href="{{ route('staff.applications.show', $row) }}" style="display:inline-block;padding:0.3rem 0.55rem;background:#18181b;color:#fff;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;margin-right:0.35rem;">View</a>
+                            <a href="{{ route('staff.applications.edit', $row) }}" style="display:inline-block;padding:0.3rem 0.55rem;background:#4f46e5;color:#fff;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;">Edit</a>
+                            @if ($scope === 'district' && ! $isOwn)
+                                <div style="font-size:0.7rem;color:#a1a1aa;margin-top:0.2rem;">Not your referral</div>
                             @endif
                         </td>
                     </tr>

@@ -722,12 +722,24 @@ class StaffPortalController extends Controller
         ];
     }
 
+    /**
+     * A district staff can view/edit either:
+     *  - their own referral submissions (any district), OR
+     *  - any submission whose district matches their assigned district.
+     * This lets staff handle walk-ins / public-form entries from their district
+     * even though the submission wasn't created via their referral link.
+     */
     private function assertOwnReferral(Request $request, CfaSubmission $submission): void
     {
+        $user = $request->user();
+        $isOwnReferral = (int) $submission->referral_user_id === (int) $user->id;
+        $sameDistrict = $user->district_id
+            && (int) $submission->district_id === (int) $user->district_id;
+
         abort_unless(
-            (int) $submission->referral_user_id === (int) $request->user()->id,
+            $isOwnReferral || $sameDistrict,
             403,
-            'You can only access applications submitted through your referral link.'
+            'You can only access applications from your assigned district or your own referrals.'
         );
     }
 
