@@ -92,6 +92,14 @@ class User extends Authenticatable
         return $this->belongsTo(CfaSubmission::class);
     }
 
+    /**
+     * Districts this user is SPOC for (only meaningful when role === 'state_staff').
+     */
+    public function spocDistrictAssignments(): HasMany
+    {
+        return $this->hasMany(DistrictServiceSpoc::class, 'state_staff_user_id');
+    }
+
     public function referralApplyUrl(): ?string
     {
         if (! $this->referral_token) {

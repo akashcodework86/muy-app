@@ -27,7 +27,11 @@ class StateStaffController extends Controller
     {
         $users = User::query()
             ->where('role', 'state_staff')
-            ->with(['designationRecord'])
+            ->with([
+                'designationRecord',
+                'spocDistrictAssignments.district:id,name,hub_id',
+                'spocDistrictAssignments.district.hub:id,name',
+            ])
             ->orderBy('name')
             ->paginate(20);
 

@@ -65,10 +65,16 @@
                     @else
                         <ul style="margin:0.5rem 0 0; padding-left:1.1rem; font-size:0.85rem;">
                             @foreach ($child->services as $svc)
-                                <li>
+                                <li style="margin-bottom:0.25rem;">
                                     <code>{{ $svc->code }}</code> — {{ $svc->name }}
-                                    @if ($svc->allows_multiple)<span style="color:#0369a1;">· multiple</span>@endif
-                                    @if (! $svc->is_active)<span style="color:#b45309;">· inactive</span>@endif
+                                    @if ($svc->requires_approval)
+                                        <span title="Cases need SPOC approval before becoming active" style="background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; padding:0 0.4rem; border-radius:999px; font-size:0.72rem; font-weight:600; margin-left:0.2rem;">Needs approval</span>
+                                    @endif
+                                    @if ($svc->requires_document)
+                                        <span title="Staff must attach document on submission" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd; padding:0 0.4rem; border-radius:999px; font-size:0.72rem; font-weight:600; margin-left:0.2rem;">Doc required</span>
+                                    @endif
+                                    @if ($svc->allows_multiple)<span style="color:#0369a1; margin-left:0.2rem;">· multiple</span>@endif
+                                    @if (! $svc->is_active)<span style="color:#b45309; margin-left:0.2rem;">· inactive</span>@endif
                                     — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
                                     <form method="post" action="{{ route('admin.service-catalog.services.destroy', $svc) }}" style="display:inline;" onsubmit="return confirm('Delete this service?');">
                                         @csrf

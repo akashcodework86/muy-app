@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
+use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
@@ -187,6 +188,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('state-staff/{user}', [StateStaffController::class, 'update'])->name('state-staff.update');
         Route::delete('state-staff/{user}', [StateStaffController::class, 'destroy'])->name('state-staff.destroy');
         Route::post('state-staff/{user}/toggle-active', [StateStaffController::class, 'toggleActive'])->name('state-staff.toggle-active');
+
+        /** District -> SPOC mapping used by the maker-checker service flow. */
+        Route::get('service-spocs', [DistrictSpocController::class, 'index'])->name('service-spocs.index');
+        Route::put('service-spocs', [DistrictSpocController::class, 'update'])->name('service-spocs.update');
         Route::get('staff/{user}/monthly-targets', [StaffDeliverableMonthlyTargetController::class, 'index'])->name('staff.monthly-targets.index');
         Route::get('staff/{user}/monthly-targets/{deliverable_code}/edit', [StaffDeliverableMonthlyTargetController::class, 'edit'])
             ->where('deliverable_code', '[a-z0-9_]+')

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DistrictServiceSpoc;
 use App\Services\HubAdminDashboardService;
 use App\Services\StaffDashboardService;
 use App\Services\StateAdminDashboardService;
@@ -26,8 +27,18 @@ class DashboardController extends Controller
         }
 
         if ($user?->role === 'state_staff') {
+            $spocDistricts = DistrictServiceSpoc::query()
+                ->where('state_staff_user_id', $user->id)
+                ->with(['district:id,name,hub_id', 'district.hub:id,name'])
+                ->get()
+                ->map(fn ($a) => $a->district)
+                ->filter()
+                ->sortBy('name')
+                ->values();
+
             return view('dashboards.state-staff', [
                 'user' => $user,
+                'spocDistricts' => $spocDistricts,
             ]);
         }
 

@@ -13,8 +13,16 @@
             <div style="margin-top:1rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:0.6rem;">
                 <div style="background:#fff; border:1px solid rgba(148,163,184,0.3); border-radius:12px; padding:0.85rem 1rem;">
                     <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; font-weight:700;">Districts assigned</div>
-                    <div style="font-size:1.3rem; font-weight:700; color:#0f172a;">—</div>
-                    <div style="font-size:0.78rem; color:#64748b;">Assignment page coming soon.</div>
+                    <div style="font-size:1.3rem; font-weight:700; color:#0f172a;">{{ $spocDistricts->count() }}</div>
+                    @if ($spocDistricts->isEmpty())
+                        <div style="font-size:0.78rem; color:#b45309;">No districts assigned yet. Ask state admin to assign you.</div>
+                    @else
+                        <div style="margin-top:0.3rem; display:flex; flex-wrap:wrap; gap:0.2rem;">
+                            @foreach ($spocDistricts as $d)
+                                <span title="{{ $d->hub?->name ? $d->hub->name.' Hub' : '' }}" style="background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; padding:0.1rem 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:600;">{{ $d->name }}</span>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
                 <div style="background:#fff; border:1px solid rgba(148,163,184,0.3); border-radius:12px; padding:0.85rem 1rem;">
                     <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; font-weight:700;">Pending approvals</div>

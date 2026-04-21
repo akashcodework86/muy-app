@@ -30,6 +30,7 @@
         str_starts_with($r, 'admin.targets.district') => 'district',
         str_starts_with($r, 'admin.staff') => 'staff',
         str_starts_with($r, 'admin.state-staff') => 'state-staff',
+        str_starts_with($r, 'admin.service-spocs') => 'service-spocs',
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
@@ -46,7 +47,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'team-performance'], true);
+    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase2-cfa'], true);
     $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches'], true);
 
@@ -126,6 +127,9 @@
                     </a>
                     <a href="{{ route('admin.state-staff.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'state-staff') is-active @endif" role="menuitem">
                         {!! $i('shield') !!}<span>State staff (SPOC)</span>
+                    </a>
+                    <a href="{{ route('admin.service-spocs.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-spocs') is-active @endif" role="menuitem">
+                        {!! $i('pin') !!}<span>Service SPOCs (map)</span>
                     </a>
                     <a href="{{ route('admin.team-performance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-performance') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Team performance</span>

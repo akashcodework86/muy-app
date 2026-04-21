@@ -7,7 +7,7 @@
     <p style="font-size:0.9rem; color:#52525b; margin-top:0;">
         State staff are <strong>checkers / SPOCs</strong>: they approve, send back, or reject service cases raised by district staff for services that require maker-checker verification.
         One SPOC can cover multiple districts, but a district can only have one SPOC at a time.
-        Assign districts on the <a href="{{ url('/admin/service-spocs') }}">Service SPOCs</a> page (coming soon).
+        Assign districts on the <a href="{{ route('admin.service-spocs.index') }}">Service SPOCs</a> page.
     </p>
 
     @if (session('status'))
@@ -36,8 +36,24 @@
                         <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5;">{{ $u->name }}</td>
                         <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5;">{{ $u->designationRecord?->name ?? '—' }}</td>
                         <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5;">{{ $u->email }}</td>
-                        <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5; color:#71717a; font-size:0.82rem;">
-                            <em>Pending next PR</em>
+                        <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5; font-size:0.82rem;">
+                            @php
+                                $districts = $u->spocDistrictAssignments
+                                    ->map(fn ($a) => $a->district)
+                                    ->filter()
+                                    ->sortBy('name')
+                                    ->values();
+                            @endphp
+                            @if ($districts->isEmpty())
+                                <em style="color:#b45309;">No districts</em>
+                                <a href="{{ route('admin.service-spocs.index') }}" style="font-size:0.75rem; margin-left:0.25rem;">Assign →</a>
+                            @else
+                                <div style="display:flex; flex-wrap:wrap; gap:0.25rem; max-width:22rem;">
+                                    @foreach ($districts as $d)
+                                        <span title="{{ $d->hub?->name ? $d->hub->name.' Hub' : '' }}" style="background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; padding:0.15rem 0.5rem; border-radius:999px; font-size:0.72rem; font-weight:600;">{{ $d->name }}</span>
+                                    @endforeach
+                                </div>
+                            @endif
                         </td>
                         <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5; font-size:0.8rem;">
                             @if ($u->is_active)

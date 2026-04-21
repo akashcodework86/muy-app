@@ -57,10 +57,16 @@ class CatalogServiceController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['nullable', 'boolean'],
             'allows_multiple' => ['nullable', 'boolean'],
+            'requires_approval' => ['nullable', 'boolean'],
+            'requires_document' => ['nullable', 'boolean'],
+            'allowed_document_types' => ['nullable', 'array'],
+            'allowed_document_types.*' => ['string', Rule::in(['pdf', 'image'])],
             'deliverable_id' => ['nullable', 'integer', 'exists:deliverables,id'],
         ]);
 
         $fieldSchema = $this->validatedFieldSchema($request);
+        $requiresDocument = $request->boolean('requires_document', false);
+        $allowedDocTypes = $this->normalizeAllowedDocTypes($request->input('allowed_document_types'), $requiresDocument);
 
         $code = $validated['code'] ?? null;
         if ($code === null || $code === '') {
@@ -75,6 +81,9 @@ class CatalogServiceController extends Controller
             'sort_order' => (int) ($validated['sort_order'] ?? 0),
             'is_active' => (bool) ($request->boolean('is_active', true)),
             'allows_multiple' => (bool) $request->boolean('allows_multiple', false),
+            'requires_approval' => (bool) $request->boolean('requires_approval', false),
+            'requires_document' => $requiresDocument,
+            'allowed_document_types' => $allowedDocTypes,
             'field_schema' => $fieldSchema,
         ]);
 
@@ -128,16 +137,25 @@ class CatalogServiceController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['nullable', 'boolean'],
             'allows_multiple' => ['nullable', 'boolean'],
+            'requires_approval' => ['nullable', 'boolean'],
+            'requires_document' => ['nullable', 'boolean'],
+            'allowed_document_types' => ['nullable', 'array'],
+            'allowed_document_types.*' => ['string', Rule::in(['pdf', 'image'])],
             'deliverable_id' => ['nullable', 'integer', 'exists:deliverables,id'],
         ]);
 
         $fieldSchema = $this->validatedFieldSchema($request);
+        $requiresDocument = $request->boolean('requires_document', false);
+        $allowedDocTypes = $this->normalizeAllowedDocTypes($request->input('allowed_document_types'), $requiresDocument);
 
         $before = [
             'code' => $service->code,
             'name' => $service->name,
             'service_category_id' => $service->service_category_id,
             'allows_multiple' => $service->allows_multiple,
+            'requires_approval' => $service->requires_approval,
+            'requires_document' => $service->requires_document,
+            'allowed_document_types' => $service->allowed_document_types,
             'is_active' => $service->is_active,
         ];
 
@@ -148,6 +166,9 @@ class CatalogServiceController extends Controller
         $service->sort_order = (int) ($validated['sort_order'] ?? 0);
         $service->is_active = (bool) $request->boolean('is_active', true);
         $service->allows_multiple = (bool) $request->boolean('allows_multiple', false);
+        $service->requires_approval = (bool) $request->boolean('requires_approval', false);
+        $service->requires_document = $requiresDocument;
+        $service->allowed_document_types = $allowedDocTypes;
         $service->field_schema = $fieldSchema;
         $service->save();
 
@@ -162,6 +183,9 @@ class CatalogServiceController extends Controller
                 'name' => $service->name,
                 'service_category_id' => $service->service_category_id,
                 'allows_multiple' => $service->allows_multiple,
+                'requires_approval' => $service->requires_approval,
+                'requires_document' => $service->requires_document,
+                'allowed_document_types' => $service->allowed_document_types,
                 'is_active' => $service->is_active,
             ],
             'Catalog service updated',
@@ -252,6 +276,38 @@ class CatalogServiceController extends Controller
         }
 
         return $out === [] ? null : $out;
+    }
+
+    /**
+     * Returns a whitelisted list of doc-type tags (pdf/image) or null.
+     * Returns null when the service does not require documents, to keep the
+     * column tidy.
+     *
+     * @param  mixed  $raw
+     * @return list<string>|null
+     */
+    private function normalizeAllowedDocTypes($raw, bool $requiresDocument): ?array
+    {
+        if (! $requiresDocument) {
+            return null;
+        }
+        if (! is_array($raw) || $raw === []) {
+            return ['pdf', 'image'];
+        }
+
+        $clean = [];
+        foreach ($raw as $v) {
+            $v = is_string($v) ? strtolower($v) : null;
+            if (in_array($v, ['pdf', 'image'], true)) {
+                $clean[$v] = true;
+            }
+        }
+
+        if ($clean === []) {
+            return ['pdf', 'image'];
+        }
+
+        return array_keys($clean);
     }
 
     private function uniqueCodeFromName(string $name): string
