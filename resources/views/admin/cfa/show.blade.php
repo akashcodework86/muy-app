@@ -430,8 +430,8 @@
                     <div class="v">{{ $submission->referralUser?->name ?? $cell('referral_staff_name') }}</div>
                 </div>
                 <div class="gf">
-                    <label>LGD State / District / Block</label>
-                    <div class="v">{{ $submission->lgd_state_code ?? '—' }} / {{ $submission->lgd_district_code ?? '—' }} / {{ $submission->lgd_block_code ?? '—' }}</div>
+                    <label>Block</label>
+                    <div class="v">{{ $cell('block') }}</div>
                 </div>
             </div>
 
