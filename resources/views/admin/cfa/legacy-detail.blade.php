@@ -169,7 +169,11 @@
         </section>
     @endif
 
-    @isset($serviceCasesUi)
-        @include('partials.incubatee-service-cases', ['serviceCasesUi' => $serviceCasesUi])
-    @endisset
+    {{-- Legacy service case assignment UI — hidden while maker-checker redesign is in progress. --}}
+    {{-- Re-enable via FEATURE_SERVICE_CASE_ASSIGNMENT=true in .env (see config/features.php). --}}
+    @if (config('features.service_case_assignment'))
+        @isset($serviceCasesUi)
+            @include('partials.incubatee-service-cases', ['serviceCasesUi' => $serviceCasesUi])
+        @endisset
+    @endif
 @endsection

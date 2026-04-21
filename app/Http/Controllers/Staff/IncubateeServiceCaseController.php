@@ -15,6 +15,10 @@ class IncubateeServiceCaseController extends Controller
 {
     public function store(Request $request, CfaSubmission $cfa_submission, ServiceCaseRecorder $recorder): RedirectResponse
     {
+        if (! $this->featureEnabled()) {
+            return $this->disabledRedirect($cfa_submission);
+        }
+
         $this->assertOwnReferral($request, $cfa_submission);
 
         $validated = $request->validate([
@@ -44,6 +48,10 @@ class IncubateeServiceCaseController extends Controller
 
     public function complete(Request $request, CfaSubmission $cfa_submission, ServiceCase $service_case, ServiceCaseRecorder $recorder): RedirectResponse
     {
+        if (! $this->featureEnabled()) {
+            return $this->disabledRedirect($cfa_submission);
+        }
+
         $this->assertOwnReferral($request, $cfa_submission);
         abort_unless((int) $service_case->cfa_submission_id === (int) $cfa_submission->id, 404);
 
@@ -72,5 +80,17 @@ class IncubateeServiceCaseController extends Controller
             403,
             'You can only access applications submitted through your referral link.'
         );
+    }
+
+    private function featureEnabled(): bool
+    {
+        return (bool) config('features.service_case_assignment', false);
+    }
+
+    private function disabledRedirect(CfaSubmission $submission): RedirectResponse
+    {
+        return redirect()
+            ->route('staff.applications.show', $submission)
+            ->with('status', 'Service assignment is being redesigned and is temporarily unavailable. Please wait for the new workflow.');
     }
 }
