@@ -947,8 +947,8 @@
             0 6px 16px -8px rgba(20, 184, 166, 0.5),
             inset 0 1px 0 rgba(255, 255, 255, 0.35);
     }
-    /* Active link keeps its sheen always flowing subtly */
-    .admin-topbar__link.is-active::after {
+    /* Active link keeps its sheen always flowing subtly (not for dropdown triggers — they use ::after for the chevron) */
+    .admin-topbar__link.is-active:not(.admin-topbar__dropdown-trigger)::after {
         content: '';
         position: absolute;
         inset: 0;
@@ -959,9 +959,30 @@
         border-radius: inherit;
     }
 
-    /* Dropdown arrow — rotate smoothly */
+    /* Dropdown arrow — rotate smoothly; ensure right padding is preserved over the link shorthand */
+    .admin-topbar__dropdown-trigger {
+        padding-right: 1.75rem;
+    }
     .admin-topbar__dropdown-trigger::after {
         transition: transform 0.2s ease, margin-top 0.2s ease;
+        /* Ensure the chevron is always visible, even on active state */
+        content: '';
+        position: absolute;
+        right: 0.6rem;
+        top: 50%;
+        width: 0.38rem;
+        height: 0.38rem;
+        margin-top: -0.22rem;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        opacity: 0.75;
+        z-index: 2;
+        pointer-events: none;
+    }
+    .admin-topbar__details[open] > .admin-topbar__dropdown-trigger::after {
+        margin-top: -0.1rem;
+        transform: rotate(225deg);
     }
 
     /* Dropdown panel — glassy, with a subtle top accent */
