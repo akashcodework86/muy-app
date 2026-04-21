@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
+use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Auth\LoginController;
@@ -177,6 +178,15 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('staff/{user}', [StaffController::class, 'update'])->name('staff.update');
         Route::delete('staff/{user}', [StaffController::class, 'destroy'])->name('staff.destroy');
         Route::post('staff/{user}/toggle-active', [StaffController::class, 'toggleActive'])->name('staff.toggle-active');
+
+        /** State staff (SPOC) user management — checkers for maker-checker service flow */
+        Route::get('state-staff', [StateStaffController::class, 'index'])->name('state-staff.index');
+        Route::get('state-staff/create', [StateStaffController::class, 'create'])->name('state-staff.create');
+        Route::post('state-staff', [StateStaffController::class, 'store'])->name('state-staff.store');
+        Route::get('state-staff/{user}/edit', [StateStaffController::class, 'edit'])->name('state-staff.edit');
+        Route::put('state-staff/{user}', [StateStaffController::class, 'update'])->name('state-staff.update');
+        Route::delete('state-staff/{user}', [StateStaffController::class, 'destroy'])->name('state-staff.destroy');
+        Route::post('state-staff/{user}/toggle-active', [StateStaffController::class, 'toggleActive'])->name('state-staff.toggle-active');
         Route::get('staff/{user}/monthly-targets', [StaffDeliverableMonthlyTargetController::class, 'index'])->name('staff.monthly-targets.index');
         Route::get('staff/{user}/monthly-targets/{deliverable_code}/edit', [StaffDeliverableMonthlyTargetController::class, 'edit'])
             ->where('deliverable_code', '[a-z0-9_]+')

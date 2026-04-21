@@ -2,12 +2,14 @@
     $logoUrl = asset('https://ukrbi.in/new/admin/muy.png');
     $u = auth()->user();
     $showAdminNav = $u && $u->role === 'state_admin';
+    $showStateStaffNav = $u && $u->role === 'state_staff';
     $showHubNav = $u && $u->role === 'hub_admin';
     $showStaffNav = $u && $u->role === 'district_staff';
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
         'district_staff' => 'District staff',
         'hub_admin' => 'Hub admin',
+        'state_staff' => 'State staff (SPOC)',
         'incubatee' => 'Incubatee',
         default => 'State admin',
     };
@@ -27,6 +29,7 @@
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
         str_starts_with($r, 'admin.staff') => 'staff',
+        str_starts_with($r, 'admin.state-staff') => 'state-staff',
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
@@ -43,7 +46,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'team-performance'], true);
+    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'team-performance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase2-cfa'], true);
     $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches'], true);
 
@@ -119,7 +122,10 @@
                         {!! $i('pin') !!}<span>District targets</span>
                     </a>
                     <a href="{{ route('admin.staff.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff') is-active @endif" role="menuitem">
-                        {!! $i('users') !!}<span>Staff</span>
+                        {!! $i('users') !!}<span>District staff</span>
+                    </a>
+                    <a href="{{ route('admin.state-staff.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'state-staff') is-active @endif" role="menuitem">
+                        {!! $i('shield') !!}<span>State staff (SPOC)</span>
                     </a>
                     <a href="{{ route('admin.team-performance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-performance') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Team performance</span>
@@ -148,6 +154,14 @@
                     </a>
                 </div>
             </details>
+        </nav>
+        @endif
+
+        @if ($showStateStaffNav)
+        <nav class="admin-topbar__nav" aria-label="State staff">
+            <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
+                {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
+            </a>
         </nav>
         @endif
 

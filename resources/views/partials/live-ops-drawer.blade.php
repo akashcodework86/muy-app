@@ -178,6 +178,7 @@
     function roleLabel(role) {
         switch (role) {
             case 'state_admin': return 'State';
+            case 'state_staff': return 'SPOC';
             case 'hub_admin': return 'Hub';
             case 'district_staff': return 'Staff';
             case 'incubatee': return 'Incubatee';

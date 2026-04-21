@@ -25,6 +25,12 @@ class DashboardController extends Controller
             return view('dashboards.state-admin', $stateDashboard->metrics());
         }
 
+        if ($user?->role === 'state_staff') {
+            return view('dashboards.state-staff', [
+                'user' => $user,
+            ]);
+        }
+
         if ($user?->role === 'hub_admin') {
             return view('dashboards.hub-admin', $hubDashboard->metrics($user));
         }

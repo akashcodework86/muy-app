@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureDistrictStaff;
 use App\Http\Middleware\EnsureHubAdmin;
 use App\Http\Middleware\EnsureIncubatee;
 use App\Http\Middleware\EnsureStateAdmin;
+use App\Http\Middleware\EnsureStateStaff;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\TrackUserPresence;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'state_admin' => EnsureStateAdmin::class,
+            'state_staff' => EnsureStateStaff::class,
             'hub_admin' => EnsureHubAdmin::class,
             'district_staff' => EnsureDistrictStaff::class,
             'incubatee' => EnsureIncubatee::class,
