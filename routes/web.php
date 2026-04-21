@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
+use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
 use App\Http\Controllers\Admin\ServiceModuleSettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
@@ -210,6 +211,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         /** Service module runtime settings (master switch + eligibility scope). */
         Route::get('service-module-settings', [ServiceModuleSettingsController::class, 'edit'])->name('service-module-settings.edit');
         Route::put('service-module-settings', [ServiceModuleSettingsController::class, 'update'])->name('service-module-settings.update');
+
+        Route::get('programme-structure-wipe', [ProgrammeStructureWipeController::class, 'create'])->name('programme-structure-wipe.create');
+        Route::post('programme-structure-wipe', [ProgrammeStructureWipeController::class, 'store'])
+            ->middleware('throttle:3,10')
+            ->name('programme-structure-wipe.store');
         Route::get('staff/{user}/monthly-targets', [StaffDeliverableMonthlyTargetController::class, 'index'])->name('staff.monthly-targets.index');
         Route::get('staff/{user}/monthly-targets/{deliverable_code}/edit', [StaffDeliverableMonthlyTargetController::class, 'edit'])
             ->where('deliverable_code', '[a-z0-9_]+')
