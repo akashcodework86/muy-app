@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
+use App\Http\Controllers\Admin\ServiceModuleSettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\DistrictSpocController;
@@ -26,6 +27,7 @@ use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\StaffPortalController;
+use App\Http\Controllers\Staff\StaffServiceCaseController;
 use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\User;
@@ -139,6 +141,17 @@ Route::middleware(['auth', 'active'])->group(function () {
         /** Read-only batches view for district staff (scoped to their own district) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
         Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
+
+        /** Service delivery (maker–checker) — gated by AppSettingsService in controller + topbar */
+        Route::get('services', [StaffServiceCaseController::class, 'index'])->name('services.index');
+        Route::get('services/create', [StaffServiceCaseController::class, 'create'])->name('services.create');
+        Route::post('services', [StaffServiceCaseController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('services.store');
+        Route::get('services/{service_case}', [StaffServiceCaseController::class, 'show'])->name('services.show');
+        Route::delete('services/{service_case}', [StaffServiceCaseController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('services.destroy');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -193,6 +206,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('service-spocs', [DistrictSpocController::class, 'index'])->name('service-spocs.index');
         Route::put('service-spocs', [DistrictSpocController::class, 'update'])->name('service-spocs.update');
         Route::put('service-spocs/by-spoc', [DistrictSpocController::class, 'updateForSpoc'])->name('service-spocs.update-for-spoc');
+
+        /** Service module runtime settings (master switch + eligibility scope). */
+        Route::get('service-module-settings', [ServiceModuleSettingsController::class, 'edit'])->name('service-module-settings.edit');
+        Route::put('service-module-settings', [ServiceModuleSettingsController::class, 'update'])->name('service-module-settings.update');
         Route::get('staff/{user}/monthly-targets', [StaffDeliverableMonthlyTargetController::class, 'index'])->name('staff.monthly-targets.index');
         Route::get('staff/{user}/monthly-targets/{deliverable_code}/edit', [StaffDeliverableMonthlyTargetController::class, 'edit'])
             ->where('deliverable_code', '[a-z0-9_]+')

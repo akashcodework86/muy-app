@@ -1,5 +1,9 @@
 @php
     /** @var \App\Models\CfaSubmission $submission */
+    use App\Models\ServiceCase;
+    use App\Support\SchemaValueFormatter;
+    use App\Support\ServiceFieldTypes;
+
     $submission = $serviceCasesUi['submission'];
     $cases = $serviceCasesUi['cases'];
     $pickerServices = $serviceCasesUi['pickerServices'];
@@ -7,7 +11,7 @@
 
 <section class="cfa-print-section" style="margin-top:1.25rem;">
     <h2>Service delivery (cases)</h2>
-    <p class="cfa-print-sub" style="margin-bottom:0.75rem;">Add a case for this incubatee (CFA). <strong>Completed</strong> cases count toward service achievement. Single-instance services allow only one open/completed row per incubatee.</p>
+    <p class="cfa-print-sub" style="margin-bottom:0.75rem;">Add a draft case, then <strong>submit</strong> it with details and documents (if required). <strong>Approved</strong> cases count toward service achievement. Single-instance services allow only one active row per incubatee.</p>
 
     @if (session('status'))
         <p style="color:#166534; font-size:0.9rem; margin:0 0 0.75rem;">{{ session('status') }}</p>
@@ -35,7 +39,7 @@
                     @endforeach
                 </select>
             </div>
-            <button type="submit" style="background:#18181b; color:#fff; border:none; padding:0.45rem 0.85rem; border-radius:6px; font-size:0.88rem;">Add case</button>
+            <button type="submit" style="background:#18181b; color:#fff; border:none; padding:0.45rem 0.85rem; border-radius:6px; font-size:0.88rem;">Add draft case</button>
         </form>
     @endif
 
@@ -57,57 +61,99 @@
                     @foreach ($cases as $case)
                         @php
                             $svc = $case->service;
-                            $schema = is_array($svc?->field_schema) ? $svc->field_schema : [];
+                            $schema = ServiceFieldTypes::normalizeSchema($svc?->field_schema ?? []);
+                            $payload = is_array($case->payload) ? $case->payload : [];
                         @endphp
                         <tr>
                             <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5; vertical-align:top;">
                                 <strong>{{ $svc?->name ?? '—' }}</strong>
-                                @if ($case->payload && count($case->payload))
+                                @if ($schema !== [] && $payload !== [])
                                     <div style="font-size:0.78rem; color:#52525b; margin-top:0.25rem;">
-                                        @foreach ($case->payload as $k => $v)
-                                            <div><code>{{ $k }}</code>: {{ is_scalar($v) ? (string) $v : '—' }}</div>
+                                        @foreach ($schema as $field)
+                                            @php $k = $field['key']; @endphp
+                                            @if (array_key_exists($k, $payload))
+                                                <div><strong>{{ $field['label'] }}:</strong> {!! SchemaValueFormatter::renderHtml($field, $payload[$k]) !!}</div>
+                                            @endif
                                         @endforeach
                                     </div>
                                 @endif
                             </td>
-                            <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5;">{{ $case->status }}</td>
+                            <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5;">{{ str_replace('_', ' ', $case->status) }}</td>
                             <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5;">{{ $case->reference_number ?: '—' }}</td>
                             <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5; white-space:nowrap;">{{ $case->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
                             <td style="padding:0.45rem 0.65rem; border-bottom:1px solid #f4f4f5; vertical-align:top;">
-                                @if ($case->status === \App\Models\ServiceCase::STATUS_OPEN)
-                                    <form method="post" action="{{ route('staff.applications.service-cases.complete', [$submission, $case]) }}" style="max-width:22rem;">
+                                @if (in_array($case->status, [ServiceCase::STATUS_DRAFT, ServiceCase::STATUS_SENT_BACK], true))
+                                    <form method="post" action="{{ route('staff.applications.service-cases.complete', [$submission, $case]) }}" enctype="multipart/form-data" style="max-width:22rem;">
                                         @csrf
                                         @method('PATCH')
                                         <div style="margin-bottom:0.35rem;">
                                             <label style="font-size:0.78rem;">Reference / certificate no.</label>
                                             <input type="text" name="reference_number" value="{{ old('reference_number') }}" maxlength="191" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;">
                                         </div>
+                                        @if ($svc && ! $svc->requires_approval)
+                                            <div style="margin-bottom:0.35rem;">
+                                                <label style="font-size:0.78rem;">Delivered on</label>
+                                                <input type="date" name="delivered_on" value="{{ old('delivered_on') }}" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;">
+                                            </div>
+                                        @endif
                                         @foreach ($schema as $row)
-                                            @if (is_array($row) && ! empty($row['key']))
-                                                @php $k = $row['key']; $label = $row['label'] ?? $k; $type = strtolower((string) ($row['type'] ?? 'text')); @endphp
+                                            @if (! empty($row['key']))
+                                                @php
+                                                    $k = $row['key'];
+                                                    $label = $row['label'] ?? $k;
+                                                    $type = $row['type'] ?? 'text';
+                                                @endphp
                                                 <div style="margin-bottom:0.35rem;">
-                                                    <label style="font-size:0.78rem;">{{ $label }}</label>
-                                                    @if ($type === 'select' && ! empty($row['options']) && is_array($row['options']))
+                                                    <label style="font-size:0.78rem;">{{ $label }} @if (! empty($row['required']))<span style="color:#b91c1c">*</span>@endif</label>
+                                                    @if ($type === 'textarea')
+                                                        <textarea name="payload[{{ $k }}]" rows="2" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;">{{ old('payload.'.$k) }}</textarea>
+                                                    @elseif ($type === 'select' && ! empty($row['options']))
                                                         <select name="payload[{{ $k }}]" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;">
                                                             <option value="">—</option>
                                                             @foreach ($row['options'] as $opt)
-                                                                @if (is_string($opt))
-                                                                    <option value="{{ $opt }}">{{ $opt }}</option>
-                                                                @endif
+                                                                @php $ov = is_array($opt) ? ($opt['value'] ?? '') : $opt; $ol = is_array($opt) ? ($opt['label'] ?? $ov) : $opt; @endphp
+                                                                <option value="{{ $ov }}" @selected(old('payload.'.$k) == $ov)>{{ $ol }}</option>
                                                             @endforeach
                                                         </select>
+                                                    @elseif ($type === 'multiselect' && ! empty($row['options']))
+                                                        <select name="payload[{{ $k }}][]" multiple size="4" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;">
+                                                            @foreach ($row['options'] as $opt)
+                                                                @php $ov = is_array($opt) ? ($opt['value'] ?? '') : $opt; $ol = is_array($opt) ? ($opt['label'] ?? $ov) : $opt; @endphp
+                                                                <option value="{{ $ov }}">{{ $ol }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    @elseif ($type === 'checkbox')
+                                                        <label style="display:flex;align-items:center;gap:0.25rem;font-size:0.82rem;"><input type="checkbox" name="payload[{{ $k }}]" value="1" @checked(old('payload.'.$k))> Yes</label>
                                                     @else
-                                                        <input type="text" name="payload[{{ $k }}]" value="{{ old('payload.'.$k) }}" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;">
+                                                        @php
+                                                            $inputType = match ($type) {
+                                                                'number', 'amount' => 'number',
+                                                                'date' => 'date',
+                                                                'email' => 'email',
+                                                                'url' => 'url',
+                                                                'phone' => 'tel',
+                                                                default => 'text',
+                                                            };
+                                                        @endphp
+                                                        <input type="{{ $inputType }}" name="payload[{{ $k }}]" value="{{ old('payload.'.$k) }}" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;">
                                                     @endif
                                                 </div>
                                             @endif
                                         @endforeach
-                                        <button type="submit" style="margin-top:0.25rem; background:#166534; color:#fff; border:none; padding:0.35rem 0.65rem; border-radius:4px; font-size:0.82rem;">Mark completed</button>
+                                        @if ($svc?->requires_document)
+                                            <div style="margin-bottom:0.35rem;">
+                                                <label style="font-size:0.78rem;">Documents (max 3, PDF/image, 5 MB)</label>
+                                                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" style="font-size:0.78rem;">
+                                            </div>
+                                        @endif
+                                        <button type="submit" style="margin-top:0.25rem; background:#166534; color:#fff; border:none; padding:0.35rem 0.65rem; border-radius:4px; font-size:0.82rem;">Submit case</button>
                                     </form>
-                                @elseif ($case->status === \App\Models\ServiceCase::STATUS_COMPLETED)
-                                    <span style="color:#166534; font-size:0.8rem;">Completed{{ $case->completed_at ? ' '.$case->completed_at->timezone(config('app.timezone'))->format('d M Y') : '' }}</span>
+                                @elseif ($case->status === ServiceCase::STATUS_PENDING_APPROVAL)
+                                    <span style="color:#92400e; font-size:0.8rem;">Pending SPOC approval @if ($case->sla_deadline_at) (SLA {{ $case->sla_deadline_at->timezone(config('app.timezone'))->format('d M') }}) @endif</span>
+                                @elseif ($case->status === ServiceCase::STATUS_APPROVED)
+                                    <span style="color:#166534; font-size:0.8rem;">Approved@if ($case->delivered_on) · {{ $case->delivered_on->format('d M Y') }}@elseif ($case->approved_at) · {{ $case->approved_at->timezone(config('app.timezone'))->format('d M Y') }}@endif</span>
                                 @else
-                                    <span style="color:#71717a;">{{ $case->status }}</span>
+                                    <span style="color:#71717a;">{{ str_replace('_', ' ', $case->status) }}</span>
                                 @endif
                             </td>
                         </tr>

@@ -93,11 +93,17 @@
             </div>
         </fieldset>
 
-        <div style="margin-bottom:0.85rem;">
-            <label for="field_schema" style="display:block; font-weight:500; margin-bottom:0.25rem;">Field schema (JSON)</label>
-            <textarea id="field_schema" name="field_schema" rows="10" style="width:100%; font-family:ui-monospace,monospace; font-size:0.8rem; padding:0.5rem; border:1px solid #d4d4d8; border-radius:6px;">{{ old('field_schema', $fieldSchemaJson) }}</textarea>
-            @error('field_schema')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
-        </div>
+        @php
+            $schemaInitial = [];
+            if (old('field_schema')) {
+                $decoded = json_decode(old('field_schema'), true);
+                $schemaInitial = is_array($decoded) ? $decoded : [];
+            } else {
+                $schemaInitial = is_array($service->field_schema) ? $service->field_schema : [];
+            }
+        @endphp
+        @include('partials.admin-service-schema-builder')
+        @error('field_schema')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
 
         <button type="submit" style="background:#18181b; color:#fff; border:none; padding:0.5rem 1rem; border-radius:6px; font-weight:500;">Update service</button>
     </form>

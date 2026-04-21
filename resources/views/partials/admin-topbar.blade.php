@@ -5,6 +5,7 @@
     $showStateStaffNav = $u && $u->role === 'state_staff';
     $showHubNav = $u && $u->role === 'hub_admin';
     $showStaffNav = $u && $u->role === 'district_staff';
+    $staffServiceModuleOn = $showStaffNav && app(\App\Services\AppSettingsService::class)->isEnabled('service_module.enabled');
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
         'district_staff' => 'District staff',
@@ -36,9 +37,11 @@
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
         str_starts_with($r, 'admin.service-catalog') => 'service-catalog',
+        str_starts_with($r, 'admin.service-module-settings') => 'service-module-settings',
         str_starts_with($r, 'admin.batches') => 'admin-batches',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         $r === 'staff.monthly-targets' => 'staff-targets',
+        str_starts_with($r, 'staff.services') => 'staff-services',
         $r === 'staff.applications' => 'staff-apps',
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
         str_starts_with($r, 'staff.batches') => 'staff-batches',
@@ -49,7 +52,7 @@
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase2-cfa'], true);
-    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches'], true);
+    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -156,6 +159,9 @@
                     <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batch-compliance') is-active @endif" role="menuitem">
                         {!! $i('download') !!}<span>Batch CDO PDF</span>
                     </a>
+                    <a href="{{ route('admin.service-module-settings.edit') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-module-settings') is-active @endif" role="menuitem">
+                        {!! $i('cog') !!}<span>Service module settings</span>
+                    </a>
                 </div>
             </details>
         </nav>
@@ -191,6 +197,11 @@
             <a href="{{ route('staff.applications') }}" class="admin-topbar__link @if ($activeNav === 'staff-apps') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Applications</span>
             </a>
+            @if ($staffServiceModuleOn)
+            <a href="{{ route('staff.services.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-services') is-active @endif">
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">Services</span>
+            </a>
+            @endif
             <a href="{{ route('staff.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-batches') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
             </a>

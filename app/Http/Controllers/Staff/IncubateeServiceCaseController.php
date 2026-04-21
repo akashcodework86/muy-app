@@ -57,11 +57,16 @@ class IncubateeServiceCaseController extends Controller
 
         $validated = $request->validate([
             'reference_number' => ['nullable', 'string', 'max:191'],
+            'delivered_on' => ['nullable', 'date'],
             'payload' => ['nullable', 'array'],
+            'attachments' => ['nullable', 'array', 'max:3'],
+            'attachments.*' => ['file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
         ]);
 
         try {
-            $recorder->complete($service_case, $validated);
+            $recorder->complete($service_case, array_merge($validated, [
+                'actor_id' => (int) $request->user()->id,
+            ]), array_values($request->file('attachments', [])));
         } catch (ValidationException $e) {
             return redirect()
                 ->route('staff.applications.show', $cfa_submission)
@@ -75,10 +80,15 @@ class IncubateeServiceCaseController extends Controller
 
     private function assertOwnReferral(Request $request, CfaSubmission $submission): void
     {
+        $user = $request->user();
+        $isOwnReferral = (int) $submission->referral_user_id === (int) $user->id;
+        $sameDistrict = $user->district_id
+            && (int) $submission->district_id === (int) $user->district_id;
+
         abort_unless(
-            (int) $submission->referral_user_id === (int) $request->user()->id,
+            $isOwnReferral || $sameDistrict,
             403,
-            'You can only access applications submitted through your referral link.'
+            'You can only access applications from your assigned district or your own referrals.'
         );
     }
 

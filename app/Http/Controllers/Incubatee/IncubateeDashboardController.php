@@ -26,8 +26,13 @@ class IncubateeDashboardController extends Controller
         }
 
         $cases = $submission->serviceCases;
-        $completed = $cases->where('status', ServiceCase::STATUS_COMPLETED)->count();
-        $open = $cases->where('status', ServiceCase::STATUS_OPEN)->count();
+        $approvedCases = $cases->where('status', ServiceCase::STATUS_APPROVED);
+        $completed = $approvedCases->count();
+        $open = $cases->whereIn('status', [
+            ServiceCase::STATUS_DRAFT,
+            ServiceCase::STATUS_PENDING_APPROVAL,
+            ServiceCase::STATUS_SENT_BACK,
+        ])->count();
 
         $payload = is_array($submission->payload) ? $submission->payload : [];
         $batch = $submission->onboardingBatchMembership?->batch;
@@ -57,8 +62,8 @@ class IncubateeDashboardController extends Controller
             ->where('cfa_submission_id', $submission->id)
             ->count();
 
-        $firstCompletedCase = $cases->where('status', ServiceCase::STATUS_COMPLETED)
-            ->sortBy(fn ($c) => $c->completed_at ?? $c->updated_at)
+        $firstCompletedCase = $approvedCases
+            ->sortBy(fn ($c) => $c->delivered_on ?? $c->approved_at ?? $c->updated_at)
             ->first();
 
         $journey = [
@@ -96,7 +101,7 @@ class IncubateeDashboardController extends Controller
                 'key' => 'first-service',
                 'icon' => '🛠️',
                 'title' => 'First service delivered',
-                'at' => $firstCompletedCase?->completed_at,
+                'at' => $firstCompletedCase?->delivered_on ?? $firstCompletedCase?->approved_at,
                 'detail' => $firstCompletedCase
                     ? ($firstCompletedCase->service?->name ?? 'A service').' delivered by your hub team.'
                     : 'Your hub will log your first supported service here.',
@@ -121,9 +126,10 @@ class IncubateeDashboardController extends Controller
             'displayProduct' => $scalar($payload['product'] ?? ($payload['business_category'] ?? null)),
             'batch' => $batch,
             'hubName' => $hubName,
-            'serviceCases' => $cases,
+            'serviceCases' => $approvedCases->values(),
             'servicesCompletedCount' => $completed,
             'servicesOpenCount' => $open,
+            'serviceCasesTotalCount' => $cases->count(),
             'journey' => $journey,
             'mentorshipCount' => $mentorshipCount,
         ]);

@@ -497,7 +497,7 @@
         </div>
         <div class="inc-stat">
             <p class="inc-stat__label">Total services tracked</p>
-            <p class="inc-stat__val">{{ $serviceCases->count() }}</p>
+            <p class="inc-stat__val">{{ $serviceCasesTotalCount ?? ($servicesCompletedCount + $servicesOpenCount) }}</p>
             <p class="inc-stat__hint">On your profile</p>
         </div>
     </div>
@@ -521,7 +521,12 @@
     <section class="inc-panel">
         <h2 class="inc-panel__h"><span aria-hidden="true">🛠️</span> Services delivered</h2>
         @if ($serviceCases->isEmpty())
-            <p style="margin:0; color:#64748b; font-size:0.9rem;">No service cases yet. Your hub team will add them as you progress.</p>
+            <p style="margin:0; color:#64748b; font-size:0.9rem;">
+                No completed services to show yet. Approved deliveries appear here.
+                @if (($servicesOpenCount ?? 0) > 0)
+                    <span style="display:block;margin-top:0.35rem;">You have <strong>{{ $servicesOpenCount }}</strong> case(s) in progress with your hub team.</span>
+                @endif
+            </p>
         @else
             <div style="overflow-x:auto;">
                 <table class="inc-table">
@@ -537,12 +542,12 @@
                             <tr>
                                 <td><strong>{{ $case->service?->name ?? '—' }}</strong></td>
                                 <td>
-                                    @if($case->status === \App\Models\ServiceCase::STATUS_COMPLETED)
-                                        <span class="inc-pill inc-pill--ok">Completed</span>
-                                    @elseif($case->status === \App\Models\ServiceCase::STATUS_OPEN)
+                                    @if($case->status === \App\Models\ServiceCase::STATUS_APPROVED)
+                                        <span class="inc-pill inc-pill--ok">Delivered</span>
+                                    @elseif($case->status === \App\Models\ServiceCase::STATUS_DRAFT || $case->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL || $case->status === \App\Models\ServiceCase::STATUS_SENT_BACK)
                                         <span class="inc-pill inc-pill--open">In progress</span>
                                     @else
-                                        {{ $case->status }}
+                                        {{ str_replace('_', ' ', $case->status) }}
                                     @endif
                                 </td>
                                 <td>{{ $case->reference_number ?: '—' }}</td>

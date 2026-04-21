@@ -93,12 +93,15 @@
             </div>
         </fieldset>
 
-        <div style="margin-bottom:0.85rem;">
-            <label for="field_schema" style="display:block; font-weight:500; margin-bottom:0.25rem;">Field schema (JSON)</label>
-            <textarea id="field_schema" name="field_schema" rows="10" style="width:100%; font-family:ui-monospace,monospace; font-size:0.8rem; padding:0.5rem; border:1px solid #d4d4d8; border-radius:6px;" placeholder='[{"key":"platform","label":"Platform","type":"select","options":["Amazon","Flipkart","Blinkit"]}]'>{{ old('field_schema') }}</textarea>
-            <p style="font-size:0.78rem; color:#71717a; margin:0.35rem 0 0;">Each item: <code>key</code> (snake_case), <code>label</code>, <code>type</code> <code>text</code> or <code>select</code>, and for select an <code>options</code> array. Leave empty if not needed.</p>
-            @error('field_schema')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
-        </div>
+        @php
+            $schemaInitial = [];
+            if (old('field_schema')) {
+                $decoded = json_decode(old('field_schema'), true);
+                $schemaInitial = is_array($decoded) ? $decoded : [];
+            }
+        @endphp
+        @include('partials.admin-service-schema-builder')
+        @error('field_schema')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
 
         <button type="submit" style="background:#18181b; color:#fff; border:none; padding:0.5rem 1rem; border-radius:6px; font-weight:500;">Save service</button>
     </form>

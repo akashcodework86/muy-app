@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCategory;
 use App\Services\AdminAuditLogger;
+use App\Support\ServiceFieldTypes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -220,7 +221,7 @@ class CatalogServiceController extends Controller
     }
 
     /**
-     * @return list<array{key: string, label: string, type: string, options?: list<string>}>|null
+     * @return list<array<string, mixed>>|null
      */
     private function validatedFieldSchema(Request $request): ?array
     {
@@ -238,15 +239,17 @@ class CatalogServiceController extends Controller
         if (! is_array($raw)) {
             throw ValidationException::withMessages(['field_schema' => 'Field schema must be a JSON array.']);
         }
+        if ($raw === []) {
+            return null;
+        }
 
-        $out = [];
         foreach ($raw as $i => $row) {
             if (! is_array($row)) {
-                continue;
+                throw ValidationException::withMessages(['field_schema' => "Invalid row at index {$i}."]);
             }
             $key = $row['key'] ?? null;
             $label = $row['label'] ?? null;
-            $type = strtolower((string) ($row['type'] ?? 'text'));
+            $type = (string) ($row['type'] ?? '');
             if (! is_string($key) || ! preg_match('/^[a-z][a-z0-9_]{0,63}$/', $key)) {
                 throw ValidationException::withMessages([
                     'field_schema' => "Invalid key at index {$i}. Use snake_case (letters, numbers, underscores).",
@@ -255,27 +258,23 @@ class CatalogServiceController extends Controller
             if (! is_string($label) || trim($label) === '') {
                 throw ValidationException::withMessages(['field_schema' => "Missing label for key {$key}."]);
             }
-            if (! in_array($type, ['text', 'select'], true)) {
-                throw ValidationException::withMessages(['field_schema' => "Invalid type for {$key}. Use text or select."]);
+            if (! ServiceFieldTypes::isValid($type)) {
+                throw ValidationException::withMessages(['field_schema' => "Invalid type for {$key}."]);
             }
-            $item = ['key' => $key, 'label' => trim($label), 'type' => $type];
-            if ($type === 'select') {
+            if (ServiceFieldTypes::supportsOptions($type)) {
                 $opts = $row['options'] ?? [];
-                if (! is_array($opts)) {
-                    throw ValidationException::withMessages(['field_schema' => "Select field {$key} needs an options array."]);
+                if (! is_array($opts) || $opts === []) {
+                    throw ValidationException::withMessages(['field_schema' => "Field {$key} needs at least one option."]);
                 }
-                $clean = [];
-                foreach ($opts as $o) {
-                    if (is_string($o) && trim($o) !== '') {
-                        $clean[] = trim($o);
-                    }
-                }
-                $item['options'] = array_values(array_unique($clean));
             }
-            $out[] = $item;
         }
 
-        return $out === [] ? null : $out;
+        $normalized = ServiceFieldTypes::normalizeSchema($raw);
+        if ($normalized === []) {
+            throw ValidationException::withMessages(['field_schema' => 'No valid schema fields after normalisation.']);
+        }
+
+        return $normalized;
     }
 
     /**
