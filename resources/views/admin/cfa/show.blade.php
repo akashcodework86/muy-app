@@ -282,10 +282,15 @@
     .cfa-edit-history,
     .no-print            { display: none !important; }
 
-    /* Strip admin layout padding */
-    .admin-main          { padding: 0 !important; margin: 0 !important; max-width: 100% !important; background: #fff !important; }
-    .cfa-print-wrap      { padding: 0 !important; margin: 0 !important; }
-    .cfa-preview-board   { background: none !important; padding: 0 !important; border-radius: 0 !important; margin: 0 !important; }
+    /* Strip admin layout padding & all backgrounds/shadows */
+    html, body, body.admin-app-body,
+    .admin-main, .cfa-print-wrap,
+    .cfa-preview-board   { background: #fff !important; background-color: #fff !important;
+                           box-shadow: none !important; padding: 0 !important;
+                           margin: 0 !important; border-radius: 0 !important;
+                           max-width: 100% !important; }
+    /* Nuke every shadow on every element — prevents any bleed into PDF */
+    * { box-shadow: none !important; text-shadow: none !important; }
 
     /* Each .gov-page = one full A4 sheet, content stretched to fill */
     .gov-page {
