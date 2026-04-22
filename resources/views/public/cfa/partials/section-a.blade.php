@@ -80,6 +80,10 @@
                 <div>
                     <p style="margin:0;font-weight:700;color:#b91c1c;font-size:0.9rem;" id="mobile-duplicate-error-text"></p>
                     <p style="margin:0.2rem 0 0;font-size:0.8rem;color:#ef4444;">Please use a different mobile number to apply. / कृपया दूसरे मोबाइल नंबर से आवेदन करें।</p>
+                    <div id="mobile-duplicate-details" class="hidden" style="margin-top:0.55rem;border-top:1px dashed #fca5a5;padding-top:0.45rem;">
+                        <p style="margin:0;font-size:0.78rem;color:#7f1d1d;"><strong>Registered details:</strong></p>
+                        <p id="mobile-duplicate-details-text" style="margin:0.2rem 0 0;font-size:0.8rem;color:#991b1b;"></p>
+                    </div>
                 </div>
             </div>
         </div>

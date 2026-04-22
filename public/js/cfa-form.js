@@ -37,6 +37,10 @@
             e.classList.add('hidden');
             e.style.display = '';
         }
+        const detailsWrap = $('mobile-duplicate-details');
+        const detailsText = $('mobile-duplicate-details-text');
+        if (detailsWrap) detailsWrap.classList.add('hidden');
+        if (detailsText) detailsText.textContent = '';
         const input = $('mobile');
         if (input) {
             input.style.borderColor = '';
@@ -44,13 +48,28 @@
         }
     }
 
-    function showMobileDuplicateError(msg) {
+    function showMobileDuplicateError(msg, duplicate) {
         const e = $('mobile-duplicate-error');
         if (e) {
             const textEl = $('mobile-duplicate-error-text');
             if (textEl) textEl.textContent = msg || '';
             e.classList.remove('hidden');
             e.style.display = 'flex';
+        }
+        const detailsWrap = $('mobile-duplicate-details');
+        const detailsText = $('mobile-duplicate-details-text');
+        if (detailsWrap && detailsText) {
+            if (duplicate && (duplicate.name || duplicate.phase || duplicate.fy)) {
+                const bits = [];
+                if (duplicate.name) bits.push('Name: ' + duplicate.name);
+                if (duplicate.phase) bits.push('Phase: ' + duplicate.phase);
+                if (duplicate.fy) bits.push('FY: ' + duplicate.fy);
+                detailsText.textContent = bits.join(' | ');
+                detailsWrap.classList.remove('hidden');
+            } else {
+                detailsWrap.classList.add('hidden');
+                detailsText.textContent = '';
+            }
         }
         // Highlight the mobile input with red border
         const input = $('mobile');
@@ -113,7 +132,7 @@
 
             if (data.available === false) {
                 phoneDuplicateTaken = true;
-                showMobileDuplicateError(data.message || 'This number is already registered.');
+                showMobileDuplicateError(data.message || 'This number is already registered.', data.duplicate || null);
             } else {
                 phoneDuplicateTaken = false;
                 hideMobileDuplicateError();

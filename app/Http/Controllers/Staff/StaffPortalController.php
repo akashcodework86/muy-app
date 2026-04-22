@@ -294,10 +294,73 @@ class StaffPortalController extends Controller
         }
 
         $phone = $validator->validated()['phone'];
-        $exists = CfaSubmission::query()
+        $duplicate = null;
+
+        $newRow = CfaSubmission::query()
             ->where('phone', $phone)
             ->where('id', '!=', $cfa_submission->id)
-            ->exists();
+            ->orderByDesc('id')
+            ->first();
+
+        if ($newRow) {
+            $fyName = $newRow->fiscal_year_id
+                ? FiscalYear::query()->whereKey($newRow->fiscal_year_id)->value('name')
+                : null;
+            $duplicate = [
+                'name' => $newRow->applicant_name ?: null,
+                'phase' => 'Current MUY',
+                'fy' => $fyName,
+                'source' => 'cfa_submissions',
+            ];
+        }
+
+        $legacyRow = null;
+        if (config('database.connections.legacy.database', '') !== '') {
+            try {
+                $legacyRow = DB::connection('legacy')
+                    ->table('rbi_applicant_details')
+                    ->where('phone', $phone)
+                    ->select(['applicant_name'])
+                    ->orderByDesc('application_id')
+                    ->first();
+            } catch (\Exception $e) {
+                // Legacy DB unavailable — skip silently
+            }
+        }
+
+        if ($duplicate === null && $legacyRow) {
+            $duplicate = [
+                'name' => $legacyRow->applicant_name ?: null,
+                'phase' => 'Legacy Phase 2',
+                'fy' => '2025-26',
+                'source' => 'rbi_applicant_details',
+            ];
+        }
+
+        $phase1Row = null;
+        if (config('database.connections.legacy_phase1.database', '') !== '') {
+            try {
+                $phase1Row = DB::connection('legacy_phase1')
+                    ->table('tblapplication')
+                    ->where('MobileNumber', $phone)
+                    ->select(['FullName'])
+                    ->orderByDesc('ID')
+                    ->first();
+            } catch (\Exception $e) {
+                // Phase 1 DB unavailable — skip silently
+            }
+        }
+
+        if ($duplicate === null && $phase1Row) {
+            $duplicate = [
+                'name' => $phase1Row->FullName ?: null,
+                'phase' => 'Legacy Phase 1',
+                'fy' => '2024-25',
+                'source' => 'tblapplication',
+            ];
+        }
+
+        $exists = $duplicate !== null;
 
         return response()->json([
             'ok' => true,
@@ -305,6 +368,7 @@ class StaffPortalController extends Controller
             'message' => $exists
                 ? 'This mobile number is already registered for an application. / यह मोबाइल नंबर पहले से पंजीकृत है।'
                 : null,
+            'duplicate' => $duplicate,
         ]);
     }
 
@@ -402,6 +466,81 @@ class StaffPortalController extends Controller
             'stageOptions' => $stageOptions,
             'legacyUnavailable' => false,
             'legacyMissingTables' => false,
+            'noDistrict' => false,
+        ]);
+    }
+
+    public function phase1Data(Request $request): View
+    {
+        $staff = $request->user()->load(['district', 'hub', 'designationRecord']);
+        $districtName = trim((string) ($staff->district?->name ?? ''));
+
+        if (! $staff->district_id || $districtName === '') {
+            return view('staff.phase1-data', [
+                'staff' => $staff,
+                'rows' => collect(),
+                'phase1Unavailable' => false,
+                'phase1MissingTables' => false,
+                'noDistrict' => true,
+            ]);
+        }
+
+        if ((string) config('database.connections.legacy_phase1.database', '') === '') {
+            return view('staff.phase1-data', [
+                'staff' => $staff,
+                'rows' => collect(),
+                'phase1Unavailable' => true,
+                'phase1MissingTables' => false,
+                'noDistrict' => false,
+            ]);
+        }
+
+        if (! $this->hasLegacyPhase1Table()) {
+            return view('staff.phase1-data', [
+                'staff' => $staff,
+                'rows' => collect(),
+                'phase1Unavailable' => false,
+                'phase1MissingTables' => true,
+                'noDistrict' => false,
+            ]);
+        }
+
+        $districtNorm = mb_strtolower($districtName);
+
+        $query = DB::connection('legacy_phase1')
+            ->table('tblapplication')
+            ->whereRaw('LOWER(TRIM(City)) = ?', [$districtNorm])
+            ->select([
+                'ID as legacy_id',
+                'ApplicationNumber as application_no',
+                'FullName as full_name',
+                'MobileNumber as mobile_number',
+                'hub as hub_name',
+                'City as city_name',
+                'status as application_status',
+                'ApplicationDate as application_date',
+            ]);
+
+        if ($request->filled('search')) {
+            $search = '%'.trim((string) $request->query('search')).'%';
+            $query->where(function ($q) use ($search) {
+                $q->where('ApplicationNumber', 'like', $search)
+                    ->orWhere('FullName', 'like', $search)
+                    ->orWhere('MobileNumber', 'like', $search);
+            });
+        }
+
+        $rows = $query
+            ->orderByDesc('ApplicationDate')
+            ->orderByDesc('ID')
+            ->paginate(50)
+            ->withQueryString();
+
+        return view('staff.phase1-data', [
+            'staff' => $staff,
+            'rows' => $rows,
+            'phase1Unavailable' => false,
+            'phase1MissingTables' => false,
             'noDistrict' => false,
         ]);
     }
@@ -512,6 +651,15 @@ class StaffPortalController extends Controller
             return Schema::connection('legacy')->hasTable('rbi_applications')
                 && Schema::connection('legacy')->hasTable('rbi_applicant_details')
                 && Schema::connection('legacy')->hasTable('rbi_services_assigned');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function hasLegacyPhase1Table(): bool
+    {
+        try {
+            return Schema::connection('legacy_phase1')->hasTable('tblapplication');
         } catch (\Throwable) {
             return false;
         }

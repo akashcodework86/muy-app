@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CatalogServiceController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
+use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
@@ -140,6 +141,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('applications/{cfa_submission}/check-phone', [StaffPortalController::class, 'checkPhoneForEdit'])
             ->middleware('throttle:45,1')
             ->name('applications.check-phone');
+        Route::get('phase1-data', [StaffPortalController::class, 'phase1Data'])->name('phase1-data');
         Route::get('phase2-data', [StaffPortalController::class, 'phase2Data'])->name('phase2-data');
         Route::get('phase2-data/export', [StaffPortalController::class, 'exportPhase2Data'])->name('phase2-data.export');
 
@@ -162,6 +164,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('cfa-applications', [CfaSubmissionController::class, 'index'])->name('cfa.index');
         Route::get('cfa-applications/{cfa_submission}', [CfaSubmissionController::class, 'show'])->name('cfa.show');
+        Route::get('cfa-applications-phase1-legacy', [LegacyPhase1CfaApplicationController::class, 'index'])->name('phase1-cfa.index');
         Route::get('cfa-applications-phase2-legacy', [LegacyPhase2CfaApplicationController::class, 'index'])->name('phase2-cfa.index');
 
         Route::get('audit-log', [AuditLogController::class, 'index'])->name('audit.index');

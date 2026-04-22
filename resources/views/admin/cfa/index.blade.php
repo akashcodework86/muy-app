@@ -14,27 +14,114 @@
         </div>
     @else
         <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <form method="get" action="{{ route('admin.cfa.index') }}" class="flex flex-wrap items-center gap-3">
-                <label for="cfa-fy" class="text-sm font-medium text-slate-700">Fiscal year</label>
-                <div class="relative">
-                    <select
-                        id="cfa-fy"
-                        name="fiscal_year_id"
-                        onchange="this.form.submit()"
-                        class="min-w-48 appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    >
-                    @foreach ($fiscalYears as $fy)
-                        <option value="{{ $fy->id }}" @selected((int) $fiscalYearId === (int) $fy->id)>{{ $fy->name }}</option>
-                    @endforeach
-                    </select>
-                    <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
+            <form method="get" action="{{ route('admin.cfa.index') }}" class="flex flex-wrap items-end gap-3">
+
+                {{-- Fiscal Year --}}
+                <div class="flex flex-col gap-1">
+                    <label for="cfa-fy" class="text-xs font-medium text-slate-500 uppercase tracking-wide">Fiscal year</label>
+                    <div class="relative">
+                        <select
+                            id="cfa-fy"
+                            name="fiscal_year_id"
+                            class="min-w-44 appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                        >
+                        @foreach ($fiscalYears as $fy)
+                            <option value="{{ $fy->id }}" @selected((int) $fiscalYearId === (int) $fy->id)>{{ $fy->name }}</option>
+                        @endforeach
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
                 </div>
+
+                {{-- Name search --}}
+                <div class="flex flex-col gap-1">
+                    <label for="cfa-name" class="text-xs font-medium text-slate-500 uppercase tracking-wide">Search by name</label>
+                    <div class="relative">
+                        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+                            <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.8"/>
+                                <path d="M12.5 12.5l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+                        <input
+                            id="cfa-name"
+                            type="text"
+                            name="name"
+                            value="{{ $filters['name'] }}"
+                            placeholder="Applicant name…"
+                            class="w-52 rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                        />
+                    </div>
+                </div>
+
+                {{-- District --}}
+                <div class="flex flex-col gap-1">
+                    <label for="cfa-district" class="text-xs font-medium text-slate-500 uppercase tracking-wide">District</label>
+                    <div class="relative">
+                        <select
+                            id="cfa-district"
+                            name="district_id"
+                            class="min-w-44 appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                        >
+                            <option value="">All districts</option>
+                            @foreach ($districts as $dist)
+                                <option value="{{ $dist->id }}" @selected((string) ($filters['district_id'] ?? '') === (string) $dist->id)>{{ $dist->name }}</option>
+                            @endforeach
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                </div>
+
+                {{-- Sector --}}
+                <div class="flex flex-col gap-1">
+                    <label for="cfa-sector" class="text-xs font-medium text-slate-500 uppercase tracking-wide">Sector</label>
+                    <div class="relative">
+                        <select
+                            id="cfa-sector"
+                            name="sector"
+                            class="min-w-44 appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                        >
+                            <option value="">All sectors</option>
+                            @foreach ($sectors as $sec)
+                                <option value="{{ $sec }}" @selected($filters['sector'] === $sec)>{{ $sec }}</option>
+                            @endforeach
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                </div>
+
+                {{-- Action buttons --}}
+                <div class="flex items-center gap-2 pb-0.5">
+                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.8"/>
+                            <path d="M12.5 12.5l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                        Search
+                    </button>
+                    @if ($filters['name'] || $filters['district_id'] || $filters['sector'])
+                        <a href="{{ route('admin.cfa.index', ['fiscal_year_id' => $fiscalYearId]) }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50">
+                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                            </svg>
+                            Clear
+                        </a>
+                    @endif
+                </div>
+
             </form>
 
             <p class="mt-3 text-sm text-slate-500">
                 Public form submissions (referral-linked) for the selected FY. Newest first.
+                @if ($filters['name'] || $filters['district_id'] || $filters['sector'])
+                    &mdash; <span class="font-medium text-indigo-600">{{ $submissions->total() }} result(s) found</span>
+                @endif
             </p>
         </div>
 

@@ -26,6 +26,7 @@
     $activeNav = match (true) {
         $r === 'dashboard' => 'dashboard',
         str_starts_with($r, 'admin.cfa') => 'cfa',
+        str_starts_with($r, 'admin.phase1-cfa') => 'phase1-cfa',
         str_starts_with($r, 'admin.phase2-cfa') => 'phase2-cfa',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
@@ -43,6 +44,7 @@
         $r === 'staff.monthly-targets' => 'staff-targets',
         str_starts_with($r, 'staff.services') => 'staff-services',
         $r === 'staff.applications' => 'staff-apps',
+        str_starts_with($r, 'staff.phase1-data') => 'staff-phase1-data',
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
         str_starts_with($r, 'staff.batches') => 'staff-batches',
         str_starts_with($r, 'account.') => 'account',
@@ -51,7 +53,7 @@
         default => '',
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance'], true);
-    $cfaGroupActive = in_array($activeNav, ['cfa', 'phase2-cfa'], true);
+    $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa'], true);
     $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
@@ -106,6 +108,9 @@
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Applications</p>
                     <a href="{{ route('admin.cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'cfa') is-active @endif" role="menuitem">
                         {!! $i('doc') !!}<span>CFA applications</span>
+                    </a>
+                    <a href="{{ route('admin.phase1-cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase1-cfa') is-active @endif" role="menuitem">
+                        {!! $i('database') !!}<span>CFA (FY 2024-25 Data)</span>
                     </a>
                     <a href="{{ route('admin.phase2-cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase2-cfa') is-active @endif" role="menuitem">
                         {!! $i('database') !!}<span>CFA (FY 2025-26 Data)</span>
@@ -207,6 +212,9 @@
             </a>
             <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase2-data') is-active @endif">
                 {!! $i('pie') !!}<span class="admin-topbar__link-text">FY 2025-26 Data</span>
+            </a>
+            <a href="{{ route('staff.phase1-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase1-data') is-active @endif">
+                {!! $i('database') !!}<span class="admin-topbar__link-text">CFA (FY 2024-25 Data)</span>
             </a>
         </nav>
         @endif
