@@ -162,6 +162,12 @@ class SchemaValidator
                     ? ['accepted']
                     : ['nullable', 'boolean'];
                 break;
+
+            case ServiceFieldTypes::FILE:
+                // Stored as original filename after upload is accepted.
+                $rules[] = 'string';
+                $rules[] = 'max:255';
+                break;
         }
 
         return $rules;

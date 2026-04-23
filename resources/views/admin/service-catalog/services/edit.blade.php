@@ -192,6 +192,8 @@
                             control = '<select disabled style="width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;"><option>— Select —</option>' + optionHtml + '</select>';
                         } else if (type === 'checkbox') {
                             control = '<label style="display:inline-flex;align-items:center;gap:0.35rem;"><input type="checkbox" disabled> <span style="color:#6b7280;">Option</span></label>';
+                        } else if (type === 'file') {
+                            control = '<input type="file" disabled style="width:100%;padding:0.35rem 0.45rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;font-size:0.82rem;">';
                         }
                         const help = r.help ? '<p style="margin:0.2rem 0 0;font-size:0.74rem;color:#71717a;">' + esc(r.help) + '</p>' : '';
                         return '<div><label style="display:block;font-size:0.84rem;font-weight:600;margin-bottom:0.2rem;">' + label + req + '</label>' + control + help + '</div>';

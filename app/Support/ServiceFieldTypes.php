@@ -48,6 +48,8 @@ class ServiceFieldTypes
 
     public const CHECKBOX = 'checkbox';
 
+    public const FILE = 'file';
+
     /**
      * Master registry. `supports_options` tells the builder UI whether to
      * show the "options" editor for this type.
@@ -122,6 +124,12 @@ class ServiceFieldTypes
                 'input' => 'checkbox',
                 'supports_options' => false,
                 'description' => 'Single yes/no confirmation.',
+            ],
+            self::FILE => [
+                'label' => 'File upload',
+                'input' => 'file',
+                'supports_options' => false,
+                'description' => 'Single supporting file upload (pdf/image).',
             ],
         ];
     }

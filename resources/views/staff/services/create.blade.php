@@ -195,6 +195,12 @@
                             wrap.appendChild(span);
                             box.appendChild(wrap);
                             return;
+                        } else if (type === 'file') {
+                            input = document.createElement('input');
+                            input.type = 'file';
+                            input.name = 'payload_files[' + key + ']';
+                            input.accept = '.pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf';
+                            input.style.cssText = 'width:100%;padding:0.35rem 0.45rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;font-size:0.82rem;';
                         } else {
                             input = document.createElement('input');
                             input.type = type === 'amount' || type === 'number' ? 'number' : (type === 'date' ? 'date' : (type === 'email' ? 'email' : (type === 'url' ? 'url' : (type === 'phone' ? 'tel' : 'text'))));
