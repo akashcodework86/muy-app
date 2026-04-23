@@ -665,7 +665,7 @@
                 <div class="charts-grid">
                     <div class="chart-card tall">
                         <h4>Applications by district</h4>
-                        <p class="hint">CFA count this fiscal year Ã?Â· top districts</p>
+                        <p class="hint">CFA count (all-time) Ã?Â· top districts</p>
                         <div class="canvas-wrap"><canvas id="chartDistrictCfa"></canvas></div>
                     </div>
                     <div class="chart-card tall">
@@ -784,7 +784,7 @@
         data: {
             labels: dLabels.length ? dLabels : ['No data'],
             datasets: [{
-                label: 'CFA (FY)',
+                label: 'CFA',
                 data: dLabels.length ? dValues : [0],
                 backgroundColor: dLabels.length ? dValues.map((_, i) => 'rgba(79, 70, 229, ' + (0.4 + (i % 5) * 0.12) + ')') : ['#e2e8f0'],
                 borderRadius: 6

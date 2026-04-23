@@ -2442,8 +2442,8 @@
                             </div>
                             <div class="welcome-district-embed__stats" role="group" aria-label="District comparison">
                                 <div class="welcome-d-stat">
-                                    <span class="welcome-d-stat__l">District FY</span>
-                                    <span class="welcome-d-stat__v">{{ number_format((int) ($districtCfaThisFy ?? 0)) }}</span>
+                                    <span class="welcome-d-stat__l">District total</span>
+                                    <span class="welcome-d-stat__v">{{ number_format((int) ($districtCfaTotal ?? 0)) }}</span>
                                 </div>
                                 @if ($districtCfaTarget !== null)
                                 <div class="welcome-d-stat">
@@ -2452,8 +2452,8 @@
                                 </div>
                                 @endif
                                 <div class="welcome-d-stat">
-                                    <span class="welcome-d-stat__l">Yours (FY)</span>
-                                    <span class="welcome-d-stat__v">{{ number_format($cfaThisFy) }}</span>
+                                    <span class="welcome-d-stat__l">Yours (total)</span>
+                                    <span class="welcome-d-stat__v">{{ number_format($cfaTotal) }}</span>
                                 </div>
                                 <div class="welcome-d-stat">
                                     <span class="welcome-d-stat__l">Your share</span>
@@ -2467,9 +2467,9 @@
                                 </div>
                             </div>
                             @if (! empty($districtCfaByReferrer['rows']))
-                            <div class="welcome-district-embed__referrers" aria-label="District FY applications by referral staff">
+                            <div class="welcome-district-embed__referrers" aria-label="District applications by referral staff">
                                 <span class="welcome-district-embed__mix-title">FY applications by referrer</span>
-                                <p class="welcome-district-embed__referrers-hint">Each CFA is counted under the staff link used. This sums to “District FY”.</p>
+                                <p class="welcome-district-embed__referrers-hint">Each CFA is counted under the staff link used. This sums to district total applications.</p>
                                 <ul class="welcome-d-ref-list">
                                     @foreach ($districtCfaByReferrer['rows'] as $refRow)
                                     <li class="welcome-d-ref-list__row @if (! empty($refRow['is_you'])) welcome-d-ref-list__row--you @endif">

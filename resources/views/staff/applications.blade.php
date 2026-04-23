@@ -8,6 +8,9 @@
         $qParams = request()->except('page');
         $tabMineUrl = route('staff.applications', array_merge($qParams, ['scope' => 'mine']));
         $tabDistrictUrl = route('staff.applications', array_merge($qParams, ['scope' => 'district']));
+        $exportUrl = \Illuminate\Support\Facades\Route::has('staff.applications.export')
+            ? route('staff.applications.export', request()->query())
+            : null;
     @endphp
 
     <div style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center;margin:0 0 0.75rem;">
@@ -47,10 +50,12 @@
         @if (! empty($searchQuery))
             <a href="{{ route('staff.applications', array_filter(['scope' => $scope])) }}" style="font-size:0.85rem;color:#4f46e5;">Clear search</a>
         @endif
-        <a
-            href="{{ route('staff.applications.export', request()->query()) }}"
-            style="margin-left:auto;padding:0.45rem 0.85rem;background:#0f766e;color:#fff;border-radius:8px;font-size:0.85rem;font-weight:600;text-decoration:none;white-space:nowrap;"
-        >Download CSV (all CFA fields)</a>
+        @if ($exportUrl)
+            <a
+                href="{{ $exportUrl }}"
+                style="margin-left:auto;padding:0.45rem 0.85rem;background:#0f766e;color:#fff;border-radius:8px;font-size:0.85rem;font-weight:600;text-decoration:none;white-space:nowrap;"
+            >Download CSV (all CFA fields)</a>
+        @endif
     </form>
 
     <p style="color:#64748b;font-size:0.9rem;margin:0 0 1rem;">

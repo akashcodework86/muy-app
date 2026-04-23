@@ -76,16 +76,13 @@ class StateAdminDashboardService
             $growthCount = (int) ($stageCounts['growth'] ?? 0);
         }
 
-        $cfaByDistrict = $activeFy
-            ? DB::table('cfa_submissions')
-                ->join('districts', 'cfa_submissions.district_id', '=', 'districts.id')
-                ->where('cfa_submissions.fiscal_year_id', $activeFy->id)
-                ->select('districts.name', DB::raw('COUNT(*) as total'))
-                ->groupBy('districts.id', 'districts.name')
-                ->orderByDesc('total')
-                ->limit(12)
-                ->get()
-            : collect();
+        $cfaByDistrict = DB::table('cfa_submissions')
+            ->join('districts', 'cfa_submissions.district_id', '=', 'districts.id')
+            ->select('districts.name', DB::raw('COUNT(*) as total'))
+            ->groupBy('districts.id', 'districts.name')
+            ->orderByDesc('total')
+            ->limit(12)
+            ->get();
 
         $staffByDistrict = DB::table('users')
             ->join('districts', 'users.district_id', '=', 'districts.id')

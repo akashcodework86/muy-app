@@ -50,27 +50,25 @@ class StaffDashboardService
             );
         }
 
-        $districtCfaThisFy = null;
+        $districtCfaTotal = null;
         $districtCfaTrend = ['labels' => [], 'values' => []];
         $districtBusinessStageMix = ['labels' => [], 'values' => []];
         $districtCfaByReferrer = ['rows' => [], 'total' => 0];
-        if ($activeFy && $user->district_id) {
-            $districtCfaThisFy = CfaSubmission::query()
+        if ($user->district_id) {
+            $districtCfaTotal = CfaSubmission::query()
                 ->where('district_id', (int) $user->district_id)
-                ->where('fiscal_year_id', (int) $activeFy->id)
                 ->count();
-            $districtCfaTrend = $this->districtDailyTrend14((int) $user->district_id, (int) $activeFy->id);
-            $districtBusinessStageMix = $this->districtStageMixAggregates((int) $user->district_id, (int) $activeFy->id);
+            $districtCfaTrend = $this->districtDailyTrend14((int) $user->district_id);
+            $districtBusinessStageMix = $this->districtStageMixAggregates((int) $user->district_id);
             $districtCfaByReferrer = $this->districtCfaBreakdownByReferrer(
                 (int) $user->district_id,
-                (int) $activeFy->id,
                 (int) $user->id
             );
         }
 
         $districtProgressPct = null;
-        if ($districtCfaTarget !== null && (int) $districtCfaTarget > 0 && $districtCfaThisFy !== null) {
-            $districtProgressPct = (int) min(100, round(($districtCfaThisFy / (int) $districtCfaTarget) * 100));
+        if ($districtCfaTarget !== null && (int) $districtCfaTarget > 0 && $districtCfaTotal !== null) {
+            $districtProgressPct = (int) min(100, round(($districtCfaTotal / (int) $districtCfaTarget) * 100));
         }
 
         $base = CfaSubmission::query()->where('referral_user_id', $user->id);
@@ -88,8 +86,8 @@ class StaffDashboardService
         }
 
         $staffShareOfDistrictPct = null;
-        if ($districtCfaThisFy !== null && (int) $districtCfaThisFy > 0) {
-            $staffShareOfDistrictPct = (int) min(100, round(($cfaThisFy / (int) $districtCfaThisFy) * 100));
+        if ($districtCfaTotal !== null && (int) $districtCfaTotal > 0) {
+            $staffShareOfDistrictPct = (int) min(100, round(($cfaTotal / (int) $districtCfaTotal) * 100));
         }
 
         $recent7 = (clone $base)->where('created_at', '>=', now()->copy()->subDays(7))->count();
@@ -259,7 +257,7 @@ class StaffDashboardService
             'referralUrl' => $user->referralApplyUrl(),
             'staffAnnualTarget' => $staffAnnualTarget,
             'districtCfaTarget' => $districtCfaTarget,
-            'districtCfaThisFy' => $districtCfaThisFy,
+            'districtCfaTotal' => $districtCfaTotal,
             'districtCfaByReferrer' => $districtCfaByReferrer,
             'districtCfaTrend' => $districtCfaTrend,
             'districtBusinessStageMix' => $districtBusinessStageMix,
@@ -337,16 +335,15 @@ class StaffDashboardService
     }
 
     /**
-     * District FY CFA totals split by referral link owner (who attributed each application).
+     * District CFA totals split by referral link owner (who attributed each application).
      *
      * @return array{rows: list<array{user_id: int|null, name: string, count: int, is_you: bool, share_pct: int}>, total: int}
      */
-    private function districtCfaBreakdownByReferrer(int $districtId, int $fiscalYearId, int $viewerUserId): array
+    private function districtCfaBreakdownByReferrer(int $districtId, int $viewerUserId): array
     {
         /** @var Collection<int, object{referral_user_id: int|null, cnt: int|string}> $aggregates */
         $aggregates = DB::table('cfa_submissions')
             ->where('district_id', $districtId)
-            ->where('fiscal_year_id', $fiscalYearId)
             ->selectRaw('referral_user_id, COUNT(*) as cnt')
             ->groupBy('referral_user_id')
             ->orderByDesc('cnt')
@@ -667,11 +664,11 @@ class StaffDashboardService
     }
 
     /**
-     * District-wide CFA submissions per calendar day for the last 14 days (current FY only).
+     * District-wide CFA submissions per calendar day for the last 14 days.
      *
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function districtDailyTrend14(int $districtId, int $fiscalYearId): array
+    private function districtDailyTrend14(int $districtId): array
     {
         $labels = [];
         $values = [];
@@ -680,7 +677,6 @@ class StaffDashboardService
             $labels[] = $day->format('d M');
             $values[] = (int) CfaSubmission::query()
                 ->where('district_id', $districtId)
-                ->where('fiscal_year_id', $fiscalYearId)
                 ->whereDate('created_at', $day->toDateString())
                 ->count();
         }
@@ -689,17 +685,16 @@ class StaffDashboardService
     }
 
     /**
-     * Stage distribution from stored payloads for all CFA in this district in the FY (capped scan).
+     * Stage distribution from stored payloads for all CFA in this district (capped scan).
      *
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function districtStageMixAggregates(int $districtId, int $fiscalYearId, int $limit = 2000): array
+    private function districtStageMixAggregates(int $districtId, int $limit = 2000): array
     {
         $stage = [];
 
         CfaSubmission::query()
             ->where('district_id', $districtId)
-            ->where('fiscal_year_id', $fiscalYearId)
             ->whereNotNull('payload')
             ->orderByDesc('id')
             ->limit($limit)
