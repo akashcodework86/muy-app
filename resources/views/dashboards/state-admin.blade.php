@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>State Admin ù?? {{ config('app.name') }}</title>
+    <title>State Admin - {{ config('app.name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
@@ -347,7 +347,6 @@
         @endif
 
         <div class="dashboard-shell">
-            @if ($activeFy)
                 @php
                     $sStageTotals = ['SEED' => 0, 'EARLY' => 0, 'GROWTH' => 0];
                     foreach ($stateBusinessStageMix['labels'] ?? [] as $dIdx => $dLabel) {
@@ -404,15 +403,8 @@
                         <div class="dashboard-intro__left">
                             <div class="dashboard-intro__eyebrow"><i class="fa-solid fa-flag" aria-hidden="true"></i> State overview</div>
                             <h2>Welcome back, {{ auth()->user()->name }}</h2>
-                            <p>
-                                All districts ù CFA picture for <strong>{{ $activeFy->name }}</strong>.
-                                Totals below use this fiscal year unless noted.
-                            </p>
+                            <p>All districts - Phase 3 CFA picture (all-time).</p>
                             <div class="welcome-meta-pills">
-                                <div class="welcome-meta-pill">
-                                    <i class="fa-regular fa-calendar" aria-hidden="true"></i>
-                                    <span><strong>Active FY</strong> {{ $activeFy->name }}</span>
-                                </div>
                                 @if ($stateCfaTarget !== null)
                                     <div class="welcome-meta-pill">
                                         <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
@@ -431,8 +423,7 @@
                         </div>
 
                         <div class="dashboard-intro__right">
-                            {{-- FY progress ring --}}
-                            <div class="hero-ring-card" title="CFA submissions vs state target for {{ $activeFy->name }}">
+                            <div class="hero-ring-card" title="All-time Phase 3 CFA submissions">
                                 <svg class="hero-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                                     <defs>
                                         <linearGradient id="heroRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -445,24 +436,14 @@
                                         stroke-dasharray="{{ round($heroRingCirc, 3) }}"
                                         stroke-dashoffset="{{ round($heroRingOffset, 3) }}"/>
                                     <text class="pct" x="50" y="52" text-anchor="middle" dominant-baseline="middle">{{ $heroRingPct }}%</text>
-                                    <text class="pct-sub" x="50" y="66" text-anchor="middle">OF TARGET</text>
+                                    <text class="pct-sub" x="50" y="66" text-anchor="middle">PHASE 3</text>
                                 </svg>
                                 <div>
-                                    <div class="hero-ring-body__eyebrow">FY progress</div>
+                                    <div class="hero-ring-body__eyebrow">All-time total</div>
                                     <div class="hero-ring-body__value">
-                                        {{ number_format((int) ($stateCfaThisFy ?? 0)) }}
-                                        @if ($stateCfaTarget !== null)
-                                            <small>/ {{ number_format((int) $stateCfaTarget) }}</small>
-                                        @endif
+                                        {{ number_format((int) ($cfaTotal ?? 0)) }}
                                     </div>
-                                    <span class="hero-ring-body__label">CFA submissions this FY</span>
-                                    @if ($stateCfaTarget !== null)
-                                        @php $remaining = max(0, (int) $stateCfaTarget - (int) ($stateCfaThisFy ?? 0)); @endphp
-                                        <span class="hero-ring-body__gap @if ($remaining === 0) is-good @endif">
-                                            <i class="fa-solid @if ($remaining === 0) fa-trophy @else fa-arrow-trend-up @endif" aria-hidden="true"></i>
-                                            @if ($remaining === 0) Target met! @else {{ number_format($remaining) }} to go @endif
-                                        </span>
-                                    @endif
+                                    <span class="hero-ring-body__label">CFA submissions (Phase 3)</span>
                                 </div>
                             </div>
 
@@ -476,7 +457,7 @@
                                     @elseif ($todayDelta < 0)
                                         <span class="hero-today__delta is-down"><i class="fa-solid fa-caret-down" aria-hidden="true"></i> {{ abs($todayDelta) }} vs yest.</span>
                                     @else
-                                        <span class="hero-today__delta">ù?? same as yest.</span>
+                                        <span class="hero-today__delta">same as yest.</span>
                                     @endif
                                 </div>
                                 <div class="hero-today hero-today--mentor">
@@ -515,7 +496,7 @@
                                     <span class="hero-today__delta @if ($sparkTrend > 0) is-up @elseif ($sparkTrend < 0) is-down @endif" style="font-size:0.62rem;">
                                         @if ($sparkTrend > 0)<i class="fa-solid fa-caret-up"></i> +{{ $sparkTrend }}%
                                         @elseif ($sparkTrend < 0)<i class="fa-solid fa-caret-down"></i> {{ $sparkTrend }}%
-                                        @else ù?? flat @endif
+                                        @else flat @endif
                                     </span>
                                     <div style="font-size:0.5rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:0.15rem;">vs prev 15d</div>
                                 </div>
@@ -561,7 +542,7 @@
                             <div class="business-mix-compact">
                                 <div class="business-mix-compact__header">
                                     <div class="business-mix-compact__title">Business categories</div>
-                                    <div class="business-mix-compact__meta">Ranked mix ù?ù all {{ $activeFy->name }} applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
+                                    <div class="business-mix-compact__meta">Ranked mix - all Phase 3 applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
                                 </div>
                                 @if (count($businessMix['labels']) === 0)
                                     <div class="no-data-message">No category data yet</div>
@@ -623,7 +604,7 @@
                         <div class="welcome-district-embed glass-surface" style="margin-top:0;">
                             <div class="welcome-district-embed__head">
                                 <span class="welcome-district-embed__eyebrow"><i class="fa-solid fa-earth-asia" aria-hidden="true"></i> All districts</span>
-                                <span class="welcome-district-embed__where">{{ $activeFy->name }}</span>
+                                <span class="welcome-district-embed__where">All-time (Phase 3)</span>
                             </div>
                             <div class="welcome-district-embed__grid">
                                 <div class="welcome-district-embed__ring">
@@ -643,17 +624,17 @@
                                     <div class="welcome-district-embed__ring-meta">
                                         @if ($stateProgressPct !== null)
                                             <span class="welcome-district-embed__pct">{{ $stateProgressPct }}%</span>
-                                            <span class="welcome-district-embed__pct-label">vs state CFA target</span>
+                                            <span class="welcome-district-embed__pct-label">Phase 3 overall coverage</span>
                                         @else
                                             <span class="welcome-district-embed__pct">ù??</span>
-                                            <span class="welcome-district-embed__pct-label">Set state target</span>
+                                            <span class="welcome-district-embed__pct-label">No baseline configured</span>
                                         @endif
                                     </div>
                                 </div>
                                 <div class="welcome-district-embed__chart">
                                     <div class="welcome-district-embed__chart-head">
                                         <span>14-day state intake</span>
-                                        <span class="welcome-district-embed__chart-hint">This FY</span>
+                                        <span class="welcome-district-embed__chart-hint">All-time</span>
                                     </div>
                                     <div class="welcome-district-chart-wrap">
                                         <canvas id="stateTrendCurveChart" aria-label="CFA per day, all districts"></canvas>
@@ -662,8 +643,8 @@
                             </div>
                             <div class="welcome-district-embed__stats" role="group">
                                 <div class="welcome-d-stat">
-                                    <span class="welcome-d-stat__l">State FY</span>
-                                    <span class="welcome-d-stat__v">{{ number_format((int) ($stateCfaThisFy ?? 0)) }}</span>
+                                    <span class="welcome-d-stat__l">Phase 3 total</span>
+                                    <span class="welcome-d-stat__v">{{ number_format((int) ($cfaTotal ?? 0)) }}</span>
                                 </div>
                                 @if ($stateCfaTarget !== null)
                                     <div class="welcome-d-stat">
@@ -681,7 +662,7 @@
                                 </div>
                             </div>
                             <div class="welcome-district-embed__mix">
-                                <span class="welcome-district-embed__mix-title">Stage mix (sample FY)</span>
+                                <span class="welcome-district-embed__mix-title">Stage mix (all-time)</span>
                                 <div class="welcome-d-stage-row">
                                     <span class="welcome-d-stage-row__l">S</span>
                                     <div class="welcome-d-stage-row__t"><div class="welcome-d-stage-row__f welcome-d-stage-row__f--seed" style="width: {{ $sStagePct['SEED'] }}%;"></div></div>
@@ -698,7 +679,7 @@
                                     <span class="welcome-d-stage-row__p">{{ $sStagePct['GROWTH'] }}%</span>
                                 </div>
                             </div>
-                            <p class="welcome-district-embed__note">Stage mix from a recent sample of saved forms ({{ $activeFy->name }}). CFA counts are all submissions in this FY.</p>
+                            <p class="welcome-district-embed__note">Stage mix from recent saved Phase 3 forms. Counts shown are all-time Phase 3 submissions.</p>
                         </div>
                     </div>
                 </div>
@@ -711,7 +692,7 @@
                     </div>
                     <div class="chart-card tall">
                         <h4>CFA by staffs</h4>
-                        <p class="hint">Search by staff name and filter by district ({{ $activeFy->name }})</p>
+                        <p class="hint">Search by staff name and filter by district (all-time Phase 3).</p>
                         @php
                             $staffCfaRows = $staffCfaByStaff ?? [];
                             $staffDistrictOptions = collect($staffCfaRows)
@@ -766,7 +747,7 @@
                     <a href="{{ route('admin.cfa.index') }}">
                         <div class="qi"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></div>
                         <strong>CFA applications</strong>
-                        <span>All districts ù?? review submissions</span>
+                        <span>All districts - review submissions</span>
                     </a>
                     <a href="{{ route('admin.targets.state') }}">
                         <div class="qi"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></div>
@@ -794,16 +775,9 @@
                         <span>Activity trail</span>
                     </a>
                 </div>
-            @else
-                <div class="dashboard-intro">
-                    <h2>State dashboard</h2>
-                    <p>No active fiscal year is set. Configure fiscal years and targets to see statewide metrics.</p>
-                </div>
-            @endif
         </div>
     </main>
 
-@if ($activeFy)
 <script>
 (function () {
     const grid = { color: 'rgba(148, 163, 184, 0.25)' };
@@ -959,7 +933,6 @@
     }
 })();
 </script>
-@endif
 
 @include('partials.app-footer')
 </body>

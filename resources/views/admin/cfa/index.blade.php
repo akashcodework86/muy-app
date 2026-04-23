@@ -8,32 +8,8 @@
 @endpush
 
 @section('content')
-    @if ($fiscalYears->isEmpty())
-        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            No fiscal year configured. Add FY rows in the database first.
-        </div>
-    @else
         <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <form method="get" action="{{ route('admin.cfa.index') }}" class="flex flex-wrap items-end gap-3">
-
-                {{-- Fiscal Year --}}
-                <div class="flex flex-col gap-1">
-                    <label for="cfa-fy" class="text-xs font-medium text-slate-500 uppercase tracking-wide">Fiscal year</label>
-                    <div class="relative">
-                        <select
-                            id="cfa-fy"
-                            name="fiscal_year_id"
-                            class="min-w-44 appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                        >
-                        @foreach ($fiscalYears as $fy)
-                            <option value="{{ $fy->id }}" @selected((int) $fiscalYearId === (int) $fy->id)>{{ $fy->name }}</option>
-                        @endforeach
-                        </select>
-                        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                            <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    </div>
-                </div>
 
                 {{-- Name search --}}
                 <div class="flex flex-col gap-1">
@@ -106,7 +82,7 @@
                         Search
                     </button>
                     @if ($filters['name'] || $filters['district_id'] || $filters['sector'])
-                        <a href="{{ route('admin.cfa.index', ['fiscal_year_id' => $fiscalYearId]) }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50">
+                        <a href="{{ route('admin.cfa.index') }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50">
                             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                                 <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                             </svg>
@@ -118,7 +94,7 @@
             </form>
 
             <p class="mt-3 text-sm text-slate-500">
-                Public form submissions (referral-linked) for the selected FY. Newest first.
+                Public form submissions (referral-linked) for all-time Phase 3 data. Newest first.
                 @if ($filters['name'] || $filters['district_id'] || $filters['sector'])
                     &mdash; <span class="font-medium text-indigo-600">{{ $submissions->total() }} result(s) found</span>
                 @endif
@@ -223,5 +199,4 @@
                 </div>
             </div>
         @endif
-    @endif
 @endsection

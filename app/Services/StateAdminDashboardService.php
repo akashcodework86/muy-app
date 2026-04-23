@@ -5,10 +5,7 @@ namespace App\Services;
 use App\Models\CfaSubmission;
 use App\Models\Deliverable;
 use App\Models\District;
-use App\Models\DistrictDeliverableTarget;
-use App\Models\FiscalYear;
 use App\Models\MentorshipRequest;
-use App\Models\StateDeliverableTarget;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -21,38 +18,14 @@ class StateAdminDashboardService
      */
     public function metrics(): array
     {
-        $activeFy = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first();
-        $cfaDeliverable = Deliverable::query()->where('code', 'cfa')->first();
-
+        $activeFy = null;
+        $cfaDeliverable = null;
         $stateCfaTarget = null;
         $districtsCfaSum = null;
-        if ($activeFy && $cfaDeliverable) {
-            $stateCfaTarget = StateDeliverableTarget::query()
-                ->where('fiscal_year_id', $activeFy->id)
-                ->where('deliverable_id', $cfaDeliverable->id)
-                ->value('target_total');
-            $districtsCfaSum = (int) DistrictDeliverableTarget::query()
-                ->where('fiscal_year_id', $activeFy->id)
-                ->where('deliverable_id', $cfaDeliverable->id)
-                ->sum('target_total');
-        }
-
-        $stateCfaThisFy = null;
-        $stateProgressPct = null;
-        $stateCfaTrend = ['labels' => [], 'values' => []];
-        $stateBusinessStageMix = ['labels' => [], 'values' => []];
-
-        if ($activeFy) {
-            $fyId = (int) $activeFy->id;
-            $stateCfaThisFy = (int) CfaSubmission::query()
-                ->where('fiscal_year_id', $fyId)
-                ->count();
-            if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0) {
-                $stateProgressPct = (int) min(100, round($stateCfaThisFy / (int) $stateCfaTarget * 100));
-            }
-            $stateCfaTrend = $this->stateDailyTrend14($fyId);
-            $stateBusinessStageMix = $this->stateStageMixAggregates($fyId);
-        }
+        $stateCfaThisFy = (int) CfaSubmission::query()->count();
+        $stateProgressPct = 100;
+        $stateCfaTrend = $this->stateDailyTrend14();
+        $stateBusinessStageMix = $this->stateStageMixAggregates();
 
         $staffTotal = User::query()->where('role', 'district_staff')->count();
         $staffActive = User::query()->where('role', 'district_staff')->where('is_active', true)->count();
@@ -82,17 +55,14 @@ class StateAdminDashboardService
         $seedCount = 0;
         $earlyCount = 0;
         $growthCount = 0;
-        if ($activeFy) {
-            $stageCounts = DB::table('cfa_submissions')
-                ->where('fiscal_year_id', $activeFy->id)
-                ->selectRaw("LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.form_stage')))) as stage_key")
-                ->selectRaw('COUNT(*) as total')
-                ->groupBy('stage_key')
-                ->pluck('total', 'stage_key');
-            $seedCount = (int) ($stageCounts['seed'] ?? 0);
-            $earlyCount = (int) ($stageCounts['early'] ?? 0);
-            $growthCount = (int) ($stageCounts['growth'] ?? 0);
-        }
+        $stageCounts = DB::table('cfa_submissions')
+            ->selectRaw("LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.form_stage')))) as stage_key")
+            ->selectRaw('COUNT(*) as total')
+            ->groupBy('stage_key')
+            ->pluck('total', 'stage_key');
+        $seedCount = (int) ($stageCounts['seed'] ?? 0);
+        $earlyCount = (int) ($stageCounts['early'] ?? 0);
+        $growthCount = (int) ($stageCounts['growth'] ?? 0);
 
         $cfaByDistrict = DB::table('districts')
             ->leftJoin('cfa_submissions', 'cfa_submissions.district_id', '=', 'districts.id')
@@ -112,11 +82,8 @@ class StateAdminDashboardService
 
         $staffCfaByStaff = DB::table('users')
             ->leftJoin('districts', 'users.district_id', '=', 'districts.id')
-            ->leftJoin('cfa_submissions as cs', function ($join) use ($activeFy): void {
+            ->leftJoin('cfa_submissions as cs', function ($join): void {
                 $join->on('cs.referral_user_id', '=', 'users.id');
-                if ($activeFy) {
-                    $join->where('cs.fiscal_year_id', '=', (int) $activeFy->id);
-                }
             })
             ->where('users.role', 'district_staff')
             ->select(
@@ -130,7 +97,7 @@ class StateAdminDashboardService
             ->orderBy('users.name')
             ->get();
 
-        $businessMixChart = $this->businessCategoryMix($activeFy?->id);
+        $businessMixChart = $this->businessCategoryMix();
         $businessMixChart['colors'] = $this->chartColorsForLabels($businessMixChart['labels']);
 
         $heroCfaToday = (int) CfaSubmission::query()->whereDate('created_at', now()->toDateString())->count();
@@ -158,9 +125,6 @@ class StateAdminDashboardService
         $heroSparkline30 = $this->dailyCfaSparkline(30);
 
         $districtAllocPct = null;
-        if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0) {
-            $districtAllocPct = (int) min(100, round(((int) ($districtsCfaSum ?? 0) / (int) $stateCfaTarget) * 100));
-        }
 
         return [
             'activeFy' => $activeFy,
@@ -239,7 +203,7 @@ class StateAdminDashboardService
     /**
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function stateDailyTrend14(int $fiscalYearId): array
+    private function stateDailyTrend14(): array
     {
         $labels = [];
         $values = [];
@@ -247,7 +211,6 @@ class StateAdminDashboardService
             $day = Carbon::now()->subDays($i)->startOfDay();
             $labels[] = $day->format('d M');
             $values[] = (int) CfaSubmission::query()
-                ->where('fiscal_year_id', $fiscalYearId)
                 ->whereDate('created_at', $day->toDateString())
                 ->count();
         }
@@ -258,12 +221,11 @@ class StateAdminDashboardService
     /**
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function stateStageMixAggregates(int $fiscalYearId, int $limit = 2000): array
+    private function stateStageMixAggregates(int $limit = 2000): array
     {
         $stage = [];
 
         CfaSubmission::query()
-            ->where('fiscal_year_id', $fiscalYearId)
             ->whereNotNull('payload')
             ->orderByDesc('id')
             ->limit($limit)
@@ -296,15 +258,12 @@ class StateAdminDashboardService
     /**
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function businessCategoryMix(?int $fiscalYearId = null): array
+    private function businessCategoryMix(): array
     {
         $counts = [];
         $q = CfaSubmission::query()
             ->whereNotNull('payload')
             ->orderByDesc('id');
-        if ($fiscalYearId !== null) {
-            $q->where('fiscal_year_id', $fiscalYearId);
-        }
         $q->cursor()
             ->each(function (CfaSubmission $row) use (&$counts): void {
                 $cat = $row->payload['business_category'] ?? null;
