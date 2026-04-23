@@ -13,11 +13,11 @@
 @endphp
 
 <fieldset style="margin:0 0 1rem; padding:0.75rem 0.9rem; border:1px solid #e4e4e7; border-radius:8px;">
-    <legend style="padding:0 0.4rem; font-size:0.85rem; font-weight:600; color:#3730a3;">Submission form fields (visual builder)</legend>
-    <p style="font-size:0.78rem; color:#71717a; margin:0 0 0.65rem;">Define the fields district staff fill when they submit this service. Optional — leave empty if no extra data is needed.</p>
+    <legend style="padding:0 0.4rem; font-size:0.85rem; font-weight:600; color:#3730a3;">Submission form builder</legend>
+    <p style="font-size:0.78rem; color:#71717a; margin:0 0 0.65rem;">Add the fields staff should fill when submitting this service. Leave it empty if no extra details are needed.</p>
 
     <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; margin-bottom:0.65rem;">
-        <label style="font-size:0.82rem;">Load template</label>
+        <label style="font-size:0.82rem;">Use template</label>
         <select id="svc_schema_template" style="padding:0.35rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px; font-size:0.82rem; min-width:14rem;">
             <option value="">— Choose —</option>
             @foreach ($schemaTemplates as $tplName => $_rows)
@@ -26,13 +26,14 @@
         </select>
         <button type="button" id="svc_schema_add" style="background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; padding:0.35rem 0.65rem; border-radius:6px; font-size:0.82rem; font-weight:600; cursor:pointer;">+ Add field</button>
     </div>
+    <p style="font-size:0.74rem; color:#6b7280; margin:0 0 0.55rem;">Tip: fill both <strong>Field ID</strong> and <strong>Label</strong> to include a field in preview and save.</p>
 
     <div id="svc_schema_rows" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
 
     <input type="hidden" name="field_schema" id="svc_schema_hidden" value="{{ e(old('field_schema', json_encode($schemaInitial, JSON_UNESCAPED_UNICODE))) }}">
 
     <details style="margin-top:0.75rem;">
-        <summary style="cursor:pointer; font-size:0.82rem; font-weight:600; color:#52525b;">Advanced: JSON</summary>
+        <summary style="cursor:pointer; font-size:0.82rem; font-weight:600; color:#52525b;">Advanced (JSON)</summary>
         <textarea id="svc_schema_raw" rows="8" style="width:100%; margin-top:0.35rem; font-family:ui-monospace,monospace; font-size:0.78rem; padding:0.5rem; border:1px solid #d4d4d8; border-radius:6px;" spellcheck="false"></textarea>
         <p style="font-size:0.72rem; color:#71717a; margin:0.25rem 0 0;">Paste a JSON array; it syncs into the builder when valid.</p>
     </details>
@@ -126,10 +127,10 @@
             const optSupport = supportsOptions[row.type];
             wrap.innerHTML =
                 '<div style="display:grid;grid-template-columns:1fr 1fr 8rem auto;gap:0.35rem;align-items:end;">' +
-                '<div><label style="font-size:0.72rem;color:#52525b;">Key (snake_case)</label><input data-k="key" type="text" value="' + (row.key || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:0.3rem 0.4rem;border:1px solid #d4d4d8;border-radius:4px;font-size:0.82rem;"></div>' +
+                '<div><label style="font-size:0.72rem;color:#52525b;">Field ID (snake_case)</label><input data-k="key" type="text" value="' + (row.key || '').replace(/"/g, '&quot;') + '" placeholder="e.g. certificate_no" style="width:100%;padding:0.3rem 0.4rem;border:1px solid #d4d4d8;border-radius:4px;font-size:0.82rem;"></div>' +
                 '<div><label style="font-size:0.72rem;color:#52525b;">Label</label><input data-k="label" type="text" value="' + (row.label || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:0.3rem 0.4rem;border:1px solid #d4d4d8;border-radius:4px;font-size:0.82rem;"></div>' +
                 '<div><label style="font-size:0.72rem;color:#52525b;">Type</label><select data-k="type" style="width:100%;padding:0.3rem 0.4rem;border:1px solid #d4d4d8;border-radius:4px;font-size:0.82rem;">' + typeOpts + '</select></div>' +
-                '<div style="display:flex;gap:0.35rem;align-items:center;"><label style="font-size:0.72rem;display:flex;align-items:center;gap:0.2rem;cursor:pointer;"><input data-k="required" type="checkbox"' + (row.required ? ' checked' : '') + '> Req</label><button type="button" data-del style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:0.25rem 0.45rem;border-radius:4px;font-size:0.75rem;cursor:pointer;">✕</button></div>' +
+                '<div style="display:flex;gap:0.35rem;align-items:center;"><label style="font-size:0.72rem;display:flex;align-items:center;gap:0.2rem;cursor:pointer;"><input data-k="required" type="checkbox"' + (row.required ? ' checked' : '') + '> Required</label><button type="button" data-del style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:0.25rem 0.45rem;border-radius:4px;font-size:0.75rem;cursor:pointer;">Remove</button></div>' +
                 '</div>' +
                 '<div style="margin-top:0.35rem;"><label style="font-size:0.72rem;color:#52525b;">Help text (optional)</label><input data-k="help" type="text" value="' + (row.help || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:0.3rem 0.4rem;border:1px solid #d4d4d8;border-radius:4px;font-size:0.82rem;"></div>' +
                 '<div data-optwrap style="margin-top:0.35rem;display:' + (optSupport ? 'block' : 'none') + ';"><label style="font-size:0.72rem;color:#52525b;">Options (one per line, optional <code>value|Label</code>)</label><textarea data-k="options" rows="3" style="width:100%;padding:0.35rem 0.45rem;border:1px solid #d4d4d8;border-radius:4px;font-size:0.78rem;font-family:ui-monospace,monospace;"></textarea></div>';

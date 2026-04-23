@@ -119,7 +119,7 @@
 
         <fieldset style="margin:0 0 1rem; padding:0.75rem 0.9rem; border:1px solid #e4e4e7; border-radius:8px; background:#fcfcff;">
             <legend style="padding:0 0.4rem; font-size:0.85rem; font-weight:600; color:#1f2937;">Live preview (staff submit form)</legend>
-            <p style="font-size:0.78rem; color:#71717a; margin:0 0 0.6rem;">This is how the submission form will look to district staff for this service.</p>
+            <p style="font-size:0.78rem; color:#71717a; margin:0 0 0.6rem;">This is how the form will look to staff. A field appears here only after you enter both <strong>Field ID</strong> and <strong>Label</strong>.</p>
             <div id="svc_preview_fields" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
             <div id="svc_preview_doc" style="margin-top:0.6rem; display:none;">
                 <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">Documents <span style="font-weight:400;color:#71717a;">(required)</span></label>
@@ -170,7 +170,7 @@
                 }
                 const valid = rows.filter(r => r && r.key && r.label);
                 if (!valid.length) {
-                    fieldsWrap.innerHTML = '<p style="margin:0; font-size:0.82rem; color:#6b7280;">No extra form fields configured yet.</p>';
+                    fieldsWrap.innerHTML = '<p style="margin:0; font-size:0.82rem; color:#6b7280;">No fields added yet. Click <strong>+ Add field</strong>, then fill <strong>Field ID</strong> and <strong>Label</strong>.</p>';
                 } else {
                     fieldsWrap.innerHTML = valid.map(function (r) {
                         const label = esc(r.label);
