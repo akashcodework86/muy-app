@@ -26,6 +26,28 @@
         <a href="{{ route('admin.documents.create') }}" style="margin-left:auto;background:#4f46e5;color:#fff;text-decoration:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;">Upload document</a>
     </form>
 
+    <div style="display:flex;flex-wrap:wrap;gap:0.7rem;margin:0 0 0.95rem;">
+        <form method="post" action="{{ route('admin.documents.categories.store') }}" style="display:flex;flex-wrap:wrap;gap:0.45rem;align-items:center;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:0.45rem 0.55rem;">
+            @csrf
+            <input type="text" name="name" maxlength="160" required placeholder="New category name"
+                style="min-width:12rem;padding:0.4rem 0.55rem;border:1px solid #d4d4d8;border-radius:6px;">
+            <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.4rem 0.65rem;border-radius:6px;font-size:0.82rem;font-weight:600;">Create category</button>
+        </form>
+
+        <form method="post" action="{{ route('admin.documents.subcategories.store') }}" style="display:flex;flex-wrap:wrap;gap:0.45rem;align-items:center;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:0.45rem 0.55rem;">
+            @csrf
+            <select name="parent_id" required style="padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                <option value="">Select parent category</option>
+                @foreach ($categories as $root)
+                    <option value="{{ $root->id }}">{{ $root->name }}</option>
+                @endforeach
+            </select>
+            <input type="text" name="name" maxlength="160" required placeholder="New subcategory name"
+                style="min-width:12rem;padding:0.4rem 0.55rem;border:1px solid #d4d4d8;border-radius:6px;">
+            <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.4rem 0.65rem;border-radius:6px;font-size:0.82rem;font-weight:600;">Create subcategory</button>
+        </form>
+    </div>
+
     <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e4e7;border-radius:8px;font-size:0.875rem;">
             <thead>

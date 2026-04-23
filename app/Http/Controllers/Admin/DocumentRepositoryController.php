@@ -76,6 +76,72 @@ class DocumentRepositoryController extends Controller
         ]);
     }
 
+    public function storeCategory(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:160'],
+        ]);
+
+        $name = trim((string) $validated['name']);
+        $existing = DocumentCategory::query()
+            ->whereNull('parent_id')
+            ->where('name', $name)
+            ->first();
+        if ($existing) {
+            return redirect()->route('admin.documents.index')->with('status', 'Category already exists.');
+        }
+
+        $cat = $this->firstOrCreateCategory($name, null);
+
+        $this->auditLogger->record(
+            $request,
+            'document.category_created',
+            DocumentCategory::class,
+            $cat->id,
+            null,
+            ['name' => $cat->name, 'slug' => $cat->slug, 'parent_id' => null],
+            'Document category created'
+        );
+
+        return redirect()->route('admin.documents.index')->with('status', 'Category created.');
+    }
+
+    public function storeSubcategory(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'parent_id' => ['required', 'integer', Rule::exists('document_categories', 'id')],
+            'name' => ['required', 'string', 'max:160'],
+        ]);
+
+        $parent = DocumentCategory::query()
+            ->whereKey((int) $validated['parent_id'])
+            ->whereNull('parent_id')
+            ->firstOrFail();
+
+        $name = trim((string) $validated['name']);
+        $existing = DocumentCategory::query()
+            ->where('parent_id', (int) $parent->id)
+            ->where('name', $name)
+            ->first();
+        if ($existing) {
+            return redirect()->route('admin.documents.index')->with('status', 'Subcategory already exists under selected category.');
+        }
+
+        $sub = $this->firstOrCreateCategory($name, (int) $parent->id);
+
+        $this->auditLogger->record(
+            $request,
+            'document.subcategory_created',
+            DocumentCategory::class,
+            $sub->id,
+            null,
+            ['name' => $sub->name, 'slug' => $sub->slug, 'parent_id' => $parent->id],
+            'Document subcategory created'
+        );
+
+        return redirect()->route('admin.documents.index')->with('status', 'Subcategory created.');
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validateDocumentRequest($request, requireFile: true);

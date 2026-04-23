@@ -260,6 +260,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('documents', [DocumentRepositoryController::class, 'store'])
             ->middleware('throttle:20,1')
             ->name('documents.store');
+        Route::post('documents/categories', [DocumentRepositoryController::class, 'storeCategory'])
+            ->middleware('throttle:20,1')
+            ->name('documents.categories.store');
+        Route::post('documents/subcategories', [DocumentRepositoryController::class, 'storeSubcategory'])
+            ->middleware('throttle:20,1')
+            ->name('documents.subcategories.store');
         Route::get('documents/{document}/edit', [DocumentRepositoryController::class, 'edit'])->name('documents.edit');
         Route::put('documents/{document}', [DocumentRepositoryController::class, 'update'])->name('documents.update');
         Route::post('documents/{document}/versions', [DocumentRepositoryController::class, 'uploadVersion'])
