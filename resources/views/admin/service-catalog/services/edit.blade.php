@@ -117,6 +117,17 @@
         @include('partials.admin-service-schema-builder')
         @error('field_schema')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
 
+        <fieldset style="margin:0 0 1rem; padding:0.75rem 0.9rem; border:1px solid #e4e4e7; border-radius:8px; background:#fcfcff;">
+            <legend style="padding:0 0.4rem; font-size:0.85rem; font-weight:600; color:#1f2937;">Live preview (staff submit form)</legend>
+            <p style="font-size:0.78rem; color:#71717a; margin:0 0 0.6rem;">This is how the submission form will look to district staff for this service.</p>
+            <div id="svc_preview_fields" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
+            <div id="svc_preview_doc" style="margin-top:0.6rem; display:none;">
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">Documents <span style="font-weight:400;color:#71717a;">(required)</span></label>
+                <input type="file" disabled style="padding:0.35rem 0.45rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;">
+                <p style="font-size:0.75rem; color:#71717a; margin:0.25rem 0 0;">Allowed: <span id="svc_preview_doc_types">PDF / Image</span></p>
+            </div>
+        </fieldset>
+
         <button type="submit" style="background:#18181b; color:#fff; border:none; padding:0.5rem 1rem; border-radius:6px; font-weight:500;">Update service</button>
     </form>
 
@@ -131,6 +142,91 @@
             };
             sync();
             reqDoc.addEventListener('change', sync);
+        })();
+    </script>
+    <script>
+        (function () {
+            const hidden = document.getElementById('svc_schema_hidden');
+            const docReq = document.getElementById('requires_document');
+            const docWrap = document.getElementById('svc_preview_doc');
+            const docTypesWrap = document.getElementById('svc_preview_doc_types');
+            const fieldsWrap = document.getElementById('svc_preview_fields');
+            if (!hidden || !fieldsWrap) return;
+
+            function esc(s) {
+                return String(s || '')
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;');
+            }
+
+            function renderFields() {
+                let rows = [];
+                try {
+                    const parsed = JSON.parse(hidden.value || '[]');
+                    rows = Array.isArray(parsed) ? parsed : [];
+                } catch (e) {
+                    rows = [];
+                }
+                const valid = rows.filter(r => r && r.key && r.label);
+                if (!valid.length) {
+                    fieldsWrap.innerHTML = '<p style="margin:0; font-size:0.82rem; color:#6b7280;">No extra form fields configured yet.</p>';
+                } else {
+                    fieldsWrap.innerHTML = valid.map(function (r) {
+                        const label = esc(r.label);
+                        const req = r.required ? ' <span style="color:#b91c1c;">*</span>' : '';
+                        const type = String(r.type || 'text');
+                        let control = '<input type="text" disabled style="width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;">';
+                        if (type === 'textarea') {
+                            control = '<textarea disabled rows="2" style="width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;"></textarea>';
+                        } else if (type === 'number') {
+                            control = '<input type="number" disabled style="width:12rem;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;">';
+                        } else if (type === 'date') {
+                            control = '<input type="date" disabled style="padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;">';
+                        } else if (type === 'select' || type === 'radio') {
+                            const opts = Array.isArray(r.options) ? r.options : [];
+                            const optionHtml = opts.map(function (o) {
+                                const txt = esc(o.label || o.value || '');
+                                return '<option>' + txt + '</option>';
+                            }).join('');
+                            control = '<select disabled style="width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;"><option>— Select —</option>' + optionHtml + '</select>';
+                        } else if (type === 'checkbox') {
+                            control = '<label style="display:inline-flex;align-items:center;gap:0.35rem;"><input type="checkbox" disabled> <span style="color:#6b7280;">Option</span></label>';
+                        }
+                        const help = r.help ? '<p style="margin:0.2rem 0 0;font-size:0.74rem;color:#71717a;">' + esc(r.help) + '</p>' : '';
+                        return '<div><label style="display:block;font-size:0.84rem;font-weight:600;margin-bottom:0.2rem;">' + label + req + '</label>' + control + help + '</div>';
+                    }).join('');
+                }
+            }
+
+            function renderDoc() {
+                if (!docReq || !docWrap || !docTypesWrap) return;
+                docWrap.style.display = docReq.checked ? 'block' : 'none';
+                const checked = Array.from(document.querySelectorAll('input[name="allowed_document_types[]"]:checked')).map(i => i.value);
+                const labels = [];
+                if (checked.includes('pdf')) labels.push('PDF');
+                if (checked.includes('image')) labels.push('Image (jpg/png)');
+                docTypesWrap.textContent = labels.length ? labels.join(' / ') : 'PDF / Image';
+            }
+
+            renderFields();
+            renderDoc();
+            hidden.addEventListener('input', renderFields);
+            hidden.addEventListener('change', renderFields);
+            document.addEventListener('input', function (e) {
+                if (e.target && (e.target.id === 'requires_document' || e.target.name === 'allowed_document_types[]')) {
+                    renderDoc();
+                }
+            });
+            document.addEventListener('change', function (e) {
+                if (e.target && (e.target.id === 'requires_document' || e.target.name === 'allowed_document_types[]')) {
+                    renderDoc();
+                }
+            });
+            setInterval(function () {
+                renderFields();
+                renderDoc();
+            }, 800);
         })();
     </script>
 @endsection
