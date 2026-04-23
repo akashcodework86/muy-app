@@ -253,14 +253,17 @@ class CatalogServiceController extends Controller
             if (! is_array($row)) {
                 throw ValidationException::withMessages(['field_schema' => "Invalid row at index {$i}."]);
             }
-            $key = $row['key'] ?? null;
+            $rawKey = $row['key'] ?? null;
+            $key = is_string($rawKey) ? strtolower(trim((string) preg_replace('/[^a-z0-9_]+/i', '_', $rawKey), '_')) : '';
             $label = $row['label'] ?? null;
             $type = (string) ($row['type'] ?? '');
-            if (! is_string($key) || ! preg_match('/^[a-z][a-z0-9_]{0,63}$/', $key)) {
+            if (! is_string($rawKey) || $key === '' || ! preg_match('/^[a-z][a-z0-9_]{0,63}$/', $key)) {
                 throw ValidationException::withMessages([
                     'field_schema' => "Invalid key at index {$i}. Use snake_case (letters, numbers, underscores).",
                 ]);
             }
+            // Persist back the auto-normalized key so save is forgiving.
+            $raw[$i]['key'] = $key;
             if (! is_string($label) || trim($label) === '') {
                 throw ValidationException::withMessages(['field_schema' => "Missing label for key {$key}."]);
             }

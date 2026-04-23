@@ -66,7 +66,7 @@
 
     function normalizeRow(r) {
         const o = {
-            key: String(r.key || '').trim(),
+            key: toSnakeCase(String(r.key || '')),
             label: String(r.label || '').trim(),
             type: String(r.type || 'text').trim(),
             required: !!r.required,
@@ -82,6 +82,14 @@
             }).filter(Boolean);
         }
         return o;
+    }
+
+    function toSnakeCase(v) {
+        return String(v || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9_]+/g, '_')
+            .replace(/^_+|_+$/g, '');
     }
 
     function syncHidden() {
@@ -163,7 +171,7 @@
             const req = c.querySelector('[data-k="required"]');
             const type = get('type') || 'text';
             const r = {
-                key: get('key'),
+                key: toSnakeCase(get('key')),
                 label: get('label'),
                 type: type,
                 required: req && req.checked,
@@ -172,6 +180,10 @@
             if (h) r.help = h;
             if (supportsOptions[type]) {
                 r.options = parseOptionLines(c.querySelector('[data-k="options"]').value);
+            }
+            const keyEl = c.querySelector('[data-k="key"]');
+            if (keyEl) {
+                keyEl.value = r.key;
             }
             rows.push(r);
             const ow = c.querySelector('[data-optwrap]');
