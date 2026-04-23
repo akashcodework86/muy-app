@@ -127,6 +127,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             return redirect()->route('staff.monthly-targets', $request->query(), 301);
         });
         Route::get('applications', [StaffPortalController::class, 'applications'])->name('applications');
+        Route::get('applications/export', [StaffPortalController::class, 'applicationsExport'])
+            ->middleware('throttle:15,1')
+            ->name('applications.export');
         Route::get('applications/{cfa_submission}', [StaffPortalController::class, 'showCfaSubmission'])->name('applications.show');
         Route::get('applications/{cfa_submission}/edit', [StaffPortalController::class, 'editCfaSubmission'])->name('applications.edit');
         Route::put('applications/{cfa_submission}', [StaffPortalController::class, 'updateCfaSubmission'])

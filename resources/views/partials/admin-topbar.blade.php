@@ -43,7 +43,7 @@
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         $r === 'staff.monthly-targets' => 'staff-targets',
         str_starts_with($r, 'staff.services') => 'staff-services',
-        $r === 'staff.applications' => 'staff-apps',
+        str_starts_with($r, 'staff.applications') => 'staff-apps',
         str_starts_with($r, 'staff.phase1-data') => 'staff-phase1-data',
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
         str_starts_with($r, 'staff.batches') => 'staff-batches',

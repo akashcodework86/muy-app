@@ -10,13 +10,15 @@ use App\Models\DistrictBlock;
 use App\Models\FiscalYear;
 use App\Models\Service;
 use App\Models\ServiceCase;
+use App\Models\User;
 use App\Services\AdminAuditLogger;
 use App\Services\CfaBusinessStageService;
 use App\Services\CfaSubmissionAuditSnapshot;
 use App\Services\CfaSubmissionValidator;
 use App\Services\LegacyPhase2ApplicationDetailService;
 use App\Services\StaffMonthlyTargetsDashboardService;
-use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -73,25 +75,25 @@ class StaffPortalController extends Controller
     public function applications(Request $request): View
     {
         $staff = $request->user()->load('district');
-        $scope = (string) $request->query('scope', 'mine');
-        $scope = in_array($scope, ['mine', 'district'], true) ? $scope : 'mine';
-        $forceMineNotice = false;
 
         $query = CfaSubmission::query()
-            ->with(['district', 'referralUser'])
-            ->orderByDesc('created_at');
+            ->with(['district', 'referralUser']);
 
-        if ($scope === 'district' && (int) $staff->district_id > 0) {
-            $query->where('district_id', (int) $staff->district_id);
-        } else {
-            if ($scope === 'district') {
-                $forceMineNotice = true;
-            }
-            $scope = 'mine';
-            $query->where('referral_user_id', (int) $staff->id);
+        [$scope, $forceMineNotice] = $this->applyStaffApplicationScope(
+            $query,
+            $staff,
+            (string) $request->query('scope', 'mine')
+        );
+
+        $search = trim((string) $request->query('q', ''));
+        if ($search !== '') {
+            $this->applyApplicationsSearch($query, $search);
         }
 
-        $submissions = $query->paginate(25)->withQueryString();
+        $submissions = $query
+            ->orderByDesc('created_at')
+            ->paginate(25)
+            ->withQueryString();
 
         $mineCount = CfaSubmission::query()
             ->where('referral_user_id', (int) $staff->id)
@@ -107,7 +109,117 @@ class StaffPortalController extends Controller
             'districtCount' => $districtCount,
             'districtName' => (string) ($staff->district?->name ?? ''),
             'forceMineNotice' => $forceMineNotice,
+            'searchQuery' => $search,
         ]);
+    }
+
+    /**
+     * CSV of CFA applications in the same scope as the list view, with all form fields
+     * flattened from the JSON {@see CfaSubmission::$payload}.
+     */
+    public function applicationsExport(Request $request): StreamedResponse
+    {
+        $staff = $request->user()->load('district');
+
+        $query = CfaSubmission::query()
+            ->with(['district', 'referralUser', 'fiscalYear']);
+
+        [$scope] = $this->applyStaffApplicationScope(
+            $query,
+            $staff,
+            (string) $request->query('scope', 'mine')
+        );
+
+        $search = trim((string) $request->query('q', ''));
+        if ($search !== '') {
+            $this->applyApplicationsSearch($query, $search);
+        }
+
+        $rows = $query->orderByDesc('created_at')->get();
+
+        $allPayloadKeys = [];
+        $flatRows = [];
+        foreach ($rows as $row) {
+            $payload = is_array($row->payload) ? $row->payload : [];
+            $flat = $this->flattenCfaPayloadForExport($payload);
+            foreach (array_keys($flat) as $pk) {
+                $allPayloadKeys[$pk] = true;
+            }
+            $flatRows[] = ['model' => $row, 'payload' => $flat];
+        }
+
+        $payloadHeaderKeys = array_keys($allPayloadKeys);
+        sort($payloadHeaderKeys, SORT_STRING);
+
+        $baseHeaders = [
+            'id',
+            'application_no',
+            'created_at',
+            'updated_at',
+            'fiscal_year_id',
+            'fiscal_year_label',
+            'district_id',
+            'district_name',
+            'lgd_state_code',
+            'lgd_district_code',
+            'lgd_block_code',
+            'source',
+            'applicant_name',
+            'phone',
+            'referral_user_id',
+            'referral_user_name',
+        ];
+
+        $headers = array_merge($baseHeaders, $payloadHeaderKeys);
+
+        $fileScope = $scope === 'district' ? 'district' : 'mine';
+        $filename = 'cfa-applications-'.$fileScope.'-'.now()->format('Ymd_His').'.csv';
+
+        $responseHeaders = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ];
+
+        return response()->streamDownload(function () use ($flatRows, $payloadHeaderKeys, $headers) {
+            $out = fopen('php://output', 'wb');
+            if ($out === false) {
+                return;
+            }
+
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, $headers);
+
+            foreach ($flatRows as $fr) {
+                /** @var CfaSubmission $m */
+                $m = $fr['model'];
+                $flat = $fr['payload'];
+                $fy = $m->fiscalYear;
+                $line = [
+                    $m->id,
+                    $m->application_no ?? '',
+                    $m->created_at?->format('Y-m-d H:i:s') ?? '',
+                    $m->updated_at?->format('Y-m-d H:i:s') ?? '',
+                    $m->fiscal_year_id ?? '',
+                    $fy?->name ?? $fy?->code ?? '',
+                    $m->district_id ?? '',
+                    $m->district?->name ?? '',
+                    $m->lgd_state_code ?? '',
+                    $m->lgd_district_code ?? '',
+                    $m->lgd_block_code ?? '',
+                    $m->source ?? '',
+                    $m->applicant_name ?? '',
+                    $m->phone ?? '',
+                    $m->referral_user_id ?? '',
+                    $m->referralUser?->name ?? '',
+                ];
+                foreach ($payloadHeaderKeys as $pk) {
+                    $line[] = $flat[$pk] ?? '';
+                }
+                fputcsv($out, $line);
+            }
+
+            fclose($out);
+        }, $filename, $responseHeaders);
     }
 
     public function showCfaSubmission(Request $request, CfaSubmission $cfa_submission): View
@@ -665,7 +777,7 @@ class StaffPortalController extends Controller
         }
     }
 
-    private function applyPhase2Filters(Builder $query, Request $request): void
+    private function applyPhase2Filters(QueryBuilder $query, Request $request): void
     {
         if ($request->filled('search')) {
             $search = '%'.trim((string) $request->query('search')).'%';
@@ -868,6 +980,80 @@ class StaffPortalController extends Controller
             'other_services_details' => $svc['other'] !== [] ? implode('; ', $svc['other']) : $na,
             'all_services' => $allNames !== [] ? implode(', ', $allNames) : $na,
         ];
+    }
+
+    /**
+     * @return array{0: string, 1: bool}
+     */
+    private function applyStaffApplicationScope(Builder $query, User $staff, string $scopeParam): array
+    {
+        $scope = in_array($scopeParam, ['mine', 'district'], true) ? $scopeParam : 'mine';
+        $forceMine = false;
+        if ($scope === 'district' && (int) $staff->district_id > 0) {
+            $query->where('district_id', (int) $staff->district_id);
+        } else {
+            if ($scope === 'district') {
+                $forceMine = true;
+            }
+            $scope = 'mine';
+            $query->where('referral_user_id', (int) $staff->id);
+        }
+
+        return [$scope, $forceMine];
+    }
+
+    private function applyApplicationsSearch(Builder $query, string $search): void
+    {
+        $search = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+        $like = '%'.$search.'%';
+        $query->where(function (Builder $q) use ($like) {
+            $q->where('application_no', 'like', $like)
+                ->orWhere('applicant_name', 'like', $like)
+                ->orWhere('phone', 'like', $like)
+                ->orWhere('payload', 'like', $like);
+        });
+    }
+
+    /**
+     * Dot-path keys (e.g. business_plan.stage) for CSV; values are stringified.
+     *
+     * @return array<string, string>
+     */
+    private function flattenCfaPayloadForExport(array $data, string $prefix = ''): array
+    {
+        $out = [];
+        foreach ($data as $key => $value) {
+            $k = (string) $key;
+            $path = $prefix === '' ? $k : $prefix.'.'.$k;
+            if (is_array($value)) {
+                if ($value === []) {
+                    $out[$path] = '';
+                } elseif (array_is_list($value)) {
+                    $out[$path] = json_encode($value, JSON_UNESCAPED_UNICODE) ?: '[]';
+                } else {
+                    $out = array_merge($out, $this->flattenCfaPayloadForExport($value, $path));
+                }
+            } else {
+                $out[$path] = $this->stringifyCsvExportCell($value);
+            }
+        }
+
+        return $out;
+    }
+
+    private function stringifyCsvExportCell(mixed $v): string
+    {
+        if ($v === null) {
+            return '';
+        }
+        if (is_bool($v)) {
+            return $v ? '1' : '0';
+        }
+        if (is_scalar($v)) {
+            return (string) $v;
+        }
+
+        return json_encode($v, JSON_UNESCAPED_UNICODE) ?: '';
     }
 
     /**
