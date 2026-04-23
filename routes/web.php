@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CatalogServiceController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DesignationController;
+use App\Http\Controllers\Admin\DocumentRepositoryController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentLibraryController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
 use App\Http\Controllers\Incubatee\MentorshipRequestController;
@@ -88,6 +90,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::get('documents/{document}/download', [DocumentLibraryController::class, 'download'])->name('documents.download');
+    Route::get('library/documents', [DocumentLibraryController::class, 'internalIndex'])->name('library.documents.index');
 
     Route::prefix('api/live-ops')->name('live-ops.')->middleware('throttle:120,1')->group(function (): void {
         Route::get('presence', [LiveOpsController::class, 'presence'])->name('presence');
@@ -96,6 +100,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('incubatee')->prefix('incubatee')->name('incubatee.')->group(function () {
         Route::get('dashboard', [IncubateeDashboardController::class, 'index'])->name('dashboard');
+        Route::get('documents', [DocumentLibraryController::class, 'incubateeIndex'])->name('documents.index');
         Route::get('udmita-kosh', [IncubateeDashboardController::class, 'udmitaKosh'])->name('udmita-kosh');
         Route::get('mentorship', [MentorshipRequestController::class, 'index'])->name('mentorship.index');
         Route::post('mentorship-requests', [MentorshipRequestController::class, 'store'])
@@ -249,6 +254,18 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('hub-batch-compliance/extend', [HubBatchComplianceController::class, 'extend'])->name('hub-batch-compliance.extend');
         Route::post('hub-batch-compliance/waive', [HubBatchComplianceController::class, 'waive'])->name('hub-batch-compliance.waive');
         Route::post('hub-batch-compliance/undo-reject', [HubBatchComplianceController::class, 'undoReject'])->name('hub-batch-compliance.undo-reject');
+
+        Route::get('documents', [DocumentRepositoryController::class, 'index'])->name('documents.index');
+        Route::get('documents/create', [DocumentRepositoryController::class, 'create'])->name('documents.create');
+        Route::post('documents', [DocumentRepositoryController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('documents.store');
+        Route::get('documents/{document}/edit', [DocumentRepositoryController::class, 'edit'])->name('documents.edit');
+        Route::put('documents/{document}', [DocumentRepositoryController::class, 'update'])->name('documents.update');
+        Route::post('documents/{document}/versions', [DocumentRepositoryController::class, 'uploadVersion'])
+            ->middleware('throttle:20,1')
+            ->name('documents.upload-version');
+        Route::delete('documents/{document}', [DocumentRepositoryController::class, 'destroy'])->name('documents.destroy');
     });
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {

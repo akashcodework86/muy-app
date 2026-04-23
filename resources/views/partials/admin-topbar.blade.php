@@ -39,11 +39,13 @@
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
         str_starts_with($r, 'admin.service-catalog') => 'service-catalog',
         str_starts_with($r, 'admin.service-module-settings') => 'service-module-settings',
+        str_starts_with($r, 'admin.documents') => 'admin-documents',
         str_starts_with($r, 'admin.batches') => 'admin-batches',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         $r === 'staff.monthly-targets' => 'staff-targets',
         str_starts_with($r, 'staff.services') => 'staff-services',
         str_starts_with($r, 'staff.applications') => 'staff-apps',
+        str_starts_with($r, 'library.documents') => 'library-documents',
         str_starts_with($r, 'staff.phase1-data') => 'staff-phase1-data',
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
         str_starts_with($r, 'staff.batches') => 'staff-batches',
@@ -54,7 +56,7 @@
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa'], true);
-    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings'], true);
+    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -167,6 +169,9 @@
                     <a href="{{ route('admin.service-module-settings.edit') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-module-settings') is-active @endif" role="menuitem">
                         {!! $i('cog') !!}<span>Service module settings</span>
                     </a>
+                    <a href="{{ route('admin.documents.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'admin-documents') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Document repository</span>
+                    </a>
                 </div>
             </details>
         </nav>
@@ -176,6 +181,9 @@
         <nav class="admin-topbar__nav" aria-label="State staff">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
+            </a>
+            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'library-documents') is-active @endif">
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>
         </nav>
         @endif
@@ -187,6 +195,9 @@
             </a>
             <a href="{{ route('hub.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-batches') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
+            </a>
+            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'library-documents') is-active @endif">
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>
         </nav>
         @endif
@@ -210,6 +221,9 @@
             <a href="{{ route('staff.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-batches') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
             </a>
+            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'library-documents') is-active @endif">
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">Documents</span>
+            </a>
             <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase2-data') is-active @endif">
                 {!! $i('pie') !!}<span class="admin-topbar__link-text">FY 2025-26 Data</span>
             </a>
@@ -226,6 +240,9 @@
             </a>
             <a href="{{ route('incubatee.mentorship.index') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.mentorship.*')) is-active @endif">
                 {!! $i('mentor') !!}<span class="admin-topbar__link-text">Request mentorship</span>
+            </a>
+            <a href="{{ route('incubatee.documents.index') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.documents.*')) is-active @endif">
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>
             <a href="{{ route('incubatee.udmita-kosh') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.udmita-kosh')) is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Udmita Kosh</span>
