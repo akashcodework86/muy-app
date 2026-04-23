@@ -17,8 +17,10 @@ use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
+use App\Http\Controllers\Admin\FieldVisitReportController as AdminFieldVisitReportController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Staff\FieldVisitReportController as StaffFieldVisitReportController;
 use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentLibraryController;
@@ -93,6 +95,17 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('documents/{document}/download', [DocumentLibraryController::class, 'download'])->name('documents.download');
     Route::get('library/documents', [DocumentLibraryController::class, 'internalIndex'])->name('library.documents.index');
 
+    /** Blocks JSON for field-report form — returns [{id, name}] */
+    Route::get('api/field-reports/blocks', function (\Illuminate\Http\Request $request) {
+        $districtId = (int) $request->query('district_id', 0);
+        if ($districtId < 1) {
+            return response()->json([]);
+        }
+        return response()->json(
+            \App\Models\DistrictBlock::where('district_id', $districtId)->orderBy('name')->get(['id', 'name'])
+        );
+    })->middleware('throttle:60,1')->name('api.field-reports.blocks');
+
     Route::prefix('api/live-ops')->name('live-ops.')->middleware('throttle:120,1')->group(function (): void {
         Route::get('presence', [LiveOpsController::class, 'presence'])->name('presence');
         Route::get('activities', [LiveOpsController::class, 'activities'])->name('activities');
@@ -152,6 +165,17 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('phase1-data', [StaffPortalController::class, 'phase1Data'])->name('phase1-data');
         Route::get('phase2-data', [StaffPortalController::class, 'phase2Data'])->name('phase2-data');
         Route::get('phase2-data/export', [StaffPortalController::class, 'exportPhase2Data'])->name('phase2-data.export');
+
+        /** Field visit reports — self-reported by district staff */
+        Route::get('field-reports', [StaffFieldVisitReportController::class, 'index'])->name('field-reports.index');
+        Route::get('field-reports/create', [StaffFieldVisitReportController::class, 'create'])->name('field-reports.create');
+        Route::post('field-reports', [StaffFieldVisitReportController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('field-reports.store');
+        Route::get('field-reports/{fieldReport}/edit', [StaffFieldVisitReportController::class, 'edit'])->name('field-reports.edit');
+        Route::put('field-reports/{fieldReport}', [StaffFieldVisitReportController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('field-reports.update');
 
         /** Read-only batches view for district staff (scoped to their own district) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
@@ -245,6 +269,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('staff/{user}/cfa-targets', [StaffDeliverableMonthlyTargetController::class, 'updateCfaLegacy'])->name('staff.cfa-targets.update');
 
         Route::get('team-performance', [TeamPerformanceController::class, 'index'])->name('team-performance.index');
+
+        /** Field visit reports — admin overview */
+        Route::get('field-reports', [AdminFieldVisitReportController::class, 'index'])->name('field-reports.index');
+        Route::get('field-reports/export', [AdminFieldVisitReportController::class, 'export'])->name('field-reports.export');
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');

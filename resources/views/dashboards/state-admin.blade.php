@@ -474,7 +474,7 @@
 
                             {{-- 30-day sparkline --}}
                             @if (! empty($sparkLine))
-                            <div class="hero-spark" title="Daily CFA submissions ù last 30 days">
+                            <div class="hero-spark" title="Daily CFA submissions √Ø¬ø¬Ω last 30 days">
                                 <div class="hero-spark__left">
                                     <div class="hero-spark__eyebrow">30-DAY PULSE</div>
                                     <div class="hero-spark__value">{{ number_format($sparkSum) }} <small>CFAs</small></div>
@@ -626,7 +626,7 @@
                                             <span class="welcome-district-embed__pct">{{ $stateProgressPct }}%</span>
                                             <span class="welcome-district-embed__pct-label">Phase 3 overall coverage</span>
                                         @else
-                                            <span class="welcome-district-embed__pct">ù??</span>
+                                            <span class="welcome-district-embed__pct">√Ø¬ø¬Ω??</span>
                                             <span class="welcome-district-embed__pct-label">No baseline configured</span>
                                         @endif
                                     </div>
@@ -687,7 +687,7 @@
                 <div class="charts-grid">
                     <div class="chart-card tall">
                         <h4>Applications by district</h4>
-                        <p class="hint">CFA count (all-time) ù?ù all districts</p>
+                        <p class="hint">CFA count (all-time)all districts</p>
                         <div class="canvas-wrap"><canvas id="chartDistrictCfa"></canvas></div>
                     </div>
                     <div class="chart-card tall">

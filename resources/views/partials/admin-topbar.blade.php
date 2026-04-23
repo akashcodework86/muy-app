@@ -42,6 +42,8 @@
         str_starts_with($r, 'admin.documents') => 'admin-documents',
         str_starts_with($r, 'admin.batches') => 'admin-batches',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
+        str_starts_with($r, 'admin.field-reports') => 'field-reports',
+        str_starts_with($r, 'staff.field-reports') => 'staff-field-reports',
         $r === 'staff.monthly-targets' => 'staff-targets',
         str_starts_with($r, 'staff.services') => 'staff-services',
         str_starts_with($r, 'staff.applications') => 'staff-apps',
@@ -56,7 +58,8 @@
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa'], true);
-    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents'], true);
+<<<<<<< HEAD
+    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents', 'field-reports'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -169,6 +172,9 @@
                     <a href="{{ route('admin.service-module-settings.edit') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-module-settings') is-active @endif" role="menuitem">
                         {!! $i('cog') !!}<span>Service module settings</span>
                     </a>
+                    <a href="{{ route('admin.field-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-reports') is-active @endif" role="menuitem">
+                        {!! $i('pin') !!}<span>Field Visit Reports</span>
+                    </a>
                     <a href="{{ route('admin.documents.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'admin-documents') is-active @endif" role="menuitem">
                         {!! $i('doc') !!}<span>Document repository</span>
                     </a>
@@ -229,6 +235,9 @@
             </a>
             <a href="{{ route('staff.phase1-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase1-data') is-active @endif">
                 {!! $i('database') !!}<span class="admin-topbar__link-text">CFA (FY 2024-25 Data)</span>
+            </a>
+            <a href="{{ route('staff.field-reports.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-field-reports') is-active @endif">
+                {!! $i('pin') !!}<span class="admin-topbar__link-text">Field Reports</span>
             </a>
         </nav>
         @endif
