@@ -3,8 +3,11 @@
         style="min-width:16rem;max-width:24rem;flex:1;padding:0.45rem 0.6rem;border:1px solid #d4d4d8;border-radius:8px;">
     <select name="category" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
         <option value="0">All categories</option>
-        @foreach ($categories as $cat)
-            <option value="{{ $cat->id }}" @selected((int) ($filters['category'] ?? 0) === (int) $cat->id)>{{ $cat->name }}</option>
+        @foreach ($categories as $root)
+            <option value="{{ $root->id }}" @selected((int) ($filters['category'] ?? 0) === (int) $root->id)>{{ $root->name }}</option>
+            @foreach ($root->children as $child)
+                <option value="{{ $child->id }}" @selected((int) ($filters['category'] ?? 0) === (int) $child->id)>&nbsp;&nbsp;↳ {{ $child->name }}</option>
+            @endforeach
         @endforeach
     </select>
     <select name="tag" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
@@ -33,7 +36,7 @@
                 @php $v = $d->latestVersion; @endphp
                 <tr>
                     <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;font-weight:600;">{{ $d->title }}</td>
-                    <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $d->category?->name ?? '—' }}</td>
+                    <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $d->category?->displayPath() ?? '—' }}</td>
                     <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;color:#52525b;">{{ implode(', ', $d->normalizedTags()) ?: '—' }}</td>
                     <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;color:#52525b;">
                         @if ($v)

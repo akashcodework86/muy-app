@@ -9,7 +9,7 @@
     <form method="post" action="{{ route('admin.documents.update', $doc) }}" style="max-width:46rem;margin-bottom:1rem;">
         @csrf
         @method('PUT')
-        @include('admin.documents.partials.form-fields', ['doc' => $doc, 'categories' => $categories, 'roles' => $roles, 'fileOptional' => true])
+        @include('admin.documents.partials.form-fields', ['doc' => $doc, 'rootCategories' => $rootCategories, 'subcategoriesByRoot' => $subcategoriesByRoot, 'roles' => $roles, 'fileOptional' => true])
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.55rem 1.1rem;border-radius:8px;font-weight:600;">Save details</button>
     </form>
 

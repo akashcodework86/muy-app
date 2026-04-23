@@ -39,15 +39,27 @@ class DocumentRepositoryController extends Controller
             });
         }
         if ($category > 0) {
-            $query->where('document_category_id', $category);
+            $picked = DocumentCategory::query()->with('children:id,parent_id')->find($category);
+            if ($picked && $picked->parent_id === null) {
+                $ids = array_merge([(int) $picked->id], $picked->children->pluck('id')->map(fn ($v) => (int) $v)->all());
+                $query->whereIn('document_category_id', $ids);
+            } else {
+                $query->where('document_category_id', $category);
+            }
         }
         if ($role !== '' && in_array($role, Document::ALLOWED_ROLES, true)) {
             $query->where('allowed_roles', 'like', '%"'.$role.'"%');
         }
 
+        $categories = DocumentCategory::query()
+            ->whereNull('parent_id')
+            ->with('children')
+            ->orderBy('name')
+            ->get();
+
         return view('admin.documents.index', [
             'docs' => $query->paginate(20)->withQueryString(),
-            'categories' => DocumentCategory::query()->orderBy('name')->get(),
+            'categories' => $categories,
             'filters' => ['q' => $q, 'category' => $category, 'role' => $role],
             'roles' => Document::ALLOWED_ROLES,
         ]);
@@ -55,8 +67,11 @@ class DocumentRepositoryController extends Controller
 
     public function create(): View
     {
+        [$rootCategories, $subcategoriesByRoot] = $this->categoryPickers();
+
         return view('admin.documents.create', [
-            'categories' => DocumentCategory::query()->orderBy('name')->get(),
+            'rootCategories' => $rootCategories,
+            'subcategoriesByRoot' => $subcategoriesByRoot,
             'roles' => Document::ALLOWED_ROLES,
         ]);
     }
@@ -67,7 +82,12 @@ class DocumentRepositoryController extends Controller
         $userId = (int) $request->user()->id;
 
         DB::transaction(function () use ($validated, $request, $userId): void {
-            $categoryId = $this->resolveCategoryId($validated['category_name'] ?? null, (int) ($validated['document_category_id'] ?? 0));
+            $categoryId = $this->resolveCategoryId(
+                $validated['category_name'] ?? null,
+                $validated['subcategory_name'] ?? null,
+                (int) ($validated['document_category_id'] ?? 0),
+                (int) ($validated['document_subcategory_id'] ?? 0)
+            );
             $doc = Document::query()->create([
                 'document_category_id' => $categoryId,
                 'title' => trim((string) $validated['title']),
@@ -102,10 +122,12 @@ class DocumentRepositoryController extends Controller
     public function edit(Document $document): View
     {
         $document->load(['category', 'versions.uploader', 'latestVersion']);
+        [$rootCategories, $subcategoriesByRoot] = $this->categoryPickers();
 
         return view('admin.documents.edit', [
             'doc' => $document,
-            'categories' => DocumentCategory::query()->orderBy('name')->get(),
+            'rootCategories' => $rootCategories,
+            'subcategoriesByRoot' => $subcategoriesByRoot,
             'roles' => Document::ALLOWED_ROLES,
         ]);
     }
@@ -122,7 +144,12 @@ class DocumentRepositoryController extends Controller
         ];
 
         $document->update([
-            'document_category_id' => $this->resolveCategoryId($validated['category_name'] ?? null, (int) ($validated['document_category_id'] ?? 0)),
+            'document_category_id' => $this->resolveCategoryId(
+                $validated['category_name'] ?? null,
+                $validated['subcategory_name'] ?? null,
+                (int) ($validated['document_category_id'] ?? 0),
+                (int) ($validated['document_subcategory_id'] ?? 0)
+            ),
             'title' => trim((string) $validated['title']),
             'tags' => $this->normalizeTags($validated['tags'] ?? ''),
             'allowed_roles' => $this->normalizeAllowedRoles($validated['allowed_roles'] ?? []),
@@ -209,7 +236,9 @@ class DocumentRepositoryController extends Controller
         return $request->validate([
             'title' => ['required', 'string', 'max:191'],
             'document_category_id' => ['nullable', 'integer', Rule::exists('document_categories', 'id')],
+            'document_subcategory_id' => ['nullable', 'integer', Rule::exists('document_categories', 'id')],
             'category_name' => ['nullable', 'string', 'max:160'],
+            'subcategory_name' => ['nullable', 'string', 'max:160'],
             'tags' => ['nullable', 'string', 'max:1200'],
             'allowed_roles' => ['required', 'array', 'min:1'],
             'allowed_roles.*' => ['string', Rule::in(Document::ALLOWED_ROLES)],
@@ -217,32 +246,39 @@ class DocumentRepositoryController extends Controller
         ]);
     }
 
-    private function resolveCategoryId(?string $newCategoryName, int $existingId): ?int
+    private function resolveCategoryId(
+        ?string $newCategoryName,
+        ?string $newSubcategoryName,
+        int $existingRootId,
+        int $existingSubcategoryId
+    ): ?int
     {
-        $name = trim((string) $newCategoryName);
-        if ($name !== '') {
-            $slug = Str::slug($name);
-            if ($slug === '') {
-                $slug = 'category';
-            }
-            $base = $slug;
-            $i = 2;
-            while (DocumentCategory::query()->where('slug', $slug)->exists()) {
-                $existing = DocumentCategory::query()->where('slug', $slug)->first();
-                if ($existing && strcasecmp($existing->name, $name) === 0) {
-                    return (int) $existing->id;
-                }
-                $slug = $base.'-'.$i;
-                $i++;
-            }
+        $rootName = trim((string) $newCategoryName);
+        $subName = trim((string) $newSubcategoryName);
 
-            return (int) DocumentCategory::query()->create([
-                'name' => $name,
-                'slug' => $slug,
-            ])->id;
+        $root = null;
+        if ($rootName !== '') {
+            $root = $this->firstOrCreateCategory($rootName, null);
+        } elseif ($existingRootId > 0) {
+            $root = DocumentCategory::query()->whereKey($existingRootId)->whereNull('parent_id')->first();
         }
 
-        return $existingId > 0 ? $existingId : null;
+        if ($subName !== '') {
+            if (! $root) {
+                $root = $this->firstOrCreateCategory('General', null);
+            }
+
+            return $this->firstOrCreateCategory($subName, (int) $root->id)->id;
+        }
+
+        if ($existingSubcategoryId > 0) {
+            $sub = DocumentCategory::query()->whereKey($existingSubcategoryId)->whereNotNull('parent_id')->first();
+            if ($sub) {
+                return (int) $sub->id;
+            }
+        }
+
+        return $root ? (int) $root->id : null;
     }
 
     /**
@@ -294,6 +330,57 @@ class DocumentRepositoryController extends Controller
             'mime_type' => (string) ($file->getClientMimeType() ?: ''),
             'size_bytes' => (int) $file->getSize(),
             'uploaded_by' => $userId,
+        ]);
+    }
+
+    /**
+     * @return array{0: \Illuminate\Support\Collection<int, DocumentCategory>, 1: array<int, array<int, array{id:int,name:string}>>}
+     */
+    private function categoryPickers(): array
+    {
+        $roots = DocumentCategory::query()
+            ->whereNull('parent_id')
+            ->with('children')
+            ->orderBy('name')
+            ->get();
+
+        $subs = [];
+        foreach ($roots as $root) {
+            $subs[(int) $root->id] = $root->children
+                ->map(fn (DocumentCategory $c) => ['id' => (int) $c->id, 'name' => $c->name])
+                ->values()
+                ->all();
+        }
+
+        return [$roots, $subs];
+    }
+
+    private function firstOrCreateCategory(string $name, ?int $parentId): DocumentCategory
+    {
+        $name = trim($name);
+        $existing = DocumentCategory::query()
+            ->where('name', $name)
+            ->where('parent_id', $parentId)
+            ->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $slug = Str::slug($name);
+        if ($slug === '') {
+            $slug = 'category';
+        }
+        $base = $slug;
+        $i = 2;
+        while (DocumentCategory::query()->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$i;
+            $i++;
+        }
+
+        return DocumentCategory::query()->create([
+            'parent_id' => $parentId,
+            'name' => $name,
+            'slug' => $slug,
         ]);
     }
 }

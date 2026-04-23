@@ -57,7 +57,13 @@ class DocumentLibraryController extends Controller
             });
         }
         if ($catId > 0) {
-            $query->where('document_category_id', $catId);
+            $picked = DocumentCategory::query()->with('children:id,parent_id')->find($catId);
+            if ($picked && $picked->parent_id === null) {
+                $ids = array_merge([(int) $picked->id], $picked->children->pluck('id')->map(fn ($v) => (int) $v)->all());
+                $query->whereIn('document_category_id', $ids);
+            } else {
+                $query->where('document_category_id', $catId);
+            }
         }
         if ($tag !== '') {
             $query->where('tags', 'like', '%"'.$tag.'"%');
@@ -77,7 +83,7 @@ class DocumentLibraryController extends Controller
         return view($view, [
             'titleText' => $title,
             'docs' => $docs,
-            'categories' => DocumentCategory::query()->orderBy('name')->get(),
+            'categories' => DocumentCategory::query()->whereNull('parent_id')->with('children')->orderBy('name')->get(),
             'filters' => ['q' => $q, 'category' => $catId, 'tag' => $tag],
             'tags' => $tags,
         ]);
