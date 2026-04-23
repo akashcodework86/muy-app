@@ -2,10 +2,10 @@
 
 use App\Http\Controllers\Account\ProfileController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\StateStaff\SpocServiceCaseController;
 use App\Http\Controllers\Admin\CatalogServiceController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DesignationController;
-use App\Http\Controllers\Admin\DocumentRepositoryController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
@@ -17,13 +17,10 @@ use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
-use App\Http\Controllers\Admin\FieldVisitReportController as AdminFieldVisitReportController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\Staff\FieldVisitReportController as StaffFieldVisitReportController;
 use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DocumentLibraryController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
 use App\Http\Controllers\Incubatee\MentorshipRequestController;
@@ -92,19 +89,6 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
-    Route::get('documents/{document}/download', [DocumentLibraryController::class, 'download'])->name('documents.download');
-    Route::get('library/documents', [DocumentLibraryController::class, 'internalIndex'])->name('library.documents.index');
-
-    /** Blocks JSON for field-report form — returns [{id, name}] */
-    Route::get('api/field-reports/blocks', function (\Illuminate\Http\Request $request) {
-        $districtId = (int) $request->query('district_id', 0);
-        if ($districtId < 1) {
-            return response()->json([]);
-        }
-        return response()->json(
-            \App\Models\DistrictBlock::where('district_id', $districtId)->orderBy('name')->get(['id', 'name'])
-        );
-    })->middleware('throttle:60,1')->name('api.field-reports.blocks');
 
     Route::prefix('api/live-ops')->name('live-ops.')->middleware('throttle:120,1')->group(function (): void {
         Route::get('presence', [LiveOpsController::class, 'presence'])->name('presence');
@@ -113,7 +97,6 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('incubatee')->prefix('incubatee')->name('incubatee.')->group(function () {
         Route::get('dashboard', [IncubateeDashboardController::class, 'index'])->name('dashboard');
-        Route::get('documents', [DocumentLibraryController::class, 'incubateeIndex'])->name('documents.index');
         Route::get('udmita-kosh', [IncubateeDashboardController::class, 'udmitaKosh'])->name('udmita-kosh');
         Route::get('mentorship', [MentorshipRequestController::class, 'index'])->name('mentorship.index');
         Route::post('mentorship-requests', [MentorshipRequestController::class, 'store'])
@@ -166,17 +149,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('phase2-data', [StaffPortalController::class, 'phase2Data'])->name('phase2-data');
         Route::get('phase2-data/export', [StaffPortalController::class, 'exportPhase2Data'])->name('phase2-data.export');
 
-        /** Field visit reports — self-reported by district staff */
-        Route::get('field-reports', [StaffFieldVisitReportController::class, 'index'])->name('field-reports.index');
-        Route::get('field-reports/create', [StaffFieldVisitReportController::class, 'create'])->name('field-reports.create');
-        Route::post('field-reports', [StaffFieldVisitReportController::class, 'store'])
-            ->middleware('throttle:30,1')
-            ->name('field-reports.store');
-        Route::get('field-reports/{fieldReport}/edit', [StaffFieldVisitReportController::class, 'edit'])->name('field-reports.edit');
-        Route::put('field-reports/{fieldReport}', [StaffFieldVisitReportController::class, 'update'])
-            ->middleware('throttle:30,1')
-            ->name('field-reports.update');
-
         /** Read-only batches view for district staff (scoped to their own district) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
         Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
@@ -191,6 +163,21 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('services/{service_case}', [StaffServiceCaseController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('services.destroy');
+    });
+
+    /** State Staff (SPOC) — maker-checker approval queue */
+    Route::middleware('state_staff')->prefix('spoc')->name('spoc.')->group(function () {
+        Route::get('service-cases', [SpocServiceCaseController::class, 'index'])->name('service-cases.index');
+        Route::get('service-cases/{service_case}', [SpocServiceCaseController::class, 'show'])->name('service-cases.show');
+        Route::post('service-cases/{service_case}/approve', [SpocServiceCaseController::class, 'approve'])
+            ->middleware('throttle:60,1')
+            ->name('service-cases.approve');
+        Route::post('service-cases/{service_case}/send-back', [SpocServiceCaseController::class, 'sendBack'])
+            ->middleware('throttle:60,1')
+            ->name('service-cases.send-back');
+        Route::post('service-cases/{service_case}/reject', [SpocServiceCaseController::class, 'reject'])
+            ->middleware('throttle:60,1')
+            ->name('service-cases.reject');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -270,10 +257,6 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('team-performance', [TeamPerformanceController::class, 'index'])->name('team-performance.index');
 
-        /** Field visit reports — admin overview */
-        Route::get('field-reports', [AdminFieldVisitReportController::class, 'index'])->name('field-reports.index');
-        Route::get('field-reports/export', [AdminFieldVisitReportController::class, 'export'])->name('field-reports.export');
-
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
         Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
@@ -282,24 +265,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('hub-batch-compliance/extend', [HubBatchComplianceController::class, 'extend'])->name('hub-batch-compliance.extend');
         Route::post('hub-batch-compliance/waive', [HubBatchComplianceController::class, 'waive'])->name('hub-batch-compliance.waive');
         Route::post('hub-batch-compliance/undo-reject', [HubBatchComplianceController::class, 'undoReject'])->name('hub-batch-compliance.undo-reject');
-
-        Route::get('documents', [DocumentRepositoryController::class, 'index'])->name('documents.index');
-        Route::get('documents/create', [DocumentRepositoryController::class, 'create'])->name('documents.create');
-        Route::post('documents', [DocumentRepositoryController::class, 'store'])
-            ->middleware('throttle:20,1')
-            ->name('documents.store');
-        Route::post('documents/categories', [DocumentRepositoryController::class, 'storeCategory'])
-            ->middleware('throttle:20,1')
-            ->name('documents.categories.store');
-        Route::post('documents/subcategories', [DocumentRepositoryController::class, 'storeSubcategory'])
-            ->middleware('throttle:20,1')
-            ->name('documents.subcategories.store');
-        Route::get('documents/{document}/edit', [DocumentRepositoryController::class, 'edit'])->name('documents.edit');
-        Route::put('documents/{document}', [DocumentRepositoryController::class, 'update'])->name('documents.update');
-        Route::post('documents/{document}/versions', [DocumentRepositoryController::class, 'uploadVersion'])
-            ->middleware('throttle:20,1')
-            ->name('documents.upload-version');
-        Route::delete('documents/{document}', [DocumentRepositoryController::class, 'destroy'])->name('documents.destroy');
     });
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
