@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>State Admin ‚?? {{ config('app.name') }}</title>
+    <title>State Admin ù?? {{ config('app.name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
@@ -269,6 +269,47 @@
         .chart-card .hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; }
         .chart-card .canvas-wrap { position: relative; height: 260px; max-width: 100%; overflow: hidden; }
         .chart-card.tall .canvas-wrap { height: 300px; }
+        .staff-cfa-panel { display: flex; flex-direction: column; gap: 0.8rem; }
+        .staff-cfa-controls { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 0.55rem; }
+        @media (max-width: 520px) { .staff-cfa-controls { grid-template-columns: 1fr; } }
+        .staff-cfa-input,
+        .staff-cfa-select {
+            width: 100%;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0.5rem 0.7rem;
+            font-size: 0.8rem;
+            color: #0f172a;
+        }
+        .staff-cfa-list { max-height: 300px; overflow-y: auto; padding-right: 0.2rem; display: flex; flex-direction: column; gap: 0.45rem; }
+        .staff-cfa-row {
+            display: grid;
+            grid-template-columns: 2rem minmax(0, 1fr) auto;
+            gap: 0.6rem;
+            align-items: center;
+            padding: 0.55rem 0.65rem;
+            border-radius: 12px;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            background: rgba(255, 255, 255, 0.68);
+        }
+        .staff-cfa-rank { font-size: 0.68rem; color: #64748b; font-weight: 700; text-align: center; }
+        .staff-cfa-main { min-width: 0; }
+        .staff-cfa-name { font-size: 0.78rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .staff-cfa-district { font-size: 0.65rem; color: #64748b; margin-top: 0.1rem; }
+        .staff-cfa-value {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: #4338ca;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 999px;
+            padding: 0.2rem 0.5rem;
+            min-width: 3rem;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
         .target-strip {
             margin-top: 1rem;
             padding: 1rem 1.25rem;
@@ -364,7 +405,7 @@
                             <div class="dashboard-intro__eyebrow"><i class="fa-solid fa-flag" aria-hidden="true"></i> State overview</div>
                             <h2>Welcome back, {{ auth()->user()->name }}</h2>
                             <p>
-                                All districts ¬∑ CFA picture for <strong>{{ $activeFy->name }}</strong>.
+                                All districts ù CFA picture for <strong>{{ $activeFy->name }}</strong>.
                                 Totals below use this fiscal year unless noted.
                             </p>
                             <div class="welcome-meta-pills">
@@ -435,7 +476,7 @@
                                     @elseif ($todayDelta < 0)
                                         <span class="hero-today__delta is-down"><i class="fa-solid fa-caret-down" aria-hidden="true"></i> {{ abs($todayDelta) }} vs yest.</span>
                                     @else
-                                        <span class="hero-today__delta">‚?? same as yest.</span>
+                                        <span class="hero-today__delta">ù?? same as yest.</span>
                                     @endif
                                 </div>
                                 <div class="hero-today hero-today--mentor">
@@ -452,7 +493,7 @@
 
                             {{-- 30-day sparkline --}}
                             @if (! empty($sparkLine))
-                            <div class="hero-spark" title="Daily CFA submissions ¬∑ last 30 days">
+                            <div class="hero-spark" title="Daily CFA submissions ù last 30 days">
                                 <div class="hero-spark__left">
                                     <div class="hero-spark__eyebrow">30-DAY PULSE</div>
                                     <div class="hero-spark__value">{{ number_format($sparkSum) }} <small>CFAs</small></div>
@@ -474,7 +515,7 @@
                                     <span class="hero-today__delta @if ($sparkTrend > 0) is-up @elseif ($sparkTrend < 0) is-down @endif" style="font-size:0.62rem;">
                                         @if ($sparkTrend > 0)<i class="fa-solid fa-caret-up"></i> +{{ $sparkTrend }}%
                                         @elseif ($sparkTrend < 0)<i class="fa-solid fa-caret-down"></i> {{ $sparkTrend }}%
-                                        @else ‚?? flat @endif
+                                        @else ù?? flat @endif
                                     </span>
                                     <div style="font-size:0.5rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:0.15rem;">vs prev 15d</div>
                                 </div>
@@ -492,12 +533,12 @@
                         <div class="hero-col__content">
                             <div class="apps-highlight">
                                 <div class="apps-highlight__main">
-                                    <div class="apps-highlight__number">{{ number_format((int) ($stateCfaThisFy ?? 0)) }}</div>
-                                    <div class="apps-highlight__label">CFA this FY (all districts)</div>
+                                    <div class="apps-highlight__number">{{ number_format((int) ($cfaTotal ?? 0)) }}</div>
+                                    <div class="apps-highlight__label">All CFA submissions (all districts) - Phase 3</div>
                                 </div>
                             </div>
                             <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 0.5rem;line-height:1.45;">
-                                All-time submissions: {{ number_format($cfaTotal) }} √?¬∑ Last 30 days: {{ number_format($cfaLast30) }}
+                                All-time CFA (all phases): Phase 1 ({{ number_format((int) ($phase1CfaTotal ?? 0)) }}) + Phase 2 ({{ number_format((int) ($phase2CfaTotal ?? 0)) }}) + Phase 3 ({{ number_format((int) ($phase3CfaTotal ?? 0)) }}) = <span style="display:inline-block;padding:0.08rem 0.38rem;border-radius:999px;background:rgba(79,70,229,0.12);color:#312e81;font-weight:800;">{{ number_format((int) ($allPhasesCfaTotal ?? 0)) }}</span>
                             </p>
 
                             @if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0 && $districtAllocPct !== null)
@@ -520,7 +561,7 @@
                             <div class="business-mix-compact">
                                 <div class="business-mix-compact__header">
                                     <div class="business-mix-compact__title">Business categories</div>
-                                    <div class="business-mix-compact__meta">Ranked mix √?¬∑ all {{ $activeFy->name }} applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
+                                    <div class="business-mix-compact__meta">Ranked mix ù?ù all {{ $activeFy->name }} applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
                                 </div>
                                 @if (count($businessMix['labels']) === 0)
                                     <div class="no-data-message">No category data yet</div>
@@ -604,7 +645,7 @@
                                             <span class="welcome-district-embed__pct">{{ $stateProgressPct }}%</span>
                                             <span class="welcome-district-embed__pct-label">vs state CFA target</span>
                                         @else
-                                            <span class="welcome-district-embed__pct">‚??</span>
+                                            <span class="welcome-district-embed__pct">ù??</span>
                                             <span class="welcome-district-embed__pct-label">Set state target</span>
                                         @endif
                                     </div>
@@ -665,13 +706,58 @@
                 <div class="charts-grid">
                     <div class="chart-card tall">
                         <h4>Applications by district</h4>
-                        <p class="hint">CFA count (all-time) √?¬∑ top districts</p>
+                        <p class="hint">CFA count (all-time) ù?ù all districts</p>
                         <div class="canvas-wrap"><canvas id="chartDistrictCfa"></canvas></div>
                     </div>
                     <div class="chart-card tall">
-                        <h4>Staff by district</h4>
-                        <p class="hint">District staff users</p>
-                        <div class="canvas-wrap"><canvas id="chartStaff"></canvas></div>
+                        <h4>CFA by staffs</h4>
+                        <p class="hint">Search by staff name and filter by district ({{ $activeFy->name }})</p>
+                        @php
+                            $staffCfaRows = $staffCfaByStaff ?? [];
+                            $staffDistrictOptions = collect($staffCfaRows)
+                                ->pluck('district')
+                                ->filter()
+                                ->unique()
+                                ->sort()
+                                ->values()
+                                ->all();
+                        @endphp
+                        <div class="staff-cfa-panel">
+                            <div class="staff-cfa-controls">
+                                <input
+                                    type="text"
+                                    id="stateStaffCfaSearch"
+                                    class="staff-cfa-input"
+                                    placeholder="Search staff name..."
+                                    autocomplete="off"
+                                >
+                                <select id="stateStaffCfaDistrictFilter" class="staff-cfa-select">
+                                    <option value="">All districts</option>
+                                    @foreach ($staffDistrictOptions as $districtName)
+                                        <option value="{{ strtolower($districtName) }}">{{ $districtName }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="staff-cfa-list" id="stateStaffCfaList">
+                                @forelse ($staffCfaRows as $index => $row)
+                                    <div
+                                        class="staff-cfa-row"
+                                        data-name="{{ strtolower($row['name']) }}"
+                                        data-district="{{ strtolower($row['district']) }}"
+                                    >
+                                        <div class="staff-cfa-rank">#{{ $index + 1 }}</div>
+                                        <div class="staff-cfa-main">
+                                            <div class="staff-cfa-name">{{ $row['name'] }}</div>
+                                            <div class="staff-cfa-district">{{ $row['district'] }}</div>
+                                        </div>
+                                        <div class="staff-cfa-value">{{ number_format((int) $row['cfa_total']) }}</div>
+                                    </div>
+                                @empty
+                                    <div class="no-data-message">No staff data yet</div>
+                                @endforelse
+                                <div class="no-data-message" id="stateStaffCfaNoResults" style="display:none;">No staff matches this search/filter</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -680,7 +766,7 @@
                     <a href="{{ route('admin.cfa.index') }}">
                         <div class="qi"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></div>
                         <strong>CFA applications</strong>
-                        <span>All districts ‚?? review submissions</span>
+                        <span>All districts ù?? review submissions</span>
                     </a>
                     <a href="{{ route('admin.targets.state') }}">
                         <div class="qi"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></div>
@@ -722,7 +808,6 @@
 (function () {
     const grid = { color: 'rgba(148, 163, 184, 0.25)' };
     const accent = '#4f46e5';
-    const teal = '#0d9488';
 
     const trendLabels = @json($stateCfaTrend['labels'] ?? []);
     const trendValues = @json($stateCfaTrend['values'] ?? []);
@@ -779,14 +864,44 @@
 
     const dLabels = @json($cfaByDistrict['labels']);
     const dValues = @json($cfaByDistrict['values']);
+    const districtPalette = [
+        '#4f46e5', '#0d9488', '#ea580c', '#7c3aed', '#0891b2',
+        '#db2777', '#ca8a04', '#16a34a', '#e11d48', '#2563eb',
+        '#059669', '#d946ef', '#f97316'
+    ];
+    const districtValueLabelsPlugin = {
+        id: 'districtValueLabelsPlugin',
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            const meta = chart.getDatasetMeta(0);
+            const values = chart.data.datasets[0]?.data || [];
+            ctx.save();
+            ctx.font = '700 11px DM Sans, sans-serif';
+            ctx.fillStyle = '#0f172a';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            meta.data.forEach((bar, i) => {
+                const raw = Number(values[i] ?? 0);
+                const text = Number.isFinite(raw) ? raw.toLocaleString('en-IN') : '0';
+                const x = bar.x + 8;
+                const y = bar.y;
+                ctx.fillText(text, x, y);
+            });
+            ctx.restore();
+        }
+    };
+
     new Chart(document.getElementById('chartDistrictCfa'), {
         type: 'bar',
+        plugins: [districtValueLabelsPlugin],
         data: {
             labels: dLabels.length ? dLabels : ['No data'],
             datasets: [{
                 label: 'CFA',
                 data: dLabels.length ? dValues : [0],
-                backgroundColor: dLabels.length ? dValues.map((_, i) => 'rgba(79, 70, 229, ' + (0.4 + (i % 5) * 0.12) + ')') : ['#e2e8f0'],
+                backgroundColor: dLabels.length
+                    ? dValues.map((_, i) => districtPalette[i % districtPalette.length])
+                    : ['#e2e8f0'],
                 borderRadius: 6
             }]
         },
@@ -794,6 +909,11 @@
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    right: 56
+                }
+            },
             plugins: { legend: { display: false } },
             scales: {
                 x: { beginAtZero: true, grid: { color: grid.color } },
@@ -802,29 +922,41 @@
         }
     });
 
-    const sLabels = @json($staffByDistrict['labels']);
-    const sValues = @json($staffByDistrict['values']);
-    new Chart(document.getElementById('chartStaff'), {
-        type: 'bar',
-        data: {
-            labels: sLabels.length ? sLabels : ['No data'],
-            datasets: [{
-                label: 'Staff',
-                data: sLabels.length ? sValues : [0],
-                backgroundColor: teal,
-                borderRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { grid: { display: false }, ticks: { maxRotation: 60, font: { size: 9 } } },
-                y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: grid.color } }
-            }
+    const searchInput = document.getElementById('stateStaffCfaSearch');
+    const districtSelect = document.getElementById('stateStaffCfaDistrictFilter');
+    const staffRows = Array.from(document.querySelectorAll('#stateStaffCfaList .staff-cfa-row'));
+    const noResults = document.getElementById('stateStaffCfaNoResults');
+
+    const applyStaffCfaFilters = () => {
+        if (!staffRows.length) {
+            return;
         }
-    });
+
+        const q = (searchInput?.value || '').trim().toLowerCase();
+        const district = (districtSelect?.value || '').trim().toLowerCase();
+        let visibleCount = 0;
+
+        staffRows.forEach((row) => {
+            const name = row.dataset.name || '';
+            const districtValue = row.dataset.district || '';
+            const matchesName = q === '' || name.includes(q);
+            const matchesDistrict = district === '' || districtValue === district;
+            const show = matchesName && matchesDistrict;
+            row.style.display = show ? '' : 'none';
+            if (show) visibleCount += 1;
+        });
+
+        if (noResults) {
+            noResults.style.display = visibleCount === 0 ? '' : 'none';
+        }
+    };
+
+    if (searchInput) {
+        searchInput.addEventListener('input', applyStaffCfaFilters);
+    }
+    if (districtSelect) {
+        districtSelect.addEventListener('change', applyStaffCfaFilters);
+    }
 })();
 </script>
 @endif

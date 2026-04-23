@@ -58,6 +58,24 @@ class StateAdminDashboardService
         $staffActive = User::query()->where('role', 'district_staff')->where('is_active', true)->count();
 
         $cfaTotal = CfaSubmission::query()->count();
+        $phase1CfaTotal = 0;
+        $phase2CfaTotal = 0;
+        $phase3CfaTotal = (int) $cfaTotal;
+        try {
+            if (Schema::connection('legacy_phase1')->hasTable('tblapplication')) {
+                $phase1CfaTotal = (int) DB::connection('legacy_phase1')->table('tblapplication')->count();
+            }
+        } catch (\Throwable $e) {
+            $phase1CfaTotal = 0;
+        }
+        try {
+            if (Schema::connection('legacy')->hasTable('rbi_applications')) {
+                $phase2CfaTotal = (int) DB::connection('legacy')->table('rbi_applications')->count();
+            }
+        } catch (\Throwable $e) {
+            $phase2CfaTotal = 0;
+        }
+        $allPhasesCfaTotal = $phase1CfaTotal + $phase2CfaTotal + $phase3CfaTotal;
         $cfaThisMonth = CfaSubmission::query()->whereYear('created_at', now()->year)->whereMonth('created_at', now()->month)->count();
         $cfaLast30 = CfaSubmission::query()->where('created_at', '>=', now()->subDays(30))->count();
 
@@ -76,12 +94,12 @@ class StateAdminDashboardService
             $growthCount = (int) ($stageCounts['growth'] ?? 0);
         }
 
-        $cfaByDistrict = DB::table('cfa_submissions')
-            ->join('districts', 'cfa_submissions.district_id', '=', 'districts.id')
-            ->select('districts.name', DB::raw('COUNT(*) as total'))
+        $cfaByDistrict = DB::table('districts')
+            ->leftJoin('cfa_submissions', 'cfa_submissions.district_id', '=', 'districts.id')
+            ->select('districts.name', DB::raw('COUNT(cfa_submissions.id) as total'))
             ->groupBy('districts.id', 'districts.name')
             ->orderByDesc('total')
-            ->limit(12)
+            ->orderBy('districts.name')
             ->get();
 
         $staffByDistrict = DB::table('users')
@@ -90,6 +108,26 @@ class StateAdminDashboardService
             ->select('districts.name', DB::raw('COUNT(*) as total'))
             ->groupBy('districts.id', 'districts.name')
             ->orderByDesc('total')
+            ->get();
+
+        $staffCfaByStaff = DB::table('users')
+            ->leftJoin('districts', 'users.district_id', '=', 'districts.id')
+            ->leftJoin('cfa_submissions as cs', function ($join) use ($activeFy): void {
+                $join->on('cs.referral_user_id', '=', 'users.id');
+                if ($activeFy) {
+                    $join->where('cs.fiscal_year_id', '=', (int) $activeFy->id);
+                }
+            })
+            ->where('users.role', 'district_staff')
+            ->select(
+                'users.id',
+                'users.name',
+                DB::raw('COALESCE(districts.name, "Unassigned") as district_name'),
+                DB::raw('COUNT(cs.id) as cfa_total')
+            )
+            ->groupBy('users.id', 'users.name', 'districts.name')
+            ->orderByDesc('cfa_total')
+            ->orderBy('users.name')
             ->get();
 
         $businessMixChart = $this->businessCategoryMix($activeFy?->id);
@@ -137,6 +175,10 @@ class StateAdminDashboardService
             'staffTotal' => $staffTotal,
             'staffActive' => $staffActive,
             'cfaTotal' => $cfaTotal,
+            'phase1CfaTotal' => $phase1CfaTotal,
+            'phase2CfaTotal' => $phase2CfaTotal,
+            'phase3CfaTotal' => $phase3CfaTotal,
+            'allPhasesCfaTotal' => $allPhasesCfaTotal,
             'cfaThisMonth' => $cfaThisMonth,
             'cfaLast30' => $cfaLast30,
             'seedCount' => $seedCount,
@@ -153,6 +195,12 @@ class StateAdminDashboardService
                 'labels' => $staffByDistrict->pluck('name')->all(),
                 'values' => $staffByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
             ],
+            'staffCfaByStaff' => $staffCfaByStaff->map(fn ($row) => [
+                'id' => (int) $row->id,
+                'name' => (string) $row->name,
+                'district' => (string) $row->district_name,
+                'cfa_total' => (int) $row->cfa_total,
+            ])->all(),
             'cfaTrend' => $stateCfaTrend,
             'businessMix' => $businessMixChart,
             'heroCfaToday' => $heroCfaToday,
