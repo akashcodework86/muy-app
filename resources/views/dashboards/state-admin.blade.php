@@ -403,7 +403,7 @@
                         <div class="dashboard-intro__left">
                             <div class="dashboard-intro__eyebrow"><i class="fa-solid fa-flag" aria-hidden="true"></i> State overview</div>
                             <h2>Welcome back, {{ auth()->user()->name }}</h2>
-                            <p>All districts - Phase 3 CFA picture (all-time).</p>
+                            <p>All districts - Phase 3 CFA picture (from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }}).</p>
                             <div class="welcome-meta-pills">
                                 @if ($stateCfaTarget !== null)
                                     <div class="welcome-meta-pill">
@@ -423,7 +423,7 @@
                         </div>
 
                         <div class="dashboard-intro__right">
-                            <div class="hero-ring-card" title="All-time Phase 3 CFA submissions">
+                            <div class="hero-ring-card" title="Phase 3 CFA submissions from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }}">
                                 <svg class="hero-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                                     <defs>
                                         <linearGradient id="heroRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -439,11 +439,11 @@
                                     <text class="pct-sub" x="50" y="66" text-anchor="middle">PHASE 3</text>
                                 </svg>
                                 <div>
-                                    <div class="hero-ring-body__eyebrow">All-time total</div>
+                                    <div class="hero-ring-body__eyebrow">Scoped total</div>
                                     <div class="hero-ring-body__value">
                                         {{ number_format((int) ($cfaTotal ?? 0)) }}
                                     </div>
-                                    <span class="hero-ring-body__label">CFA submissions (Phase 3)</span>
+                                    <span class="hero-ring-body__label">CFA submissions (Phase 3 from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }})</span>
                                 </div>
                             </div>
 
@@ -515,7 +515,7 @@
                             <div class="apps-highlight">
                                 <div class="apps-highlight__main">
                                     <div class="apps-highlight__number">{{ number_format((int) ($cfaTotal ?? 0)) }}</div>
-                                    <div class="apps-highlight__label">All CFA submissions (all districts) - Phase 3</div>
+                                    <div class="apps-highlight__label">All CFA submissions (all districts) - Phase 3 from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }}</div>
                                 </div>
                             </div>
                             <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 0.5rem;line-height:1.45;">
@@ -604,7 +604,7 @@
                         <div class="welcome-district-embed glass-surface" style="margin-top:0;">
                             <div class="welcome-district-embed__head">
                                 <span class="welcome-district-embed__eyebrow"><i class="fa-solid fa-earth-asia" aria-hidden="true"></i> All districts</span>
-                                <span class="welcome-district-embed__where">All-time (Phase 3)</span>
+                                    <span class="welcome-district-embed__where">From {{ $phase3FloorDateLabel ?? '01 Apr 2026' }} (Phase 3)</span>
                             </div>
                             <div class="welcome-district-embed__grid">
                                 <div class="welcome-district-embed__ring">
@@ -662,7 +662,7 @@
                                 </div>
                             </div>
                             <div class="welcome-district-embed__mix">
-                                <span class="welcome-district-embed__mix-title">Stage mix (all-time)</span>
+                                <span class="welcome-district-embed__mix-title">Stage mix (from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }})</span>
                                 <div class="welcome-d-stage-row">
                                     <span class="welcome-d-stage-row__l">S</span>
                                     <div class="welcome-d-stage-row__t"><div class="welcome-d-stage-row__f welcome-d-stage-row__f--seed" style="width: {{ $sStagePct['SEED'] }}%;"></div></div>
@@ -679,7 +679,7 @@
                                     <span class="welcome-d-stage-row__p">{{ $sStagePct['GROWTH'] }}%</span>
                                 </div>
                             </div>
-                            <p class="welcome-district-embed__note">Stage mix from recent saved Phase 3 forms. Counts shown are all-time Phase 3 submissions.</p>
+                            <p class="welcome-district-embed__note">Stage mix from saved Phase 3 forms from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }} onward.</p>
                         </div>
                     </div>
                 </div>
@@ -687,12 +687,12 @@
                 <div class="charts-grid">
                     <div class="chart-card tall">
                         <h4>Applications by district</h4>
-                        <p class="hint">CFA count (all-time)all districts</p>
+                        <p class="hint">CFA count from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }} onward - all districts</p>
                         <div class="canvas-wrap"><canvas id="chartDistrictCfa"></canvas></div>
                     </div>
                     <div class="chart-card tall">
                         <h4>CFA by staffs</h4>
-                        <p class="hint">Search by staff name and filter by district (all-time Phase 3).</p>
+                        <p class="hint">Search by staff name and filter by district (Phase 3 from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }}).</p>
                         @php
                             $staffCfaRows = $staffCfaByStaff ?? [];
                             $staffDistrictOptions = collect($staffCfaRows)
