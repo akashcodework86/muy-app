@@ -30,7 +30,7 @@
                 <select id="cfa_submission_id" name="cfa_submission_id" required style="width:100%;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
                     <option value="">— Select —</option>
                     @foreach ($submissions as $sub)
-                        <option value="{{ $sub->id }}" @selected((int) old('cfa_submission_id') === (int) $sub->id)>
+                        <option value="{{ $sub->id }}" @selected((int) old('cfa_submission_id', (int) ($defaultCfaSubmissionId ?? 0)) === (int) $sub->id)>
                             {{ $sub->applicant_name }} @if ($sub->application_no) · {{ $sub->application_no }} @endif
                         </option>
                     @endforeach

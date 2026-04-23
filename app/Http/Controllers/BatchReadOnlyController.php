@@ -8,6 +8,7 @@ use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
 use App\Models\OnboardingBatchDraftCfa;
 use App\Models\User;
+use App\Services\AppSettingsService;
 use App\Services\HubBatchService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -157,6 +158,11 @@ class BatchReadOnlyController extends Controller
         }
         arsort($categoryMix);
 
+        $serviceModuleOn = false;
+        if ($user->role === 'district_staff') {
+            $serviceModuleOn = app(AppSettingsService::class)->isEnabled('service_module.enabled');
+        }
+
         return view('batches.read.show', [
             'batch' => $batch,
             'members' => $members,
@@ -168,6 +174,7 @@ class BatchReadOnlyController extends Controller
             'effectiveDeadline' => $this->batches->effectiveDeadline($batch),
             'scope' => $scope,
             'routeIndex' => $this->routeIndex($user),
+            'serviceModuleOn' => $serviceModuleOn,
         ]);
     }
 

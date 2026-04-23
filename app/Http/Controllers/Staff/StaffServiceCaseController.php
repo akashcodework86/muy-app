@@ -56,8 +56,15 @@ class StaffServiceCaseController extends Controller
 
         $services = $this->pickerServices();
 
+        $eligible = $this->eligibleSubmissions($staff);
+        $prefillId = (int) $request->query('cfa_submission_id', 0);
+        if ($prefillId > 0 && ! (clone $eligible)->whereKey($prefillId)->exists()) {
+            $prefillId = 0;
+        }
+
         return view('staff.services.create', [
-            'submissions' => $this->eligibleSubmissions($staff)->get(),
+            'submissions' => $eligible->get(),
+            'defaultCfaSubmissionId' => $prefillId,
             'services' => $services,
             'servicesJson' => $services->map(fn (Service $s) => [
                 'id' => $s->id,

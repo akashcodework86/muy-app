@@ -221,6 +221,11 @@
             <h3>Members</h3>
             <span class="muted">{{ $totalMembers }} {{ Str::plural('member', $totalMembers) }}</span>
         </div>
+        @if (auth()->user()->role === 'district_staff' && ! ($serviceModuleOn ?? false))
+            <p style="font-size:0.82rem; color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:0.5rem 0.75rem; margin:0 0 0.65rem;">
+                Service module is off — <strong>Add intervention</strong> is hidden. Ask state admin to enable it under <strong>More → Service module settings</strong>.
+            </p>
+        @endif
         <table class="m-table">
             <thead>
                 <tr>
@@ -230,6 +235,7 @@
                     <th>Phone</th>
                     <th>Stage</th>
                     <th>Business category</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -249,10 +255,19 @@
                             ">{{ $m['stage_label'] }}</span>
                         </td>
                         <td data-label="Business">{{ $m['business_category'] }}</td>
+                        <td data-label="Actions" style="white-space:nowrap;">
+                            @if (auth()->user()->role === 'district_staff' && ($serviceModuleOn ?? false) && (int) ($m['id'] ?? 0) > 0)
+                                <a href="{{ route('staff.services.create', ['cfa_submission_id' => $m['id']]) }}" style="display:inline-block;padding:0.35rem 0.6rem;background:#0f766e;color:#fff;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;">Add intervention</a>
+                            @elseif (auth()->user()->role === 'state_admin' && (int) ($m['id'] ?? 0) > 0)
+                                <a href="{{ route('admin.cfa.show', $m['id']) }}" style="font-size:0.82rem;color:#0d9488;font-weight:600;">View CFA</a>
+                            @else
+                                <span style="color:#a1a1aa;font-size:0.8rem;">—</span>
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" style="padding:1.25rem; text-align:center; color:#64748b;">No members in this batch yet.</td>
+                        <td colspan="7" style="padding:1.25rem; text-align:center; color:#64748b;">No members in this batch yet.</td>
                     </tr>
                 @endforelse
             </tbody>
