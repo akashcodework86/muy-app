@@ -134,6 +134,8 @@ class ServiceCase extends Model
             self::STATUS_DRAFT,
             self::STATUS_PENDING_APPROVAL,
             self::STATUS_SENT_BACK,
+            self::STATUS_APPROVED,
+            self::STATUS_REJECTED,
         ], true);
     }
 }

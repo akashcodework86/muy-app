@@ -217,6 +217,12 @@ class StaffServiceCaseController extends Controller
         }
 
         try {
+            // Allow editing from any staff-visible state by reopening into sent_back flow.
+            if (! in_array($service_case->status, [ServiceCase::STATUS_DRAFT, ServiceCase::STATUS_SENT_BACK], true)) {
+                $service_case->status = ServiceCase::STATUS_SENT_BACK;
+                $service_case->save();
+            }
+
             $this->recorder->submit($service_case, [
                 'actor_id' => (int) $staff->id,
                 'reference_number' => $validated['reference_number'] ?? null,
@@ -305,7 +311,10 @@ class StaffServiceCaseController extends Controller
     {
         return in_array($case->status, [
             ServiceCase::STATUS_DRAFT,
+            ServiceCase::STATUS_PENDING_APPROVAL,
             ServiceCase::STATUS_SENT_BACK,
+            ServiceCase::STATUS_APPROVED,
+            ServiceCase::STATUS_REJECTED,
         ], true);
     }
 
