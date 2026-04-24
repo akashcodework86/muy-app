@@ -118,9 +118,16 @@
         font-weight: 800;
         flex-shrink: 0;
     }
-    .team-meta { min-width: 0; }
+    .team-meta { min-width: 0; flex: 1; }
     .team-name { font-size: 0.88rem; font-weight: 800; color: #0f172a; margin: 0 0 0.2rem; }
-    .team-line { font-size: 0.76rem; color: #475569; margin: 0.08rem 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .team-line {
+        font-size: 0.76rem;
+        color: #475569;
+        margin: 0.08rem 0;
+        white-space: normal;
+        word-break: break-word;
+        line-height: 1.35;
+    }
     .team-empty { font-size: 0.82rem; color: #64748b; padding: 0.35rem 0.1rem; }
 </style>
 @endpush
