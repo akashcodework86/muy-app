@@ -30,7 +30,7 @@
         @foreach ($tabs as $val => $label)
             <a href="{{ route('spoc.service-cases.index', $val !== '' ? ['status' => $val] : []) }}"
                 style="padding:0.4rem 0.75rem;border-radius:999px;font-size:0.82rem;font-weight:600;text-decoration:none;border:1px solid {{ ($filterStatus === $val) ? '#4f46e5' : '#e4e4e7' }};background:{{ ($filterStatus === $val) ? '#eef2ff' : '#fff' }};color:{{ ($filterStatus === $val) ? '#3730a3' : '#3f3f46' }};">
-                {{ $label }}
+                {{ $label }} ({{ number_format((int) ($tabCounts[$val] ?? 0)) }})
             </a>
         @endforeach
     </div>

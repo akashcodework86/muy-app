@@ -34,8 +34,23 @@ class SpocServiceCaseController extends Controller
         }
 
         $districtIds = $this->spocDistrictIds((int) $spoc->id);
-        $q = ServiceCase::query()
-            ->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds))
+        $scopeBase = ServiceCase::query()
+            ->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds));
+
+        $tabCounts = [
+            '' => (clone $scopeBase)->whereIn('status', [
+                ServiceCase::STATUS_PENDING_APPROVAL,
+                ServiceCase::STATUS_SENT_BACK,
+                ServiceCase::STATUS_APPROVED,
+                ServiceCase::STATUS_REJECTED,
+            ])->count(),
+            ServiceCase::STATUS_PENDING_APPROVAL => (clone $scopeBase)->where('status', ServiceCase::STATUS_PENDING_APPROVAL)->count(),
+            ServiceCase::STATUS_SENT_BACK => (clone $scopeBase)->where('status', ServiceCase::STATUS_SENT_BACK)->count(),
+            ServiceCase::STATUS_APPROVED => (clone $scopeBase)->where('status', ServiceCase::STATUS_APPROVED)->count(),
+            ServiceCase::STATUS_REJECTED => (clone $scopeBase)->where('status', ServiceCase::STATUS_REJECTED)->count(),
+        ];
+
+        $q = (clone $scopeBase)
             ->with(['cfaSubmission:id,applicant_name,application_no,district_id', 'service.category.parent', 'submitter:id,name']);
 
         if ($status !== '') {
@@ -54,6 +69,7 @@ class SpocServiceCaseController extends Controller
         return view('spoc.service-cases.index', [
             'cases' => $cases,
             'filterStatus' => $status,
+            'tabCounts' => $tabCounts,
         ]);
     }
 
