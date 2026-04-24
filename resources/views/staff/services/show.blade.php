@@ -15,23 +15,51 @@
         $payload = is_array($case->payload) ? $case->payload : [];
     @endphp
 
-    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:44rem;margin-bottom:1rem;">
-        <h2 style="margin:0 0 0.35rem;font-size:1.05rem;">{{ $case->service?->name ?? 'Service' }}</h2>
-        <p style="margin:0;font-size:0.85rem;color:#52525b;">
-            <strong>Status:</strong> {{ str_replace('_', ' ', $case->status) }}
+    @php
+        $status = (string) $case->status;
+        $statusLabel = ucwords(str_replace('_', ' ', $status));
+        $statusStyles = [
+            'draft' => ['bg' => '#f1f5f9', 'fg' => '#334155', 'bd' => '#cbd5e1'],
+            'pending_approval' => ['bg' => '#fef3c7', 'fg' => '#92400e', 'bd' => '#fcd34d'],
+            'sent_back' => ['bg' => '#fee2e2', 'fg' => '#991b1b', 'bd' => '#fecaca'],
+            'approved' => ['bg' => '#dcfce7', 'fg' => '#166534', 'bd' => '#86efac'],
+            'rejected' => ['bg' => '#ffe4e6', 'fg' => '#9f1239', 'bd' => '#fda4af'],
+        ][$status] ?? ['bg' => '#f4f4f5', 'fg' => '#3f3f46', 'bd' => '#e4e4e7'];
+    @endphp
+
+    <div style="background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);border:1px solid #e4e4e7;border-radius:14px;padding:1rem 1.1rem;max-width:48rem;margin-bottom:1rem;box-shadow:0 8px 22px -18px rgba(15,23,42,0.3);">
+        <h2 style="margin:0 0 0.4rem;font-size:1.15rem;">{{ $case->service?->name ?? 'Service' }}</h2>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.45rem;font-size:0.85rem;color:#52525b;">
+            <span style="display:inline-flex;align-items:center;padding:0.15rem 0.55rem;border-radius:999px;border:1px solid {{ $statusStyles['bd'] }};background:{{ $statusStyles['bg'] }};color:{{ $statusStyles['fg'] }};font-weight:700;">
+                {{ $statusLabel }}
+            </span>
             @if ($case->reference_number)
-                · <strong>Ref:</strong> {{ $case->reference_number }}
+                <span><strong>Ref:</strong> {{ $case->reference_number }}</span>
             @endif
-        </p>
+        </div>
         @if ($case->delivered_on)
-            <p style="margin:0.35rem 0 0;font-size:0.85rem;color:#52525b;"><strong>Delivered on:</strong> {{ $case->delivered_on->format('d M Y') }}</p>
+            <p style="margin:0.45rem 0 0;font-size:0.85rem;color:#52525b;"><strong>Delivered on:</strong> {{ $case->delivered_on->format('d M Y') }}</p>
         @endif
         @if ($case->sla_deadline_at)
             <p style="margin:0.35rem 0 0;font-size:0.85rem;color:#52525b;"><strong>SPOC SLA target:</strong> {{ $case->sla_deadline_at->timezone(config('app.timezone'))->format('d M Y H:i') }}</p>
         @endif
     </div>
 
-    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:44rem;margin-bottom:1rem;">
+    @if ($case->sent_back_note)
+        <div style="max-width:48rem;margin-bottom:1rem;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:0.8rem 0.95rem;">
+            <p style="margin:0;font-size:0.76rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">SPOC send-back remark</p>
+            <p style="margin:0.25rem 0 0;font-size:0.9rem;line-height:1.5;">{{ $case->sent_back_note }}</p>
+        </div>
+    @endif
+
+    @if ($case->rejected_note)
+        <div style="max-width:48rem;margin-bottom:1rem;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;border-radius:12px;padding:0.8rem 0.95rem;">
+            <p style="margin:0;font-size:0.76rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">SPOC rejection reason</p>
+            <p style="margin:0.25rem 0 0;font-size:0.9rem;line-height:1.5;">{{ $case->rejected_note }}</p>
+        </div>
+    @endif
+
+    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:48rem;margin-bottom:1rem;box-shadow:0 8px 22px -18px rgba(15,23,42,0.3);">
         <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">Incubatee</h3>
         <p style="margin:0;font-size:0.88rem;"><strong>{{ $case->cfaSubmission?->applicant_name ?? '—' }}</strong></p>
         @if ($case->cfaSubmission?->application_no)
@@ -40,7 +68,7 @@
     </div>
 
     @if ($schema !== [])
-        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:44rem;margin-bottom:1rem;">
+        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:48rem;margin-bottom:1rem;box-shadow:0 8px 22px -18px rgba(15,23,42,0.3);">
             <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">Submitted details</h3>
             <dl style="margin:0;display:grid;gap:0.5rem;">
                 @foreach ($schema as $field)
@@ -55,7 +83,7 @@
     @endif
 
     @if ($case->attachments->isNotEmpty())
-        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:44rem;margin-bottom:1rem;">
+        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:48rem;margin-bottom:1rem;box-shadow:0 8px 22px -18px rgba(15,23,42,0.3);">
             <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">Attachments</h3>
             <ul style="margin:0;padding-left:1.1rem;font-size:0.85rem;">
                 @foreach ($case->attachments as $att)
