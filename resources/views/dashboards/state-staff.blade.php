@@ -26,13 +26,18 @@
                 </div>
                 <div style="background:#fff; border:1px solid rgba(148,163,184,0.3); border-radius:12px; padding:0.85rem 1rem;">
                     <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; font-weight:700;">Pending approvals</div>
-                    <div style="font-size:1.3rem; font-weight:700; color:#0f172a;">—</div>
-                    <div style="font-size:0.78rem; color:#64748b;">Queue coming soon.</div>
+                    <div style="font-size:1.3rem; font-weight:700; color:#0f172a;">{{ number_format((int) ($pendingApprovals ?? 0)) }}</div>
+                    <div style="font-size:0.78rem; color:#64748b;">Cases waiting for your decision.</div>
                 </div>
                 <div style="background:#fff; border:1px solid rgba(148,163,184,0.3); border-radius:12px; padding:0.85rem 1rem;">
                     <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; font-weight:700;">Overdue (3+ biz days)</div>
-                    <div style="font-size:1.3rem; font-weight:700; color:#0f172a;">—</div>
-                    <div style="font-size:0.78rem; color:#64748b;">SLA tracking coming soon.</div>
+                    <div style="font-size:1.3rem; font-weight:700; color:#0f172a;">{{ number_format((int) ($overduePending ?? 0)) }}</div>
+                    <div style="font-size:0.78rem; color:#64748b;">Pending cases past SLA deadline.</div>
+                </div>
+                <div style="background:#fff; border:1px solid rgba(148,163,184,0.3); border-radius:12px; padding:0.85rem 1rem;">
+                    <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; font-weight:700;">Approved by you</div>
+                    <div style="font-size:1.3rem; font-weight:700; color:#0f172a;">{{ number_format((int) ($approvedByYou ?? 0)) }}</div>
+                    <div style="font-size:0.78rem; color:#64748b;">Total approvals completed by you.</div>
                 </div>
             </div>
         </div>
