@@ -19,6 +19,51 @@
         </form>
     </div>
 
+    @if ($selectedDistrict || $selectedStaff)
+        <div style="margin-bottom:0.85rem;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:0.85rem;">
+            <div style="display:flex;justify-content:space-between;gap:0.65rem;align-items:flex-start;flex-wrap:wrap;">
+                <div>
+                    @if ($selectedDistrict)
+                        <p style="margin:0;font-size:0.95rem;font-weight:800;color:#0f172a;">
+                            District analysis: {{ $selectedDistrict['district_name'] }}
+                        </p>
+                        <p style="margin:0.2rem 0 0;font-size:0.82rem;color:#64748b;">
+                            Total staff: <strong>{{ number_format($selectedDistrict['total_staff']) }}</strong> ·
+                            Active staff: <strong>{{ number_format($selectedDistrict['active_staff']) }}</strong> ·
+                            FY CFA: <strong>{{ number_format($selectedDistrict['fy_cfa']) }}</strong> ·
+                            Month CFA: <strong>{{ number_format($selectedDistrict['month_cfa']) }}</strong>
+                        </p>
+                    @endif
+                    @if ($selectedStaff)
+                        <p style="margin:0.35rem 0 0;font-size:0.9rem;font-weight:700;color:#0f172a;">
+                            Staff analysis: {{ $selectedStaff['staff_name'] }} ({{ $selectedStaff['district_name'] }})
+                        </p>
+                        <p style="margin:0.2rem 0 0;font-size:0.82rem;color:#475569;">
+                            FY CFA: <strong>{{ number_format($selectedStaff['cfa_fy']) }}</strong> ·
+                            Month CFA: <strong>{{ number_format($selectedStaff['cfa_month']) }}</strong> ·
+                            Service cases: <strong>{{ number_format($selectedStaff['service_total']) }}</strong> ·
+                            Approved: <strong>{{ number_format($selectedStaff['service_approved']) }}</strong> ·
+                            Pending: <strong>{{ number_format($selectedStaff['service_pending']) }}</strong> ·
+                            Sent back: <strong>{{ number_format($selectedStaff['service_sent_back']) }}</strong> ·
+                            Rejected: <strong>{{ number_format($selectedStaff['service_rejected']) }}</strong> ·
+                            Approval rate:
+                            <strong>
+                                @if (!is_null($selectedStaff['service_approval_rate']))
+                                    {{ number_format($selectedStaff['service_approval_rate'], 1) }}%
+                                @else
+                                    —
+                                @endif
+                            </strong>
+                        </p>
+                    @endif
+                </div>
+                <a href="{{ route('hub.staff-performance.index', ['fy' => $selectedFyId]) }}" style="font-size:0.78rem;color:#0d9488;font-weight:700;text-decoration:none;">
+                    Clear selection
+                </a>
+            </div>
+        </div>
+    @endif
+
     <div style="overflow-x:auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
         <table style="width:100%;border-collapse:collapse;min-width:900px;">
             <thead>
@@ -35,7 +80,11 @@
             <tbody>
                 @forelse ($rows as $row)
                     <tr>
-                        <td style="padding:0.68rem 0.8rem;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;">{{ $row['district_name'] }}</td>
+                        <td style="padding:0.68rem 0.8rem;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;">
+                            <a href="{{ route('hub.staff-performance.index', ['fy' => $selectedFyId, 'district_id' => $row['district_id']]) }}" style="color:#0f172a;text-decoration:none;border-bottom:1px dashed #94a3b8;">
+                                {{ $row['district_name'] }}
+                            </a>
+                        </td>
                         <td style="padding:0.68rem 0.8rem;border-bottom:1px solid #f1f5f9;">{{ number_format($row['total_staff']) }}</td>
                         <td style="padding:0.68rem 0.8rem;border-bottom:1px solid #f1f5f9;">{{ number_format($row['active_staff']) }}</td>
                         <td style="padding:0.68rem 0.8rem;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f766e;">{{ number_format($row['fy_cfa']) }}</td>
@@ -93,8 +142,16 @@
                 <tbody>
                     @forelse ($staffRows as $row)
                         <tr class="staff-perf-row">
-                            <td style="padding:0.6rem 0.7rem;border-bottom:1px solid #f1f5f9;">{{ $row['district_name'] }}</td>
-                            <td style="padding:0.6rem 0.7rem;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;">{{ $row['staff_name'] }}</td>
+                            <td style="padding:0.6rem 0.7rem;border-bottom:1px solid #f1f5f9;">
+                                <a href="{{ route('hub.staff-performance.index', ['fy' => $selectedFyId, 'district_id' => $row['district_id']]) }}" style="color:#0f172a;text-decoration:none;border-bottom:1px dashed #94a3b8;">
+                                    {{ $row['district_name'] }}
+                                </a>
+                            </td>
+                            <td style="padding:0.6rem 0.7rem;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;">
+                                <a href="{{ route('hub.staff-performance.index', ['fy' => $selectedFyId, 'district_id' => $row['district_id'], 'staff_id' => $row['staff_id']]) }}" style="color:#0f172a;text-decoration:none;border-bottom:1px dashed #94a3b8;">
+                                    {{ $row['staff_name'] }}
+                                </a>
+                            </td>
                             <td style="padding:0.6rem 0.7rem;border-bottom:1px solid #f1f5f9;">
                                 <div style="font-size:0.8rem;color:#334155;">{{ $row['email'] ?: '—' }}</div>
                                 <div style="font-size:0.75rem;color:#64748b;">{{ $row['phone'] ?: '—' }}</div>

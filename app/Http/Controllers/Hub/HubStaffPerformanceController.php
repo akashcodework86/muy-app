@@ -25,6 +25,8 @@ class HubStaffPerformanceController extends Controller
             ->get(['id', 'name', 'starts_on', 'ends_on', 'is_active']);
 
         $selectedFyId = $request->integer('fy');
+        $selectedDistrictId = $request->integer('district_id') ?: null;
+        $selectedStaffId = $request->integer('staff_id') ?: null;
         if (! $selectedFyId) {
             $selectedFyId = (int) ($fiscalYears->firstWhere('is_active', true)?->id ?? 0);
         }
@@ -187,12 +189,30 @@ class HubStaffPerformanceController extends Controller
             ];
         })->sortByDesc('performance_score')->values();
 
+        $selectedDistrict = null;
+        if ($selectedDistrictId) {
+            $selectedDistrict = $rows->firstWhere('district_id', (int) $selectedDistrictId);
+        }
+
+        $selectedStaff = null;
+        if ($selectedStaffId) {
+            $selectedStaff = $staffRows->firstWhere('staff_id', (int) $selectedStaffId);
+        }
+
+        if ($selectedStaff && ! $selectedDistrict) {
+            $selectedDistrict = $rows->firstWhere('district_id', (int) ($selectedStaff['district_id'] ?? 0));
+        }
+
         return view('hub.staff-performance.index', [
             'rows' => $rows,
             'staffRows' => $staffRows,
             'fiscalYears' => $fiscalYears,
             'selectedFyId' => $selectedFyId,
             'selectedFy' => $selectedFy,
+            'selectedDistrictId' => $selectedDistrictId,
+            'selectedStaffId' => $selectedStaffId,
+            'selectedDistrict' => $selectedDistrict,
+            'selectedStaff' => $selectedStaff,
             'hubName' => (string) DB::table('hubs')->where('id', $hubId)->value('name'),
         ]);
     }
