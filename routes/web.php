@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
+use App\Http\Controllers\Admin\TeamDirectoryController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
@@ -264,6 +265,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('staff/{user}/cfa-targets', [StaffDeliverableMonthlyTargetController::class, 'updateCfaLegacy'])->name('staff.cfa-targets.update');
 
         Route::get('team-performance', [TeamPerformanceController::class, 'index'])->name('team-performance.index');
+        Route::get('team', [TeamDirectoryController::class, 'index'])->name('team.index');
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');

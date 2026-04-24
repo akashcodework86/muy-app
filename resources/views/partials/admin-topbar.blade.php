@@ -35,6 +35,7 @@
         str_starts_with($r, 'admin.service-spocs') => 'service-spocs',
         str_starts_with($r, 'spoc.') => 'spoc-queue',
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
+        str_starts_with($r, 'admin.team.') => 'team-directory',
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
@@ -54,7 +55,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance'], true);
+    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance', 'team-directory'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa'], true);
     $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings'], true);
 
@@ -143,6 +144,9 @@
                     </a>
                     <a href="{{ route('admin.team-performance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-performance') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Team performance</span>
+                    </a>
+                    <a href="{{ route('admin.team.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-directory') is-active @endif" role="menuitem">
+                        {!! $i('users') !!}<span>Team directory</span>
                     </a>
                 </div>
             </details>
