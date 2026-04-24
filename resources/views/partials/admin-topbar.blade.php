@@ -245,9 +245,6 @@
             <a href="{{ route('incubatee.dashboard') }}" class="admin-topbar__link @if ($activeNav === 'incubatee' && request()->routeIs('incubatee.dashboard')) is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>
-            <a href="{{ route('team.index') }}" class="admin-topbar__link @if ($activeNav === 'team-directory') is-active @endif">
-                {!! $i('users') !!}<span class="admin-topbar__link-text">Team</span>
-            </a>
             <a href="{{ route('incubatee.mentorship.index') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.mentorship.*')) is-active @endif">
                 {!! $i('mentor') !!}<span class="admin-topbar__link-text">Request mentorship</span>
             </a>

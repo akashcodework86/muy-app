@@ -21,6 +21,7 @@ class TeamDirectoryController extends Controller
                 'spocDistrictAssignments.district:id,name',
             ])
             ->where('is_active', true)
+            ->whereIn('role', ['state_admin', 'state_staff', 'hub_admin', 'district_staff'])
             ->orderBy('name')
             ->get();
 
