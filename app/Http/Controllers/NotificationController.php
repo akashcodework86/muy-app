@@ -2,19 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\NotificationReminderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class NotificationController extends Controller
 {
+    public function __construct(
+        private NotificationReminderService $reminders,
+    ) {}
+
     public function index(Request $request): View
     {
         $notifications = $request->user()
             ->notifications()
             ->paginate(25);
 
-        return view('notifications.index', ['notifications' => $notifications]);
+        return view('notifications.index', [
+            'notifications' => $notifications,
+            'systemReminders' => $this->reminders->remindersFor($request->user()),
+        ]);
     }
 
     /**

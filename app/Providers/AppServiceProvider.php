@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\NotificationReminderService;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -26,15 +27,51 @@ class AppServiceProvider extends ServiceProvider
                 $view->with([
                     'notificationsPreview' => collect(),
                     'unreadNotificationCount' => 0,
+                    'dbUnreadNotificationCount' => 0,
                     'showNotificationBell' => false,
                 ]);
 
                 return;
             }
 
+            $dbNotifications = $user->notifications()->latest()->limit(8)->get();
+            $reminders = app(NotificationReminderService::class)->remindersFor($user);
+            $now = now();
+
+            $preview = collect($reminders)->map(function (array $r) use ($now) {
+                return [
+                    'title' => $r['title'],
+                    'body' => $r['body'],
+                    'link' => $r['link'],
+                    'is_unread' => (bool) ($r['unread'] ?? true),
+                    'time_human' => 'now',
+                    'is_reminder' => true,
+                    'id' => null,
+                ];
+            })->values();
+
+            $preview = $preview->concat(
+                $dbNotifications->map(function ($n) {
+                    $d = $n->data ?? [];
+
+                    return [
+                        'title' => $d['title'] ?? 'Notification',
+                        'body' => $d['body'] ?? '',
+                        'link' => route('notifications.open', $n->id),
+                        'is_unread' => $n->read_at === null,
+                        'time_human' => $n->created_at?->timezone(config('app.timezone'))->diffForHumans(),
+                        'is_reminder' => false,
+                        'id' => $n->id,
+                    ];
+                })->values()
+            )->take(8)->values();
+
+            $dbUnread = $user->unreadNotifications()->count();
+
             $view->with([
-                'notificationsPreview' => $user->notifications()->latest()->limit(8)->get(),
-                'unreadNotificationCount' => $user->unreadNotifications()->count(),
+                'notificationsPreview' => $preview,
+                'unreadNotificationCount' => $dbUnread + count($reminders),
+                'dbUnreadNotificationCount' => $dbUnread,
                 'showNotificationBell' => true,
             ]);
         });

@@ -9,6 +9,26 @@
             Mentorship and other alerts for your role. Unread items are highlighted. Opening a row marks it read and opens the CFA when linked.
         </p>
 
+        @if (!empty($systemReminders) && count($systemReminders) > 0)
+            <div style="display:flex; flex-direction:column; gap:0.65rem; margin-bottom:1rem;">
+                @foreach ($systemReminders as $r)
+                    <article style="background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; padding:0.9rem 1rem;">
+                        <div style="display:flex; justify-content:space-between; gap:0.75rem; align-items:flex-start; flex-wrap:wrap;">
+                            <div>
+                                <h2 style="margin:0 0 0.25rem; font-size:0.93rem; font-weight:700; color:#9a3412;">
+                                    {{ $r['title'] ?? 'Reminder' }}
+                                </h2>
+                                <p style="margin:0; font-size:0.86rem; color:#7c2d12;">{{ $r['body'] ?? '' }}</p>
+                            </div>
+                            <a href="{{ $r['link'] ?? route('notifications.index') }}" style="display:inline-block; padding:0.38rem 0.72rem; border-radius:8px; background:#9a3412; color:#fff; font-size:0.8rem; font-weight:600; text-decoration:none;">
+                                Open
+                            </a>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        @endif
+
         @if ($notifications->isNotEmpty())
             <form method="post" action="{{ route('notifications.read-all') }}" style="margin-bottom:1rem;">
                 @csrf

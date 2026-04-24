@@ -255,7 +255,7 @@
                 <div class="admin-topbar__dropdown-panel admin-topbar__dropdown-panel--notifications" role="menu">
                     <div class="admin-topbar__notif-head">
                         <span>Notifications</span>
-                        @if (($unreadNotificationCount ?? 0) > 0)
+                        @if (($dbUnreadNotificationCount ?? 0) > 0)
                             <form method="post" action="{{ route('notifications.read-all') }}" class="admin-topbar__notif-markall">
                                 @csrf
                                 <button type="submit">Mark all read</button>
@@ -263,14 +263,15 @@
                         @endif
                     </div>
                     @forelse ($notificationsPreview ?? [] as $n)
-                        @php
-                            $d = $n->data ?? [];
-                            $isUnread = $n->read_at === null;
-                        @endphp
-                        <a href="{{ route('notifications.open', $n->id) }}" class="admin-topbar__notif-item @if($isUnread) is-unread @endif" role="menuitem">
-                            <span class="admin-topbar__notif-item-title">{{ $d['title'] ?? 'Notification' }}</span>
-                            <span class="admin-topbar__notif-item-body">{{ \Illuminate\Support\Str::limit($d['body'] ?? '', 120) }}</span>
-                            <span class="admin-topbar__notif-item-time">{{ $n->created_at?->timezone(config('app.timezone'))->diffForHumans() }}</span>
+                        <a href="{{ $n['link'] ?? route('notifications.index') }}" class="admin-topbar__notif-item @if(!empty($n['is_unread'])) is-unread @endif" role="menuitem">
+                            <span class="admin-topbar__notif-item-title">
+                                {{ $n['title'] ?? 'Notification' }}
+                                @if (!empty($n['is_reminder']))
+                                    <span style="font-size:0.66rem;color:#b45309;margin-left:0.25rem;">Reminder</span>
+                                @endif
+                            </span>
+                            <span class="admin-topbar__notif-item-body">{{ \Illuminate\Support\Str::limit($n['body'] ?? '', 120) }}</span>
+                            <span class="admin-topbar__notif-item-time">{{ $n['time_human'] ?? '' }}</span>
                         </a>
                     @empty
                         <p class="admin-topbar__notif-empty">No notifications yet.</p>
