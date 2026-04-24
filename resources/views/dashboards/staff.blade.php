@@ -1613,6 +1613,30 @@
             flex-wrap: nowrap;
             overflow: hidden;
         }
+        .welcome-d-ref-list__avatar {
+            width: 1.05rem;
+            height: 1.05rem;
+            border-radius: 999px;
+            flex-shrink: 0;
+            object-fit: cover;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            background: #e2e8f0;
+        }
+        .welcome-d-ref-list__avatar-fallback {
+            width: 1.05rem;
+            height: 1.05rem;
+            border-radius: 999px;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.5rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            color: #ffffff;
+            background: linear-gradient(135deg, #6366f1, #14b8a6);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+        }
         .welcome-d-ref-list__name-text {
             min-width: 0;
             overflow: hidden;
@@ -2474,6 +2498,13 @@
                                     @foreach ($districtCfaByReferrer['rows'] as $refRow)
                                     <li class="welcome-d-ref-list__row @if (! empty($refRow['is_you'])) welcome-d-ref-list__row--you @endif">
                                         <span class="welcome-d-ref-list__name" title="{{ $refRow['name'] }}">
+                                            @if (!empty($refRow['avatar_url']))
+                                                <img src="{{ $refRow['avatar_url'] }}" alt="" class="welcome-d-ref-list__avatar">
+                                            @else
+                                                <span class="welcome-d-ref-list__avatar-fallback">
+                                                    {{ strtoupper(substr(trim((string) $refRow['name']), 0, 1)) ?: '?' }}
+                                                </span>
+                                            @endif
                                             <span class="welcome-d-ref-list__name-text">{{ $refRow['name'] }}</span>
                                             @if (! empty($refRow['is_you']))
                                                 <span class="welcome-d-ref-list__you">You</span>

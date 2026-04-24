@@ -337,7 +337,7 @@ class StaffDashboardService
     /**
      * District CFA totals split by referral link owner (who attributed each application).
      *
-     * @return array{rows: list<array{user_id: int|null, name: string, count: int, is_you: bool, share_pct: int}>, total: int}
+     * @return array{rows: list<array{user_id: int|null, name: string, count: int, is_you: bool, share_pct: int, avatar_url: string|null}>, total: int}
      */
     private function districtCfaBreakdownByReferrer(int $districtId, int $viewerUserId): array
     {
@@ -362,10 +362,10 @@ class StaffDashboardService
             ->unique()
             ->values()
             ->all();
-        /** @var Collection<int, string> $names */
-        $names = $userIds === []
+        /** @var Collection<int, User> $refUsers */
+        $refUsers = $userIds === []
             ? collect()
-            : User::query()->whereIn('id', $userIds)->pluck('name', 'id');
+            : User::query()->whereIn('id', $userIds)->get()->keyBy('id');
 
         $rows = [];
         foreach ($aggregates as $row) {
@@ -380,15 +380,19 @@ class StaffDashboardService
                     'count' => $cnt,
                     'is_you' => false,
                     'share_pct' => $sharePct,
+                    'avatar_url' => null,
                 ];
             } else {
                 $rid = (int) $rid;
+                /** @var User|null $refUser */
+                $refUser = $refUsers->get($rid);
                 $rows[] = [
                     'user_id' => $rid,
-                    'name' => (string) ($names[$rid] ?? ('User #'.$rid)),
+                    'name' => (string) ($refUser?->name ?? ('User #'.$rid)),
                     'count' => $cnt,
                     'is_you' => $rid === $viewerUserId,
                     'share_pct' => $sharePct,
+                    'avatar_url' => $refUser?->avatarUrl(),
                 ];
             }
         }
@@ -413,6 +417,7 @@ class StaffDashboardService
                 'count' => $mergedCount,
                 'is_you' => false,
                 'share_pct' => $total > 0 ? (int) min(100, round(100 * $mergedCount / $total)) : 0,
+                'avatar_url' => null,
             ];
             $rows = $head;
         }

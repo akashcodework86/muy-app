@@ -110,6 +110,10 @@ class StateAdminDashboardService
             ->orderByDesc('cfa_total')
             ->orderBy('users.name')
             ->get();
+        $staffAvatarMap = User::query()
+            ->whereIn('id', $staffCfaByStaff->pluck('id')->map(fn ($id) => (int) $id)->all())
+            ->get()
+            ->keyBy('id');
 
         $businessMixChart = $this->businessCategoryMix($phase3FloorDate);
         $businessMixChart['colors'] = $this->chartColorsForLabels($businessMixChart['labels']);
@@ -178,6 +182,7 @@ class StateAdminDashboardService
                 'name' => (string) $row->name,
                 'district' => (string) $row->district_name,
                 'cfa_total' => (int) $row->cfa_total,
+                'avatar_url' => $staffAvatarMap->get((int) $row->id)?->avatarUrl(),
             ])->all(),
             'cfaTrend' => $stateCfaTrend,
             'businessMix' => $businessMixChart,

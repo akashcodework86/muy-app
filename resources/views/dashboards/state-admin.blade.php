@@ -295,6 +295,32 @@
         }
         .staff-cfa-rank { font-size: 0.68rem; color: #64748b; font-weight: 700; text-align: center; }
         .staff-cfa-main { min-width: 0; }
+        .staff-cfa-main-wrap { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+        .staff-cfa-avatar {
+            width: 1.8rem;
+            height: 1.8rem;
+            border-radius: 999px;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 1px solid rgba(148, 163, 184, 0.38);
+            background: #e2e8f0;
+        }
+        .staff-cfa-avatar-fallback {
+            width: 1.8rem;
+            height: 1.8rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            color: #fff;
+            background: linear-gradient(135deg, #6366f1, #14b8a6);
+            border: 1px solid rgba(99, 102, 241, 0.32);
+        }
+        .staff-cfa-main-text { min-width: 0; }
         .staff-cfa-name { font-size: 0.78rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .staff-cfa-district { font-size: 0.65rem; color: #64748b; margin-top: 0.1rem; }
         .staff-cfa-value {
@@ -728,8 +754,17 @@
                                     >
                                         <div class="staff-cfa-rank">#{{ $index + 1 }}</div>
                                         <div class="staff-cfa-main">
-                                            <div class="staff-cfa-name">{{ $row['name'] }}</div>
-                                            <div class="staff-cfa-district">{{ $row['district'] }}</div>
+                                            <div class="staff-cfa-main-wrap">
+                                                @if (!empty($row['avatar_url']))
+                                                    <img src="{{ $row['avatar_url'] }}" alt="" class="staff-cfa-avatar">
+                                                @else
+                                                    <span class="staff-cfa-avatar-fallback">{{ strtoupper(substr(trim((string) $row['name']), 0, 1)) ?: '?' }}</span>
+                                                @endif
+                                                <div class="staff-cfa-main-text">
+                                                    <div class="staff-cfa-name">{{ $row['name'] }}</div>
+                                                    <div class="staff-cfa-district">{{ $row['district'] }}</div>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="staff-cfa-value">{{ number_format((int) $row['cfa_total']) }}</div>
                                     </div>
@@ -768,6 +803,11 @@
                         <div class="qi"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></div>
                         <strong>Field attendance</strong>
                         <span>Field coordinator visit records</span>
+                    </a>
+                    <a href="{{ route('team.index') }}">
+                        <div class="qi"><i class="fa-solid fa-people-group" aria-hidden="true"></i></div>
+                        <strong>Team directory</strong>
+                        <span>State, hub, and district contacts</span>
                     </a>
                     <a href="{{ route('admin.designations.index') }}">
                         <div class="qi"><i class="fa-solid fa-tags" aria-hidden="true"></i></div>

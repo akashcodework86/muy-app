@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
+use App\Http\Controllers\Admin\TeamDirectoryController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
@@ -87,6 +88,7 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('team-directory', [TeamDirectoryController::class, 'index'])->name('team.index');
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
