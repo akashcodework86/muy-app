@@ -35,7 +35,7 @@
         str_starts_with($r, 'admin.service-spocs') => 'service-spocs',
         str_starts_with($r, 'spoc.') => 'spoc-queue',
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
-        str_starts_with($r, 'admin.team.') => 'team-directory',
+        str_starts_with($r, 'team.') => 'team-directory',
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
@@ -145,7 +145,7 @@
                     <a href="{{ route('admin.team-performance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-performance') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Team performance</span>
                     </a>
-                    <a href="{{ route('admin.team.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-directory') is-active @endif" role="menuitem">
+                    <a href="{{ route('team.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-directory') is-active @endif" role="menuitem">
                         {!! $i('users') !!}<span>Team directory</span>
                     </a>
                 </div>
@@ -183,6 +183,9 @@
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>
+            <a href="{{ route('team.index') }}" class="admin-topbar__link @if ($activeNav === 'team-directory') is-active @endif">
+                {!! $i('users') !!}<span class="admin-topbar__link-text">Team</span>
+            </a>
             <a href="{{ route('spoc.service-cases.index') }}" class="admin-topbar__link @if ($activeNav === 'spoc-queue') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Approval queue</span>
             </a>
@@ -193,6 +196,9 @@
         <nav class="admin-topbar__nav" aria-label="Hub">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
+            </a>
+            <a href="{{ route('team.index') }}" class="admin-topbar__link @if ($activeNav === 'team-directory') is-active @endif">
+                {!! $i('users') !!}<span class="admin-topbar__link-text">Team</span>
             </a>
             <a href="{{ route('hub.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-batches') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
@@ -207,6 +213,9 @@
         <nav class="admin-topbar__nav" aria-label="Staff">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
+            </a>
+            <a href="{{ route('team.index') }}" class="admin-topbar__link @if ($activeNav === 'team-directory') is-active @endif">
+                {!! $i('users') !!}<span class="admin-topbar__link-text">Team</span>
             </a>
             <a href="{{ route('staff.monthly-targets') }}" class="admin-topbar__link @if ($activeNav === 'staff-targets') is-active @endif">
                 {!! $i('calendar') !!}<span class="admin-topbar__link-text">Monthly targets</span>
@@ -235,6 +244,9 @@
         <nav class="admin-topbar__nav" aria-label="Incubatee">
             <a href="{{ route('incubatee.dashboard') }}" class="admin-topbar__link @if ($activeNav === 'incubatee' && request()->routeIs('incubatee.dashboard')) is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
+            </a>
+            <a href="{{ route('team.index') }}" class="admin-topbar__link @if ($activeNav === 'team-directory') is-active @endif">
+                {!! $i('users') !!}<span class="admin-topbar__link-text">Team</span>
             </a>
             <a href="{{ route('incubatee.mentorship.index') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.mentorship.*')) is-active @endif">
                 {!! $i('mentor') !!}<span class="admin-topbar__link-text">Request mentorship</span>

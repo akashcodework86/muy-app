@@ -6,6 +6,31 @@
 @push('styles')
 <style>
     .team-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+    .team-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.75rem;
+    }
+    .team-stat {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.7rem 0.85rem;
+    }
+    .team-stat__label {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        font-weight: 700;
+    }
+    .team-stat__value {
+        margin-top: 0.18rem;
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.1;
+    }
     .team-section {
         background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border: 1px solid rgba(148, 163, 184, 0.32);
@@ -63,6 +88,17 @@
 
 @section('content')
 <div class="team-grid">
+    <section class="team-stats">
+        <div class="team-stat">
+            <div class="team-stat__label">Total members</div>
+            <div class="team-stat__value">{{ number_format((int) ($totalMembers ?? 0)) }}</div>
+        </div>
+        <div class="team-stat">
+            <div class="team-stat__label">Total designations</div>
+            <div class="team-stat__value">{{ number_format((int) ($totalDesignations ?? 0)) }}</div>
+        </div>
+    </section>
+
     @forelse ($designationGroups as $designation => $members)
         <section class="team-section">
             <h3>{{ $designation }} ({{ count($members) }})</h3>

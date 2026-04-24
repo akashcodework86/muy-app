@@ -86,6 +86,7 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('team-directory', [TeamDirectoryController::class, 'index'])->name('team.index');
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -265,7 +266,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('staff/{user}/cfa-targets', [StaffDeliverableMonthlyTargetController::class, 'updateCfaLegacy'])->name('staff.cfa-targets.update');
 
         Route::get('team-performance', [TeamPerformanceController::class, 'index'])->name('team-performance.index');
-        Route::get('team', [TeamDirectoryController::class, 'index'])->name('team.index');
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');

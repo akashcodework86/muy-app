@@ -23,8 +23,13 @@ class TeamDirectoryController extends Controller
             ->sortKeys()
             ->all();
 
+        $totalMembers = $users->count();
+        $totalDesignations = count($designationGroups);
+
         return view('admin.team.index', [
             'designationGroups' => $designationGroups,
+            'totalMembers' => $totalMembers,
+            'totalDesignations' => $totalDesignations,
         ]);
     }
 }

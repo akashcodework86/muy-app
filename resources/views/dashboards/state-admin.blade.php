@@ -799,7 +799,7 @@
                         <strong>Staff &amp; links</strong>
                         <span>Referral URLs &amp; targets</span>
                     </a>
-                    <a href="{{ route('admin.team.index') }}">
+                    <a href="{{ route('team.index') }}">
                         <div class="qi"><i class="fa-solid fa-people-group" aria-hidden="true"></i></div>
                         <strong>Team directory</strong>
                         <span>State, hub, and district contacts</span>
