@@ -10,6 +10,7 @@ use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
 use App\Models\OnboardingBatchDocument;
 use App\Models\OnboardingBatchDraftCfa;
+use App\Models\OnboardingBatchEditRequest;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -218,7 +219,8 @@ class HubBatchService
         $blockedExempt = in_array($action, [
             'dashboard_stats', 'pool_list', 'draft_members', 'batches_list', 'later_list',
             'lock_batch', 'cancel_draft', 'remove_from_draft', 'add_to_draft',
-            'provision_incubatees',
+            'provision_incubatees', 'request_unlock', 'relock_batch', 'batch_detail',
+            'edit_batch', 'delete_batch',
         ], true);
 
         if ($blocked && ! $blockedExempt) {
@@ -243,6 +245,8 @@ class HubBatchService
             'edit_batch' => $this->editBatch($hubId, $user, $input, $request),
             'delete_batch' => $this->deleteBatch($hubId, $user, $input, $request),
             'lock_batch' => $this->lockBatch($hubId, $user, $input),
+            'request_unlock' => $this->requestUnlock($hubId, $user, $input, $request),
+            'relock_batch' => $this->relockBatch($hubId, $user, $input, $request),
             'set_choice' => $this->setChoice($hubId, $user, $districtIds, $input),
             'restore_later' => $this->restoreLater($hubId, $user, $districtIds, $input),
             'undo_reject' => $this->undoReject($hubId, $user, $districtIds, $input),
@@ -530,11 +534,15 @@ class HubBatchService
     {
         $batchId = (int) ($input['batch_id'] ?? 0);
         $batch = OnboardingBatch::query()->find($batchId);
-        if (! $batch || $batch->hub_id !== $hubId || ! $batch->isDraft()) {
+        if (! $batch || $batch->hub_id !== $hubId || ! $this->canMutateBatchByHub($batch, $hubId)) {
             return ['ok' => false, 'error' => 'Not a draft batch'];
         }
 
-        $members = $batch->draftCfas()->with('cfaSubmission')->orderBy('onboarding_batch_draft_cfa.id')->get()->map(fn (OnboardingBatchDraftCfa $r) => [
+        $membersRows = $batch->isDraft()
+            ? $batch->draftCfas()->with('cfaSubmission')->orderBy('onboarding_batch_draft_cfa.id')->get()
+            : $batch->batchCfas()->with('cfaSubmission')->orderBy('onboarding_batch_cfa.id')->get();
+
+        $members = $membersRows->map(fn (OnboardingBatchDraftCfa|OnboardingBatchCfa $r) => [
             'id' => $r->cfa_submission_id,
             'application_no' => $r->cfaSubmission->application_no ?? (string) $r->cfa_submission_id,
             'applicant_name' => $r->cfaSubmission->applicant_name,
@@ -580,6 +588,11 @@ class HubBatchService
                     'has_cdo_pdf' => $this->hasCdoPdf($b),
                     'cdo_overdue' => $this->cdoIsOverdue($b),
                     'cdo_pending' => $this->cdoIsPendingWithinWindow($b),
+                    'edit_unlocked' => $b->isEditUnlocked(),
+                    'pending_unlock_requests' => OnboardingBatchEditRequest::query()
+                        ->where('onboarding_batch_id', $b->id)
+                        ->where('status', 'pending')
+                        ->count(),
                 ];
             });
 
@@ -805,10 +818,11 @@ class HubBatchService
         $batchId = (int) ($input['batch_id'] ?? 0);
         $cfaId = (int) ($input['cfa_submission_id'] ?? 0);
         $batch = OnboardingBatch::query()->find($batchId);
-        if (! $batch || $batch->hub_id !== $hubId || ! $batch->isDraft()) {
-            return ['ok' => false, 'error' => 'Invalid draft batch'];
+        if (! $batch || $batch->hub_id !== $hubId || ! $this->canMutateBatchByHub($batch, $hubId)) {
+            return ['ok' => false, 'error' => 'Batch is not editable.'];
         }
-        if ($this->draftMemberCount($batchId) >= $batch->target_size) {
+        $currentCount = $batch->isDraft() ? $this->draftMemberCount($batchId) : $batch->batchCfas()->count();
+        if ($currentCount >= $batch->target_size) {
             return ['ok' => false, 'error' => 'Batch is full. Lock the batch.'];
         }
         if ($this->cfaIsOnboardedLocked($cfaId)) {
@@ -823,15 +837,22 @@ class HubBatchService
         }
 
         try {
-            OnboardingBatchDraftCfa::query()->create([
-                'onboarding_batch_id' => $batchId,
-                'cfa_submission_id' => $cfaId,
-            ]);
+            if ($batch->isDraft()) {
+                OnboardingBatchDraftCfa::query()->create([
+                    'onboarding_batch_id' => $batchId,
+                    'cfa_submission_id' => $cfaId,
+                ]);
+            } else {
+                OnboardingBatchCfa::query()->create([
+                    'onboarding_batch_id' => $batchId,
+                    'cfa_submission_id' => $cfaId,
+                ]);
+            }
         } catch (\Throwable) {
             return ['ok' => false, 'error' => 'Could not add (duplicate?)'];
         }
 
-        $newc = $this->draftMemberCount($batchId);
+        $newc = $batch->isDraft() ? $this->draftMemberCount($batchId) : $batch->batchCfas()->count();
 
         return ['ok' => true, 'data' => [
             'count' => $newc,
@@ -844,23 +865,32 @@ class HubBatchService
         $batchId = (int) ($input['batch_id'] ?? 0);
         $cfaId = (int) ($input['cfa_submission_id'] ?? 0);
         $batch = OnboardingBatch::query()->find($batchId);
-        if (! $batch || $batch->hub_id !== $hubId || ! $batch->isDraft()) {
-            return ['ok' => false, 'error' => 'Invalid draft'];
+        if (! $batch || $batch->hub_id !== $hubId || ! $this->canMutateBatchByHub($batch, $hubId)) {
+            return ['ok' => false, 'error' => 'Batch is not editable.'];
         }
-        OnboardingBatchDraftCfa::query()
-            ->where('onboarding_batch_id', $batchId)
-            ->where('cfa_submission_id', $cfaId)
-            ->delete();
+        if ($batch->isDraft()) {
+            OnboardingBatchDraftCfa::query()
+                ->where('onboarding_batch_id', $batchId)
+                ->where('cfa_submission_id', $cfaId)
+                ->delete();
+        } else {
+            OnboardingBatchCfa::query()
+                ->where('onboarding_batch_id', $batchId)
+                ->where('cfa_submission_id', $cfaId)
+                ->delete();
+        }
 
-        return ['ok' => true, 'data' => ['count' => $this->draftMemberCount($batchId)]];
+        $count = $batch->isDraft() ? $this->draftMemberCount($batchId) : $batch->batchCfas()->count();
+
+        return ['ok' => true, 'data' => ['count' => $count]];
     }
 
     private function editBatch(int $hubId, User $user, array $input, ?Request $request): array
     {
         $batchId = (int) ($input['batch_id'] ?? 0);
         $batch = OnboardingBatch::query()->find($batchId);
-        if (! $batch || $batch->hub_id !== $hubId || ! $batch->isDraft()) {
-            return ['ok' => false, 'error' => 'Only draft batches can be edited'];
+        if (! $batch || $batch->hub_id !== $hubId || ! $this->canMutateBatchByHub($batch, $hubId)) {
+            return ['ok' => false, 'error' => 'Batch is not editable'];
         }
 
         $name = trim((string) ($input['name'] ?? $batch->name));
@@ -873,7 +903,7 @@ class HubBatchService
         if ($targetSize < 1 || $targetSize > 500) {
             return ['ok' => false, 'error' => 'Target size 1–500'];
         }
-        $currentCount = $this->draftMemberCount($batch->id);
+        $currentCount = $batch->isDraft() ? $this->draftMemberCount($batch->id) : $batch->batchCfas()->count();
         if ($targetSize < $currentCount) {
             return ['ok' => false, 'error' => 'Target size cannot be less than current members ('.$currentCount.').'];
         }
@@ -907,7 +937,7 @@ class HubBatchService
                 (int) $batch->id,
                 $before,
                 $after,
-                'Hub admin updated draft batch settings'
+                'Hub admin updated batch settings'
             );
         }
 
@@ -918,11 +948,11 @@ class HubBatchService
     {
         $batchId = (int) ($input['batch_id'] ?? 0);
         $batch = OnboardingBatch::query()->find($batchId);
-        if (! $batch || $batch->hub_id !== $hubId || ! $batch->isDraft()) {
-            return ['ok' => false, 'error' => 'Only draft batches can be deleted'];
+        if (! $batch || $batch->hub_id !== $hubId || ! $this->canMutateBatchByHub($batch, $hubId)) {
+            return ['ok' => false, 'error' => 'Batch is not editable'];
         }
 
-        $memberCount = $this->draftMemberCount($batch->id);
+        $memberCount = $batch->isDraft() ? $this->draftMemberCount($batch->id) : $batch->batchCfas()->count();
         $before = [
             'name' => (string) $batch->name,
             'district_id' => (int) $batch->district_id,
@@ -933,7 +963,11 @@ class HubBatchService
         ];
 
         DB::transaction(function () use ($batch, $user): void {
-            $batch->draftCfas()->delete();
+            if ($batch->isDraft()) {
+                $batch->draftCfas()->delete();
+            } else {
+                $batch->batchCfas()->delete();
+            }
             $batch->update(['updated_by' => $user->id]);
             $batch->delete();
         });
@@ -946,7 +980,7 @@ class HubBatchService
                 $batchId,
                 $before,
                 null,
-                'Hub admin deleted draft batch'
+                'Hub admin deleted editable batch'
             );
         }
 
@@ -993,6 +1027,95 @@ class HubBatchService
         }
 
         return ['ok' => true, 'data' => ['batch_id' => $batchId]];
+    }
+
+    private function requestUnlock(int $hubId, User $user, array $input, ?Request $request): array
+    {
+        $batchId = (int) ($input['batch_id'] ?? 0);
+        $reason = trim((string) ($input['reason'] ?? ''));
+        $expected = trim((string) ($input['expected_changes'] ?? ''));
+        $batch = OnboardingBatch::query()->find($batchId);
+
+        if (! $batch || (int) $batch->hub_id !== $hubId || ! $batch->isLocked()) {
+            return ['ok' => false, 'error' => 'Only locked batches can request unlock.'];
+        }
+        if ($reason === '' || $expected === '') {
+            return ['ok' => false, 'error' => 'Reason and expected changes are required.'];
+        }
+
+        $row = OnboardingBatchEditRequest::query()->create([
+            'onboarding_batch_id' => $batch->id,
+            'hub_id' => (int) $batch->hub_id,
+            'district_id' => (int) $batch->district_id,
+            'requested_by' => (int) $user->id,
+            'reason' => $reason,
+            'expected_changes' => $expected,
+            'status' => 'pending',
+        ]);
+
+        if ($request) {
+            $this->auditLogger->record(
+                $request,
+                'hub_batch.unlock_requested',
+                OnboardingBatch::class,
+                (int) $batch->id,
+                null,
+                ['request_id' => (int) $row->id, 'reason' => $reason, 'expected_changes' => $expected],
+                'Hub admin requested locked-batch edit approval'
+            );
+        }
+
+        return ['ok' => true, 'data' => ['request_id' => (int) $row->id]];
+    }
+
+    private function relockBatch(int $hubId, User $user, array $input, ?Request $request): array
+    {
+        $batchId = (int) ($input['batch_id'] ?? 0);
+        $batch = OnboardingBatch::query()->find($batchId);
+        if (! $batch || (int) $batch->hub_id !== $hubId || ! $batch->isEditUnlocked()) {
+            return ['ok' => false, 'error' => 'Batch is not in edit-unlocked state.'];
+        }
+
+        $requestId = (int) ($batch->edit_unlocked_by_request_id ?? 0);
+        DB::transaction(function () use ($batch, $requestId, $user): void {
+            $batch->update([
+                'edit_unlocked_at' => null,
+                'edit_unlocked_by_request_id' => null,
+            ]);
+
+            if ($requestId > 0) {
+                OnboardingBatchEditRequest::query()
+                    ->where('id', $requestId)
+                    ->where('status', 'approved')
+                    ->update([
+                        'relocked_by' => (int) $user->id,
+                        'relocked_at' => now(),
+                    ]);
+            }
+        });
+
+        if ($request) {
+            $this->auditLogger->record(
+                $request,
+                'hub_batch.relocked',
+                OnboardingBatch::class,
+                (int) $batch->id,
+                ['edit_unlocked' => true, 'request_id' => $requestId],
+                ['edit_unlocked' => false],
+                'Hub admin manually re-locked batch after approved edits'
+            );
+        }
+
+        return ['ok' => true, 'data' => ['batch_id' => $batchId]];
+    }
+
+    private function canMutateBatchByHub(OnboardingBatch $batch, int $hubId): bool
+    {
+        if ((int) $batch->hub_id !== $hubId) {
+            return false;
+        }
+
+        return $batch->isDraft() || $batch->isEditUnlocked();
     }
 
     /**

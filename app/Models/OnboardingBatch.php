@@ -18,6 +18,8 @@ class OnboardingBatch extends Model
         'onboarding_date',
         'pdf_deadline_extended_until',
         'pdf_compliance_waived',
+        'edit_unlocked_at',
+        'edit_unlocked_by_request_id',
         'created_by',
     ];
 
@@ -28,6 +30,7 @@ class OnboardingBatch extends Model
             'onboarding_date' => 'date',
             'pdf_deadline_extended_until' => 'datetime',
             'pdf_compliance_waived' => 'boolean',
+            'edit_unlocked_at' => 'datetime',
         ];
     }
 
@@ -61,6 +64,11 @@ class OnboardingBatch extends Model
         return $this->hasMany(OnboardingBatchDocument::class);
     }
 
+    public function editRequests(): HasMany
+    {
+        return $this->hasMany(OnboardingBatchEditRequest::class, 'onboarding_batch_id');
+    }
+
     public function isDraft(): bool
     {
         return $this->status === 'draft';
@@ -69,5 +77,10 @@ class OnboardingBatch extends Model
     public function isLocked(): bool
     {
         return $this->status === 'locked';
+    }
+
+    public function isEditUnlocked(): bool
+    {
+        return $this->isLocked() && $this->edit_unlocked_at !== null;
     }
 }

@@ -60,6 +60,42 @@
         </table>
     </div>
 
+    <div style="margin-top:1.5rem;overflow-x:auto;">
+        <h2 style="margin:0 0 0.55rem;font-size:1rem;">Pending locked-batch edit requests</h2>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e4e7;border-radius:8px;font-size:0.875rem;">
+            <thead>
+                <tr style="background:#fafafa;text-align:left;">
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Batch</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Hub / District</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Requested by</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Reason</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Expected changes</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse (($pendingEditRequests ?? []) as $req)
+                    <tr>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;"><strong>{{ $req->batch?->name ?? ('Batch #'.$req->onboarding_batch_id) }}</strong> <span class="pill">#{{ $req->onboarding_batch_id }}</span></td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $req->batch?->hub?->name ?? '—' }} · {{ $req->batch?->district?->name ?? '—' }}</td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $req->requester?->name ?? '—' }}</td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $req->reason }}</td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $req->expected_changes }}</td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">
+                            <form method="post" action="{{ route('admin.hub-batch-compliance.approve-edit-request') }}" onsubmit="return confirm('Approve this edit request?');">
+                                @csrf
+                                <input type="hidden" name="request_id" value="{{ $req->id }}">
+                                <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.38rem 0.65rem;border-radius:6px;font-size:0.78rem;cursor:pointer;">Approve unlock</button>
+                            </form>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="6" style="padding:1.2rem;text-align:center;color:#71717a;">No pending edit requests.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
     <div style="margin-top:2rem;padding:1.25rem;background:#fff;border:1px solid #e4e4e7;border-radius:8px;">
         <h2 style="margin:0 0 0.5rem;font-size:1rem;">Undo reject (by ID)</h2>
         <p style="font-size:0.85rem;color:#71717a;margin:0 0 1rem">Clears reject state for a CFA in a hub/district.</p>

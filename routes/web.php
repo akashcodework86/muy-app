@@ -270,6 +270,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('hub-batch-compliance', [HubBatchComplianceController::class, 'index'])->name('hub-batch-compliance.index');
         Route::post('hub-batch-compliance/extend', [HubBatchComplianceController::class, 'extend'])->name('hub-batch-compliance.extend');
         Route::post('hub-batch-compliance/waive', [HubBatchComplianceController::class, 'waive'])->name('hub-batch-compliance.waive');
+        Route::post('hub-batch-compliance/approve-edit-request', [HubBatchComplianceController::class, 'approveEditRequest'])->name('hub-batch-compliance.approve-edit-request');
         Route::post('hub-batch-compliance/undo-reject', [HubBatchComplianceController::class, 'undoReject'])->name('hub-batch-compliance.undo-reject');
     });
 

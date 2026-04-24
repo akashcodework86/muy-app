@@ -4,15 +4,19 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\OnboardingBatch;
+use App\Models\OnboardingBatchEditRequest;
+use App\Services\AdminAuditLogger;
 use App\Services\HubBatchService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class HubBatchComplianceController extends Controller
 {
     public function __construct(
-        private HubBatchService $batches
+        private HubBatchService $batches,
+        private AdminAuditLogger $auditLogger,
     ) {}
 
     public function index(): View
@@ -32,7 +36,17 @@ class HubBatchComplianceController extends Controller
                 ];
             });
 
-        return view('admin.hub-batch-compliance.index', ['rows' => $rows]);
+        $pendingEditRequests = OnboardingBatchEditRequest::query()
+            ->where('status', 'pending')
+            ->with(['batch.hub', 'batch.district', 'requester'])
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get();
+
+        return view('admin.hub-batch-compliance.index', [
+            'rows' => $rows,
+            'pendingEditRequests' => $pendingEditRequests,
+        ]);
     }
 
     public function extend(Request $request): RedirectResponse
@@ -85,5 +99,46 @@ class HubBatchComplianceController extends Controller
         );
 
         return back()->with('status', 'Reject cleared for that CFA.');
+    }
+
+    public function approveEditRequest(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'request_id' => ['required', 'integer', 'exists:onboarding_batch_edit_requests,id'],
+        ]);
+
+        $row = OnboardingBatchEditRequest::query()->with('batch')->findOrFail((int) $request->input('request_id'));
+        if ($row->status !== 'pending' || ! $row->batch || ! $row->batch->isLocked()) {
+            abort(422);
+        }
+
+        DB::transaction(function () use ($row, $request): void {
+            $row->update([
+                'status' => 'approved',
+                'approved_by' => (int) $request->user()->id,
+                'approved_at' => now(),
+            ]);
+
+            $row->batch->update([
+                'edit_unlocked_at' => now(),
+                'edit_unlocked_by_request_id' => (int) $row->id,
+            ]);
+        });
+
+        $this->auditLogger->record(
+            $request,
+            'hub_batch.unlock_approved',
+            OnboardingBatch::class,
+            (int) $row->onboarding_batch_id,
+            null,
+            [
+                'request_id' => (int) $row->id,
+                'requested_by' => (int) $row->requested_by,
+                'reason' => (string) $row->reason,
+            ],
+            'State admin approved locked-batch edit request'
+        );
+
+        return back()->with('status', 'Batch edit request approved. Hub admin can now edit until manual re-lock.');
     }
 }

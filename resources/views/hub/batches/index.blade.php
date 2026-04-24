@@ -395,6 +395,21 @@
         </div>
     </div>
 
+    <div class="hb-modal-bg" id="modalUnlockRequest">
+        <div class="hb-modal">
+            <h3 style="margin:0 0 0.75rem">Request locked-batch edit approval</h3>
+            <label style="font-size:0.78rem;color:var(--muted)">Reason</label>
+            <textarea id="unlockReqReason" class="hb-input" rows="3" style="margin:0.35rem 0 0.75rem;resize:vertical;"></textarea>
+            <label style="font-size:0.78rem;color:var(--muted)">Expected changes summary</label>
+            <textarea id="unlockReqExpected" class="hb-input" rows="4" style="margin:0.35rem 0 0.75rem;resize:vertical;"></textarea>
+            <p style="margin:0;font-size:0.72rem;color:var(--muted)">State admin approval is required. Multiple requests are allowed.</p>
+            <div style="display:flex;gap:0.75rem;margin-top:1.1rem">
+                <button type="button" class="hb-btn hb-btn--ghost" id="unlockReqCancel" style="flex:1">Cancel</button>
+                <button type="button" class="hb-btn hb-btn--primary" id="unlockReqSubmit" style="flex:1">Submit request</button>
+            </div>
+        </div>
+    </div>
+
     <script>
     (function () {
         const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -410,6 +425,7 @@
         let bulkAddBusy = false;
         let latestBatches = [];
         let editingBatchId = 0;
+        let unlockRequestBatchId = 0;
         let openedBatchDetailId = 0;
         let batchDetailData = null;
         let detailFilters = { stage: '', category: '' };
@@ -726,15 +742,29 @@
                     const st = b.status === 'draft'
                         ? '<span style="background:#fef3c7;color:#92400e;padding:0.15rem 0.5rem;border-radius:999px;font-size:0.72rem;font-weight:700">Draft</span>'
                         : '<span style="background:#d1fae5;color:#065f46;padding:0.15rem 0.5rem;border-radius:999px;font-size:0.72rem;font-weight:700">Locked</span>';
-                    const actions = b.status === 'draft'
-                        ? `<button type="button" class="link-mini batch-continue" data-id="${b.id}">Continue</button>
+                    const unlockBadge = (b.status === 'locked' && b.edit_unlocked)
+                        ? '<span style="margin-left:0.35rem;background:#dcfce7;color:#166534;padding:0.15rem 0.5rem;border-radius:999px;font-size:0.72rem;font-weight:700">Edit unlocked</span>'
+                        : '';
+                    const reqBadge = (b.status === 'locked' && !b.edit_unlocked && (parseInt(b.pending_unlock_requests || 0, 10) || 0) > 0)
+                        ? '<span style="margin-left:0.35rem;background:#eef2ff;color:#3730a3;padding:0.15rem 0.5rem;border-radius:999px;font-size:0.72rem;font-weight:700">Requests: ' + (parseInt(b.pending_unlock_requests || 0, 10) || 0) + '</span>'
+                        : '';
+                    let actions = '<span style="color:#94a3b8">—</span>';
+                    if (b.status === 'draft') {
+                        actions = `<button type="button" class="link-mini batch-continue" data-id="${b.id}">Continue</button>
                            <button type="button" class="link-mini batch-edit" data-id="${b.id}">Edit</button>
-                           <button type="button" class="link-mini batch-delete" style="color:#dc2626" data-id="${b.id}">Delete</button>`
-                        : '<span style="color:#94a3b8">—</span>';
+                           <button type="button" class="link-mini batch-delete" style="color:#dc2626" data-id="${b.id}">Delete</button>`;
+                    } else if (b.status === 'locked' && b.edit_unlocked) {
+                        actions = `<button type="button" class="link-mini batch-continue" data-id="${b.id}">Edit</button>
+                           <button type="button" class="link-mini batch-relock" style="color:#0f766e" data-id="${b.id}">Re-lock</button>`;
+                    } else if (b.status === 'locked') {
+                        const reqCount = parseInt(b.pending_unlock_requests || 0, 10) || 0;
+                        actions = `<button type="button" class="link-mini batch-request-unlock" data-id="${b.id}">Request unlock</button>
+                           <span style="font-size:0.7rem;color:#64748b;margin-left:0.25rem;">Pending: ${reqCount}</span>`;
+                    }
                     return `<tr data-batch-row="${b.id}">
                         <td><button type="button" class="hb-batch-link batch-open" data-id="${b.id}" title="View batch KPI details">${esc(b.name)}</button></td>
                         <td>${esc(b.district_name)}</td>
-                        <td>${st}</td>
+                        <td>${st}${unlockBadge}${reqBadge}</td>
                         <td>${b.member_count}</td>
                         <td>${cdo}</td>
                         <td style="text-align:right">${up}</td>
@@ -745,6 +775,8 @@
                 tbody.querySelectorAll('.batch-continue').forEach(btn => btn.addEventListener('click', () => continueDraft(parseInt(btn.dataset.id, 10))));
                 tbody.querySelectorAll('.batch-edit').forEach(btn => btn.addEventListener('click', () => openEditBatch(parseInt(btn.dataset.id, 10))));
                 tbody.querySelectorAll('.batch-delete').forEach(btn => btn.addEventListener('click', () => deleteBatchRow(parseInt(btn.dataset.id, 10))));
+                tbody.querySelectorAll('.batch-request-unlock').forEach(btn => btn.addEventListener('click', () => openUnlockRequest(parseInt(btn.dataset.id, 10))));
+                tbody.querySelectorAll('.batch-relock').forEach(btn => btn.addEventListener('click', () => relockBatch(parseInt(btn.dataset.id, 10))));
                 if (openedBatchDetailId) {
                     highlightBatchRow(openedBatchDetailId);
                 }
@@ -943,7 +975,7 @@
 
         function openEditBatch(batchId) {
             const b = latestBatches.find(x => parseInt(x.id, 10) === batchId);
-            if (!b || b.status !== 'draft') return;
+            if (!b || (b.status !== 'draft' && !(b.status === 'locked' && b.edit_unlocked))) return;
             editingBatchId = batchId;
             document.getElementById('editBatchName').value = b.name || '';
             document.getElementById('editBatchTarget').value = b.target_size || '';
@@ -974,8 +1006,8 @@
 
         async function deleteBatchRow(batchId) {
             const b = latestBatches.find(x => parseInt(x.id, 10) === batchId);
-            if (!b || b.status !== 'draft') {
-                alert('Only draft batches can be deleted.');
+            if (!b || (b.status !== 'draft' && !(b.status === 'locked' && b.edit_unlocked))) {
+                alert('This batch is not editable.');
                 return;
             }
             if (!confirm('Delete draft "' + (b.name || 'batch') + '"? This cannot be undone.')) return;
@@ -989,6 +1021,57 @@
                 await loadPool();
                 alert('Draft batch deleted.');
             } catch (e) { alert(e.message); }
+        }
+
+        function openUnlockRequest(batchId) {
+            const b = latestBatches.find(x => parseInt(x.id, 10) === batchId);
+            if (!b || b.status !== 'locked') return;
+            unlockRequestBatchId = batchId;
+            document.getElementById('unlockReqReason').value = '';
+            document.getElementById('unlockReqExpected').value = '';
+            document.getElementById('modalUnlockRequest').classList.add('is-open');
+        }
+
+        function closeUnlockRequest() {
+            unlockRequestBatchId = 0;
+            document.getElementById('modalUnlockRequest').classList.remove('is-open');
+        }
+
+        async function submitUnlockRequest() {
+            if (!unlockRequestBatchId) return;
+            const reason = document.getElementById('unlockReqReason').value.trim();
+            const expected = document.getElementById('unlockReqExpected').value.trim();
+            if (!reason || !expected) {
+                alert('Please fill reason and expected changes.');
+                return;
+            }
+            try {
+                await api('request_unlock', {
+                    batch_id: unlockRequestBatchId,
+                    reason,
+                    expected_changes: expected,
+                });
+                closeUnlockRequest();
+                await loadBatches();
+                alert('Unlock request sent to state admin.');
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function relockBatch(batchId) {
+            if (!confirm('Re-lock this batch now? Editing will stop immediately.')) return;
+            try {
+                await api('relock_batch', { batch_id: batchId });
+                await loadBatches();
+                if (currentBatchId === batchId) {
+                    currentBatchId = 0;
+                    document.getElementById('activeDraftCard').style.display = 'none';
+                }
+                alert('Batch re-locked.');
+            } catch (e) {
+                alert(e.message);
+            }
         }
 
         document.getElementById('selDistrict').addEventListener('change', async (e) => {
@@ -1068,6 +1151,8 @@
         document.getElementById('editBatchCancel').addEventListener('click', closeEditBatch);
         document.getElementById('editBatchSave').addEventListener('click', saveEditBatch);
         document.getElementById('btnCloseBatchDetail').addEventListener('click', closeBatchDetail);
+        document.getElementById('unlockReqCancel').addEventListener('click', closeUnlockRequest);
+        document.getElementById('unlockReqSubmit').addEventListener('click', submitUnlockRequest);
         document.getElementById('btnProvisionIncubatees')?.addEventListener('click', async () => {
             const btn = document.getElementById('btnProvisionIncubatees');
             const bid = parseInt(btn?.dataset.batchId || '0', 10);
