@@ -962,7 +962,7 @@
 
         async function continueDraft(batchId) {
             const b = latestBatches.find(x => parseInt(x.id, 10) === batchId);
-            if (!b || b.status !== 'draft') return;
+            if (!b || (b.status !== 'draft' && !(b.status === 'locked' && b.edit_unlocked))) return;
             currentDistrictId = parseInt(b.district_id, 10) || 0;
             currentBatchId = parseInt(b.id, 10) || 0;
             const districtSel = document.getElementById('selDistrict');
