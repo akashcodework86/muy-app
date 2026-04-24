@@ -152,6 +152,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         /** Read-only batches view for district staff (scoped to their own district) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
         Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
+        Route::get('batches/{batch}/onboarding-letter', [BatchReadOnlyController::class, 'downloadOnboardingLetter'])->name('batches.onboarding-letter');
 
         /** Service delivery (maker–checker) — gated by AppSettingsService in controller + topbar */
         Route::get('services', [StaffServiceCaseController::class, 'index'])->name('services.index');
@@ -266,6 +267,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
         Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
+        Route::get('batches/{batch}/onboarding-letter', [BatchReadOnlyController::class, 'downloadOnboardingLetter'])->name('batches.onboarding-letter');
 
         Route::get('hub-batch-compliance', [HubBatchComplianceController::class, 'index'])->name('hub-batch-compliance.index');
         Route::post('hub-batch-compliance/extend', [HubBatchComplianceController::class, 'extend'])->name('hub-batch-compliance.extend');

@@ -6,12 +6,15 @@ use App\Models\District;
 use App\Models\Hub;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
+use App\Models\OnboardingBatchDocument;
 use App\Models\OnboardingBatchDraftCfa;
 use App\Models\User;
 use App\Services\AppSettingsService;
 use App\Services\HubBatchService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Read-only view of onboarding batches for roles that shouldn't manage them:
@@ -176,6 +179,36 @@ class BatchReadOnlyController extends Controller
             'routeIndex' => $this->routeIndex($user),
             'serviceModuleOn' => $serviceModuleOn,
         ]);
+    }
+
+    public function downloadOnboardingLetter(Request $request, OnboardingBatch $batch): StreamedResponse
+    {
+        $user = $request->user();
+        $scope = $this->resolveScope($user);
+
+        if ($scope['type'] === 'hub' && (int) $batch->hub_id !== $scope['hub_id']) {
+            abort(403);
+        }
+        if ($scope['type'] === 'district' && (int) $batch->district_id !== $scope['district_id']) {
+            abort(403);
+        }
+        if ($scope['type'] === 'none') {
+            abort(403);
+        }
+
+        $doc = OnboardingBatchDocument::query()
+            ->where('onboarding_batch_id', $batch->id)
+            ->where('doc_type', HubBatchService::DOC_CDO)
+            ->latest('id')
+            ->first();
+
+        if (! $doc || ! $doc->path || ! Storage::disk('local')->exists($doc->path)) {
+            abort(404, 'Onboarding Letter not found.');
+        }
+
+        $filename = $doc->original_name ?: ('onboarding-letter-'.$batch->id.'.pdf');
+
+        return Storage::disk('local')->download($doc->path, $filename);
     }
 
     /**
