@@ -63,77 +63,33 @@
 
 @section('content')
 <div class="team-grid">
-    <section class="team-section">
-        <h3>State Team</h3>
-        <div class="team-cards">
-            @forelse ($stateTeam as $member)
-                <article class="team-card">
-                    @if ($member->avatarUrl())
-                        <img src="{{ $member->avatarUrl() }}" alt="" class="team-avatar">
-                    @else
-                        <span class="team-avatar-fallback">{{ strtoupper(substr(trim((string) $member->name), 0, 1)) ?: '?' }}</span>
-                    @endif
-                    <div class="team-meta">
-                        <p class="team-name">{{ $member->name }}</p>
-                        <p class="team-line">{{ $member->email ?: '—' }}</p>
-                        <p class="team-line">{{ $member->phone ?: '—' }}</p>
-                        <p class="team-line">District: {{ $member->district?->name ?? '—' }}</p>
-                        <p class="team-line">Designation: {{ $member->designationRecord?->name ?? '—' }}</p>
-                    </div>
-                </article>
-            @empty
-                <p class="team-empty">No state team members found.</p>
-            @endforelse
-        </div>
-    </section>
-
-    <section class="team-section">
-        <h3>Hub Managers</h3>
-        <div class="team-cards">
-            @forelse ($hubManagers as $member)
-                <article class="team-card">
-                    @if ($member->avatarUrl())
-                        <img src="{{ $member->avatarUrl() }}" alt="" class="team-avatar">
-                    @else
-                        <span class="team-avatar-fallback">{{ strtoupper(substr(trim((string) $member->name), 0, 1)) ?: '?' }}</span>
-                    @endif
-                    <div class="team-meta">
-                        <p class="team-name">{{ $member->name }}</p>
-                        <p class="team-line">{{ $member->email ?: '—' }}</p>
-                        <p class="team-line">{{ $member->phone ?: '—' }}</p>
-                        <p class="team-line">District: {{ $member->district?->name ?? '—' }}</p>
-                        <p class="team-line">Designation: {{ $member->designationRecord?->name ?? '—' }}</p>
-                    </div>
-                </article>
-            @empty
-                <p class="team-empty">No hub managers found.</p>
-            @endforelse
-        </div>
-    </section>
-
-    <section class="team-section">
-        <h3>District Team</h3>
-        <div class="team-cards">
-            @forelse ($districtTeam as $member)
-                <article class="team-card">
-                    @if ($member->avatarUrl())
-                        <img src="{{ $member->avatarUrl() }}" alt="" class="team-avatar">
-                    @else
-                        <span class="team-avatar-fallback">{{ strtoupper(substr(trim((string) $member->name), 0, 1)) ?: '?' }}</span>
-                    @endif
-                    <div class="team-meta">
-                        <p class="team-name">{{ $member->name }}</p>
-                        <p class="team-line">{{ $member->email ?: '—' }}</p>
-                        <p class="team-line">{{ $member->phone ?: '—' }}</p>
-                        <p class="team-line">District: {{ $member->district?->name ?? '—' }}</p>
-                        <p class="team-line">Designation: {{ $member->designationRecord?->name ?? '—' }}</p>
-                    </div>
-                </article>
-            @empty
-                <p class="team-empty">No district team members found.</p>
-            @endforelse
-        </div>
-    </section>
+    @forelse ($designationGroups as $designation => $members)
+        <section class="team-section">
+            <h3>{{ $designation }} ({{ count($members) }})</h3>
+            <div class="team-cards">
+                @foreach ($members as $member)
+                    <article class="team-card">
+                        @if ($member->avatarUrl())
+                            <img src="{{ $member->avatarUrl() }}" alt="" class="team-avatar">
+                        @else
+                            <span class="team-avatar-fallback">{{ strtoupper(substr(trim((string) $member->name), 0, 1)) ?: '?' }}</span>
+                        @endif
+                        <div class="team-meta">
+                            <p class="team-name">{{ $member->name }}</p>
+                            <p class="team-line">{{ $member->email ?: '—' }}</p>
+                            <p class="team-line">{{ $member->phone ?: '—' }}</p>
+                            <p class="team-line">District: {{ $member->district?->name ?? '—' }}</p>
+                            <p class="team-line">Designation: {{ $member->designationRecord?->name ?? '—' }}</p>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @empty
+        <section class="team-section">
+            <p class="team-empty">No team members found.</p>
+        </section>
+    @endforelse
 </div>
 @endsection
 

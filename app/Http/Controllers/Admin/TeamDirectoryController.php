@@ -17,14 +17,14 @@ class TeamDirectoryController extends Controller
             ->orderBy('name')
             ->get();
 
-        $stateTeam = $users->where('role', 'state_admin')->values();
-        $hubManagers = $users->where('role', 'hub_admin')->values();
-        $districtTeam = $users->where('role', 'district_staff')->values();
+        $designationGroups = $users
+            ->groupBy(fn (User $user) => (string) ($user->designationRecord?->name ?: 'Unassigned'))
+            ->map(fn ($group) => $group->values())
+            ->sortKeys()
+            ->all();
 
         return view('admin.team.index', [
-            'stateTeam' => $stateTeam,
-            'hubManagers' => $hubManagers,
-            'districtTeam' => $districtTeam,
+            'designationGroups' => $designationGroups,
         ]);
     }
 }
