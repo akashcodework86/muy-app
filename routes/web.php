@@ -159,6 +159,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('services', [StaffServiceCaseController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('services.store');
+        Route::get('services/{service_case}/edit', [StaffServiceCaseController::class, 'edit'])->name('services.edit');
+        Route::patch('services/{service_case}', [StaffServiceCaseController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('services.update');
         Route::get('services/{service_case}', [StaffServiceCaseController::class, 'show'])->name('services.show');
         Route::delete('services/{service_case}', [StaffServiceCaseController::class, 'destroy'])
             ->middleware('throttle:30,1')

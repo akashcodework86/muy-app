@@ -156,6 +156,82 @@ class StaffServiceCaseController extends Controller
         ]);
     }
 
+    public function edit(Request $request, ServiceCase $service_case): View
+    {
+        $this->ensureModuleOn();
+        $staff = $this->staffOrAbort($request);
+        $this->assertCaseInDistrict($staff, $service_case);
+        abort_unless($this->canEditByStaff($service_case), 403, 'This case cannot be edited now.');
+
+        $service_case->load([
+            'cfaSubmission:id,applicant_name,application_no,district_id',
+            'service.category.parent',
+            'attachments',
+        ]);
+
+        return view('staff.services.edit', [
+            'case' => $service_case,
+            'schema' => ServiceFieldTypes::normalizeSchema($service_case->service?->field_schema ?? []),
+            'payload' => is_array($service_case->payload) ? $service_case->payload : [],
+        ]);
+    }
+
+    public function update(Request $request, ServiceCase $service_case): RedirectResponse
+    {
+        $this->ensureModuleOn();
+        $staff = $this->staffOrAbort($request);
+        $this->assertCaseInDistrict($staff, $service_case);
+        abort_unless($this->canEditByStaff($service_case), 403, 'This case cannot be edited now.');
+
+        $validated = $request->validate([
+            'reference_number' => ['nullable', 'string', 'max:191'],
+            'delivered_on' => ['nullable', 'date'],
+            'payload' => ['nullable', 'array'],
+            'payload_files' => ['nullable', 'array'],
+            'payload_files.*' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'attachments' => ['nullable', 'array', 'max:3'],
+            'attachments.*' => ['file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
+        ]);
+
+        $service_case->loadMissing('service');
+        $service = $service_case->service;
+        if (! $service || ! $service->is_active) {
+            return back()->withErrors(['service' => 'This service is inactive.'])->withInput();
+        }
+
+        $payload = is_array($validated['payload'] ?? null) ? $validated['payload'] : [];
+        $uploads = array_values($request->file('attachments', []));
+        $schema = ServiceFieldTypes::normalizeSchema($service->field_schema ?? []);
+        $fileKeys = collect($schema)
+            ->filter(fn (array $field) => ($field['type'] ?? null) === ServiceFieldTypes::FILE)
+            ->map(fn (array $field) => (string) ($field['key'] ?? ''))
+            ->filter(fn (string $key) => $key !== '')
+            ->values();
+
+        foreach ($fileKeys as $key) {
+            $file = $request->file('payload_files.'.$key);
+            if ($file instanceof UploadedFile && $file->isValid()) {
+                $payload[$key] = $file->getClientOriginalName();
+                $uploads[] = $file;
+            }
+        }
+
+        try {
+            $this->recorder->submit($service_case, [
+                'actor_id' => (int) $staff->id,
+                'reference_number' => $validated['reference_number'] ?? null,
+                'delivered_on' => $validated['delivered_on'] ?? null,
+                'payload' => $payload,
+            ], $uploads);
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        }
+
+        return redirect()
+            ->route('staff.services.index')
+            ->with('status', 'Service case updated.');
+    }
+
     public function destroy(Request $request, ServiceCase $service_case): RedirectResponse
     {
         $this->ensureModuleOn();
@@ -223,6 +299,14 @@ class StaffServiceCaseController extends Controller
             $case->cfaSubmission && (int) $case->cfaSubmission->district_id === (int) $staff->district_id,
             403
         );
+    }
+
+    private function canEditByStaff(ServiceCase $case): bool
+    {
+        return in_array($case->status, [
+            ServiceCase::STATUS_DRAFT,
+            ServiceCase::STATUS_SENT_BACK,
+        ], true);
     }
 
     /**

@@ -71,6 +71,9 @@
                             <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;white-space:nowrap;">{{ $case->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
                             <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">
                                 <a href="{{ route('staff.services.show', $case) }}" style="font-size:0.82rem;color:#4338ca;">View</a>
+                                @if (in_array($case->status, [\App\Models\ServiceCase::STATUS_DRAFT, \App\Models\ServiceCase::STATUS_SENT_BACK], true))
+                                    <a href="{{ route('staff.services.edit', $case) }}" style="font-size:0.82rem;color:#2563eb;margin-left:0.5rem;">Edit</a>
+                                @endif
                                 @if ($case->canBeDeletedByStaff())
                                     <form method="post" action="{{ route('staff.services.destroy', $case) }}" style="display:inline;margin-left:0.5rem;" onsubmit="return confirm('Delete this case?');">
                                         @csrf

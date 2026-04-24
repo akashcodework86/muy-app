@@ -361,7 +361,7 @@
     .gov-declaration    { background: #fff8f8 !important; border-color: #db2627 !important; }
     .gov-header-badge   { background: #db2627 !important; color: #fff !important; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-}
+    }
 </style>
 @endpush
 
@@ -744,7 +744,7 @@
                     <div class="v">{{ $cell('expectation_other_text') }}</div>
                 </div>
             </div>
-            @endif
+                @endif
 
             <div class="gov-fields c1">
                 <div class="gf">
@@ -804,7 +804,7 @@
     @endif
 
     {{-- ── Edit history (screen only) ── --}}
-    @if ($cfaEditLogs->isNotEmpty())
+        @if ($cfaEditLogs->isNotEmpty())
         <div class="cfa-edit-history no-print">
             <h3 style="font-size:.95rem;font-weight:700;color:#db2627;border-bottom:2px solid #db2627;padding-bottom:.35rem;margin-bottom:.75rem;">
                 Edit History (Staff Portal)
@@ -814,44 +814,44 @@
                 The <strong>What changed</strong> list uses everyday labels (not computer field names).
                 State admins also have the full <em>Audit log</em>.
             </p>
-            <table class="cfa-edit-log-table">
-                <thead>
-                    <tr>
-                        <th>When (IST)</th>
-                        <th>Edited by</th>
-                        <th>What changed (plain language)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($cfaEditLogs as $log)
+                <table class="cfa-edit-log-table">
+                    <thead>
                         <tr>
+                            <th>When (IST)</th>
+                            <th>Edited by</th>
+                            <th>What changed (plain language)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($cfaEditLogs as $log)
+                            <tr>
                             <td style="white-space:nowrap;vertical-align:top;">
                                 {{ $log->created_at?->timezone(config('app.timezone'))->format('d M Y, H:i') }}
                             </td>
                             <td style="vertical-align:top;">
-                                {{ $log->user?->name ?? '—' }}
-                                @if ($log->user?->email)
+                                    {{ $log->user?->name ?? '—' }}
+                                    @if ($log->user?->email)
                                     <br><span style="font-size:.72rem;color:#64748b;">{{ $log->user->email }}</span>
-                                @endif
-                            </td>
+                                    @endif
+                                </td>
                             <td style="vertical-align:top;">
-                                @php
-                                    $diffLines = \App\Services\CfaSubmissionAuditSnapshot::humanDiffLines($log->before ?? [], $log->after ?? []);
-                                @endphp
-                                @if (count($diffLines) > 0)
+                                    @php
+                                        $diffLines = \App\Services\CfaSubmissionAuditSnapshot::humanDiffLines($log->before ?? [], $log->after ?? []);
+                                    @endphp
+                                    @if (count($diffLines) > 0)
                                     <ul style="margin:0;padding-left:1.15rem;font-size:.82rem;line-height:1.45;color:#334155;">
-                                        @foreach ($diffLines as $line)
+                                            @foreach ($diffLines as $line)
                                             <li style="margin-bottom:.25rem;">{{ $line }}</li>
-                                        @endforeach
-                                    </ul>
-                                @elseif ($log->description && ! \Illuminate\Support\Str::contains(strtolower((string) $log->description), 'json'))
+                                            @endforeach
+                                        </ul>
+                                    @elseif ($log->description && ! \Illuminate\Support\Str::contains(strtolower((string) $log->description), 'json'))
                                     <div style="font-size:.78rem;color:#334155;">{{ $log->description }}</div>
-                                @else
+                                    @else
                                     <span style="font-size:.78rem;color:#64748b;">Save recorded. If nothing is listed above, either the tracked fields did not change or this is an older log entry — open <em>Raw data</em> only if your IT team needs it.</span>
-                                @endif
-                                @if (($log->before && count($log->before)) || ($log->after && count($log->after)))
+                                    @endif
+                                    @if (($log->before && count($log->before)) || ($log->after && count($log->after)))
                                     <details style="margin-top:.5rem;font-size:.72rem;">
-                                        <summary style="cursor:pointer;color:#64748b;">Raw data (technical only)</summary>
+                                            <summary style="cursor:pointer;color:#64748b;">Raw data (technical only)</summary>
                                         <pre style="margin:.35rem 0 0;white-space:pre-wrap;word-break:break-word;background:#f8fafc;padding:.45rem;border-radius:6px;border:1px solid #e2e8f0;max-height:10rem;overflow:auto;">@if ($log->before && count($log->before))<strong>before</strong>
 {{ json_encode($log->before, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
 
@@ -859,15 +859,15 @@
 @if ($log->after && count($log->after))<strong>after</strong>
 {{ json_encode($log->after, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
 @endif</pre>
-                                    </details>
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                                        </details>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
         </div>
-    @endif
+        @endif
 
 </div>
 @endsection
