@@ -123,7 +123,7 @@
                             <td style="padding:0.6rem 0.7rem;border-bottom:1px solid #f1f5f9;font-weight:700;">{{ number_format($row['performance_score'], 1) }}</td>
                             <td style="padding:0.6rem 0.7rem;border-bottom:1px solid #f1f5f9;">
                                 <span style="font-size:0.75rem;color:#64748b;">
-                                    Service-wise split (GST/FSSAI/etc.) auto-add hoga
+                                    Service-wise split (GST/FSSAI/etc.) will appear here.
                                 </span>
                             </td>
                         </tr>
