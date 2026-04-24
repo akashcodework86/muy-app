@@ -43,6 +43,7 @@
         str_starts_with($r, 'admin.service-module-settings') => 'service-module-settings',
         str_starts_with($r, 'admin.batches') => 'admin-batches',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
+        str_starts_with($r, 'hub.staff-performance') => 'hub-staff-performance',
         $r === 'staff.monthly-targets' => 'staff-targets',
         str_starts_with($r, 'staff.services') => 'staff-services',
         str_starts_with($r, 'staff.applications') => 'staff-apps',
@@ -169,7 +170,7 @@
                         {!! $i('badge') !!}<span>Designations</span>
                     </a>
                     <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batch-compliance') is-active @endif" role="menuitem">
-                        {!! $i('download') !!}<span>Batch CDO PDF</span>
+                        {!! $i('download') !!}<span>Batch Onboarding Letter</span>
                     </a>
                     <a href="{{ route('admin.service-module-settings.edit') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-module-settings') is-active @endif" role="menuitem">
                         {!! $i('cog') !!}<span>Service module settings</span>
@@ -197,6 +198,9 @@
             </a>
             <a href="{{ route('hub.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-batches') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
+            </a>
+            <a href="{{ route('hub.staff-performance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-staff-performance') is-active @endif">
+                {!! $i('bars') !!}<span class="admin-topbar__link-text">Staff Performance</span>
             </a>
         </nav>
         @endif

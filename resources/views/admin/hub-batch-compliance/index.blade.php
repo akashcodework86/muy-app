@@ -1,11 +1,64 @@
 @extends('layouts.admin')
 
 @section('title', 'Hub batch CDO compliance')
-@section('heading', 'Batch CDO PDF — extend / waive')
+@section('heading', 'Batch Onboarding Letter — extend / waive')
 
 @section('content')
+    <style>
+        .pdf-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.65);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 1rem;
+        }
+        .pdf-modal-backdrop.is-open { display: flex; }
+        .pdf-modal {
+            width: min(960px, 100%);
+            height: min(88vh, 760px);
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #e4e4e7;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .pdf-modal__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.55rem 0.75rem;
+            border-bottom: 1px solid #e4e4e7;
+            background: #fafafa;
+        }
+        .pdf-modal__title {
+            margin: 0;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #111827;
+        }
+        .pdf-modal__close {
+            border: 1px solid #d4d4d8;
+            background: #fff;
+            color: #111827;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            padding: 0.3rem 0.55rem;
+            cursor: pointer;
+        }
+        .pdf-modal iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: #fff;
+        }
+    </style>
+
     <p style="font-size:0.9rem;color:#52525b;margin-top:-0.25rem;margin-bottom:1.25rem;max-width:42rem">
-        Locked batches with <code>locked_at</code> set. Hub admins upload CDO PDF from <a href="{{ url('/hub/batches') }}">Hub → Batches</a>.
+        Locked batches with <code>locked_at</code> set. Hub admins upload Onboarding Letter from <a href="{{ url('/hub/batches') }}">Hub → Batches</a>.
     </p>
 
     <div style="overflow-x:auto;">
@@ -14,7 +67,7 @@
                 <tr style="background:#fafafa;text-align:left;">
                     <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Batch</th>
                     <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Hub / District</th>
-                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">CDO PDF</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Onboarding Letter</th>
                     <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Actions</th>
                 </tr>
             </thead>
@@ -29,6 +82,13 @@
                                 <span class="pill">Waived</span>
                             @elseif ($row['has_cdo'])
                                 <span style="color:#059669;font-weight:600">Uploaded</span>
+                                <button
+                                    type="button"
+                                    class="js-open-letter"
+                                    data-url="{{ route('admin.batches.onboarding-letter', $b->id) }}"
+                                    data-label="{{ $b->name }}"
+                                    style="margin-left:0.45rem;background:none;border:none;color:#0d9488;font-weight:700;cursor:pointer;"
+                                >View</button>
                             @elseif ($row['overdue'])
                                 <span style="color:#dc2626;font-weight:700">Overdue</span>
                             @else
@@ -60,6 +120,42 @@
         </table>
     </div>
 
+    <div style="margin-top:1.5rem;overflow-x:auto;">
+        <h2 style="margin:0 0 0.55rem;font-size:1rem;">Pending locked-batch edit requests</h2>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e4e7;border-radius:8px;font-size:0.875rem;">
+            <thead>
+                <tr style="background:#fafafa;text-align:left;">
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Batch</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Hub / District</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Requested by</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Reason</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Expected changes</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse (($pendingEditRequests ?? []) as $req)
+                    <tr>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;"><strong>{{ $req->batch?->name ?? ('Batch #'.$req->onboarding_batch_id) }}</strong> <span class="pill">#{{ $req->onboarding_batch_id }}</span></td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $req->batch?->hub?->name ?? '—' }} · {{ $req->batch?->district?->name ?? '—' }}</td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $req->requester?->name ?? '—' }}</td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $req->reason }}</td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $req->expected_changes }}</td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">
+                            <form method="post" action="{{ route('admin.hub-batch-compliance.approve-edit-request') }}" onsubmit="return confirm('Approve this edit request?');">
+                                @csrf
+                                <input type="hidden" name="request_id" value="{{ $req->id }}">
+                                <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.38rem 0.65rem;border-radius:6px;font-size:0.78rem;cursor:pointer;">Approve unlock</button>
+                            </form>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="6" style="padding:1.2rem;text-align:center;color:#71717a;">No pending edit requests.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
     <div style="margin-top:2rem;padding:1.25rem;background:#fff;border:1px solid #e4e4e7;border-radius:8px;">
         <h2 style="margin:0 0 0.5rem;font-size:1rem;">Undo reject (by ID)</h2>
         <p style="font-size:0.85rem;color:#71717a;margin:0 0 1rem">Clears reject state for a CFA in a hub/district.</p>
@@ -71,4 +167,50 @@
             <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;width:fit-content;">Undo reject</button>
         </form>
     </div>
+
+    <div id="letterModalBackdrop" class="pdf-modal-backdrop" aria-hidden="true">
+        <div class="pdf-modal" role="dialog" aria-modal="true" aria-labelledby="letterModalTitle">
+            <div class="pdf-modal__head">
+                <h3 id="letterModalTitle" class="pdf-modal__title">Onboarding Letter</h3>
+                <button type="button" id="letterModalClose" class="pdf-modal__close">Close</button>
+            </div>
+            <iframe id="letterModalFrame" src="" title="Onboarding Letter PDF Preview"></iframe>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const backdrop = document.getElementById('letterModalBackdrop');
+            const frame = document.getElementById('letterModalFrame');
+            const title = document.getElementById('letterModalTitle');
+            const closeBtn = document.getElementById('letterModalClose');
+            if (!backdrop || !frame || !title || !closeBtn) return;
+
+            const closeModal = () => {
+                backdrop.classList.remove('is-open');
+                backdrop.setAttribute('aria-hidden', 'true');
+                frame.setAttribute('src', '');
+            };
+
+            document.querySelectorAll('.js-open-letter').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const url = btn.getAttribute('data-url') || '';
+                    const label = btn.getAttribute('data-label') || 'Batch';
+                    if (!url) return;
+                    title.textContent = 'Onboarding Letter - ' + label;
+                    frame.setAttribute('src', url);
+                    backdrop.classList.add('is-open');
+                    backdrop.setAttribute('aria-hidden', 'false');
+                });
+            });
+
+            closeBtn.addEventListener('click', closeModal);
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) closeModal();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closeModal();
+            });
+        })();
+    </script>
 @endsection

@@ -238,7 +238,7 @@
                     @endif
                     <th>Status</th>
                     <th>Members</th>
-                    <th>CDO PDF</th>
+                    <th>Onboarding Letter</th>
                     <th>Onboarding date</th>
                     <th>Locked at</th>
                     <th>Actions</th>
@@ -270,9 +270,10 @@
                             <strong>{{ $b->member_count }}</strong>
                             <span class="muted">/ {{ $b->target_size }}</span>
                         </td>
-                        <td data-label="CDO PDF">
+                        <td data-label="Onboarding Letter">
                             @if ($b->has_cdo_pdf)
                                 <span class="tag tag--ok">Uploaded</span>
+                                <a href="{{ route((auth()->user()->role === 'state_admin' ? 'admin' : 'staff').'.batches.onboarding-letter', $b->id) }}" style="margin-left:0.45rem;">View</a>
                             @elseif ($b->cdo_overdue)
                                 <span class="tag tag--overdue">Overdue</span>
                             @elseif ($b->cdo_pending)
