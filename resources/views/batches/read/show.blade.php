@@ -154,6 +154,22 @@
                     <span class="chip chip--muted">Deadline: {{ $effectiveDeadline->timezone(config('app.timezone'))->format('d M Y') }}</span>
                 @endif
             </div>
+
+            @if (auth()->user()->role === 'state_admin' && $batch->status === 'locked' && ! $hasCdoPdf)
+                <form method="post" action="{{ route('admin.hub-batch-compliance.extend') }}" style="margin-top:0.65rem;display:flex;flex-wrap:wrap;gap:0.45rem;align-items:flex-end;">
+                    @csrf
+                    <input type="hidden" name="onboarding_batch_id" value="{{ $batch->id }}">
+                    <label style="font-size:0.72rem;color:#475569;font-weight:700;">
+                        Extend CDO deadline
+                        <input type="date" name="extended_until" required
+                            value="{{ optional($batch->pdf_deadline_extended_until ?? $effectiveDeadline)->format('Y-m-d') }}"
+                            style="display:block;margin-top:0.22rem;padding:0.38rem 0.52rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font:inherit;">
+                    </label>
+                    <button type="submit" style="padding:0.45rem 0.78rem;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                        Extend timeline
+                    </button>
+                </form>
+            @endif
         </div>
 
         <div class="hero-stats">

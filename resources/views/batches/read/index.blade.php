@@ -241,7 +241,7 @@
                     <th>CDO PDF</th>
                     <th>Onboarding date</th>
                     <th>Locked at</th>
-                    <th></th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -287,8 +287,20 @@
                         <td data-label="Locked at">
                             {{ optional($b->locked_at)->timezone(config('app.timezone'))->format('d M Y, H:i') ?? '—' }}
                         </td>
-                        <td data-label=" ">
-                            <a href="{{ route($routeShowName, $b->id) }}" class="btn-sm">View</a>
+                        <td data-label="Actions">
+                            <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;">
+                                <a href="{{ route($routeShowName, $b->id) }}" class="btn-sm">View</a>
+                                @if (($scope['type'] ?? '') === 'state' && $b->status === 'locked' && ! $b->has_cdo_pdf)
+                                    <form method="post" action="{{ route('admin.hub-batch-compliance.extend') }}" style="display:flex;gap:0.35rem;align-items:center;">
+                                        @csrf
+                                        <input type="hidden" name="onboarding_batch_id" value="{{ $b->id }}">
+                                        <input type="date" name="extended_until" required
+                                            value="{{ optional($b->pdf_deadline_extended_until ?? $b->locked_at?->copy()->addDays(5))->format('Y-m-d') }}"
+                                            style="padding:0.3rem 0.4rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.78rem;">
+                                        <button type="submit" class="btn-sm" style="padding:0.3rem 0.55rem;">Extend</button>
+                                    </form>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                 @empty
