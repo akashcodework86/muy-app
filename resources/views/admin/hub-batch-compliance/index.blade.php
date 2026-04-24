@@ -4,6 +4,59 @@
 @section('heading', 'Batch Onboarding Letter — extend / waive')
 
 @section('content')
+    <style>
+        .pdf-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.65);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 1rem;
+        }
+        .pdf-modal-backdrop.is-open { display: flex; }
+        .pdf-modal {
+            width: min(960px, 100%);
+            height: min(88vh, 760px);
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #e4e4e7;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .pdf-modal__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.55rem 0.75rem;
+            border-bottom: 1px solid #e4e4e7;
+            background: #fafafa;
+        }
+        .pdf-modal__title {
+            margin: 0;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #111827;
+        }
+        .pdf-modal__close {
+            border: 1px solid #d4d4d8;
+            background: #fff;
+            color: #111827;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            padding: 0.3rem 0.55rem;
+            cursor: pointer;
+        }
+        .pdf-modal iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: #fff;
+        }
+    </style>
+
     <p style="font-size:0.9rem;color:#52525b;margin-top:-0.25rem;margin-bottom:1.25rem;max-width:42rem">
         Locked batches with <code>locked_at</code> set. Hub admins upload Onboarding Letter from <a href="{{ url('/hub/batches') }}">Hub → Batches</a>.
     </p>
@@ -29,6 +82,13 @@
                                 <span class="pill">Waived</span>
                             @elseif ($row['has_cdo'])
                                 <span style="color:#059669;font-weight:600">Uploaded</span>
+                                <button
+                                    type="button"
+                                    class="js-open-letter"
+                                    data-url="{{ route('admin.batches.onboarding-letter', $b->id) }}"
+                                    data-label="{{ $b->name }}"
+                                    style="margin-left:0.45rem;background:none;border:none;color:#0d9488;font-weight:700;cursor:pointer;"
+                                >View</button>
                             @elseif ($row['overdue'])
                                 <span style="color:#dc2626;font-weight:700">Overdue</span>
                             @else
@@ -107,4 +167,50 @@
             <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;width:fit-content;">Undo reject</button>
         </form>
     </div>
+
+    <div id="letterModalBackdrop" class="pdf-modal-backdrop" aria-hidden="true">
+        <div class="pdf-modal" role="dialog" aria-modal="true" aria-labelledby="letterModalTitle">
+            <div class="pdf-modal__head">
+                <h3 id="letterModalTitle" class="pdf-modal__title">Onboarding Letter</h3>
+                <button type="button" id="letterModalClose" class="pdf-modal__close">Close</button>
+            </div>
+            <iframe id="letterModalFrame" src="" title="Onboarding Letter PDF Preview"></iframe>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const backdrop = document.getElementById('letterModalBackdrop');
+            const frame = document.getElementById('letterModalFrame');
+            const title = document.getElementById('letterModalTitle');
+            const closeBtn = document.getElementById('letterModalClose');
+            if (!backdrop || !frame || !title || !closeBtn) return;
+
+            const closeModal = () => {
+                backdrop.classList.remove('is-open');
+                backdrop.setAttribute('aria-hidden', 'true');
+                frame.setAttribute('src', '');
+            };
+
+            document.querySelectorAll('.js-open-letter').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const url = btn.getAttribute('data-url') || '';
+                    const label = btn.getAttribute('data-label') || 'Batch';
+                    if (!url) return;
+                    title.textContent = 'Onboarding Letter - ' + label;
+                    frame.setAttribute('src', url);
+                    backdrop.classList.add('is-open');
+                    backdrop.setAttribute('aria-hidden', 'false');
+                });
+            });
+
+            closeBtn.addEventListener('click', closeModal);
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) closeModal();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closeModal();
+            });
+        })();
+    </script>
 @endsection

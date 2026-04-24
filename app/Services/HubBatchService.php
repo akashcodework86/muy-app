@@ -994,9 +994,31 @@ class HubBatchService
         }
         $batchId = (int) ($input['batch_id'] ?? 0);
         $batch = OnboardingBatch::query()->find($batchId);
-        if (! $batch || $batch->hub_id !== $hubId || ! $batch->isDraft()) {
-            return ['ok' => false, 'error' => 'Invalid draft'];
+        if (! $batch || $batch->hub_id !== $hubId) {
+            return ['ok' => false, 'error' => 'Invalid batch'];
         }
+
+        $isDraftLock = $batch->isDraft();
+        $isUnlockedRelock = $batch->isLocked() && $batch->isEditUnlocked();
+        if (! $isDraftLock && ! $isUnlockedRelock) {
+            return ['ok' => false, 'error' => 'Batch is not editable for lock'];
+        }
+
+        if ($isUnlockedRelock) {
+            $cur = $batch->batchCfas()->count();
+            if ($cur !== (int) $batch->target_size) {
+                return ['ok' => false, 'error' => 'Set exactly '.$batch->target_size.' members before re-locking (currently '.$cur.').'];
+            }
+
+            $batch->update([
+                'edit_unlocked_at' => null,
+                'edit_unlocked_by_request_id' => null,
+                'updated_by' => $user->id,
+            ]);
+
+            return ['ok' => true, 'data' => ['batch_id' => $batchId]];
+        }
+
         $cur = $this->draftMemberCount($batchId);
         if ($cur !== (int) $batch->target_size) {
             return ['ok' => false, 'error' => 'Add exactly '.$batch->target_size.' CFA before locking (currently '.$cur.').'];
