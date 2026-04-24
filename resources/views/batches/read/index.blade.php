@@ -238,7 +238,7 @@
                     @endif
                     <th>Status</th>
                     <th>Members</th>
-                    <th>CDO PDF</th>
+                    <th>Onboarding Letter</th>
                     <th>Onboarding date</th>
                     <th>Locked at</th>
                     <th>Actions</th>
@@ -270,7 +270,7 @@
                             <strong>{{ $b->member_count }}</strong>
                             <span class="muted">/ {{ $b->target_size }}</span>
                         </td>
-                        <td data-label="CDO PDF">
+                        <td data-label="Onboarding Letter">
                             @if ($b->has_cdo_pdf)
                                 <span class="tag tag--ok">Uploaded</span>
                             @elseif ($b->cdo_overdue)

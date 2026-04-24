@@ -163,7 +163,7 @@
                         {!! $i('badge') !!}<span>Designations</span>
                     </a>
                     <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batch-compliance') is-active @endif" role="menuitem">
-                        {!! $i('download') !!}<span>Batch CDO PDF</span>
+                        {!! $i('download') !!}<span>Batch Onboarding Letter</span>
                     </a>
                     <a href="{{ route('admin.service-module-settings.edit') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-module-settings') is-active @endif" role="menuitem">
                         {!! $i('cog') !!}<span>Service module settings</span>

@@ -193,7 +193,7 @@
 
         <div class="hb-hero">
             <h1>Batch &amp; CFA pool</h1>
-            <p>Pick CFA only, reject / later, fixed batch size (N), keep draft open across days, then lock and upload CDO signed PDF within 7 days.</p>
+            <p>Pick CFA only, reject / later, fixed batch size (N), keep draft open across days, then lock and upload Onboarding Letter within 7 days.</p>
             <div class="hb-stats">
                 <div class="hb-stat"><div class="l">PDF pending</div><div class="v" id="statPending">{{ (int) $stats['pending_cdo'] }}</div></div>
                 <div class="hb-stat"><div class="l">Overdue</div><div class="v" id="statOverdue" style="color:{{ $stats['overdue_cdo'] ? '#dc2626' : '#94a3b8' }}">{{ (int) $stats['overdue_cdo'] }}</div></div>
@@ -201,7 +201,7 @@
         </div>
 
         <div id="blockedBanner" class="hb-banner hb-banner--warn" style="display:{{ $stats['blocked'] ? 'block' : 'none' }}">
-            <strong>New batches paused:</strong> upload CDO PDF for overdue locked batches, or ask state admin to extend / waive.
+            <strong>New batches paused:</strong> upload Onboarding Letter for overdue locked batches, or ask state admin to extend / waive.
         </div>
 
         <div class="hb-grid">
@@ -305,7 +305,7 @@
                             <th>District</th>
                             <th>Status</th>
                             <th>Members</th>
-                            <th>CDO PDF</th>
+                            <th>Onboarding Letter</th>
                             <th style="text-align:right">Upload</th>
                             <th style="text-align:right">Actions</th>
                         </tr>
@@ -360,7 +360,7 @@
     <div class="hb-modal-bg" id="modalLock">
         <div class="hb-modal">
             <h3 style="margin:0 0 0.5rem">Lock this batch?</h3>
-            <p style="margin:0;font-size:0.875rem;color:var(--muted)">After lock, incubatees stay in this batch. Upload CDO signed PDF within <strong>7 days</strong>.</p>
+            <p style="margin:0;font-size:0.875rem;color:var(--muted)">After lock, incubatees stay in this batch. Upload Onboarding Letter within <strong>7 days</strong>.</p>
             <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
                 <button type="button" class="hb-btn hb-btn--ghost" id="modalLockCancel" style="flex:1">Cancel</button>
                 <button type="button" class="hb-btn hb-btn--primary" id="modalLockOk" style="flex:1">Yes, lock</button>
@@ -1093,7 +1093,7 @@
         });
 
         document.getElementById('btnCreateDraft').addEventListener('click', async () => {
-            if (blocked) { alert('Blocked until overdue CDO PDFs are resolved.'); return; }
+            if (blocked) { alert('Blocked until overdue Onboarding Letters are resolved.'); return; }
             if (!currentDistrictId) return;
             try {
                 const data = await api('create_draft', {
@@ -1130,7 +1130,7 @@
                 document.getElementById('activeDraftCard').style.display = 'none';
                 loadPool();
                 loadBatches();
-                alert('Batch locked. Upload CDO signed PDF within 7 days.');
+                alert('Batch locked. Upload Onboarding Letter within 7 days.');
             } catch (e) { alert(e.message); }
         });
         document.getElementById('btnLock').addEventListener('click', openLockFlow);

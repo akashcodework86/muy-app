@@ -1,11 +1,11 @@
 @extends('layouts.admin')
 
 @section('title', 'Hub batch CDO compliance')
-@section('heading', 'Batch CDO PDF — extend / waive')
+@section('heading', 'Batch Onboarding Letter — extend / waive')
 
 @section('content')
     <p style="font-size:0.9rem;color:#52525b;margin-top:-0.25rem;margin-bottom:1.25rem;max-width:42rem">
-        Locked batches with <code>locked_at</code> set. Hub admins upload CDO PDF from <a href="{{ url('/hub/batches') }}">Hub → Batches</a>.
+        Locked batches with <code>locked_at</code> set. Hub admins upload Onboarding Letter from <a href="{{ url('/hub/batches') }}">Hub → Batches</a>.
     </p>
 
     <div style="overflow-x:auto;">
@@ -14,7 +14,7 @@
                 <tr style="background:#fafafa;text-align:left;">
                     <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Batch</th>
                     <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Hub / District</th>
-                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">CDO PDF</th>
+                    <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Onboarding Letter</th>
                     <th style="padding:0.5rem 0.65rem;border-bottom:1px solid #e4e4e7;">Actions</th>
                 </tr>
             </thead>

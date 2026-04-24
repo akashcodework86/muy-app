@@ -143,7 +143,7 @@
                 @endif
 
                 @if ($hasCdoPdf)
-                    <span class="chip chip--green">CDO PDF uploaded</span>
+                    <span class="chip chip--green">Onboarding Letter uploaded</span>
                 @elseif ($cdoOverdue)
                     <span class="chip chip--rose">CDO overdue</span>
                 @elseif ($cdoPending)
