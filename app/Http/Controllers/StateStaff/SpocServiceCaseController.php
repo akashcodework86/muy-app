@@ -5,12 +5,14 @@ namespace App\Http\Controllers\StateStaff;
 use App\Http\Controllers\Controller;
 use App\Models\DistrictServiceSpoc;
 use App\Models\ServiceCase;
+use App\Models\ServiceCaseAttachment;
 use App\Models\ServiceCaseEvent;
 use App\Models\User;
 use App\Services\AppSettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -182,6 +184,16 @@ class SpocServiceCaseController extends Controller
         return redirect()
             ->route('spoc.service-cases.show', $service_case)
             ->with('status', 'Case rejected.');
+    }
+
+    public function downloadAttachment(Request $request, ServiceCase $service_case, ServiceCaseAttachment $attachment)
+    {
+        $this->ensureModuleOn();
+        $spoc = $this->spocOrAbort($request);
+        $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
+        abort_unless((int) $attachment->service_case_id === (int) $service_case->id, 404);
+
+        return Storage::disk((string) $attachment->disk)->download($attachment->path, $attachment->original_name);
     }
 
     private function ensureModuleOn(): void

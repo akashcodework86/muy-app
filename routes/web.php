@@ -178,6 +178,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('service-cases/{service_case}/reject', [SpocServiceCaseController::class, 'reject'])
             ->middleware('throttle:60,1')
             ->name('service-cases.reject');
+        Route::get('service-cases/{service_case}/attachments/{attachment}/download', [SpocServiceCaseController::class, 'downloadAttachment'])
+            ->name('service-cases.attachments.download');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {

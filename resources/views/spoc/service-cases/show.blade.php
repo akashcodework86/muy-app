@@ -81,7 +81,12 @@
             <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">Attachments</h3>
             <ul style="margin:0;padding-left:1.1rem;font-size:0.85rem;">
                 @foreach ($case->attachments as $att)
-                    <li>{{ $att->original_name }} <span style="color:#71717a;">({{ number_format((int) ($att->size_bytes / 1024), 0) }} KB)</span></li>
+                    <li>
+                        <a href="{{ route('spoc.service-cases.attachments.download', [$case, $att]) }}" style="color:#4338ca;">
+                            {{ $att->original_name }}
+                        </a>
+                        <span style="color:#71717a;">({{ number_format((int) ($att->size_bytes / 1024), 0) }} KB)</span>
+                    </li>
                 @endforeach
             </ul>
         </div>
