@@ -35,6 +35,7 @@
         str_starts_with($r, 'admin.service-spocs') => 'service-spocs',
         str_starts_with($r, 'spoc.') => 'spoc-queue',
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
+        str_starts_with($r, 'admin.attendance') => 'attendance',
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
@@ -48,12 +49,14 @@
         str_starts_with($r, 'staff.phase1-data') => 'staff-phase1-data',
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
         str_starts_with($r, 'staff.batches') => 'staff-batches',
+        $r === 'staff.attendance.index' => 'staff-attendance',
+        $r === 'staff.attendance.view'  => 'staff-attendance-view',
         str_starts_with($r, 'account.') => 'account',
         str_starts_with($r, 'incubatee.') => 'incubatee',
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance'], true);
+    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance', 'attendance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa'], true);
     $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings'], true);
 
@@ -143,6 +146,9 @@
                     <a href="{{ route('admin.team-performance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-performance') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Team performance</span>
                     </a>
+                    <a href="{{ route('admin.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'attendance') is-active @endif" role="menuitem">
+                        {!! $i('calendar') !!}<span>Field attendance</span>
+                    </a>
                 </div>
             </details>
 
@@ -214,6 +220,20 @@
             <a href="{{ route('staff.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-batches') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
             </a>
+                <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-attendance','staff-attendance-view'], true)) is-active @endif">
+                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">Attendance</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Field attendance</p>
+                    <a href="{{ route('staff.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Submit attendance</span>
+                    </a>
+                    <a href="{{ route('staff.attendance.view') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance-view') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>View attendance</span>
+                    </a>
+                </div>
+            </details>
             <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase2-data') is-active @endif">
                 {!! $i('pie') !!}<span class="admin-topbar__link-text">FY 2025-26 Data</span>
             </a>
@@ -236,6 +256,14 @@
             </a>
         </nav>
         @endif
+
+        <button class="admin-topbar__hamburger" id="muyMobileMenuToggle" aria-label="Open navigation menu" aria-expanded="false">
+            <span class="admin-topbar__hamburger-icon" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+            </span>
+        </button>
 
         <div class="admin-topbar__right">
             @include('partials.live-ops-drawer')
@@ -344,20 +372,49 @@
             });
         });
 
-        /* Click anywhere outside the topbar closes all open dropdowns */
+        /* Click anywhere outside the topbar closes all open dropdowns and mobile menu */
         document.addEventListener('click', function (e) {
             if (!e.target.closest('.admin-topbar')) {
                 allDetails.forEach(function (d) {
                     if (d.open) d.removeAttribute('open');
                 });
+                closeMobileMenu();
             }
         });
     }
 
+    function closeMobileMenu() {
+        var hamburger = document.getElementById('muyMobileMenuToggle');
+        if (hamburger && hamburger.getAttribute('aria-expanded') === 'true') {
+            hamburger.setAttribute('aria-expanded', 'false');
+            hamburger.setAttribute('aria-label', 'Open navigation menu');
+            document.querySelectorAll('.admin-topbar__nav').forEach(function (nav) {
+                nav.classList.remove('is-open');
+            });
+        }
+    }
+
+    function initMobileMenu() {
+        var hamburger = document.getElementById('muyMobileMenuToggle');
+        if (!hamburger) return;
+        hamburger.addEventListener('click', function () {
+            var isOpen = this.getAttribute('aria-expanded') === 'true';
+            this.setAttribute('aria-expanded', String(!isOpen));
+            this.setAttribute('aria-label', isOpen ? 'Open navigation menu' : 'Close navigation menu');
+            document.querySelectorAll('.admin-topbar__nav').forEach(function (nav) {
+                nav.classList.toggle('is-open', !isOpen);
+            });
+        });
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTopbarDropdowns);
+        document.addEventListener('DOMContentLoaded', function () {
+            initTopbarDropdowns();
+            initMobileMenu();
+        });
     } else {
         initTopbarDropdowns();
+        initMobileMenu();
     }
 }());
 </script>

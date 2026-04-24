@@ -1188,4 +1188,161 @@
     @media (max-width: 900px) {
         .admin-topbar__link-ico { width: 0.95rem; height: 0.95rem; }
     }
+
+    /* ── Hamburger button (hidden on desktop) ──────────────────────── */
+    .admin-topbar__hamburger {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 2.4rem;
+        height: 2.4rem;
+        border-radius: 10px;
+        border: 1px solid rgba(20, 184, 166, 0.25);
+        background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(240,253,250,0.92));
+        color: #0f766e;
+        cursor: pointer;
+        flex-shrink: 0;
+        outline: none;
+        order: 5;
+        transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+    .admin-topbar__hamburger:hover {
+        border-color: rgba(20, 184, 166, 0.52);
+        background: linear-gradient(135deg, rgba(20,184,166,0.12), rgba(99,102,241,0.10));
+        transform: translateY(-1px);
+    }
+    .admin-topbar__hamburger[aria-expanded="true"] {
+        background: linear-gradient(135deg, rgba(20,184,166,0.14), rgba(99,102,241,0.12));
+        border-color: rgba(20, 184, 166, 0.58);
+    }
+    .admin-topbar__hamburger-icon {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        width: 18px;
+    }
+    .admin-topbar__hamburger-icon span {
+        display: block;
+        height: 2px;
+        border-radius: 2px;
+        background: currentColor;
+        transform-origin: center;
+        transition: transform 0.22s ease, opacity 0.22s ease, width 0.22s ease;
+    }
+    .admin-topbar__hamburger-icon span:nth-child(1) { width: 18px; }
+    .admin-topbar__hamburger-icon span:nth-child(2) { width: 13px; }
+    .admin-topbar__hamburger-icon span:nth-child(3) { width: 18px; }
+    .admin-topbar__hamburger[aria-expanded="true"] .admin-topbar__hamburger-icon span:nth-child(1) {
+        transform: translateY(6px) rotate(45deg);
+    }
+    .admin-topbar__hamburger[aria-expanded="true"] .admin-topbar__hamburger-icon span:nth-child(2) {
+        opacity: 0;
+        width: 0;
+    }
+    .admin-topbar__hamburger[aria-expanded="true"] .admin-topbar__hamburger-icon span:nth-child(3) {
+        transform: translateY(-6px) rotate(-45deg);
+    }
+
+    /* ── Mobile layout (≤ 768 px) ───────────────────────────────────── */
+    @media (max-width: 768px) {
+        /* Show hamburger */
+        .admin-topbar__hamburger { display: inline-flex; }
+
+        /* Tighter header padding */
+        .admin-topbar__inner {
+            padding: 0.55rem 0.85rem;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+
+        /* Hide all navs by default; show when toggled */
+        .admin-topbar__nav {
+            display: none;
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+            flex-basis: 100%;
+            order: 10;
+            margin-top: 0.35rem;
+            padding: 0.5rem 0 0.6rem;
+            border-top: 1px solid rgba(20, 184, 166, 0.18);
+            gap: 0.15rem;
+            /* override any tablet-width flex-wrap: nowrap */
+            flex-wrap: wrap !important;
+        }
+        .admin-topbar__nav.is-open { display: flex; }
+
+        /* Full-width pill links in mobile drawer */
+        .admin-topbar__link {
+            border-radius: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: flex-start;
+            white-space: normal;
+        }
+
+        /* Details dropdown — inline (not floating) on mobile */
+        .admin-topbar__details {
+            display: block;
+            position: static;
+            width: 100%;
+        }
+        .admin-topbar__dropdown-panel {
+            position: static !important;
+            min-width: 0;
+            width: 100%;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 10px;
+            background: rgba(241, 245, 249, 0.55);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            padding: 0.3rem 0 0.3rem 0.85rem;
+            margin-top: 0.2rem;
+        }
+        /* Hide the aurora stripe inside mobile dropdown panel */
+        .admin-topbar__dropdown-panel::before { display: none; }
+
+        /* Compact right-side strip */
+        .admin-topbar__right {
+            gap: 0.45rem;
+            margin-left: auto;
+        }
+
+        /* Smaller notification bell */
+        .admin-topbar__notif-summary {
+            width: 2.2rem;
+            height: 2.2rem;
+        }
+
+        /* Dropdown panels that anchor right (notifications, profile) –
+           clamp to viewport so they never overflow off-screen */
+        .admin-topbar__dropdown-panel--notifications,
+        .admin-topbar__dropdown-panel--profile {
+            position: absolute !important;
+            right: 0;
+            left: auto;
+            min-width: min(17rem, calc(100vw - 1.5rem));
+            max-width: calc(100vw - 1.5rem);
+        }
+
+        /* Brand: shrink on small screens */
+        .admin-brand__name {
+            font-size: 0.82rem;
+            max-width: 9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .admin-brand__img { height: 36px; width: 36px; max-width: 36px; }
+        .admin-brand { gap: 0.45rem; }
+    }
+
+    /* ── Extra-small phones (≤ 420 px) ─────────────────────────────── */
+    @media (max-width: 420px) {
+        .admin-brand__name { display: none; }
+        .admin-brand__sub  { display: none; }
+        .admin-topbar__inner { padding: 0.5rem 0.65rem; }
+    }
 </style>

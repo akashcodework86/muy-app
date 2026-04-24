@@ -1,5 +1,5 @@
 {{--
-    Shared project footer for MUY (Mukhyamantri Udyamita Yojana).
+    Shared project footer for MUY (Mukhyamantri Udyamshala Yojana).
     Self-contained styles so it looks consistent across public, auth, and admin pages.
     Use: @include('partials.app-footer')
 --}}
@@ -7,7 +7,7 @@
     $appFooterYear = now()->year;
     $appFooterName = config('app.name', 'MUY');
     $appFooterContact = [
-        'email' => 'support@muy.uk.gov.in',
+        'email' => 'mukhyamantriudyamshalayojana@gmail.com',
         'phone' => '+91-135-000-0000',
         'office' => 'Dehradun, Uttarakhand',
     ];
@@ -24,7 +24,7 @@
                     <span class="muy-footer__logo" aria-hidden="true">MUY</span>
                     <div>
                         <div class="muy-footer__brand-name">{{ $appFooterName }}</div>
-                        <div class="muy-footer__brand-sub">Mukhyamantri Udyamita Yojana · Uttarakhand</div>
+                        <div class="muy-footer__brand-sub">Mukhyamantri Udyamshala Yojana · Uttarakhand</div>
                     </div>
                 </div>
                 <p class="muy-footer__tagline">

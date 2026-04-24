@@ -764,6 +764,11 @@
                         <strong>Staff &amp; links</strong>
                         <span>Referral URLs &amp; targets</span>
                     </a>
+                    <a href="{{ route('admin.attendance.index') }}">
+                        <div class="qi"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></div>
+                        <strong>Field attendance</strong>
+                        <span>Field coordinator visit records</span>
+                    </a>
                     <a href="{{ route('admin.designations.index') }}">
                         <div class="qi"><i class="fa-solid fa-tags" aria-hidden="true"></i></div>
                         <strong>Designations</strong>
