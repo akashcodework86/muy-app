@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\CfaHubChoiceState;
 use App\Models\CfaSubmission;
+use App\Models\Document;
+use App\Models\DocumentCategory;
+use App\Models\DocumentVersion;
 use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\OnboardingBatch;
@@ -17,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class HubBatchService
@@ -1207,7 +1211,7 @@ class HubBatchService
     public function storeCdoDocument(OnboardingBatch $batch, User $user, UploadedFile $file): void
     {
         $path = $file->store('onboarding_batch_docs/'.$batch->id, 'local');
-        OnboardingBatchDocument::query()->updateOrCreate(
+        $docRow = OnboardingBatchDocument::query()->updateOrCreate(
             [
                 'onboarding_batch_id' => $batch->id,
                 'doc_type' => self::DOC_CDO,
@@ -1220,6 +1224,102 @@ class HubBatchService
                 'uploaded_by' => $user->id,
             ]
         );
+
+        $this->syncCdoDocumentRepository($batch, $user, $docRow);
+    }
+
+    private function syncCdoDocumentRepository(OnboardingBatch $batch, User $user, OnboardingBatchDocument $cdoDoc): void
+    {
+        $district = District::query()->find((int) $batch->district_id);
+        if (! $district || trim((string) $cdoDoc->path) === '') {
+            return;
+        }
+
+        $root = $this->firstOrCreateDocumentCategory('Onboarding Letters', null);
+        $sub = $this->firstOrCreateDocumentCategory((string) $district->name, (int) $root->id);
+
+        $title = 'CDO Signed PDF - '.$district->name.' - Batch '.$batch->id;
+        $tags = [
+            'cdo',
+            'onboarding-letter',
+            'batch:'.$batch->id,
+            'district:'.($district->slug ?: $district->id),
+        ];
+        $allowedRoles = [
+            Document::ROLE_STATE_ADMIN,
+            Document::ROLE_STATE_STAFF,
+            Document::ROLE_HUB_ADMIN,
+            Document::ROLE_DISTRICT_STAFF,
+        ];
+
+        $doc = Document::query()
+            ->where('document_category_id', (int) $sub->id)
+            ->where('title', $title)
+            ->first();
+
+        if (! $doc) {
+            $doc = Document::query()->create([
+                'document_category_id' => (int) $sub->id,
+                'title' => $title,
+                'tags' => $tags,
+                'allowed_roles' => $allowedRoles,
+                'created_by' => (int) $user->id,
+                'updated_by' => (int) $user->id,
+            ]);
+        } else {
+            $doc->update([
+                'document_category_id' => (int) $sub->id,
+                'tags' => $tags,
+                'allowed_roles' => $allowedRoles,
+                'updated_by' => (int) $user->id,
+            ]);
+        }
+
+        $nextVersionNo = ((int) $doc->versions()->max('version_no')) + 1;
+        $version = DocumentVersion::query()->create([
+            'document_id' => (int) $doc->id,
+            'version_no' => $nextVersionNo,
+            'disk' => 'local',
+            'path' => (string) $cdoDoc->path,
+            'original_name' => (string) ($cdoDoc->original_name ?: ('onboarding-letter-'.$batch->id.'.pdf')),
+            'mime_type' => (string) ($cdoDoc->mime_type ?: 'application/pdf'),
+            'size_bytes' => (int) ($cdoDoc->size_bytes ?? 0),
+            'uploaded_by' => (int) $user->id,
+        ]);
+
+        $doc->update([
+            'latest_version_id' => (int) $version->id,
+            'updated_by' => (int) $user->id,
+        ]);
+    }
+
+    private function firstOrCreateDocumentCategory(string $name, ?int $parentId): DocumentCategory
+    {
+        $name = trim($name);
+        $existing = DocumentCategory::query()
+            ->where('name', $name)
+            ->where('parent_id', $parentId)
+            ->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $slug = Str::slug($name);
+        if ($slug === '') {
+            $slug = 'category';
+        }
+        $base = $slug;
+        $i = 2;
+        while (DocumentCategory::query()->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$i;
+            $i++;
+        }
+
+        return DocumentCategory::query()->create([
+            'parent_id' => $parentId,
+            'name' => $name,
+            'slug' => $slug,
+        ]);
     }
 
     public function stateUndoReject(int $hubId, int $districtId, int $cfaSubmissionId, User $user): void
