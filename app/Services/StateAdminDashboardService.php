@@ -29,9 +29,33 @@ class StateAdminDashboardService
         $stateCfaTarget = null;
         $districtsCfaSum = null;
         $stateCfaThisFy = (int) (clone $phase3Scope)->count();
-        $stateProgressPct = 100;
+        $stateProgressPct = null;
         $stateCfaTrend = $this->stateDailyTrend14($phase3FloorDate);
         $stateBusinessStageMix = $this->stateStageMixAggregates($phase3FloorDate);
+
+        $activeFy = FiscalYear::query()
+            ->where('is_active', true)
+            ->orderByDesc('starts_on')
+            ->first();
+        $cfaDeliverable = Deliverable::query()
+            ->where('code', 'cfa')
+            ->first();
+        if ($activeFy && $cfaDeliverable) {
+            $stateTargetRow = DB::table('state_deliverable_targets')
+                ->where('fiscal_year_id', (int) $activeFy->id)
+                ->where('deliverable_id', (int) $cfaDeliverable->id)
+                ->first();
+            $stateCfaTarget = $stateTargetRow ? (int) $stateTargetRow->target_total : null;
+
+            $districtsCfaSum = (int) DB::table('district_deliverable_targets')
+                ->where('fiscal_year_id', (int) $activeFy->id)
+                ->where('deliverable_id', (int) $cfaDeliverable->id)
+                ->sum('target_total');
+
+            if ($stateCfaTarget !== null && $stateCfaTarget > 0) {
+                $stateProgressPct = (int) round(($stateCfaThisFy / $stateCfaTarget) * 100);
+            }
+        }
 
         $staffTotal = User::query()->where('role', 'district_staff')->count();
         $staffActive = User::query()->where('role', 'district_staff')->where('is_active', true)->count();
@@ -142,7 +166,9 @@ class StateAdminDashboardService
 
         $heroSparkline30 = $this->dailyCfaSparkline(30, $phase3FloorDate);
 
-        $districtAllocPct = null;
+        $districtAllocPct = ($stateCfaTarget !== null && $stateCfaTarget > 0 && $districtsCfaSum !== null)
+            ? (int) round(($districtsCfaSum / $stateCfaTarget) * 100)
+            : null;
 
         return [
             'activeFy' => $activeFy,
