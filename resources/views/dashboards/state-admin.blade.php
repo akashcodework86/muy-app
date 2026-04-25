@@ -148,6 +148,71 @@
             font-weight: 600;
             box-shadow: 0 10px 24px rgba(148, 163, 184, 0.12);
         }
+        .insight-grid {
+            margin-top: 1rem;
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 0.75rem;
+        }
+        @media (max-width: 900px) { .insight-grid { grid-template-columns: 1fr; } }
+        .insight-card {
+            background: rgba(255, 255, 255, 0.86);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 14px;
+            padding: 0.75rem 0.85rem;
+        }
+        .insight-card__title {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #6366f1;
+            margin-bottom: 0.45rem;
+        }
+        .insight-progress__top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.6rem;
+            margin-bottom: 0.35rem;
+        }
+        .insight-progress__value { font-size: 1rem; font-weight: 800; color: #0f172a; }
+        .insight-progress__meta { font-size: 0.7rem; color: #64748b; font-weight: 700; }
+        .insight-progress__bar {
+            height: 8px;
+            background: rgba(226, 232, 240, 0.95);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid rgba(203, 213, 225, 0.9);
+        }
+        .insight-progress__fill {
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #4f46e5, #14b8a6);
+        }
+        .insight-progress__foot {
+            margin-top: 0.4rem;
+            font-size: 0.69rem;
+            color: #475569;
+            line-height: 1.45;
+        }
+        .insight-kpi-list { display: grid; grid-template-columns: 1fr; gap: 0.42rem; }
+        .insight-kpi {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            padding: 0.38rem 0.45rem;
+            background: rgba(248, 250, 252, 0.9);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 10px;
+        }
+        .insight-kpi strong { color: #0f172a; font-weight: 800; }
+        .insight-kpi__chip { font-weight: 800; font-size: 0.68rem; }
+        .insight-kpi__chip.up { color: #15803d; }
+        .insight-kpi__chip.down { color: #b91c1c; }
+        .insight-kpi__chip.flat { color: #475569; }
         .hero-three-col {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -446,6 +511,62 @@
                                     <span><strong>Staff (active)</strong> {{ number_format($staffActive) }} / {{ number_format($staffTotal) }}</span>
                                 </div>
                             </div>
+                            @if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0)
+                                @php
+                                    $insActual = (int) ($cfaTotal ?? 0);
+                                    $insTarget = (int) $stateCfaTarget;
+                                    $insPct = $insTarget > 0 ? (int) round(($insActual / $insTarget) * 100) : 0;
+                                    $insGap = max(0, $insTarget - $insActual);
+                                @endphp
+                                <div class="insight-grid">
+                                    <div class="insight-card insight-progress">
+                                        <div class="insight-card__title">Target Progress Insight</div>
+                                        <div class="insight-progress__top">
+                                            <div class="insight-progress__value">{{ number_format($insActual) }} / {{ number_format($insTarget) }}</div>
+                                            <div class="insight-progress__meta">{{ $insPct }}% achieved</div>
+                                        </div>
+                                        <div class="insight-progress__bar">
+                                            <div class="insight-progress__fill" style="width: {{ min(100, max(0, $insPct)) }}%;"></div>
+                                        </div>
+                                        <div class="insight-progress__foot">
+                                            Remaining to target: <strong>{{ number_format($insGap) }}</strong>.
+                                            Allocation status:
+                                            <strong>
+                                                @if (($districtAllocPct ?? null) === 100)
+                                                    district plan fully aligned.
+                                                @elseif (($districtAllocPct ?? 0) > 0)
+                                                    district plan at {{ (int) $districtAllocPct }}% of target.
+                                                @else
+                                                    district allocation pending.
+                                                @endif
+                                            </strong>
+                                        </div>
+                                    </div>
+                                    <div class="insight-card">
+                                        <div class="insight-card__title">Smart Signals</div>
+                                        <div class="insight-kpi-list">
+                                            <div class="insight-kpi">
+                                                <span>Last 7 days CFA</span>
+                                                <strong>{{ number_format((int) ($cfaLast7 ?? 0)) }}</strong>
+                                            </div>
+                                            <div class="insight-kpi">
+                                                <span>Week-over-week trend</span>
+                                                <span class="insight-kpi__chip {{ ($cfaWoWDeltaPct ?? 0) > 0 ? 'up' : (($cfaWoWDeltaPct ?? 0) < 0 ? 'down' : 'flat') }}">
+                                                    {{ ($cfaWoWDeltaPct ?? 0) > 0 ? '+' : '' }}{{ (int) ($cfaWoWDeltaPct ?? 0) }}%
+                                                </span>
+                                            </div>
+                                            <div class="insight-kpi">
+                                                <span>Top district today</span>
+                                                <strong>{{ $todayTopDistrict['name'] ?? '—' }} @if(isset($todayTopDistrict['count']))({{ number_format((int)$todayTopDistrict['count']) }})@endif</strong>
+                                            </div>
+                                            <div class="insight-kpi">
+                                                <span>Districts with 0 today</span>
+                                                <strong>{{ number_format((int) ($todayZeroDistricts ?? 0)) }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
 
                         <div class="dashboard-intro__right">

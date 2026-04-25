@@ -138,6 +138,16 @@ class StateAdminDashboardService
         $allPhasesCfaTotal = $phase1CfaTotal + $phase2CfaTotal + $phase3CfaTotal;
         $cfaThisMonth = (clone $phase3Scope)->whereYear('created_at', now()->year)->whereMonth('created_at', now()->month)->count();
         $cfaLast30 = (clone $phase3Scope)->where('created_at', '>=', now()->subDays(30))->count();
+        $cfaLast7 = (int) (clone $phase3Scope)->where('created_at', '>=', now()->subDays(6)->startOfDay())->count();
+        $cfaPrev7 = (int) (clone $phase3Scope)
+            ->whereBetween('created_at', [
+                now()->subDays(13)->startOfDay(),
+                now()->subDays(7)->endOfDay(),
+            ])
+            ->count();
+        $cfaWoWDeltaPct = $cfaPrev7 > 0
+            ? (int) round((($cfaLast7 - $cfaPrev7) / $cfaPrev7) * 100)
+            : ($cfaLast7 > 0 ? 100 : 0);
 
         $seedCount = 0;
         $earlyCount = 0;
@@ -163,6 +173,20 @@ class StateAdminDashboardService
             ->orderByDesc('total')
             ->orderBy('districts.name')
             ->get();
+        $todayDistrictRows = DB::table('districts')
+            ->leftJoin('cfa_submissions', function ($join): void {
+                $join->on('cfa_submissions.district_id', '=', 'districts.id')
+                    ->whereDate('cfa_submissions.created_at', now()->toDateString());
+            })
+            ->select('districts.name', DB::raw('COUNT(cfa_submissions.id) as total'))
+            ->groupBy('districts.id', 'districts.name')
+            ->orderByDesc('total')
+            ->orderBy('districts.name')
+            ->get();
+        $todayTopDistrict = $todayDistrictRows->first();
+        $todayNonZero = $todayDistrictRows->filter(fn ($r) => (int) $r->total > 0)->values();
+        $todayLowestActiveDistrict = $todayNonZero->sortBy('total')->first();
+        $todayZeroDistricts = max(0, (int) $todayDistrictRows->count() - (int) $todayNonZero->count());
 
         $staffByDistrict = DB::table('users')
             ->join('districts', 'users.district_id', '=', 'districts.id')
@@ -246,6 +270,9 @@ class StateAdminDashboardService
             'allPhasesCfaTotal' => $allPhasesCfaTotal,
             'cfaThisMonth' => $cfaThisMonth,
             'cfaLast30' => $cfaLast30,
+            'cfaLast7' => $cfaLast7,
+            'cfaPrev7' => $cfaPrev7,
+            'cfaWoWDeltaPct' => $cfaWoWDeltaPct,
             'seedCount' => $seedCount,
             'earlyCount' => $earlyCount,
             'growthCount' => $growthCount,
@@ -256,6 +283,15 @@ class StateAdminDashboardService
                 'labels' => $cfaByDistrict->pluck('name')->all(),
                 'values' => $cfaByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
             ],
+            'todayTopDistrict' => $todayTopDistrict ? [
+                'name' => (string) $todayTopDistrict->name,
+                'count' => (int) $todayTopDistrict->total,
+            ] : null,
+            'todayLowestActiveDistrict' => $todayLowestActiveDistrict ? [
+                'name' => (string) $todayLowestActiveDistrict->name,
+                'count' => (int) $todayLowestActiveDistrict->total,
+            ] : null,
+            'todayZeroDistricts' => $todayZeroDistricts,
             'staffByDistrict' => [
                 'labels' => $staffByDistrict->pluck('name')->all(),
                 'values' => $staffByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
