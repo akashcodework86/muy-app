@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CfaSubmission;
 use App\Models\Deliverable;
 use App\Models\District;
+use App\Models\FiscalYear;
 use App\Models\MentorshipRequest;
 use App\Models\User;
 use Carbon\Carbon;
@@ -95,11 +96,9 @@ class StateAdminDashboardService
                         ->whereIn('deliverable_id', $cfaDeliverableIds)
                         ->sum('target_total');
 
-                    $fyStart = Carbon::parse((string) $activeFy->starts_on)->startOfDay();
-                    $fyEnd = Carbon::parse((string) $activeFy->ends_on)->endOfDay();
-                    $stateCfaThisFy = (int) CfaSubmission::query()
-                        ->whereBetween('created_at', [$fyStart, $fyEnd])
-                        ->count();
+                    // Progress uses the same scoped total shown on dashboard (Phase 3 onwards),
+                    // independent of FY date windows.
+                    $stateCfaThisFy = (int) (clone $phase3Scope)->count();
 
                     if ($stateCfaTarget !== null && $stateCfaTarget > 0) {
                         $stateProgressPct = (int) round(($stateCfaThisFy / $stateCfaTarget) * 100);
