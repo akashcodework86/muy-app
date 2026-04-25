@@ -71,6 +71,67 @@ class StaffDashboardService
             $districtProgressPct = (int) min(100, round(($districtCfaTotal / (int) $districtCfaTarget) * 100));
         }
 
+        $districtOnboardingTarget = null;
+        $districtOnboardingAchieved = 0;
+        $districtOnboardingProgressPct = null;
+        $districtOnboardingByBatch = [];
+        if ($activeFy && $user->district_id) {
+            $onboardingDeliverableIds = Deliverable::query()
+                ->where(function ($q): void {
+                    $q->whereRaw('LOWER(code) = ?', ['onboarding'])
+                        ->orWhere('sort_order', 4)
+                        ->orWhere('name', 'like', '%Onboard%')
+                        ->orWhere('mis_entry_label', 'like', '%Onboard%');
+                })
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->values()
+                ->all();
+
+            if ($onboardingDeliverableIds !== []) {
+                $districtOnboardingTarget = (int) DB::table('district_deliverable_targets')
+                    ->where('fiscal_year_id', (int) $activeFy->id)
+                    ->where('district_id', (int) $user->district_id)
+                    ->whereIn('deliverable_id', $onboardingDeliverableIds)
+                    ->sum('target_total');
+                if ($districtOnboardingTarget <= 0) {
+                    $districtOnboardingTarget = null;
+                }
+            }
+
+            $phase3FloorDate = Carbon::create(2026, 4, 1)->startOfDay();
+            $districtOnboardingAchieved = (int) DB::table('onboarding_batch_cfa as obc')
+                ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                ->where('ob.district_id', (int) $user->district_id)
+                ->where('ob.status', 'locked')
+                ->whereNotNull('ob.locked_at')
+                ->where('ob.locked_at', '>=', $phase3FloorDate)
+                ->count();
+
+            $districtOnboardingByBatch = DB::table('onboarding_batch_cfa as obc')
+                ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                ->where('ob.district_id', (int) $user->district_id)
+                ->where('ob.status', 'locked')
+                ->whereNotNull('ob.locked_at')
+                ->where('ob.locked_at', '>=', $phase3FloorDate)
+                ->groupBy('ob.id', 'ob.name')
+                ->orderByDesc(DB::raw('COUNT(obc.id)'))
+                ->orderByDesc('ob.id')
+                ->select('ob.name', DB::raw('COUNT(obc.id) as total'))
+                ->limit(8)
+                ->get()
+                ->map(fn ($row) => [
+                    'batch' => (string) $row->name,
+                    'count' => (int) $row->total,
+                ])
+                ->all();
+
+            if ($districtOnboardingTarget !== null && $districtOnboardingTarget > 0) {
+                $districtOnboardingProgressPct = (int) round(($districtOnboardingAchieved / $districtOnboardingTarget) * 100);
+            }
+        }
+
         $base = CfaSubmission::query()->where('referral_user_id', $user->id);
 
         $cfaTotal = (clone $base)->count();
@@ -262,6 +323,10 @@ class StaffDashboardService
             'districtCfaTrend' => $districtCfaTrend,
             'districtBusinessStageMix' => $districtBusinessStageMix,
             'districtProgressPct' => $districtProgressPct,
+            'districtOnboardingTarget' => $districtOnboardingTarget,
+            'districtOnboardingAchieved' => $districtOnboardingAchieved,
+            'districtOnboardingProgressPct' => $districtOnboardingProgressPct,
+            'districtOnboardingByBatch' => $districtOnboardingByBatch,
             'staffShareOfDistrictPct' => $staffShareOfDistrictPct,
             'cfaTotal' => $cfaTotal,
             'cfaThisMonth' => $cfaThisMonth,

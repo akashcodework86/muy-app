@@ -1367,6 +1367,27 @@
         .hero-spark__chart .spark-fill { fill: url(#heroSparkGradStaff); opacity: 0.55; }
         .hero-spark__chart .spark-line { fill: none; stroke: #0891b2; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
         .hero-spark__chart .spark-dot { fill: #0891b2; stroke: #fff; stroke-width: 1.5; }
+
+        .hub-insight-grid { margin-top: 0.7rem; display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 0.65rem; }
+        @media (max-width: 1100px) { .hub-insight-grid { grid-template-columns: 1fr; } }
+        .hub-insight-card { background: rgba(255,255,255,.88); border: 1px solid rgba(226,232,240,.95); border-radius: 12px; padding: .62rem .72rem; }
+        .hub-insight-title { font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #6366f1; margin-bottom: .38rem; }
+        .hub-insight-top { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-bottom: .25rem; }
+        .hub-insight-value { font-size: .95rem; font-weight: 800; color: #0f172a; }
+        .hub-insight-meta { font-size: .67rem; color: #64748b; font-weight: 700; }
+        .hub-insight-bar { height: 7px; border-radius: 999px; background: #eef2f7; border: 1px solid #dde5ef; overflow: hidden; }
+        .hub-insight-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4f46e5, #14b8a6); }
+        .hub-insight-foot { margin-top: .34rem; font-size: .67rem; color: #475569; line-height: 1.4; }
+        .hub-insight-list { display: grid; gap: .3rem; }
+        .hub-insight-kpi { display: flex; justify-content: space-between; gap: .5rem; align-items: center; font-size: .7rem; padding: .24rem .3rem; background: rgba(248,250,252,.9); border:1px solid rgba(226,232,240,.95); border-radius:8px; }
+        .hub-insight-kpi strong { color:#0f172a; font-weight:800; }
+        .hub-insight-chip.up { color:#15803d; font-weight:800; }
+        .hub-insight-chip.down { color:#b91c1c; font-weight:800; }
+        .hub-insight-chip.flat { color:#475569; font-weight:800; }
+        .hub-split-title { margin-top:.4rem; font-size:.56rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:#64748b; }
+        .hub-split-list { margin-top:.3rem; display:grid; gap:.22rem; max-height:95px; overflow-y:auto; padding-right:.14rem; }
+        .hub-split-row { display:flex; justify-content:space-between; gap:.45rem; font-size:.67rem; padding:.2rem .3rem; background:rgba(248,250,252,.92); border:1px solid rgba(226,232,240,.9); border-radius:7px; }
+
         @media (max-width: 1600px) {
             .hero-three-col {
                 gap: 0.75rem;
@@ -3009,6 +3030,65 @@
                     </div>
                 </div>
             </aside>
+        </div>
+
+        @php
+            $districtTargetVal = (int) ($districtCfaTarget ?? 0);
+            $districtActualVal = (int) ($districtCfaTotal ?? 0);
+            $districtProgressVal = $districtTargetVal > 0 ? (int) round(($districtActualVal / $districtTargetVal) * 100) : null;
+            $districtGapVal = max(0, $districtTargetVal - $districtActualVal);
+            $districtOnbTargetVal = (int) ($districtOnboardingTarget ?? 0);
+            $districtOnbAchievedVal = (int) ($districtOnboardingAchieved ?? 0);
+            $districtOnbProgressVal = $districtOnbTargetVal > 0 ? (int) ($districtOnboardingProgressPct ?? 0) : 0;
+            $districtOnbGapVal = max(0, $districtOnbTargetVal - $districtOnbAchievedVal);
+            $districtOnbSplitRows = collect($districtOnboardingByBatch ?? [])->take(8);
+        @endphp
+        <div class="hub-insight-grid" style="margin:0 0 1rem;">
+            <div class="hub-insight-card">
+                <div class="hub-insight-title">CFA Target Insight</div>
+                @if ($districtTargetVal > 0)
+                    <div class="hub-insight-top">
+                        <div class="hub-insight-value">{{ number_format($districtActualVal) }} / {{ number_format($districtTargetVal) }}</div>
+                        <div class="hub-insight-meta">{{ (int) ($districtProgressVal ?? 0) }}% achieved</div>
+                    </div>
+                    <div class="hub-insight-bar"><div class="hub-insight-fill" style="width: {{ min(100, max(0, (int) ($districtProgressVal ?? 0))) }}%;"></div></div>
+                    <div class="hub-insight-foot">Remaining to district target: <strong>{{ number_format($districtGapVal) }}</strong>.</div>
+                @else
+                    <div class="hub-insight-foot">District CFA target is not configured yet.</div>
+                @endif
+            </div>
+
+            <div class="hub-insight-card">
+                <div class="hub-insight-title">Smart Signals</div>
+                <div class="hub-insight-list">
+                    <div class="hub-insight-kpi"><span>Your last 7 days CFA</span><strong>{{ number_format((int) ($recent7 ?? 0)) }}</strong></div>
+                    <div class="hub-insight-kpi"><span>Week-over-week</span><span class="hub-insight-chip {{ ($velocityChangePct ?? 0) > 0 ? 'up' : (($velocityChangePct ?? 0) < 0 ? 'down' : 'flat') }}">{{ ($velocityChangePct ?? 0) > 0 ? '+' : '' }}{{ (int) ($velocityChangePct ?? 0) }}%</span></div>
+                    <div class="hub-insight-kpi"><span>District CFA today</span><strong>{{ number_format((int) ($districtCfaTrend['values'][13] ?? 0)) }}</strong></div>
+                    <div class="hub-insight-kpi"><span>Your CFA today</span><strong>{{ number_format((int) ($heroCfaToday ?? 0)) }}</strong></div>
+                </div>
+            </div>
+
+            <div class="hub-insight-card">
+                <div class="hub-insight-title">Onboarding Insight</div>
+                @if ($districtOnbTargetVal > 0)
+                    <div class="hub-insight-top">
+                        <div class="hub-insight-value">{{ number_format($districtOnbAchievedVal) }} / {{ number_format($districtOnbTargetVal) }}</div>
+                        <div class="hub-insight-meta">{{ $districtOnbProgressVal }}% achieved</div>
+                    </div>
+                    <div class="hub-insight-bar"><div class="hub-insight-fill" style="width: {{ min(100, max(0, $districtOnbProgressVal)) }}%;background:linear-gradient(90deg,#0ea5e9,#10b981);"></div></div>
+                    <div class="hub-insight-foot">Remaining onboarding gap: <strong>{{ number_format($districtOnbGapVal) }}</strong>.</div>
+                    <div class="hub-split-title">Batch-wise bifurcation ({{ number_format($districtOnbAchievedVal) }})</div>
+                    <div class="hub-split-list">
+                        @forelse ($districtOnbSplitRows as $row)
+                            <div class="hub-split-row"><span>{{ $row['batch'] }}</span><strong>{{ number_format((int) ($row['count'] ?? 0)) }}</strong></div>
+                        @empty
+                            <div class="hub-insight-foot" style="margin-top:0;">No onboarding split yet.</div>
+                        @endforelse
+                    </div>
+                @else
+                    <div class="hub-insight-foot">Onboarding target is not configured for this district yet.</div>
+                @endif
+            </div>
         </div>
 
         {{-- Old sections - hidden for now --}}
