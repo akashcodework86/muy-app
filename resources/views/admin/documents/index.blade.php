@@ -23,7 +23,13 @@
             @endforeach
         </select>
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;">Filter</button>
-        <a href="{{ route('admin.documents.create') }}" style="margin-left:auto;background:#4f46e5;color:#fff;text-decoration:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;">Upload document</a>
+        <form method="post" action="{{ route('admin.documents.sync-cdo') }}" style="margin-left:auto;">
+            @csrf
+            <button type="submit" style="background:#0f766e;color:#fff;border:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;cursor:pointer;">
+                Sync onboarding letters
+            </button>
+        </form>
+        <a href="{{ route('admin.documents.create') }}" style="background:#4f46e5;color:#fff;text-decoration:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;">Upload document</a>
     </form>
 
     <div style="display:flex;flex-wrap:wrap;gap:0.7rem;margin:0 0 0.95rem;">

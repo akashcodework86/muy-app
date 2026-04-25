@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Models\DocumentCategory;
 use App\Models\DocumentVersion;
 use App\Services\AdminAuditLogger;
+use App\Services\HubBatchService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ class DocumentRepositoryController extends Controller
 {
     public function __construct(
         private AdminAuditLogger $auditLogger,
+        private HubBatchService $hubBatchService,
     ) {}
 
     public function index(Request $request): View
@@ -290,6 +292,15 @@ class DocumentRepositoryController extends Controller
         );
 
         return redirect()->route('admin.documents.index')->with('status', 'Document deleted.');
+    }
+
+    public function syncCdo(Request $request): RedirectResponse
+    {
+        $result = $this->hubBatchService->backfillCdoDocuments();
+
+        return redirect()
+            ->route('admin.documents.index')
+            ->with('status', 'Onboarding letters sync complete. Scanned: '.$result['scanned'].', synced: '.$result['synced'].', skipped: '.$result['skipped'].'.');
     }
 
     private function validateDocumentRequest(Request $request, bool $requireFile): array

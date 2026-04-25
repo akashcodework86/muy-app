@@ -284,6 +284,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('documents', [DocumentRepositoryController::class, 'store'])->name('documents.store');
         Route::post('documents/categories', [DocumentRepositoryController::class, 'storeCategory'])->name('documents.categories.store');
         Route::post('documents/subcategories', [DocumentRepositoryController::class, 'storeSubcategory'])->name('documents.subcategories.store');
+        Route::post('documents/sync-cdo', [DocumentRepositoryController::class, 'syncCdo'])->name('documents.sync-cdo');
         Route::get('documents/{document}/edit', [DocumentRepositoryController::class, 'edit'])->name('documents.edit');
         Route::put('documents/{document}', [DocumentRepositoryController::class, 'update'])->name('documents.update');
         Route::post('documents/{document}/versions', [DocumentRepositoryController::class, 'uploadVersion'])->name('documents.upload-version');
