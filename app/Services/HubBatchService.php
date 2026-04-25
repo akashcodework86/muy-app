@@ -1228,12 +1228,57 @@ class HubBatchService
         $this->syncCdoDocumentRepository($batch, $user, $docRow);
     }
 
-    private function syncCdoDocumentRepository(OnboardingBatch $batch, User $user, OnboardingBatchDocument $cdoDoc): void
+    /**
+     * @return array{scanned:int,synced:int,skipped:int}
+     */
+    public function backfillCdoDocuments(?int $batchId = null): array
+    {
+        $query = OnboardingBatchDocument::query()
+            ->with(['batch', 'uploader'])
+            ->where('doc_type', self::DOC_CDO);
+
+        if ($batchId !== null && $batchId > 0) {
+            $query->where('onboarding_batch_id', $batchId);
+        }
+
+        $rows = $query->orderBy('id')->get();
+        $synced = 0;
+        $skipped = 0;
+
+        foreach ($rows as $row) {
+            $batch = $row->batch;
+            if (! $batch instanceof OnboardingBatch) {
+                $skipped++;
+                continue;
+            }
+
+            $before = DocumentVersion::query()->count();
+            $this->syncCdoDocumentRepository($batch, $row->uploader, $row);
+            $after = DocumentVersion::query()->count();
+            if ($after > $before) {
+                $synced++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        return [
+            'scanned' => $rows->count(),
+            'synced' => $synced,
+            'skipped' => $skipped,
+        ];
+    }
+
+    private function syncCdoDocumentRepository(OnboardingBatch $batch, ?User $user, OnboardingBatchDocument $cdoDoc): void
     {
         $district = District::query()->find((int) $batch->district_id);
         if (! $district || trim((string) $cdoDoc->path) === '') {
             return;
         }
+        $actorUserId = $user?->id
+            ?? (is_numeric($cdoDoc->uploaded_by) ? (int) $cdoDoc->uploaded_by : null)
+            ?? (is_numeric($batch->updated_by) ? (int) $batch->updated_by : null)
+            ?? (is_numeric($batch->created_by) ? (int) $batch->created_by : null);
 
         $root = $this->firstOrCreateDocumentCategory('Onboarding Letters', null);
         $sub = $this->firstOrCreateDocumentCategory((string) $district->name, (int) $root->id);
@@ -1263,15 +1308,15 @@ class HubBatchService
                 'title' => $title,
                 'tags' => $tags,
                 'allowed_roles' => $allowedRoles,
-                'created_by' => (int) $user->id,
-                'updated_by' => (int) $user->id,
+                'created_by' => $actorUserId,
+                'updated_by' => $actorUserId,
             ]);
         } else {
             $doc->update([
                 'document_category_id' => (int) $sub->id,
                 'tags' => $tags,
                 'allowed_roles' => $allowedRoles,
-                'updated_by' => (int) $user->id,
+                'updated_by' => $actorUserId,
             ]);
         }
 
@@ -1284,12 +1329,12 @@ class HubBatchService
             'original_name' => (string) ($cdoDoc->original_name ?: ('onboarding-letter-'.$batch->id.'.pdf')),
             'mime_type' => (string) ($cdoDoc->mime_type ?: 'application/pdf'),
             'size_bytes' => (int) ($cdoDoc->size_bytes ?? 0),
-            'uploaded_by' => (int) $user->id,
+            'uploaded_by' => $actorUserId,
         ]);
 
         $doc->update([
             'latest_version_id' => (int) $version->id,
-            'updated_by' => (int) $user->id,
+            'updated_by' => $actorUserId,
         ]);
     }
 
