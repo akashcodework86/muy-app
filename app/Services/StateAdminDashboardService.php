@@ -33,28 +33,44 @@ class StateAdminDashboardService
         $stateCfaTrend = $this->stateDailyTrend14($phase3FloorDate);
         $stateBusinessStageMix = $this->stateStageMixAggregates($phase3FloorDate);
 
-        $activeFy = FiscalYear::query()
-            ->where('is_active', true)
-            ->orderByDesc('starts_on')
-            ->first();
-        $cfaDeliverable = Deliverable::query()
-            ->where('code', 'cfa')
-            ->first();
-        if ($activeFy && $cfaDeliverable) {
-            $stateTargetRow = DB::table('state_deliverable_targets')
-                ->where('fiscal_year_id', (int) $activeFy->id)
-                ->where('deliverable_id', (int) $cfaDeliverable->id)
-                ->first();
-            $stateCfaTarget = $stateTargetRow ? (int) $stateTargetRow->target_total : null;
+        try {
+            if (
+                Schema::hasTable('fiscal_years')
+                && Schema::hasTable('deliverables')
+                && Schema::hasTable('state_deliverable_targets')
+                && Schema::hasTable('district_deliverable_targets')
+            ) {
+                $activeFy = FiscalYear::query()
+                    ->where('is_active', true)
+                    ->orderByDesc('starts_on')
+                    ->first();
+                $cfaDeliverable = Deliverable::query()
+                    ->where('code', 'cfa')
+                    ->first();
+                if ($activeFy && $cfaDeliverable) {
+                    $stateTargetRow = DB::table('state_deliverable_targets')
+                        ->where('fiscal_year_id', (int) $activeFy->id)
+                        ->where('deliverable_id', (int) $cfaDeliverable->id)
+                        ->first();
+                    $stateCfaTarget = $stateTargetRow ? (int) $stateTargetRow->target_total : null;
 
-            $districtsCfaSum = (int) DB::table('district_deliverable_targets')
-                ->where('fiscal_year_id', (int) $activeFy->id)
-                ->where('deliverable_id', (int) $cfaDeliverable->id)
-                ->sum('target_total');
+                    $districtsCfaSum = (int) DB::table('district_deliverable_targets')
+                        ->where('fiscal_year_id', (int) $activeFy->id)
+                        ->where('deliverable_id', (int) $cfaDeliverable->id)
+                        ->sum('target_total');
 
-            if ($stateCfaTarget !== null && $stateCfaTarget > 0) {
-                $stateProgressPct = (int) round(($stateCfaThisFy / $stateCfaTarget) * 100);
+                    if ($stateCfaTarget !== null && $stateCfaTarget > 0) {
+                        $stateProgressPct = (int) round(($stateCfaThisFy / $stateCfaTarget) * 100);
+                    }
+                }
             }
+        } catch (\Throwable) {
+            // Keep dashboard resilient if target tables/columns are missing on any environment.
+            $activeFy = null;
+            $cfaDeliverable = null;
+            $stateCfaTarget = null;
+            $districtsCfaSum = null;
+            $stateProgressPct = null;
         }
 
         $staffTotal = User::query()->where('role', 'district_staff')->count();
