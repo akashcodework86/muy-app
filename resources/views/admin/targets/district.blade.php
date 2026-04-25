@@ -8,8 +8,8 @@
         <p>Missing fiscal years or deliverables.</p>
     @else
         <div style="margin-bottom:1rem;background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d;padding:0.75rem 0.9rem;border-radius:8px;font-size:0.88rem;line-height:1.5;">
-            <strong>Reminder:</strong> Agar deliverable <strong>Onboarding</strong> select hai, to yeh allocation hub batches onboarding target ke liye hai.
-            District total ko state onboarding target ke बराबर rakhna best practice hai.
+            <strong>Reminder:</strong> When <strong>Onboarding</strong> is selected, this allocation is for the hub batch onboarding target.
+            Best practice is to keep the total district allocation equal to the state onboarding target.
         </div>
         <form method="get" action="{{ route('admin.targets.district') }}" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.75rem; align-items:flex-end;">
             <div>
