@@ -4,7 +4,8 @@
 @section('heading', 'Document repository')
 
 @section('content')
-    <form method="get" action="{{ route('admin.documents.index') }}" style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center;margin:0 0 1rem;">
+    <div style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center;margin:0 0 1rem;">
+    <form method="get" action="{{ route('admin.documents.index') }}" style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center;flex:1;">
         <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Search title or tags"
             style="min-width:16rem;max-width:24rem;flex:1;padding:0.45rem 0.6rem;border:1px solid #d4d4d8;border-radius:8px;">
         <select name="category" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
@@ -23,14 +24,15 @@
             @endforeach
         </select>
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;">Filter</button>
-        <form method="post" action="{{ route('admin.documents.sync-cdo') }}" style="margin-left:auto;">
-            @csrf
-            <button type="submit" style="background:#0f766e;color:#fff;border:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;cursor:pointer;">
-                Sync onboarding letters
-            </button>
-        </form>
-        <a href="{{ route('admin.documents.create') }}" style="background:#4f46e5;color:#fff;text-decoration:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;">Upload document</a>
     </form>
+    <form method="post" action="{{ route('admin.documents.sync-cdo') }}">
+        @csrf
+        <button type="submit" style="background:#0f766e;color:#fff;border:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;cursor:pointer;">
+            Sync onboarding letters
+        </button>
+    </form>
+    <a href="{{ route('admin.documents.create') }}" style="background:#4f46e5;color:#fff;text-decoration:none;padding:0.45rem 0.8rem;border-radius:8px;font-weight:600;">Upload document</a>
+    </div>
 
     <div style="display:flex;flex-wrap:wrap;gap:0.7rem;margin:0 0 0.95rem;">
         <form method="post" action="{{ route('admin.documents.categories.store') }}" style="display:flex;flex-wrap:wrap;gap:0.45rem;align-items:center;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:0.45rem 0.55rem;">
