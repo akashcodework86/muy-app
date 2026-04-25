@@ -79,7 +79,7 @@
                             <a href="{{ route('admin.documents.edit', $d) }}">Edit</a>
                             @if ($v)
                                 <span style="color:#d4d4d8;">|</span>
-                                <a href="{{ route('documents.download', $d) }}">Download</a>
+                                <a href="{{ route('library.documents.download', $d) }}">Download</a>
                             @endif
                         </td>
                     </tr>

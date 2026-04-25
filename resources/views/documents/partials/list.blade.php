@@ -48,7 +48,7 @@
                     <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;color:#52525b;">{{ $d->updated_at?->format('Y-m-d') }}</td>
                     <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">
                         @if ($v)
-                            <a href="{{ route('documents.download', $d) }}">Download</a>
+                            <a href="{{ route('library.documents.download', $d) }}">Download</a>
                         @else
                             —
                         @endif
