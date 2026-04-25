@@ -42,8 +42,16 @@ class StateAdminDashboardService
             ) {
                 $cfaDeliverable = Deliverable::query()
                     ->where('code', 'cfa')
+                    ->orderByDesc('id')
                     ->first();
-                if ($cfaDeliverable) {
+                $cfaDeliverableIds = Deliverable::query()
+                    ->where('code', 'cfa')
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn (int $id) => $id > 0)
+                    ->values()
+                    ->all();
+                if ($cfaDeliverableIds !== []) {
                     $activeFy = FiscalYear::query()
                         ->where('is_active', true)
                         ->orderByDesc('starts_on')
@@ -51,14 +59,14 @@ class StateAdminDashboardService
 
                     $latestFyWithCfaTarget = FiscalYear::query()
                         ->join('state_deliverable_targets as sdt', 'sdt.fiscal_year_id', '=', 'fiscal_years.id')
-                        ->where('sdt.deliverable_id', (int) $cfaDeliverable->id)
+                        ->whereIn('sdt.deliverable_id', $cfaDeliverableIds)
                         ->orderByDesc('fiscal_years.starts_on')
                         ->select('fiscal_years.*')
                         ->first();
 
                     if ($activeFy && DB::table('state_deliverable_targets')
                         ->where('fiscal_year_id', (int) $activeFy->id)
-                        ->where('deliverable_id', (int) $cfaDeliverable->id)
+                        ->whereIn('deliverable_id', $cfaDeliverableIds)
                         ->exists()) {
                         // Keep active FY when it already has a CFA target row.
                     } elseif ($latestFyWithCfaTarget) {
@@ -66,16 +74,18 @@ class StateAdminDashboardService
                     }
                 }
 
-                if ($activeFy && $cfaDeliverable) {
-                    $stateTargetRow = DB::table('state_deliverable_targets')
+                if ($activeFy && $cfaDeliverableIds !== []) {
+                    $stateCfaTarget = (int) DB::table('state_deliverable_targets')
                         ->where('fiscal_year_id', (int) $activeFy->id)
-                        ->where('deliverable_id', (int) $cfaDeliverable->id)
-                        ->first();
-                    $stateCfaTarget = $stateTargetRow ? (int) $stateTargetRow->target_total : null;
+                        ->whereIn('deliverable_id', $cfaDeliverableIds)
+                        ->sum('target_total');
+                    if ($stateCfaTarget <= 0) {
+                        $stateCfaTarget = null;
+                    }
 
                     $districtsCfaSum = (int) DB::table('district_deliverable_targets')
                         ->where('fiscal_year_id', (int) $activeFy->id)
-                        ->where('deliverable_id', (int) $cfaDeliverable->id)
+                        ->whereIn('deliverable_id', $cfaDeliverableIds)
                         ->sum('target_total');
 
                     if ($stateCfaTarget !== null && $stateCfaTarget > 0) {
