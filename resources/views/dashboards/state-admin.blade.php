@@ -549,13 +549,28 @@
                             </p>
 
                             @if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0 && $districtAllocPct !== null)
+                            @php
+                                $achievedNow = (int) ($cfaTotal ?? 0);
+                                $targetNow = (int) $stateCfaTarget;
+                                $achievementPct = $targetNow > 0 ? (int) round(($achievedNow / $targetNow) * 100) : 0;
+                                $remainingGap = max(0, $targetNow - $achievedNow);
+                                $allocationGap = abs((int) (($districtsCfaSum ?? 0) - $targetNow));
+                            @endphp
                             <div class="target-strip" style="margin-top:0;border-radius:14px;">
                                 <div>
-                                    <h3>District target rows vs state MIS</h3>
+                                    <h3>District Target Allocation Status</h3>
                                     <p class="big">{{ $districtAllocPct }}%</p>
-                                    <p class="meta">District CFA rows sum: {{ number_format((int) ($districtsCfaSum ?? 0)) }} of state {{ number_format((int) $stateCfaTarget) }}.
+                                    <p class="meta"><strong>Allocation match %</strong> (district target total vs state target). Current district sum: {{ number_format((int) ($districtsCfaSum ?? 0)) }} of state {{ number_format((int) $stateCfaTarget) }}.
                                         @if ($cfaDeliverable)
                                             <a href="{{ route('admin.targets.district', ['fiscal_year_id' => $activeFy->id, 'deliverable_id' => $cfaDeliverable->id]) }}">Edit district targets</a>
+                                        @endif
+                                    </p>
+                                    <p class="meta" style="margin-top:0.45rem;">
+                                        <strong>Smart analysis:</strong> Achievement is <strong>{{ $achievementPct }}%</strong> ({{ number_format($achievedNow) }} of {{ number_format($targetNow) }}), remaining gap <strong>{{ number_format($remainingGap) }}</strong>.
+                                        @if ($allocationGap === 0)
+                                            District allocation is perfectly aligned with state target.
+                                        @else
+                                            District allocation differs from state target by {{ number_format($allocationGap) }}.
                                         @endif
                                     </p>
                                 </div>
