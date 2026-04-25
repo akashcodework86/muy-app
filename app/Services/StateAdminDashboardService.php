@@ -40,13 +40,32 @@ class StateAdminDashboardService
                 && Schema::hasTable('state_deliverable_targets')
                 && Schema::hasTable('district_deliverable_targets')
             ) {
-                $activeFy = FiscalYear::query()
-                    ->where('is_active', true)
-                    ->orderByDesc('starts_on')
-                    ->first();
                 $cfaDeliverable = Deliverable::query()
                     ->where('code', 'cfa')
                     ->first();
+                if ($cfaDeliverable) {
+                    $activeFy = FiscalYear::query()
+                        ->where('is_active', true)
+                        ->orderByDesc('starts_on')
+                        ->first();
+
+                    $latestFyWithCfaTarget = FiscalYear::query()
+                        ->join('state_deliverable_targets as sdt', 'sdt.fiscal_year_id', '=', 'fiscal_years.id')
+                        ->where('sdt.deliverable_id', (int) $cfaDeliverable->id)
+                        ->orderByDesc('fiscal_years.starts_on')
+                        ->select('fiscal_years.*')
+                        ->first();
+
+                    if ($activeFy && DB::table('state_deliverable_targets')
+                        ->where('fiscal_year_id', (int) $activeFy->id)
+                        ->where('deliverable_id', (int) $cfaDeliverable->id)
+                        ->exists()) {
+                        // Keep active FY when it already has a CFA target row.
+                    } elseif ($latestFyWithCfaTarget) {
+                        $activeFy = $latestFyWithCfaTarget;
+                    }
+                }
+
                 if ($activeFy && $cfaDeliverable) {
                     $stateTargetRow = DB::table('state_deliverable_targets')
                         ->where('fiscal_year_id', (int) $activeFy->id)
