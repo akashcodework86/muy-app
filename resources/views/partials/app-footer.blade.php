@@ -239,13 +239,15 @@
     }
     .muy-footer__links--plain li {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 0.55rem;
         color: #cbd5e1;
         font-size: 0.88rem;
+        word-break: break-all;
     }
     .muy-footer__ico {
         display: inline-flex;
+        flex-shrink: 0;
         width: 22px; height: 22px;
         align-items: center;
         justify-content: center;
