@@ -652,7 +652,7 @@
                                             <span class="welcome-district-embed__pct">{{ $stateProgressPct }}%</span>
                                             <span class="welcome-district-embed__pct-label">Phase 3 overall coverage</span>
                                         @else
-                                            <span class="welcome-district-embed__pct">ï¿½??</span>
+                                            <span class="welcome-district-embed__pct">--</span>
                                             <span class="welcome-district-embed__pct-label">No baseline configured</span>
                                         @endif
                                     </div>

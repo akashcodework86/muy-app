@@ -41,11 +41,21 @@ class StateAdminDashboardService
                 && Schema::hasTable('district_deliverable_targets')
             ) {
                 $cfaDeliverable = Deliverable::query()
-                    ->where('code', 'cfa')
+                    ->where(function ($q): void {
+                        $q->whereRaw('LOWER(code) = ?', ['cfa'])
+                            ->orWhere('sort_order', 3)
+                            ->orWhere('name', 'like', '%Call for Application%')
+                            ->orWhere('mis_entry_label', 'like', '%Call for Application%');
+                    })
                     ->orderByDesc('id')
                     ->first();
                 $cfaDeliverableIds = Deliverable::query()
-                    ->where('code', 'cfa')
+                    ->where(function ($q): void {
+                        $q->whereRaw('LOWER(code) = ?', ['cfa'])
+                            ->orWhere('sort_order', 3)
+                            ->orWhere('name', 'like', '%Call for Application%')
+                            ->orWhere('mis_entry_label', 'like', '%Call for Application%');
+                    })
                     ->pluck('id')
                     ->map(fn ($id) => (int) $id)
                     ->filter(fn (int $id) => $id > 0)
