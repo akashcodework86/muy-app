@@ -1,0 +1,516 @@
+@extends('layouts.admin')
+
+@section('title', 'Field Coordinator Attendance')
+@section('heading', 'Field Coordinator Attendance')
+
+@push('styles')
+<style>
+    :root {
+        --adatt-indigo: #4f46e5;
+        --adatt-teal:   #0d9488;
+        --adatt-text:   #0f172a;
+        --adatt-muted:  #64748b;
+        --adatt-ink:    #334155;
+        --adatt-border: #e2e8f0;
+        --adatt-bg:     #f8fafc;
+    }
+
+    .adatt-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        padding-bottom: 3rem;
+        font-family: 'DM Sans', sans-serif;
+    }
+
+    /* ── Filter card ────────────────────────────────── */
+    .adatt-filter-card {
+        background: #fff;
+        border: 1px solid var(--adatt-border);
+        border-radius: 16px;
+        box-shadow: 0 4px 16px rgba(15,23,42,0.04);
+        padding: 1rem 1.25rem;
+    }
+    .adatt-filter-card h3 {
+        margin: 0 0 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--adatt-muted);
+    }
+    .adatt-filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        align-items: flex-end;
+    }
+    .adatt-filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.28rem;
+        flex: 1;
+        min-width: 160px;
+    }
+    .adatt-filter-field label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--adatt-ink);
+    }
+    .adatt-filter-input {
+        padding: 0.52rem 0.65rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.86rem;
+        color: var(--adatt-text);
+        background: #fff;
+        width: 100%;
+        font-family: inherit;
+    }
+    .adatt-filter-input:focus {
+        outline: none;
+        border-color: var(--adatt-indigo);
+        box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+    }
+    .adatt-btn {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        padding: 0.52rem 1rem;
+        background: var(--adatt-indigo);
+        color: #fff; border: none; border-radius: 8px;
+        font-size: 0.85rem; font-weight: 700;
+        cursor: pointer; font-family: inherit;
+        white-space: nowrap;
+    }
+    .adatt-btn:hover { opacity: 0.88; }
+    .adatt-btn--ghost {
+        background: transparent;
+        color: var(--adatt-indigo);
+        border: 1px solid var(--adatt-indigo);
+    }
+
+    /* ── Summary chips ──────────────────────────────── */
+    .adatt-chips {
+        display: flex; flex-wrap: wrap; gap: 0.55rem;
+    }
+    .adatt-chip {
+        display: inline-flex; align-items: center; gap: 0.45rem;
+        background: #fff; border: 1px solid var(--adatt-border);
+        border-radius: 12px; padding: 0.55rem 0.9rem;
+        box-shadow: 0 2px 10px rgba(15,23,42,0.04);
+    }
+    .adatt-chip__icon {
+        width: 1.7rem; height: 1.7rem;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.8rem;
+    }
+    .adatt-chip__icon--indigo { background:#eef2ff; color:var(--adatt-indigo); }
+    .adatt-chip__icon--teal   { background:#ccfbf1; color:#0f766e; }
+    .adatt-chip__icon--amber  { background:#fef9c3; color:#a16207; }
+    .adatt-chip__icon--rose   { background:#ffe4e6; color:#be123c; }
+    .adatt-chip__body {}
+    .adatt-chip__label { font-size:0.68rem; color:var(--adatt-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.07em; }
+    .adatt-chip__value { font-size:1.05rem; font-weight:800; color:var(--adatt-text); }
+
+    /* ── Table card ─────────────────────────────────── */
+    .adatt-table-card {
+        background: #fff;
+        border: 1px solid var(--adatt-border);
+        border-radius: 16px;
+        box-shadow: 0 4px 16px rgba(15,23,42,0.04);
+        overflow: hidden;
+    }
+    .adatt-table-head {
+        padding: 0.9rem 1.25rem;
+        border-bottom: 1px solid var(--adatt-border);
+        display: flex; align-items: center; gap: 0.6rem;
+    }
+    .adatt-table-head-icon {
+        width: 1.8rem; height: 1.8rem;
+        background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--adatt-indigo); font-size: 0.8rem;
+    }
+    .adatt-table-head h3 { margin: 0; font-size: 0.92rem; font-weight: 700; color: var(--adatt-text); }
+    .adatt-table-head .adatt-count {
+        margin-left: auto;
+        font-size: 0.78rem; color: var(--adatt-muted);
+    }
+
+    .adatt-table { width: 100%; border-collapse: collapse; font-size: 0.845rem; }
+    .adatt-table thead tr { background: #f8fafc; }
+    .adatt-table th {
+        padding: 0.65rem 1rem;
+        text-align: left;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--adatt-muted);
+        border-bottom: 1px solid var(--adatt-border);
+        white-space: nowrap;
+    }
+    .adatt-table td {
+        padding: 0.7rem 1rem;
+        color: var(--adatt-ink);
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: top;
+    }
+    .adatt-table tbody tr:last-child td { border-bottom: none; }
+    .adatt-table tbody tr:hover td { background: #fafafa; }
+
+    /* coordinator cell */
+    .adatt-coord-name { font-weight: 700; color: var(--adatt-text); }
+    .adatt-coord-meta { font-size: 0.72rem; color: var(--adatt-muted); margin-top: 0.1rem; }
+    .adatt-coord-district {
+        display: inline-block;
+        padding: 0.12rem 0.45rem;
+        background: #eef2ff; color: var(--adatt-indigo);
+        border-radius: 999px; font-size: 0.68rem; font-weight: 700;
+        margin-top: 0.2rem;
+    }
+
+    /* date badge */
+    .adatt-date-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: #f0fdf4; color: #15803d;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px; font-size: 0.75rem; font-weight: 700;
+    }
+
+    /* location cell */
+    .adatt-loc-area   { font-weight: 600; color: var(--adatt-text); }
+    .adatt-loc-block  { font-size: 0.75rem; color: var(--adatt-muted); }
+    .adatt-loc-dist   { font-size: 0.72rem; color: var(--adatt-indigo); font-weight: 600; margin-top: 0.15rem; }
+
+    /* village tags */
+    .adatt-village-count { font-weight: 700; color: var(--adatt-text); }
+    .adatt-village-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.3rem; }
+    .adatt-village-tag {
+        display: inline-block;
+        padding: 0.12rem 0.45rem;
+        background: #f0fdf4; border: 1px solid #bbf7d0;
+        color: #15803d; border-radius: 999px;
+        font-size: 0.68rem; font-weight: 600;
+    }
+
+    /* stat number */
+    .adatt-num { font-weight: 700; font-size: 0.95rem; color: var(--adatt-text); }
+
+    /* CFA status (highlighted cell + brief) */
+    .cfa-status-cell {
+        position: relative;
+        border-radius: 10px;
+        padding: 0.55rem 0.65rem 0.55rem 0.85rem;
+        border: 1px solid transparent;
+        max-width: 15rem;
+    }
+    .cfa-status-cell--match {
+        background: linear-gradient(135deg, #bbf7d0 0%, #dcfce7 55%, #ecfdf5 100%);
+        border-color: #22c55e;
+        box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.15), 0 2px 8px rgba(22, 163, 74, 0.12);
+    }
+    .cfa-status-cell--mismatch {
+        background: linear-gradient(135deg, #fecaca 0%, #fee2e2 50%, #fef2f2 100%);
+        border-color: #ef4444;
+        box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.12), 0 2px 8px rgba(220, 38, 38, 0.1);
+    }
+    .cfa-status-cell--neutral {
+        background: linear-gradient(135deg, #fde68a 0%, #fef9c3 55%, #fffbeb 100%);
+        border-color: #f59e0b;
+        box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.15), 0 2px 8px rgba(217, 119, 6, 0.08);
+    }
+    .cfa-status-cell::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0.45rem;
+        bottom: 0.45rem;
+        width: 3px;
+        border-radius: 3px;
+    }
+    .cfa-status-cell--match::before { background: #15803d; box-shadow: 0 0 6px rgba(22, 163, 74, 0.55); }
+    .cfa-status-cell--mismatch::before { background: #b91c1c; box-shadow: 0 0 6px rgba(239, 68, 68, 0.45); }
+    .cfa-status-cell--neutral::before { background: #d97706; box-shadow: 0 0 6px rgba(245, 158, 11, 0.45); }
+    .cfa-match    { display:inline-flex;align-items:center;gap:0.28rem;padding:0.28rem 0.65rem;border-radius:999px;font-size:0.74rem;font-weight:800;background:#15803d;color:#fff;border:1px solid #166534;white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,0.25) inset; }
+    .cfa-mismatch { display:inline-flex;align-items:center;gap:0.28rem;padding:0.28rem 0.65rem;border-radius:999px;font-size:0.74rem;font-weight:800;background:#dc2626;color:#fff;border:1px solid #b91c1c;white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,0.2) inset; }
+    .cfa-neutral  { display:inline-flex;align-items:center;gap:0.28rem;padding:0.28rem 0.65rem;border-radius:999px;font-size:0.74rem;font-weight:800;background:#d97706;color:#fff;border:1px solid #b45309;white-space:nowrap;box-shadow:0 1px 0 rgba(255,255,255,0.2) inset; }
+    .cfa-status-brief {
+        margin-top: 0.38rem;
+        font-size: 0.68rem;
+        line-height: 1.35;
+    }
+    .cfa-status-cell--match .cfa-status-brief { color: #14532d; font-weight: 600; }
+    .cfa-status-cell--mismatch .cfa-status-brief { color: #7f1d1d; font-weight: 600; }
+    .cfa-status-cell--neutral .cfa-status-brief { color: #92400e; font-weight: 600; }
+
+    /* attachment btn */
+    .adatt-dl-btn {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        padding: 0.28rem 0.6rem;
+        background: #0f766e; color: #fff;
+        border-radius: 6px; font-size: 0.74rem; font-weight: 700;
+        text-decoration: none;
+    }
+    .adatt-dl-btn:hover { background: #0d9488; }
+
+    .adatt-empty {
+        padding: 3rem 1rem;
+        text-align: center;
+        color: var(--adatt-muted); font-size: 0.88rem;
+    }
+    .adatt-empty i { display: block; font-size: 2.2rem; color: #c7d2fe; margin-bottom: 0.5rem; }
+</style>
+@endpush
+
+@section('content')
+<div class="adatt-shell">
+
+    {{-- Filter card --}}
+    <div class="adatt-filter-card">
+        <h3><i class="fa-solid fa-filter" style="margin-right:0.35rem;"></i>Filter records</h3>
+        <form method="get" action="{{ route('admin.attendance.index') }}">
+            <div class="adatt-filter-row">
+
+                <div class="adatt-filter-field" style="max-width:280px;">
+                    <label>Search (area, block, name)</label>
+                    <input type="search" name="q" value="{{ $searchQuery ?? '' }}"
+                        placeholder="Search…" class="adatt-filter-input">
+                </div>
+
+                <div class="adatt-filter-field" style="max-width:240px;">
+                    <label>Field Coordinator</label>
+                    <select name="coordinator_id" class="adatt-filter-input">
+                        <option value="">— All coordinators —</option>
+                        @foreach ($coordinators as $c)
+                            <option value="{{ $c->id }}"
+                                @selected((int)($coordinatorId ?? 0) === (int)$c->id)>
+                                {{ $c->name }}
+                                @if ($c->district?->name)
+                                    — {{ $c->district->name }}
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="adatt-filter-field" style="max-width:160px;">
+                    <label>From date</label>
+                    <input type="date" name="from" value="{{ request('from') }}" class="adatt-filter-input">
+                </div>
+
+                <div class="adatt-filter-field" style="max-width:160px;">
+                    <label>To date</label>
+                    <input type="date" name="to" value="{{ request('to') }}" class="adatt-filter-input">
+                </div>
+
+                <div style="display:flex;gap:0.45rem;align-items:flex-end;">
+                    <button type="submit" class="adatt-btn">
+                        <i class="fa-solid fa-magnifying-glass"></i> Apply
+                    </button>
+                    <a href="{{ route('admin.attendance.index') }}" class="adatt-btn adatt-btn--ghost">Reset</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {{-- Summary chips --}}
+    @php
+        $totalReports      = $reports->total();
+        $totalParticipants = $reports->getCollection()->sum('participants_total');
+        $totalCfas         = $reports->getCollection()->sum('cfas_filled_total');
+        $totalOutreach     = $reports->getCollection()->sum('outreach_programmes_total');
+    @endphp
+    <div class="adatt-chips">
+        <div class="adatt-chip">
+            <div class="adatt-chip__icon adatt-chip__icon--indigo"><i class="fa-solid fa-calendar-check"></i></div>
+            <div class="adatt-chip__body">
+                <div class="adatt-chip__label">Total reports</div>
+                <div class="adatt-chip__value">{{ number_format($totalReports) }}</div>
+            </div>
+        </div>
+        <div class="adatt-chip">
+            <div class="adatt-chip__icon adatt-chip__icon--teal"><i class="fa-solid fa-users"></i></div>
+            <div class="adatt-chip__body">
+                <div class="adatt-chip__label">Participants (page)</div>
+                <div class="adatt-chip__value">{{ number_format($totalParticipants) }}</div>
+            </div>
+        </div>
+        <div class="adatt-chip">
+            <div class="adatt-chip__icon adatt-chip__icon--amber"><i class="fa-solid fa-file-pen"></i></div>
+            <div class="adatt-chip__body">
+                <div class="adatt-chip__label">CFAs filled (page)</div>
+                <div class="adatt-chip__value">{{ number_format($totalCfas) }}</div>
+            </div>
+        </div>
+        <div class="adatt-chip">
+            <div class="adatt-chip__icon adatt-chip__icon--rose"><i class="fa-solid fa-bullhorn"></i></div>
+            <div class="adatt-chip__body">
+                <div class="adatt-chip__label">Outreach (page)</div>
+                <div class="adatt-chip__value">{{ number_format($totalOutreach) }}</div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Table card --}}
+    <div class="adatt-table-card">
+        <div class="adatt-table-head">
+            <div class="adatt-table-head-icon"><i class="fa-solid fa-table-list"></i></div>
+            <h3>Attendance records</h3>
+            <span class="adatt-count">{{ number_format($reports->total()) }} total</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="adatt-table">
+                <thead>
+                    <tr>
+                        <th>Coordinator</th>
+                        <th>Visit date</th>
+                        <th>Entry date</th>
+                        <th>Area / Block / District</th>
+                        <th>Villages covered</th>
+                        <th>Participants</th>
+                        <th>CFAs filled</th>
+                        <th>Outreach</th>
+                        <th>CFA status</th>
+                        <th>Doc</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($reports as $row)
+                        @php
+                            $mapKey   = $row->field_coordinator_user_id.'_'.$row->visit_date?->format('Y-m-d');
+                            $cfaCount = (int) ($cfaMap[$mapKey] ?? 0);
+                            $reported = (int) $row->cfas_filled_total;
+                        @endphp
+                        <tr>
+                            {{-- Coordinator --}}
+                            <td>
+                                <div class="adatt-coord-name">{{ $row->field_coordinator_name }}</div>
+                                @if ($row->district?->name)
+                                    <div><span class="adatt-coord-district">
+                                        <i class="fa-solid fa-location-dot" style="font-size:0.6rem;"></i>
+                                        {{ $row->district->name }}
+                                    </span></div>
+                                @endif
+                                <div class="adatt-coord-meta">ID {{ $row->field_coordinator_user_id }}</div>
+                            </td>
+
+                            {{-- Visit date --}}
+                            <td>
+                                <span class="adatt-date-badge">
+                                    {{ $row->visit_date?->format('d M Y') }}
+                                </span>
+                            </td>
+
+                            {{-- Entry date --}}
+                            <td style="color:var(--adatt-muted);font-size:0.8rem;">
+                                {{ $row->entry_date?->format('d M Y') }}
+                            </td>
+
+                            {{-- Location --}}
+                            <td>
+                                @if($row->area)
+                                    <div class="adatt-loc-area">{{ $row->area }}</div>
+                                @endif
+                                @if($row->block)
+                                    <div class="adatt-loc-block">{{ $row->block }}</div>
+                                @endif
+                                @if($row->district?->name)
+                                    <div class="adatt-loc-dist">
+                                        <i class="fa-solid fa-building" style="font-size:0.6rem;"></i>
+                                        {{ $row->district->name }}
+                                    </div>
+                                @endif
+                                @if(!$row->area && !$row->block && !$row->district?->name)
+                                    <span style="color:var(--adatt-muted);">—</span>
+                                @endif
+                            </td>
+
+                            {{-- Villages --}}
+                            <td>
+                                <div class="adatt-village-count">
+                                    {{ number_format((int)$row->villages_visited_total) }} visited
+                                </div>
+                                @if(is_array($row->villages_covered) && count($row->villages_covered))
+                                    <div class="adatt-village-tags">
+                                        @foreach($row->villages_covered as $v)
+                                            <span class="adatt-village-tag">{{ $v }}</span>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </td>
+
+                            {{-- Stats --}}
+                            <td><span class="adatt-num">{{ number_format((int)$row->participants_total) }}</span></td>
+                            <td><span class="adatt-num">{{ number_format($reported) }}</span></td>
+                            <td><span class="adatt-num">{{ number_format((int)$row->outreach_programmes_total) }}</span></td>
+
+                            {{-- CFA status --}}
+                            <td>
+                                @if ($cfaCount > 0 && $cfaCount >= $reported)
+                                    <div class="cfa-status-cell cfa-status-cell--match">
+                                        <span class="cfa-match">
+                                            <i class="fa-solid fa-circle-check"></i>
+                                            {{ $cfaCount }} CFA(s) match
+                                        </span>
+                                        <div class="cfa-status-brief">
+                                            Referral CFAs on this visit date meet or exceed reported ({{ $reported }}) for this coordinator.
+                                        </div>
+                                    </div>
+                                @elseif ($cfaCount > 0)
+                                    <div class="cfa-status-cell cfa-status-cell--mismatch">
+                                        <span class="cfa-mismatch">
+                                            <i class="fa-solid fa-triangle-exclamation"></i>
+                                            {{ $cfaCount }} CFA(s) vs {{ $reported }} reported
+                                        </span>
+                                        <div class="cfa-status-brief">
+                                            Fewer CFAs than reported — ask the coordinator to verify referrals or the number entered.
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="cfa-status-cell cfa-status-cell--neutral">
+                                        <span class="cfa-neutral">
+                                            <i class="fa-solid fa-circle-minus"></i>
+                                            No CFAs on this date
+                                        </span>
+                                        <div class="cfa-status-brief">
+                                            No CFA submissions via this coordinator’s referral on this visit date (by submission date).
+                                        </div>
+                                    </div>
+                                @endif
+                            </td>
+
+                            {{-- Attachment --}}
+                            <td>
+                                @if ($row->attachment_path)
+                                    <a href="{{ route('admin.attendance.attachment', $row) }}" class="adatt-dl-btn">
+                                        <i class="fa-solid fa-download"></i> Download
+                                    </a>
+                                @else
+                                    <span style="color:#a1a1aa;">—</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="10">
+                                <div class="adatt-empty">
+                                    <i class="fa-regular fa-folder-open"></i>
+                                    No attendance records found for the selected filters.
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if ($reports->hasPages())
+        <div>{{ $reports->links() }}</div>
+    @endif
+
+</div>
+@endsection

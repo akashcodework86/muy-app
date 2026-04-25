@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Account\ProfileController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\FieldCoordinatorAttendanceAdminController;
 use App\Http\Controllers\StateStaff\SpocServiceCaseController;
 use App\Http\Controllers\Admin\CatalogServiceController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
+use App\Http\Controllers\Staff\FieldCoordinatorAttendanceController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
 use App\Models\Deliverable;
@@ -156,6 +158,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('phase1-data', [StaffPortalController::class, 'phase1Data'])->name('phase1-data');
         Route::get('phase2-data', [StaffPortalController::class, 'phase2Data'])->name('phase2-data');
         Route::get('phase2-data/export', [StaffPortalController::class, 'exportPhase2Data'])->name('phase2-data.export');
+        Route::get('attendance', [FieldCoordinatorAttendanceController::class, 'index'])->name('attendance.index');
+        Route::get('attendance/view', [FieldCoordinatorAttendanceController::class, 'view'])->name('attendance.view');
+        Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceController::class, 'downloadAttachment'])->name('attendance.attachment');
+        Route::post('attendance', [FieldCoordinatorAttendanceController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.store');
 
         /** Read-only batches view for district staff (scoped to their own district) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
@@ -271,6 +279,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('staff/{user}/cfa-targets', [StaffDeliverableMonthlyTargetController::class, 'updateCfaLegacy'])->name('staff.cfa-targets.update');
 
         Route::get('team-performance', [TeamPerformanceController::class, 'index'])->name('team-performance.index');
+<<<<<<< HEAD
         Route::get('documents', [DocumentRepositoryController::class, 'index'])->name('documents.index');
         Route::get('documents/create', [DocumentRepositoryController::class, 'create'])->name('documents.create');
         Route::post('documents', [DocumentRepositoryController::class, 'store'])->name('documents.store');
@@ -280,6 +289,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('documents/{document}', [DocumentRepositoryController::class, 'update'])->name('documents.update');
         Route::post('documents/{document}/versions', [DocumentRepositoryController::class, 'uploadVersion'])->name('documents.upload-version');
         Route::delete('documents/{document}', [DocumentRepositoryController::class, 'destroy'])->name('documents.destroy');
+=======
+        Route::get('attendance', [FieldCoordinatorAttendanceAdminController::class, 'index'])->name('attendance.index');
+        Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceAdminController::class, 'downloadAttachment'])
+            ->name('attendance.attachment');
+>>>>>>> 1ad655cccde5c099aaab717b7b90357887000ccd
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
