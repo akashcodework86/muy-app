@@ -39,6 +39,7 @@
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
+        str_starts_with($r, 'admin.documents') => 'admin-documents',
         str_starts_with($r, 'admin.service-catalog') => 'service-catalog',
         str_starts_with($r, 'admin.service-module-settings') => 'service-module-settings',
         str_starts_with($r, 'admin.batches') => 'admin-batches',
@@ -57,7 +58,7 @@
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance', 'team-directory'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa'], true);
-    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings'], true);
+    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -169,6 +170,9 @@
                     </a>
                     <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batch-compliance') is-active @endif" role="menuitem">
                         {!! $i('download') !!}<span>Batch Onboarding Letter</span>
+                    </a>
+                    <a href="{{ route('admin.documents.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'admin-documents') is-active @endif" role="menuitem">
+                        {!! $i('book') !!}<span>Document repository</span>
                     </a>
                     <a href="{{ route('admin.service-module-settings.edit') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-module-settings') is-active @endif" role="menuitem">
                         {!! $i('cog') !!}<span>Service module settings</span>
