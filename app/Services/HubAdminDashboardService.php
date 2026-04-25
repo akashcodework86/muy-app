@@ -59,6 +59,13 @@ class HubAdminDashboardService
             ->whereMonth('created_at', now()->month)
             ->count();
         $cfaLast30 = (clone $cfaBase)->where('created_at', '>=', now()->subDays(30))->count();
+        $cfaLast7 = (int) (clone $cfaBase)->where('created_at', '>=', now()->subDays(6)->startOfDay())->count();
+        $cfaPrev7 = (int) (clone $cfaBase)
+            ->whereBetween('created_at', [now()->subDays(13)->startOfDay(), now()->subDays(7)->endOfDay()])
+            ->count();
+        $cfaWoWDeltaPct = $cfaPrev7 > 0
+            ? (int) round((($cfaLast7 - $cfaPrev7) / $cfaPrev7) * 100)
+            : ($cfaLast7 > 0 ? 100 : 0);
 
         $stageQuery = DB::table('cfa_submissions')
             ->selectRaw("LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.form_stage')))) as stage_key")
@@ -77,6 +84,70 @@ class HubAdminDashboardService
                 ->groupBy('districts.id', 'districts.name')
                 ->orderByDesc('total')
                 ->get();
+        $todayDistrictRows = $districtIds === []
+            ? collect()
+            : DB::table('districts')
+                ->leftJoin('cfa_submissions', function ($join): void {
+                    $join->on('cfa_submissions.district_id', '=', 'districts.id')
+                        ->whereDate('cfa_submissions.created_at', now()->toDateString());
+                })
+                ->whereIn('districts.id', $districtIds)
+                ->select('districts.name', DB::raw('COUNT(cfa_submissions.id) as total'))
+                ->groupBy('districts.id', 'districts.name')
+                ->orderByDesc('total')
+                ->orderBy('districts.name')
+                ->get();
+        $todayTopDistrict = $todayDistrictRows->first();
+        $todayZeroDistricts = max(0, (int) $todayDistrictRows->count() - (int) $todayDistrictRows->filter(fn ($r) => (int) $r->total > 0)->count());
+
+        $onboardingDeliverableIds = Deliverable::query()
+            ->where(function ($q): void {
+                $q->whereRaw('LOWER(code) = ?', ['onboarding'])
+                    ->orWhere('sort_order', 4)
+                    ->orWhere('name', 'like', '%Onboard%')
+                    ->orWhere('mis_entry_label', 'like', '%Onboard%');
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
+        $hubOnboardingTarget = null;
+        if ($activeFy && $districtIds !== [] && $onboardingDeliverableIds !== []) {
+            $hubOnboardingTarget = (int) DistrictDeliverableTarget::query()
+                ->where('fiscal_year_id', (int) $activeFy->id)
+                ->whereIn('deliverable_id', $onboardingDeliverableIds)
+                ->whereIn('district_id', $districtIds)
+                ->sum('target_total');
+            if ($hubOnboardingTarget <= 0) {
+                $hubOnboardingTarget = null;
+            }
+        }
+        $phase3FloorDate = Carbon::create(2026, 4, 1)->startOfDay();
+        $hubOnboardingAchieved = (int) DB::table('onboarding_batch_cfa as obc')
+            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+            ->where('ob.hub_id', $hubId)
+            ->where('ob.status', 'locked')
+            ->whereNotNull('ob.locked_at')
+            ->where('ob.locked_at', '>=', $phase3FloorDate)
+            ->count();
+        $hubOnboardingProgressPct = ($hubOnboardingTarget !== null && $hubOnboardingTarget > 0)
+            ? (int) round(($hubOnboardingAchieved / $hubOnboardingTarget) * 100)
+            : null;
+        $hubOnboardingByDistrict = DB::table('onboarding_batch_cfa as obc')
+            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+            ->join('districts as d', 'd.id', '=', 'ob.district_id')
+            ->where('ob.hub_id', $hubId)
+            ->where('ob.status', 'locked')
+            ->whereNotNull('ob.locked_at')
+            ->where('ob.locked_at', '>=', $phase3FloorDate)
+            ->groupBy('d.id', 'd.name')
+            ->orderByDesc(DB::raw('COUNT(obc.id)'))
+            ->orderBy('d.name')
+            ->select('d.name', DB::raw('COUNT(obc.id) as total'))
+            ->get()
+            ->map(fn ($row) => ['district' => (string) $row->name, 'count' => (int) $row->total])
+            ->all();
 
         $staffByDistrict = DB::table('users')
             ->join('districts', 'users.district_id', '=', 'districts.id')
@@ -158,6 +229,9 @@ class HubAdminDashboardService
             'hubCfaThisFy' => $hubCfaThisFy,
             'cfaThisMonth' => $cfaThisMonth,
             'cfaLast30' => $cfaLast30,
+            'cfaLast7' => $cfaLast7,
+            'cfaPrev7' => $cfaPrev7,
+            'cfaWoWDeltaPct' => $cfaWoWDeltaPct,
             'seedCount' => (int) ($stageCounts['seed'] ?? 0),
             'earlyCount' => (int) ($stageCounts['early'] ?? 0),
             'growthCount' => (int) ($stageCounts['growth'] ?? 0),
@@ -182,6 +256,12 @@ class HubAdminDashboardService
             'heroSparkline30' => $heroSparkline30,
             'heroProgressPct' => $heroProgressPct,
             'heroRemaining' => $heroRemaining,
+            'todayTopDistrict' => $todayTopDistrict ? ['name' => (string) $todayTopDistrict->name, 'count' => (int) $todayTopDistrict->total] : null,
+            'todayZeroDistricts' => $todayZeroDistricts,
+            'hubOnboardingTarget' => $hubOnboardingTarget,
+            'hubOnboardingAchieved' => $hubOnboardingAchieved,
+            'hubOnboardingProgressPct' => $hubOnboardingProgressPct,
+            'hubOnboardingByDistrict' => $hubOnboardingByDistrict,
         ];
     }
 

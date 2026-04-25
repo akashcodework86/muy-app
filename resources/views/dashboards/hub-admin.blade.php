@@ -11,6 +11,27 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
     @include('partials.admin-shell-styles')
     @include('partials.hub-dashboard-staff-skin-styles')
+    <style>
+        .hub-insight-grid { margin-top: 0.7rem; display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 0.65rem; }
+        @media (max-width: 1100px) { .hub-insight-grid { grid-template-columns: 1fr; } }
+        .hub-insight-card { background: rgba(255,255,255,.88); border: 1px solid rgba(226,232,240,.95); border-radius: 12px; padding: .62rem .72rem; }
+        .hub-insight-title { font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #6366f1; margin-bottom: .38rem; }
+        .hub-insight-top { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-bottom: .25rem; }
+        .hub-insight-value { font-size: .95rem; font-weight: 800; color: #0f172a; }
+        .hub-insight-meta { font-size: .67rem; color: #64748b; font-weight: 700; }
+        .hub-insight-bar { height: 7px; border-radius: 999px; background: #eef2f7; border: 1px solid #dde5ef; overflow: hidden; }
+        .hub-insight-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4f46e5, #14b8a6); }
+        .hub-insight-foot { margin-top: .34rem; font-size: .67rem; color: #475569; line-height: 1.4; }
+        .hub-insight-list { display: grid; gap: .3rem; }
+        .hub-insight-kpi { display: flex; justify-content: space-between; gap: .5rem; align-items: center; font-size: .7rem; padding: .24rem .3rem; background: rgba(248,250,252,.9); border:1px solid rgba(226,232,240,.95); border-radius:8px; }
+        .hub-insight-kpi strong { color:#0f172a; font-weight:800; }
+        .hub-insight-chip.up { color:#15803d; font-weight:800; }
+        .hub-insight-chip.down { color:#b91c1c; font-weight:800; }
+        .hub-insight-chip.flat { color:#475569; font-weight:800; }
+        .hub-split-title { margin-top:.4rem; font-size:.56rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:#64748b; }
+        .hub-split-list { margin-top:.3rem; display:grid; gap:.22rem; max-height:95px; overflow-y:auto; padding-right:.14rem; }
+        .hub-split-row { display:flex; justify-content:space-between; gap:.45rem; font-size:.67rem; padding:.2rem .3rem; background:rgba(248,250,252,.92); border:1px solid rgba(226,232,240,.9); border-radius:7px; }
+    </style>
 </head>
 <body class="admin-app-body admin-app-body--dashboard">
     @include('partials.admin-topbar')
@@ -42,6 +63,60 @@
                                 <a href="{{ route('hub.batches.index') }}" class="hub-batch-link">Open batch manager <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
                             </div>
                         </div>
+                        @if ($hubCfaTargetSum !== null && (int) $hubCfaTargetSum > 0)
+                            @php
+                                $hCfaActual = (int) ($hubCfaThisFy ?? 0);
+                                $hCfaTarget = (int) $hubCfaTargetSum;
+                                $hCfaPct = $hCfaTarget > 0 ? (int) round(($hCfaActual / $hCfaTarget) * 100) : 0;
+                                $hCfaGap = max(0, $hCfaTarget - $hCfaActual);
+                                $hOnbTarget = (int) ($hubOnboardingTarget ?? 0);
+                                $hOnbAch = (int) ($hubOnboardingAchieved ?? 0);
+                                $hOnbPct = (int) ($hubOnboardingProgressPct ?? 0);
+                                $hOnbGap = max(0, $hOnbTarget - $hOnbAch);
+                                $hOnbRows = collect($hubOnboardingByDistrict ?? [])->take(8);
+                            @endphp
+                            <div class="hub-insight-grid">
+                                <div class="hub-insight-card">
+                                    <div class="hub-insight-title">CFA Target Insight</div>
+                                    <div class="hub-insight-top">
+                                        <div class="hub-insight-value">{{ number_format($hCfaActual) }} / {{ number_format($hCfaTarget) }}</div>
+                                        <div class="hub-insight-meta">{{ $hCfaPct }}% achieved</div>
+                                    </div>
+                                    <div class="hub-insight-bar"><div class="hub-insight-fill" style="width: {{ min(100, max(0, $hCfaPct)) }}%;"></div></div>
+                                    <div class="hub-insight-foot">Remaining to target: <strong>{{ number_format($hCfaGap) }}</strong>.</div>
+                                </div>
+                                <div class="hub-insight-card">
+                                    <div class="hub-insight-title">Smart Signals</div>
+                                    <div class="hub-insight-list">
+                                        <div class="hub-insight-kpi"><span>Last 7 days CFA</span><strong>{{ number_format((int) ($cfaLast7 ?? 0)) }}</strong></div>
+                                        <div class="hub-insight-kpi"><span>Week-over-week</span><span class="hub-insight-chip {{ ($cfaWoWDeltaPct ?? 0) > 0 ? 'up' : (($cfaWoWDeltaPct ?? 0) < 0 ? 'down' : 'flat') }}">{{ ($cfaWoWDeltaPct ?? 0) > 0 ? '+' : '' }}{{ (int) ($cfaWoWDeltaPct ?? 0) }}%</span></div>
+                                        <div class="hub-insight-kpi"><span>Top district today</span><strong>{{ $todayTopDistrict['name'] ?? '—' }} @if(isset($todayTopDistrict['count']))({{ number_format((int) $todayTopDistrict['count']) }})@endif</strong></div>
+                                        <div class="hub-insight-kpi"><span>Districts with 0 today</span><strong>{{ number_format((int) ($todayZeroDistricts ?? 0)) }}</strong></div>
+                                    </div>
+                                </div>
+                                <div class="hub-insight-card">
+                                    <div class="hub-insight-title">Onboarding Insight</div>
+                                    @if ($hOnbTarget > 0)
+                                        <div class="hub-insight-top">
+                                            <div class="hub-insight-value">{{ number_format($hOnbAch) }} / {{ number_format($hOnbTarget) }}</div>
+                                            <div class="hub-insight-meta">{{ $hOnbPct }}% achieved</div>
+                                        </div>
+                                        <div class="hub-insight-bar"><div class="hub-insight-fill" style="width: {{ min(100, max(0, $hOnbPct)) }}%;background:linear-gradient(90deg,#0ea5e9,#10b981);"></div></div>
+                                        <div class="hub-insight-foot">Remaining onboarding gap: <strong>{{ number_format($hOnbGap) }}</strong>.</div>
+                                        <div class="hub-split-title">District-wise bifurcation ({{ number_format($hOnbAch) }})</div>
+                                        <div class="hub-split-list">
+                                            @forelse ($hOnbRows as $row)
+                                                <div class="hub-split-row"><span>{{ $row['district'] }}</span><strong>{{ number_format((int) ($row['count'] ?? 0)) }}</strong></div>
+                                            @empty
+                                                <div class="hub-insight-foot" style="margin-top:0;">No onboarding split yet.</div>
+                                            @endforelse
+                                        </div>
+                                    @else
+                                        <div class="hub-insight-foot">Onboarding target is not configured for this hub yet.</div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
 
                         <div class="hub-stage-row" role="group" aria-label="Stage counts, hub-wide" style="margin-top:0.9rem;">
                             <div class="hub-stage-pill hub-stage-pill--seed">Seed<div class="n">{{ number_format($seedCount) }}</div></div>
