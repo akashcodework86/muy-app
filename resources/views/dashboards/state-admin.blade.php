@@ -51,9 +51,9 @@
             flex-wrap: wrap;
             align-items: stretch;
             justify-content: space-between;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-            padding: 1.75rem;
+            gap: 1rem;
+            margin-bottom: 1.1rem;
+            padding: 1.15rem 1.25rem;
             border-radius: 32px;
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.58)),
                 linear-gradient(120deg, rgba(79, 70, 229, 0.08), rgba(45, 212, 191, 0.04));
@@ -63,14 +63,14 @@
         }
         .dashboard-intro h2 {
             font-family: 'DM Sans', sans-serif;
-            font-size: clamp(1.65rem, 4vw, 2.5rem);
+            font-size: clamp(1.4rem, 3vw, 2rem);
             font-weight: 800;
             margin: 0;
             letter-spacing: -0.04em;
             color: var(--text);
             line-height: 1.05;
         }
-        .dashboard-intro p { margin: 0.75rem 0 0; color: var(--text-muted); font-size: 1rem; max-width: 44rem; line-height: 1.6; }
+        .dashboard-intro p { margin: 0.45rem 0 0; color: var(--text-muted); font-size: 0.88rem; max-width: 44rem; line-height: 1.45; }
         .dashboard-intro__eyebrow {
             display: inline-flex;
             align-items: center;
@@ -84,7 +84,7 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            margin-bottom: 0.85rem;
+            margin-bottom: 0.5rem;
         }
         /* Hero 2-column split */
         .dashboard-intro__grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1.5rem; align-items: center; width: 100%; }
@@ -134,27 +134,27 @@
         .hero-spark__chart .spark-line { fill: none; stroke: #0891b2; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
         .hero-spark__chart .spark-dot { fill: #0891b2; stroke: #fff; stroke-width: 1.5; }
 
-        .welcome-meta-pills { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
+        .welcome-meta-pills { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.65rem; }
         .welcome-meta-pill {
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
-            padding: 0.62rem 0.92rem;
+            padding: 0.45rem 0.7rem;
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.9);
             border: 1px solid rgba(148, 163, 184, 0.22);
             color: #334155;
-            font-size: 0.86rem;
+            font-size: 0.78rem;
             font-weight: 600;
             box-shadow: 0 10px 24px rgba(148, 163, 184, 0.12);
         }
         .insight-grid {
-            margin-top: 1rem;
+            margin-top: 0.65rem;
             display: grid;
-            grid-template-columns: 1.3fr 1fr;
+            grid-template-columns: 1.2fr 1fr 1fr;
             gap: 0.75rem;
         }
-        @media (max-width: 900px) { .insight-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 1100px) { .insight-grid { grid-template-columns: 1fr; } }
         .insight-card {
             background: rgba(255, 255, 255, 0.86);
             border: 1px solid rgba(226, 232, 240, 0.9);
@@ -517,6 +517,10 @@
                                     $insTarget = (int) $stateCfaTarget;
                                     $insPct = $insTarget > 0 ? (int) round(($insActual / $insTarget) * 100) : 0;
                                     $insGap = max(0, $insTarget - $insActual);
+                                    $onbTarget = (int) ($stateOnboardingTarget ?? 0);
+                                    $onbAchieved = (int) ($stateOnboardingAchieved ?? 0);
+                                    $onbPct = $stateOnboardingProgressPct !== null ? (int) $stateOnboardingProgressPct : 0;
+                                    $onbGap = max(0, $onbTarget - $onbAchieved);
                                 @endphp
                                 <div class="insight-grid">
                                     <div class="insight-card insight-progress">
@@ -564,6 +568,26 @@
                                                 <strong>{{ number_format((int) ($todayZeroDistricts ?? 0)) }}</strong>
                                             </div>
                                         </div>
+                                    </div>
+                                    <div class="insight-card insight-progress">
+                                        <div class="insight-card__title">Onboarding Insight</div>
+                                        @if ($onbTarget > 0)
+                                            <div class="insight-progress__top">
+                                                <div class="insight-progress__value">{{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }}</div>
+                                                <div class="insight-progress__meta">{{ $onbPct }}% achieved</div>
+                                            </div>
+                                            <div class="insight-progress__bar">
+                                                <div class="insight-progress__fill" style="width: {{ min(100, max(0, $onbPct)) }}%;background:linear-gradient(90deg,#0ea5e9,#10b981);"></div>
+                                            </div>
+                                            <div class="insight-progress__foot">
+                                                Remaining onboarding gap: <strong>{{ number_format($onbGap) }}</strong>.
+                                                Achievement is based on locked hub batch members (Phase 3 window).
+                                            </div>
+                                        @else
+                                            <div class="insight-progress__foot">
+                                                Onboarding target is not configured yet. Set it in <strong>State targets</strong> to activate this insight.
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             @endif

@@ -29,6 +29,9 @@ class StateAdminDashboardService
         $cfaDeliverable = null;
         $stateCfaTarget = null;
         $districtsCfaSum = null;
+        $stateOnboardingTarget = null;
+        $stateOnboardingAchieved = 0;
+        $stateOnboardingProgressPct = null;
         $stateCfaThisFy = (int) (clone $phase3Scope)->count();
         $stateProgressPct = null;
         $stateCfaTrend = $this->stateDailyTrend14($phase3FloorDate);
@@ -104,6 +107,28 @@ class StateAdminDashboardService
                         $stateProgressPct = (int) round(($stateCfaThisFy / $stateCfaTarget) * 100);
                     }
                 }
+
+                $onboardingDeliverableIds = Deliverable::query()
+                    ->where(function ($q): void {
+                        $q->whereRaw('LOWER(code) = ?', ['onboarding'])
+                            ->orWhere('sort_order', 4)
+                            ->orWhere('name', 'like', '%Onboard%')
+                            ->orWhere('mis_entry_label', 'like', '%Onboard%');
+                    })
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn (int $id) => $id > 0)
+                    ->values()
+                    ->all();
+
+                if ($onboardingDeliverableIds !== []) {
+                    $stateOnboardingTarget = (int) DB::table('state_deliverable_targets')
+                        ->whereIn('deliverable_id', $onboardingDeliverableIds)
+                        ->sum('target_total');
+                    if ($stateOnboardingTarget <= 0) {
+                        $stateOnboardingTarget = null;
+                    }
+                }
             }
         } catch (\Throwable) {
             // Keep dashboard resilient if target tables/columns are missing on any environment.
@@ -112,6 +137,19 @@ class StateAdminDashboardService
             $stateCfaTarget = null;
             $districtsCfaSum = null;
             $stateProgressPct = null;
+            $stateOnboardingTarget = null;
+        }
+
+        if (Schema::hasTable('onboarding_batch_cfa') && Schema::hasTable('onboarding_batches')) {
+            $stateOnboardingAchieved = (int) DB::table('onboarding_batch_cfa as obc')
+                ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                ->where('ob.status', 'locked')
+                ->whereNotNull('ob.locked_at')
+                ->where('ob.locked_at', '>=', $phase3FloorDate)
+                ->count();
+        }
+        if ($stateOnboardingTarget !== null && $stateOnboardingTarget > 0) {
+            $stateOnboardingProgressPct = (int) round(($stateOnboardingAchieved / $stateOnboardingTarget) * 100);
         }
 
         $staffTotal = User::query()->where('role', 'district_staff')->count();
@@ -257,6 +295,9 @@ class StateAdminDashboardService
             'stateCfaTarget' => $stateCfaTarget !== null ? (int) $stateCfaTarget : null,
             'districtsCfaSum' => $districtsCfaSum,
             'districtAllocPct' => $districtAllocPct,
+            'stateOnboardingTarget' => $stateOnboardingTarget,
+            'stateOnboardingAchieved' => $stateOnboardingAchieved,
+            'stateOnboardingProgressPct' => $stateOnboardingProgressPct,
             'stateCfaThisFy' => $stateCfaThisFy,
             'stateProgressPct' => $stateProgressPct,
             'stateCfaTrend' => $stateCfaTrend,
