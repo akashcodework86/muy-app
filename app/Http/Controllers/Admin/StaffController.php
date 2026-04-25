@@ -23,6 +23,9 @@ class StaffController extends Controller
     public function index(Request $request): View
     {
         $q = trim((string) $request->query('q', ''));
+        $districtId = (int) $request->query('district_id', 0);
+        $designationId = (int) $request->query('designation_id', 0);
+        $status = trim((string) $request->query('status', ''));
 
         $staffQuery = User::query()
             ->where('role', 'district_staff')
@@ -39,12 +42,37 @@ class StaffController extends Controller
                     ->orWhereHas('designationRecord', fn ($designationQ) => $designationQ->where('name', 'like', $like));
             });
         }
+        if ($districtId > 0) {
+            $staffQuery->where('district_id', $districtId);
+        }
+        if ($designationId > 0) {
+            $staffQuery->where('designation_id', $designationId);
+        }
+        if ($status === 'active') {
+            $staffQuery->where('is_active', true);
+        } elseif ($status === 'disabled') {
+            $staffQuery->where('is_active', false);
+        }
 
         $staff = $staffQuery->get();
+        $districts = District::query()->orderBy('name')->get(['id', 'name']);
+        $designations = Designation::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
 
         return view('admin.staff.index', [
             'staff' => $staff,
-            'filters' => ['q' => $q],
+            'districts' => $districts,
+            'designations' => $designations,
+            'stats' => [
+                'total' => $staff->count(),
+                'active' => $staff->where('is_active', true)->count(),
+                'disabled' => $staff->where('is_active', false)->count(),
+            ],
+            'filters' => [
+                'q' => $q,
+                'district_id' => $districtId,
+                'designation_id' => $designationId,
+                'status' => $status,
+            ],
         ]);
     }
 
