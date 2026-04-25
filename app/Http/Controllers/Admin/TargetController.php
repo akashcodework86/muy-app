@@ -18,12 +18,27 @@ use Illuminate\View\View;
 
 class TargetController extends Controller
 {
+    private const CORE_TARGET_DELIVERABLES = [
+        'cfa' => [
+            'sort_order' => 3,
+            'name' => 'Number of Call for Applications filled',
+            'mis_entry_label' => 'Call for Application (CFA)',
+        ],
+        'onboarding' => [
+            'sort_order' => 4,
+            'name' => 'Number of Incubatees Onboarded',
+            'mis_entry_label' => 'Onboarded Incubatees',
+        ],
+    ];
+
     public function __construct(
         private AdminAuditLogger $auditLogger,
     ) {}
 
     public function stateForm(Request $request): View
     {
+        $this->ensureCoreTargetDeliverables();
+
         [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
             $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
         );
@@ -53,6 +68,8 @@ class TargetController extends Controller
 
     public function stateUpdate(Request $request): RedirectResponse
     {
+        $this->ensureCoreTargetDeliverables();
+
         $deliverableIds = Deliverable::query()->where('is_active', true)->pluck('id');
 
         $rules = [
@@ -108,6 +125,8 @@ class TargetController extends Controller
 
     public function districtForm(Request $request): View
     {
+        $this->ensureCoreTargetDeliverables();
+
         [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
             $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
         );
@@ -154,6 +173,8 @@ class TargetController extends Controller
 
     public function districtUpdate(Request $request): RedirectResponse
     {
+        $this->ensureCoreTargetDeliverables();
+
         $districtIds = District::query()->pluck('id');
 
         $rules = [
@@ -266,5 +287,20 @@ class TargetController extends Controller
             'deliverable_id' => $deliverableId,
             'target_total' => $fromStaff,
         ]);
+    }
+
+    private function ensureCoreTargetDeliverables(): void
+    {
+        foreach (self::CORE_TARGET_DELIVERABLES as $code => $meta) {
+            Deliverable::query()->updateOrCreate(
+                ['code' => $code],
+                [
+                    'sort_order' => (int) $meta['sort_order'],
+                    'name' => (string) $meta['name'],
+                    'mis_entry_label' => (string) $meta['mis_entry_label'],
+                    'is_active' => true,
+                ]
+            );
+        }
     }
 }
