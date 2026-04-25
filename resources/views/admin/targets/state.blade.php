@@ -7,6 +7,11 @@
     @if (! $fiscalYearId || $fiscalYears->isEmpty())
         <p>No fiscal year found. Add one in the database first.</p>
     @else
+        <div style="margin-bottom:1rem;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;padding:0.75rem 0.9rem;border-radius:8px;font-size:0.88rem;line-height:1.5;">
+            <strong>Note:</strong> <strong>CFA</strong> aur <strong>Onboarding</strong> alag targets hain.
+            Onboarding target ka matlab hai: total CFA applications me se jitne incubatees batches ke through onboard karne hain.
+            Pehle yahan state onboarding target set karein, phir district page par divide karein.
+        </div>
         <form method="get" action="{{ route('admin.targets.state') }}" style="margin-bottom:1.25rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
             <label for="fy" style="font-size:0.9rem; font-weight:500;">Fiscal year</label>
             <select id="fy" name="fiscal_year_id" onchange="this.form.submit()" style="padding:0.4rem 0.5rem; border-radius:6px; border:1px solid #d4d4d8; min-width:12rem;">

@@ -7,6 +7,10 @@
     @if ($fiscalYears->isEmpty() || $deliverables->isEmpty())
         <p>Missing fiscal years or deliverables.</p>
     @else
+        <div style="margin-bottom:1rem;background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d;padding:0.75rem 0.9rem;border-radius:8px;font-size:0.88rem;line-height:1.5;">
+            <strong>Reminder:</strong> Agar deliverable <strong>Onboarding</strong> select hai, to yeh allocation hub batches onboarding target ke liye hai.
+            District total ko state onboarding target ke बराबर rakhna best practice hai.
+        </div>
         <form method="get" action="{{ route('admin.targets.district') }}" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.75rem; align-items:flex-end;">
             <div>
                 <label for="fy" style="display:block; font-size:0.8rem; font-weight:500; margin-bottom:0.25rem;">Fiscal year</label>
