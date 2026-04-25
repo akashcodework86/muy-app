@@ -20,16 +20,32 @@ class StaffController extends Controller
         private AdminAuditLogger $auditLogger,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        $staff = User::query()
+        $q = trim((string) $request->query('q', ''));
+
+        $staffQuery = User::query()
             ->where('role', 'district_staff')
             ->with(['hub', 'district', 'designationRecord'])
             ->orderBy('district_id')
-            ->orderBy('name')
-            ->paginate(20);
+            ->orderBy('name');
 
-        return view('admin.staff.index', ['staff' => $staff]);
+        if ($q !== '') {
+            $like = '%'.$q.'%';
+            $staffQuery->where(function ($inner) use ($like): void {
+                $inner->where('name', 'like', $like)
+                    ->orWhere('email', 'like', $like)
+                    ->orWhereHas('district', fn ($districtQ) => $districtQ->where('name', 'like', $like))
+                    ->orWhereHas('designationRecord', fn ($designationQ) => $designationQ->where('name', 'like', $like));
+            });
+        }
+
+        $staff = $staffQuery->get();
+
+        return view('admin.staff.index', [
+            'staff' => $staff,
+            'filters' => ['q' => $q],
+        ]);
     }
 
     public function create(): View
