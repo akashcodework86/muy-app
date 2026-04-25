@@ -48,6 +48,35 @@
         </form>
     </div>
 
+    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:0.7rem 0.8rem;margin:0 0 1rem;">
+        <div style="font-weight:700;margin:0 0 0.45rem;">Category &amp; subcategory list</div>
+        @if ($categories->isEmpty())
+            <div style="color:#71717a;font-size:0.88rem;">No categories added yet.</div>
+        @else
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0.55rem;">
+                @foreach ($categories as $root)
+                    <div style="border:1px solid #e4e4e7;border-radius:8px;padding:0.55rem 0.65rem;background:#fafafa;">
+                        <div style="font-weight:700;color:#18181b;">
+                            {{ $root->name }}
+                            <span style="font-weight:500;color:#52525b;">({{ $root->children->count() }} subcategories)</span>
+                        </div>
+                        @if ($root->children->isNotEmpty())
+                            <div style="margin-top:0.35rem;display:flex;flex-wrap:wrap;gap:0.35rem;">
+                                @foreach ($root->children as $child)
+                                    <span style="font-size:0.82rem;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;padding:0.14rem 0.42rem;border-radius:999px;">
+                                        {{ $child->name }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @else
+                            <div style="margin-top:0.35rem;color:#71717a;font-size:0.82rem;">No subcategories yet.</div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
     <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e4e7;border-radius:8px;font-size:0.875rem;">
             <thead>
