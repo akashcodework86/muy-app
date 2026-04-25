@@ -62,25 +62,22 @@ class StateAdminDashboardService
                     ->values()
                     ->all();
                 if ($cfaDeliverableIds !== []) {
-                    $activeFy = FiscalYear::query()
-                        ->where('is_active', true)
-                        ->orderByDesc('starts_on')
-                        ->first();
-
-                    $latestFyWithCfaTarget = FiscalYear::query()
-                        ->join('state_deliverable_targets as sdt', 'sdt.fiscal_year_id', '=', 'fiscal_years.id')
-                        ->whereIn('sdt.deliverable_id', $cfaDeliverableIds)
-                        ->orderByDesc('fiscal_years.starts_on')
-                        ->select('fiscal_years.*')
-                        ->first();
-
-                    if ($activeFy && DB::table('state_deliverable_targets')
-                        ->where('fiscal_year_id', (int) $activeFy->id)
+                    $preferredTargetRow = DB::table('state_deliverable_targets')
                         ->whereIn('deliverable_id', $cfaDeliverableIds)
-                        ->exists()) {
-                        // Keep active FY when it already has a CFA target row.
-                    } elseif ($latestFyWithCfaTarget) {
-                        $activeFy = $latestFyWithCfaTarget;
+                        ->where('target_total', '>', 0)
+                        ->orderByDesc('updated_at')
+                        ->orderByDesc('id')
+                        ->first();
+
+                    if ($preferredTargetRow) {
+                        $activeFy = FiscalYear::query()->find((int) $preferredTargetRow->fiscal_year_id);
+                    }
+
+                    if (! $activeFy) {
+                        $activeFy = FiscalYear::query()
+                            ->where('is_active', true)
+                            ->orderByDesc('starts_on')
+                            ->first();
                     }
                 }
 
@@ -97,6 +94,12 @@ class StateAdminDashboardService
                         ->where('fiscal_year_id', (int) $activeFy->id)
                         ->whereIn('deliverable_id', $cfaDeliverableIds)
                         ->sum('target_total');
+
+                    $fyStart = Carbon::parse((string) $activeFy->starts_on)->startOfDay();
+                    $fyEnd = Carbon::parse((string) $activeFy->ends_on)->endOfDay();
+                    $stateCfaThisFy = (int) CfaSubmission::query()
+                        ->whereBetween('created_at', [$fyStart, $fyEnd])
+                        ->count();
 
                     if ($stateCfaTarget !== null && $stateCfaTarget > 0) {
                         $stateProgressPct = (int) round(($stateCfaThisFy / $stateCfaTarget) * 100);
