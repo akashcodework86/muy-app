@@ -55,7 +55,10 @@ class DocumentRepositoryController extends Controller
 
         $categories = DocumentCategory::query()
             ->whereNull('parent_id')
-            ->with('children')
+            ->withCount('documents')
+            ->with(['children' => function ($q): void {
+                $q->withCount('documents')->orderBy('name');
+            }])
             ->orderBy('name')
             ->get();
 
