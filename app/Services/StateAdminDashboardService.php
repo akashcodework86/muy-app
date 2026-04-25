@@ -32,6 +32,7 @@ class StateAdminDashboardService
         $stateOnboardingTarget = null;
         $stateOnboardingAchieved = 0;
         $stateOnboardingProgressPct = null;
+        $stateOnboardingByDistrict = [];
         $stateCfaThisFy = (int) (clone $phase3Scope)->count();
         $stateProgressPct = null;
         $stateCfaTrend = $this->stateDailyTrend14($phase3FloorDate);
@@ -147,6 +148,25 @@ class StateAdminDashboardService
                 ->whereNotNull('ob.locked_at')
                 ->where('ob.locked_at', '>=', $phase3FloorDate)
                 ->count();
+
+            if (Schema::hasTable('districts')) {
+                $stateOnboardingByDistrict = DB::table('onboarding_batch_cfa as obc')
+                    ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                    ->join('districts as d', 'd.id', '=', 'ob.district_id')
+                    ->where('ob.status', 'locked')
+                    ->whereNotNull('ob.locked_at')
+                    ->where('ob.locked_at', '>=', $phase3FloorDate)
+                    ->groupBy('d.id', 'd.name')
+                    ->orderByDesc(DB::raw('COUNT(obc.id)'))
+                    ->orderBy('d.name')
+                    ->select('d.name', DB::raw('COUNT(obc.id) as total'))
+                    ->get()
+                    ->map(fn ($row) => [
+                        'district' => (string) $row->name,
+                        'count' => (int) $row->total,
+                    ])
+                    ->all();
+            }
         }
         if ($stateOnboardingTarget !== null && $stateOnboardingTarget > 0) {
             $stateOnboardingProgressPct = (int) round(($stateOnboardingAchieved / $stateOnboardingTarget) * 100);
@@ -298,6 +318,7 @@ class StateAdminDashboardService
             'stateOnboardingTarget' => $stateOnboardingTarget,
             'stateOnboardingAchieved' => $stateOnboardingAchieved,
             'stateOnboardingProgressPct' => $stateOnboardingProgressPct,
+            'stateOnboardingByDistrict' => $stateOnboardingByDistrict,
             'stateCfaThisFy' => $stateCfaThisFy,
             'stateProgressPct' => $stateProgressPct,
             'stateCfaTrend' => $stateCfaTrend,

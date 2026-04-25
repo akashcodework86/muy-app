@@ -213,6 +213,35 @@
         .insight-kpi__chip.up { color: #15803d; }
         .insight-kpi__chip.down { color: #b91c1c; }
         .insight-kpi__chip.flat { color: #475569; }
+        .insight-split-list {
+            margin-top: 0.5rem;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.28rem;
+            max-height: 122px;
+            overflow-y: auto;
+            padding-right: 0.2rem;
+        }
+        .insight-split-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.55rem;
+            align-items: center;
+            font-size: 0.7rem;
+            padding: 0.25rem 0.35rem;
+            border-radius: 8px;
+            background: rgba(248, 250, 252, 0.92);
+            border: 1px solid rgba(226, 232, 240, 0.85);
+        }
+        .insight-split-row strong { font-size: 0.72rem; color: #0f172a; }
+        .insight-split-title {
+            margin-top: 0.5rem;
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
         .hero-three-col {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -521,6 +550,7 @@
                                     $onbAchieved = (int) ($stateOnboardingAchieved ?? 0);
                                     $onbPct = $stateOnboardingProgressPct !== null ? (int) $stateOnboardingProgressPct : 0;
                                     $onbGap = max(0, $onbTarget - $onbAchieved);
+                                    $onbDistrictRows = collect($stateOnboardingByDistrict ?? [])->take(8);
                                 @endphp
                                 <div class="insight-grid">
                                     <div class="insight-card insight-progress">
@@ -582,6 +612,17 @@
                                             <div class="insight-progress__foot">
                                                 Remaining onboarding gap: <strong>{{ number_format($onbGap) }}</strong>.
                                                 Achievement is based on locked hub batch members (Phase 3 window).
+                                            </div>
+                                            <div class="insight-split-title">District-wise bifurcation ({{ number_format($onbAchieved) }})</div>
+                                            <div class="insight-split-list">
+                                                @forelse ($onbDistrictRows as $row)
+                                                    <div class="insight-split-row">
+                                                        <span>{{ $row['district'] }}</span>
+                                                        <strong>{{ number_format((int) ($row['count'] ?? 0)) }}</strong>
+                                                    </div>
+                                                @empty
+                                                    <div class="insight-progress__foot" style="margin-top:0;">No onboarding district split yet.</div>
+                                                @endforelse
                                             </div>
                                         @else
                                             <div class="insight-progress__foot">
