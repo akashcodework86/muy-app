@@ -113,7 +113,7 @@ class CatalogServiceController extends Controller
             'service' => $service,
             'categories' => $categories,
             'deliverables' => Deliverable::query()->where('is_active', true)->orderBy('sort_order')->get(),
-            'fieldSchemaJson' => json_encode($service->field_schema ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+            'schemaInitial' => $this->schemaForEdit($service),
         ]);
     }
 
@@ -346,5 +346,61 @@ class CatalogServiceController extends Controller
         }
 
         return $code;
+    }
+
+    /**
+     * Build schema for edit screen. If canonical schema is empty, infer a usable
+     * draft from recent case payload keys so admin can recover/edit.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function schemaForEdit(Service $service): array
+    {
+        $schema = ServiceFieldTypes::normalizeSchema($service->field_schema);
+        if ($schema !== []) {
+            return $schema;
+        }
+
+        $samplePayloads = ServiceCase::query()
+            ->where('service_id', $service->id)
+            ->whereNotNull('payload')
+            ->latest('id')
+            ->limit(30)
+            ->pluck('payload')
+            ->all();
+
+        $fields = [];
+        foreach ($samplePayloads as $payload) {
+            if (! is_array($payload)) {
+                continue;
+            }
+            foreach ($payload as $key => $value) {
+                if (! is_string($key) || trim($key) === '') {
+                    continue;
+                }
+                $cleanKey = strtolower(trim((string) preg_replace('/[^a-z0-9_]+/i', '_', $key), '_'));
+                if ($cleanKey === '' || isset($fields[$cleanKey])) {
+                    continue;
+                }
+                $type = ServiceFieldTypes::TEXT;
+                if (is_bool($value)) {
+                    $type = ServiceFieldTypes::CHECKBOX;
+                } elseif (is_array($value)) {
+                    $type = ServiceFieldTypes::MULTISELECT;
+                } elseif (is_numeric($value)) {
+                    $type = ServiceFieldTypes::NUMBER;
+                } elseif (is_string($value) && strlen($value) > 120) {
+                    $type = ServiceFieldTypes::TEXTAREA;
+                }
+                $fields[$cleanKey] = [
+                    'key' => $cleanKey,
+                    'label' => Str::title(str_replace('_', ' ', $cleanKey)),
+                    'type' => $type,
+                    'required' => false,
+                ];
+            }
+        }
+
+        return array_values($fields);
     }
 }

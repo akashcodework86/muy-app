@@ -106,13 +106,12 @@
         </fieldset>
 
         @php
-            $schemaInitial = [];
+            $schemaResolved = is_array($schemaInitial ?? null) ? $schemaInitial : [];
             if (old('field_schema')) {
                 $decoded = json_decode(old('field_schema'), true);
-                $schemaInitial = is_array($decoded) ? \App\Support\ServiceFieldTypes::normalizeSchema($decoded) : [];
-            } else {
-                $schemaInitial = \App\Support\ServiceFieldTypes::normalizeSchema($service->field_schema);
+                $schemaResolved = is_array($decoded) ? \App\Support\ServiceFieldTypes::normalizeSchema($decoded) : $schemaResolved;
             }
+            $schemaInitial = $schemaResolved;
         @endphp
         @include('partials.admin-service-schema-builder')
         @error('field_schema')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
