@@ -108,13 +108,45 @@ class CatalogServiceController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
+        $canonicalSchema = ServiceFieldTypes::normalizeSchema($service->field_schema);
+        $recoveredSchema = $this->inferSchemaFromRecentPayloads($service);
 
         return view('admin.service-catalog.services.edit', [
             'service' => $service,
             'categories' => $categories,
             'deliverables' => Deliverable::query()->where('is_active', true)->orderBy('sort_order')->get(),
             'schemaInitial' => $this->schemaForEdit($service),
+            'canonicalSchemaCount' => count($canonicalSchema),
+            'recoveredSchema' => $recoveredSchema,
         ]);
+    }
+
+    public function recoverSchema(Request $request, Service $service): RedirectResponse
+    {
+        $recovered = $this->inferSchemaFromRecentPayloads($service);
+        if ($recovered === []) {
+            return redirect()
+                ->route('admin.service-catalog.services.edit', $service)
+                ->withErrors(['field_schema' => 'No recoverable fields found from recent submitted cases for this service.']);
+        }
+
+        $before = ['field_schema' => $service->field_schema];
+        $service->field_schema = $recovered;
+        $service->save();
+
+        $this->auditLogger->record(
+            $request,
+            'catalog_service.schema_recovered',
+            Service::class,
+            $service->id,
+            $before,
+            ['field_schema' => $recovered],
+            'Catalog service schema recovered from submitted case payloads'
+        );
+
+        return redirect()
+            ->route('admin.service-catalog.services.edit', $service)
+            ->with('status', 'Schema imported from recent submitted cases. Review and click Update service to finalize.');
     }
 
     public function update(Request $request, Service $service): RedirectResponse
@@ -361,6 +393,26 @@ class CatalogServiceController extends Controller
             return $schema;
         }
 
+        $inferred = $this->inferSchemaFromRecentPayloads($service);
+        if ($inferred !== []) {
+            return $inferred;
+        }
+
+        // Last-resort defaults for known interventions where legacy rows were
+        // created without persisted field_schema.
+        return $this->defaultSchemaByServiceCode((string) $service->code);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function inferSchemaFromRecentPayloads(Service $service): array
+    {
+        $schema = ServiceFieldTypes::normalizeSchema($service->field_schema);
+        if ($schema !== []) {
+            return [];
+        }
+
         $samplePayloads = ServiceCase::query()
             ->where('service_id', $service->id)
             ->whereNotNull('payload')
@@ -401,14 +453,7 @@ class CatalogServiceController extends Controller
             }
         }
 
-        $inferred = array_values($fields);
-        if ($inferred !== []) {
-            return $inferred;
-        }
-
-        // Last-resort defaults for known interventions where legacy rows were
-        // created without persisted field_schema.
-        return $this->defaultSchemaByServiceCode((string) $service->code);
+        return array_values($fields);
     }
 
     /**

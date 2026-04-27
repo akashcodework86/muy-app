@@ -4,7 +4,34 @@
 @section('heading', 'Edit service: '.$service->name)
 
 @section('content')
+    @if (session('status'))
+        <p style="color:#166534; margin:0 0 0.75rem;">{{ session('status') }}</p>
+    @endif
+    @if ($errors->any())
+        <ul style="color:#b91c1c; margin:0 0 0.85rem; padding-left:1.15rem; font-size:0.85rem;">
+            @foreach ($errors->all() as $e)
+                <li>{{ $e }}</li>
+            @endforeach
+        </ul>
+    @endif
+
     <p style="margin-bottom:1rem;"><a href="{{ route('admin.service-catalog.index') }}">← Service catalog</a></p>
+
+    @if (($canonicalSchemaCount ?? 0) === 0 && !empty($recoveredSchema))
+        <div style="margin:0 0 1rem; padding:0.75rem 0.9rem; border:1px solid #fde68a; background:#fffbeb; border-radius:8px;">
+            <div style="font-weight:700; color:#92400e; margin-bottom:0.35rem;">Schema missing in service master</div>
+            <p style="margin:0 0 0.55rem; font-size:0.83rem; color:#78350f;">
+                Found <strong>{{ count($recoveredSchema) }}</strong> field(s) from recent submitted cases for this service.
+                Import them to restore edit preview.
+            </p>
+            <form method="post" action="{{ route('admin.service-catalog.services.recover-schema', $service) }}">
+                @csrf
+                <button type="submit" style="background:#92400e; color:#fff; border:none; padding:0.45rem 0.75rem; border-radius:6px; font-weight:600; cursor:pointer;">
+                    Import recovered fields
+                </button>
+            </form>
+        </div>
+    @endif
 
     <form method="post" action="{{ route('admin.service-catalog.services.update', $service) }}" style="max-width:40rem;">
         @csrf

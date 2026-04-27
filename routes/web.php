@@ -253,6 +253,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('service-catalog/services/create', [CatalogServiceController::class, 'create'])->name('service-catalog.services.create');
         Route::post('service-catalog/services', [CatalogServiceController::class, 'store'])->name('service-catalog.services.store');
         Route::get('service-catalog/services/{service}/edit', [CatalogServiceController::class, 'edit'])->name('service-catalog.services.edit');
+        Route::post('service-catalog/services/{service}/recover-schema', [CatalogServiceController::class, 'recoverSchema'])->name('service-catalog.services.recover-schema');
         Route::put('service-catalog/services/{service}', [CatalogServiceController::class, 'update'])->name('service-catalog.services.update');
         Route::delete('service-catalog/services/{service}', [CatalogServiceController::class, 'destroy'])->name('service-catalog.services.destroy');
 
