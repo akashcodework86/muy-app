@@ -62,6 +62,19 @@ class StaffServiceCaseController extends Controller
         if ($prefillId > 0 && ! (clone $eligible)->whereKey($prefillId)->exists()) {
             $prefillId = 0;
         }
+        $submissionIds = (clone $eligible)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $nonMultipleServiceIds = $services
+            ->filter(fn (Service $s) => ! (bool) $s->allows_multiple)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $existingPairs = ServiceCase::query()
+            ->select(['cfa_submission_id', 'service_id'])
+            ->when($submissionIds !== [], fn ($q) => $q->whereIn('cfa_submission_id', $submissionIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($nonMultipleServiceIds !== [], fn ($q) => $q->whereIn('service_id', $nonMultipleServiceIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->get()
+            ->map(fn ($r) => ((int) $r->cfa_submission_id).':'.((int) $r->service_id))
+            ->values();
 
         return view('staff.services.create', [
             'submissions' => $eligible->get(),
@@ -72,8 +85,10 @@ class StaffServiceCaseController extends Controller
                 'name' => $s->name,
                 'requires_document' => (bool) $s->requires_document,
                 'requires_approval' => (bool) $s->requires_approval,
+                'allows_multiple' => (bool) $s->allows_multiple,
                 'schema' => ServiceFieldTypes::normalizeSchema($s->field_schema ?? []),
             ])->values(),
+            'existingNonMultiplePairs' => $existingPairs,
         ]);
     }
 

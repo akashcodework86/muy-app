@@ -50,14 +50,13 @@ class ServiceCaseRecorder
             throw ValidationException::withMessages(['service_id' => 'This service is inactive.']);
         }
 
-        $blocking = ServiceCase::query()
+        $existing = ServiceCase::query()
             ->where('cfa_submission_id', $submission->id)
-            ->where('service_id', $service->id)
-            ->whereIn('status', ServiceCase::BLOCKING_STATUSES);
+            ->where('service_id', $service->id);
 
-        if (! $service->allows_multiple && $blocking->exists()) {
+        if (! $service->allows_multiple && $existing->exists()) {
             throw ValidationException::withMessages([
-                'service_id' => 'This service allows only one active case per incubatee. Use the existing case or pick a different service.',
+                'service_id' => 'This service allows only one case per incubatee. This incubatee already has this service assigned.',
             ]);
         }
 

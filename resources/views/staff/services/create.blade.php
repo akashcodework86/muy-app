@@ -91,12 +91,15 @@
         <script>
             (function () {
                 const SERVICES = @json($servicesJson);
+                const EXISTING_NON_MULTIPLE = new Set(@json($existingNonMultiplePairs ?? []));
 
                 const selSvc = document.getElementById('service_id');
+                const selSub = document.getElementById('cfa_submission_id');
                 const meta = document.getElementById('svc_meta');
                 const wrapDel = document.getElementById('wrap_delivered');
                 const wrapAtt = document.getElementById('wrap_attach');
                 const box = document.getElementById('schema_fields');
+                const serviceById = new Map(SERVICES.map(function (s) { return [parseInt(s.id, 10), s]; }));
 
                 function esc(s) {
                     const d = document.createElement('div');
@@ -106,6 +109,7 @@
 
                 function render() {
                     const id = parseInt(selSvc.value || '0', 10);
+                    const subId = parseInt(selSub.value || '0', 10);
                     const svc = SERVICES.find(function (x) { return x.id === id; });
                     box.innerHTML = '';
                     meta.textContent = '';
@@ -125,6 +129,16 @@
                     } else {
                         meta.textContent = 'This service auto-approves on submit.';
                         wrapDel.style.display = 'block';
+                    }
+
+                    const isDuplicateNotAllowed = subId > 0 && !svc.allows_multiple && EXISTING_NON_MULTIPLE.has(subId + ':' + id);
+                    if (isDuplicateNotAllowed) {
+                        meta.textContent = 'This incubatee already has this service. Multiple cases are disabled for this service.';
+                        const p = document.createElement('p');
+                        p.style.cssText = 'margin:0;font-size:0.84rem;color:#b91c1c;font-weight:600;';
+                        p.textContent = 'Pick a different service or incubatee.';
+                        box.appendChild(p);
+                        return;
                     }
 
                     if (svc.requires_document) {
@@ -299,7 +313,39 @@
                     syncVisibility();
                 }
 
+                function refreshServiceOptionLocks() {
+                    const subId = parseInt(selSub.value || '0', 10);
+                    const opts = Array.from(selSvc.options || []);
+                    opts.forEach(function (opt) {
+                        const serviceId = parseInt(opt.value || '0', 10);
+                        if (!serviceId) return;
+                        const svc = serviceById.get(serviceId);
+                        if (!svc) return;
+                        if (!opt.dataset.baseLabel) {
+                            opt.dataset.baseLabel = opt.textContent;
+                        }
+                        const blocked = subId > 0 && !svc.allows_multiple && EXISTING_NON_MULTIPLE.has(subId + ':' + serviceId);
+                        opt.disabled = blocked;
+                        opt.textContent = blocked
+                            ? (opt.dataset.baseLabel + ' (Already assigned)')
+                            : opt.dataset.baseLabel;
+                    });
+
+                    const currentServiceId = parseInt(selSvc.value || '0', 10);
+                    if (currentServiceId > 0) {
+                        const currentOpt = selSvc.querySelector('option[value="' + currentServiceId + '"]');
+                        if (currentOpt && currentOpt.disabled) {
+                            selSvc.value = '';
+                        }
+                    }
+                }
+
                 selSvc.addEventListener('change', render);
+                selSub.addEventListener('change', function () {
+                    refreshServiceOptionLocks();
+                    render();
+                });
+                refreshServiceOptionLocks();
                 render();
             })();
 
@@ -372,6 +418,19 @@
                     }
                 }
 
+                function duplicateBlockedSelection() {
+                    const serviceEl = document.getElementById('service_id');
+                    const submissionEl = document.getElementById('cfa_submission_id');
+                    if (!serviceEl || !submissionEl) return false;
+                    const serviceId = parseInt(serviceEl.value || '0', 10);
+                    const submissionId = parseInt(submissionEl.value || '0', 10);
+                    if (!serviceId || !submissionId) return false;
+                    const svc = SERVICES.find(function (x) { return x.id === serviceId; });
+                    if (!svc || svc.allows_multiple) return false;
+
+                    return EXISTING_NON_MULTIPLE.has(submissionId + ':' + serviceId);
+                }
+
                 function runStepPlan() {
                     return new Promise(function (resolve) {
                         let idx = 0;
@@ -393,6 +452,10 @@
                     if (inFlight) return;
                     e.preventDefault();
                     if (!form.reportValidity()) {
+                        return;
+                    }
+                    if (duplicateBlockedSelection()) {
+                        alert('This incubatee already has this service. Multiple cases are disabled for this service.');
                         return;
                     }
                     inFlight = true;
