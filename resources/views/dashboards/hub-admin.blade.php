@@ -34,6 +34,21 @@
         .hub-split-title { margin-top:.4rem; font-size:.56rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:#64748b; }
         .hub-split-list { margin-top:.3rem; display:grid; gap:.22rem; max-height:95px; overflow-y:auto; padding-right:.14rem; }
         .hub-split-row { display:flex; justify-content:space-between; gap:.45rem; font-size:.67rem; padding:.2rem .3rem; background:rgba(248,250,252,.92); border:1px solid rgba(226,232,240,.9); border-radius:7px; }
+        .hub-staff-cfa-panel { display:flex; flex-direction:column; gap:.45rem; min-height: 240px; }
+        .hub-staff-cfa-controls { display:flex; gap:.4rem; flex-wrap:wrap; }
+        .hub-staff-cfa-input, .hub-staff-cfa-select { border:1px solid #d1d5db; border-radius:8px; padding:.34rem .5rem; font-size:.72rem; color:#1f2937; background:#fff; }
+        .hub-staff-cfa-input { flex:1; min-width:140px; }
+        .hub-staff-cfa-select { min-width:120px; }
+        .hub-staff-cfa-list { display:flex; flex-direction:column; gap:.28rem; max-height:190px; overflow:auto; }
+        .hub-staff-cfa-row { display:flex; align-items:center; gap:.45rem; padding:.32rem .4rem; border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
+        .hub-staff-cfa-rank { font-size:.62rem; font-weight:800; color:#64748b; min-width:1.5rem; text-align:center; }
+        .hub-staff-cfa-main { display:flex; align-items:center; gap:.38rem; min-width:0; flex:1; }
+        .hub-staff-cfa-avatar { width:22px; height:22px; border-radius:999px; object-fit:cover; }
+        .hub-staff-cfa-avatar-fallback { width:22px; height:22px; border-radius:999px; background:#0ea5e9; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:.62rem; font-weight:800; }
+        .hub-staff-cfa-name { font-size:.72rem; font-weight:800; color:#111827; line-height:1.1; }
+        .hub-staff-cfa-district { font-size:.62rem; color:#6b7280; line-height:1.1; margin-top:.05rem; }
+        .hub-staff-cfa-value { font-size:.72rem; font-weight:800; color:#4338ca; background:#eef2ff; border:1px solid #c7d2fe; border-radius:999px; padding:.15rem .42rem; min-width:34px; text-align:center; }
+        .hub-staff-cfa-empty { font-size:.72rem; color:#64748b; text-align:center; padding:.6rem .4rem; }
     </style>
 </head>
 <body class="admin-app-body admin-app-body--dashboard">
@@ -289,9 +304,45 @@
                     <div class="canvas-wrap"><canvas id="chartDistrictCfa"></canvas></div>
                 </div>
                 <div class="hub-chart-card">
-                    <h4>Staff by district</h4>
-                    <p class="hint">District staff in this hub</p>
-                    <div class="canvas-wrap"><canvas id="chartStaff"></canvas></div>
+                    <h4>CFA by staffs</h4>
+                    <p class="hint">Search by staff name and filter by district (FY {{ $activeFy?->name ?? '2026-27' }}).</p>
+                    @php
+                        $hubStaffRows = $staffCfaByStaff ?? [];
+                        $hubDistrictOptions = collect($hubStaffRows)->pluck('district')->filter()->unique()->sort()->values()->all();
+                    @endphp
+                    <div class="hub-staff-cfa-panel">
+                        <div class="hub-staff-cfa-controls">
+                            <input id="hubStaffCfaSearch" class="hub-staff-cfa-input" type="text" placeholder="Search staff name..." autocomplete="off">
+                            <select id="hubStaffCfaDistrictFilter" class="hub-staff-cfa-select">
+                                <option value="">All districts</option>
+                                @foreach ($hubDistrictOptions as $districtName)
+                                    <option value="{{ strtolower($districtName) }}">{{ $districtName }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="hub-staff-cfa-list" id="hubStaffCfaList">
+                            @forelse ($hubStaffRows as $index => $row)
+                                <div class="hub-staff-cfa-row" data-name="{{ strtolower($row['name']) }}" data-district="{{ strtolower($row['district']) }}">
+                                    <div class="hub-staff-cfa-rank">#{{ $index + 1 }}</div>
+                                    <div class="hub-staff-cfa-main">
+                                        @if (!empty($row['avatar_url']))
+                                            <img src="{{ $row['avatar_url'] }}" alt="" class="hub-staff-cfa-avatar">
+                                        @else
+                                            <span class="hub-staff-cfa-avatar-fallback">{{ strtoupper(substr(trim((string) $row['name']), 0, 1)) ?: '?' }}</span>
+                                        @endif
+                                        <div>
+                                            <div class="hub-staff-cfa-name">{{ $row['name'] }}</div>
+                                            <div class="hub-staff-cfa-district">{{ $row['district'] }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="hub-staff-cfa-value">{{ number_format((int) $row['cfa_total']) }}</div>
+                                </div>
+                            @empty
+                                <div class="hub-staff-cfa-empty">No staff data yet</div>
+                            @endforelse
+                            <div class="hub-staff-cfa-empty" id="hubStaffCfaNoResults" style="display:none;">No staff matches this search/filter</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -387,29 +438,29 @@
         }
     });
 
-    const sLabels = @json($staffByDistrict['labels']);
-    const sValues = @json($staffByDistrict['values']);
-    new Chart(document.getElementById('chartStaff'), {
-        type: 'bar',
-        data: {
-            labels: sLabels.length ? sLabels : ['No data'],
-            datasets: [{
-                label: 'Staff',
-                data: sLabels.length ? sValues : [0],
-                backgroundColor: teal,
-                borderRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { grid: { display: false }, ticks: { maxRotation: 60, font: { size: 9 } } },
-                y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: grid.color } }
-            }
+    const hubSearch = document.getElementById('hubStaffCfaSearch');
+    const hubDistrictSelect = document.getElementById('hubStaffCfaDistrictFilter');
+    const hubRows = Array.from(document.querySelectorAll('#hubStaffCfaList .hub-staff-cfa-row'));
+    const hubNoResults = document.getElementById('hubStaffCfaNoResults');
+    const applyHubStaffFilters = () => {
+        const term = (hubSearch?.value || '').trim().toLowerCase();
+        const district = (hubDistrictSelect?.value || '').trim().toLowerCase();
+        let visible = 0;
+        hubRows.forEach((row) => {
+            const name = (row.dataset.name || '');
+            const d = (row.dataset.district || '');
+            const okName = !term || name.includes(term);
+            const okDistrict = !district || d === district;
+            const show = okName && okDistrict;
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        if (hubNoResults) {
+            hubNoResults.style.display = visible === 0 ? '' : 'none';
         }
-    });
+    };
+    if (hubSearch) hubSearch.addEventListener('input', applyHubStaffFilters);
+    if (hubDistrictSelect) hubDistrictSelect.addEventListener('change', applyHubStaffFilters);
 })();
 </script>
 @include('partials.app-footer')
