@@ -16,6 +16,9 @@
         @media (max-width: 1100px) { .hub-insight-grid { grid-template-columns: 1fr; } }
         .hub-insight-card { background: rgba(255,255,255,.88); border: 1px solid rgba(226,232,240,.95); border-radius: 12px; padding: .62rem .72rem; }
         .hub-insight-title { font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #6366f1; margin-bottom: .38rem; }
+        .hub-insight-title-row { display:flex; justify-content:space-between; align-items:center; gap:.45rem; margin-bottom:.3rem; }
+        .hub-insight-btn { font-size:.58rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#0f766e; background:#ecfeff; border:1px solid #a5f3fc; border-radius:999px; padding:.14rem .45rem; text-decoration:none; line-height:1.3; }
+        .hub-insight-btn:hover { background:#cffafe; color:#115e59; }
         .hub-insight-top { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-bottom: .25rem; }
         .hub-insight-value { font-size: .95rem; font-weight: 800; color: #0f172a; }
         .hub-insight-meta { font-size: .67rem; color: #64748b; font-weight: 700; }
@@ -95,7 +98,10 @@
                                     </div>
                                 </div>
                                 <div class="hub-insight-card">
-                                    <div class="hub-insight-title">Onboarding Insight</div>
+                                    <div class="hub-insight-title-row">
+                                        <div class="hub-insight-title" style="margin:0;">Onboarding Insight</div>
+                                        <a href="{{ route('hub.onboarding-insight.index') }}" class="hub-insight-btn">Details</a>
+                                    </div>
                                     @if ($hOnbTarget > 0)
                                         <div class="hub-insight-top">
                                             <div class="hub-insight-value">{{ number_format($hOnbAch) }} / {{ number_format($hOnbTarget) }}</div>

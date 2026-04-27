@@ -100,18 +100,7 @@ class HubAdminDashboardService
         $todayTopDistrict = $todayDistrictRows->first();
         $todayZeroDistricts = max(0, (int) $todayDistrictRows->count() - (int) $todayDistrictRows->filter(fn ($r) => (int) $r->total > 0)->count());
 
-        $onboardingDeliverableIds = Deliverable::query()
-            ->where(function ($q): void {
-                $q->whereRaw('LOWER(code) = ?', ['onboarding'])
-                    ->orWhere('sort_order', 4)
-                    ->orWhere('name', 'like', '%Onboard%')
-                    ->orWhere('mis_entry_label', 'like', '%Onboard%');
-            })
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn (int $id) => $id > 0)
-            ->values()
-            ->all();
+        $onboardingDeliverableIds = $this->onboardingDeliverableIds();
         $hubOnboardingTarget = null;
         if ($activeFy && $districtIds !== [] && $onboardingDeliverableIds !== []) {
             $hubOnboardingTarget = (int) DistrictDeliverableTarget::query()
@@ -263,6 +252,120 @@ class HubAdminDashboardService
             'hubOnboardingProgressPct' => $hubOnboardingProgressPct,
             'hubOnboardingByDistrict' => $hubOnboardingByDistrict,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function onboardingDistrictInsight(User $user): array
+    {
+        if ($user->role !== 'hub_admin' || ! $user->hub_id) {
+            abort(403);
+        }
+
+        $hubId = (int) $user->hub_id;
+        $hub = Hub::query()->findOrFail($hubId);
+        $districts = District::query()
+            ->where('hub_id', $hubId)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        $districtIds = $districts->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $activeFy = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first();
+        $onboardingDeliverableIds = $this->onboardingDeliverableIds();
+        $phase3FloorDate = Carbon::create(2026, 4, 1)->startOfDay();
+
+        $targetsByDistrict = collect();
+        if ($activeFy && $districtIds !== [] && $onboardingDeliverableIds !== []) {
+            $targetsByDistrict = DistrictDeliverableTarget::query()
+                ->where('fiscal_year_id', (int) $activeFy->id)
+                ->whereIn('deliverable_id', $onboardingDeliverableIds)
+                ->whereIn('district_id', $districtIds)
+                ->selectRaw('district_id, SUM(target_total) as target_total')
+                ->groupBy('district_id')
+                ->pluck('target_total', 'district_id');
+        }
+
+        $achievedByDistrict = $districtIds === []
+            ? collect()
+            : DB::table('onboarding_batch_cfa as obc')
+                ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                ->where('ob.hub_id', $hubId)
+                ->where('ob.status', 'locked')
+                ->whereNotNull('ob.locked_at')
+                ->where('ob.locked_at', '>=', $phase3FloorDate)
+                ->selectRaw('ob.district_id, COUNT(obc.id) as achieved_total')
+                ->groupBy('ob.district_id')
+                ->pluck('achieved_total', 'ob.district_id');
+
+        $rows = $districts->map(function (District $district) use ($targetsByDistrict, $achievedByDistrict): array {
+            $districtId = (int) $district->id;
+            $target = (int) ($targetsByDistrict[$districtId] ?? 0);
+            $achieved = (int) ($achievedByDistrict[$districtId] ?? 0);
+            $progressPct = $target > 0 ? (int) round(($achieved / $target) * 100) : null;
+            $gap = max(0, $target - $achieved);
+
+            if ($target <= 0) {
+                $smartAnalysis = 'Target not configured. Add district onboarding target to track this district.';
+            } elseif ($achieved === 0) {
+                $smartAnalysis = 'No onboarding achieved yet. Activate at least one locked batch for this district.';
+            } elseif ($progressPct !== null && $progressPct >= 100) {
+                $smartAnalysis = 'Target achieved. Consider revising allocation if more demand is expected.';
+            } elseif ($progressPct !== null && $progressPct >= 70) {
+                $smartAnalysis = 'On track. Focus on closing the remaining gap to hit target this cycle.';
+            } else {
+                $smartAnalysis = 'Needs attention. Current onboarding pace is below expected target trajectory.';
+            }
+
+            return [
+                'district_id' => $districtId,
+                'district_name' => (string) $district->name,
+                'target' => $target,
+                'achieved' => $achieved,
+                'progress_pct' => $progressPct,
+                'gap' => $gap,
+                'smart_analysis' => $smartAnalysis,
+            ];
+        })->sortByDesc('achieved')->values();
+
+        $totalTarget = (int) $rows->sum('target');
+        $totalAchieved = (int) $rows->sum('achieved');
+        $totalGap = max(0, $totalTarget - $totalAchieved);
+        $overallProgressPct = $totalTarget > 0 ? (int) round(($totalAchieved / $totalTarget) * 100) : null;
+        $districtsWithoutTarget = (int) $rows->filter(fn (array $row) => (int) $row['target'] <= 0)->count();
+        $districtsWithZeroAchieved = (int) $rows->filter(fn (array $row) => (int) $row['target'] > 0 && (int) $row['achieved'] === 0)->count();
+
+        return [
+            'hub' => $hub,
+            'activeFy' => $activeFy,
+            'rows' => $rows,
+            'totalTarget' => $totalTarget,
+            'totalAchieved' => $totalAchieved,
+            'totalGap' => $totalGap,
+            'overallProgressPct' => $overallProgressPct,
+            'districtsWithoutTarget' => $districtsWithoutTarget,
+            'districtsWithZeroAchieved' => $districtsWithZeroAchieved,
+        ];
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function onboardingDeliverableIds(): array
+    {
+        return Deliverable::query()
+            ->where(function ($q): void {
+                $q->whereRaw('LOWER(code) = ?', ['onboarding'])
+                    ->orWhere('sort_order', 4)
+                    ->orWhere('name', 'like', '%Onboard%')
+                    ->orWhere('mis_entry_label', 'like', '%Onboard%');
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
     }
 
     /**
