@@ -352,6 +352,8 @@
             (function () {
                 const form = document.getElementById('serviceSubmitForm');
                 if (!form) return;
+                const SERVICES = @json($servicesJson);
+                const EXISTING_NON_MULTIPLE = new Set(@json($existingNonMultiplePairs ?? []));
 
                 const overlay = document.getElementById('submitProgressOverlay');
                 const textEl = document.getElementById('submitProgressText');
