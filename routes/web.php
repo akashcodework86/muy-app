@@ -26,6 +26,7 @@ use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentLibraryController;
 use App\Http\Controllers\Hub\HubBatchController;
+use App\Http\Controllers\Hub\HubApplicationsController;
 use App\Http\Controllers\Hub\HubOnboardingInsightController;
 use App\Http\Controllers\Hub\HubStaffPerformanceController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
@@ -307,6 +308,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
+        Route::get('applications', [HubApplicationsController::class, 'index'])->name('applications.index');
         Route::get('batches', [HubBatchController::class, 'index'])->name('batches.index');
         Route::get('staff-performance', [HubStaffPerformanceController::class, 'index'])->name('staff-performance.index');
         Route::get('onboarding-insight', [HubOnboardingInsightController::class, 'index'])->name('onboarding-insight.index');
