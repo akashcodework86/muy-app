@@ -87,7 +87,7 @@
                     <th style="text-align:left;padding:0.62rem 0.72rem;border-bottom:1px solid #e5e7eb;font-size:0.7rem;color:#475569;text-transform:uppercase;">District</th>
                     <th style="text-align:left;padding:0.62rem 0.72rem;border-bottom:1px solid #e5e7eb;font-size:0.7rem;color:#475569;text-transform:uppercase;">Staff / Link owner</th>
                     <th style="text-align:left;padding:0.62rem 0.72rem;border-bottom:1px solid #e5e7eb;font-size:0.7rem;color:#475569;text-transform:uppercase;">Source</th>
-                    <th style="text-align:left;padding:0.62rem 0.72rem;border-bottom:1px solid #e5e7eb;font-size:0.7rem;color:#475569;text-transform:uppercase;">Open link</th>
+                    <th style="text-align:left;padding:0.62rem 0.72rem;border-bottom:1px solid #e5e7eb;font-size:0.7rem;color:#475569;text-transform:uppercase;">View</th>
                 </tr>
             </thead>
             <tbody>
@@ -118,15 +118,11 @@
                             </span>
                         </td>
                         <td style="padding:0.62rem 0.72rem;border-bottom:1px solid #f1f5f9;">
-                            @if ($app->referralUser && $app->referralUser->referral_token)
-                                <a href="{{ route('cfa.apply', ['token' => $app->referralUser->referral_token]) }}" target="_blank" rel="noopener"
-                                   style="display:inline-flex;align-items:center;gap:0.28rem;padding:0.25rem 0.46rem;border-radius:8px;background:#ecfeff;border:1px solid #a5f3fc;color:#0f766e;text-decoration:none;font-size:0.72rem;font-weight:700;">
-                                    <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
-                                    Open link
-                                </a>
-                            @else
-                                <span style="color:#94a3b8;font-size:0.78rem;">—</span>
-                            @endif
+                            <a href="{{ route('hub.batches.cfa.show', $app) }}"
+                               style="display:inline-flex;align-items:center;gap:0.28rem;padding:0.25rem 0.5rem;border-radius:8px;background:#ecfeff;border:1px solid #a5f3fc;color:#0f766e;text-decoration:none;font-size:0.72rem;font-weight:700;">
+                                <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                                View
+                            </a>
                         </td>
                     </tr>
                 @empty
