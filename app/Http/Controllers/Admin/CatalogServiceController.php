@@ -401,6 +401,39 @@ class CatalogServiceController extends Controller
             }
         }
 
-        return array_values($fields);
+        $inferred = array_values($fields);
+        if ($inferred !== []) {
+            return $inferred;
+        }
+
+        // Last-resort defaults for known interventions where legacy rows were
+        // created without persisted field_schema.
+        return $this->defaultSchemaByServiceCode((string) $service->code);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function defaultSchemaByServiceCode(string $serviceCode): array
+    {
+        $code = strtolower(trim($serviceCode));
+        if ($code === 'udyam_registration' || str_contains($code, 'udyam')) {
+            return [
+                [
+                    'key' => 'registration_number',
+                    'label' => 'Registration Number',
+                    'type' => ServiceFieldTypes::TEXT,
+                    'required' => true,
+                ],
+                [
+                    'key' => 'remark',
+                    'label' => 'Remark',
+                    'type' => ServiceFieldTypes::TEXTAREA,
+                    'required' => false,
+                ],
+            ];
+        }
+
+        return [];
     }
 }
