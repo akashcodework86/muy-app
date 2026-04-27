@@ -270,7 +270,7 @@
                 function render() {
                     const id = getSelectedServiceId();
                     const subId = parseInt(selSub.value || '0', 10);
-                    const svc = SERVICES.find(function (x) { return x.id === id; });
+                    const svc = SERVICES.find(function (x) { return parseInt(x.id, 10) === id; });
                     box.innerHTML = '';
                     meta.textContent = '';
                     warning.style.display = 'none';
@@ -635,7 +635,7 @@
                     const serviceId = parseInt(serviceEl.value || '0', 10);
                     const submissionId = parseInt(submissionEl.value || '0', 10);
                     if (!serviceId || !submissionId) return false;
-                    const svc = SERVICES.find(function (x) { return x.id === serviceId; });
+                    const svc = SERVICES.find(function (x) { return parseInt(x.id, 10) === serviceId; });
                     if (!svc || svc.allows_multiple) return false;
 
                     return EXISTING_NON_MULTIPLE.has(submissionId + ':' + serviceId);
