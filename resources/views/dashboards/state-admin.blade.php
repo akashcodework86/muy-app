@@ -730,10 +730,6 @@
                                     <div class="apps-highlight__label">All CFA submissions (all districts) - Phase 3 from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }}</div>
                                 </div>
                             </div>
-                            <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 0.5rem;line-height:1.45;">
-                                All-time CFA (all phases): Phase 1 ({{ number_format((int) ($phase1CfaTotal ?? 0)) }}) + Phase 2 ({{ number_format((int) ($phase2CfaTotal ?? 0)) }}) + Phase 3 ({{ number_format((int) ($phase3CfaTotal ?? 0)) }}) = <span style="display:inline-block;padding:0.08rem 0.38rem;border-radius:999px;background:rgba(79,70,229,0.12);color:#312e81;font-weight:800;">{{ number_format((int) ($allPhasesCfaTotal ?? 0)) }}</span>
-                            </p>
-
                             @if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0 && $districtAllocPct !== null)
                             @php
                                 $achievedNow = (int) ($cfaTotal ?? 0);

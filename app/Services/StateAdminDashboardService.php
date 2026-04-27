@@ -162,24 +162,6 @@ class StateAdminDashboardService
         $staffActive = User::query()->where('role', 'district_staff')->where('is_active', true)->count();
 
         $cfaTotal = (clone $phase3Scope)->count();
-        $phase1CfaTotal = 0;
-        $phase2CfaTotal = 0;
-        $phase3CfaTotal = (int) $cfaTotal;
-        try {
-            if (Schema::connection('legacy_phase1')->hasTable('tblapplication')) {
-                $phase1CfaTotal = (int) DB::connection('legacy_phase1')->table('tblapplication')->count();
-            }
-        } catch (\Throwable $e) {
-            $phase1CfaTotal = 0;
-        }
-        try {
-            if (Schema::connection('legacy')->hasTable('rbi_applications')) {
-                $phase2CfaTotal = (int) DB::connection('legacy')->table('rbi_applications')->count();
-            }
-        } catch (\Throwable $e) {
-            $phase2CfaTotal = 0;
-        }
-        $allPhasesCfaTotal = $phase1CfaTotal + $phase2CfaTotal + $phase3CfaTotal;
         $cfaThisMonth = (clone $phase3Scope)->whereYear('created_at', now()->year)->whereMonth('created_at', now()->month)->count();
         $cfaLast30 = (clone $phase3Scope)->where('created_at', '>=', now()->subDays(30))->count();
         $cfaLast7 = (int) (clone $phase3Scope)->where('created_at', '>=', now()->subDays(6)->startOfDay())->count();
@@ -312,10 +294,6 @@ class StateAdminDashboardService
             'staffTotal' => $staffTotal,
             'staffActive' => $staffActive,
             'cfaTotal' => $cfaTotal,
-            'phase1CfaTotal' => $phase1CfaTotal,
-            'phase2CfaTotal' => $phase2CfaTotal,
-            'phase3CfaTotal' => $phase3CfaTotal,
-            'allPhasesCfaTotal' => $allPhasesCfaTotal,
             'cfaThisMonth' => $cfaThisMonth,
             'cfaLast30' => $cfaLast30,
             'cfaLast7' => $cfaLast7,
