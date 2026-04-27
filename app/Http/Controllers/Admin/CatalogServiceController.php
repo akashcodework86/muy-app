@@ -25,15 +25,13 @@ class CatalogServiceController extends Controller
     public function create(Request $request): View
     {
         $categoryId = (int) $request->query('service_category_id', 0);
-        $subcategories = ServiceCategory::query()
-            ->whereNotNull('parent_id')
-            ->with('parent')
+        $categories = ServiceCategory::query()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
         return view('admin.service-catalog.services.create', [
-            'subcategories' => $subcategories,
+            'categories' => $categories,
             'selectedCategoryId' => $categoryId,
             'deliverables' => Deliverable::query()->where('is_active', true)->orderBy('sort_order')->get(),
         ]);
@@ -51,7 +49,7 @@ class CatalogServiceController extends Controller
             'service_category_id' => [
                 'required',
                 'integer',
-                Rule::exists('service_categories', 'id')->where(fn ($q) => $q->whereNotNull('parent_id')),
+                Rule::exists('service_categories', 'id'),
             ],
             'code' => ['nullable', 'string', 'max:96', 'regex:/^[a-z0-9_]+$/', Rule::unique('services', 'code')],
             'name' => ['required', 'string', 'max:191'],
@@ -105,17 +103,15 @@ class CatalogServiceController extends Controller
 
     public function edit(Service $service): View
     {
-        $service->loadMissing('category.parent');
-        $subcategories = ServiceCategory::query()
-            ->whereNotNull('parent_id')
-            ->with('parent')
+        $service->loadMissing('category');
+        $categories = ServiceCategory::query()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
         return view('admin.service-catalog.services.edit', [
             'service' => $service,
-            'subcategories' => $subcategories,
+            'categories' => $categories,
             'deliverables' => Deliverable::query()->where('is_active', true)->orderBy('sort_order')->get(),
             'fieldSchemaJson' => json_encode($service->field_schema ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
         ]);
@@ -133,7 +129,7 @@ class CatalogServiceController extends Controller
             'service_category_id' => [
                 'required',
                 'integer',
-                Rule::exists('service_categories', 'id')->where(fn ($q) => $q->whereNotNull('parent_id')),
+                Rule::exists('service_categories', 'id'),
             ],
             'code' => ['required', 'string', 'max:96', 'regex:/^[a-z0-9_]+$/', Rule::unique('services', 'code')->ignore($service->id)],
             'name' => ['required', 'string', 'max:191'],
@@ -281,6 +277,19 @@ class CatalogServiceController extends Controller
         $normalized = ServiceFieldTypes::normalizeSchema($raw);
         if ($normalized === []) {
             throw ValidationException::withMessages(['field_schema' => 'No valid schema fields after normalisation.']);
+        }
+        $keys = collect($normalized)->map(fn (array $row) => (string) ($row['key'] ?? ''))->filter()->values()->all();
+        foreach ($normalized as $row) {
+            $visibleIf = $row['visible_if'] ?? null;
+            if (! is_array($visibleIf)) {
+                continue;
+            }
+            $depField = (string) ($visibleIf['field'] ?? '');
+            if ($depField === '' || ! in_array($depField, $keys, true)) {
+                throw ValidationException::withMessages([
+                    'field_schema' => "Conditional logic references unknown field ID: {$depField}.",
+                ]);
+            }
         }
 
         return $normalized;

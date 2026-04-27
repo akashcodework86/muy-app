@@ -10,18 +10,18 @@
         @csrf
 
         <div style="margin-bottom:0.85rem;">
-            <label for="service_category_id" style="display:block; font-weight:500; margin-bottom:0.25rem;">Subcategory</label>
+            <label for="service_category_id" style="display:block; font-weight:500; margin-bottom:0.25rem;">Category</label>
             <select id="service_category_id" name="service_category_id" required style="width:100%; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
                 <option value="">— Select —</option>
-                @foreach ($subcategories as $sub)
-                    <option value="{{ $sub->id }}" @selected((int) old('service_category_id', $selectedCategoryId) === (int) $sub->id)>
-                        {{ $sub->parent?->name ?? '?' }} → {{ $sub->name }}
+                @foreach ($categories as $cat)
+                    <option value="{{ $cat->id }}" @selected((int) old('service_category_id', $selectedCategoryId) === (int) $cat->id)>
+                        {{ $cat->name }}
                     </option>
                 @endforeach
             </select>
             @error('service_category_id')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
-            @if ($subcategories->isEmpty())
-                <p style="font-size:0.85rem; color:#b45309; margin-top:0.35rem;">No subcategories yet. Create a top category, then a subcategory, then return here.</p>
+            @if ($categories->isEmpty())
+                <p style="font-size:0.85rem; color:#b45309; margin-top:0.35rem;">No categories yet. Create a category first, then return here.</p>
             @endif
         </div>
 

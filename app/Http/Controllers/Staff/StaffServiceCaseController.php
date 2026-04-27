@@ -36,7 +36,7 @@ class StaffServiceCaseController extends Controller
 
         $q = ServiceCase::query()
             ->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', (int) $staff->district_id))
-            ->with(['cfaSubmission:id,applicant_name,application_no,district_id', 'service.category.parent']);
+            ->with(['cfaSubmission:id,applicant_name,application_no,district_id', 'service.category']);
 
         if ($status !== '') {
             $q->where('status', $status);
@@ -146,7 +146,7 @@ class StaffServiceCaseController extends Controller
 
         $service_case->load([
             'cfaSubmission.district',
-            'service.category.parent',
+            'service.category',
             'attachments.uploader',
             'events.user',
         ]);
@@ -165,7 +165,7 @@ class StaffServiceCaseController extends Controller
 
         $service_case->load([
             'cfaSubmission:id,applicant_name,application_no,district_id',
-            'service.category.parent',
+            'service.category',
             'attachments',
         ]);
 
@@ -325,11 +325,11 @@ class StaffServiceCaseController extends Controller
     {
         return Service::query()
             ->where('is_active', true)
-            ->with(['category.parent'])
+            ->with(['category'])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
-            ->filter(fn (Service $s) => $s->category && $s->category->parent_id !== null)
+            ->filter(fn (Service $s) => $s->category !== null)
             ->values();
     }
 }

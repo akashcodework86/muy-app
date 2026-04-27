@@ -43,7 +43,7 @@
                     <option value="">— Select —</option>
                     @foreach ($services as $svc)
                         <option value="{{ $svc->id }}" @selected((int) old('service_id') === (int) $svc->id)>
-                            {{ $svc->category?->parent?->name ?? '?' }} → {{ $svc->category?->name ?? '?' }} — {{ $svc->name }}
+                            {{ $svc->category?->name ?? '?' }} — {{ $svc->name }}
                         </option>
                     @endforeach
                 </select>
@@ -129,11 +129,59 @@
                         return;
                     }
 
+                    const fieldRows = {};
+                    function getPayloadValue(key) {
+                        const els = box.querySelectorAll('[name="payload[' + key + ']"], [name="payload[' + key + '][]"]');
+                        if (!els.length) return '';
+                        const first = els[0];
+                        if (first.type === 'checkbox') {
+                            return first.checked ? '1' : '0';
+                        }
+                        if (first.tagName === 'SELECT' && first.multiple) {
+                            return Array.from(first.selectedOptions).map(o => o.value);
+                        }
+                        if (first.type === 'radio') {
+                            const checked = Array.from(els).find(el => el.checked);
+                            return checked ? checked.value : '';
+                        }
+                        return first.value || '';
+                    }
+                    function syncVisibility() {
+                        schema.forEach(function (field) {
+                            const row = fieldRows[field.key];
+                            if (!row) return;
+                            const cond = field.visible_if || null;
+                            let show = true;
+                            if (cond && cond.field && cond.value !== undefined) {
+                                const depVal = getPayloadValue(cond.field);
+                                if (Array.isArray(depVal)) {
+                                    show = depVal.indexOf(String(cond.value)) >= 0;
+                                } else {
+                                    show = String(depVal) === String(cond.value);
+                                }
+                            }
+                            row.style.display = show ? '' : 'none';
+                            row.querySelectorAll('input,select,textarea').forEach(function (el) {
+                                if (!show) {
+                                    el.dataset.wasRequired = el.required ? '1' : '0';
+                                    el.required = false;
+                                    el.disabled = true;
+                                } else {
+                                    el.disabled = false;
+                                    if (el.dataset.wasRequired === '1') {
+                                        el.required = true;
+                                    }
+                                }
+                            });
+                        });
+                    }
+
                     schema.forEach(function (field) {
                         const key = field.key;
                         const label = field.label || key;
                         const type = field.type || 'text';
                         const wrap = document.createElement('div');
+                        fieldRows[key] = wrap;
                         const lb = document.createElement('label');
                         lb.style.cssText = 'display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.2rem;';
                         lb.innerHTML = esc(label) + (field.required ? ' <span style="color:#b91c1c">*</span>' : '');
@@ -201,6 +249,26 @@
                             input.name = 'payload_files[' + key + ']';
                             input.accept = '.pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf';
                             input.style.cssText = 'width:100%;padding:0.35rem 0.45rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;font-size:0.82rem;';
+                        } else if (type === 'radio') {
+                            const optionsWrap = document.createElement('div');
+                            optionsWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.8rem;';
+                            (field.options || []).forEach(function (o, idx) {
+                                const optLabel = document.createElement('label');
+                                optLabel.style.cssText = 'display:inline-flex;align-items:center;gap:0.3rem;font-size:0.84rem;';
+                                const radio = document.createElement('input');
+                                radio.type = 'radio';
+                                radio.name = 'payload[' + key + ']';
+                                radio.value = o.value;
+                                if (idx === 0 && field.required) {
+                                    radio.required = true;
+                                }
+                                optLabel.appendChild(radio);
+                                optLabel.appendChild(document.createTextNode(o.label || o.value));
+                                optionsWrap.appendChild(optLabel);
+                            });
+                            wrap.appendChild(optionsWrap);
+                            box.appendChild(wrap);
+                            return;
                         } else {
                             input = document.createElement('input');
                             input.type = type === 'amount' || type === 'number' ? 'number' : (type === 'date' ? 'date' : (type === 'email' ? 'email' : (type === 'url' ? 'url' : (type === 'phone' ? 'tel' : 'text'))));
@@ -214,6 +282,10 @@
                         wrap.appendChild(input);
                         box.appendChild(wrap);
                     });
+
+                    box.addEventListener('input', syncVisibility);
+                    box.addEventListener('change', syncVisibility);
+                    syncVisibility();
                 }
 
                 selSvc.addEventListener('change', render);

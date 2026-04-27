@@ -20,17 +20,7 @@
             <input id="sort_order" name="sort_order" type="number" min="0" value="{{ old('sort_order', $category->sort_order) }}" style="width:8rem; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
         </div>
 
-        <div style="margin-bottom:0.85rem;">
-            <label for="parent_id" style="display:block; font-weight:500; margin-bottom:0.25rem;">Parent (blank = top-level)</label>
-            <select id="parent_id" name="parent_id" style="width:100%; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
-                <option value="">— Top-level category —</option>
-                @foreach (\App\Models\ServiceCategory::query()->whereNull('parent_id')->whereKeyNot($category->id)->orderBy('sort_order')->orderBy('name')->get() as $root)
-                    <option value="{{ $root->id }}" @selected(old('parent_id', $category->parent_id) == $root->id)>{{ $root->name }}</option>
-                @endforeach
-            </select>
-            <p style="font-size:0.78rem; color:#71717a; margin:0.35rem 0 0;">Slug stays stable: <code>{{ $category->slug }}</code></p>
-            @error('parent_id')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
-        </div>
+        <p style="font-size:0.78rem; color:#71717a; margin:0 0 0.8rem;">Slug stays stable: <code>{{ $category->slug }}</code></p>
 
         <button type="submit" style="background:#18181b; color:#fff; border:none; padding:0.5rem 1rem; border-radius:6px; font-weight:500;">Update</button>
     </form>

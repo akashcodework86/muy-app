@@ -25,7 +25,7 @@
     @endif
 
     @if ($pickerServices->isEmpty())
-        <p style="font-size:0.88rem; color:#71717a;">No catalog services under subcategories yet. Ask a <strong>state admin</strong> to open <strong>Admin → Service catalog</strong> and add category → subcategory → service.</p>
+        <p style="font-size:0.88rem; color:#71717a;">No catalog services yet. Ask a <strong>state admin</strong> to open <strong>Admin → Service catalog</strong> and add category → service.</p>
     @else
         <form method="post" action="{{ route('staff.applications.service-cases.store', $submission) }}" style="margin-bottom:1.25rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:flex-end;">
             @csrf
@@ -34,7 +34,7 @@
                 <select id="service_id" name="service_id" required style="min-width:18rem; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
                     @foreach ($pickerServices as $svc)
                         <option value="{{ $svc->id }}">
-                            {{ $svc->category?->parent?->name ?? '?' }} → {{ $svc->category?->name ?? '?' }} — {{ $svc->name }}
+                            {{ $svc->category?->name ?? '?' }} — {{ $svc->name }}
                         </option>
                     @endforeach
                 </select>
@@ -115,6 +115,16 @@
                                                                 <option value="{{ $ov }}" @selected(old('payload.'.$k) == $ov)>{{ $ol }}</option>
                                                             @endforeach
                                                         </select>
+                                                    @elseif ($type === 'radio' && ! empty($row['options']))
+                                                        <div style="display:flex;flex-wrap:wrap;gap:0.65rem;">
+                                                            @foreach ($row['options'] as $opt)
+                                                                @php $ov = is_array($opt) ? ($opt['value'] ?? '') : $opt; $ol = is_array($opt) ? ($opt['label'] ?? $ov) : $opt; @endphp
+                                                                <label style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.82rem;">
+                                                                    <input type="radio" name="payload[{{ $k }}]" value="{{ $ov }}" @checked(old('payload.'.$k) == $ov)>
+                                                                    {{ $ol }}
+                                                                </label>
+                                                            @endforeach
+                                                        </div>
                                                     @elseif ($type === 'multiselect' && ! empty($row['options']))
                                                         <select name="payload[{{ $k }}][]" multiple size="4" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;">
                                                             @foreach ($row['options'] as $opt)

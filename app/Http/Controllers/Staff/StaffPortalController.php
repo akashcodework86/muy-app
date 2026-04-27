@@ -237,17 +237,17 @@ class StaffPortalController extends Controller
 
         $serviceCases = ServiceCase::query()
             ->where('cfa_submission_id', $cfa_submission->id)
-            ->with(['service.category.parent'])
+            ->with(['service.category'])
             ->orderByDesc('created_at')
             ->get();
 
         $pickerServices = Service::query()
             ->where('is_active', true)
-            ->with(['category.parent'])
+            ->with(['category'])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
-            ->filter(fn (Service $s) => $s->category && $s->category->parent_id !== null)
+            ->filter(fn (Service $s) => $s->category !== null)
             ->values();
 
         $legacyDetail = app(LegacyPhase2ApplicationDetailService::class)->tryBuild($cfa_submission);

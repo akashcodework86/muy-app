@@ -11,11 +11,11 @@
         @method('PUT')
 
         <div style="margin-bottom:0.85rem;">
-            <label for="service_category_id" style="display:block; font-weight:500; margin-bottom:0.25rem;">Subcategory</label>
+            <label for="service_category_id" style="display:block; font-weight:500; margin-bottom:0.25rem;">Category</label>
             <select id="service_category_id" name="service_category_id" required style="width:100%; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
-                @foreach ($subcategories as $sub)
-                    <option value="{{ $sub->id }}" @selected((int) old('service_category_id', $service->service_category_id) === (int) $sub->id)>
-                        {{ $sub->parent?->name ?? '?' }} → {{ $sub->name }}
+                @foreach ($categories as $cat)
+                    <option value="{{ $cat->id }}" @selected((int) old('service_category_id', $service->service_category_id) === (int) $cat->id)>
+                        {{ $cat->name }}
                     </option>
                 @endforeach
             </select>

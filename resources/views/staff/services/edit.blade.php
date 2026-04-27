@@ -56,7 +56,7 @@
                             $oldValue = old("payload.$key");
                             $currentValue = is_array($oldValue) ? $oldValue : ($oldValue ?? ($payload[$key] ?? null));
                         @endphp
-                        <div>
+                        <div class="svc-field-row" data-field-key="{{ $key }}" data-visible-if-field="{{ $field['visible_if']['field'] ?? '' }}" data-visible-if-value="{{ $field['visible_if']['value'] ?? '' }}">
                             <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.2rem;">
                                 {{ $field['label'] }}
                                 @if (!empty($field['required']))<span style="color:#b91c1c">*</span>@endif
@@ -100,6 +100,19 @@
                                 @if (!empty($payload[$key]))
                                     <p style="margin:0.2rem 0 0;font-size:0.74rem;color:#71717a;">Current: {{ (string) $payload[$key] }}</p>
                                 @endif
+                            @elseif ($type === 'radio')
+                                <div style="display:flex;flex-wrap:wrap;gap:0.8rem;">
+                                    @foreach (($field['options'] ?? []) as $idx => $opt)
+                                        @php
+                                            $ov = (string) ($opt['value'] ?? '');
+                                            $ol = (string) ($opt['label'] ?? $ov);
+                                        @endphp
+                                        <label style="display:inline-flex;align-items:center;gap:0.35rem;">
+                                            <input type="radio" name="payload[{{ $key }}]" value="{{ $ov }}" @checked((string) $currentValue === $ov) @if (!empty($field['required']) && $idx === 0) required @endif>
+                                            {{ $ol }}
+                                        </label>
+                                    @endforeach
+                                </div>
                             @else
                                 @php
                                     $htmlType = match($type) {
@@ -137,5 +150,52 @@
 
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.55rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;">Update case</button>
     </form>
+    <script>
+        (function () {
+            const form = document.querySelector('form[action*="staff/services"]');
+            if (!form) return;
+            const rows = Array.from(form.querySelectorAll('.svc-field-row'));
+            if (!rows.length) return;
+            function payloadValue(key) {
+                const els = form.querySelectorAll('[name="payload[' + key + ']"], [name="payload[' + key + '][]"]');
+                if (!els.length) return '';
+                const first = els[0];
+                if (first.type === 'checkbox') return first.checked ? '1' : '0';
+                if (first.type === 'radio') {
+                    const checked = Array.from(els).find(el => el.checked);
+                    return checked ? checked.value : '';
+                }
+                if (first.tagName === 'SELECT' && first.multiple) {
+                    return Array.from(first.selectedOptions).map(o => o.value);
+                }
+                return first.value || '';
+            }
+            function syncVisibility() {
+                rows.forEach(function (row) {
+                    const depField = row.getAttribute('data-visible-if-field') || '';
+                    const depValue = row.getAttribute('data-visible-if-value') || '';
+                    let show = true;
+                    if (depField && depValue) {
+                        const actual = payloadValue(depField);
+                        show = Array.isArray(actual) ? actual.indexOf(depValue) >= 0 : String(actual) === depValue;
+                    }
+                    row.style.display = show ? '' : 'none';
+                    row.querySelectorAll('input,select,textarea').forEach(function (el) {
+                        if (!show) {
+                            el.dataset.wasRequired = el.required ? '1' : '0';
+                            el.required = false;
+                            el.disabled = true;
+                        } else {
+                            el.disabled = false;
+                            if (el.dataset.wasRequired === '1') el.required = true;
+                        }
+                    });
+                });
+            }
+            form.addEventListener('input', syncVisibility);
+            form.addEventListener('change', syncVisibility);
+            syncVisibility();
+        })();
+    </script>
 @endsection
 

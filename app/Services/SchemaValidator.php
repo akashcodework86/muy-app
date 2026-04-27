@@ -44,8 +44,6 @@ class SchemaValidator
 
         foreach ($schema as $field) {
             $key = $field['key'];
-            $type = $field['type'];
-            $required = ! empty($field['required']);
             $attributes[$key] = $field['label'];
 
             $value = $payload[$key] ?? null;
@@ -56,6 +54,16 @@ class SchemaValidator
                 }
             }
             $input[$key] = $value;
+        }
+
+        foreach ($schema as $field) {
+            $key = $field['key'];
+            $type = $field['type'];
+            $isVisible = $this->isVisibleField($field, $input);
+            $required = $isVisible && ! empty($field['required']);
+            if (! $isVisible) {
+                $input[$key] = null;
+            }
 
             $rules[$key] = $this->rulesFor($field, $required);
             if ($type === ServiceFieldTypes::MULTISELECT) {
@@ -76,6 +84,9 @@ class SchemaValidator
             }
             $v = $validated[$key];
             if ($v === null || $v === '' || $v === []) {
+                continue;
+            }
+            if (! $this->isVisibleField($field, $input)) {
                 continue;
             }
 
@@ -143,6 +154,7 @@ class SchemaValidator
                 break;
 
             case ServiceFieldTypes::SELECT:
+            case ServiceFieldTypes::RADIO:
                 $allowed = $this->optionValues($field);
                 if ($allowed !== []) {
                     $rules[] = Rule::in($allowed);
@@ -225,5 +237,28 @@ class SchemaValidator
             default:
                 return is_string($v) ? trim($v) : $v;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $field
+     * @param  array<string, mixed>  $input
+     */
+    private function isVisibleField(array $field, array $input): bool
+    {
+        $cond = $field['visible_if'] ?? null;
+        if (! is_array($cond)) {
+            return true;
+        }
+        $depField = isset($cond['field']) ? (string) $cond['field'] : '';
+        $depValue = isset($cond['value']) ? (string) $cond['value'] : '';
+        if ($depField === '' || ! array_key_exists($depField, $input)) {
+            return true;
+        }
+        $actual = $input[$depField];
+        if (is_array($actual)) {
+            return in_array($depValue, array_map('strval', $actual), true);
+        }
+
+        return (string) ($actual ?? '') === $depValue;
     }
 }

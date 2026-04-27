@@ -44,6 +44,8 @@ class ServiceFieldTypes
 
     public const SELECT = 'select';
 
+    public const RADIO = 'radio';
+
     public const MULTISELECT = 'multiselect';
 
     public const CHECKBOX = 'checkbox';
@@ -112,6 +114,12 @@ class ServiceFieldTypes
                 'input' => 'select',
                 'supports_options' => true,
                 'description' => 'Single choice from a fixed list of options.',
+            ],
+            self::RADIO => [
+                'label' => 'Radio (pick one)',
+                'input' => 'radio',
+                'supports_options' => true,
+                'description' => 'Single choice shown as radio buttons.',
             ],
             self::MULTISELECT => [
                 'label' => 'Multi-select (pick many)',
@@ -236,6 +244,22 @@ class ServiceFieldTypes
                     }
                 }
                 $normalised['options'] = $options;
+            }
+
+            if (isset($row['visible_if']) && is_array($row['visible_if'])) {
+                $visibleField = isset($row['visible_if']['field']) && is_string($row['visible_if']['field'])
+                    ? trim($row['visible_if']['field'])
+                    : '';
+                $visibleValue = $row['visible_if']['value'] ?? null;
+                if ($visibleField !== '' && is_scalar($visibleValue)) {
+                    $visibleField = strtolower(preg_replace('/[^a-z0-9_]+/i', '_', $visibleField));
+                    if ($visibleField !== '' && $visibleField !== $key) {
+                        $normalised['visible_if'] = [
+                            'field' => $visibleField,
+                            'value' => (string) $visibleValue,
+                        ];
+                    }
+                }
             }
 
             $out[] = $normalised;
