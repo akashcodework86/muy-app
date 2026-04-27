@@ -194,6 +194,34 @@ class ServiceFieldTypes
             $raw = [$raw];
         }
 
+        // Legacy keyed map format:
+        // {
+        //   "registration_number": {"label":"Registration Number","type":"text","required":true},
+        //   "remark": {"label":"Remark","type":"textarea"}
+        // }
+        if (! array_is_list($raw)) {
+            $looksLikeKeyedSchemaMap = true;
+            foreach ($raw as $mapKey => $mapRow) {
+                if (! is_string($mapKey) || ! is_array($mapRow)) {
+                    $looksLikeKeyedSchemaMap = false;
+                    break;
+                }
+            }
+            if ($looksLikeKeyedSchemaMap) {
+                $rows = [];
+                foreach ($raw as $mapKey => $mapRow) {
+                    if (! isset($mapRow['key']) || ! is_string($mapRow['key']) || trim($mapRow['key']) === '') {
+                        $mapRow['key'] = $mapKey;
+                    }
+                    if (! isset($mapRow['label']) || ! is_string($mapRow['label']) || trim($mapRow['label']) === '') {
+                        $mapRow['label'] = ucfirst(str_replace('_', ' ', $mapKey));
+                    }
+                    $rows[] = $mapRow;
+                }
+                $raw = $rows;
+            }
+        }
+
         $out = [];
         $seenKeys = [];
 
