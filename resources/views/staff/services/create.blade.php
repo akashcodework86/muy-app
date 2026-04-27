@@ -313,10 +313,6 @@
                 const fxLayer = document.getElementById('submitFireworksLayer');
                 let inFlight = false;
 
-                function sleep(ms) {
-                    return new Promise(resolve => setTimeout(resolve, ms));
-                }
-
                 function burstFireworks() {
                     if (!fxLayer) return;
                     const colors = ['#22c55e', '#0ea5e9', '#f97316', '#a855f7', '#ef4444', '#eab308'];
@@ -347,9 +343,36 @@
                     }
                 }
 
+                function setProgress(pct) {
+                    const safePct = Math.max(3, Math.min(100, Math.round(pct)));
+                    if (barEl) barEl.style.width = safePct + '%';
+                    if (!textEl) return;
+                    if (safePct < 20) {
+                        textEl.textContent = 'Checking your data...';
+                    } else if (safePct < 60) {
+                        textEl.textContent = 'Reading your document...';
+                    } else if (safePct < 95) {
+                        textEl.textContent = 'Assigning to SPOC for approval...';
+                    } else if (safePct < 100) {
+                        textEl.textContent = 'Finalizing submission...';
+                    }
+                }
+
+                function resetSubmitButton() {
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '';
+                        submitBtn.style.cursor = '';
+                    }
+                }
+
                 form.addEventListener('submit', async function (e) {
                     if (inFlight) return;
                     e.preventDefault();
+                    if (!form.reportValidity()) {
+                        return;
+                    }
                     inFlight = true;
 
                     const submitBtn = form.querySelector('button[type="submit"]');
@@ -359,22 +382,50 @@
                         submitBtn.style.cursor = 'not-allowed';
                     }
                     if (overlay) overlay.style.display = 'flex';
+                    setProgress(8);
 
-                    const steps = [
-                        { text: 'Checking your data...', pct: 28, wait: 850 },
-                        { text: 'Reading your document...', pct: 62, wait: 950 },
-                        { text: 'Assigning to SPOC for approval...', pct: 88, wait: 900 },
-                        { text: 'Submitted successfully!', pct: 100, wait: 850 },
-                    ];
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', form.action, true);
+                    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
-                    for (const step of steps) {
-                        if (textEl) textEl.textContent = step.text;
-                        if (barEl) barEl.style.width = step.pct + '%';
-                        if (step.pct === 100) burstFireworks();
-                        await sleep(step.wait);
-                    }
+                    xhr.upload.onprogress = function (ev) {
+                        if (ev.lengthComputable && ev.total > 0) {
+                            const uploadPct = (ev.loaded / ev.total) * 92;
+                            setProgress(uploadPct);
+                        } else {
+                            setProgress(55);
+                        }
+                    };
 
-                    form.submit();
+                    xhr.onerror = function () {
+                        if (textEl) textEl.textContent = 'Upload failed. Please try again.';
+                        if (barEl) barEl.style.width = '100%';
+                        if (overlay) overlay.style.display = 'none';
+                        resetSubmitButton();
+                        inFlight = false;
+                    };
+
+                    xhr.onload = function () {
+                        if (xhr.status >= 200 && xhr.status < 400) {
+                            setProgress(100);
+                            if (textEl) textEl.textContent = 'Submitted successfully!';
+                            burstFireworks();
+                            const nextUrl = xhr.responseURL || @json(route('staff.services.index'));
+                            setTimeout(function () {
+                                window.location.assign(nextUrl);
+                            }, 700);
+                            return;
+                        }
+
+                        if (textEl) {
+                            textEl.textContent = 'Could not submit. Please check the form and retry.';
+                        }
+                        if (overlay) overlay.style.display = 'none';
+                        resetSubmitButton();
+                        inFlight = false;
+                    };
+
+                    xhr.send(new FormData(form));
                 });
             })();
         </script>
