@@ -78,7 +78,7 @@
         </form>
 
         <div id="submitProgressOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,12,22,0.62);z-index:9999;align-items:center;justify-content:center;padding:1.2rem;">
-            <div style="width:min(760px,97vw);background:#ffffff;border-radius:18px;padding:1.25rem 1.3rem 1.45rem;border:1px solid #e4e4e7;box-shadow:0 24px 60px rgba(0,0,0,0.28);position:relative;overflow:hidden;">
+            <div style="width:min(760px,97vw);min-height:280px;background:#ffffff;border-radius:18px;padding:1.6rem 1.45rem 1.65rem;border:1px solid #e4e4e7;box-shadow:0 24px 60px rgba(0,0,0,0.28);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;">
                 <p style="margin:0 0 0.7rem;font-size:0.8rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Submitting intervention</p>
                 <p id="submitProgressText" style="margin:0 0 1rem;font-size:1.4rem;line-height:1.25;font-weight:800;color:#0f172a;">Checking your data…</p>
                 <div style="height:14px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
@@ -338,13 +338,13 @@
                         dot.style.background = colors[Math.floor(Math.random() * colors.length)];
                         dot.style.opacity = '1';
                         dot.style.transform = 'translate(-50%, -50%)';
-                        dot.style.transition = 'transform 920ms cubic-bezier(.2,.75,.2,1), opacity 920ms ease';
+                        dot.style.transition = 'transform 3000ms cubic-bezier(.2,.75,.2,1), opacity 3000ms ease';
                         fxLayer.appendChild(dot);
                         requestAnimationFrame(() => {
                             dot.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px))';
                             dot.style.opacity = '0';
                         });
-                        setTimeout(() => dot.remove(), 980);
+                        setTimeout(() => dot.remove(), 3100);
                     }
                 }
 
@@ -435,7 +435,7 @@
                             const nextUrl = xhr.responseURL || @json(route('staff.services.index'));
                             setTimeout(function () {
                                 window.location.assign(nextUrl);
-                            }, 700);
+                            }, 3000);
                         };
                         const finalizeError = function () {
                             if (textEl) {
