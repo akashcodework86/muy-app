@@ -312,6 +312,7 @@
                 const barEl = document.getElementById('submitProgressBar');
                 const fxLayer = document.getElementById('submitFireworksLayer');
                 let inFlight = false;
+                const MIN_FLOW_MS = 5000;
 
                 function burstFireworks() {
                     if (!fxLayer) return;
@@ -374,6 +375,7 @@
                         return;
                     }
                     inFlight = true;
+                    const startedAt = Date.now();
 
                     const submitBtn = form.querySelector('button[type="submit"]');
                     if (submitBtn) {
@@ -406,7 +408,7 @@
                     };
 
                     xhr.onload = function () {
-                        if (xhr.status >= 200 && xhr.status < 400) {
+                        const finishSuccess = function () {
                             setProgress(100);
                             if (textEl) textEl.textContent = 'Submitted successfully!';
                             burstFireworks();
@@ -414,15 +416,39 @@
                             setTimeout(function () {
                                 window.location.assign(nextUrl);
                             }, 700);
+                        };
+                        const finishError = function () {
+                            if (textEl) {
+                                textEl.textContent = 'Could not submit. Please check the form and retry.';
+                            }
+                            if (overlay) overlay.style.display = 'none';
+                            resetSubmitButton();
+                            inFlight = false;
+                        };
+                        const elapsed = Date.now() - startedAt;
+                        const remaining = Math.max(0, MIN_FLOW_MS - elapsed);
+
+                        if (xhr.status >= 200 && xhr.status < 400) {
+                            if (remaining > 0) {
+                                const half = Math.max(350, Math.floor(remaining / 2));
+                                if (textEl) textEl.textContent = 'Assigning to SPOC for approval...';
+                                if (barEl) barEl.style.width = '92%';
+                                setTimeout(function () {
+                                    if (textEl) textEl.textContent = 'Finalizing submission...';
+                                    if (barEl) barEl.style.width = '97%';
+                                }, half);
+                                setTimeout(finishSuccess, remaining);
+                            } else {
+                                finishSuccess();
+                            }
                             return;
                         }
 
-                        if (textEl) {
-                            textEl.textContent = 'Could not submit. Please check the form and retry.';
+                        if (remaining > 0) {
+                            setTimeout(finishError, remaining);
+                        } else {
+                            finishError();
                         }
-                        if (overlay) overlay.style.display = 'none';
-                        resetSubmitButton();
-                        inFlight = false;
                     };
 
                     xhr.send(new FormData(form));
