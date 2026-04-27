@@ -37,7 +37,7 @@ class HubApplicationsController extends Controller
         $from = trim((string) $request->query('from', ''));
         $to = trim((string) $request->query('to', ''));
 
-        $allowedSources = ['referral', 'walk_in', 'admin', 'import', 'other'];
+        $allowedSources = ['referral', 'not_linked'];
         if (! in_array($source, $allowedSources, true)) {
             $source = '';
         }
@@ -47,7 +47,8 @@ class HubApplicationsController extends Controller
             ->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds), fn ($q) => $q->whereRaw('1 = 0'))
             ->when($districtId, fn ($q) => $q->where('district_id', (int) $districtId))
             ->when($staffId, fn ($q) => $q->where('referral_user_id', (int) $staffId))
-            ->when($source !== '', fn ($q) => $q->where('source', $source))
+            ->when($source === 'referral', fn ($q) => $q->whereNotNull('referral_user_id'))
+            ->when($source === 'not_linked', fn ($q) => $q->whereNull('referral_user_id'))
             ->when($q !== '', function ($qBuilder) use ($q): void {
                 $qBuilder->where(function ($inner) use ($q): void {
                     $inner->where('application_no', 'like', "%{$q}%")

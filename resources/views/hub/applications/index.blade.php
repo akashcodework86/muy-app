@@ -8,7 +8,7 @@
         <div>
             <p style="margin:0;font-size:0.95rem;font-weight:700;color:#0f172a;">Applications source tracker</p>
             <p style="margin:0.2rem 0 0;font-size:0.82rem;color:#64748b;">
-                Filter by staff and source to see exactly where applications are coming from. Use “Open link” to verify the referral link owner.
+                Filter by staff and source to see exactly where applications are coming from. Use “View” to open full application details.
             </p>
         </div>
     </div>
@@ -45,10 +45,7 @@
             <select id="source" name="source" style="width:100%;padding:0.45rem 0.55rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;">
                 <option value="">All sources</option>
                 <option value="referral" @selected(($filters['source'] ?? '') === 'referral')>Referral</option>
-                <option value="walk_in" @selected(($filters['source'] ?? '') === 'walk_in')>Walk-in</option>
-                <option value="admin" @selected(($filters['source'] ?? '') === 'admin')>Admin</option>
-                <option value="import" @selected(($filters['source'] ?? '') === 'import')>Import</option>
-                <option value="other" @selected(($filters['source'] ?? '') === 'other')>Other</option>
+                <option value="not_linked" @selected(($filters['source'] ?? '') === 'not_linked')>Not linked to referral</option>
             </select>
         </div>
         <div>
