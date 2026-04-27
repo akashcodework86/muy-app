@@ -83,6 +83,7 @@ class StaffServiceCaseController extends Controller
             'servicesJson' => $services->map(fn (Service $s) => [
                 'id' => $s->id,
                 'name' => $s->name,
+                'category_name' => $s->category?->name ?? 'Other',
                 'requires_document' => (bool) $s->requires_document,
                 'requires_approval' => (bool) $s->requires_approval,
                 'allows_multiple' => (bool) $s->allows_multiple,
