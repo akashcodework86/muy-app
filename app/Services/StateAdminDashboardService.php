@@ -252,8 +252,29 @@ class StateAdminDashboardService
             ->orderByDesc('cfa_total')
             ->orderBy('users.name')
             ->get();
+
+        // Add a synthetic row for applications with no referral user so district totals reconcile.
+        $notLinkedByDistrict = DB::table('cfa_submissions as cs')
+            ->join('districts as d', 'd.id', '=', 'cs.district_id')
+            ->whereNull('cs.referral_user_id')
+            ->when($activeFyId > 0, fn ($q) => $q->where('cs.fiscal_year_id', $activeFyId), fn ($q) => $q->where('cs.created_at', '>=', $phase3FloorDate))
+            ->select(
+                DB::raw('NULL as id'),
+                DB::raw("'Not linked to referral' as name"),
+                DB::raw('d.name as district_name'),
+                DB::raw('COUNT(cs.id) as cfa_total')
+            )
+            ->groupBy('d.id', 'd.name')
+            ->havingRaw('COUNT(cs.id) > 0')
+            ->get();
+
+        $staffCfaByStaff = $staffCfaByStaff
+            ->concat($notLinkedByDistrict)
+            ->sortByDesc(fn ($row) => (int) $row->cfa_total)
+            ->values();
+
         $staffAvatarMap = User::query()
-            ->whereIn('id', $staffCfaByStaff->pluck('id')->map(fn ($id) => (int) $id)->all())
+            ->whereIn('id', $staffCfaByStaff->pluck('id')->filter()->map(fn ($id) => (int) $id)->filter(fn (int $id) => $id > 0)->all())
             ->get()
             ->keyBy('id');
 
