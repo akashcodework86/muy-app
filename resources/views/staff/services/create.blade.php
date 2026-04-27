@@ -60,6 +60,7 @@
             .svc-service:hover { border-color:#a5b4fc; box-shadow:0 6px 20px rgba(79,70,229,.12); transform:translateY(-1px); }
             .svc-service.is-selected { border-color:#6366f1; background:linear-gradient(180deg,#eef2ff,#fff); box-shadow:0 0 0 2px rgba(99,102,241,.16); }
             .svc-service.is-disabled { opacity:.55; cursor:not-allowed; background:#f8fafc; }
+            .svc-service.is-disabled:hover { border-color:#e2e8f0; box-shadow:none; transform:none; }
             .svc-service-title { margin:0; font-size:.86rem; font-weight:800; color:#0f172a; }
             .svc-service-sub { margin:.18rem 0 .42rem; font-size:.73rem; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:.04em; }
             .svc-badges { display:flex; flex-wrap:wrap; gap:.3rem; }
@@ -538,6 +539,12 @@
                             render();
                         });
                     });
+                    cardsWrap.querySelectorAll('input[name="service_id"]').forEach(function (radio) {
+                        radio.addEventListener('change', function () {
+                            renderServiceCards();
+                            render();
+                        });
+                    });
                 }
 
                 selSub.addEventListener('change', function () {
@@ -622,7 +629,7 @@
                 }
 
                 function duplicateBlockedSelection() {
-                    const serviceEl = document.getElementById('service_id');
+                    const serviceEl = form.querySelector('input[name="service_id"]:checked');
                     const submissionEl = document.getElementById('cfa_submission_id');
                     if (!serviceEl || !submissionEl) return false;
                     const serviceId = parseInt(serviceEl.value || '0', 10);
@@ -651,13 +658,18 @@
                     });
                 }
 
+                function selectedServiceIdFromForm() {
+                    const selected = form.querySelector('input[name="service_id"]:checked');
+                    return parseInt(selected?.value || '0', 10);
+                }
+
                 form.addEventListener('submit', async function (e) {
                     if (inFlight) return;
                     e.preventDefault();
                     if (!form.reportValidity()) {
                         return;
                     }
-                    const selectedServiceId = getSelectedServiceId();
+                    const selectedServiceId = selectedServiceIdFromForm();
                     if (!selectedServiceId) {
                         alert('Please select a service card before submitting.');
                         return;
