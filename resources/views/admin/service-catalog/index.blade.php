@@ -28,6 +28,52 @@
         <button type="button" id="sc-collapse-all" style="background:#f4f4f5; border:1px solid #d4d4d8; color:#18181b; padding:0.4rem 0.7rem; border-radius:6px; font-size:0.82rem; cursor:pointer;">Collapse all</button>
     </div>
 
+    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:0.75rem 0.85rem;margin:0 0 1rem;">
+        <div style="font-weight:700;color:#111827;margin:0 0 0.55rem;">Category &amp; subcategory quick list</div>
+        @if ($roots->isEmpty())
+            <div style="font-size:0.86rem;color:#71717a;">No categories added yet.</div>
+        @else
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0.6rem;">
+                @foreach ($roots as $root)
+                    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:0.55rem 0.6rem;background:#fafafa;">
+                        <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;">
+                            <strong style="color:#111827;">{{ $root->name }}</strong>
+                            <span style="font-size:0.75rem;color:#6b7280;">({{ $root->children->count() }} subcategories)</span>
+                            <span style="flex:1;"></span>
+                            <a href="{{ route('admin.service-catalog.categories.edit', $root) }}" style="font-size:0.78rem;">Edit</a>
+                            <span style="color:#d4d4d8;">|</span>
+                            <form method="post" action="{{ route('admin.service-catalog.categories.destroy', $root) }}" style="display:inline;" onsubmit="return confirm('Delete this category? Only if empty.');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" style="background:none;border:none;padding:0;color:#b91c1c;cursor:pointer;font-size:0.78rem;text-decoration:underline;">Delete</button>
+                            </form>
+                        </div>
+                        @if ($root->children->isNotEmpty())
+                            <div style="margin-top:0.42rem;display:flex;flex-direction:column;gap:0.25rem;">
+                                @foreach ($root->children as $child)
+                                    <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;padding:0.22rem 0.36rem;background:#fff;border:1px solid #eef2f7;border-radius:7px;">
+                                        <span style="font-size:0.82rem;color:#111827;">{{ $child->name }}</span>
+                                        <span style="font-size:0.72rem;color:#64748b;">{{ $child->services->count() }} svc</span>
+                                        <span style="flex:1;"></span>
+                                        <a href="{{ route('admin.service-catalog.categories.edit', $child) }}" style="font-size:0.75rem;">Edit</a>
+                                        <span style="color:#d4d4d8;">|</span>
+                                        <form method="post" action="{{ route('admin.service-catalog.categories.destroy', $child) }}" style="display:inline;" onsubmit="return confirm('Delete this subcategory?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" style="background:none;border:none;padding:0;color:#b91c1c;cursor:pointer;font-size:0.75rem;text-decoration:underline;">Delete</button>
+                                        </form>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <div style="margin-top:0.4rem;font-size:0.78rem;color:#71717a;">No subcategories yet.</div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
     @forelse ($roots as $root)
         @php
             $countChildSvcs = $root->children->sum(fn ($c) => $c->services->count());
