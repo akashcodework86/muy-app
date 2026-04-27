@@ -354,6 +354,10 @@
                     <div class="hb-detail-box">
                         <h4>Business Category Mix</h4>
                         <ul class="hb-cat-list" id="batchCategoryMixList"></ul>
+                        <h4 style="margin-top:0.85rem;">Applicant Category</h4>
+                        <ul class="hb-cat-list" id="batchApplicantCategoryList"></ul>
+                        <h4 style="margin-top:0.85rem;">SHG / Lakhpati Didi</h4>
+                        <ul class="hb-cat-list" id="batchInclusionFlagsList"></ul>
                     </div>
                 </div>
             </div>
@@ -908,6 +912,31 @@
             return out;
         }
 
+        function applicantCategoryMixFromMembers(members) {
+            const out = {};
+            members.forEach(m => {
+                const key = String(m.applicant_category || 'Not specified');
+                out[key] = (out[key] || 0) + 1;
+            });
+            return Object.entries(out).sort((a, b) => b[1] - a[1]);
+        }
+
+        function inclusionFlagSummaryFromMembers(members) {
+            const shg = { yes: 0, no: 0, na: 0 };
+            const lakhpati = { yes: 0, no: 0, na: 0 };
+            function bucket(v) {
+                const s = String(v || '').trim().toLowerCase();
+                if (s === 'yes') return 'yes';
+                if (s === 'no') return 'no';
+                return 'na';
+            }
+            members.forEach(m => {
+                shg[bucket(m.member_of_shg)]++;
+                lakhpati[bucket(m.lakhpati_didi)]++;
+            });
+            return { shg, lakhpati };
+        }
+
         function applyDetailFilters(members) {
             return members.filter(m => {
                 const okStage = !detailFilters.stage || String(m.stage_key || '').toLowerCase() === detailFilters.stage;
@@ -953,6 +982,8 @@
             const filteredMembers = applyDetailFilters(allMembers);
             const stageMix = stageMixFromMembers(filteredMembers);
             const categoryEntries = categoryMixFromMembers(filteredMembers);
+            const applicantCategoryEntries = applicantCategoryMixFromMembers(filteredMembers);
+            const inclusion = inclusionFlagSummaryFromMembers(filteredMembers);
             document.getElementById('batchDetailTitle').textContent = (batch.name || 'Batch insight') + ' — KPI breakdown';
             const filterParts = [];
             if (detailFilters.stage) filterParts.push('Stage: ' + detailFilters.stage.toUpperCase());
@@ -1009,6 +1040,8 @@
                 : '<p style="margin:0;color:var(--muted);font-size:0.82rem">No members matched current filter.</p>';
 
             const catList = document.getElementById('batchCategoryMixList');
+            const applicantCategoryList = document.getElementById('batchApplicantCategoryList');
+            const inclusionList = document.getElementById('batchInclusionFlagsList');
             catList.innerHTML = categoryEntries.length
                 ? categoryEntries.map(([name, count]) => `<li><button type="button" class="hb-cat-btn" data-category="${esc(name)}"><span>${esc(name)}</span><strong>${count}</strong></button></li>`).join('')
                 : '<li><span style="color:var(--muted)">No category data</span><strong>0</strong></li>';
@@ -1017,6 +1050,17 @@
                 detailFilters.category = detailFilters.category === selected ? '' : selected;
                 renderBatchDetail(batchDetailData, true);
             }));
+            applicantCategoryList.innerHTML = applicantCategoryEntries.length
+                ? applicantCategoryEntries.map(([name, count]) => `<li><span>${esc(name)}</span><strong>${count}</strong></li>`).join('')
+                : '<li><span style="color:var(--muted)">No applicant category data</span><strong>0</strong></li>';
+            inclusionList.innerHTML = [
+                `<li><span>Member of SHG/CBO — Yes</span><strong>${inclusion.shg.yes}</strong></li>`,
+                `<li><span>Member of SHG/CBO — No</span><strong>${inclusion.shg.no}</strong></li>`,
+                `<li><span>Member of SHG/CBO — N/A</span><strong>${inclusion.shg.na}</strong></li>`,
+                `<li><span>Lakhpati Didi — Yes</span><strong>${inclusion.lakhpati.yes}</strong></li>`,
+                `<li><span>Lakhpati Didi — No</span><strong>${inclusion.lakhpati.no}</strong></li>`,
+                `<li><span>Lakhpati Didi — N/A</span><strong>${inclusion.lakhpati.na}</strong></li>`
+            ].join('');
             updateDetailFilterUI();
             const btnProv = document.getElementById('btnProvisionIncubatees');
             if (btnProv) {
@@ -1033,10 +1077,14 @@
             highlightBatchRow(batchId);
             const membersWrap = document.getElementById('batchDetailMembersWrap');
             const catList = document.getElementById('batchCategoryMixList');
+            const applicantCategoryList = document.getElementById('batchApplicantCategoryList');
+            const inclusionList = document.getElementById('batchInclusionFlagsList');
             document.getElementById('batchDetailTitle').textContent = 'Loading batch insight...';
             document.getElementById('batchDetailMeta').textContent = 'Please wait while KPI data is loading.';
             membersWrap.innerHTML = '<p style="margin:0;color:var(--muted);font-size:0.82rem">Loading members...</p>';
             catList.innerHTML = '<li><span style="color:var(--muted)">Loading...</span><strong>...</strong></li>';
+            applicantCategoryList.innerHTML = '<li><span style="color:var(--muted)">Loading...</span><strong>...</strong></li>';
+            inclusionList.innerHTML = '<li><span style="color:var(--muted)">Loading...</span><strong>...</strong></li>';
             document.getElementById('batchDetailCard').classList.add('is-open');
             try {
                 const data = await api('batch_detail', { batch_id: batchId });
@@ -1046,6 +1094,8 @@
                 document.getElementById('batchDetailMeta').textContent = e.message || 'Could not load batch detail.';
                 membersWrap.innerHTML = '<p style="margin:0;color:#dc2626;font-size:0.82rem">Failed to load members.</p>';
                 catList.innerHTML = '<li><span style="color:#dc2626">Failed</span><strong>!</strong></li>';
+                applicantCategoryList.innerHTML = '<li><span style="color:#dc2626">Failed</span><strong>!</strong></li>';
+                inclusionList.innerHTML = '<li><span style="color:#dc2626">Failed</span><strong>!</strong></li>';
             }
         }
 

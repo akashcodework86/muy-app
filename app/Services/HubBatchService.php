@@ -52,6 +52,53 @@ class HubBatchService
         };
     }
 
+    private function applicantCategoryFromPayload(array $payload): string
+    {
+        $raw = strtolower(trim((string) (
+            $payload['category']
+            ?? $payload['applicant_category']
+            ?? $payload['applicant_type']
+            ?? $payload['applicant_category_type']
+            ?? ''
+        )));
+
+        return match ($raw) {
+            'individual', 'vyaktigat' => 'Individual',
+            'shg', 'self_help_group' => 'SHG',
+            'cbo' => 'CBO',
+            default => 'Not specified',
+        };
+    }
+
+    /**
+     * @param  list<string>  $keys
+     */
+    private function yesNoFromPayload(array $payload, array $keys): string
+    {
+        $value = null;
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $payload)) {
+                $value = $payload[$key];
+                break;
+            }
+        }
+        if ($value === null) {
+            return 'Not specified';
+        }
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
+        $raw = strtolower(trim((string) $value));
+        if (in_array($raw, ['1', 'yes', 'y', 'true'], true)) {
+            return 'Yes';
+        }
+        if (in_array($raw, ['0', 'no', 'n', 'false'], true)) {
+            return 'No';
+        }
+
+        return 'Not specified';
+    }
+
     public function districtIdsForHub(int $hubId): array
     {
         return District::query()->where('hub_id', $hubId)->pluck('id')->map(fn ($id) => (int) $id)->all();
@@ -633,6 +680,9 @@ class HubBatchService
                     'stage_key' => $stageKey,
                     'stage_label' => $stageLabel,
                     'business_category' => $bizCategory,
+                    'applicant_category' => $this->applicantCategoryFromPayload($payload),
+                    'member_of_shg' => $this->yesNoFromPayload($payload, ['member_of_shg_cbo', 'member_of_shg', 'is_shg_member']),
+                    'lakhpati_didi' => $this->yesNoFromPayload($payload, ['lakhpati_didi', 'is_lakhpati_didi']),
                 ];
             })
             ->values();
@@ -715,6 +765,9 @@ class HubBatchService
             'unknown' => 0,
         ];
         $categoryMix = [];
+        $applicantCategoryMix = [];
+        $memberOfShgMix = [];
+        $lakhpatiDidiMix = [];
         foreach ($members as $member) {
             $stageKey = (string) ($member['stage_key'] ?? 'unknown');
             if (! array_key_exists($stageKey, $stageMix)) {
@@ -723,8 +776,17 @@ class HubBatchService
             $stageMix[$stageKey]++;
             $biz = (string) ($member['business_category'] ?? 'Unspecified');
             $categoryMix[$biz] = (int) ($categoryMix[$biz] ?? 0) + 1;
+            $appCat = (string) ($member['applicant_category'] ?? 'Not specified');
+            $applicantCategoryMix[$appCat] = (int) ($applicantCategoryMix[$appCat] ?? 0) + 1;
+            $shg = (string) ($member['member_of_shg'] ?? 'Not specified');
+            $memberOfShgMix[$shg] = (int) ($memberOfShgMix[$shg] ?? 0) + 1;
+            $lakhpati = (string) ($member['lakhpati_didi'] ?? 'Not specified');
+            $lakhpatiDidiMix[$lakhpati] = (int) ($lakhpatiDidiMix[$lakhpati] ?? 0) + 1;
         }
         arsort($categoryMix);
+        arsort($applicantCategoryMix);
+        arsort($memberOfShgMix);
+        arsort($lakhpatiDidiMix);
 
         return ['ok' => true, 'data' => [
             'batch' => [
@@ -741,6 +803,9 @@ class HubBatchService
                 'members_count' => $members->count(),
                 'stage_mix' => $stageMix,
                 'business_category_mix' => $categoryMix,
+                'applicant_category_mix' => $applicantCategoryMix,
+                'member_of_shg_mix' => $memberOfShgMix,
+                'lakhpati_didi_mix' => $lakhpatiDidiMix,
             ],
             'members' => $members,
         ]];
