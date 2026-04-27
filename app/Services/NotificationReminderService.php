@@ -65,6 +65,19 @@ class NotificationReminderService
                     'unread' => true,
                 ];
             }
+
+            $newlyBuiltCount = OnboardingBatch::query()
+                ->where('created_at', '>=', now()->subDays(3))
+                ->count();
+
+            if ($newlyBuiltCount > 0) {
+                $out[] = [
+                    'title' => 'Newly built batches',
+                    'body' => $newlyBuiltCount.' new batch(es) were built in the last 3 days.',
+                    'link' => route('admin.batches.index'),
+                    'unread' => true,
+                ];
+            }
         }
 
         return $out;
