@@ -187,9 +187,28 @@ class ServiceFieldTypes
                 continue;
             }
 
-            $key = isset($row['key']) && is_string($row['key']) ? trim($row['key']) : '';
-            $type = isset($row['type']) && is_string($row['type']) ? $row['type'] : '';
-            $label = isset($row['label']) && is_string($row['label']) ? trim($row['label']) : '';
+            $rawKey = $row['key'] ?? $row['id'] ?? $row['field_id'] ?? '';
+            $key = is_string($rawKey) ? trim($rawKey) : '';
+
+            $rawLabel = $row['label'] ?? $row['title'] ?? $row['name'] ?? '';
+            $label = is_string($rawLabel) ? trim($rawLabel) : '';
+
+            $rawType = isset($row['type']) && is_string($row['type']) ? strtolower(trim($row['type'])) : '';
+            $typeAliasMap = [
+                'short_text' => self::TEXT,
+                'long_text' => self::TEXTAREA,
+                'dropdown' => self::SELECT,
+                'multi_select' => self::MULTISELECT,
+                'date_picker' => self::DATE,
+                'yes_no' => self::CHECKBOX,
+                'boolean' => self::CHECKBOX,
+                'file_upload' => self::FILE,
+            ];
+            $type = $typeAliasMap[$rawType] ?? $rawType;
+
+            if ($key === '' && $label !== '') {
+                $key = $label;
+            }
 
             if ($key === '' || $label === '' || ! self::isValid($type)) {
                 continue;

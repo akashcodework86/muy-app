@@ -55,7 +55,7 @@
 
     function normalizeRow(r) {
         const o = {
-            key: toSnakeCase(String(r.key || '')),
+            key: autoKeyFromLabel(String(r.key || ''), String(r.label || '')),
             label: String(r.label || '').trim(),
             type: String(r.type || 'text').trim(),
             required: !!r.required,
@@ -88,6 +88,12 @@
             .toLowerCase()
             .replace(/[^a-z0-9_]+/g, '_')
             .replace(/^_+|_+$/g, '');
+    }
+
+    function autoKeyFromLabel(rawKey, rawLabel) {
+        const key = toSnakeCase(rawKey);
+        if (key) return key;
+        return toSnakeCase(rawLabel);
     }
 
     function syncHidden() {
@@ -173,7 +179,7 @@
             const req = c.querySelector('[data-k="required"]');
             const type = get('type') || 'text';
             const r = {
-                key: toSnakeCase(get('key')),
+                key: autoKeyFromLabel(get('key'), get('label')),
                 label: get('label'),
                 type: type,
                 required: req && req.checked,

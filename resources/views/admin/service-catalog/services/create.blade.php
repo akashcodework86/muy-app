@@ -109,7 +109,7 @@
             $schemaInitial = [];
             if (old('field_schema')) {
                 $decoded = json_decode(old('field_schema'), true);
-                $schemaInitial = is_array($decoded) ? $decoded : [];
+                $schemaInitial = is_array($decoded) ? \App\Support\ServiceFieldTypes::normalizeSchema($decoded) : [];
             }
         @endphp
         @include('partials.admin-service-schema-builder')
