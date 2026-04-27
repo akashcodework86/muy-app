@@ -175,8 +175,23 @@ class ServiceFieldTypes
      */
     public static function normalizeSchema($raw): array
     {
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $raw = $decoded;
+            }
+        }
+
         if (! is_array($raw)) {
             return [];
+        }
+
+        if (isset($raw['fields']) && is_array($raw['fields'])) {
+            $raw = $raw['fields'];
+        } elseif (isset($raw['schema']) && is_array($raw['schema'])) {
+            $raw = $raw['schema'];
+        } elseif (isset($raw['key']) || isset($raw['label']) || isset($raw['title'])) {
+            $raw = [$raw];
         }
 
         $out = [];
