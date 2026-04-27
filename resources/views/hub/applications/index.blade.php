@@ -11,6 +11,11 @@
                 Filter by staff and source to see exactly where applications are coming from. Use “View” to open full application details.
             </p>
         </div>
+        <a href="{{ route('hub.applications.export', request()->query()) }}"
+           style="display:inline-flex;align-items:center;gap:0.38rem;padding:0.5rem 0.75rem;border-radius:8px;background:#0f766e;color:#fff;text-decoration:none;font-weight:700;font-size:0.78rem;">
+            <i class="fa-solid fa-download" aria-hidden="true"></i>
+            Download full CFA data
+        </a>
     </div>
 
     <form method="get" action="{{ route('hub.applications.index') }}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.55rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:0.75rem;margin-bottom:0.75rem;">

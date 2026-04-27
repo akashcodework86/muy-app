@@ -8,7 +8,9 @@ use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class HubApplicationsController extends Controller
 {
@@ -32,36 +34,12 @@ class HubApplicationsController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'district_id', 'referral_token']);
 
-        $staffId = $request->integer('staff_id') ?: null;
-        $districtId = $request->integer('district_id') ?: null;
-        $source = trim((string) $request->query('source', ''));
-        $q = trim((string) $request->query('q', ''));
-        $from = trim((string) $request->query('from', ''));
-        $to = trim((string) $request->query('to', ''));
-
-        $allowedSources = ['referral', 'not_linked'];
-        if (! in_array($source, $allowedSources, true)) {
-            $source = '';
-        }
-
-        $query = CfaSubmission::query()
-            ->with(['district:id,name', 'referralUser:id,name,referral_token'])
-            ->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds), fn ($q) => $q->whereRaw('1 = 0'))
-            ->when($activeFy, fn ($q) => $q->where('fiscal_year_id', (int) $activeFy->id))
-            ->when($districtId, fn ($q) => $q->where('district_id', (int) $districtId))
-            ->when($staffId, fn ($q) => $q->where('referral_user_id', (int) $staffId))
-            ->when($source === 'referral', fn ($q) => $q->whereNotNull('referral_user_id'))
-            ->when($source === 'not_linked', fn ($q) => $q->whereNull('referral_user_id'))
-            ->when($q !== '', function ($qBuilder) use ($q): void {
-                $qBuilder->where(function ($inner) use ($q): void {
-                    $inner->where('application_no', 'like', "%{$q}%")
-                        ->orWhere('applicant_name', 'like', "%{$q}%")
-                        ->orWhere('phone', 'like', "%{$q}%");
-                });
-            })
-            ->when($from !== '', fn ($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to !== '', fn ($q) => $q->whereDate('created_at', '<=', $to))
-            ->orderByDesc('created_at');
+        $filters = $this->extractFilters($request);
+        $query = $this->filteredQuery(
+            districtIds: $districtIds,
+            activeFyId: (int) optional($activeFy)->id,
+            filters: $filters
+        );
 
         $applications = $query->paginate(40)->withQueryString();
 
@@ -77,15 +55,119 @@ class HubApplicationsController extends Controller
             'districts' => $districts,
             'staff' => $staff,
             'sourceCounts' => $sourceCounts,
-            'filters' => [
-                'staff_id' => $staffId,
-                'district_id' => $districtId,
-                'source' => $source,
-                'q' => $q,
-                'from' => $from,
-                'to' => $to,
-            ],
+            'filters' => $filters,
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $user = $request->user();
+        abort_unless($user && $user->role === 'hub_admin' && $user->hub_id, 403);
+
+        $hubId = (int) $user->hub_id;
+        $districtIds = District::query()
+            ->where('hub_id', $hubId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $activeFyId = (int) optional(FiscalYear::phase3Default())->id;
+        $filters = $this->extractFilters($request);
+
+        $query = $this->filteredQuery(
+            districtIds: $districtIds,
+            activeFyId: $activeFyId,
+            filters: $filters
+        )->with(['district:id,name', 'referralUser:id,name']);
+
+        $columns = Schema::getColumnListing('cfa_submissions');
+        $extraColumns = ['district_name', 'referral_staff_name', 'exported_at_ist'];
+        $headers = array_merge($columns, $extraColumns);
+
+        $filename = 'hub-cfa-full-export-'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () use ($query, $headers, $columns): void {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+
+            fputcsv($out, $headers);
+
+            $query->chunkById(500, function ($rows) use ($out, $columns): void {
+                foreach ($rows as $row) {
+                    $record = [];
+                    foreach ($columns as $column) {
+                        $record[] = $this->toCsvValue($row->{$column} ?? null);
+                    }
+                    $record[] = $row->district?->name;
+                    $record[] = $row->referralUser?->name;
+                    $record[] = optional($row->created_at)->timezone('Asia/Kolkata')->format('d M Y h:i A');
+
+                    fputcsv($out, $record);
+                }
+            }, 'id');
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * @return array{staff_id:int|null,district_id:int|null,source:string,q:string,from:string,to:string}
+     */
+    private function extractFilters(Request $request): array
+    {
+        $source = trim((string) $request->query('source', ''));
+        $allowedSources = ['referral', 'not_linked'];
+        if (! in_array($source, $allowedSources, true)) {
+            $source = '';
+        }
+
+        return [
+            'staff_id' => $request->integer('staff_id') ?: null,
+            'district_id' => $request->integer('district_id') ?: null,
+            'source' => $source,
+            'q' => trim((string) $request->query('q', '')),
+            'from' => trim((string) $request->query('from', '')),
+            'to' => trim((string) $request->query('to', '')),
+        ];
+    }
+
+    /**
+     * @param  list<int>  $districtIds
+     * @param  array{staff_id:int|null,district_id:int|null,source:string,q:string,from:string,to:string}  $filters
+     */
+    private function filteredQuery(array $districtIds, int $activeFyId, array $filters)
+    {
+        return CfaSubmission::query()
+            ->with(['district:id,name', 'referralUser:id,name,referral_token'])
+            ->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId))
+            ->when($filters['district_id'], fn ($q) => $q->where('district_id', (int) $filters['district_id']))
+            ->when($filters['staff_id'], fn ($q) => $q->where('referral_user_id', (int) $filters['staff_id']))
+            ->when($filters['source'] === 'referral', fn ($q) => $q->whereNotNull('referral_user_id'))
+            ->when($filters['source'] === 'not_linked', fn ($q) => $q->whereNull('referral_user_id'))
+            ->when($filters['q'] !== '', function ($qBuilder) use ($filters): void {
+                $term = $filters['q'];
+                $qBuilder->where(function ($inner) use ($term): void {
+                    $inner->where('application_no', 'like', "%{$term}%")
+                        ->orWhere('applicant_name', 'like', "%{$term}%")
+                        ->orWhere('phone', 'like', "%{$term}%");
+                });
+            })
+            ->when($filters['from'] !== '', fn ($q) => $q->whereDate('created_at', '>=', $filters['from']))
+            ->when($filters['to'] !== '', fn ($q) => $q->whereDate('created_at', '<=', $filters['to']))
+            ->orderByDesc('created_at');
+    }
+
+    private function toCsvValue(mixed $value): mixed
+    {
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        return $value;
     }
 }
 

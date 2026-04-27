@@ -336,6 +336,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
         Route::get('applications', [HubApplicationsController::class, 'index'])->name('applications.index');
+        Route::get('applications/export', [HubApplicationsController::class, 'export'])->name('applications.export');
         Route::get('batches', [HubBatchController::class, 'index'])->name('batches.index');
         Route::get('staff-performance', [HubStaffPerformanceController::class, 'index'])->name('staff-performance.index');
         Route::get('onboarding-insight', [HubOnboardingInsightController::class, 'index'])->name('onboarding-insight.index');
