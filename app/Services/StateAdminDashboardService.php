@@ -233,6 +233,8 @@ class StateAdminDashboardService
             ->leftJoin('districts', 'users.district_id', '=', 'districts.id')
             ->leftJoin('cfa_submissions as cs', function ($join) use ($activeFyId, $phase3FloorDate): void {
                 $join->on('cs.referral_user_id', '=', 'users.id');
+                // Keep staff leaderboard district-aligned with "Applications by district".
+                $join->on('cs.district_id', '=', 'users.district_id');
                 if ($activeFyId > 0) {
                     $join->where('cs.fiscal_year_id', $activeFyId);
                 } else {
