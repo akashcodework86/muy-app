@@ -44,6 +44,7 @@ use App\Models\District;
 use App\Models\User;
 use App\Services\TargetValidationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -206,6 +207,31 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('ops/cache-clear', function () {
+            $results = [];
+            foreach (['optimize:clear', 'view:clear'] as $cmd) {
+                try {
+                    $code = Artisan::call($cmd);
+                    $results[] = [
+                        'command' => $cmd,
+                        'exit_code' => $code,
+                        'output' => trim((string) Artisan::output()),
+                    ];
+                } catch (Throwable $e) {
+                    $results[] = [
+                        'command' => $cmd,
+                        'exit_code' => 1,
+                        'output' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            return view('admin.ops.cache-clear', [
+                'ranAt' => now(),
+                'results' => $results,
+            ]);
+        })->name('ops.cache-clear');
+
         Route::get('cfa-applications', [CfaSubmissionController::class, 'index'])->name('cfa.index');
         Route::get('cfa-applications/{cfa_submission}', [CfaSubmissionController::class, 'show'])->name('cfa.show');
         Route::get('cfa-applications-phase1-legacy', [LegacyPhase1CfaApplicationController::class, 'index'])->name('phase1-cfa.index');
