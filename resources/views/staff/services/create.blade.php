@@ -312,7 +312,11 @@
                 const barEl = document.getElementById('submitProgressBar');
                 const fxLayer = document.getElementById('submitFireworksLayer');
                 let inFlight = false;
-                const MIN_FLOW_MS = 5000;
+                const STEP_PLAN = [
+                    { text: 'Checking your data...', pct: 22, ms: 2200 },
+                    { text: 'Reading your document...', pct: 52, ms: 2400 },
+                    { text: 'Assigning to SPOC for approval...', pct: 82, ms: 2600 },
+                ];
 
                 function burstFireworks() {
                     if (!fxLayer) return;
@@ -368,6 +372,23 @@
                     }
                 }
 
+                function runStepPlan() {
+                    return new Promise(function (resolve) {
+                        let idx = 0;
+                        function nextStep() {
+                            if (idx >= STEP_PLAN.length) {
+                                resolve();
+                                return;
+                            }
+                            const step = STEP_PLAN[idx++];
+                            if (textEl) textEl.textContent = step.text;
+                            if (barEl) barEl.style.width = step.pct + '%';
+                            setTimeout(nextStep, step.ms);
+                        }
+                        nextStep();
+                    });
+                }
+
                 form.addEventListener('submit', async function (e) {
                     if (inFlight) return;
                     e.preventDefault();
@@ -375,7 +396,6 @@
                         return;
                     }
                     inFlight = true;
-                    const startedAt = Date.now();
 
                     const submitBtn = form.querySelector('button[type="submit"]');
                     if (submitBtn) {
@@ -408,7 +428,7 @@
                     };
 
                     xhr.onload = function () {
-                        const finishSuccess = function () {
+                        const finalizeSuccess = function () {
                             setProgress(100);
                             if (textEl) textEl.textContent = 'Submitted successfully!';
                             burstFireworks();
@@ -417,7 +437,7 @@
                                 window.location.assign(nextUrl);
                             }, 700);
                         };
-                        const finishError = function () {
+                        const finalizeError = function () {
                             if (textEl) {
                                 textEl.textContent = 'Could not submit. Please check the form and retry.';
                             }
@@ -425,32 +445,14 @@
                             resetSubmitButton();
                             inFlight = false;
                         };
-                        const elapsed = Date.now() - startedAt;
-                        const remaining = Math.max(0, MIN_FLOW_MS - elapsed);
-
-                        if (xhr.status >= 200 && xhr.status < 400) {
-                            if (remaining > 0) {
-                                const half = Math.max(350, Math.floor(remaining / 2));
-                                if (textEl) textEl.textContent = 'Assigning to SPOC for approval...';
-                                if (barEl) barEl.style.width = '92%';
-                                setTimeout(function () {
-                                    if (textEl) textEl.textContent = 'Finalizing submission...';
-                                    if (barEl) barEl.style.width = '97%';
-                                }, half);
-                                setTimeout(finishSuccess, remaining);
-                            } else {
-                                finishSuccess();
-                            }
-                            return;
-                        }
-
-                        if (remaining > 0) {
-                            setTimeout(finishError, remaining);
-                        } else {
-                            finishError();
-                        }
+                        const ok = xhr.status >= 200 && xhr.status < 400;
+                        stepPlanDone.then(function () {
+                            if (ok) finalizeSuccess();
+                            else finalizeError();
+                        });
                     };
 
+                    const stepPlanDone = runStepPlan();
                     xhr.send(new FormData(form));
                 });
             })();
