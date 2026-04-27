@@ -77,11 +77,11 @@
             <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.55rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;">Submit</button>
         </form>
 
-        <div id="submitProgressOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,12,22,0.62);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
-            <div style="width:min(560px,96vw);background:#ffffff;border-radius:14px;padding:1rem 1rem 1.2rem;border:1px solid #e4e4e7;box-shadow:0 24px 60px rgba(0,0,0,0.28);position:relative;overflow:hidden;">
-                <p style="margin:0 0 0.55rem;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">Submitting intervention</p>
-                <p id="submitProgressText" style="margin:0 0 0.85rem;font-size:1.02rem;font-weight:700;color:#0f172a;">Checking your data…</p>
-                <div style="height:11px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
+        <div id="submitProgressOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,12,22,0.62);z-index:9999;align-items:center;justify-content:center;padding:1.2rem;">
+            <div style="width:min(760px,97vw);background:#ffffff;border-radius:18px;padding:1.25rem 1.3rem 1.45rem;border:1px solid #e4e4e7;box-shadow:0 24px 60px rgba(0,0,0,0.28);position:relative;overflow:hidden;">
+                <p style="margin:0 0 0.7rem;font-size:0.8rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Submitting intervention</p>
+                <p id="submitProgressText" style="margin:0 0 1rem;font-size:1.4rem;line-height:1.25;font-weight:800;color:#0f172a;">Checking your data…</p>
+                <div style="height:14px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
                     <div id="submitProgressBar" style="width:8%;height:100%;background:linear-gradient(90deg,#4338ca,#0ea5e9,#10b981);border-radius:999px;transition:width .45s ease;"></div>
                 </div>
                 <div id="submitFireworksLayer" style="pointer-events:none;position:absolute;inset:0;overflow:hidden;"></div>
