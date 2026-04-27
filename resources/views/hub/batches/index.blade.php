@@ -289,6 +289,20 @@
                         </table>
                     </div>
                 </div>
+                <div class="hb-card" style="padding:0;overflow:hidden;margin-top:1rem">
+                    <div style="padding:0.65rem 1rem;border-bottom:1px solid var(--border);background:#f8fafc;font-weight:700;font-size:0.9rem;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">
+                        <span>Later list (current district)</span>
+                        <span id="laterInlineCount" style="font-size:0.75rem;color:var(--muted);font-weight:600;">0</span>
+                    </div>
+                    <div class="hb-table-wrap" style="max-height:260px;">
+                        <table class="hb-table">
+                            <thead><tr><th>App</th><th>Name</th><th style="text-align:right">Actions</th></tr></thead>
+                            <tbody id="laterInlineBody">
+                                <tr><td colspan="3" style="text-align:center;color:var(--muted);padding:1rem">Select a district to view later list.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -647,7 +661,34 @@
             try {
                 await api('set_choice', { cfa_submission_id: cfaId, district_id: currentDistrictId, state });
                 loadPool();
+                loadLaterInline();
             } catch (e) { alert(e.message); }
+        }
+
+        async function restoreLater(cfaId, districtId) {
+            try {
+                await api('restore_later', { cfa_submission_id: cfaId, district_id: districtId });
+                await loadLaterInline();
+                await loadPool();
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function restoreLaterAndAdd(cfaId, districtId) {
+            if (!currentBatchId) {
+                alert('Create or resume a draft batch first.');
+                return;
+            }
+            try {
+                await api('restore_later', { cfa_submission_id: cfaId, district_id: districtId });
+                await api('add_to_draft', { batch_id: currentBatchId, cfa_submission_id: cfaId });
+                await loadDraft();
+                await loadLaterInline();
+                await loadPool();
+            } catch (e) {
+                alert(e.message);
+            }
         }
 
         async function addToDraft(cfaId) {
@@ -715,6 +756,7 @@
                 currentBatchId = drafts.length ? parseInt(drafts[0].id, 10) : 0;
                 await loadDraft();
                 loadPool();
+                loadLaterInline();
             } catch (e) { console.error(e); }
         }
 
@@ -782,6 +824,45 @@
                 }
             } catch (e) {
                 tbody.innerHTML = '<tr><td colspan="7" style="color:#dc2626">' + esc(e.message) + '</td></tr>';
+            }
+        }
+
+        async function loadLaterInline() {
+            const body = document.getElementById('laterInlineBody');
+            const countEl = document.getElementById('laterInlineCount');
+            if (!currentDistrictId) {
+                body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:1rem">Select a district to view later list.</td></tr>';
+                if (countEl) countEl.textContent = '0';
+                return;
+            }
+            body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:1rem">Loading...</td></tr>';
+            try {
+                const data = await api('later_list', { district_id: currentDistrictId });
+                const rows = data.rows || [];
+                if (countEl) countEl.textContent = String(rows.length);
+                if (!rows.length) {
+                    body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:1rem">No later entries for this district.</td></tr>';
+                    return;
+                }
+                body.innerHTML = rows.map(r => `
+                    <tr>
+                        <td style="font-family:monospace;font-size:0.75rem">${esc(r.application_no)}</td>
+                        <td>${esc(r.applicant_name)}</td>
+                        <td style="text-align:right;white-space:nowrap;">
+                            <button type="button" class="link-mini later-restore" data-app="${r.application_id}" data-dist="${r.district_id}">Restore</button>
+                            <button type="button" class="hb-btn hb-btn--primary later-add" data-app="${r.application_id}" data-dist="${r.district_id}" style="padding:0.2rem 0.45rem;font-size:0.72rem;${currentBatchId ? '' : 'opacity:.45;'}" ${currentBatchId ? '' : 'disabled'}>Add</button>
+                        </td>
+                    </tr>
+                `).join('');
+                body.querySelectorAll('.later-restore').forEach(btn => btn.addEventListener('click', () => {
+                    restoreLater(parseInt(btn.dataset.app, 10), parseInt(btn.dataset.dist, 10));
+                }));
+                body.querySelectorAll('.later-add').forEach(btn => btn.addEventListener('click', () => {
+                    restoreLaterAndAdd(parseInt(btn.dataset.app, 10), parseInt(btn.dataset.dist, 10));
+                }));
+            } catch (e) {
+                body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#dc2626;padding:1rem">' + esc(e.message) + '</td></tr>';
+                if (countEl) countEl.textContent = '0';
             }
         }
 
@@ -970,6 +1051,7 @@
             document.getElementById('draftCreateWrap').style.display = currentDistrictId ? 'block' : 'none';
             await loadDraft();
             await loadPool();
+            await loadLaterInline();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -1019,6 +1101,7 @@
                 }
                 await loadBatches();
                 await loadPool();
+                await loadLaterInline();
                 alert('Draft batch deleted.');
             } catch (e) { alert(e.message); }
         }
@@ -1080,7 +1163,10 @@
             currentBatchId = 0;
             document.getElementById('activeDraftCard').style.display = 'none';
             if (currentDistrictId) await tryResumeDraft();
-            else loadPool();
+            else {
+                loadPool();
+                loadLaterInline();
+            }
         });
 
         document.getElementById('inpSearch').addEventListener('input', () => {
@@ -1104,6 +1190,7 @@
                 currentBatchId = data.batch_id;
                 await loadDraft();
                 loadPool();
+                loadLaterInline();
                 loadBatches();
             } catch (e) { alert(e.message); }
         });
@@ -1115,6 +1202,7 @@
                 currentBatchId = 0;
                 document.getElementById('activeDraftCard').style.display = 'none';
                 loadPool();
+                loadLaterInline();
                 loadBatches();
             } catch (e) { alert(e.message); }
         });
@@ -1129,6 +1217,7 @@
                 currentBatchId = 0;
                 document.getElementById('activeDraftCard').style.display = 'none';
                 loadPool();
+                loadLaterInline();
                 loadBatches();
                 alert('Batch locked. Upload Onboarding Letter within 7 days.');
             } catch (e) { alert(e.message); }
@@ -1203,6 +1292,7 @@
                         await api('restore_later', { cfa_submission_id: parseInt(btn.dataset.app, 10), district_id: parseInt(btn.dataset.dist, 10) });
                         btn.closest('div').remove();
                         loadPool();
+                        loadLaterInline();
                     } catch (e) { alert(e.message); }
                 }));
                 document.getElementById('modalLater').classList.add('is-open');

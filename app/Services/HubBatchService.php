@@ -241,7 +241,7 @@ class HubBatchService
             'draft_members' => $this->draftMembers($hubId, $input),
             'batches_list' => $this->batchesList($hubId),
             'batch_detail' => $this->batchDetail($hubId, $input),
-            'later_list' => $this->laterList($hubId, $districtIds),
+            'later_list' => $this->laterList($hubId, $districtIds, $input),
             'create_draft' => $this->createDraft($hubId, $user, $districtIds, $input),
             'cancel_draft' => $this->cancelDraft($hubId, $input),
             'add_to_draft' => $this->addToDraft($hubId, $input),
@@ -749,13 +749,18 @@ class HubBatchService
     /**
      * @param  list<int>  $districtIds
      */
-    private function laterList(int $hubId, array $districtIds): array
+    private function laterList(int $hubId, array $districtIds, array $input): array
     {
+        $requestedDistrictId = (int) ($input['district_id'] ?? 0);
         $rows = CfaHubChoiceState::query()
             ->where('hub_id', $hubId)
-            ->whereIn('district_id', $districtIds)
             ->where('state', 'later')
             ->with(['cfaSubmission'])
+            ->when(
+                $requestedDistrictId > 0 && in_array($requestedDistrictId, $districtIds, true),
+                fn ($q) => $q->where('district_id', $requestedDistrictId),
+                fn ($q) => $q->whereIn('district_id', $districtIds)
+            )
             ->orderByDesc('updated_at')
             ->limit(200)
             ->get()
