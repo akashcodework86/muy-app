@@ -25,7 +25,7 @@ class StateAdminDashboardService
         $phase3Scope = CfaSubmission::query()
             ->where('created_at', '>=', $phase3FloorDate);
 
-        $activeFy = null;
+        $activeFy = FiscalYear::phase3Default();
         $cfaDeliverable = null;
         $stateCfaTarget = null;
         $districtsCfaSum = null;
@@ -67,22 +67,8 @@ class StateAdminDashboardService
                     ->values()
                     ->all();
                 if ($cfaDeliverableIds !== []) {
-                    $preferredTargetRow = DB::table('state_deliverable_targets')
-                        ->whereIn('deliverable_id', $cfaDeliverableIds)
-                        ->where('target_total', '>', 0)
-                        ->orderByDesc('updated_at')
-                        ->orderByDesc('id')
-                        ->first();
-
-                    if ($preferredTargetRow) {
-                        $activeFy = FiscalYear::query()->find((int) $preferredTargetRow->fiscal_year_id);
-                    }
-
                     if (! $activeFy) {
-                        $activeFy = FiscalYear::query()
-                            ->where('is_active', true)
-                            ->orderByDesc('starts_on')
-                            ->first();
+                        $activeFy = FiscalYear::phase3Default();
                     }
                 }
 

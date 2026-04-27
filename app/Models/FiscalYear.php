@@ -64,6 +64,16 @@ class FiscalYear extends Model
         return [(int) ($fiscalYears->first()?->id ?? 0), $fiscalYears];
     }
 
+    public static function phase3Default(): ?self
+    {
+        return static::query()
+            ->where('code', '2026-27')
+            ->first()
+            ?? static::query()->where('name', 'like', '%2026-27%')->first()
+            ?? static::query()->where('is_active', true)->orderByDesc('starts_on')->first()
+            ?? static::query()->forUiSelection()->orderByDesc('starts_on')->first();
+    }
+
     /**
      * Map an event datetime into M1..M12 using the same calendar-month ladder as month labels
      * (first month = calendar month containing starts_on), but only if the event falls inside

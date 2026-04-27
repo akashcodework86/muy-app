@@ -29,7 +29,8 @@ class StaffDashboardService
 
         $user->load(['district.hub', 'hub', 'designationRecord']);
 
-        $activeFy = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first();
+        $activeFy = FiscalYear::phase3Default();
+        $activeFyId = (int) ($activeFy?->id ?? 0);
         $cfaDeliverable = Deliverable::query()->where('code', 'cfa')->first();
 
         $staffAnnualTarget = null;
@@ -57,12 +58,14 @@ class StaffDashboardService
         if ($user->district_id) {
             $districtCfaTotal = CfaSubmission::query()
                 ->where('district_id', (int) $user->district_id)
+                ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId))
                 ->count();
-            $districtCfaTrend = $this->districtDailyTrend14((int) $user->district_id);
-            $districtBusinessStageMix = $this->districtStageMixAggregates((int) $user->district_id);
+            $districtCfaTrend = $this->districtDailyTrend14((int) $user->district_id, $activeFyId);
+            $districtBusinessStageMix = $this->districtStageMixAggregates((int) $user->district_id, $activeFyId);
             $districtCfaByReferrer = $this->districtCfaBreakdownByReferrer(
                 (int) $user->district_id,
-                (int) $user->id
+                (int) $user->id,
+                $activeFyId
             );
         }
 
@@ -132,7 +135,9 @@ class StaffDashboardService
             }
         }
 
-        $base = CfaSubmission::query()->where('referral_user_id', $user->id);
+        $base = CfaSubmission::query()
+            ->where('referral_user_id', $user->id)
+            ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId));
 
         $cfaTotal = (clone $base)->count();
         $cfaThisMonth = (clone $base)
@@ -165,7 +170,7 @@ class StaffDashboardService
             $velocityChangePct = 0;
         }
 
-        $heatmap30 = $this->referralHeatmap30((int) $user->id);
+        $heatmap30 = $this->referralHeatmap30((int) $user->id, $activeFyId);
         $submissionStreakDays = 0;
         for ($i = count($heatmap30) - 1; $i >= 0; $i--) {
             if (($heatmap30[$i]['count'] ?? 0) > 0) {
@@ -309,7 +314,7 @@ class StaffDashboardService
                 ->count();
         }
 
-        $heroSparkline30 = $this->staffDailyCfaSparkline((int) $user->id, 30);
+        $heroSparkline30 = $this->staffDailyCfaSparkline((int) $user->id, 30, $activeFyId);
 
         return [
             'staff' => $user,
@@ -378,13 +383,14 @@ class StaffDashboardService
     /**
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function staffDailyCfaSparkline(int $staffUserId, int $days): array
+    private function staffDailyCfaSparkline(int $staffUserId, int $days, int $fiscalYearId = 0): array
     {
         $start = now()->subDays($days - 1)->startOfDay();
         $rows = DB::table('cfa_submissions')
             ->selectRaw('DATE(created_at) as d, COUNT(*) as total')
             ->where('referral_user_id', $staffUserId)
             ->where('created_at', '>=', $start)
+            ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId))
             ->groupBy('d')
             ->pluck('total', 'd');
 
@@ -404,11 +410,12 @@ class StaffDashboardService
      *
      * @return array{rows: list<array{user_id: int|null, name: string, count: int, is_you: bool, share_pct: int, avatar_url: string|null}>, total: int}
      */
-    private function districtCfaBreakdownByReferrer(int $districtId, int $viewerUserId): array
+    private function districtCfaBreakdownByReferrer(int $districtId, int $viewerUserId, int $fiscalYearId = 0): array
     {
         /** @var Collection<int, object{referral_user_id: int|null, cnt: int|string}> $aggregates */
         $aggregates = DB::table('cfa_submissions')
             ->where('district_id', $districtId)
+            ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId))
             ->selectRaw('referral_user_id, COUNT(*) as cnt')
             ->groupBy('referral_user_id')
             ->orderByDesc('cnt')
@@ -495,13 +502,14 @@ class StaffDashboardService
      *
      * @return list<array{date: string, count: int}>
      */
-    private function referralHeatmap30(int $userId): array
+    private function referralHeatmap30(int $userId, int $fiscalYearId = 0): array
     {
         $start = now()->copy()->subDays(29)->startOfDay();
         /** @var array<string, int|string> $counts */
         $counts = CfaSubmission::query()
             ->where('referral_user_id', $userId)
             ->where('created_at', '>=', $start)
+            ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId))
             ->selectRaw('DATE(created_at) as heat_day, COUNT(*) as cnt')
             ->groupBy(DB::raw('DATE(created_at)'))
             ->pluck('cnt', 'heat_day')
@@ -738,7 +746,7 @@ class StaffDashboardService
      *
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function districtDailyTrend14(int $districtId): array
+    private function districtDailyTrend14(int $districtId, int $fiscalYearId = 0): array
     {
         $labels = [];
         $values = [];
@@ -748,6 +756,7 @@ class StaffDashboardService
             $values[] = (int) CfaSubmission::query()
                 ->where('district_id', $districtId)
                 ->whereDate('created_at', $day->toDateString())
+                ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId))
                 ->count();
         }
 
@@ -759,12 +768,13 @@ class StaffDashboardService
      *
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function districtStageMixAggregates(int $districtId, int $limit = 2000): array
+    private function districtStageMixAggregates(int $districtId, int $fiscalYearId = 0, int $limit = 2000): array
     {
         $stage = [];
 
         CfaSubmission::query()
             ->where('district_id', $districtId)
+            ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId))
             ->whereNotNull('payload')
             ->orderByDesc('id')
             ->limit($limit)

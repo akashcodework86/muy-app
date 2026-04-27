@@ -29,7 +29,8 @@ class HubAdminDashboardService
         $hub = Hub::query()->findOrFail($hubId);
         $districtIds = District::query()->where('hub_id', $hubId)->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        $activeFy = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first();
+        $activeFy = FiscalYear::phase3Default();
+        $activeFyId = (int) ($activeFy?->id ?? 0);
         $cfaDeliverable = Deliverable::query()->where('code', 'cfa')->first();
 
         $hubCfaTargetSum = null;
@@ -44,14 +45,16 @@ class HubAdminDashboardService
         $staffTotal = User::query()->where('role', 'district_staff')->where('hub_id', $hubId)->count();
         $staffActive = User::query()->where('role', 'district_staff')->where('hub_id', $hubId)->where('is_active', true)->count();
 
-        $cfaBase = CfaSubmission::query()->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds));
+        $cfaBase = CfaSubmission::query()
+            ->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds))
+            ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId));
         $cfaTotal = (clone $cfaBase)->count();
 
         $hubCfaThisFy = null;
-        if ($activeFy && $districtIds !== []) {
+        if ($activeFyId > 0 && $districtIds !== []) {
             $hubCfaThisFy = (int) CfaSubmission::query()
                 ->whereIn('district_id', $districtIds)
-                ->where('fiscal_year_id', $activeFy->id)
+                ->where('fiscal_year_id', $activeFyId)
                 ->count();
         }
         $cfaThisMonth = (clone $cfaBase)
@@ -73,6 +76,9 @@ class HubAdminDashboardService
         if ($districtIds !== []) {
             $stageQuery->whereIn('district_id', $districtIds);
         }
+        if ($activeFyId > 0) {
+            $stageQuery->where('fiscal_year_id', $activeFyId);
+        }
         $stageCounts = $stageQuery->groupBy('stage_key')->pluck('total', 'stage_key');
 
         $cfaByDistrict = $districtIds === []
@@ -80,6 +86,7 @@ class HubAdminDashboardService
             : DB::table('cfa_submissions')
                 ->join('districts', 'cfa_submissions.district_id', '=', 'districts.id')
                 ->whereIn('districts.id', $districtIds)
+                ->when($activeFyId > 0, fn ($q) => $q->where('cfa_submissions.fiscal_year_id', $activeFyId))
                 ->select('districts.name', DB::raw('COUNT(*) as total'))
                 ->groupBy('districts.id', 'districts.name')
                 ->orderByDesc('total')
@@ -92,6 +99,7 @@ class HubAdminDashboardService
                         ->whereDate('cfa_submissions.created_at', now()->toDateString());
                 })
                 ->whereIn('districts.id', $districtIds)
+                ->when($activeFyId > 0, fn ($q) => $q->where('cfa_submissions.fiscal_year_id', $activeFyId))
                 ->select('districts.name', DB::raw('COUNT(cfa_submissions.id) as total'))
                 ->groupBy('districts.id', 'districts.name')
                 ->orderByDesc('total')
@@ -156,10 +164,13 @@ class HubAdminDashboardService
             if ($districtIds !== []) {
                 $q->whereIn('district_id', $districtIds);
             }
+            if ($activeFyId > 0) {
+                $q->where('fiscal_year_id', $activeFyId);
+            }
             $trendValues[] = (int) $q->count();
         }
 
-        $businessMix = $this->businessCategoryMix($districtIds);
+        $businessMix = $this->businessCategoryMix($districtIds, $activeFyId);
 
         $heroCfaToday = 0;
         $heroCfaYesterday = 0;
@@ -167,10 +178,12 @@ class HubAdminDashboardService
             $heroCfaToday = (int) CfaSubmission::query()
                 ->whereIn('district_id', $districtIds)
                 ->whereDate('created_at', now()->toDateString())
+                ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId))
                 ->count();
             $heroCfaYesterday = (int) CfaSubmission::query()
                 ->whereIn('district_id', $districtIds)
                 ->whereDate('created_at', now()->subDay()->toDateString())
+                ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId))
                 ->count();
         }
         $heroCfaTodayDelta = $heroCfaToday - $heroCfaYesterday;
@@ -197,7 +210,7 @@ class HubAdminDashboardService
                 ->count();
         }
 
-        $heroSparkline30 = $this->hubDailyCfaSparkline($districtIds, 30);
+        $heroSparkline30 = $this->hubDailyCfaSparkline($districtIds, 30, $activeFyId);
 
         $heroProgressPct = null;
         $heroRemaining = null;
@@ -272,7 +285,7 @@ class HubAdminDashboardService
             ->get(['id', 'name']);
         $districtIds = $districts->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        $activeFy = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first();
+        $activeFy = FiscalYear::phase3Default();
         $onboardingDeliverableIds = $this->onboardingDeliverableIds();
         $phase3FloorDate = Carbon::create(2026, 4, 1)->startOfDay();
         $today = now()->startOfDay();
@@ -405,7 +418,7 @@ class HubAdminDashboardService
      * @param  list<int>  $districtIds
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function hubDailyCfaSparkline(array $districtIds, int $days): array
+    private function hubDailyCfaSparkline(array $districtIds, int $days, int $fiscalYearId = 0): array
     {
         $labels = [];
         $values = [];
@@ -422,6 +435,7 @@ class HubAdminDashboardService
             ->selectRaw('DATE(created_at) as d, COUNT(*) as total')
             ->whereIn('district_id', $districtIds)
             ->where('created_at', '>=', $start)
+            ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId))
             ->groupBy('d')
             ->pluck('total', 'd');
 
@@ -438,7 +452,7 @@ class HubAdminDashboardService
      * @param  list<int>  $districtIds
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function businessCategoryMix(array $districtIds): array
+    private function businessCategoryMix(array $districtIds, int $fiscalYearId = 0): array
     {
         if ($districtIds === []) {
             return ['labels' => [], 'values' => []];
@@ -447,6 +461,7 @@ class HubAdminDashboardService
         $counts = [];
         CfaSubmission::query()
             ->whereIn('district_id', $districtIds)
+            ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId))
             ->whereNotNull('payload')
             ->orderByDesc('id')
             ->cursor()

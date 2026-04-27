@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Hub;
 use App\Http\Controllers\Controller;
 use App\Models\CfaSubmission;
 use App\Models\District;
+use App\Models\FiscalYear;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,6 +24,7 @@ class HubApplicationsController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
         $districtIds = $districts->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $activeFy = FiscalYear::phase3Default();
 
         $staff = User::query()
             ->where('role', 'district_staff')
@@ -45,6 +47,7 @@ class HubApplicationsController extends Controller
         $query = CfaSubmission::query()
             ->with(['district:id,name', 'referralUser:id,name,referral_token'])
             ->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($activeFy, fn ($q) => $q->where('fiscal_year_id', (int) $activeFy->id))
             ->when($districtId, fn ($q) => $q->where('district_id', (int) $districtId))
             ->when($staffId, fn ($q) => $q->where('referral_user_id', (int) $staffId))
             ->when($source === 'referral', fn ($q) => $q->whereNotNull('referral_user_id'))
@@ -64,6 +67,7 @@ class HubApplicationsController extends Controller
 
         $sourceCounts = CfaSubmission::query()
             ->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($activeFy, fn ($q) => $q->where('fiscal_year_id', (int) $activeFy->id))
             ->selectRaw('COALESCE(source, "unknown") as src, COUNT(*) as total')
             ->groupBy('src')
             ->pluck('total', 'src');
