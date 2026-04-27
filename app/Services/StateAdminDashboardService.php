@@ -22,10 +22,10 @@ class StateAdminDashboardService
         $phase3FloorDate = Carbon::create(2026, 4, 1)->startOfDay();
         $phase3FloorDateLabel = $phase3FloorDate->format('d M Y');
 
-        $phase3Scope = CfaSubmission::query()
-            ->where('created_at', '>=', $phase3FloorDate);
-
         $activeFy = FiscalYear::phase3Default();
+        $activeFyId = (int) ($activeFy?->id ?? 0);
+        $phase3Scope = CfaSubmission::query()
+            ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate));
         $cfaDeliverable = null;
         $stateCfaTarget = null;
         $districtsCfaSum = null;
@@ -35,8 +35,8 @@ class StateAdminDashboardService
         $stateOnboardingByDistrict = [];
         $stateCfaThisFy = (int) (clone $phase3Scope)->count();
         $stateProgressPct = null;
-        $stateCfaTrend = $this->stateDailyTrend14($phase3FloorDate);
-        $stateBusinessStageMix = $this->stateStageMixAggregates($phase3FloorDate);
+        $stateCfaTrend = $this->stateDailyTrend14($phase3FloorDate, $activeFyId);
+        $stateBusinessStageMix = $this->stateStageMixAggregates($phase3FloorDate, $activeFyId);
 
         try {
             if (
@@ -120,6 +120,7 @@ class StateAdminDashboardService
         } catch (\Throwable) {
             // Keep dashboard resilient if target tables/columns are missing on any environment.
             $activeFy = null;
+            $activeFyId = 0;
             $cfaDeliverable = null;
             $stateCfaTarget = null;
             $districtsCfaSum = null;
@@ -181,7 +182,7 @@ class StateAdminDashboardService
         $stageCounts = DB::table('cfa_submissions')
             ->selectRaw("LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.form_stage')))) as stage_key")
             ->selectRaw('COUNT(*) as total')
-            ->where('created_at', '>=', $phase3FloorDate)
+            ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
             ->groupBy('stage_key')
             ->pluck('total', 'stage_key');
         $seedCount = (int) ($stageCounts['seed'] ?? 0);
@@ -189,10 +190,13 @@ class StateAdminDashboardService
         $growthCount = (int) ($stageCounts['growth'] ?? 0);
 
         $cfaByDistrict = DB::table('districts')
-            ->leftJoin('cfa_submissions', 'cfa_submissions.district_id', '=', 'districts.id')
-            ->where(function ($q) use ($phase3FloorDate): void {
-                $q->whereNull('cfa_submissions.id')
-                    ->orWhere('cfa_submissions.created_at', '>=', $phase3FloorDate);
+            ->leftJoin('cfa_submissions', function ($join) use ($activeFyId, $phase3FloorDate): void {
+                $join->on('cfa_submissions.district_id', '=', 'districts.id');
+                if ($activeFyId > 0) {
+                    $join->where('cfa_submissions.fiscal_year_id', $activeFyId);
+                } else {
+                    $join->where('cfa_submissions.created_at', '>=', $phase3FloorDate);
+                }
             })
             ->select('districts.name', DB::raw('COUNT(cfa_submissions.id) as total'))
             ->groupBy('districts.id', 'districts.name')
@@ -200,9 +204,12 @@ class StateAdminDashboardService
             ->orderBy('districts.name')
             ->get();
         $todayDistrictRows = DB::table('districts')
-            ->leftJoin('cfa_submissions', function ($join): void {
+            ->leftJoin('cfa_submissions', function ($join) use ($activeFyId): void {
                 $join->on('cfa_submissions.district_id', '=', 'districts.id')
                     ->whereDate('cfa_submissions.created_at', now()->toDateString());
+                if ($activeFyId > 0) {
+                    $join->where('cfa_submissions.fiscal_year_id', $activeFyId);
+                }
             })
             ->select('districts.name', DB::raw('COUNT(cfa_submissions.id) as total'))
             ->groupBy('districts.id', 'districts.name')
@@ -224,11 +231,13 @@ class StateAdminDashboardService
 
         $staffCfaByStaff = DB::table('users')
             ->leftJoin('districts', 'users.district_id', '=', 'districts.id')
-            ->leftJoin('cfa_submissions as cs', function ($join): void {
+            ->leftJoin('cfa_submissions as cs', function ($join) use ($activeFyId, $phase3FloorDate): void {
                 $join->on('cs.referral_user_id', '=', 'users.id');
-            })->where(function ($q) use ($phase3FloorDate): void {
-                $q->whereNull('cs.id')
-                    ->orWhere('cs.created_at', '>=', $phase3FloorDate);
+                if ($activeFyId > 0) {
+                    $join->where('cs.fiscal_year_id', $activeFyId);
+                } else {
+                    $join->where('cs.created_at', '>=', $phase3FloorDate);
+                }
             })
             ->where('users.role', 'district_staff')
             ->select(
@@ -246,7 +255,7 @@ class StateAdminDashboardService
             ->get()
             ->keyBy('id');
 
-        $businessMixChart = $this->businessCategoryMix($phase3FloorDate);
+        $businessMixChart = $this->businessCategoryMix($phase3FloorDate, $activeFyId);
         $businessMixChart['colors'] = $this->chartColorsForLabels($businessMixChart['labels']);
 
         $heroCfaToday = (int) (clone $phase3Scope)->whereDate('created_at', now()->toDateString())->count();
@@ -271,7 +280,7 @@ class StateAdminDashboardService
                 ->count();
         }
 
-        $heroSparkline30 = $this->dailyCfaSparkline(30, $phase3FloorDate);
+        $heroSparkline30 = $this->dailyCfaSparkline(30, $phase3FloorDate, $activeFyId);
 
         $districtAllocPct = ($stateCfaTarget !== null && $stateCfaTarget > 0 && $districtsCfaSum !== null)
             ? (int) round(($districtsCfaSum / $stateCfaTarget) * 100)
@@ -344,7 +353,7 @@ class StateAdminDashboardService
     /**
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function dailyCfaSparkline(int $days, Carbon $phase3FloorDate): array
+    private function dailyCfaSparkline(int $days, Carbon $phase3FloorDate, int $fiscalYearId = 0): array
     {
         $start = now()->subDays($days - 1)->startOfDay();
         if ($start->lt($phase3FloorDate)) {
@@ -353,6 +362,7 @@ class StateAdminDashboardService
         $rows = DB::table('cfa_submissions')
             ->selectRaw('DATE(created_at) as d, COUNT(*) as total')
             ->where('created_at', '>=', $start)
+            ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId))
             ->groupBy('d')
             ->pluck('total', 'd');
 
@@ -371,7 +381,7 @@ class StateAdminDashboardService
     /**
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function stateDailyTrend14(Carbon $phase3FloorDate): array
+    private function stateDailyTrend14(Carbon $phase3FloorDate, int $fiscalYearId = 0): array
     {
         $labels = [];
         $values = [];
@@ -383,6 +393,7 @@ class StateAdminDashboardService
             } else {
                 $values[] = (int) CfaSubmission::query()
                     ->whereDate('created_at', $day->toDateString())
+                    ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId))
                     ->count();
             }
         }
@@ -393,12 +404,12 @@ class StateAdminDashboardService
     /**
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function stateStageMixAggregates(Carbon $phase3FloorDate, int $limit = 2000): array
+    private function stateStageMixAggregates(Carbon $phase3FloorDate, int $fiscalYearId = 0, int $limit = 2000): array
     {
         $stage = [];
 
         CfaSubmission::query()
-            ->where('created_at', '>=', $phase3FloorDate)
+            ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
             ->whereNotNull('payload')
             ->orderByDesc('id')
             ->limit($limit)
@@ -431,11 +442,11 @@ class StateAdminDashboardService
     /**
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function businessCategoryMix(Carbon $phase3FloorDate): array
+    private function businessCategoryMix(Carbon $phase3FloorDate, int $fiscalYearId = 0): array
     {
         $counts = [];
         $q = CfaSubmission::query()
-            ->where('created_at', '>=', $phase3FloorDate)
+            ->when($fiscalYearId > 0, fn ($inner) => $inner->where('fiscal_year_id', $fiscalYearId), fn ($inner) => $inner->where('created_at', '>=', $phase3FloorDate))
             ->whereNotNull('payload')
             ->orderByDesc('id');
         $q->cursor()
