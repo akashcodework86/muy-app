@@ -111,6 +111,25 @@
                 $decoded = json_decode(old('field_schema'), true);
                 $schemaResolved = is_array($decoded) ? \App\Support\ServiceFieldTypes::normalizeSchema($decoded) : $schemaResolved;
             }
+            if ($schemaResolved === []) {
+                $schemaResolved = \App\Support\ServiceFieldTypes::normalizeSchema($service->field_schema);
+            }
+            if ($schemaResolved === [] && (string) $service->code === 'udyam_registration') {
+                $schemaResolved = [
+                    [
+                        'key' => 'registration_number',
+                        'label' => 'Registration Number',
+                        'type' => \App\Support\ServiceFieldTypes::TEXT,
+                        'required' => true,
+                    ],
+                    [
+                        'key' => 'remark',
+                        'label' => 'Remark',
+                        'type' => \App\Support\ServiceFieldTypes::TEXTAREA,
+                        'required' => false,
+                    ],
+                ];
+            }
             $schemaInitial = $schemaResolved;
         @endphp
         @include('partials.admin-service-schema-builder')
