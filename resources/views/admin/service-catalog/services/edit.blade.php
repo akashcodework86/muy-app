@@ -4,6 +4,7 @@
 @section('heading', 'Edit service: '.$service->name)
 
 @section('content')
+    @php $schemaEditMode = request()->boolean('form'); @endphp
     @if (session('status'))
         <p style="color:#166534; margin:0 0 0.75rem;">{{ session('status') }}</p>
     @endif
@@ -159,7 +160,8 @@
             }
             $schemaInitial = $schemaResolved;
         @endphp
-        @include('partials.admin-service-schema-builder')
+        <div id="service-schema-editor-anchor"></div>
+        @include('partials.admin-service-schema-builder', ['schemaEditMode' => $schemaEditMode])
         @error('field_schema')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
 
         <fieldset style="margin:0 0 1rem; padding:0.75rem 0.9rem; border:1px solid #e4e4e7; border-radius:8px; background:#fcfcff;">
@@ -191,6 +193,7 @@
     </script>
     <script>
         (function () {
+            const schemaEditMode = @json($schemaEditMode);
             const hidden = document.getElementById('svc_schema_hidden');
             const docReq = document.getElementById('requires_document');
             const docWrap = document.getElementById('svc_preview_doc');
@@ -274,6 +277,21 @@
                 renderFields();
                 renderDoc();
             }, 800);
+
+            if (schemaEditMode) {
+                const anchor = document.getElementById('service-schema-editor-anchor');
+                if (anchor) {
+                    setTimeout(function () {
+                        anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 120);
+                }
+                if (hidden && (((hidden.value || '').trim() === '') || hidden.value.trim() === '[]')) {
+                    const addBtn = document.getElementById('svc_schema_add');
+                    if (addBtn) {
+                        addBtn.click();
+                    }
+                }
+            }
         })();
     </script>
 @endsection

@@ -8,6 +8,7 @@
     if (! isset($schemaInitial) || ! is_array($schemaInitial)) {
         $schemaInitial = [];
     }
+    $schemaEditMode = (bool) ($schemaEditMode ?? false);
 @endphp
 
 <fieldset style="margin:0 0 1rem; padding:0.75rem 0.9rem; border:1px solid #e4e4e7; border-radius:8px;">
@@ -23,7 +24,7 @@
 
     <input type="hidden" name="field_schema" id="svc_schema_hidden" value="{{ e(old('field_schema', json_encode($schemaInitial, JSON_UNESCAPED_UNICODE))) }}">
 
-    <details style="margin-top:0.75rem;">
+    <details style="margin-top:0.75rem;" @if($schemaEditMode) open @endif>
         <summary style="cursor:pointer; font-size:0.82rem; font-weight:600; color:#52525b;">Advanced (JSON)</summary>
         <textarea id="svc_schema_raw" rows="8" style="width:100%; margin-top:0.35rem; font-family:ui-monospace,monospace; font-size:0.78rem; padding:0.5rem; border:1px solid #d4d4d8; border-radius:6px;" spellcheck="false"></textarea>
         <p style="font-size:0.72rem; color:#71717a; margin:0.25rem 0 0;">Paste a JSON array; it syncs into the builder when valid.</p>
