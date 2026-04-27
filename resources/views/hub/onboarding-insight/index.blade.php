@@ -10,7 +10,7 @@
                 {{ $hub->name }} — district-wise onboarding progress
             </p>
             <p style="margin:0.22rem 0 0;font-size:0.82rem;color:#64748b;">
-                Target source: {{ $activeFy?->name ?? 'Active FY not found' }} district onboarding allocation · Achievement source: locked onboarding batches (Phase 3 onwards).
+                Target source: {{ $activeFy?->name ?? 'Active FY not found' }} district onboarding allocation (full-year to 31 Mar) · Achievement source: locked onboarding batches (Phase 3 onwards).
             </p>
         </div>
         <a href="{{ route('dashboard') }}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.42rem 0.62rem;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;text-decoration:none;font-size:0.78rem;font-weight:700;">
@@ -33,6 +33,9 @@
                     —
                 @endif
             </div>
+            @if (! is_null($expectedPctByNow))
+                <div style="margin-top:0.16rem;font-size:0.72rem;color:#0f766e;">Expected by now: {{ $expectedPctByNow }}%</div>
+            @endif
         </div>
         <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:11px;padding:0.65rem 0.7rem;">
             <div style="font-size:0.68rem;color:#9a3412;text-transform:uppercase;font-weight:800;letter-spacing:0.06em;">Gap remaining</div>
@@ -53,10 +56,12 @@
                 Onboarding baseline is missing at hub level. First allocate district onboarding targets, then track execution from locked batches.
             @elseif ($overallProgressPct !== null && $overallProgressPct >= 100)
                 Hub onboarding target is achieved. Consider refreshing district allocation to absorb additional demand.
-            @elseif ($overallProgressPct !== null && $overallProgressPct >= 70)
-                Hub is on-track with {{ $overallProgressPct }}% progress. Focus on the remaining {{ number_format($totalGap) }} gap, especially districts with zero achievement.
+            @elseif (! is_null($expectedAchievedByNow) && ! is_null($overallPaceDelta) && $overallPaceDelta >= 0)
+                FY pace is healthy. Achieved {{ number_format($totalAchieved) }} vs expected {{ number_format($expectedAchievedByNow) }} by now ({{ $expectedPctByNow }}% timeline checkpoint).
+            @elseif (! is_null($expectedAchievedByNow) && ! is_null($overallPaceDelta))
+                FY pace is behind by {{ number_format(abs($overallPaceDelta)) }} onboards. Achieved {{ number_format($totalAchieved) }} vs expected {{ number_format($expectedAchievedByNow) }} by now ({{ $expectedPctByNow }}% checkpoint).
             @else
-                Hub onboarding progress is {{ $overallProgressPct ?? 0 }}%, which indicates execution risk. Prioritize districts with high target but low achievement and unlock more batches.
+                Hub onboarding progress is {{ $overallProgressPct ?? 0 }}%. FY timeline data is unavailable, so this is shown as full-year progress only.
             @endif
         </p>
     </div>
@@ -69,6 +74,7 @@
                     <th style="text-align:left;padding:0.64rem 0.75rem;border-bottom:1px solid #e5e7eb;font-size:0.72rem;color:#475569;text-transform:uppercase;letter-spacing:0.06em;">Target</th>
                     <th style="text-align:left;padding:0.64rem 0.75rem;border-bottom:1px solid #e5e7eb;font-size:0.72rem;color:#475569;text-transform:uppercase;letter-spacing:0.06em;">Achieved</th>
                     <th style="text-align:left;padding:0.64rem 0.75rem;border-bottom:1px solid #e5e7eb;font-size:0.72rem;color:#475569;text-transform:uppercase;letter-spacing:0.06em;">Progress</th>
+                    <th style="text-align:left;padding:0.64rem 0.75rem;border-bottom:1px solid #e5e7eb;font-size:0.72rem;color:#475569;text-transform:uppercase;letter-spacing:0.06em;">Expected by now</th>
                     <th style="text-align:left;padding:0.64rem 0.75rem;border-bottom:1px solid #e5e7eb;font-size:0.72rem;color:#475569;text-transform:uppercase;letter-spacing:0.06em;">Gap</th>
                     <th style="text-align:left;padding:0.64rem 0.75rem;border-bottom:1px solid #e5e7eb;font-size:0.72rem;color:#475569;text-transform:uppercase;letter-spacing:0.06em;">Smart analysis</th>
                 </tr>
@@ -95,6 +101,14 @@
                                 <span style="color:#94a3b8;">—</span>
                             @endif
                         </td>
+                        <td style="padding:0.68rem 0.75rem;border-bottom:1px solid #f1f5f9;">
+                            @if (! is_null($row['expected_achieved']))
+                                <strong style="color:#0f172a;">{{ number_format((int) $row['expected_achieved']) }}</strong>
+                                <span style="font-size:0.72rem;color:#64748b;">({{ (int) ($row['expected_pct'] ?? 0) }}%)</span>
+                            @else
+                                <span style="color:#94a3b8;">—</span>
+                            @endif
+                        </td>
                         <td style="padding:0.68rem 0.75rem;border-bottom:1px solid #f1f5f9;color:#7c2d12;font-weight:700;">{{ number_format((int) $row['gap']) }}</td>
                         <td style="padding:0.68rem 0.75rem;border-bottom:1px solid #f1f5f9;color:#334155;font-size:0.79rem;line-height:1.4;">
                             {{ $row['smart_analysis'] }}
@@ -102,7 +116,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" style="padding:1.25rem;text-align:center;color:#64748b;">
+                        <td colspan="7" style="padding:1.25rem;text-align:center;color:#64748b;">
                             No district onboarding records found for this hub.
                         </td>
                     </tr>

@@ -275,6 +275,21 @@ class HubAdminDashboardService
         $activeFy = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first();
         $onboardingDeliverableIds = $this->onboardingDeliverableIds();
         $phase3FloorDate = Carbon::create(2026, 4, 1)->startOfDay();
+        $today = now()->startOfDay();
+        $fyStart = $activeFy?->starts_on ? Carbon::parse($activeFy->starts_on)->startOfDay() : null;
+        $fyEnd = $activeFy?->ends_on ? Carbon::parse($activeFy->ends_on)->endOfDay() : null;
+        $expectedPctByNow = null;
+        if ($fyStart && $fyEnd && $fyEnd->greaterThan($fyStart)) {
+            if ($today->lt($fyStart)) {
+                $expectedPctByNow = 0;
+            } elseif ($today->gt($fyEnd)) {
+                $expectedPctByNow = 100;
+            } else {
+                $totalDays = max(1, $fyStart->diffInDays($fyEnd));
+                $elapsedDays = max(0, $fyStart->diffInDays($today));
+                $expectedPctByNow = (int) round(min(100, max(0, ($elapsedDays / $totalDays) * 100)));
+            }
+        }
 
         $targetsByDistrict = collect();
         if ($activeFy && $districtIds !== [] && $onboardingDeliverableIds !== []) {
@@ -299,23 +314,31 @@ class HubAdminDashboardService
                 ->groupBy('ob.district_id')
                 ->pluck('achieved_total', 'ob.district_id');
 
-        $rows = $districts->map(function (District $district) use ($targetsByDistrict, $achievedByDistrict): array {
+        $rows = $districts->map(function (District $district) use ($targetsByDistrict, $achievedByDistrict, $expectedPctByNow): array {
             $districtId = (int) $district->id;
             $target = (int) ($targetsByDistrict[$districtId] ?? 0);
             $achieved = (int) ($achievedByDistrict[$districtId] ?? 0);
             $progressPct = $target > 0 ? (int) round(($achieved / $target) * 100) : null;
             $gap = max(0, $target - $achieved);
+            $expectedAchievedByNow = ($target > 0 && $expectedPctByNow !== null)
+                ? (int) round(($target * $expectedPctByNow) / 100)
+                : null;
+            $paceDelta = ($target > 0 && $expectedAchievedByNow !== null)
+                ? ($achieved - $expectedAchievedByNow)
+                : null;
 
             if ($target <= 0) {
                 $smartAnalysis = 'Target not configured. Add district onboarding target to track this district.';
+            } elseif ($expectedPctByNow === null) {
+                $smartAnalysis = 'FY timeline is unavailable. Progress is shown against full-year target only.';
+            } elseif ($achieved >= $target) {
+                $smartAnalysis = 'Target achieved ahead of deadline. Keep quality checks tight while scaling.';
+            } elseif ($paceDelta !== null && $paceDelta >= 0) {
+                $smartAnalysis = 'On track for FY timeline. Current onboarding is meeting expected pace by now.';
             } elseif ($achieved === 0) {
-                $smartAnalysis = 'No onboarding achieved yet. Activate at least one locked batch for this district.';
-            } elseif ($progressPct !== null && $progressPct >= 100) {
-                $smartAnalysis = 'Target achieved. Consider revising allocation if more demand is expected.';
-            } elseif ($progressPct !== null && $progressPct >= 70) {
-                $smartAnalysis = 'On track. Focus on closing the remaining gap to hit target this cycle.';
+                $smartAnalysis = 'No onboarding achieved yet. Pace is behind FY expectation; activate at least one locked batch.';
             } else {
-                $smartAnalysis = 'Needs attention. Current onboarding pace is below expected target trajectory.';
+                $smartAnalysis = 'Behind FY pace. Current onboarding is below expected level for this point in the year.';
             }
 
             return [
@@ -325,6 +348,9 @@ class HubAdminDashboardService
                 'achieved' => $achieved,
                 'progress_pct' => $progressPct,
                 'gap' => $gap,
+                'expected_pct' => $expectedPctByNow,
+                'expected_achieved' => $expectedAchievedByNow,
+                'pace_delta' => $paceDelta,
                 'smart_analysis' => $smartAnalysis,
             ];
         })->sortByDesc('achieved')->values();
@@ -333,6 +359,10 @@ class HubAdminDashboardService
         $totalAchieved = (int) $rows->sum('achieved');
         $totalGap = max(0, $totalTarget - $totalAchieved);
         $overallProgressPct = $totalTarget > 0 ? (int) round(($totalAchieved / $totalTarget) * 100) : null;
+        $expectedAchievedByNow = ($totalTarget > 0 && $expectedPctByNow !== null)
+            ? (int) round(($totalTarget * $expectedPctByNow) / 100)
+            : null;
+        $overallPaceDelta = $expectedAchievedByNow !== null ? ($totalAchieved - $expectedAchievedByNow) : null;
         $districtsWithoutTarget = (int) $rows->filter(fn (array $row) => (int) $row['target'] <= 0)->count();
         $districtsWithZeroAchieved = (int) $rows->filter(fn (array $row) => (int) $row['target'] > 0 && (int) $row['achieved'] === 0)->count();
 
@@ -344,6 +374,9 @@ class HubAdminDashboardService
             'totalAchieved' => $totalAchieved,
             'totalGap' => $totalGap,
             'overallProgressPct' => $overallProgressPct,
+            'expectedPctByNow' => $expectedPctByNow,
+            'expectedAchievedByNow' => $expectedAchievedByNow,
+            'overallPaceDelta' => $overallPaceDelta,
             'districtsWithoutTarget' => $districtsWithoutTarget,
             'districtsWithZeroAchieved' => $districtsWithZeroAchieved,
         ];
