@@ -429,6 +429,7 @@
         const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         const API_URL = @json(route('hub.batches.api'));
         const UPLOAD_URL = @json(route('hub.batches.upload-cdo'));
+        const LETTER_VIEW_URL_TEMPLATE = @json(route('hub.batches.onboarding-letter', ['batch' => '__BATCH_ID__']));
         let currentDistrictId = 0;
         let currentBatchId = 0;
         let blocked = @json($stats['blocked']);
@@ -614,6 +615,10 @@
             return d.innerHTML;
         }
 
+        function letterViewUrl(batchId) {
+            return LETTER_VIEW_URL_TEMPLATE.replace('__BATCH_ID__', String(batchId || ''));
+        }
+
         async function loadPool() {
             const tbody = document.getElementById('poolBody');
             const q = document.getElementById('inpSearch').value.trim();
@@ -769,7 +774,10 @@
                 tbody.innerHTML = rows.length ? rows.map(b => {
                     let cdo = '—';
                     if (b.status === 'locked' && b.locked_at) {
-                        if (b.has_cdo_pdf) cdo = '<span style="color:var(--accent);font-weight:600">Uploaded</span>';
+                        if (b.has_cdo_pdf) {
+                            cdo = '<span style="color:var(--accent);font-weight:600">Uploaded</span>'
+                                + ` <a href="${letterViewUrl(b.id)}" target="_blank" rel="noopener noreferrer" style="margin-left:0.4rem;font-size:0.76rem;font-weight:700;color:#0f766e;text-decoration:underline;">View</a>`;
+                        }
                         else if (b.cdo_overdue) cdo = '<span style="color:#dc2626;font-weight:700">Overdue</span>';
                         else if (b.cdo_pending) cdo = '<span style="color:#d97706;font-weight:600">Pending</span>';
                     }
