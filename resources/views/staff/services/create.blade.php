@@ -116,7 +116,6 @@
 
             <form id="serviceSubmitForm" method="post" action="{{ route('staff.services.store') }}" enctype="multipart/form-data">
                 @csrf
-                <input type="hidden" id="service_id" name="service_id" value="{{ (int) old('service_id') }}">
 
                 <div class="svc-shell">
                     <aside class="svc-card">
@@ -146,8 +145,44 @@
                         <div class="svc-search-wrap">
                             <input type="search" id="svc_search" class="svc-input" placeholder="Search services by name or category...">
                         </div>
-                        <div class="svc-filter-pills" id="svc_filters"></div>
-                        <div id="service_cards" class="svc-service-grid"></div>
+                        @php
+                            $svcCategories = collect($services)->map(fn($s) => $s->category?->name ?? 'Other')->unique()->sort()->values();
+                            $selectedServiceIdOld = (int) old('service_id');
+                        @endphp
+                        <div class="svc-filter-pills" id="svc_filters">
+                            <button type="button" class="svc-pill is-active" data-cat="All">All</button>
+                            @foreach ($svcCategories as $cat)
+                                <button type="button" class="svc-pill" data-cat="{{ $cat }}">{{ $cat }}</button>
+                            @endforeach
+                        </div>
+                        <div id="service_cards" class="svc-service-grid">
+                            @foreach ($services as $svc)
+                                @php
+                                    $cat = $svc->category?->name ?? 'Other';
+                                    $isSelected = $selectedServiceIdOld === (int) $svc->id;
+                                @endphp
+                                <label class="svc-service{{ $isSelected ? ' is-selected' : '' }}" data-id="{{ $svc->id }}" data-category="{{ $cat }}" data-name="{{ strtolower($svc->name) }}">
+                                    <input type="radio" name="service_id" value="{{ $svc->id }}" style="display:none;" @checked($isSelected)>
+                                    <p class="svc-service-sub">{{ $cat }}</p>
+                                    <p class="svc-service-title">{{ $svc->name }}</p>
+                                    <div class="svc-badges">
+                                        @if ($svc->requires_approval)
+                                            <span class="svc-badge svc-badge--approval"><i class="fa-regular fa-clock"></i> SPOC approval</span>
+                                        @else
+                                            <span class="svc-badge svc-badge--auto"><i class="fa-solid fa-check"></i> Auto approve</span>
+                                        @endif
+                                        @if ($svc->requires_document)
+                                            <span class="svc-badge svc-badge--doc"><i class="fa-regular fa-file-lines"></i> Docs required</span>
+                                        @endif
+                                        @if ($svc->allows_multiple)
+                                            <span class="svc-badge svc-badge--multi"><i class="fa-solid fa-repeat"></i> Multiple allowed</span>
+                                        @else
+                                            <span class="svc-badge svc-badge--single"><i class="fa-solid fa-lock"></i> One-time only</span>
+                                        @endif
+                                    </div>
+                                </label>
+                            @endforeach
+                        </div>
                         <p id="svc_meta" class="svc-meta"></p>
                         <p id="svc_warning" class="svc-warning" style="display:none;"></p>
 
@@ -202,7 +237,6 @@
                 const SERVICES = @json($servicesJson);
                 const EXISTING_NON_MULTIPLE = new Set(@json($existingNonMultiplePairs ?? []));
 
-                const serviceInput = document.getElementById('service_id');
                 const selSub = document.getElementById('cfa_submission_id');
                 const search = document.getElementById('svc_search');
                 const cardsWrap = document.getElementById('service_cards');
@@ -216,6 +250,16 @@
                 const categories = ['All'].concat(Array.from(new Set(SERVICES.map(s => String(s.category_name || 'Other')))).sort());
                 let selectedCategory = 'All';
 
+                function getSelectedServiceId() {
+                    const picked = cardsWrap.querySelector('input[name="service_id"]:checked');
+                    return parseInt(picked?.value || '0', 10);
+                }
+
+                function setSelectedServiceId(id) {
+                    const picked = cardsWrap.querySelector('input[name="service_id"][value="' + id + '"]');
+                    if (picked) picked.checked = true;
+                }
+
                 function esc(s) {
                     const d = document.createElement('div');
                     d.textContent = s;
@@ -223,7 +267,7 @@
                 }
 
                 function render() {
-                    const id = parseInt(serviceInput.value || '0', 10);
+                    const id = getSelectedServiceId();
                     const subId = parseInt(selSub.value || '0', 10);
                     const svc = SERVICES.find(function (x) { return x.id === id; });
                     box.innerHTML = '';
@@ -452,7 +496,7 @@
                 function renderServiceCards() {
                     const subId = parseInt(selSub.value || '0', 10);
                     const term = (search.value || '').trim().toLowerCase();
-                    const selectedId = parseInt(serviceInput.value || '0', 10);
+                    const selectedId = getSelectedServiceId();
                     const rows = SERVICES.filter(function (svc) {
                         const inCat = selectedCategory === 'All' || String(svc.category_name || 'Other') === selectedCategory;
                         const inSearch = term === ''
@@ -478,17 +522,18 @@
                             ? '<span class="svc-badge svc-badge--multi"><i class="fa-solid fa-repeat"></i> Multiple allowed</span>'
                             : '<span class="svc-badge svc-badge--single"><i class="fa-solid fa-lock"></i> One-time only</span>');
                         if (blocked) badges.push('<span class="svc-badge svc-badge--locked">Already assigned</span>');
-                        return '<button type="button" class="'+cls+'" data-id="'+id+'" '+(blocked ? 'disabled' : '')+'>'
+                        return '<label class="'+cls+'" data-id="'+id+'" data-category="'+esc(String(svc.category_name || 'Other'))+'" data-name="'+esc(String(svc.name || '').toLowerCase())+'">'
+                            + '<input type="radio" name="service_id" value="'+id+'" style="display:none;" '+(selected ? 'checked' : '')+' '+(blocked ? 'disabled' : '')+'>'
                             + '<p class="svc-service-sub">'+esc(String(svc.category_name || 'Other'))+'</p>'
                             + '<p class="svc-service-title">'+esc(String(svc.name || 'Service'))+'</p>'
                             + '<div class="svc-badges">'+badges.join('')+'</div>'
-                            + '</button>';
+                            + '</label>';
                     }).join('');
                     cardsWrap.querySelectorAll('.svc-service').forEach(function (btn) {
                         btn.addEventListener('click', function () {
                             const id = parseInt(btn.dataset.id || '0', 10);
-                            if (!id || btn.disabled) return;
-                            serviceInput.value = String(id);
+                            if (!id || btn.classList.contains('is-disabled')) return;
+                            setSelectedServiceId(id);
                             renderServiceCards();
                             render();
                         });
@@ -612,7 +657,7 @@
                     if (!form.reportValidity()) {
                         return;
                     }
-                    const selectedServiceId = parseInt((document.getElementById('service_id')?.value || '0'), 10);
+                    const selectedServiceId = getSelectedServiceId();
                     if (!selectedServiceId) {
                         alert('Please select a service card before submitting.');
                         return;
