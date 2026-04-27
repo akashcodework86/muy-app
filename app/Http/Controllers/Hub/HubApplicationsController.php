@@ -80,12 +80,15 @@ class HubApplicationsController extends Controller
         )->with(['district:id,name', 'referralUser:id,name']);
 
         $columns = Schema::getColumnListing('cfa_submissions');
-        $extraColumns = ['district_name', 'referral_staff_name', 'exported_at_ist'];
-        $headers = array_merge($columns, $extraColumns);
+        $payloadColumnsMap = $this->discoverPayloadColumns(clone $query);
+        $payloadColumns = array_keys($payloadColumnsMap);
+        $baseColumns = array_values(array_filter($columns, fn (string $c) => $c !== 'payload'));
+        $extraColumns = ['district_name', 'referral_staff_name', 'exported_at_ist', 'payload_json'];
+        $headers = array_merge($baseColumns, $extraColumns, $payloadColumns);
 
         $filename = 'hub-cfa-full-export-'.now()->format('Ymd_His').'.csv';
 
-        return response()->streamDownload(function () use ($query, $headers, $columns): void {
+        return response()->streamDownload(function () use ($query, $headers, $baseColumns, $payloadColumnsMap): void {
             $out = fopen('php://output', 'w');
             if ($out === false) {
                 return;
@@ -93,15 +96,20 @@ class HubApplicationsController extends Controller
 
             fputcsv($out, $headers);
 
-            $query->chunkById(500, function ($rows) use ($out, $columns): void {
+            $query->chunkById(500, function ($rows) use ($out, $baseColumns, $payloadColumnsMap): void {
                 foreach ($rows as $row) {
                     $record = [];
-                    foreach ($columns as $column) {
+                    foreach ($baseColumns as $column) {
                         $record[] = $this->toCsvValue($row->{$column} ?? null);
                     }
                     $record[] = $row->district?->name;
                     $record[] = $row->referralUser?->name;
                     $record[] = optional($row->created_at)->timezone('Asia/Kolkata')->format('d M Y h:i A');
+                    $payload = is_array($row->payload) ? $row->payload : (array) $row->payload;
+                    $record[] = $this->toCsvValue($payload);
+                    foreach ($payloadColumnsMap as $payloadColumn => $originalKey) {
+                        $record[] = $this->toCsvValue($payload[$originalKey] ?? null);
+                    }
 
                     fputcsv($out, $record);
                 }
@@ -168,6 +176,40 @@ class HubApplicationsController extends Controller
         }
 
         return $value;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function discoverPayloadColumns($query): array
+    {
+        $keys = [];
+
+        $query->select(['id', 'payload'])->chunkById(1000, function ($rows) use (&$keys): void {
+            foreach ($rows as $row) {
+                if (! is_array($row->payload)) {
+                    continue;
+                }
+                foreach (array_keys($row->payload) as $key) {
+                    $key = trim((string) $key);
+                    if ($key === '') {
+                        continue;
+                    }
+                    $safe = preg_replace('/[^a-zA-Z0-9_]+/', '_', $key) ?: 'field';
+                    $column = 'payload_'.$safe;
+                    $suffix = 2;
+                    while (isset($keys[$column]) && $keys[$column] !== $key) {
+                        $column = 'payload_'.$safe.'_'.$suffix;
+                        $suffix++;
+                    }
+                    $keys[$column] = $key;
+                }
+            }
+        }, 'id');
+
+        ksort($keys);
+
+        return $keys;
     }
 }
 
