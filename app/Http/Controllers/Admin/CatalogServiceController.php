@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCategory;
 use App\Services\AdminAuditLogger;
+use App\Services\ServiceTargetDeliverableSyncService;
 use App\Support\ServiceFieldTypes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class CatalogServiceController extends Controller
 {
     public function __construct(
         private AdminAuditLogger $auditLogger,
+        private ServiceTargetDeliverableSyncService $serviceDeliverables,
     ) {}
 
     public function create(Request $request): View
@@ -88,6 +90,12 @@ class CatalogServiceController extends Controller
             'field_schema' => $fieldSchema,
         ]);
 
+        $deliverable = $this->serviceDeliverables->syncForService($service);
+        if ((int) $service->deliverable_id !== (int) $deliverable->id) {
+            $service->deliverable_id = (int) $deliverable->id;
+            $service->save();
+        }
+
         $this->auditLogger->record(
             $request,
             'catalog_service.created',
@@ -151,6 +159,8 @@ class CatalogServiceController extends Controller
 
     public function update(Request $request, Service $service): RedirectResponse
     {
+        $oldCode = (string) $service->code;
+
         if ($request->input('deliverable_id') === '' || $request->input('deliverable_id') === null) {
             $request->merge(['deliverable_id' => null]);
         } else {
@@ -206,6 +216,15 @@ class CatalogServiceController extends Controller
         $service->field_schema = $fieldSchema;
         $service->save();
 
+        $deliverable = $this->serviceDeliverables->syncForService($service);
+        if ((int) $service->deliverable_id !== (int) $deliverable->id) {
+            $service->deliverable_id = (int) $deliverable->id;
+            $service->save();
+        }
+        if ($oldCode !== (string) $service->code) {
+            $this->serviceDeliverables->deactivateIfServiceMissing($oldCode);
+        }
+
         $this->auditLogger->record(
             $request,
             'catalog_service.updated',
@@ -238,8 +257,10 @@ class CatalogServiceController extends Controller
         }
 
         $id = $service->id;
+        $code = (string) $service->code;
         $before = ['code' => $service->code, 'name' => $service->name];
         $service->delete();
+        $this->serviceDeliverables->deactivateIfServiceMissing($code);
 
         $this->auditLogger->record(
             $request,

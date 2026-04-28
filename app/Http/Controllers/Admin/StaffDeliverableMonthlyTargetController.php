@@ -9,6 +9,7 @@ use App\Models\FiscalYear;
 use App\Models\StaffMonthlyTarget;
 use App\Models\User;
 use App\Services\AdminAuditLogger;
+use App\Services\ServiceTargetDeliverableSyncService;
 use App\Services\StaffDeliverableMonthlyTargetService;
 use App\Services\StaffMonthlyTargetsDashboardService;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +23,7 @@ class StaffDeliverableMonthlyTargetController extends Controller
     public function __construct(
         private StaffDeliverableMonthlyTargetService $monthlyTargets,
         private AdminAuditLogger $auditLogger,
+        private ServiceTargetDeliverableSyncService $serviceDeliverables,
     ) {}
 
     private function resolveActiveDeliverable(string $code): Deliverable
@@ -34,6 +36,8 @@ class StaffDeliverableMonthlyTargetController extends Controller
 
     public function index(Request $request, User $user, StaffMonthlyTargetsDashboardService $dashboard): View|RedirectResponse
     {
+        $this->serviceDeliverables->syncAllServices();
+
         if ($user->role !== 'district_staff') {
             abort(404);
         }
@@ -79,6 +83,8 @@ class StaffDeliverableMonthlyTargetController extends Controller
 
     public function edit(Request $request, User $user, string $deliverable_code): View|RedirectResponse
     {
+        $this->serviceDeliverables->syncAllServices();
+
         if ($user->role !== 'district_staff') {
             abort(404);
         }
@@ -117,6 +123,8 @@ class StaffDeliverableMonthlyTargetController extends Controller
 
     public function update(Request $request, User $user, string $deliverable_code): RedirectResponse
     {
+        $this->serviceDeliverables->syncAllServices();
+
         if ($user->role !== 'district_staff') {
             abort(404);
         }

@@ -10,6 +10,7 @@ use App\Models\FiscalYear;
 use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
 use App\Services\AdminAuditLogger;
+use App\Services\ServiceTargetDeliverableSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,11 +34,13 @@ class TargetController extends Controller
 
     public function __construct(
         private AdminAuditLogger $auditLogger,
+        private ServiceTargetDeliverableSyncService $serviceDeliverables,
     ) {}
 
     public function stateForm(Request $request): View
     {
         $this->ensureCoreTargetDeliverables();
+        $this->serviceDeliverables->syncAllServices();
 
         [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
             $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
@@ -69,6 +72,7 @@ class TargetController extends Controller
     public function stateUpdate(Request $request): RedirectResponse
     {
         $this->ensureCoreTargetDeliverables();
+        $this->serviceDeliverables->syncAllServices();
 
         $deliverableIds = Deliverable::query()->where('is_active', true)->pluck('id');
 
@@ -126,6 +130,7 @@ class TargetController extends Controller
     public function districtForm(Request $request): View
     {
         $this->ensureCoreTargetDeliverables();
+        $this->serviceDeliverables->syncAllServices();
 
         [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
             $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
@@ -174,6 +179,7 @@ class TargetController extends Controller
     public function districtUpdate(Request $request): RedirectResponse
     {
         $this->ensureCoreTargetDeliverables();
+        $this->serviceDeliverables->syncAllServices();
 
         $districtIds = District::query()->pluck('id');
 
