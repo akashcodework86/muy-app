@@ -183,7 +183,7 @@
     const chatSeenEndpoint = @json(route('live-ops.chat.seen'));
     const chatTypingEndpoint = @json(route('live-ops.chat.typing'));
     const chatThreadEndpointTemplate = @json(route('live-ops.chat.thread', ['user' => '__USER__']));
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const csrfToken = @json(csrf_token());
 
     const openPollMs = 20000;    // while drawer is open
     const closedPollMs = 60000;  // while closed (just keeps badge fresh)
