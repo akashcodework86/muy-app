@@ -30,7 +30,7 @@
 
     <div id="svc_schema_rows" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
 
-    <input type="hidden" name="field_schema" id="svc_schema_hidden" value="{{ e($schemaHiddenValue) }}">
+    <input type="hidden" name="field_schema" id="svc_schema_hidden" value="{{ $schemaHiddenValue }}">
 
     <details style="margin-top:0.75rem;" @if($schemaEditMode) open @endif>
         <summary style="cursor:pointer; font-size:0.82rem; font-weight:600; color:#52525b;">Advanced (JSON)</summary>
@@ -55,9 +55,11 @@
 
     function parseInitial() {
         try {
-            const v = JSON.parse(hiddenEl.value || '[]');
+            const raw = (hiddenEl.value || '').trim();
+            const v = raw ? JSON.parse(raw) : [];
             rows = Array.isArray(v) ? v : [];
         } catch (e) {
+            console.warn('[schema-builder] Could not parse initial schema JSON:', e);
             rows = [];
         }
     }
@@ -106,11 +108,18 @@
     }
 
     function syncHidden() {
-        const clean = rows.map(normalizeRow).filter(function (r) {
-            return r.key && r.label && TYPES.indexOf(r.type) >= 0;
-        });
-        hiddenEl.value = JSON.stringify(clean);
-        if (rawEl) rawEl.value = JSON.stringify(clean, null, 2);
+        try {
+            const clean = rows.map(normalizeRow).filter(function (r) {
+                return r.key && r.label && TYPES.indexOf(r.type) >= 0;
+            });
+            hiddenEl.value = JSON.stringify(clean);
+            if (rawEl) rawEl.value = JSON.stringify(clean, null, 2);
+            // Dispatch a real DOM event so any external listener (e.g. live preview)
+            // picks up the programmatic value change immediately, no polling needed.
+            hiddenEl.dispatchEvent(new Event('change', { bubbles: true }));
+        } catch (err) {
+            console.error('[schema-builder] syncHidden error:', err);
+        }
     }
 
     function optionLines(opts) {
@@ -215,21 +224,41 @@
     }
 
     addBtn && addBtn.addEventListener('click', function () {
-        rows.push({ key: '', label: '', type: 'text', required: false });
-        render();
-        syncHidden();
+        try {
+            rows.push({ key: '', label: '', type: 'text', required: false });
+            render();
+            syncHidden();
+            // Scroll new row into view
+            const lastRow = rowsEl.lastElementChild;
+            if (lastRow) lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (err) {
+            console.error('[schema-builder] Add field error:', err);
+        }
     });
 
     if (rawEl) {
         rawEl.addEventListener('blur', function () {
             try {
-                const v = JSON.parse(rawEl.value || '[]');
+                const raw = (rawEl.value || '').trim();
+                if (!raw) return;
+                const v = JSON.parse(raw);
                 if (Array.isArray(v)) {
                     rows = v;
                     render();
                     syncHidden();
+                } else {
+                    console.warn('[schema-builder] JSON must be an array, got:', typeof v);
+                    rawEl.style.borderColor = '#f87171';
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                console.warn('[schema-builder] Invalid JSON in advanced textarea:', e.message);
+                rawEl.style.borderColor = '#f87171';
+                rawEl.title = 'Invalid JSON: ' + e.message;
+            }
+        });
+        rawEl.addEventListener('focus', function () {
+            rawEl.style.borderColor = '';
+            rawEl.title = '';
         });
     }
 
