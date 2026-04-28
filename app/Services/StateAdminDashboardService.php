@@ -398,6 +398,17 @@ class StateAdminDashboardService
                 'top_services' => [],
             ];
         }
+        if (
+            ! Schema::hasColumn('services', 'estimated_market_price_avg')
+            || ! Schema::hasColumn('service_cases', 'status')
+            || ! Schema::hasColumn('service_cases', 'service_id')
+        ) {
+            return [
+                'total_till_date' => 0.0,
+                'total_this_fy' => 0.0,
+                'top_services' => [],
+            ];
+        }
 
         $baseRows = DB::table('service_cases as sc')
             ->join('services as s', 's.id', '=', 'sc.service_id')
@@ -420,10 +431,14 @@ class StateAdminDashboardService
             ? Carbon::parse($activeFy->ends_on)->endOfDay()
             : now()->endOfDay();
 
+        $approvedAtExpr = Schema::hasColumn('service_cases', 'approved_at')
+            ? 'COALESCE(sc.approved_at, sc.completed_at, sc.created_at)'
+            : (Schema::hasColumn('service_cases', 'completed_at') ? 'COALESCE(sc.completed_at, sc.created_at)' : 'sc.created_at');
+
         $fyRows = DB::table('service_cases as sc')
             ->join('services as s', 's.id', '=', 'sc.service_id')
             ->where('sc.status', 'approved')
-            ->whereBetween(DB::raw('COALESCE(sc.approved_at, sc.completed_at, sc.created_at)'), [$fyStart, $fyEnd])
+            ->whereBetween(DB::raw($approvedAtExpr), [$fyStart, $fyEnd])
             ->where('s.is_active', true)
             ->whereNotNull('s.estimated_market_price_avg')
             ->where('s.estimated_market_price_avg', '>', 0)
