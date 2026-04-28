@@ -5,7 +5,6 @@
 
 @section('content')
     @php
-        $categoryOptions = $categories->map(fn ($cat) => ['id' => (int) $cat->id, 'name' => (string) $cat->name])->values();
         $hasQuickUpdateRoute = \Illuminate\Support\Facades\Route::has('admin.service-catalog.services.quick-update');
     @endphp
     @if (session('status'))
@@ -64,23 +63,22 @@
                                 — <button
                                     type="button"
                                     class="js-quick-edit-open"
-                                    data-quick-edit='@json([
-                                        "id" => (int) $svc->id,
-                                        "name" => (string) $svc->name,
-                                        "code" => (string) $svc->code,
-                                        "service_category_id" => (int) $svc->service_category_id,
-                                        "sort_order" => (int) $svc->sort_order,
-                                        "is_active" => (bool) $svc->is_active,
-                                        "allows_multiple" => (bool) $svc->allows_multiple,
-                                        "requires_approval" => (bool) $svc->requires_approval,
-                                        "requires_document" => (bool) $svc->requires_document,
-                                        "allowed_document_types" => is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [],
-                                        "reporting_tier" => (string) ($svc->reporting_tier ?? "unset"),
-                                        "estimated_market_price_avg" => $svc->estimated_market_price_avg,
-                                        "estimated_market_price_min" => $svc->estimated_market_price_min,
-                                        "estimated_market_price_max" => $svc->estimated_market_price_max,
-                                        "market_price_basis_note" => (string) ($svc->market_price_basis_note ?? ""),
-                                    ])'
+                                    data-id="{{ (int) $svc->id }}"
+                                    data-name="{{ (string) $svc->name }}"
+                                    data-code="{{ (string) $svc->code }}"
+                                    data-category-id="{{ (int) $svc->service_category_id }}"
+                                    data-sort-order="{{ (int) $svc->sort_order }}"
+                                    data-is-active="{{ $svc->is_active ? '1' : '0' }}"
+                                    data-allows-multiple="{{ $svc->allows_multiple ? '1' : '0' }}"
+                                    data-requires-approval="{{ $svc->requires_approval ? '1' : '0' }}"
+                                    data-requires-document="{{ $svc->requires_document ? '1' : '0' }}"
+                                    data-has-pdf="{{ in_array('pdf', is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [], true) ? '1' : '0' }}"
+                                    data-has-image="{{ in_array('image', is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [], true) ? '1' : '0' }}"
+                                    data-reporting-tier="{{ (string) ($svc->reporting_tier ?? 'unset') }}"
+                                    data-avg="{{ $svc->estimated_market_price_avg }}"
+                                    data-min="{{ $svc->estimated_market_price_min }}"
+                                    data-max="{{ $svc->estimated_market_price_max }}"
+                                    data-note="{{ (string) ($svc->market_price_basis_note ?? '') }}"
                                     style="background:none;border:none;padding:0;color:#1d4ed8;cursor:pointer;font-size:inherit;text-decoration:underline;"
                                 >Edit</button>
                                 <span style="color:#d4d4d8;">|</span>
@@ -115,7 +113,11 @@
                 <div style="padding:1rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(14rem,1fr)); gap:0.7rem;">
                     <div>
                         <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Category</label>
-                        <select name="service_category_id" id="qe_service_category_id" required style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;"></select>
+                        <select name="service_category_id" id="qe_service_category_id" required style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;">
+                            @foreach ($categories as $catOpt)
+                                <option value="{{ (int) $catOpt->id }}">{{ $catOpt->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div>
                         <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Name</label>
@@ -178,7 +180,6 @@
             const form = document.getElementById('quickEditForm');
             if (!modal || !form) return;
 
-            const categories = @json($categoryOptions);
             const quickUpdateTemplate = @json(route('admin.service-catalog.services.quick-update', ['service' => '__SERVICE_ID__']));
             const catSelect = document.getElementById('qe_service_category_id');
             const closeBtn = document.getElementById('quickEditClose');
@@ -193,17 +194,6 @@
                 }
             }
 
-            function fillCategories(selectedId) {
-                catSelect.innerHTML = '';
-                categories.forEach(function (cat) {
-                    const opt = document.createElement('option');
-                    opt.value = String(cat.id);
-                    opt.textContent = cat.name;
-                    if (Number(selectedId) === Number(cat.id)) opt.selected = true;
-                    catSelect.appendChild(opt);
-                });
-            }
-
             function checkbox(id, val) {
                 const el = document.getElementById(id);
                 if (el) el.checked = !!val;
@@ -211,28 +201,25 @@
 
             document.querySelectorAll('.js-quick-edit-open').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    let data = null;
-                    try { data = JSON.parse(btn.getAttribute('data-quick-edit') || '{}'); } catch (e) { data = null; }
-                    if (!data || !data.id) return;
+                    const id = btn.dataset.id || '';
+                    if (!id) return;
 
-                    fillCategories(data.service_category_id);
-                    form.action = quickUpdateTemplate.replace('__SERVICE_ID__', String(data.id));
-                    document.getElementById('qe_name').value = data.name || '';
-                    document.getElementById('qe_code').value = data.code || '';
-                    document.getElementById('qe_sort_order').value = data.sort_order ?? 0;
-                    document.getElementById('qe_reporting_tier').value = data.reporting_tier || 'unset';
-                    document.getElementById('qe_avg').value = data.estimated_market_price_avg ?? '';
-                    document.getElementById('qe_min').value = data.estimated_market_price_min ?? '';
-                    document.getElementById('qe_max').value = data.estimated_market_price_max ?? '';
-                    document.getElementById('qe_note').value = data.market_price_basis_note || '';
-                    checkbox('qe_active', data.is_active);
-                    checkbox('qe_multiple', data.allows_multiple);
-                    checkbox('qe_approval', data.requires_approval);
-                    checkbox('qe_doc', data.requires_document);
-
-                    const types = Array.isArray(data.allowed_document_types) ? data.allowed_document_types : [];
-                    checkbox('qe_doc_pdf', types.indexOf('pdf') >= 0);
-                    checkbox('qe_doc_image', types.indexOf('image') >= 0);
+                    form.action = quickUpdateTemplate.replace('__SERVICE_ID__', String(id));
+                    catSelect.value = btn.dataset.categoryId || '';
+                    document.getElementById('qe_name').value = btn.dataset.name || '';
+                    document.getElementById('qe_code').value = btn.dataset.code || '';
+                    document.getElementById('qe_sort_order').value = btn.dataset.sortOrder || 0;
+                    document.getElementById('qe_reporting_tier').value = btn.dataset.reportingTier || 'unset';
+                    document.getElementById('qe_avg').value = btn.dataset.avg || '';
+                    document.getElementById('qe_min').value = btn.dataset.min || '';
+                    document.getElementById('qe_max').value = btn.dataset.max || '';
+                    document.getElementById('qe_note').value = btn.dataset.note || '';
+                    checkbox('qe_active', btn.dataset.isActive === '1');
+                    checkbox('qe_multiple', btn.dataset.allowsMultiple === '1');
+                    checkbox('qe_approval', btn.dataset.requiresApproval === '1');
+                    checkbox('qe_doc', btn.dataset.requiresDocument === '1');
+                    checkbox('qe_doc_pdf', btn.dataset.hasPdf === '1');
+                    checkbox('qe_doc_image', btn.dataset.hasImage === '1');
 
                     setOpen(true);
                 });
