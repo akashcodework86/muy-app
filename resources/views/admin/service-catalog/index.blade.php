@@ -56,7 +56,7 @@
                             @endif
                             @if ($svc->allows_multiple)<span style="color:#0369a1; margin-left:0.2rem;">· multiple</span>@endif
                             @if (! $svc->is_active)<span style="color:#b45309; margin-left:0.2rem;">· inactive</span>@endif
-                            — <a href="{{ route('admin.service-catalog.services.edit', ['service' => $svc, 'form' => 1]) }}">Edit</a>
+                            — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
                             <form method="post" action="{{ route('admin.service-catalog.services.destroy', $svc) }}" style="display:inline;" onsubmit="return confirm('Delete this service?');">
                                 @csrf
                                 @method('DELETE')
