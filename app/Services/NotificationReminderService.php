@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\OnboardingBatch;
+use App\Models\ServiceCase;
+use App\Models\DistrictServiceSpoc;
 use App\Models\User;
 
 class NotificationReminderService
@@ -77,6 +79,62 @@ class NotificationReminderService
                     'link' => route('admin.batches.index'),
                     'unread' => true,
                 ];
+            }
+        }
+
+        if ($user->role === 'district_staff') {
+            $pendingQuery = ServiceCase::query()
+                ->where('submitted_by', (int) $user->id)
+                ->where('status', ServiceCase::STATUS_PENDING_APPROVAL);
+            $pendingCount = (clone $pendingQuery)->count();
+            $pendingOverdue = (clone $pendingQuery)
+                ->whereNotNull('submitted_at')
+                ->where('submitted_at', '<', now()->subDays(3))
+                ->count();
+            if ($pendingCount > 0) {
+                $body = $pendingCount.' service case(s) are waiting for SPOC review.';
+                if ($pendingOverdue > 0) {
+                    $body .= ' '.$pendingOverdue.' pending for more than 3 days.';
+                }
+                $out[] = [
+                    'title' => 'SPOC review pending',
+                    'body' => $body,
+                    'link' => route('staff.services.index', ['status' => ServiceCase::STATUS_PENDING_APPROVAL]),
+                    'unread' => true,
+                ];
+            }
+        }
+
+        if ($user->role === 'state_staff') {
+            $districtIds = DistrictServiceSpoc::query()
+                ->where('state_staff_user_id', (int) $user->id)
+                ->pluck('district_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->values()
+                ->all();
+
+            if ($districtIds !== []) {
+                $pendingQ = ServiceCase::query()
+                    ->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds))
+                    ->where('status', ServiceCase::STATUS_PENDING_APPROVAL);
+                $pending = (clone $pendingQ)->count();
+                $overdue = (clone $pendingQ)
+                    ->whereNotNull('sla_deadline_at')
+                    ->where('sla_deadline_at', '<', now())
+                    ->count();
+                if ($pending > 0) {
+                    $body = $pending.' service case(s) are waiting in your approval queue.';
+                    if ($overdue > 0) {
+                        $body .= ' '.$overdue.' are overdue.';
+                    }
+                    $out[] = [
+                        'title' => 'Approval queue pending',
+                        'body' => $body,
+                        'link' => route('spoc.service-cases.index', ['status' => ServiceCase::STATUS_PENDING_APPROVAL]),
+                        'unread' => true,
+                    ];
+                }
             }
         }
 

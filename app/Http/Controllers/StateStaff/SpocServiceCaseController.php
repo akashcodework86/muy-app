@@ -8,10 +8,12 @@ use App\Models\ServiceCase;
 use App\Models\ServiceCaseAttachment;
 use App\Models\ServiceCaseEvent;
 use App\Models\User;
+use App\Notifications\ServiceCaseWorkflowNotification;
 use App\Services\AppSettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -122,6 +124,7 @@ class SpocServiceCaseController extends Controller
                 'meta' => null,
             ]);
         });
+        $this->notifyDistrictStaff($service_case, $spoc, 'approved');
 
         return redirect()
             ->route('spoc.service-cases.show', $service_case)
@@ -159,6 +162,7 @@ class SpocServiceCaseController extends Controller
                 'meta' => ['note' => $service_case->sent_back_note],
             ]);
         });
+        $this->notifyDistrictStaff($service_case, $spoc, 'sent_back');
 
         return redirect()
             ->route('spoc.service-cases.show', $service_case)
@@ -196,6 +200,7 @@ class SpocServiceCaseController extends Controller
                 'meta' => ['note' => $service_case->rejected_note],
             ]);
         });
+        $this->notifyDistrictStaff($service_case, $spoc, 'rejected');
 
         return redirect()
             ->route('spoc.service-cases.show', $service_case)
@@ -209,7 +214,43 @@ class SpocServiceCaseController extends Controller
         $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
         abort_unless((int) $attachment->service_case_id === (int) $service_case->id, 404);
 
-        return Storage::disk((string) $attachment->disk)->download($attachment->path, $attachment->original_name);
+        $disk = Storage::disk((string) $attachment->disk);
+        $stream = null;
+        if ($disk->exists($attachment->path)) {
+            $stream = $disk->readStream($attachment->path);
+        } elseif ((string) $attachment->disk === 'local') {
+            $legacyPaths = [
+                storage_path('app/'.$attachment->path),
+                storage_path('app/private/'.$attachment->path),
+            ];
+            foreach ($legacyPaths as $legacyPath) {
+                if (is_file($legacyPath) && is_readable($legacyPath)) {
+                    return response()->file($legacyPath, [
+                        'Content-Disposition' => 'inline; filename="'.$attachment->original_name.'"',
+                    ]);
+                }
+            }
+        }
+
+        abort_unless(is_resource($stream), 404);
+
+        $ext = strtolower((string) pathinfo((string) $attachment->original_name, PATHINFO_EXTENSION));
+        $contentType = match ($ext) {
+            'pdf' => 'application/pdf',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            'gif' => 'image/gif',
+            default => 'application/octet-stream',
+        };
+
+        return response()->stream(function () use ($stream): void {
+            fpassthru($stream);
+            fclose($stream);
+        }, 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'inline; filename="'.$attachment->original_name.'"',
+        ]);
     }
 
     private function ensureModuleOn(): void
@@ -255,6 +296,63 @@ class SpocServiceCaseController extends Controller
             ->exists();
 
         abort_unless($allowed, 403);
+    }
+
+    private function notifyDistrictStaff(ServiceCase $serviceCase, User $spoc, string $action): void
+    {
+        $serviceCase->loadMissing(['service:id,name', 'cfaSubmission:id,application_no,applicant_name']);
+        $recipientIds = collect([
+            (int) ($serviceCase->submitted_by ?? 0),
+            (int) ($serviceCase->created_by ?? 0),
+        ])->filter(fn (int $id) => $id > 0)->unique()->values();
+
+        if ($recipientIds->isEmpty()) {
+            return;
+        }
+
+        $recipients = User::query()
+            ->whereIn('id', $recipientIds->all())
+            ->where('is_active', true)
+            ->get();
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        $statusLabel = str_replace('_', ' ', (string) $serviceCase->status);
+        $serviceName = (string) ($serviceCase->service?->name ?? 'Service case');
+        $appNo = (string) ($serviceCase->cfaSubmission?->application_no ?? '');
+        $applicant = (string) ($serviceCase->cfaSubmission?->applicant_name ?? '');
+        $note = match ($action) {
+            'sent_back' => (string) ($serviceCase->sent_back_note ?? ''),
+            'rejected' => (string) ($serviceCase->rejected_note ?? ''),
+            default => '',
+        };
+        $title = match ($action) {
+            'approved' => 'Service approved',
+            'sent_back' => 'Service sent back',
+            'rejected' => 'Service rejected',
+            default => 'Service update',
+        };
+
+        $body = trim($serviceName.' is '.$statusLabel.' by '.$spoc->name.'.');
+        if ($appNo !== '' || $applicant !== '') {
+            $body .= ' CFA '.trim($appNo.' '.$applicant).'.';
+        }
+
+        Notification::send($recipients, new ServiceCaseWorkflowNotification([
+            'title' => $title,
+            'body' => $body,
+            'service_case_id' => (int) $serviceCase->id,
+            'cfa_submission_id' => (int) ($serviceCase->cfa_submission_id ?? 0),
+            'status' => (string) $serviceCase->status,
+            'spoc_name' => (string) $spoc->name,
+            'service_name' => $serviceName,
+            'application_no' => $appNo,
+            'incubatee_name' => $applicant,
+            'comment' => $note !== '' ? $note : null,
+            'action' => $action,
+        ]));
     }
 }
 

@@ -23,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
     {
         View::composer('partials.admin-topbar', function ($view): void {
             $user = auth()->user();
-            if (! $user || ! in_array($user->role, ['state_admin', 'hub_admin', 'district_staff'], true)) {
+            if (! $user || ! in_array($user->role, ['state_admin', 'hub_admin', 'district_staff', 'state_staff'], true)) {
                 $view->with([
                     'notificationsPreview' => collect(),
                     'unreadNotificationCount' => 0,

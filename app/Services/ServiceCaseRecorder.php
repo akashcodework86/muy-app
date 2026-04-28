@@ -8,11 +8,14 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCaseAttachment;
 use App\Models\ServiceCaseEvent;
+use App\Models\User;
+use App\Notifications\ServiceCaseWorkflowNotification;
 use App\Support\BusinessDays;
 use App\Support\ServiceFieldTypes;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -193,6 +196,27 @@ class ServiceCaseRecorder
                 'spoc_user_id' => $case->spoc_user_id,
             ]);
         });
+
+        if ($requiresApproval && (int) ($case->spoc_user_id ?? 0) > 0) {
+            $case->loadMissing(['service:id,name', 'cfaSubmission:id,application_no,applicant_name']);
+            $spoc = User::query()
+                ->whereKey((int) $case->spoc_user_id)
+                ->where('is_active', true)
+                ->first();
+            if ($spoc) {
+                Notification::send($spoc, new ServiceCaseWorkflowNotification([
+                    'title' => 'Service case pending approval',
+                    'body' => trim(($case->service?->name ?? 'Service case').' is waiting for your review.'),
+                    'service_case_id' => (int) $case->id,
+                    'cfa_submission_id' => (int) ($case->cfa_submission_id ?? 0),
+                    'status' => (string) $case->status,
+                    'service_name' => (string) ($case->service?->name ?? ''),
+                    'application_no' => (string) ($case->cfaSubmission?->application_no ?? ''),
+                    'incubatee_name' => (string) ($case->cfaSubmission?->applicant_name ?? ''),
+                    'action' => 'pending_approval',
+                ]));
+            }
+        }
     }
 
     /**

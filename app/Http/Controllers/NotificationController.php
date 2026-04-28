@@ -34,6 +34,18 @@ class NotificationController extends Controller
         $notification->markAsRead();
 
         $data = $notification->data;
+        $serviceCaseId = $data['service_case_id'] ?? null;
+        if ($serviceCaseId) {
+            $serviceUrl = match ($request->user()->role) {
+                'district_staff' => route('staff.services.show', $serviceCaseId),
+                'state_staff' => route('spoc.service-cases.show', $serviceCaseId),
+                default => null,
+            };
+            if ($serviceUrl) {
+                return redirect()->to($serviceUrl);
+            }
+        }
+
         $cfaId = $data['cfa_submission_id'] ?? null;
         if ($cfaId) {
             $url = match ($request->user()->role) {

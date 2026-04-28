@@ -4,6 +4,94 @@
 @section('heading', 'Case review')
 
 @section('content')
+    <style>
+        .spoc-doc-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #0f172a;
+            border-radius: 8px;
+            padding: 0.25rem 0.55rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .spoc-doc-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 80;
+            padding: 1rem;
+        }
+        .spoc-doc-modal.is-open {
+            display: flex;
+        }
+        .spoc-doc-modal__card {
+            width: min(980px, 96vw);
+            max-height: 92vh;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28);
+            display: flex;
+            flex-direction: column;
+        }
+        .spoc-doc-modal__head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.7rem 0.9rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .spoc-doc-modal__title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #0f172a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .spoc-doc-modal__close {
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #0f172a;
+            border-radius: 8px;
+            padding: 0.25rem 0.55rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .spoc-doc-modal__body {
+            padding: 0.8rem;
+            overflow: auto;
+            background: #f8fafc;
+            min-height: 320px;
+        }
+        .spoc-doc-modal__frame {
+            width: 100%;
+            min-height: 72vh;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+        }
+        .spoc-doc-modal__img {
+            max-width: 100%;
+            max-height: 72vh;
+            display: block;
+            margin: 0 auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+        }
+    </style>
+
     <p style="margin:0 0 1rem;">
         <a href="{{ route('spoc.service-cases.index') }}">← Back to queue</a>
     </p>
@@ -81,10 +169,16 @@
             <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">Attachments</h3>
             <ul style="margin:0;padding-left:1.1rem;font-size:0.85rem;">
                 @foreach ($case->attachments as $att)
-                    <li>
-                        <a href="{{ route('spoc.service-cases.attachments.download', [$case, $att]) }}" style="color:#4338ca;">
-                            {{ $att->original_name }}
-                        </a>
+                    <li style="margin-bottom:0.35rem;">
+                        <button
+                            type="button"
+                            class="spoc-doc-btn js-doc-open"
+                            data-doc-url="{{ route('spoc.service-cases.attachments.download', [$case, $att]) }}"
+                            data-doc-name="{{ $att->original_name }}"
+                        >
+                            View document
+                        </button>
+                        <span style="margin-left:0.3rem;">{{ $att->original_name }}</span>
                         <span style="color:#71717a;">({{ number_format((int) ($att->size_bytes / 1024), 0) }} KB)</span>
                     </li>
                 @endforeach
@@ -115,5 +209,80 @@
             </form>
         </div>
     @endif
+
+    <div id="spocDocModal" class="spoc-doc-modal" aria-hidden="true">
+        <div class="spoc-doc-modal__card" role="dialog" aria-modal="true" aria-label="Document preview">
+            <div class="spoc-doc-modal__head">
+                <div id="spocDocTitle" class="spoc-doc-modal__title">Document</div>
+                <button type="button" id="spocDocClose" class="spoc-doc-modal__close">Close</button>
+            </div>
+            <div id="spocDocBody" class="spoc-doc-modal__body"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var modal = document.getElementById('spocDocModal');
+            var modalBody = document.getElementById('spocDocBody');
+            var modalTitle = document.getElementById('spocDocTitle');
+            var closeBtn = document.getElementById('spocDocClose');
+            var openButtons = Array.prototype.slice.call(document.querySelectorAll('.js-doc-open'));
+
+            function closeModal() {
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+                modalBody.innerHTML = '';
+            }
+
+            function openModal(url, name) {
+                modalTitle.textContent = name || 'Document';
+                modalBody.innerHTML = '';
+
+                var lower = (name || url || '').toLowerCase();
+                if (lower.endsWith('.pdf')) {
+                    var frame = document.createElement('iframe');
+                    frame.className = 'spoc-doc-modal__frame';
+                    frame.src = url;
+                    frame.title = name || 'Document';
+                    modalBody.appendChild(frame);
+                } else if (/\.(png|jpg|jpeg|webp|gif)$/i.test(lower)) {
+                    var img = document.createElement('img');
+                    img.className = 'spoc-doc-modal__img';
+                    img.alt = name || 'Document image';
+                    img.src = url;
+                    modalBody.appendChild(img);
+                } else {
+                    var fallback = document.createElement('div');
+                    fallback.style.fontSize = '0.86rem';
+                    fallback.style.color = '#334155';
+                    fallback.innerHTML = 'Preview not supported for this file type. <a href="' + url + '" target="_blank" rel="noopener">Open document</a>.';
+                    modalBody.appendChild(fallback);
+                }
+
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+
+            openButtons.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    openModal(btn.getAttribute('data-doc-url') || '', btn.getAttribute('data-doc-name') || 'Document');
+                });
+            });
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeModal);
+            }
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === modal) closeModal();
+                });
+            }
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && modal && modal.classList.contains('is-open')) {
+                    closeModal();
+                }
+            });
+        });
+    </script>
 @endsection
 

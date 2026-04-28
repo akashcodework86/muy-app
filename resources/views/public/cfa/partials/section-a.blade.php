@@ -179,9 +179,10 @@
         </div>
 
         <div id="memberQuestionDiv">
-            <label class="form-label" for="is_member">Member of SHG/CBO?</label>
-            <select class="form-select" name="is_member" id="is_member">
-                <option value="No" @selected(old('is_member', 'No') === 'No')>No</option>
+            <label class="form-label" for="is_member">Member of SHG/CBO? <span style="color:red">*</span></label>
+            <select class="form-select" name="is_member" id="is_member" required>
+                <option value="">Choose</option>
+                <option value="No" @selected(old('is_member') === 'No')>No</option>
                 <option value="Yes" @selected(old('is_member') === 'Yes')>Yes</option>
             </select>
         </div>

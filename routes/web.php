@@ -184,6 +184,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:30,1')
             ->name('services.update');
         Route::get('services/{service_case}', [StaffServiceCaseController::class, 'show'])->name('services.show');
+        Route::get('services/{service_case}/attachments/{attachment}/download', [StaffServiceCaseController::class, 'downloadAttachment'])
+            ->name('services.attachments.download');
         Route::delete('services/{service_case}', [StaffServiceCaseController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('services.destroy');

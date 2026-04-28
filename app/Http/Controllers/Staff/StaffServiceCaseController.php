@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CfaSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
+use App\Models\ServiceCaseAttachment;
 use App\Models\User;
 use App\Services\AppSettingsService;
 use App\Services\ServiceCaseRecorder;
@@ -13,6 +14,7 @@ use App\Support\ServiceFieldTypes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -29,6 +31,7 @@ class StaffServiceCaseController extends Controller
         $staff = $this->staffOrAbort($request);
 
         $status = (string) $request->query('status', '');
+        $serviceId = (int) $request->query('service_id', 0);
         $allowed = ['', ServiceCase::STATUS_DRAFT, ServiceCase::STATUS_PENDING_APPROVAL, ServiceCase::STATUS_SENT_BACK, ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_REJECTED];
         if (! in_array($status, $allowed, true)) {
             $status = '';
@@ -36,17 +39,34 @@ class StaffServiceCaseController extends Controller
 
         $q = ServiceCase::query()
             ->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', (int) $staff->district_id))
-            ->with(['cfaSubmission:id,applicant_name,application_no,district_id', 'service.category']);
+            ->with([
+                'cfaSubmission:id,applicant_name,application_no,district_id',
+                'service.category',
+                'spoc:id,name',
+                'approver:id,name',
+                'rejector:id,name',
+                'attachments:id,service_case_id,original_name,size_bytes,disk,path',
+            ]);
 
         if ($status !== '') {
             $q->where('status', $status);
         }
 
+        if ($serviceId > 0) {
+            $q->where('service_id', $serviceId);
+        }
+
         $cases = $q->orderByDesc('updated_at')->paginate(20)->withQueryString();
+        $services = Service::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return view('staff.services.index', [
             'cases' => $cases,
             'filterStatus' => $status,
+            'filterServiceId' => $serviceId,
+            'services' => $services,
         ]);
     }
 
@@ -271,6 +291,52 @@ class StaffServiceCaseController extends Controller
         return redirect()
             ->route('staff.services.index')
             ->with('status', 'Case deleted.');
+    }
+
+    public function downloadAttachment(Request $request, ServiceCase $service_case, ServiceCaseAttachment $attachment)
+    {
+        $this->ensureModuleOn();
+        $staff = $this->staffOrAbort($request);
+        $this->assertCaseInDistrict($staff, $service_case);
+        abort_unless((int) $attachment->service_case_id === (int) $service_case->id, 404);
+
+        $disk = Storage::disk((string) $attachment->disk);
+        $stream = null;
+        if ($disk->exists($attachment->path)) {
+            $stream = $disk->readStream($attachment->path);
+        } elseif ((string) $attachment->disk === 'local') {
+            $legacyPaths = [
+                storage_path('app/'.$attachment->path),
+                storage_path('app/private/'.$attachment->path),
+            ];
+            foreach ($legacyPaths as $legacyPath) {
+                if (is_file($legacyPath) && is_readable($legacyPath)) {
+                    return response()->file($legacyPath, [
+                        'Content-Disposition' => 'inline; filename="'.$attachment->original_name.'"',
+                    ]);
+                }
+            }
+        }
+
+        abort_unless(is_resource($stream), 404);
+
+        $ext = strtolower((string) pathinfo((string) $attachment->original_name, PATHINFO_EXTENSION));
+        $contentType = match ($ext) {
+            'pdf' => 'application/pdf',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            'gif' => 'image/gif',
+            default => 'application/octet-stream',
+        };
+
+        return response()->stream(function () use ($stream): void {
+            fpassthru($stream);
+            fclose($stream);
+        }, 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'inline; filename="'.$attachment->original_name.'"',
+        ]);
     }
 
     private function ensureModuleOn(): void
