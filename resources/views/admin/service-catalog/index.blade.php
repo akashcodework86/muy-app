@@ -6,6 +6,7 @@
 @section('content')
     @php
         $categoryOptions = $categories->map(fn ($cat) => ['id' => (int) $cat->id, 'name' => (string) $cat->name])->values();
+        $hasQuickUpdateRoute = \Illuminate\Support\Facades\Route::has('admin.service-catalog.services.quick-update');
     @endphp
     @if (session('status'))
         <p style="color:#166534; margin:0 0 1rem;">{{ session('status') }}</p>
@@ -59,30 +60,34 @@
                             @endif
                             @if ($svc->allows_multiple)<span style="color:#0369a1; margin-left:0.2rem;">· multiple</span>@endif
                             @if (! $svc->is_active)<span style="color:#b45309; margin-left:0.2rem;">· inactive</span>@endif
-                            — <button
-                                type="button"
-                                class="js-quick-edit-open"
-                                data-quick-edit='@json([
-                                    "id" => (int) $svc->id,
-                                    "name" => (string) $svc->name,
-                                    "code" => (string) $svc->code,
-                                    "service_category_id" => (int) $svc->service_category_id,
-                                    "sort_order" => (int) $svc->sort_order,
-                                    "is_active" => (bool) $svc->is_active,
-                                    "allows_multiple" => (bool) $svc->allows_multiple,
-                                    "requires_approval" => (bool) $svc->requires_approval,
-                                    "requires_document" => (bool) $svc->requires_document,
-                                    "allowed_document_types" => is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [],
-                                    "reporting_tier" => (string) ($svc->reporting_tier ?? "unset"),
-                                    "estimated_market_price_avg" => $svc->estimated_market_price_avg,
-                                    "estimated_market_price_min" => $svc->estimated_market_price_min,
-                                    "estimated_market_price_max" => $svc->estimated_market_price_max,
-                                    "market_price_basis_note" => (string) ($svc->market_price_basis_note ?? ""),
-                                ])'
-                                style="background:none;border:none;padding:0;color:#1d4ed8;cursor:pointer;font-size:inherit;text-decoration:underline;"
-                            >Edit</button>
-                            <span style="color:#d4d4d8;">|</span>
-                            <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Open full page</a>
+                            @if ($hasQuickUpdateRoute)
+                                — <button
+                                    type="button"
+                                    class="js-quick-edit-open"
+                                    data-quick-edit='@json([
+                                        "id" => (int) $svc->id,
+                                        "name" => (string) $svc->name,
+                                        "code" => (string) $svc->code,
+                                        "service_category_id" => (int) $svc->service_category_id,
+                                        "sort_order" => (int) $svc->sort_order,
+                                        "is_active" => (bool) $svc->is_active,
+                                        "allows_multiple" => (bool) $svc->allows_multiple,
+                                        "requires_approval" => (bool) $svc->requires_approval,
+                                        "requires_document" => (bool) $svc->requires_document,
+                                        "allowed_document_types" => is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [],
+                                        "reporting_tier" => (string) ($svc->reporting_tier ?? "unset"),
+                                        "estimated_market_price_avg" => $svc->estimated_market_price_avg,
+                                        "estimated_market_price_min" => $svc->estimated_market_price_min,
+                                        "estimated_market_price_max" => $svc->estimated_market_price_max,
+                                        "market_price_basis_note" => (string) ($svc->market_price_basis_note ?? ""),
+                                    ])'
+                                    style="background:none;border:none;padding:0;color:#1d4ed8;cursor:pointer;font-size:inherit;text-decoration:underline;"
+                                >Edit</button>
+                                <span style="color:#d4d4d8;">|</span>
+                                <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Open full page</a>
+                            @else
+                                — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
+                            @endif
                             <form method="post" action="{{ route('admin.service-catalog.services.destroy', $svc) }}" style="display:inline;" onsubmit="return confirm('Delete this service?');">
                                 @csrf
                                 @method('DELETE')
@@ -97,6 +102,7 @@
         <p>No categories yet. Add category first, then services.</p>
     @endforelse
 
+    @if ($hasQuickUpdateRoute)
     <div id="quickEditModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:70; padding:1rem; overflow:auto;">
         <div style="max-width:46rem; margin:2rem auto; background:#fff; border-radius:10px; border:1px solid #e5e7eb; box-shadow:0 20px 50px rgba(0,0,0,0.2);">
             <form id="quickEditForm" method="post" action="">
@@ -163,7 +169,9 @@
             </form>
         </div>
     </div>
+    @endif
 
+    @if ($hasQuickUpdateRoute)
     <script>
         (function () {
             const modal = document.getElementById('quickEditModal');
@@ -237,4 +245,5 @@
             });
         })();
     </script>
+    @endif
 @endsection
