@@ -898,7 +898,7 @@ class HubBatchService
         }
         $currentCount = $batch->isDraft() ? $this->draftMemberCount($batchId) : $batch->batchCfas()->count();
         if ($currentCount >= $batch->target_size) {
-            return ['ok' => false, 'error' => 'Batch is full. Lock the batch.'];
+            return ['ok' => false, 'error' => 'Batch is full. Increase target size from Edit batch, or lock this batch.'];
         }
         if ($this->cfaIsOnboardedLocked($cfaId)) {
             return ['ok' => false, 'error' => 'Already in a locked batch'];
