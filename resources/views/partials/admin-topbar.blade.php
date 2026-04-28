@@ -41,6 +41,7 @@
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
         str_starts_with($r, 'admin.documents') => 'admin-documents',
+        str_starts_with($r, 'library.documents') => 'documents',
         str_starts_with($r, 'admin.service-catalog') => 'service-catalog',
         str_starts_with($r, 'admin.service-module-settings') => 'service-module-settings',
         str_starts_with($r, 'admin.batches') => 'admin-batches',
@@ -56,6 +57,7 @@
         $r === 'staff.attendance.index' => 'staff-attendance',
         $r === 'staff.attendance.view'  => 'staff-attendance-view',
         str_starts_with($r, 'account.') => 'account',
+        str_starts_with($r, 'incubatee.documents') => 'documents',
         str_starts_with($r, 'incubatee.') => 'incubatee',
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
@@ -162,6 +164,9 @@
             <a href="{{ route('admin.service-catalog.index') }}" class="admin-topbar__link @if ($activeNav === 'service-catalog') is-active @endif">
                 {!! $i('catalog') !!}<span class="admin-topbar__link-text">Service catalog</span>
             </a>
+            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['documents', 'admin-documents'], true)) is-active @endif">
+                {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
+            </a>
 
             <details class="admin-topbar__details">
                 <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($opsGroupActive && $activeNav !== 'service-catalog') is-active @endif">
@@ -200,6 +205,9 @@
             <a href="{{ route('spoc.service-cases.index') }}" class="admin-topbar__link @if ($activeNav === 'spoc-queue') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Approval queue</span>
             </a>
+            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
+                {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
+            </a>
         </nav>
         @endif
 
@@ -216,6 +224,9 @@
             </a>
             <a href="{{ route('hub.staff-performance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-staff-performance') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Staff Performance</span>
+            </a>
+            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
+                {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>
         </nav>
         @endif
@@ -259,6 +270,9 @@
             <a href="{{ route('staff.phase1-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase1-data') is-active @endif">
                 {!! $i('database') !!}<span class="admin-topbar__link-text">CFA (FY 2024-25 Data)</span>
             </a>
+            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
+                {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
+            </a>
         </nav>
         @endif
 
@@ -272,6 +286,9 @@
             </a>
             <a href="{{ route('incubatee.udmita-kosh') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.udmita-kosh')) is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Udmita Kosh</span>
+            </a>
+            <a href="{{ route('incubatee.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>
         </nav>
         @endif
