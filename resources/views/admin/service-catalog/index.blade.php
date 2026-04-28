@@ -60,7 +60,9 @@
                             @if ($svc->allows_multiple)<span style="color:#0369a1; margin-left:0.2rem;">· multiple</span>@endif
                             @if (! $svc->is_active)<span style="color:#b45309; margin-left:0.2rem;">· inactive</span>@endif
                             @if ($hasQuickUpdateRoute)
-                                — <button
+                                — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
+                                <span style="color:#d4d4d8;">|</span>
+                                <button
                                     type="button"
                                     class="js-quick-edit-open"
                                     data-id="{{ (int) $svc->id }}"
@@ -80,7 +82,7 @@
                                     data-max="{{ $svc->estimated_market_price_max }}"
                                     data-note="{{ (string) ($svc->market_price_basis_note ?? '') }}"
                                     style="background:none;border:none;padding:0;color:#1d4ed8;cursor:pointer;font-size:inherit;text-decoration:underline;"
-                                >Edit</button>
+                                >Quick edit</button>
                             @else
                                 — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
                             @endif
