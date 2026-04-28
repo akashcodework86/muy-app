@@ -173,7 +173,16 @@
             if ($schemaResolved === []) {
                 $schemaResolved = \App\Support\ServiceFieldTypes::normalizeSchema($service->field_schema);
             }
-            if ($schemaResolved === [] && (string) $service->code === 'udyam_registration') {
+            $serviceCodeLower = strtolower((string) $service->code);
+            $serviceNameLower = strtolower((string) $service->name);
+            if (
+                $schemaResolved === []
+                && (
+                    $serviceCodeLower === 'udyam_registration'
+                    || str_contains($serviceCodeLower, 'udyam')
+                    || str_contains($serviceNameLower, 'udyam')
+                )
+            ) {
                 $schemaResolved = [
                     [
                         'key' => 'registration_number',
