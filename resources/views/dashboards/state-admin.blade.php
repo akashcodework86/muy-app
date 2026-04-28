@@ -1011,6 +1011,11 @@
                         <strong>Designations</strong>
                         <span>Role titles</span>
                     </a>
+                    <a href="{{ route('library.documents.index') }}">
+                        <div class="qi"><i class="fa-solid fa-folder-open" aria-hidden="true"></i></div>
+                        <strong>Document repository</strong>
+                        <span>View role-authorized uploaded documents</span>
+                    </a>
                     <a href="{{ route('admin.audit.index') }}">
                         <div class="qi"><i class="fa-solid fa-scroll" aria-hidden="true"></i></div>
                         <strong>Audit log</strong>

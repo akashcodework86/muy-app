@@ -50,5 +50,13 @@
                 <li>You will be able to <strong>approve</strong>, <strong>send back</strong> (with a note), or <strong>reject</strong> each case.</li>
             </ul>
         </div>
+
+        <div style="margin-top:1rem; background:#fff; border:1px solid rgba(148,163,184,0.3); border-radius:14px; padding:1.1rem 1.25rem;">
+            <h3 style="margin:0 0 0.35rem; font-size:0.95rem; color:#0f172a;">Documents</h3>
+            <p style="margin:0 0 0.65rem; font-size:0.86rem; color:#64748b;">Open role-authorized documents uploaded by state admin and teams.</p>
+            <a href="{{ route('library.documents.index') }}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;text-decoration:none;font-size:0.8rem;font-weight:700;">
+                Open document repository
+            </a>
+        </div>
     </div>
 @endsection

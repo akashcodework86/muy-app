@@ -347,6 +347,9 @@
             </div>
 
             <p class="hub-foot-note">To change targets, staff accounts, or designations, contact your <strong>state admin</strong>. This dashboard is read-only for hub oversight.</p>
+            <div style="margin-top:0.65rem;">
+                <a href="{{ route('library.documents.index') }}" class="hub-batch-link">Open document repository <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+            </div>
         </div>
     </main>
 
