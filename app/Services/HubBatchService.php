@@ -14,6 +14,7 @@ use App\Models\OnboardingBatchCfa;
 use App\Models\OnboardingBatchDocument;
 use App\Models\OnboardingBatchDraftCfa;
 use App\Models\OnboardingBatchEditRequest;
+use App\Notifications\HubBatchUnlockRequestedNotification;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -1148,6 +1149,12 @@ class HubBatchService
             'expected_changes' => $expected,
             'status' => 'pending',
         ]);
+
+        User::query()
+            ->where('role', 'state_admin')
+            ->where('is_active', true)
+            ->get()
+            ->each(fn (User $admin) => $admin->notify(new HubBatchUnlockRequestedNotification($row)));
 
         if ($request) {
             $this->auditLogger->record(

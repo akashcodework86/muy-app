@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\District;
+use App\Models\Hub;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchEditRequest;
 use App\Services\AdminAuditLogger;
@@ -46,6 +48,35 @@ class HubBatchComplianceController extends Controller
         return view('admin.hub-batch-compliance.index', [
             'rows' => $rows,
             'pendingEditRequests' => $pendingEditRequests,
+        ]);
+    }
+
+    public function requests(Request $request): View
+    {
+        $status = (string) $request->query('status', 'pending');
+        if (! in_array($status, ['pending', 'approved', 'all'], true)) {
+            $status = 'pending';
+        }
+
+        $hubId = (int) $request->query('hub_id', 0);
+        $districtId = (int) $request->query('district_id', 0);
+
+        $q = OnboardingBatchEditRequest::query()
+            ->with(['batch.hub', 'batch.district', 'requester', 'approver', 'relocker'])
+            ->when($status !== 'all', fn ($qq) => $qq->where('status', $status))
+            ->when($hubId > 0, fn ($qq) => $qq->where('hub_id', $hubId))
+            ->when($districtId > 0, fn ($qq) => $qq->where('district_id', $districtId))
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->orderByDesc('id');
+
+        return view('admin.hub-batch-compliance.requests', [
+            'requests' => $q->paginate(50)->withQueryString(),
+            'status' => $status,
+            'hubId' => $hubId,
+            'districtId' => $districtId,
+            'hubs' => Hub::query()->orderBy('name')->get(['id', 'name']),
+            'districts' => District::query()->orderBy('name')->get(['id', 'name']),
+            'highlightRequestId' => (int) $request->query('request_id', 0),
         ]);
     }
 

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\OnboardingBatch;
+use App\Models\OnboardingBatchEditRequest;
 use App\Models\User;
 
 class NotificationReminderService
@@ -75,6 +76,18 @@ class NotificationReminderService
                     'title' => 'Newly built batches',
                     'body' => $newlyBuiltCount.' new batch(es) were built in the last 3 days.',
                     'link' => route('admin.batches.index'),
+                    'unread' => true,
+                ];
+            }
+
+            $pendingUnlockCount = OnboardingBatchEditRequest::query()
+                ->where('status', 'pending')
+                ->count();
+            if ($pendingUnlockCount > 0) {
+                $out[] = [
+                    'title' => 'Unlock approvals pending',
+                    'body' => $pendingUnlockCount.' batch unlock request(s) are waiting for state admin approval.',
+                    'link' => route('admin.hub-batch-compliance.requests', ['status' => 'pending']),
                     'unread' => true,
                 ];
             }

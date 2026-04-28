@@ -178,6 +178,9 @@
                     <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batch-compliance') is-active @endif" role="menuitem">
                         {!! $i('download') !!}<span>Batch Onboarding Letter</span>
                     </a>
+                    <a href="{{ route('admin.hub-batch-compliance.requests') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batch-compliance') is-active @endif" role="menuitem">
+                        {!! $i('inbox') !!}<span>Unlock requests</span>
+                    </a>
                     <a href="{{ route('admin.documents.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'admin-documents') is-active @endif" role="menuitem">
                         {!! $i('book') !!}<span>Document repository</span>
                     </a>
