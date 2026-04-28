@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CfaSubmission;
 use App\Models\DistrictBlock;
 use App\Models\FieldCoordinatorAttendanceReport;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,8 @@ class FieldCoordinatorAttendanceController extends Controller
 {
     public function index(Request $request): View
     {
-        $user = $request->user()->load('district');
+        $user = $request->user()->load(['district', 'designationRecord']);
+        abort_unless($this->isFieldCoordinator($user), 403);
 
         $districtId = (int) ($user->district_id ?: 0);
         $blocks = $districtId > 0
@@ -71,7 +73,7 @@ class FieldCoordinatorAttendanceController extends Controller
 
     public function view(Request $request): View
     {
-        $user = $request->user()->load('district');
+        $user = $request->user()->load(['district', 'designationRecord']);
 
         if (! Schema::hasTable('field_coordinator_attendance_reports')) {
             return view('staff.attendance.view', [
@@ -82,9 +84,12 @@ class FieldCoordinatorAttendanceController extends Controller
             ]);
         }
 
-        $query = FieldCoordinatorAttendanceReport::query()
-            ->where('field_coordinator_user_id', (int) $user->id)
-            ->with('district');
+        $query = FieldCoordinatorAttendanceReport::query()->with('district');
+        if ($this->isFieldCoordinator($user)) {
+            $query->where('field_coordinator_user_id', (int) $user->id);
+        } else {
+            $query->where('district_id', (int) ($user->district_id ?: 0));
+        }
 
         if ($request->filled('from')) {
             $query->whereDate('visit_date', '>=', $request->query('from'));
@@ -109,10 +114,17 @@ class FieldCoordinatorAttendanceController extends Controller
 
         $cfaByDate = [];
         if ($visitDates !== []) {
-            $cfaByDate = CfaSubmission::query()
-                ->where('referral_user_id', (int) $user->id)
+            $cfaByDateQuery = CfaSubmission::query()
                 ->whereIn(DB::raw('DATE(created_at)'), $visitDates)
-                ->selectRaw('DATE(created_at) as cfa_date, COUNT(*) as cfa_count')
+                ->selectRaw('DATE(created_at) as cfa_date, COUNT(*) as cfa_count');
+
+            if ($this->isFieldCoordinator($user)) {
+                $cfaByDateQuery->where('referral_user_id', (int) $user->id);
+            } else {
+                $cfaByDateQuery->where('district_id', (int) ($user->district_id ?: 0));
+            }
+
+            $cfaByDate = $cfaByDateQuery
                 ->groupBy('cfa_date')
                 ->pluck('cfa_count', 'cfa_date')
                 ->all();
@@ -125,8 +137,13 @@ class FieldCoordinatorAttendanceController extends Controller
         $totalOutreach    = $reports->sum('outreach_programmes_total');
 
         // All blocks submitted by this staff for filter dropdown
-        $blockOptions = FieldCoordinatorAttendanceReport::query()
-            ->where('field_coordinator_user_id', (int) $user->id)
+        $blockOptionsQuery = FieldCoordinatorAttendanceReport::query();
+        if ($this->isFieldCoordinator($user)) {
+            $blockOptionsQuery->where('field_coordinator_user_id', (int) $user->id);
+        } else {
+            $blockOptionsQuery->where('district_id', (int) ($user->district_id ?: 0));
+        }
+        $blockOptions = $blockOptionsQuery
             ->whereNotNull('block')
             ->where('block', '!=', '')
             ->distinct()
@@ -148,7 +165,8 @@ class FieldCoordinatorAttendanceController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $user = $request->user()->load('district');
+        $user = $request->user()->load(['district', 'designationRecord']);
+        abort_unless($this->isFieldCoordinator($user), 403);
 
         if (! Schema::hasTable('field_coordinator_attendance_reports')) {
             return redirect()
@@ -211,10 +229,12 @@ class FieldCoordinatorAttendanceController extends Controller
 
     public function downloadAttachment(FieldCoordinatorAttendanceReport $attendanceReport, Request $request): StreamedResponse
     {
-        abort_unless(
-            (int) $attendanceReport->field_coordinator_user_id === (int) $request->user()->id,
-            403
-        );
+        $user = $request->user()->load('designationRecord');
+        $isOwn = (int) $attendanceReport->field_coordinator_user_id === (int) $user->id;
+        $isDistrictViewer = ! $this->isFieldCoordinator($user)
+            && (int) ($attendanceReport->district_id ?: 0) > 0
+            && (int) ($attendanceReport->district_id ?: 0) === (int) ($user->district_id ?: 0);
+        abort_unless($isOwn || $isDistrictViewer, 403);
         abort_if(! $attendanceReport->attachment_path, 404);
         abort_unless(Storage::exists($attendanceReport->attachment_path), 404);
 
@@ -222,5 +242,13 @@ class FieldCoordinatorAttendanceController extends Controller
             $attendanceReport->attachment_path,
             $attendanceReport->attachment_original_name ?: basename($attendanceReport->attachment_path)
         );
+    }
+
+    private function isFieldCoordinator(User $user): bool
+    {
+        $designation = strtolower(trim((string) ($user->designationRecord?->name ?? '')));
+
+        return str_contains($designation, 'field coordinator')
+            || str_contains($designation, 'field co-ordinator');
     }
 }

@@ -46,6 +46,14 @@ class NotificationController extends Controller
             }
         }
 
+        $unlockRequestId = $data['unlock_request_id'] ?? null;
+        if ($unlockRequestId && $request->user()->role === 'state_admin') {
+            return redirect()->route('admin.hub-batch-compliance.requests', [
+                'status' => 'pending',
+                'request_id' => (int) $unlockRequestId,
+            ]);
+        }
+
         $cfaId = $data['cfa_submission_id'] ?? null;
         if ($cfaId) {
             $url = match ($request->user()->role) {

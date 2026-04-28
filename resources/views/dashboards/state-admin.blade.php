@@ -974,6 +974,58 @@
                     </div>
                 </div>
 
+                @php
+                    $savingsTotalTillDate = (float) ($estimatedSavings['total_till_date'] ?? 0);
+                    $savingsTotalThisFy = (float) ($estimatedSavings['total_this_fy'] ?? 0);
+                    $topSavingsServices = $estimatedSavings['top_services'] ?? [];
+                @endphp
+                <div class="chart-card" style="margin-bottom:1.25rem;">
+                    <h4>Estimated savings impact</h4>
+                    <p class="hint">Calculated from approved service cases × configured average market price.</p>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:0.75rem;margin-bottom:0.85rem;">
+                        <div style="padding:0.75rem 0.85rem;border-radius:12px;border:1px solid rgba(34,197,94,0.25);background:rgba(34,197,94,0.08);">
+                            <div style="font-size:0.65rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.06em;">Total till date</div>
+                            <div style="font-family:'DM Sans',sans-serif;font-size:1.3rem;font-weight:800;color:#14532d;margin-top:0.25rem;">Rs {{ number_format($savingsTotalTillDate, 2) }}</div>
+                        </div>
+                        <div style="padding:0.75rem 0.85rem;border-radius:12px;border:1px solid rgba(59,130,246,0.25);background:rgba(59,130,246,0.08);">
+                            <div style="font-size:0.65rem;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:0.06em;">Estimated this FY</div>
+                            <div style="font-family:'DM Sans',sans-serif;font-size:1.3rem;font-weight:800;color:#1e3a8a;margin-top:0.25rem;">Rs {{ number_format($savingsTotalThisFy, 2) }}</div>
+                        </div>
+                        <div style="padding:0.75rem 0.85rem;border-radius:12px;border:1px solid rgba(99,102,241,0.25);background:rgba(99,102,241,0.08);">
+                            <div style="font-size:0.65rem;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:0.06em;">Top services shown</div>
+                            <div style="font-family:'DM Sans',sans-serif;font-size:1.3rem;font-weight:800;color:#312e81;margin-top:0.25rem;">{{ number_format(count($topSavingsServices)) }}</div>
+                        </div>
+                    </div>
+                    <div style="border:1px solid rgba(148,163,184,0.28);border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.72);">
+                        <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+                            <thead>
+                                <tr style="background:rgba(241,245,249,0.75);">
+                                    <th style="text-align:left;padding:0.55rem 0.65rem;">Service</th>
+                                    <th style="text-align:right;padding:0.55rem 0.65rem;">Approved cases</th>
+                                    <th style="text-align:right;padding:0.55rem 0.65rem;">Avg market price</th>
+                                    <th style="text-align:right;padding:0.55rem 0.65rem;">Estimated savings</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($topSavingsServices as $svc)
+                                    <tr>
+                                        <td style="padding:0.52rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);">{{ $svc['name'] }}</td>
+                                        <td style="padding:0.52rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);text-align:right;">{{ number_format((int) $svc['approved_count']) }}</td>
+                                        <td style="padding:0.52rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);text-align:right;">Rs {{ number_format((float) $svc['avg_price'], 2) }}</td>
+                                        <td style="padding:0.52rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);text-align:right;font-weight:700;">Rs {{ number_format((float) $svc['savings'], 2) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" style="padding:0.75rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);color:#64748b;">
+                                            No services with average market price and approved cases yet.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <h3 style="font-family:'DM Sans',sans-serif;font-size:1rem;margin:0 0 0.65rem;color:var(--text);font-weight:800;">Quick actions</h3>
                 <div class="state-bento">
                     <a href="{{ route('admin.cfa.index') }}">
@@ -1010,6 +1062,11 @@
                         <div class="qi"><i class="fa-solid fa-tags" aria-hidden="true"></i></div>
                         <strong>Designations</strong>
                         <span>Role titles</span>
+                    </a>
+                    <a href="{{ route('library.documents.index') }}">
+                        <div class="qi"><i class="fa-solid fa-folder-open" aria-hidden="true"></i></div>
+                        <strong>Document repository</strong>
+                        <span>View role-authorized uploaded documents</span>
                     </a>
                     <a href="{{ route('admin.audit.index') }}">
                         <div class="qi"><i class="fa-solid fa-scroll" aria-hidden="true"></i></div>

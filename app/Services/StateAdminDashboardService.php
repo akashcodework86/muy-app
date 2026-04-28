@@ -9,6 +9,7 @@ use App\Models\FiscalYear;
 use App\Models\MentorshipRequest;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -37,6 +38,11 @@ class StateAdminDashboardService
         $stateProgressPct = null;
         $stateCfaTrend = $this->stateDailyTrend14($phase3FloorDate, $activeFyId);
         $stateBusinessStageMix = $this->stateStageMixAggregates($phase3FloorDate, $activeFyId);
+        $estimatedSavings = [
+            'total_till_date' => 0.0,
+            'total_this_fy' => 0.0,
+            'top_services' => [],
+        ];
 
         try {
             if (
@@ -309,6 +315,8 @@ class StateAdminDashboardService
             ? (int) round(($districtsCfaSum / $stateCfaTarget) * 100)
             : null;
 
+        $estimatedSavings = $this->estimatedSavingsMetrics($activeFy, $phase3FloorDate);
+
         return [
             'activeFy' => $activeFy,
             'cfaDeliverable' => $cfaDeliverable,
@@ -370,7 +378,107 @@ class StateAdminDashboardService
             'heroStaffOnlineNow' => $heroStaffOnlineNow,
             'heroSparkline30' => $heroSparkline30,
             'phase3FloorDateLabel' => $phase3FloorDateLabel,
+            'estimatedSavings' => $estimatedSavings,
         ];
+    }
+
+    /**
+     * @return array{
+     *   total_till_date: float,
+     *   total_this_fy: float,
+     *   top_services: list<array{name: string, avg_price: float, approved_count: int, savings: float}>
+     * }
+     */
+    private function estimatedSavingsMetrics(?FiscalYear $activeFy, Carbon $phase3FloorDate): array
+    {
+        if (! Schema::hasTable('service_cases') || ! Schema::hasTable('services')) {
+            return [
+                'total_till_date' => 0.0,
+                'total_this_fy' => 0.0,
+                'top_services' => [],
+            ];
+        }
+        if (
+            ! Schema::hasColumn('services', 'estimated_market_price_avg')
+            || ! Schema::hasColumn('service_cases', 'status')
+            || ! Schema::hasColumn('service_cases', 'service_id')
+        ) {
+            return [
+                'total_till_date' => 0.0,
+                'total_this_fy' => 0.0,
+                'top_services' => [],
+            ];
+        }
+
+        $baseRows = DB::table('service_cases as sc')
+            ->join('services as s', 's.id', '=', 'sc.service_id')
+            ->where('sc.status', 'approved')
+            ->where('s.is_active', true)
+            ->whereNotNull('s.estimated_market_price_avg')
+            ->where('s.estimated_market_price_avg', '>', 0)
+            ->selectRaw('s.id, s.name, s.estimated_market_price_avg, COUNT(sc.id) as approved_count')
+            ->groupBy('s.id', 's.name', 's.estimated_market_price_avg')
+            ->orderByDesc('approved_count')
+            ->get();
+
+        $topServices = $this->mapSavingsRows($baseRows, 5);
+        $totalTillDate = array_sum(array_map(fn (array $row) => (float) $row['savings'], $this->mapSavingsRows($baseRows)));
+
+        $fyStart = $activeFy?->starts_on
+            ? Carbon::parse($activeFy->starts_on)->startOfDay()
+            : $phase3FloorDate;
+        $fyEnd = $activeFy?->ends_on
+            ? Carbon::parse($activeFy->ends_on)->endOfDay()
+            : now()->endOfDay();
+
+        $approvedAtExpr = Schema::hasColumn('service_cases', 'approved_at')
+            ? 'COALESCE(sc.approved_at, sc.completed_at, sc.created_at)'
+            : (Schema::hasColumn('service_cases', 'completed_at') ? 'COALESCE(sc.completed_at, sc.created_at)' : 'sc.created_at');
+
+        $fyRows = DB::table('service_cases as sc')
+            ->join('services as s', 's.id', '=', 'sc.service_id')
+            ->where('sc.status', 'approved')
+            ->whereBetween(DB::raw($approvedAtExpr), [$fyStart, $fyEnd])
+            ->where('s.is_active', true)
+            ->whereNotNull('s.estimated_market_price_avg')
+            ->where('s.estimated_market_price_avg', '>', 0)
+            ->selectRaw('s.id, s.estimated_market_price_avg, COUNT(sc.id) as approved_count')
+            ->groupBy('s.id', 's.estimated_market_price_avg')
+            ->get();
+
+        $totalThisFy = array_sum(array_map(
+            fn (object $row) => (float) $row->approved_count * (float) $row->estimated_market_price_avg,
+            $fyRows->all()
+        ));
+
+        return [
+            'total_till_date' => round((float) $totalTillDate, 2),
+            'total_this_fy' => round((float) $totalThisFy, 2),
+            'top_services' => $topServices,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return list<array{name: string, avg_price: float, approved_count: int, savings: float}>
+     */
+    private function mapSavingsRows(Collection $rows, ?int $limit = null): array
+    {
+        $mapped = $rows
+            ->map(fn (object $row) => [
+                'name' => (string) $row->name,
+                'avg_price' => round((float) $row->estimated_market_price_avg, 2),
+                'approved_count' => (int) $row->approved_count,
+                'savings' => round((float) $row->approved_count * (float) $row->estimated_market_price_avg, 2),
+            ])
+            ->sortByDesc('savings')
+            ->values();
+
+        if ($limit !== null && $limit > 0) {
+            $mapped = $mapped->take($limit)->values();
+        }
+
+        return $mapped->all();
     }
 
     /**

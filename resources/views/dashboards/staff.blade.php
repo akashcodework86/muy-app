@@ -3964,6 +3964,14 @@
         </script>
     @endunless
 
+    <section style="margin:1rem 0 1.2rem;padding:1rem 1.1rem;border-radius:14px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 4px 18px rgba(15,23,42,0.05);">
+        <h3 style="margin:0 0 0.35rem;font-size:0.95rem;color:#0f172a;">Documents</h3>
+        <p style="margin:0 0 0.65rem;font-size:0.84rem;color:#64748b;">View all repository documents that are authorized for your role.</p>
+        <a href="{{ route('library.documents.index') }}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.44rem 0.78rem;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;text-decoration:none;font-size:0.8rem;font-weight:700;">
+            Open document repository
+        </a>
+    </section>
+
     </main>
     @include('partials.app-footer')
 </body>

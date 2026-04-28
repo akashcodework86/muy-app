@@ -14,6 +14,7 @@ use App\Models\OnboardingBatchCfa;
 use App\Models\OnboardingBatchDocument;
 use App\Models\OnboardingBatchDraftCfa;
 use App\Models\OnboardingBatchEditRequest;
+use App\Notifications\HubBatchUnlockRequestedNotification;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -897,7 +898,7 @@ class HubBatchService
         }
         $currentCount = $batch->isDraft() ? $this->draftMemberCount($batchId) : $batch->batchCfas()->count();
         if ($currentCount >= $batch->target_size) {
-            return ['ok' => false, 'error' => 'Batch is full. Lock the batch.'];
+            return ['ok' => false, 'error' => 'Batch is full. Increase target size from Edit batch, or lock this batch.'];
         }
         if ($this->cfaIsOnboardedLocked($cfaId)) {
             return ['ok' => false, 'error' => 'Already in a locked batch'];
@@ -1148,6 +1149,12 @@ class HubBatchService
             'expected_changes' => $expected,
             'status' => 'pending',
         ]);
+
+        User::query()
+            ->where('role', 'state_admin')
+            ->where('is_active', true)
+            ->get()
+            ->each(fn (User $admin) => $admin->notify(new HubBatchUnlockRequestedNotification($row)));
 
         if ($request) {
             $this->auditLogger->record(

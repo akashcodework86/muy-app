@@ -76,6 +76,35 @@
             <input id="sort_order" name="sort_order" type="number" min="0" value="{{ old('sort_order', $service->sort_order) }}" style="width:8rem; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
         </div>
 
+        <fieldset style="margin:0 0 1rem; padding:0.75rem 0.9rem; border:1px solid #e4e4e7; border-radius:8px;">
+            <legend style="padding:0 0.4rem; font-size:0.85rem; font-weight:600; color:#14532d;">Estimated market price (impact)</legend>
+            <p style="margin:0 0 0.6rem; font-size:0.78rem; color:#6b7280;">
+                Savings is calculated as approved service cases × average market price.
+            </p>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:0.65rem; margin-bottom:0.65rem;">
+                <div>
+                    <label for="estimated_market_price_avg" style="display:block; font-weight:500; margin-bottom:0.25rem;">Average price (INR)</label>
+                    <input id="estimated_market_price_avg" name="estimated_market_price_avg" type="number" min="0" step="0.01" value="{{ old('estimated_market_price_avg', $service->estimated_market_price_avg) }}" placeholder="e.g. 1200" style="width:100%; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
+                    @error('estimated_market_price_avg')<div style="color:#b91c1c;font-size:0.8rem;margin-top:0.2rem;">{{ $message }}</div>@enderror
+                </div>
+                <div>
+                    <label for="estimated_market_price_min" style="display:block; font-weight:500; margin-bottom:0.25rem;">Minimum price (INR)</label>
+                    <input id="estimated_market_price_min" name="estimated_market_price_min" type="number" min="0" step="0.01" value="{{ old('estimated_market_price_min', $service->estimated_market_price_min) }}" placeholder="optional" style="width:100%; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
+                    @error('estimated_market_price_min')<div style="color:#b91c1c;font-size:0.8rem;margin-top:0.2rem;">{{ $message }}</div>@enderror
+                </div>
+                <div>
+                    <label for="estimated_market_price_max" style="display:block; font-weight:500; margin-bottom:0.25rem;">Maximum price (INR)</label>
+                    <input id="estimated_market_price_max" name="estimated_market_price_max" type="number" min="0" step="0.01" value="{{ old('estimated_market_price_max', $service->estimated_market_price_max) }}" placeholder="optional" style="width:100%; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
+                    @error('estimated_market_price_max')<div style="color:#b91c1c;font-size:0.8rem;margin-top:0.2rem;">{{ $message }}</div>@enderror
+                </div>
+            </div>
+            <div>
+                <label for="market_price_basis_note" style="display:block; font-weight:500; margin-bottom:0.25rem;">Price basis / source note <span style="font-weight:400;color:#71717a;">(optional)</span></label>
+                <textarea id="market_price_basis_note" name="market_price_basis_note" rows="2" maxlength="1000" placeholder="Example: CA consultant market range in district offices, Apr 2026." style="width:100%; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">{{ old('market_price_basis_note', $service->market_price_basis_note) }}</textarea>
+                @error('market_price_basis_note')<div style="color:#b91c1c;font-size:0.8rem;margin-top:0.2rem;">{{ $message }}</div>@enderror
+            </div>
+        </fieldset>
+
         <div style="margin-bottom:0.85rem;">
             <label for="reporting_tier" style="display:block; font-weight:500; margin-bottom:0.25rem;">Reporting — Key / Non‑Key</label>
             <select id="reporting_tier" name="reporting_tier" required style="width:100%; max-width:24rem; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
@@ -135,9 +164,11 @@
 
         @php
             $schemaResolved = is_array($schemaInitial ?? null) ? $schemaInitial : [];
-            if (old('field_schema')) {
-                $decoded = json_decode(old('field_schema'), true);
-                $schemaResolved = is_array($decoded) ? \App\Support\ServiceFieldTypes::normalizeSchema($decoded) : $schemaResolved;
+            if (request()->session()->hasOldInput('field_schema')) {
+                $decoded = json_decode((string) old('field_schema'), true);
+                if (is_array($decoded) && $decoded !== []) {
+                    $schemaResolved = \App\Support\ServiceFieldTypes::normalizeSchema($decoded);
+                }
             }
             if ($schemaResolved === []) {
                 $schemaResolved = \App\Support\ServiceFieldTypes::normalizeSchema($service->field_schema);

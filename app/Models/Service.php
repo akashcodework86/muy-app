@@ -19,6 +19,10 @@ class Service extends Model
         'deliverable_id',
         'code',
         'name',
+        'estimated_market_price_avg',
+        'estimated_market_price_min',
+        'estimated_market_price_max',
+        'market_price_basis_note',
         'sort_order',
         'is_active',
         'allows_multiple',
@@ -32,6 +36,9 @@ class Service extends Model
     protected function casts(): array
     {
         return [
+            'estimated_market_price_avg' => 'decimal:2',
+            'estimated_market_price_min' => 'decimal:2',
+            'estimated_market_price_max' => 'decimal:2',
             'is_active' => 'boolean',
             'allows_multiple' => 'boolean',
             'requires_approval' => 'boolean',

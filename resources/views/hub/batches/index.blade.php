@@ -250,6 +250,7 @@
                     </div>
                     <ul id="draftMembers" style="list-style:none;padding:0;margin:0.75rem 0;max-height:200px;overflow:auto;font-size:0.875rem"></ul>
                     <button type="button" class="hb-btn hb-btn--dark" id="btnLock" style="width:100%;margin-bottom:0.5rem">Lock batch</button>
+                    <button type="button" class="hb-btn hb-btn--primary" id="btnEditCurrentBatch" style="width:100%;margin-bottom:0.5rem">Edit batch size / details</button>
                     <button type="button" class="hb-btn hb-btn--ghost" id="btnCancelDraft" style="width:100%">Cancel draft</button>
                 </div>
                 <div class="hb-card" style="margin-top:1rem">
@@ -398,14 +399,14 @@
 
     <div class="hb-modal-bg" id="modalEditBatch">
         <div class="hb-modal">
-            <h3 style="margin:0 0 0.75rem">Edit draft batch</h3>
+            <h3 style="margin:0 0 0.75rem">Edit batch</h3>
             <label style="font-size:0.78rem;color:var(--muted)">Batch name</label>
             <input type="text" id="editBatchName" class="hb-input" maxlength="120" style="margin:0.35rem 0 0.75rem">
             <label style="font-size:0.78rem;color:var(--muted)">Target size (N)</label>
             <input type="number" id="editBatchTarget" class="hb-input" min="1" max="500" style="margin:0.35rem 0 0.75rem">
             <label style="font-size:0.78rem;color:var(--muted)">Onboarding date</label>
             <input type="date" id="editBatchDate" class="hb-input" style="margin:0.35rem 0 0.75rem">
-            <p style="margin:0;font-size:0.72rem;color:var(--muted)">Note: only draft batches can be edited or deleted.</p>
+            <p style="margin:0;font-size:0.72rem;color:var(--muted)">Note: draft and approved edit-unlocked batches can be edited.</p>
             <div style="display:flex;gap:0.75rem;margin-top:1.1rem">
                 <button type="button" class="hb-btn hb-btn--ghost" id="editBatchCancel" style="flex:1">Cancel</button>
                 <button type="button" class="hb-btn hb-btn--primary" id="editBatchSave" style="flex:1">Save</button>
@@ -1140,7 +1141,7 @@
                 closeEditBatch();
                 await loadBatches();
                 if (currentBatchId === editingBatchId) await loadDraft();
-                alert('Draft batch updated.');
+                alert('Batch updated.');
             } catch (e) { alert(e.message); }
         }
 
@@ -1295,6 +1296,13 @@
         document.getElementById('btnClearSelection').addEventListener('click', () => markSelectedPoolIds([]));
         document.getElementById('btnAutoSelectMix').addEventListener('click', autoSelectByIdealMix);
         document.getElementById('btnAddSelected').addEventListener('click', addSelectedToDraft);
+        document.getElementById('btnEditCurrentBatch').addEventListener('click', () => {
+            if (!currentBatchId) {
+                alert('Select or continue a batch first.');
+                return;
+            }
+            openEditBatch(currentBatchId);
+        });
         document.getElementById('editBatchCancel').addEventListener('click', closeEditBatch);
         document.getElementById('editBatchSave').addEventListener('click', saveEditBatch);
         document.getElementById('btnCloseBatchDetail').addEventListener('click', closeBatchDetail);

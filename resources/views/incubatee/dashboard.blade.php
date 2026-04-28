@@ -576,6 +576,16 @@
             </div>
         </div>
     </section>
+
+    <section class="inc-panel">
+        <h2 class="inc-panel__h"><span aria-hidden="true">📁</span> Documents for you</h2>
+        <p style="margin:0 0 0.75rem;color:#64748b;font-size:0.9rem;line-height:1.5;">
+            Access all documents that are authorized for incubatee role.
+        </p>
+        <a href="{{ route('incubatee.documents.index') }}" style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.5rem 0.85rem;border-radius:9px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;text-decoration:none;font-size:0.82rem;font-weight:700;">
+            Open document repository
+        </a>
+    </section>
     </div>{{-- /.inc-main --}}
 
     <aside class="inc-side" aria-label="Your journey">
