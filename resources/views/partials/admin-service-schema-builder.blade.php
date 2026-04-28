@@ -9,6 +9,14 @@
         $schemaInitial = [];
     }
     $schemaEditMode = (bool) ($schemaEditMode ?? false);
+    $schemaJsonFromInitial = json_encode($schemaInitial, JSON_UNESCAPED_UNICODE);
+    $schemaOldRaw = old('field_schema');
+    $hasSchemaOldInput = request()->session()->hasOldInput('field_schema');
+    $useOldSchemaValue = $hasSchemaOldInput
+        && is_string($schemaOldRaw)
+        && trim($schemaOldRaw) !== ''
+        && (! $schemaEditMode || trim($schemaOldRaw) !== '[]');
+    $schemaHiddenValue = $useOldSchemaValue ? $schemaOldRaw : $schemaJsonFromInitial;
 @endphp
 
 <fieldset style="margin:0 0 1rem; padding:0.75rem 0.9rem; border:1px solid #e4e4e7; border-radius:8px;">
@@ -22,7 +30,7 @@
 
     <div id="svc_schema_rows" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
 
-    <input type="hidden" name="field_schema" id="svc_schema_hidden" value="{{ e(old('field_schema', json_encode($schemaInitial, JSON_UNESCAPED_UNICODE))) }}">
+    <input type="hidden" name="field_schema" id="svc_schema_hidden" value="{{ e($schemaHiddenValue) }}">
 
     <details style="margin-top:0.75rem;" @if($schemaEditMode) open @endif>
         <summary style="cursor:pointer; font-size:0.82rem; font-weight:600; color:#52525b;">Advanced (JSON)</summary>
