@@ -4,7 +4,7 @@
 @section('heading', 'Edit service: '.$service->name)
 
 @section('content')
-    @php $schemaEditMode = request()->boolean('form'); @endphp
+    @php $schemaEditMode = false; @endphp
     @if (session('status'))
         <p style="color:#166534; margin:0 0 0.75rem;">{{ session('status') }}</p>
     @endif
@@ -173,7 +173,16 @@
             if ($schemaResolved === []) {
                 $schemaResolved = \App\Support\ServiceFieldTypes::normalizeSchema($service->field_schema);
             }
-            if ($schemaResolved === [] && (string) $service->code === 'udyam_registration') {
+            $serviceCodeLower = strtolower((string) $service->code);
+            $serviceNameLower = strtolower((string) $service->name);
+            if (
+                $schemaResolved === []
+                && (
+                    $serviceCodeLower === 'udyam_registration'
+                    || str_contains($serviceCodeLower, 'udyam')
+                    || str_contains($serviceNameLower, 'udyam')
+                )
+            ) {
                 $schemaResolved = [
                     [
                         'key' => 'registration_number',
@@ -309,20 +318,7 @@
                 renderDoc();
             }, 800);
 
-            if (schemaEditMode) {
-                const anchor = document.getElementById('service-schema-editor-anchor');
-                if (anchor) {
-                    setTimeout(function () {
-                        anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 120);
-                }
-                if (hidden && (((hidden.value || '').trim() === '') || hidden.value.trim() === '[]')) {
-                    const addBtn = document.getElementById('svc_schema_add');
-                    if (addBtn) {
-                        addBtn.click();
-                    }
-                }
-            }
+            // Keep edit page stable; no forced schema mode from query params.
         })();
     </script>
 @endsection

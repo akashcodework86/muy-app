@@ -282,6 +282,97 @@ class CatalogServiceController extends Controller
         return redirect()->route('admin.service-catalog.index')->with('status', 'Service updated.');
     }
 
+    public function quickUpdate(Request $request, Service $service): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:191'],
+            'code' => ['required', 'string', 'max:96', 'regex:/^[a-z0-9_]+$/', Rule::unique('services', 'code')->ignore($service->id)],
+            'service_category_id' => ['required', 'integer', Rule::exists('service_categories', 'id')],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
+            'is_active' => ['nullable', 'boolean'],
+            'allows_multiple' => ['nullable', 'boolean'],
+            'requires_approval' => ['nullable', 'boolean'],
+            'requires_document' => ['nullable', 'boolean'],
+            'allowed_document_types' => ['nullable', 'array'],
+            'allowed_document_types.*' => ['string', Rule::in(['pdf', 'image'])],
+            'reporting_tier' => ['required', 'string', Rule::in(['unset', 'key', 'non_key'])],
+            'estimated_market_price_avg' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'estimated_market_price_min' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'estimated_market_price_max' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'market_price_basis_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $this->validateEstimatedMarketPriceRange($validated);
+        $requiresDocument = $request->boolean('requires_document', false);
+        $allowedDocTypes = $this->normalizeAllowedDocTypes($request->input('allowed_document_types'), $requiresDocument);
+
+        $before = [
+            'code' => $service->code,
+            'name' => $service->name,
+            'service_category_id' => $service->service_category_id,
+            'estimated_market_price_avg' => $service->estimated_market_price_avg,
+            'estimated_market_price_min' => $service->estimated_market_price_min,
+            'estimated_market_price_max' => $service->estimated_market_price_max,
+            'market_price_basis_note' => $service->market_price_basis_note,
+            'is_active' => $service->is_active,
+            'allows_multiple' => $service->allows_multiple,
+            'requires_approval' => $service->requires_approval,
+            'requires_document' => $service->requires_document,
+            'reporting_tier' => $service->reporting_tier,
+        ];
+
+        $oldCode = (string) $service->code;
+        $service->service_category_id = (int) $validated['service_category_id'];
+        $service->name = $validated['name'];
+        $service->code = $validated['code'];
+        $service->sort_order = (int) ($validated['sort_order'] ?? 0);
+        $service->is_active = (bool) $request->boolean('is_active', true);
+        $service->allows_multiple = (bool) $request->boolean('allows_multiple', false);
+        $service->requires_approval = (bool) $request->boolean('requires_approval', false);
+        $service->requires_document = $requiresDocument;
+        $service->allowed_document_types = $allowedDocTypes;
+        $service->reporting_tier = $validated['reporting_tier'];
+        $service->estimated_market_price_avg = $this->nullableMoney($validated['estimated_market_price_avg'] ?? null);
+        $service->estimated_market_price_min = $this->nullableMoney($validated['estimated_market_price_min'] ?? null);
+        $service->estimated_market_price_max = $this->nullableMoney($validated['estimated_market_price_max'] ?? null);
+        $service->market_price_basis_note = isset($validated['market_price_basis_note']) ? trim((string) $validated['market_price_basis_note']) : null;
+        $service->save();
+
+        $deliverable = $this->serviceDeliverables->syncForService($service);
+        if ((int) $service->deliverable_id !== (int) $deliverable->id) {
+            $service->deliverable_id = (int) $deliverable->id;
+            $service->save();
+        }
+        if ($oldCode !== (string) $service->code) {
+            $this->serviceDeliverables->deactivateIfServiceMissing($oldCode);
+        }
+
+        $this->auditLogger->record(
+            $request,
+            'catalog_service.quick_updated',
+            Service::class,
+            $service->id,
+            $before,
+            [
+                'code' => $service->code,
+                'name' => $service->name,
+                'service_category_id' => $service->service_category_id,
+                'estimated_market_price_avg' => $service->estimated_market_price_avg,
+                'estimated_market_price_min' => $service->estimated_market_price_min,
+                'estimated_market_price_max' => $service->estimated_market_price_max,
+                'market_price_basis_note' => $service->market_price_basis_note,
+                'is_active' => $service->is_active,
+                'allows_multiple' => $service->allows_multiple,
+                'requires_approval' => $service->requires_approval,
+                'requires_document' => $service->requires_document,
+                'reporting_tier' => $service->reporting_tier,
+            ],
+            'Catalog service quick-updated from list modal',
+        );
+
+        return redirect()->route('admin.service-catalog.index')->with('status', 'Service updated from quick edit.');
+    }
+
     public function destroy(Request $request, Service $service): RedirectResponse
     {
         if (ServiceCase::query()->where('service_id', $service->id)->exists()) {
@@ -492,7 +583,7 @@ class CatalogServiceController extends Controller
 
         // Last-resort defaults for known interventions where legacy rows were
         // created without persisted field_schema.
-        return $this->defaultSchemaByServiceCode((string) $service->code);
+        return $this->defaultSchemaByServiceIdentity((string) $service->code, (string) $service->name);
     }
 
     /**
@@ -551,10 +642,15 @@ class CatalogServiceController extends Controller
     /**
      * @return list<array<string, mixed>>
      */
-    private function defaultSchemaByServiceCode(string $serviceCode): array
+    private function defaultSchemaByServiceIdentity(string $serviceCode, string $serviceName = ''): array
     {
         $code = strtolower(trim($serviceCode));
-        if ($code === 'udyam_registration' || str_contains($code, 'udyam')) {
+        $name = strtolower(trim($serviceName));
+        if (
+            $code === 'udyam_registration'
+            || str_contains($code, 'udyam')
+            || str_contains($name, 'udyam')
+        ) {
             return [
                 [
                     'key' => 'registration_number',
