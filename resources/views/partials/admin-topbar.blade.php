@@ -5,6 +5,10 @@
     $showStateStaffNav = $u && $u->role === 'state_staff';
     $showHubNav = $u && $u->role === 'hub_admin';
     $showStaffNav = $u && $u->role === 'district_staff';
+    $isFieldCoordinator = $showStaffNav && (
+        str_contains(strtolower((string) ($u->designationRecord?->name ?? '')), 'field coordinator')
+        || str_contains(strtolower((string) ($u->designationRecord?->name ?? '')), 'field co-ordinator')
+    );
     $staffServiceModuleOn = $showStaffNav && app(\App\Services\AppSettingsService::class)->isEnabled('service_module.enabled');
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
@@ -256,9 +260,11 @@
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Field attendance</p>
-                    <a href="{{ route('staff.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance') is-active @endif" role="menuitem">
-                        {!! $i('doc') !!}<span>Submit attendance</span>
-                    </a>
+                    @if ($isFieldCoordinator)
+                        <a href="{{ route('staff.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance') is-active @endif" role="menuitem">
+                            {!! $i('doc') !!}<span>Submit attendance</span>
+                        </a>
+                    @endif
                     <a href="{{ route('staff.attendance.view') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance-view') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>View attendance</span>
                     </a>
