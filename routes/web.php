@@ -32,7 +32,6 @@ use App\Http\Controllers\Hub\HubStaffPerformanceController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
 use App\Http\Controllers\Incubatee\MentorshipRequestController;
 use App\Http\Controllers\LiveOpsController;
-use App\Http\Controllers\LiveChatController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
@@ -106,11 +105,6 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::prefix('api/live-ops')->name('live-ops.')->middleware('throttle:120,1')->group(function (): void {
         Route::get('presence', [LiveOpsController::class, 'presence'])->name('presence');
         Route::get('activities', [LiveOpsController::class, 'activities'])->name('activities');
-        Route::get('chat/contacts', [LiveChatController::class, 'contacts'])->name('chat.contacts');
-        Route::get('chat/thread/{user}', [LiveChatController::class, 'thread'])->name('chat.thread');
-        Route::post('chat/send', [LiveChatController::class, 'send'])->name('chat.send');
-        Route::post('chat/seen', [LiveChatController::class, 'seen'])->name('chat.seen');
-        Route::post('chat/typing', [LiveChatController::class, 'typing'])->name('chat.typing');
     });
 
     Route::middleware('incubatee')->prefix('incubatee')->name('incubatee.')->group(function () {
