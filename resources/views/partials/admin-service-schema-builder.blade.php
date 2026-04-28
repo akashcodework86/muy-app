@@ -15,7 +15,7 @@
     $useOldSchemaValue = $hasSchemaOldInput
         && is_string($schemaOldRaw)
         && trim($schemaOldRaw) !== ''
-        && (! $schemaEditMode || trim($schemaOldRaw) !== '[]');
+        && trim($schemaOldRaw) !== '[]';
     $schemaHiddenValue = $useOldSchemaValue ? $schemaOldRaw : $schemaJsonFromInitial;
 @endphp
 
