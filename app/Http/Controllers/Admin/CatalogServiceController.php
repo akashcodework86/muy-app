@@ -55,6 +55,10 @@ class CatalogServiceController extends Controller
             ],
             'code' => ['nullable', 'string', 'max:96', 'regex:/^[a-z0-9_]+$/', Rule::unique('services', 'code')],
             'name' => ['required', 'string', 'max:191'],
+            'estimated_market_price_avg' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'estimated_market_price_min' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'estimated_market_price_max' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'market_price_basis_note' => ['nullable', 'string', 'max:1000'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['nullable', 'boolean'],
             'allows_multiple' => ['nullable', 'boolean'],
@@ -67,6 +71,7 @@ class CatalogServiceController extends Controller
         ]);
 
         $fieldSchema = $this->validatedFieldSchema($request);
+        $this->validateEstimatedMarketPriceRange($validated);
         $requiresDocument = $request->boolean('requires_document', false);
         $allowedDocTypes = $this->normalizeAllowedDocTypes($request->input('allowed_document_types'), $requiresDocument);
 
@@ -80,6 +85,10 @@ class CatalogServiceController extends Controller
             'deliverable_id' => isset($validated['deliverable_id']) ? (int) $validated['deliverable_id'] : null,
             'code' => $code,
             'name' => $validated['name'],
+            'estimated_market_price_avg' => $this->nullableMoney($validated['estimated_market_price_avg'] ?? null),
+            'estimated_market_price_min' => $this->nullableMoney($validated['estimated_market_price_min'] ?? null),
+            'estimated_market_price_max' => $this->nullableMoney($validated['estimated_market_price_max'] ?? null),
+            'market_price_basis_note' => isset($validated['market_price_basis_note']) ? trim((string) $validated['market_price_basis_note']) : null,
             'sort_order' => (int) ($validated['sort_order'] ?? 0),
             'is_active' => (bool) ($request->boolean('is_active', true)),
             'allows_multiple' => (bool) $request->boolean('allows_multiple', false),
@@ -102,7 +111,15 @@ class CatalogServiceController extends Controller
             Service::class,
             $service->id,
             null,
-            ['code' => $service->code, 'name' => $service->name, 'service_category_id' => $service->service_category_id],
+            [
+                'code' => $service->code,
+                'name' => $service->name,
+                'service_category_id' => $service->service_category_id,
+                'estimated_market_price_avg' => $service->estimated_market_price_avg,
+                'estimated_market_price_min' => $service->estimated_market_price_min,
+                'estimated_market_price_max' => $service->estimated_market_price_max,
+                'market_price_basis_note' => $service->market_price_basis_note,
+            ],
             'Catalog service created',
         );
 
@@ -175,6 +192,10 @@ class CatalogServiceController extends Controller
             ],
             'code' => ['required', 'string', 'max:96', 'regex:/^[a-z0-9_]+$/', Rule::unique('services', 'code')->ignore($service->id)],
             'name' => ['required', 'string', 'max:191'],
+            'estimated_market_price_avg' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'estimated_market_price_min' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'estimated_market_price_max' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'market_price_basis_note' => ['nullable', 'string', 'max:1000'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['nullable', 'boolean'],
             'allows_multiple' => ['nullable', 'boolean'],
@@ -187,6 +208,7 @@ class CatalogServiceController extends Controller
         ]);
 
         $fieldSchema = $this->validatedFieldSchema($request);
+        $this->validateEstimatedMarketPriceRange($validated);
         $requiresDocument = $request->boolean('requires_document', false);
         $allowedDocTypes = $this->normalizeAllowedDocTypes($request->input('allowed_document_types'), $requiresDocument);
 
@@ -194,6 +216,10 @@ class CatalogServiceController extends Controller
             'code' => $service->code,
             'name' => $service->name,
             'service_category_id' => $service->service_category_id,
+            'estimated_market_price_avg' => $service->estimated_market_price_avg,
+            'estimated_market_price_min' => $service->estimated_market_price_min,
+            'estimated_market_price_max' => $service->estimated_market_price_max,
+            'market_price_basis_note' => $service->market_price_basis_note,
             'allows_multiple' => $service->allows_multiple,
             'reporting_tier' => $service->reporting_tier,
             'requires_approval' => $service->requires_approval,
@@ -206,6 +232,10 @@ class CatalogServiceController extends Controller
         $service->deliverable_id = isset($validated['deliverable_id']) ? (int) $validated['deliverable_id'] : null;
         $service->code = $validated['code'];
         $service->name = $validated['name'];
+        $service->estimated_market_price_avg = $this->nullableMoney($validated['estimated_market_price_avg'] ?? null);
+        $service->estimated_market_price_min = $this->nullableMoney($validated['estimated_market_price_min'] ?? null);
+        $service->estimated_market_price_max = $this->nullableMoney($validated['estimated_market_price_max'] ?? null);
+        $service->market_price_basis_note = isset($validated['market_price_basis_note']) ? trim((string) $validated['market_price_basis_note']) : null;
         $service->sort_order = (int) ($validated['sort_order'] ?? 0);
         $service->is_active = (bool) $request->boolean('is_active', true);
         $service->allows_multiple = (bool) $request->boolean('allows_multiple', false);
@@ -235,6 +265,10 @@ class CatalogServiceController extends Controller
                 'code' => $service->code,
                 'name' => $service->name,
                 'service_category_id' => $service->service_category_id,
+                'estimated_market_price_avg' => $service->estimated_market_price_avg,
+                'estimated_market_price_min' => $service->estimated_market_price_min,
+                'estimated_market_price_max' => $service->estimated_market_price_max,
+                'market_price_basis_note' => $service->market_price_basis_note,
                 'allows_multiple' => $service->allows_multiple,
                 'reporting_tier' => $service->reporting_tier,
                 'requires_approval' => $service->requires_approval,
@@ -399,6 +433,43 @@ class CatalogServiceController extends Controller
         }
 
         return $code;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function validateEstimatedMarketPriceRange(array $validated): void
+    {
+        $avg = $this->nullableMoney($validated['estimated_market_price_avg'] ?? null);
+        $min = $this->nullableMoney($validated['estimated_market_price_min'] ?? null);
+        $max = $this->nullableMoney($validated['estimated_market_price_max'] ?? null);
+
+        if ($avg !== null && $min !== null && $avg < $min) {
+            throw ValidationException::withMessages([
+                'estimated_market_price_avg' => 'Average market price must be greater than or equal to minimum market price.',
+            ]);
+        }
+
+        if ($avg !== null && $max !== null && $avg > $max) {
+            throw ValidationException::withMessages([
+                'estimated_market_price_avg' => 'Average market price must be less than or equal to maximum market price.',
+            ]);
+        }
+
+        if ($min !== null && $max !== null && $min > $max) {
+            throw ValidationException::withMessages([
+                'estimated_market_price_min' => 'Minimum market price cannot be greater than maximum market price.',
+            ]);
+        }
+    }
+
+    private function nullableMoney(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return round((float) $value, 2);
     }
 
     /**
