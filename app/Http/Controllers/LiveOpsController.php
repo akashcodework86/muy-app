@@ -18,7 +18,7 @@ class LiveOpsController extends Controller
     public function presence(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! in_array($user->role, ['state_admin', 'hub_admin'], true)) {
+        if (! $user || ! in_array($user->role, ['state_admin', 'state_staff', 'hub_admin', 'district_staff'], true)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -98,7 +98,7 @@ class LiveOpsController extends Controller
     public function activities(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! in_array($user->role, ['state_admin', 'hub_admin'], true)) {
+        if (! $user || ! in_array($user->role, ['state_admin', 'state_staff', 'hub_admin', 'district_staff'], true)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 

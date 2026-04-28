@@ -1,6 +1,6 @@
 @php
     $loUser = auth()->user();
-    $showLiveOps = $loUser && in_array($loUser->role, ['state_admin', 'hub_admin'], true);
+    $showLiveOps = $loUser && in_array($loUser->role, ['state_admin', 'state_staff', 'hub_admin', 'district_staff'], true);
 @endphp
 @if ($showLiveOps)
 
@@ -69,6 +69,33 @@
     .lo-feed__meta strong { color: #475569; font-weight: 700; }
     .lo-feed__time { font-size: 0.6rem; color: #94a3b8; font-weight: 600; text-align: right; flex-shrink: 0; white-space: nowrap; align-self: start; }
     .lo-empty { text-align: center; padding: 1.5rem 1rem; color: #94a3b8; font-size: 0.82rem; }
+
+    /* Chat */
+    .lo-chat-list { display:flex; flex-direction:column; gap:0.35rem; max-height:180px; overflow:auto; }
+    .lo-chat-user {
+        border:1px solid rgba(226,232,240,.92); background:#fff; border-radius:10px; padding:0.45rem 0.55rem;
+        display:flex; align-items:center; justify-content:space-between; gap:0.5rem; cursor:pointer;
+    }
+    .lo-chat-user:hover { background:#eef2ff; border-color:#c7d2fe; }
+    .lo-chat-user.is-active { background:#e0e7ff; border-color:#818cf8; }
+    .lo-chat-user__name { font-size:0.78rem; font-weight:700; color:#0f172a; }
+    .lo-chat-user__role { font-size:0.62rem; color:#64748b; text-transform:uppercase; font-weight:700; letter-spacing:0.05em; }
+    .lo-chat-pane { border:1px solid rgba(226,232,240,.92); border-radius:12px; background:#fff; overflow:hidden; }
+    .lo-chat-pane__head { padding:0.55rem 0.7rem; border-bottom:1px solid #e2e8f0; background:#f8fafc; }
+    .lo-chat-pane__title { margin:0; font-size:0.78rem; font-weight:800; color:#0f172a; }
+    .lo-chat-pane__sub { margin-top:0.2rem; font-size:0.64rem; color:#64748b; }
+    .lo-chat-messages { height:220px; overflow:auto; padding:0.6rem; display:flex; flex-direction:column; gap:0.45rem; background:#fcfcff; }
+    .lo-chat-bubble { max-width:82%; padding:0.45rem 0.55rem; border-radius:10px; font-size:0.77rem; line-height:1.35; border:1px solid #e2e8f0; }
+    .lo-chat-bubble--me { align-self:flex-end; background:#4f46e5; color:#fff; border-color:#4338ca; }
+    .lo-chat-bubble--other { align-self:flex-start; background:#fff; color:#0f172a; }
+    .lo-chat-bubble__meta { margin-top:0.2rem; font-size:0.6rem; opacity:.8; }
+    .lo-chat-input { border-top:1px solid #e2e8f0; padding:0.55rem; display:flex; gap:0.4rem; align-items:flex-end; }
+    .lo-chat-input textarea {
+        flex:1; min-height:38px; max-height:92px; resize:vertical; border:1px solid #cbd5e1; border-radius:8px; padding:0.45rem 0.5rem; font-size:0.75rem;
+    }
+    .lo-chat-send { border:none; border-radius:8px; background:#4338ca; color:#fff; font-size:0.72rem; font-weight:800; padding:0.45rem 0.62rem; cursor:pointer; }
+    .lo-chat-send:disabled { opacity:.5; cursor:not-allowed; }
+    .lo-chat-typing { padding:0 0.65rem 0.45rem; font-size:0.64rem; color:#4f46e5; min-height:0.8rem; }
 </style>
 
 <button type="button" class="lo-trigger" id="loTrigger" aria-label="Live operations" aria-expanded="false">
@@ -120,6 +147,30 @@
                 <div class="lo-empty">Waiting for activity…</div>
             </div>
         </section>
+
+        <section class="lo-card">
+            <div class="lo-card__head">
+                <h3 class="lo-card__title">Live chat (online staff)</h3>
+                <span class="lo-card__stamp" id="loChatStamp">Idle</span>
+            </div>
+            <div class="lo-chat-list" id="loChatList">
+                <div class="lo-empty" style="padding:0.75rem 0.5rem;">No online staff.</div>
+            </div>
+            <div class="lo-chat-pane">
+                <div class="lo-chat-pane__head">
+                    <p class="lo-chat-pane__title" id="loChatTitle">Select user to chat</p>
+                    <div class="lo-chat-pane__sub" id="loChatSub">Session-only chat, text only, max 500 chars.</div>
+                </div>
+                <div class="lo-chat-messages" id="loChatMessages">
+                    <div class="lo-empty" style="padding:0.8rem;">Pick an online user from above.</div>
+                </div>
+                <div class="lo-chat-typing" id="loChatTyping"></div>
+                <div class="lo-chat-input">
+                    <textarea id="loChatText" maxlength="500" placeholder="Type message..."></textarea>
+                    <button type="button" class="lo-chat-send" id="loChatSend">Send</button>
+                </div>
+            </div>
+        </section>
     </div>
 </aside>
 
@@ -127,6 +178,12 @@
 (function () {
     const presenceEndpoint = @json(route('live-ops.presence'));
     const activitiesEndpoint = @json(route('live-ops.activities'));
+    const chatContactsEndpoint = @json(route('live-ops.chat.contacts'));
+    const chatSendEndpoint = @json(route('live-ops.chat.send'));
+    const chatSeenEndpoint = @json(route('live-ops.chat.seen'));
+    const chatTypingEndpoint = @json(route('live-ops.chat.typing'));
+    const chatThreadEndpointTemplate = @json(route('live-ops.chat.thread', ['user' => '__USER__']));
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
     const openPollMs = 20000;    // while drawer is open
     const closedPollMs = 60000;  // while closed (just keeps badge fresh)
@@ -144,6 +201,14 @@
         avatars: document.getElementById('loAvatars'),
         feed: document.getElementById('loFeed'),
         activityStamp: document.getElementById('loActivityStamp'),
+        chatStamp: document.getElementById('loChatStamp'),
+        chatList: document.getElementById('loChatList'),
+        chatTitle: document.getElementById('loChatTitle'),
+        chatSub: document.getElementById('loChatSub'),
+        chatMessages: document.getElementById('loChatMessages'),
+        chatTyping: document.getElementById('loChatTyping'),
+        chatText: document.getElementById('loChatText'),
+        chatSend: document.getElementById('loChatSend'),
     };
     if (! els.drawer || ! els.feed) return;
 
@@ -212,6 +277,10 @@
     let presenceTimer = null;
     let activityTimer = null;
     let tickTimer = null;
+    let chatTimer = null;
+    let activeChatUserId = 0;
+    let activeChatUserName = '';
+    let typingDebounce = null;
 
     async function fetchJson(url) {
         const res = await fetch(url, {
@@ -220,6 +289,23 @@
         });
         if (! res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
+    }
+
+    async function postJson(url, payload) {
+        const res = await fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify(payload || {}),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || data.error || ('HTTP ' + res.status));
+        return data;
     }
 
     async function pollPresence() {
@@ -329,6 +415,105 @@
         }
     }
 
+    function roleName(role) {
+        switch (role) {
+            case 'state_admin': return 'State admin';
+            case 'state_staff': return 'State staff';
+            case 'hub_admin': return 'Hub admin';
+            case 'district_staff': return 'District staff';
+            default: return role || 'Staff';
+        }
+    }
+
+    function renderChatContacts(contacts) {
+        if (!Array.isArray(contacts) || contacts.length === 0) {
+            els.chatList.innerHTML = '<div class="lo-empty" style="padding:0.75rem 0.5rem;">No online staff.</div>';
+            return;
+        }
+        els.chatList.innerHTML = contacts.map((c) => {
+            const active = Number(c.id) === Number(activeChatUserId) ? ' is-active' : '';
+            const initials = String(c.name || '?').split(' ').map((s) => s[0] || '').join('').slice(0, 2).toUpperCase() || '?';
+            return `<button type="button" class="lo-chat-user${active}" data-chat-user="${c.id}">
+                <div style="display:flex;gap:.45rem;align-items:center;min-width:0;">
+                    <span class="lo-avatar" data-role="${c.role || ''}" style="width:24px;height:24px;font-size:.55rem;">${initials}</span>
+                    <div style="min-width:0;">
+                        <div class="lo-chat-user__name">${c.name || 'User'}</div>
+                        <div class="lo-chat-user__role">${roleName(c.role)}</div>
+                    </div>
+                </div>
+                <span style="font-size:.58rem;color:#64748b;">online</span>
+            </button>`;
+        }).join('');
+
+        els.chatList.querySelectorAll('[data-chat-user]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const uid = parseInt(btn.getAttribute('data-chat-user') || '0', 10);
+                if (!uid) return;
+                const name = btn.querySelector('.lo-chat-user__name')?.textContent || 'User';
+                openChat(uid, name);
+            });
+        });
+    }
+
+    async function pollChatContacts() {
+        try {
+            setStamp(els.chatStamp, 'Refreshing…', true);
+            const data = await fetchJson(chatContactsEndpoint);
+            renderChatContacts(data.contacts || []);
+            setStamp(els.chatStamp, 'Updated ' + new Date().toLocaleTimeString(), false);
+        } catch (e) {
+            setStamp(els.chatStamp, 'Offline', false);
+        }
+    }
+
+    function renderChatMessages(messages) {
+        if (!Array.isArray(messages) || messages.length === 0) {
+            els.chatMessages.innerHTML = '<div class="lo-empty" style="padding:0.8rem;">No messages yet.</div>';
+            return;
+        }
+        els.chatMessages.innerHTML = messages.map((m) => {
+            const mine = Number(m.from_user_id) === Number(@json((int) $loUser->id));
+            const cls = mine ? 'lo-chat-bubble lo-chat-bubble--me' : 'lo-chat-bubble lo-chat-bubble--other';
+            const seenTxt = mine && m.seen_at ? ' • seen' : '';
+            return `<div class="${cls}">
+                <div>${(m.text || '').replace(/[<>&]/g, (ch) => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[ch]))}</div>
+                <div class="lo-chat-bubble__meta">${formatRelative(m.created_at)}${seenTxt}</div>
+            </div>`;
+        }).join('');
+        els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+    }
+
+    async function pollActiveThread() {
+        if (!activeChatUserId || !isOpen) return;
+        try {
+            const endpoint = chatThreadEndpointTemplate.replace('__USER__', String(activeChatUserId));
+            const data = await fetchJson(endpoint);
+            if (data.online === false) {
+                els.chatMessages.innerHTML = '<div class="lo-empty" style="padding:0.8rem;">User went offline. Session chat cleared.</div>';
+                els.chatTyping.textContent = '';
+                return;
+            }
+            renderChatMessages(data.messages || []);
+            if (Number(data.typing_user_id || 0) === Number(activeChatUserId)) {
+                els.chatTyping.textContent = activeChatUserName + ' is typing...';
+            } else {
+                els.chatTyping.textContent = '';
+            }
+            await postJson(chatSeenEndpoint, { with_user_id: activeChatUserId });
+        } catch (e) {
+            // no-op
+        }
+    }
+
+    function openChat(userId, userName) {
+        activeChatUserId = userId;
+        activeChatUserName = userName || 'User';
+        els.chatTitle.textContent = 'Chat with ' + activeChatUserName;
+        els.chatSub.textContent = 'Session-only while both users are online.';
+        pollChatContacts();
+        pollActiveThread();
+    }
+
     function tickRelativeTimes() {
         els.feed.querySelectorAll('.lo-feed__time').forEach(function (t) {
             const iso = t.getAttribute('data-time');
@@ -341,14 +526,19 @@
         presenceTimer = setInterval(pollPresence, isOpen ? openPollMs : closedPollMs);
         if (isOpen) {
             activityTimer = setInterval(pollActivities, openPollMs);
+            chatTimer = setInterval(() => {
+                pollChatContacts();
+                pollActiveThread();
+            }, 2000);
             tickTimer = setInterval(tickRelativeTimes, 15000);
         }
     }
     function stopTimers() {
         if (presenceTimer) clearInterval(presenceTimer);
         if (activityTimer) clearInterval(activityTimer);
+        if (chatTimer) clearInterval(chatTimer);
         if (tickTimer) clearInterval(tickTimer);
-        presenceTimer = activityTimer = tickTimer = null;
+        presenceTimer = activityTimer = chatTimer = tickTimer = null;
     }
 
     function openDrawer() {
@@ -360,6 +550,8 @@
         document.body.style.overflow = 'hidden';
         pollPresence();
         pollActivities();
+        pollChatContacts();
+        pollActiveThread();
         startTimers();
         setTimeout(() => els.drawer.focus(), 100);
     }
@@ -381,7 +573,38 @@
         if (document.visibilityState === 'visible') pollPresence();
     });
 
+    els.chatSend.addEventListener('click', async () => {
+        if (!activeChatUserId) return;
+        const text = (els.chatText.value || '').trim();
+        if (!text) return;
+        if (text.length > 500) {
+            alert('Max 500 characters allowed.');
+            return;
+        }
+        els.chatSend.disabled = true;
+        try {
+            await postJson(chatSendEndpoint, { to_user_id: activeChatUserId, text });
+            els.chatText.value = '';
+            await postJson(chatTypingEndpoint, { with_user_id: activeChatUserId, typing: false });
+            await pollActiveThread();
+        } catch (e) {
+            alert(e.message || 'Could not send message');
+        } finally {
+            els.chatSend.disabled = false;
+        }
+    });
+
+    els.chatText.addEventListener('input', () => {
+        if (!activeChatUserId) return;
+        if (typingDebounce) clearTimeout(typingDebounce);
+        postJson(chatTypingEndpoint, { with_user_id: activeChatUserId, typing: true }).catch(() => {});
+        typingDebounce = setTimeout(() => {
+            postJson(chatTypingEndpoint, { with_user_id: activeChatUserId, typing: false }).catch(() => {});
+        }, 1200);
+    });
+
     pollPresence();
+    pollChatContacts();
     startTimers();
 })();
 </script>
