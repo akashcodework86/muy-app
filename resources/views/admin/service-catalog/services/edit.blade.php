@@ -164,9 +164,11 @@
 
         @php
             $schemaResolved = is_array($schemaInitial ?? null) ? $schemaInitial : [];
-            if (old('field_schema')) {
-                $decoded = json_decode(old('field_schema'), true);
-                $schemaResolved = is_array($decoded) ? \App\Support\ServiceFieldTypes::normalizeSchema($decoded) : $schemaResolved;
+            if (request()->session()->hasOldInput('field_schema')) {
+                $decoded = json_decode((string) old('field_schema'), true);
+                if (is_array($decoded) && $decoded !== []) {
+                    $schemaResolved = \App\Support\ServiceFieldTypes::normalizeSchema($decoded);
+                }
             }
             if ($schemaResolved === []) {
                 $schemaResolved = \App\Support\ServiceFieldTypes::normalizeSchema($service->field_schema);
