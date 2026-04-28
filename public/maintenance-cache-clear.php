@@ -28,8 +28,57 @@ if ($providedKey === '' || ! hash_equals($expectedKey, $providedKey)) {
 header('Content-Type: text/plain; charset=utf-8');
 
 try {
-    require __DIR__.'/../vendor/autoload.php';
-    $app = require __DIR__.'/../bootstrap/app.php';
+    $start = __DIR__;
+    $autoloadPath = null;
+    $bootstrapPath = null;
+    $cursor = $start;
+
+    for ($i = 0; $i < 8; $i++) {
+        $candidateAutoload = $cursor.'/vendor/autoload.php';
+        $candidateBootstrap = $cursor.'/bootstrap/app.php';
+        if ($autoloadPath === null && is_file($candidateAutoload)) {
+            $autoloadPath = $candidateAutoload;
+        }
+        if ($bootstrapPath === null && is_file($candidateBootstrap)) {
+            $bootstrapPath = $candidateBootstrap;
+        }
+        if ($autoloadPath !== null && $bootstrapPath !== null) {
+            break;
+        }
+        $parent = dirname($cursor);
+        if ($parent === $cursor) {
+            break;
+        }
+        $cursor = $parent;
+    }
+
+    if ($autoloadPath === null || $bootstrapPath === null) {
+        // Common cPanel layout fallback:
+        // /home/<user>/public_html/phase3 (this file) and /home/<user>/muy-app (Laravel app)
+        $homeDir = dirname(dirname($start));
+        $fallbackRoots = [
+            $homeDir.'/muy-app',
+            $homeDir.'/www/muy-app',
+            $homeDir.'/public_html/muy-app',
+        ];
+
+        foreach ($fallbackRoots as $root) {
+            $candidateAutoload = $root.'/vendor/autoload.php';
+            $candidateBootstrap = $root.'/bootstrap/app.php';
+            if (is_file($candidateAutoload) && is_file($candidateBootstrap)) {
+                $autoloadPath = $candidateAutoload;
+                $bootstrapPath = $candidateBootstrap;
+                break;
+            }
+        }
+    }
+
+    if ($autoloadPath === null || $bootstrapPath === null) {
+        throw new RuntimeException('Could not locate Laravel root. Checked from: '.$start);
+    }
+
+    require $autoloadPath;
+    $app = require $bootstrapPath;
 
     /** @var Kernel $kernel */
     $kernel = $app->make(Kernel::class);

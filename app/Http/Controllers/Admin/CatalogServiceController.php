@@ -583,7 +583,7 @@ class CatalogServiceController extends Controller
 
         // Last-resort defaults for known interventions where legacy rows were
         // created without persisted field_schema.
-        return $this->defaultSchemaByServiceCode((string) $service->code);
+        return $this->defaultSchemaByServiceIdentity((string) $service->code, (string) $service->name);
     }
 
     /**
@@ -642,10 +642,15 @@ class CatalogServiceController extends Controller
     /**
      * @return list<array<string, mixed>>
      */
-    private function defaultSchemaByServiceCode(string $serviceCode): array
+    private function defaultSchemaByServiceIdentity(string $serviceCode, string $serviceName = ''): array
     {
         $code = strtolower(trim($serviceCode));
-        if ($code === 'udyam_registration' || str_contains($code, 'udyam')) {
+        $name = strtolower(trim($serviceName));
+        if (
+            $code === 'udyam_registration'
+            || str_contains($code, 'udyam')
+            || str_contains($name, 'udyam')
+        ) {
             return [
                 [
                     'key' => 'registration_number',
