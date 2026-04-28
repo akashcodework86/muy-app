@@ -81,8 +81,6 @@
                                     data-note="{{ (string) ($svc->market_price_basis_note ?? '') }}"
                                     style="background:none;border:none;padding:0;color:#1d4ed8;cursor:pointer;font-size:inherit;text-decoration:underline;"
                                 >Edit</button>
-                                <span style="color:#d4d4d8;">|</span>
-                                <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Open full page</a>
                             @else
                                 — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
                             @endif
