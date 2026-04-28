@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\CfaSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
-use App\Models\ServiceCaseAttachment;
 use App\Models\User;
 use App\Services\AppSettingsService;
 use App\Services\ServiceCaseRecorder;
@@ -293,34 +292,52 @@ class StaffServiceCaseController extends Controller
             ->with('status', 'Case deleted.');
     }
 
-    public function downloadAttachment(Request $request, ServiceCase $service_case, ServiceCaseAttachment $attachment)
+    public function downloadAttachment(Request $request, ServiceCase $service_case, int $attachment)
     {
         $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
         $this->assertCaseInDistrict($staff, $service_case);
-        abort_unless((int) $attachment->service_case_id === (int) $service_case->id, 404);
+        $attachmentRecord = $service_case->attachments()->whereKey($attachment)->firstOrFail();
 
-        $disk = Storage::disk((string) $attachment->disk);
+        $disk = Storage::disk((string) $attachmentRecord->disk);
         $stream = null;
-        if ($disk->exists($attachment->path)) {
-            $stream = $disk->readStream($attachment->path);
-        } elseif ((string) $attachment->disk === 'local') {
-            $legacyPaths = [
-                storage_path('app/'.$attachment->path),
-                storage_path('app/private/'.$attachment->path),
-            ];
-            foreach ($legacyPaths as $legacyPath) {
-                if (is_file($legacyPath) && is_readable($legacyPath)) {
-                    return response()->file($legacyPath, [
-                        'Content-Disposition' => 'inline; filename="'.$attachment->original_name.'"',
-                    ]);
+        if ($disk->exists($attachmentRecord->path)) {
+            $stream = $disk->readStream($attachmentRecord->path);
+        } else {
+            $path = ltrim((string) $attachmentRecord->path, '/');
+            $prefixedPrivate = str_starts_with($path, 'private/') ? $path : 'private/'.$path;
+            $prefixedPublic = str_starts_with($path, 'public/') ? $path : 'public/'.$path;
+
+            foreach (['local', 'public'] as $fallbackDiskName) {
+                $fallbackDisk = Storage::disk($fallbackDiskName);
+                foreach ([$path, $prefixedPrivate, $prefixedPublic] as $candidate) {
+                    if ($fallbackDisk->exists($candidate)) {
+                        $stream = $fallbackDisk->readStream($candidate);
+                        break 2;
+                    }
+                }
+            }
+
+            if (! is_resource($stream)) {
+                $legacyPaths = [
+                    storage_path('app/'.$path),
+                    storage_path('app/private/'.$path),
+                    storage_path('app/public/'.$path),
+                    public_path('storage/'.$path),
+                ];
+                foreach ($legacyPaths as $legacyPath) {
+                    if (is_file($legacyPath) && is_readable($legacyPath)) {
+                        return response()->file($legacyPath, [
+                            'Content-Disposition' => 'inline; filename="'.$attachmentRecord->original_name.'"',
+                        ]);
+                    }
                 }
             }
         }
 
         abort_unless(is_resource($stream), 404);
 
-        $ext = strtolower((string) pathinfo((string) $attachment->original_name, PATHINFO_EXTENSION));
+        $ext = strtolower((string) pathinfo((string) $attachmentRecord->original_name, PATHINFO_EXTENSION));
         $contentType = match ($ext) {
             'pdf' => 'application/pdf',
             'jpg', 'jpeg' => 'image/jpeg',
@@ -335,7 +352,7 @@ class StaffServiceCaseController extends Controller
             fclose($stream);
         }, 200, [
             'Content-Type' => $contentType,
-            'Content-Disposition' => 'inline; filename="'.$attachment->original_name.'"',
+            'Content-Disposition' => 'inline; filename="'.$attachmentRecord->original_name.'"',
         ]);
     }
 
