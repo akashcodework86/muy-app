@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Artisan;
  *   &delete=1   (self-delete file after successful run)
  */
 
-$expectedKey = 'replace-with-very-strong-random-key';
+$expectedKey = 'akash';
 $providedKey = isset($_GET['key']) ? (string) $_GET['key'] : '';
 
 if ($providedKey === '' || ! hash_equals($expectedKey, $providedKey)) {
