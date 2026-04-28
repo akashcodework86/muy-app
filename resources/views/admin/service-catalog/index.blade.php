@@ -4,6 +4,9 @@
 @section('heading', 'Service catalog')
 
 @section('content')
+    @php
+        $categoryOptions = $categories->map(fn ($cat) => ['id' => (int) $cat->id, 'name' => (string) $cat->name])->values();
+    @endphp
     @if (session('status'))
         <p style="color:#166534; margin:0 0 1rem;">{{ session('status') }}</p>
     @endif
@@ -56,7 +59,30 @@
                             @endif
                             @if ($svc->allows_multiple)<span style="color:#0369a1; margin-left:0.2rem;">· multiple</span>@endif
                             @if (! $svc->is_active)<span style="color:#b45309; margin-left:0.2rem;">· inactive</span>@endif
-                            — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
+                            — <button
+                                type="button"
+                                class="js-quick-edit-open"
+                                data-quick-edit='@json([
+                                    "id" => (int) $svc->id,
+                                    "name" => (string) $svc->name,
+                                    "code" => (string) $svc->code,
+                                    "service_category_id" => (int) $svc->service_category_id,
+                                    "sort_order" => (int) $svc->sort_order,
+                                    "is_active" => (bool) $svc->is_active,
+                                    "allows_multiple" => (bool) $svc->allows_multiple,
+                                    "requires_approval" => (bool) $svc->requires_approval,
+                                    "requires_document" => (bool) $svc->requires_document,
+                                    "allowed_document_types" => is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [],
+                                    "reporting_tier" => (string) ($svc->reporting_tier ?? "unset"),
+                                    "estimated_market_price_avg" => $svc->estimated_market_price_avg,
+                                    "estimated_market_price_min" => $svc->estimated_market_price_min,
+                                    "estimated_market_price_max" => $svc->estimated_market_price_max,
+                                    "market_price_basis_note" => (string) ($svc->market_price_basis_note ?? ""),
+                                ])'
+                                style="background:none;border:none;padding:0;color:#1d4ed8;cursor:pointer;font-size:inherit;text-decoration:underline;"
+                            >Edit</button>
+                            <span style="color:#d4d4d8;">|</span>
+                            <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Open full page</a>
                             <form method="post" action="{{ route('admin.service-catalog.services.destroy', $svc) }}" style="display:inline;" onsubmit="return confirm('Delete this service?');">
                                 @csrf
                                 @method('DELETE')
@@ -70,4 +96,145 @@
     @empty
         <p>No categories yet. Add category first, then services.</p>
     @endforelse
+
+    <div id="quickEditModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:70; padding:1rem; overflow:auto;">
+        <div style="max-width:46rem; margin:2rem auto; background:#fff; border-radius:10px; border:1px solid #e5e7eb; box-shadow:0 20px 50px rgba(0,0,0,0.2);">
+            <form id="quickEditForm" method="post" action="">
+                @csrf
+                @method('PUT')
+                <div style="padding:0.85rem 1rem; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
+                    <strong style="font-size:1rem;">Quick edit service</strong>
+                    <button type="button" id="quickEditClose" style="background:none; border:none; font-size:1.2rem; line-height:1; cursor:pointer;">×</button>
+                </div>
+                <div style="padding:1rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(14rem,1fr)); gap:0.7rem;">
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Category</label>
+                        <select name="service_category_id" id="qe_service_category_id" required style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;"></select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Name</label>
+                        <input name="name" id="qe_name" required maxlength="191" style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Code</label>
+                        <input name="code" id="qe_code" pattern="[a-z0-9_]+" required maxlength="96" style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Sort order</label>
+                        <input type="number" min="0" name="sort_order" id="qe_sort_order" style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Reporting tier</label>
+                        <select name="reporting_tier" id="qe_reporting_tier" required style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;">
+                            <option value="unset">Unset</option>
+                            <option value="key">Key</option>
+                            <option value="non_key">Non-Key</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Avg market price (INR)</label>
+                        <input type="number" min="0" step="0.01" name="estimated_market_price_avg" id="qe_avg" style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Min market price (INR)</label>
+                        <input type="number" min="0" step="0.01" name="estimated_market_price_min" id="qe_min" style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Max market price (INR)</label>
+                        <input type="number" min="0" step="0.01" name="estimated_market_price_max" id="qe_max" style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;">
+                    </div>
+                </div>
+                <div style="padding:0 1rem 0.85rem;">
+                    <label style="display:block; font-size:0.8rem; margin-bottom:0.2rem;">Price basis note</label>
+                    <textarea name="market_price_basis_note" id="qe_note" rows="2" maxlength="1000" style="width:100%; padding:0.45rem; border:1px solid #d1d5db; border-radius:6px;"></textarea>
+                </div>
+                <div style="padding:0 1rem 1rem; display:flex; flex-wrap:wrap; gap:1rem;">
+                    <label><input type="hidden" name="is_active" value="0"><input type="checkbox" id="qe_active" name="is_active" value="1"> Active</label>
+                    <label><input type="hidden" name="allows_multiple" value="0"><input type="checkbox" id="qe_multiple" name="allows_multiple" value="1"> Multiple cases</label>
+                    <label><input type="hidden" name="requires_approval" value="0"><input type="checkbox" id="qe_approval" name="requires_approval" value="1"> Needs approval</label>
+                    <label><input type="hidden" name="requires_document" value="0"><input type="checkbox" id="qe_doc" name="requires_document" value="1"> Requires document</label>
+                    <label><input type="checkbox" id="qe_doc_pdf" name="allowed_document_types[]" value="pdf"> PDF</label>
+                    <label><input type="checkbox" id="qe_doc_image" name="allowed_document_types[]" value="image"> Image</label>
+                </div>
+                <div style="padding:0 1rem 1rem; display:flex; justify-content:flex-end; gap:0.6rem;">
+                    <button type="button" id="quickEditCancel" style="border:1px solid #d1d5db; background:#fff; padding:0.45rem 0.8rem; border-radius:6px; cursor:pointer;">Cancel</button>
+                    <button type="submit" style="border:none; background:#111827; color:#fff; padding:0.45rem 0.9rem; border-radius:6px; cursor:pointer;">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const modal = document.getElementById('quickEditModal');
+            const form = document.getElementById('quickEditForm');
+            if (!modal || !form) return;
+
+            const categories = @json($categoryOptions);
+            const quickUpdateTemplate = @json(route('admin.service-catalog.services.quick-update', ['service' => '__SERVICE_ID__']));
+            const catSelect = document.getElementById('qe_service_category_id');
+            const closeBtn = document.getElementById('quickEditClose');
+            const cancelBtn = document.getElementById('quickEditCancel');
+
+            function setOpen(open) {
+                modal.style.display = open ? 'block' : 'none';
+                if (open) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+            }
+
+            function fillCategories(selectedId) {
+                catSelect.innerHTML = '';
+                categories.forEach(function (cat) {
+                    const opt = document.createElement('option');
+                    opt.value = String(cat.id);
+                    opt.textContent = cat.name;
+                    if (Number(selectedId) === Number(cat.id)) opt.selected = true;
+                    catSelect.appendChild(opt);
+                });
+            }
+
+            function checkbox(id, val) {
+                const el = document.getElementById(id);
+                if (el) el.checked = !!val;
+            }
+
+            document.querySelectorAll('.js-quick-edit-open').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    let data = null;
+                    try { data = JSON.parse(btn.getAttribute('data-quick-edit') || '{}'); } catch (e) { data = null; }
+                    if (!data || !data.id) return;
+
+                    fillCategories(data.service_category_id);
+                    form.action = quickUpdateTemplate.replace('__SERVICE_ID__', String(data.id));
+                    document.getElementById('qe_name').value = data.name || '';
+                    document.getElementById('qe_code').value = data.code || '';
+                    document.getElementById('qe_sort_order').value = data.sort_order ?? 0;
+                    document.getElementById('qe_reporting_tier').value = data.reporting_tier || 'unset';
+                    document.getElementById('qe_avg').value = data.estimated_market_price_avg ?? '';
+                    document.getElementById('qe_min').value = data.estimated_market_price_min ?? '';
+                    document.getElementById('qe_max').value = data.estimated_market_price_max ?? '';
+                    document.getElementById('qe_note').value = data.market_price_basis_note || '';
+                    checkbox('qe_active', data.is_active);
+                    checkbox('qe_multiple', data.allows_multiple);
+                    checkbox('qe_approval', data.requires_approval);
+                    checkbox('qe_doc', data.requires_document);
+
+                    const types = Array.isArray(data.allowed_document_types) ? data.allowed_document_types : [];
+                    checkbox('qe_doc_pdf', types.indexOf('pdf') >= 0);
+                    checkbox('qe_doc_image', types.indexOf('image') >= 0);
+
+                    setOpen(true);
+                });
+            });
+
+            closeBtn && closeBtn.addEventListener('click', function () { setOpen(false); });
+            cancelBtn && cancelBtn.addEventListener('click', function () { setOpen(false); });
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) setOpen(false);
+            });
+        })();
+    </script>
 @endsection
