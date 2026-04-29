@@ -36,7 +36,7 @@
     <div id="svc_schema_rows" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
 
     {{-- Hidden sync only (no name): submitted value is textarea name="field_schema" below --}}
-    <input type="hidden" id="svc_schema_hidden" value="{{ e(is_string($schemaHiddenValue) ? $schemaHiddenValue : '[]') }}">
+    <input type="hidden" id="svc_schema_hidden" value="{{ is_string($schemaHiddenValue) ? $schemaHiddenValue : '[]' }}">
 
     <details style="margin-top:0.75rem;" @if($schemaEditMode) open @endif>
         <summary style="cursor:pointer; font-size:0.82rem; font-weight:600; color:#52525b;">Advanced (JSON)</summary>
