@@ -432,6 +432,11 @@
     $schemaInitial   = $schemaResolved;
     $currentDocTypes = old('allowed_document_types', $service->allowed_document_types ?: ['pdf', 'image']);
     $currentDocTypes = is_array($currentDocTypes) ? $currentDocTypes : ['pdf', 'image'];
+    $serviceAttrs = method_exists($service, 'getAttributes') ? $service->getAttributes() : [];
+    $marketAvg = $serviceAttrs['estimated_market_price_avg'] ?? null;
+    $marketMin = $serviceAttrs['estimated_market_price_min'] ?? null;
+    $marketMax = $serviceAttrs['estimated_market_price_max'] ?? null;
+    $marketNote = $serviceAttrs['market_price_basis_note'] ?? null;
 @endphp
 
 {{-- ─── Two-column grid ──────────────────────────────────────────────────── --}}
@@ -517,7 +522,7 @@
                     <label class="se-label" for="estimated_market_price_avg">Average (₹)</label>
                     <input id="estimated_market_price_avg" name="estimated_market_price_avg"
                         type="number" min="0" step="0.01"
-                        value="{{ old('estimated_market_price_avg', $service->estimated_market_price_avg) }}"
+                        value="{{ old('estimated_market_price_avg', $marketAvg) }}"
                         placeholder="e.g. 1200"
                         class="se-input {{ $errors->has('estimated_market_price_avg') ? 'is-err' : '' }}">
                     @error('estimated_market_price_avg')<p class="se-err">{{ $message }}</p>@enderror
@@ -526,7 +531,7 @@
                     <label class="se-label" for="estimated_market_price_min">Min (₹) <span class="se-label-note">opt.</span></label>
                     <input id="estimated_market_price_min" name="estimated_market_price_min"
                         type="number" min="0" step="0.01"
-                        value="{{ old('estimated_market_price_min', $service->estimated_market_price_min) }}"
+                        value="{{ old('estimated_market_price_min', $marketMin) }}"
                         placeholder="—"
                         class="se-input {{ $errors->has('estimated_market_price_min') ? 'is-err' : '' }}">
                     @error('estimated_market_price_min')<p class="se-err">{{ $message }}</p>@enderror
@@ -535,7 +540,7 @@
                     <label class="se-label" for="estimated_market_price_max">Max (₹) <span class="se-label-note">opt.</span></label>
                     <input id="estimated_market_price_max" name="estimated_market_price_max"
                         type="number" min="0" step="0.01"
-                        value="{{ old('estimated_market_price_max', $service->estimated_market_price_max) }}"
+                        value="{{ old('estimated_market_price_max', $marketMax) }}"
                         placeholder="—"
                         class="se-input {{ $errors->has('estimated_market_price_max') ? 'is-err' : '' }}">
                     @error('estimated_market_price_max')<p class="se-err">{{ $message }}</p>@enderror
@@ -549,7 +554,7 @@
                 <textarea id="market_price_basis_note" name="market_price_basis_note"
                     rows="2" maxlength="1000"
                     placeholder="e.g. CA consultant market range in district offices, Apr 2026."
-                    class="se-textarea {{ $errors->has('market_price_basis_note') ? 'is-err' : '' }}">{{ old('market_price_basis_note', $service->market_price_basis_note) }}</textarea>
+                    class="se-textarea {{ $errors->has('market_price_basis_note') ? 'is-err' : '' }}">{{ old('market_price_basis_note', $marketNote) }}</textarea>
                 @error('market_price_basis_note')<p class="se-err">{{ $message }}</p>@enderror
             </div>
         </div>
