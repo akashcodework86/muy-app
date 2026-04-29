@@ -507,8 +507,7 @@
             </div>
         </div>
 
-        {{-- 2 · Market price (skip if migration not applied on this server) --}}
-        @if (\Illuminate\Support\Facades\Schema::hasColumn('services', 'estimated_market_price_avg'))
+        {{-- 2 · Market price --}}
         <div class="se-card">
             <h3 class="se-card-title se-card-title--green">Estimated market price (impact)</h3>
             <p class="se-card-desc">Savings = approved cases × average price. Used in dashboards.</p>
@@ -554,8 +553,6 @@
                 @error('market_price_basis_note')<p class="se-err">{{ $message }}</p>@enderror
             </div>
         </div>
-        @endif
-
         {{-- 3 · Reporting & behaviour --}}
         <div class="se-card">
             <h3 class="se-card-title se-card-title--amber">Reporting &amp; behaviour</h3>
