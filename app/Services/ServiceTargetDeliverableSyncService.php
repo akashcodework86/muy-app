@@ -63,6 +63,23 @@ class ServiceTargetDeliverableSyncService
             }
         });
 
+        $categoryModeServiceCodes = $services
+            ->filter(function (Service $service): bool {
+                return $service->category
+                    && $service->category->target_mode === ServiceCategory::TARGET_MODE_CATEGORY;
+            })
+            ->map(fn (Service $service): string => $this->deliverableCodeForServiceCode((string) $service->code))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($categoryModeServiceCodes !== []) {
+            Deliverable::query()
+                ->whereIn('code', $categoryModeServiceCodes)
+                ->update(['is_active' => false]);
+        }
+
         $activeCategoryCodes = ServiceCategory::query()
             ->where('target_mode', ServiceCategory::TARGET_MODE_CATEGORY)
             ->pluck('slug')
