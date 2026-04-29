@@ -249,6 +249,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('service-catalog', [ServiceCategoryController::class, 'index'])->name('service-catalog.index');
         Route::get('service-catalog/categories/create', [ServiceCategoryController::class, 'create'])->name('service-catalog.categories.create');
         Route::post('service-catalog/categories', [ServiceCategoryController::class, 'store'])->name('service-catalog.categories.store');
+        // Convenience: /categories/{id} -> edit (avoid errors when /edit is omitted).
+        Route::get('service-catalog/categories/{service_category}', function (\App\Models\ServiceCategory $serviceCategory) {
+            return redirect()->route('admin.service-catalog.categories.edit', $serviceCategory);
+        })->name('service-catalog.categories.redirect-edit');
         Route::get('service-catalog/categories/{service_category}/edit', [ServiceCategoryController::class, 'edit'])->name('service-catalog.categories.edit');
         Route::put('service-catalog/categories/{service_category}', [ServiceCategoryController::class, 'update'])->name('service-catalog.categories.update');
         Route::delete('service-catalog/categories/{service_category}', [ServiceCategoryController::class, 'destroy'])->name('service-catalog.categories.destroy');
