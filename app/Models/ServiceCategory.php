@@ -8,7 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ServiceCategory extends Model
 {
-    protected $fillable = ['parent_id', 'slug', 'name', 'sort_order'];
+    public const TARGET_MODE_SERVICE = 'service';
+
+    public const TARGET_MODE_CATEGORY = 'category';
+
+    protected $fillable = ['parent_id', 'slug', 'name', 'sort_order', 'target_mode'];
 
     public function parent(): BelongsTo
     {

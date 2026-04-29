@@ -30,6 +30,11 @@
             <div style="display:flex; flex-wrap:wrap; gap:0.35rem; align-items:center;">
                 <strong style="font-size:1rem;">{{ $category->name }}</strong>
                 <span style="font-size:0.78rem; color:#71717a;">({{ $category->slug }})</span>
+                @if (($category->target_mode ?? 'service') === 'category')
+                    <span style="font-size:0.72rem; color:#075985; background:#e0f2fe; border:1px solid #bae6fd; padding:0.1rem 0.45rem; border-radius:999px; font-weight:700;">Category target mode</span>
+                @else
+                    <span style="font-size:0.72rem; color:#475569; background:#f1f5f9; border:1px solid #e2e8f0; padding:0.1rem 0.45rem; border-radius:999px; font-weight:700;">Service target mode</span>
+                @endif
                 <span style="font-size:0.75rem; color:#64748b; background:#f1f5f9; padding:0.15rem 0.5rem; border-radius:999px; font-weight:600;">{{ $category->services->count() }} service{{ $category->services->count() === 1 ? '' : 's' }}</span>
                 <span style="flex:1"></span>
                 <a href="{{ route('admin.service-catalog.services.create', ['service_category_id' => $category->id]) }}" style="font-size:0.82rem;">Add service</a>

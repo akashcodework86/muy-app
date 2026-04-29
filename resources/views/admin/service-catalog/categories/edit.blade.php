@@ -19,6 +19,18 @@
             <label for="sort_order" style="display:block; font-weight:500; margin-bottom:0.25rem;">Sort order</label>
             <input id="sort_order" name="sort_order" type="number" min="0" value="{{ old('sort_order', $category->sort_order) }}" style="width:8rem; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
         </div>
+        <div style="margin-bottom:0.85rem;">
+            <label for="target_mode" style="display:block; font-weight:500; margin-bottom:0.25rem;">Target mode</label>
+            @php $tm = old('target_mode', $category->target_mode ?? 'service'); @endphp
+            <select id="target_mode" name="target_mode" style="width:100%; padding:0.45rem 0.5rem; border:1px solid #d4d4d8; border-radius:6px;">
+                <option value="service" @selected($tm === 'service')>Service-wise targets (existing behavior)</option>
+                <option value="category" @selected($tm === 'category')>Category-wise collective target</option>
+            </select>
+            <p style="font-size:0.78rem; color:#71717a; margin:0.3rem 0 0;">
+                Switching mode updates target deliverable mapping for services in this category.
+            </p>
+            @error('target_mode')<div style="color:#b91c1c;font-size:0.85rem;margin-top:0.25rem;">{{ $message }}</div>@enderror
+        </div>
 
         <p style="font-size:0.78rem; color:#71717a; margin:0 0 0.8rem;">Slug stays stable: <code>{{ $category->slug }}</code></p>
 
