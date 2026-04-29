@@ -8,8 +8,13 @@
     if (! isset($schemaInitial) || ! is_array($schemaInitial)) {
         $schemaInitial = [];
     }
+    // Only list rows that are arrays (malformed DB JSON can mix types and crash the editor).
+    $schemaInitial = array_values(array_filter($schemaInitial, fn ($row) => is_array($row)));
     $schemaEditMode = (bool) ($schemaEditMode ?? false);
-    $schemaJsonFromInitial = json_encode($schemaInitial, JSON_UNESCAPED_UNICODE);
+    $schemaJsonFromInitial = json_encode($schemaInitial, JSON_UNESCAPED_UNICODE | (defined('JSON_INVALID_UTF8_SUBSTITUTE') ? JSON_INVALID_UTF8_SUBSTITUTE : 0));
+    if ($schemaJsonFromInitial === false) {
+        $schemaJsonFromInitial = '[]';
+    }
     $schemaOldRaw = old('field_schema');
     $hasSchemaOldInput = request()->session()->hasOldInput('field_schema');
     $useOldSchemaValue = $hasSchemaOldInput
@@ -30,13 +35,31 @@
 
     <div id="svc_schema_rows" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
 
-    <input type="hidden" name="field_schema" id="svc_schema_hidden" value="{{ $schemaHiddenValue }}">
+    {{-- Hidden sync only (no name): submitted value is textarea name="field_schema" below --}}
+    <input type="hidden" id="svc_schema_hidden" value="{{ e(is_string($schemaHiddenValue) ? $schemaHiddenValue : '[]') }}">
 
     <details style="margin-top:0.75rem;" @if($schemaEditMode) open @endif>
         <summary style="cursor:pointer; font-size:0.82rem; font-weight:600; color:#52525b;">Advanced (JSON)</summary>
-        <textarea id="svc_schema_raw" rows="8" style="width:100%; margin-top:0.35rem; font-family:ui-monospace,monospace; font-size:0.78rem; padding:0.5rem; border:1px solid #d4d4d8; border-radius:6px;" spellcheck="false"></textarea>
+        <textarea name="field_schema" id="svc_schema_raw" rows="8" style="width:100%; margin-top:0.35rem; font-family:ui-monospace,monospace; font-size:0.78rem; padding:0.5rem; border:1px solid #d4d4d8; border-radius:6px;" spellcheck="false">{{ is_string($schemaHiddenValue) ? $schemaHiddenValue : '[]' }}</textarea>
         <p style="font-size:0.72rem; color:#71717a; margin:0.25rem 0 0;">Paste a JSON array; it syncs into the builder when valid.</p>
     </details>
+
+    @if (!empty($schemaInitial))
+        <div style="margin-top:0.6rem; padding:0.55rem 0.65rem; border:1px dashed #d4d4d8; border-radius:6px; background:#fcfcfc;">
+            <div style="font-size:0.75rem; font-weight:600; color:#374151; margin-bottom:0.2rem;">Existing fields (read preview)</div>
+            <ul style="margin:0; padding-left:1.05rem; font-size:0.76rem; color:#4b5563;">
+                @foreach ($schemaInitial as $f)
+                    @if (is_array($f))
+                    <li>
+                        <code>{{ $f['key'] ?? '' }}</code> — {{ $f['label'] ?? '' }}
+                        <span style="color:#6b7280;">({{ $f['type'] ?? 'text' }})</span>
+                        @if (!empty($f['required']))<span style="color:#b91c1c;"> *</span>@endif
+                    </li>
+                    @endif
+                @endforeach
+            </ul>
+        </div>
+    @endif
 </fieldset>
 
 <script>

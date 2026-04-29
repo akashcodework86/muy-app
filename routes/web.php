@@ -254,6 +254,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('service-catalog/categories/{service_category}', [ServiceCategoryController::class, 'destroy'])->name('service-catalog.categories.destroy');
         Route::get('service-catalog/services/create', [CatalogServiceController::class, 'create'])->name('service-catalog.services.create');
         Route::post('service-catalog/services', [CatalogServiceController::class, 'store'])->name('service-catalog.services.store');
+        // Convenience: /services/{id} → edit (avoids 404/500 when /edit is omitted).
+        Route::get('service-catalog/services/{service}', function (\App\Models\Service $service) {
+            return redirect()->route('admin.service-catalog.services.edit', $service);
+        })->name('service-catalog.services.redirect-edit');
         Route::get('service-catalog/services/{service}/edit', [CatalogServiceController::class, 'edit'])->name('service-catalog.services.edit');
         Route::post('service-catalog/services/{service}/recover-schema', [CatalogServiceController::class, 'recoverSchema'])->name('service-catalog.services.recover-schema');
         Route::put('service-catalog/services/{service}/quick-update', [CatalogServiceController::class, 'quickUpdate'])->name('service-catalog.services.quick-update');
