@@ -12,10 +12,12 @@ use App\Services\ServiceTargetDeliverableSyncService;
 use App\Support\ServiceFieldTypes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Throwable;
 
 class CatalogServiceController extends Controller
 {
@@ -133,8 +135,16 @@ class CatalogServiceController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
-        $canonicalSchema = ServiceFieldTypes::normalizeSchema($service->field_schema);
-        $recoveredSchema = $this->inferSchemaFromRecentPayloads($service);
+        try {
+            $canonicalSchema = ServiceFieldTypes::normalizeSchema($service->field_schema);
+        } catch (Throwable) {
+            $canonicalSchema = [];
+        }
+        try {
+            $recoveredSchema = $this->inferSchemaFromRecentPayloads($service);
+        } catch (Throwable) {
+            $recoveredSchema = [];
+        }
 
         return view('admin.service-catalog.services.edit', [
             'service' => $service,
@@ -596,7 +606,7 @@ class CatalogServiceController extends Controller
             return [];
         }
 
-        $samplePayloads = ServiceCase::query()
+        $samplePayloads = DB::table('service_cases')
             ->where('service_id', $service->id)
             ->whereNotNull('payload')
             ->latest('id')
@@ -606,6 +616,12 @@ class CatalogServiceController extends Controller
 
         $fields = [];
         foreach ($samplePayloads as $payload) {
+            if (is_string($payload)) {
+                $decoded = json_decode($payload, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $payload = $decoded;
+                }
+            }
             if (! is_array($payload)) {
                 continue;
             }
