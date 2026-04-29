@@ -29,6 +29,10 @@ class StaffServiceCaseController extends Controller
         $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
 
+        $scope = (string) $request->query('scope', 'my');
+        if (! in_array($scope, ['my', 'all'], true)) {
+            $scope = 'my';
+        }
         $status = (string) $request->query('status', '');
         $serviceId = (int) $request->query('service_id', 0);
         $allowed = ['', ServiceCase::STATUS_DRAFT, ServiceCase::STATUS_PENDING_APPROVAL, ServiceCase::STATUS_SENT_BACK, ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_REJECTED];
@@ -46,6 +50,13 @@ class StaffServiceCaseController extends Controller
                 'rejector:id,name',
                 'attachments:id,service_case_id,original_name,size_bytes,disk,path',
             ]);
+
+        if ($scope === 'my') {
+            $q->where(function ($qq) use ($staff): void {
+                $qq->where('created_by', (int) $staff->id)
+                    ->orWhere('submitted_by', (int) $staff->id);
+            });
+        }
 
         if ($status !== '') {
             $q->where('status', $status);
@@ -65,6 +76,7 @@ class StaffServiceCaseController extends Controller
             'cases' => $cases,
             'filterStatus' => $status,
             'filterServiceId' => $serviceId,
+            'filterScope' => $scope,
             'services' => $services,
         ]);
     }
@@ -196,6 +208,7 @@ class StaffServiceCaseController extends Controller
         $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
         $this->assertCaseInDistrict($staff, $service_case);
+        $this->assertCaseOwnedByStaff($staff, $service_case);
         abort_unless($this->canEditByStaff($service_case), 403, 'This case cannot be edited now.');
 
         $service_case->load([
@@ -216,6 +229,7 @@ class StaffServiceCaseController extends Controller
         $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
         $this->assertCaseInDistrict($staff, $service_case);
+        $this->assertCaseOwnedByStaff($staff, $service_case);
         abort_unless($this->canEditByStaff($service_case), 403, 'This case cannot be edited now.');
 
         $validated = $request->validate([
@@ -278,6 +292,7 @@ class StaffServiceCaseController extends Controller
         $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
         $this->assertCaseInDistrict($staff, $service_case);
+        $this->assertCaseOwnedByStaff($staff, $service_case);
 
         try {
             $this->recorder->staffDelete($service_case, (int) $staff->id);
@@ -404,6 +419,15 @@ class StaffServiceCaseController extends Controller
             $case->cfaSubmission && (int) $case->cfaSubmission->district_id === (int) $staff->district_id,
             403
         );
+    }
+
+    private function assertCaseOwnedByStaff(User $staff, ServiceCase $case): void
+    {
+        $ownerIds = array_filter([
+            (int) ($case->created_by ?? 0),
+            (int) ($case->submitted_by ?? 0),
+        ]);
+        abort_unless(in_array((int) $staff->id, $ownerIds, true), 403, 'You can edit/delete only your own service cases.');
     }
 
     private function canEditByStaff(ServiceCase $case): bool

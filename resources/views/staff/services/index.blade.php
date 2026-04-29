@@ -333,6 +333,17 @@
         <a href="{{ route('staff.applications') }}" class="svc-link">Applications</a>
     </p>
 
+    <div class="svc-status-tabs" style="margin-top:-0.15rem;">
+        <a href="{{ route('staff.services.index', array_filter(['scope' => 'my', 'status' => $filterStatus ?: null, 'service_id' => (int) ($filterServiceId ?? 0)])) }}"
+           class="svc-status-tab {{ (($filterScope ?? 'my') === 'my') ? 'is-active' : '' }}">
+            My services
+        </a>
+        <a href="{{ route('staff.services.index', array_filter(['scope' => 'all', 'status' => $filterStatus ?: null, 'service_id' => (int) ($filterServiceId ?? 0)])) }}"
+           class="svc-status-tab {{ (($filterScope ?? 'my') === 'all') ? 'is-active' : '' }}">
+            All services (view only)
+        </a>
+    </div>
+
     @if (session('status'))
         <p class="svc-success">{{ session('status') }}</p>
     @endif
@@ -358,7 +369,7 @@
 
     <div class="svc-status-tabs">
         @foreach ($tabs as $val => $label)
-            <a href="{{ route('staff.services.index', array_filter(['status' => $val, 'service_id' => (int) ($filterServiceId ?? 0)])) }}"
+            <a href="{{ route('staff.services.index', array_filter(['scope' => $filterScope ?? 'my', 'status' => $val, 'service_id' => (int) ($filterServiceId ?? 0)])) }}"
                class="svc-status-tab {{ ($filterStatus === $val) ? 'is-active' : '' }}">
                 {{ $label }}
             </a>
@@ -366,6 +377,7 @@
     </div>
 
     <form method="get" class="svc-toolbar">
+        <input type="hidden" name="scope" value="{{ $filterScope ?? 'my' }}">
         @if (!empty($filterStatus))
             <input type="hidden" name="status" value="{{ $filterStatus }}">
         @endif
@@ -477,7 +489,9 @@
                                 <td>
                                     <div class="svc-action-group">
                                         <a href="{{ route('staff.services.show', $case) }}" class="svc-btn-xs svc-btn-xs--view">View</a>
-                                        <a href="{{ route('staff.services.edit', $case) }}" class="svc-btn-xs svc-btn-xs--edit">Edit</a>
+                                        @if (($filterScope ?? 'my') === 'my')
+                                            <a href="{{ route('staff.services.edit', $case) }}" class="svc-btn-xs svc-btn-xs--edit">Edit</a>
+                                        @endif
                                         @if ($case->attachments->isNotEmpty())
                                             @php
                                                 $doc = $case->attachments->first();
@@ -491,7 +505,7 @@
                                                 View document
                                             </button>
                                         @endif
-                                        @if ($case->canBeDeletedByStaff())
+                                        @if (($filterScope ?? 'my') === 'my' && $case->canBeDeletedByStaff())
                                             <form method="post" action="{{ route('staff.services.destroy', $case) }}" style="display:inline;" onsubmit="return confirm('Delete this case?');">
                                                 @csrf
                                                 @method('DELETE')
