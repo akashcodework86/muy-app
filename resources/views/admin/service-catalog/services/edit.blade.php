@@ -347,17 +347,6 @@
     text-align: center;
 }
 
-@media (max-width: 1200px) {
-    .se-grid {
-        grid-template-columns: 1fr;
-    }
-    .se-preview-wrap {
-        position: static;
-        top: auto;
-        margin-top: 0.9rem;
-    }
-}
-
 /* ── Error multi-list banner ──────────────────────────────────────────────── */
 .se-errbanner {
     margin: 0 0 1rem;
