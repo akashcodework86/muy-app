@@ -32,6 +32,7 @@
         str_starts_with($r, 'admin.cfa') => 'cfa',
         str_starts_with($r, 'admin.phase1-cfa') => 'phase1-cfa',
         str_starts_with($r, 'admin.phase2-cfa') => 'phase2-cfa',
+        str_starts_with($r, 'admin.phase3-services') => 'phase3-services',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
         str_starts_with($r, 'admin.staff') => 'staff',
@@ -67,8 +68,9 @@
         default => '',
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance', 'team-directory', 'attendance'], true);
-    $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa'], true);
-    $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents'], true);
+    $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services'], true);
+    $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -129,6 +131,9 @@
                     <a href="{{ route('admin.phase2-cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase2-cfa') is-active @endif" role="menuitem">
                         {!! $i('database') !!}<span>CFA (FY 2025-26 Data)</span>
                     </a>
+                    <a href="{{ route('admin.phase3-services.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase3-services') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>Phase 3 Service Cases</span>
+                    </a>
                 </div>
             </details>
 
@@ -165,9 +170,20 @@
                 </div>
             </details>
 
-            <a href="{{ route('admin.service-catalog.index') }}" class="admin-topbar__link @if ($activeNav === 'service-catalog') is-active @endif">
-                {!! $i('catalog') !!}<span class="admin-topbar__link-text">Service catalog</span>
-            </a>
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($serviceGroupActive) is-active @endif">
+                    {!! $i('catalog') !!}<span class="admin-topbar__link-text">Service</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Service module</p>
+                    <a href="{{ route('admin.service-catalog.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-catalog') is-active @endif" role="menuitem">
+                        {!! $i('catalog') !!}<span>Service catalog</span>
+                    </a>
+                    <a href="{{ route('admin.phase3-services.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase3-services') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>All services</span>
+                    </a>
+                </div>
+            </details>
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['documents', 'admin-documents'], true)) is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>

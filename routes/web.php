@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\DocumentRepositoryController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
+use App\Http\Controllers\Admin\Phase3ServiceCasesController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
 use App\Http\Controllers\Admin\ServiceModuleSettingsController;
@@ -238,6 +239,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('cfa-applications/{cfa_submission}', [CfaSubmissionController::class, 'show'])->name('cfa.show');
         Route::get('cfa-applications-phase1-legacy', [LegacyPhase1CfaApplicationController::class, 'index'])->name('phase1-cfa.index');
         Route::get('cfa-applications-phase2-legacy', [LegacyPhase2CfaApplicationController::class, 'index'])->name('phase2-cfa.index');
+        Route::get('phase3-services', [Phase3ServiceCasesController::class, 'index'])->name('phase3-services.index');
+        Route::get('phase3-services/export', [Phase3ServiceCasesController::class, 'export'])->name('phase3-services.export');
+        Route::get('phase3-services/{service_case}/attachments/{attachment}/view', [Phase3ServiceCasesController::class, 'viewAttachment'])
+            ->name('phase3-services.attachments.view');
 
         Route::get('audit-log', [AuditLogController::class, 'index'])->name('audit.index');
 
