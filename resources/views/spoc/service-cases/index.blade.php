@@ -57,6 +57,7 @@
         .sq-btn--ok { border-color: #86efac; background: #f0fdf4; color: #166534; }
         .sq-btn--warn { border-color: #fdba74; background: #fff7ed; color: #9a3412; }
         .sq-btn--danger { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+        .sq-btn--doc { border-color: #cbd5e1; background: #f8fafc; color: #0f172a; }
 
         .sq-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(15,23,42,0.55); z-index: 80; padding: 1rem; }
         .sq-modal.is-open { display: flex; }
@@ -226,6 +227,15 @@
                                             data-reject-url="{{ route('spoc.service-cases.reject', $case) }}"
                                         >Quick review</button>
                                     @endif
+                                    @if ($case->attachments->isNotEmpty())
+                                        @php $doc = $case->attachments->first(); @endphp
+                                        <button
+                                            type="button"
+                                            class="sq-btn sq-btn--doc js-doc-open"
+                                            data-doc-url="{{ route('spoc.service-cases.attachments.download', [$case, $doc]) }}"
+                                            data-doc-name="{{ $doc->original_name }}"
+                                        >View document</button>
+                                    @endif
                                     <a href="{{ route('spoc.service-cases.show', $case) }}" class="sq-btn">Open full</a>
                                 </div>
                             </td>
@@ -292,6 +302,16 @@
         </div>
     </div>
 
+    <div id="sqDocModal" class="sq-modal" aria-hidden="true">
+        <div class="sq-modal-card" role="dialog" aria-modal="true" aria-label="Document preview">
+            <div class="sq-modal-head">
+                <div id="sqDocTitle" class="sq-modal-title">Document</div>
+                <button type="button" id="sqDocClose" class="sq-modal-close">Close</button>
+            </div>
+            <div id="sqDocBody" class="sq-modal-body"></div>
+        </div>
+    </div>
+
     <script>
         (function () {
             const rows = Array.from(document.querySelectorAll('tr[data-search]'));
@@ -318,6 +338,11 @@
             const sendBackForm = document.getElementById('sqSendBackForm');
             const rejectForm = document.getElementById('sqRejectForm');
             const openButtons = Array.from(document.querySelectorAll('.js-review-open'));
+            const docButtons = Array.from(document.querySelectorAll('.js-doc-open'));
+            const docModal = document.getElementById('sqDocModal');
+            const docClose = document.getElementById('sqDocClose');
+            const docBody = document.getElementById('sqDocBody');
+            const docTitle = document.getElementById('sqDocTitle');
 
             function setModal(open) {
                 if (!modal) return;
@@ -348,6 +373,55 @@
             });
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') setModal(false);
+            });
+
+            function setDocModal(open) {
+                if (!docModal) return;
+                docModal.classList.toggle('is-open', open);
+                docModal.setAttribute('aria-hidden', open ? 'false' : 'true');
+            }
+            function renderDoc(url, name) {
+                docTitle.textContent = name || 'Document';
+                docBody.innerHTML = '';
+                const lower = (name || url || '').toLowerCase();
+                if (lower.endsWith('.pdf')) {
+                    const frame = document.createElement('iframe');
+                    frame.src = url;
+                    frame.style.width = '100%';
+                    frame.style.minHeight = '72vh';
+                    frame.style.border = '1px solid #e2e8f0';
+                    frame.style.borderRadius = '10px';
+                    docBody.appendChild(frame);
+                } else if (/\.(png|jpg|jpeg|webp|gif)$/i.test(lower)) {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = name || 'Document image';
+                    img.style.maxWidth = '100%';
+                    img.style.maxHeight = '72vh';
+                    img.style.margin = '0 auto';
+                    img.style.display = 'block';
+                    img.style.border = '1px solid #e2e8f0';
+                    img.style.borderRadius = '10px';
+                    docBody.appendChild(img);
+                } else {
+                    const fallback = document.createElement('div');
+                    fallback.style.fontSize = '0.86rem';
+                    fallback.innerHTML = 'Preview not supported. <a href="' + url + '" target="_blank" rel="noopener">Open document</a>.';
+                    docBody.appendChild(fallback);
+                }
+                setDocModal(true);
+            }
+            docButtons.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    renderDoc(btn.dataset.docUrl || '', btn.dataset.docName || 'Document');
+                });
+            });
+            docClose && docClose.addEventListener('click', function () { setDocModal(false); });
+            docModal && docModal.addEventListener('click', function (e) {
+                if (e.target === docModal) setDocModal(false);
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') setDocModal(false);
             });
         })();
     </script>

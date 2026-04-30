@@ -73,6 +73,7 @@ class SpocServiceCaseController extends Controller
                 'cfaSubmission.onboardingBatchMembership.batch:id,name,district_id',
                 'service.category.parent',
                 'submitter:id,name',
+                'attachments:id,service_case_id,original_name,size_bytes,disk,path',
             ]);
 
         if ($status !== '') {
