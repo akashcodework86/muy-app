@@ -4,6 +4,8 @@ namespace App\Http\Controllers\StateStaff;
 
 use App\Http\Controllers\Controller;
 use App\Models\DistrictServiceSpoc;
+use App\Models\District;
+use App\Models\OnboardingBatch;
 use App\Models\ServiceCase;
 use App\Models\ServiceCaseEvent;
 use App\Models\User;
@@ -29,14 +31,26 @@ class SpocServiceCaseController extends Controller
         $spoc = $this->spocOrAbort($request);
 
         $status = (string) $request->query('status', '');
+        $districtId = (int) $request->query('district_id', 0);
+        $batchId = (int) $request->query('batch_id', 0);
         $allowed = ['', ServiceCase::STATUS_PENDING_APPROVAL, ServiceCase::STATUS_SENT_BACK, ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_REJECTED];
         if (! in_array($status, $allowed, true)) {
             $status = '';
         }
 
         $districtIds = $this->spocDistrictIds((int) $spoc->id);
+        if ($districtId > 0 && ! in_array($districtId, $districtIds, true)) {
+            $districtId = 0;
+        }
         $scopeBase = ServiceCase::query()
             ->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds));
+
+        if ($districtId > 0) {
+            $scopeBase->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
+        }
+        if ($batchId > 0) {
+            $scopeBase->whereHas('cfaSubmission.onboardingBatchMembership', fn ($qq) => $qq->where('onboarding_batch_id', $batchId));
+        }
 
         $tabCounts = [
             '' => (clone $scopeBase)->whereIn('status', [
@@ -52,7 +66,14 @@ class SpocServiceCaseController extends Controller
         ];
 
         $q = (clone $scopeBase)
-            ->with(['cfaSubmission:id,applicant_name,application_no,district_id', 'service.category.parent', 'submitter:id,name']);
+            ->with([
+                'cfaSubmission:id,applicant_name,application_no,district_id',
+                'cfaSubmission.district:id,name',
+                'cfaSubmission.onboardingBatchMembership:id,onboarding_batch_id,cfa_submission_id',
+                'cfaSubmission.onboardingBatchMembership.batch:id,name,district_id',
+                'service.category.parent',
+                'submitter:id,name',
+            ]);
 
         if ($status !== '') {
             $q->where('status', $status);
@@ -67,9 +88,30 @@ class SpocServiceCaseController extends Controller
 
         $cases = $q->orderByDesc('updated_at')->paginate(20)->withQueryString();
 
+        $districtOptions = District::query()
+            ->whereIn('id', $districtIds)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $batchOptions = OnboardingBatch::query()
+            ->whereIn('district_id', $districtIds)
+            ->whereHas('batchCfas.cfaSubmission', function ($qq) use ($districtIds): void {
+                $qq->whereIn('district_id', $districtIds);
+            })
+            ->orderByDesc('id')
+            ->get(['id', 'name', 'district_id']);
+
+        if ($batchId > 0 && ! $batchOptions->contains(fn (OnboardingBatch $batch): bool => (int) $batch->id === $batchId)) {
+            $batchId = 0;
+        }
+
         return view('spoc.service-cases.index', [
             'cases' => $cases,
             'filterStatus' => $status,
+            'filterDistrictId' => $districtId,
+            'filterBatchId' => $batchId,
+            'districtOptions' => $districtOptions,
+            'batchOptions' => $batchOptions,
             'tabCounts' => $tabCounts,
         ]);
     }

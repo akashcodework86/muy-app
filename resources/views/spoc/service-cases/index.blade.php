@@ -103,7 +103,11 @@
 
     <div class="sq-tabs">
         @foreach ($tabs as $val => $label)
-            <a href="{{ route('spoc.service-cases.index', $val !== '' ? ['status' => $val] : []) }}"
+            <a href="{{ route('spoc.service-cases.index', array_filter([
+                'status' => $val !== '' ? $val : null,
+                'district_id' => (int) ($filterDistrictId ?? 0) ?: null,
+                'batch_id' => (int) ($filterBatchId ?? 0) ?: null,
+            ])) }}"
                 class="sq-tab {{ ($filterStatus === $val) ? 'is-active' : '' }}">
                 {{ $label }} ({{ number_format((int) ($tabCounts[$val] ?? 0)) }})
             </a>
@@ -134,6 +138,31 @@
     @else
         <div class="sq-table-card">
             <div class="sq-toolbar">
+                <form method="get" style="display:flex;gap:0.45rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                    @if (!empty($filterStatus))
+                        <input type="hidden" name="status" value="{{ $filterStatus }}">
+                    @endif
+                    <select name="district_id" class="sq-search" style="max-width:15rem;">
+                        <option value="">All districts</option>
+                        @foreach (($districtOptions ?? collect()) as $district)
+                            <option value="{{ (int) $district->id }}" @selected((int) ($filterDistrictId ?? 0) === (int) $district->id)>
+                                {{ $district->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <select name="batch_id" class="sq-search" style="max-width:20rem;">
+                        <option value="">All batches</option>
+                        @foreach (($batchOptions ?? collect()) as $batch)
+                            @php
+                                $dName = ($districtOptions ?? collect())->firstWhere('id', $batch->district_id)?->name;
+                            @endphp
+                            <option value="{{ (int) $batch->id }}" @selected((int) ($filterBatchId ?? 0) === (int) $batch->id)>
+                                {{ $batch->name }}@if($dName) — {{ $dName }}@endif
+                            </option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="sq-btn">Apply</button>
+                </form>
                 <input id="sqSearch" type="text" class="sq-search" placeholder="Search incubatee, app no, service, submitter, status">
             </div>
             <div class="sq-table-wrap">
@@ -142,6 +171,8 @@
                     <tr>
                         <th>Incubatee</th>
                         <th>Service</th>
+                        <th>District</th>
+                        <th>Batch</th>
                         <th>Submitted by</th>
                         <th>Status</th>
                         <th>Updated</th>
@@ -156,6 +187,8 @@
                                 ($case->cfaSubmission?->applicant_name ?? '').' '.
                                 ($case->cfaSubmission?->application_no ?? '').' '.
                                 ($case->service?->name ?? '').' '.
+                                ($case->cfaSubmission?->district?->name ?? '').' '.
+                                ($case->cfaSubmission?->onboardingBatchMembership?->batch?->name ?? '').' '.
                                 ($case->submitter?->name ?? '').' '.
                                 str_replace('_', ' ', (string) $case->status)
                             ));
@@ -169,6 +202,8 @@
                                 @endif
                             </td>
                             <td>{{ $case->service?->name ?? '—' }}</td>
+                            <td>{{ $case->cfaSubmission?->district?->name ?? '—' }}</td>
+                            <td>{{ $case->cfaSubmission?->onboardingBatchMembership?->batch?->name ?? '—' }}</td>
                             <td>{{ $case->submitter?->name ?? '—' }}</td>
                             <td>
                                 <span class="sq-status sq-status--{{ $statusClass }}">{{ str_replace('_', ' ', $case->status) }}</span>
