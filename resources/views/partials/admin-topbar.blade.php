@@ -37,6 +37,7 @@
         str_starts_with($r, 'admin.staff') => 'staff',
         str_starts_with($r, 'admin.state-staff') => 'state-staff',
         str_starts_with($r, 'admin.service-spocs') => 'service-spocs',
+        str_starts_with($r, 'admin.pending-actions') => 'pending-actions',
         str_starts_with($r, 'spoc.') => 'spoc-queue',
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
         str_starts_with($r, 'team.') => 'team-directory',
@@ -66,7 +67,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'team-performance', 'team-directory', 'attendance'], true);
+    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa'], true);
     $opsGroupActive = in_array($activeNav, ['service-catalog', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents'], true);
 
@@ -152,6 +153,9 @@
                     </a>
                     <a href="{{ route('admin.service-spocs.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-spocs') is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Service SPOCs (map)</span>
+                    </a>
+                    <a href="{{ route('admin.pending-actions.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pending-actions') is-active @endif" role="menuitem">
+                        {!! $i('inbox') !!}<span>Pending actions</span>
                     </a>
                     <a href="{{ route('admin.team-performance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-performance') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Team performance</span>

@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\ServiceModuleSettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\DistrictSpocController;
+use App\Http\Controllers\Admin\PendingActionsController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Admin\TeamDirectoryController;
@@ -296,6 +297,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('service-spocs', [DistrictSpocController::class, 'index'])->name('service-spocs.index');
         Route::put('service-spocs', [DistrictSpocController::class, 'update'])->name('service-spocs.update');
         Route::put('service-spocs/by-spoc', [DistrictSpocController::class, 'updateForSpoc'])->name('service-spocs.update-for-spoc');
+        Route::get('pending-actions', [PendingActionsController::class, 'index'])->name('pending-actions.index');
 
         /** Service module runtime settings (master switch + eligibility scope). */
         Route::get('service-module-settings', [ServiceModuleSettingsController::class, 'edit'])->name('service-module-settings.edit');
