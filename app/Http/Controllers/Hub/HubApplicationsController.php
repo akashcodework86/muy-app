@@ -80,7 +80,8 @@ class HubApplicationsController extends Controller
         )->with(['district:id,name', 'referralUser:id,name']);
 
         $columns = Schema::getColumnListing('cfa_submissions');
-        $payloadColumnsMap = $this->discoverPayloadColumns(clone $query);
+        // chunkById orders by id; clear filteredQuery()'s orderByDesc so chunks do not skip rows.
+        $payloadColumnsMap = $this->discoverPayloadColumns((clone $query)->reorder());
         $payloadColumns = array_keys($payloadColumnsMap);
         $baseColumns = array_values(array_filter($columns, fn (string $c) => $c !== 'payload'));
         $extraColumns = ['district_name', 'referral_staff_name', 'exported_at_ist', 'payload_json'];
@@ -96,7 +97,7 @@ class HubApplicationsController extends Controller
 
             fputcsv($out, $headers);
 
-            $query->chunkById(500, function ($rows) use ($out, $baseColumns, $payloadColumnsMap): void {
+            (clone $query)->reorder()->chunkById(500, function ($rows) use ($out, $baseColumns, $payloadColumnsMap): void {
                 foreach ($rows as $row) {
                     $record = [];
                     foreach ($baseColumns as $column) {
