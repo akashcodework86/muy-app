@@ -304,9 +304,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('service-spocs/by-spoc', [DistrictSpocController::class, 'updateForSpoc'])->name('service-spocs.update-for-spoc');
         Route::get('pending-actions', [PendingActionsController::class, 'index'])->name('pending-actions.index');
 
-        /** Service module runtime settings (master switch + eligibility + per-service intake). */
-        Route::get('service-module-settings/services', [ServiceModuleSettingsController::class, 'editServices'])->name('service-module-settings.services');
-        Route::put('service-module-settings/services', [ServiceModuleSettingsController::class, 'updateServices'])->name('service-module-settings.services.update');
+        /** Service module runtime settings (master switch + eligibility scope). */
         Route::get('service-module-settings', [ServiceModuleSettingsController::class, 'edit'])->name('service-module-settings.edit');
         Route::put('service-module-settings', [ServiceModuleSettingsController::class, 'update'])->name('service-module-settings.update');
 

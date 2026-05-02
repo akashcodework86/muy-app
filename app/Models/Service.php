@@ -26,7 +26,6 @@ class Service extends Model
         'market_price_basis_note',
         'sort_order',
         'is_active',
-        'accepts_new_service_cases',
         'allows_multiple',
         'reporting_tier',
         'requires_approval',
@@ -42,7 +41,6 @@ class Service extends Model
             'estimated_market_price_min' => 'decimal:2',
             'estimated_market_price_max' => 'decimal:2',
             'is_active' => 'boolean',
-            'accepts_new_service_cases' => 'boolean',
             'allows_multiple' => 'boolean',
             'requires_approval' => 'boolean',
             'requires_document' => 'boolean',
@@ -83,24 +81,6 @@ class Service extends Model
         return $this->reporting_tier === self::REPORTING_UNSET
             || $this->reporting_tier === null
             || $this->reporting_tier === '';
-    }
-
-    /**
-     * Whether district staff may start new maker–checker cases for this service
-     * (service module settings + catalog active).
-     */
-    public function isSelectableForNewServiceCases(): bool
-    {
-        return (bool) $this->is_active && (bool) $this->accepts_new_service_cases;
-    }
-
-    /**
-     * @param  Builder<static>  $query
-     * @return Builder<static>
-     */
-    public function scopeSelectableForNewServiceCases(Builder $query): Builder
-    {
-        return $query->where('is_active', true)->where('accepts_new_service_cases', true);
     }
 
     public function cases(): HasMany

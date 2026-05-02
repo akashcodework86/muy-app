@@ -148,9 +148,6 @@ class StaffServiceCaseController extends Controller
         if (! $service->is_active) {
             return back()->withErrors(['service_id' => 'This service is inactive.'])->withInput();
         }
-        if (! $service->accepts_new_service_cases) {
-            return back()->withErrors(['service_id' => 'This service is not open for new cases.'])->withInput();
-        }
 
         $payload = is_array($validated['payload'] ?? null) ? $validated['payload'] : [];
         $uploads = array_values($request->file('attachments', []));
@@ -450,7 +447,7 @@ class StaffServiceCaseController extends Controller
     private function pickerServices()
     {
         return Service::query()
-            ->selectableForNewServiceCases()
+            ->where('is_active', true)
             ->with(['category'])
             ->orderBy('sort_order')
             ->orderBy('name')

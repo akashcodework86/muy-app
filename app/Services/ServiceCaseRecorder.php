@@ -53,10 +53,6 @@ class ServiceCaseRecorder
             throw ValidationException::withMessages(['service_id' => 'This service is inactive.']);
         }
 
-        if (! $service->accepts_new_service_cases) {
-            throw ValidationException::withMessages(['service_id' => 'This service is not open for new cases.']);
-        }
-
         $existing = ServiceCase::query()
             ->where('cfa_submission_id', $submission->id)
             ->where('service_id', $service->id);
