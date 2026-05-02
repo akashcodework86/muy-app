@@ -101,23 +101,12 @@ class StateAdminDashboardService
                     }
                 }
 
-                $onboardingDeliverableIds = Deliverable::query()
-                    ->where(function ($q): void {
-                        $q->whereRaw('LOWER(code) = ?', ['onboarding'])
-                            ->orWhere('sort_order', 4)
-                            ->orWhere('name', 'like', '%Onboard%')
-                            ->orWhere('mis_entry_label', 'like', '%Onboard%');
-                    })
-                    ->pluck('id')
-                    ->map(fn ($id) => (int) $id)
-                    ->filter(fn (int $id) => $id > 0)
-                    ->values()
-                    ->all();
-
-                if ($onboardingDeliverableIds !== []) {
+                $onboardingDeliverableId = Deliverable::onboardingTargetDeliverableId();
+                if ($onboardingDeliverableId !== null && $activeFy) {
                     $stateOnboardingTarget = (int) DB::table('state_deliverable_targets')
-                        ->whereIn('deliverable_id', $onboardingDeliverableIds)
-                        ->sum('target_total');
+                        ->where('fiscal_year_id', (int) $activeFy->id)
+                        ->where('deliverable_id', $onboardingDeliverableId)
+                        ->value('target_total');
                     if ($stateOnboardingTarget <= 0) {
                         $stateOnboardingTarget = null;
                     }
