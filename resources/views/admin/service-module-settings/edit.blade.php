@@ -4,6 +4,8 @@
 @section('heading', 'Service module settings')
 
 @section('content')
+    @include('admin.service-module-settings._nav', ['active' => $serviceModuleNavActive ?? 'general'])
+
     <p style="font-size:0.9rem; color:#52525b; margin:0 0 1rem; max-width:55rem;">
         Control when and for whom the service delivery workflow (maker&ndash;checker) is live.
         Changes take effect immediately &mdash; no redeploy needed.

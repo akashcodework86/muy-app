@@ -254,7 +254,7 @@ class StaffPortalController extends Controller
             ->get();
 
         $pickerServices = Service::query()
-            ->where('is_active', true)
+            ->selectableForNewServiceCases()
             ->with(['category'])
             ->orderBy('sort_order')
             ->orderBy('name')
