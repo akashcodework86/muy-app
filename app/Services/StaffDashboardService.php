@@ -79,25 +79,13 @@ class StaffDashboardService
         $districtOnboardingProgressPct = null;
         $districtOnboardingByBatch = [];
         if ($activeFy && $user->district_id) {
-            $onboardingDeliverableIds = Deliverable::query()
-                ->where(function ($q): void {
-                    $q->whereRaw('LOWER(code) = ?', ['onboarding'])
-                        ->orWhere('sort_order', 4)
-                        ->orWhere('name', 'like', '%Onboard%')
-                        ->orWhere('mis_entry_label', 'like', '%Onboard%');
-                })
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn (int $id) => $id > 0)
-                ->values()
-                ->all();
-
-            if ($onboardingDeliverableIds !== []) {
+            $onboardingDeliverableId = Deliverable::onboardingTargetDeliverableId();
+            if ($onboardingDeliverableId !== null) {
                 $districtOnboardingTarget = (int) DB::table('district_deliverable_targets')
                     ->where('fiscal_year_id', (int) $activeFy->id)
                     ->where('district_id', (int) $user->district_id)
-                    ->whereIn('deliverable_id', $onboardingDeliverableIds)
-                    ->sum('target_total');
+                    ->where('deliverable_id', $onboardingDeliverableId)
+                    ->value('target_total');
                 if ($districtOnboardingTarget <= 0) {
                     $districtOnboardingTarget = null;
                 }

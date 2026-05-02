@@ -456,18 +456,9 @@ class HubAdminDashboardService
      */
     private function onboardingDeliverableIds(): array
     {
-        return Deliverable::query()
-            ->where(function ($q): void {
-                $q->whereRaw('LOWER(code) = ?', ['onboarding'])
-                    ->orWhere('sort_order', 4)
-                    ->orWhere('name', 'like', '%Onboard%')
-                    ->orWhere('mis_entry_label', 'like', '%Onboard%');
-            })
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn (int $id) => $id > 0)
-            ->values()
-            ->all();
+        $id = Deliverable::onboardingTargetDeliverableId();
+
+        return $id !== null ? [$id] : [];
     }
 
     /**
