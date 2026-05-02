@@ -114,8 +114,9 @@ class StateAdminDashboardService
                     ->values()
                     ->all();
 
-                if ($onboardingDeliverableIds !== []) {
+                if ($onboardingDeliverableIds !== [] && $activeFy) {
                     $stateOnboardingTarget = (int) DB::table('state_deliverable_targets')
+                        ->where('fiscal_year_id', (int) $activeFy->id)
                         ->whereIn('deliverable_id', $onboardingDeliverableIds)
                         ->sum('target_total');
                     if ($stateOnboardingTarget <= 0) {
