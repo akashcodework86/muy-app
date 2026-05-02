@@ -85,6 +85,10 @@ class StaffPortalController extends Controller
             (string) $request->query('scope', 'mine')
         );
 
+        if ($scope === 'district') {
+            $this->applyDistrictPhase3OnlyFilters($query);
+        }
+
         $search = trim((string) $request->query('q', ''));
         if ($search !== '') {
             $this->applyApplicationsSearch($query, $search);
@@ -98,9 +102,13 @@ class StaffPortalController extends Controller
         $mineCount = CfaSubmission::query()
             ->where('referral_user_id', (int) $staff->id)
             ->count();
-        $districtCount = (int) $staff->district_id > 0
-            ? CfaSubmission::query()->where('district_id', (int) $staff->district_id)->count()
-            : 0;
+        $districtCount = 0;
+        if ((int) $staff->district_id > 0) {
+            $districtCountQuery = CfaSubmission::query()
+                ->where('district_id', (int) $staff->district_id);
+            $this->applyDistrictPhase3OnlyFilters($districtCountQuery);
+            $districtCount = (int) $districtCountQuery->count();
+        }
 
         return view('staff.applications', [
             'submissions' => $submissions,
@@ -129,6 +137,10 @@ class StaffPortalController extends Controller
             $staff,
             (string) $request->query('scope', 'mine')
         );
+
+        if ($scope === 'district') {
+            $this->applyDistrictPhase3OnlyFilters($query);
+        }
 
         $search = trim((string) $request->query('q', ''));
         if ($search !== '') {
@@ -1000,6 +1012,22 @@ class StaffPortalController extends Controller
         }
 
         return [$scope, $forceMine];
+    }
+
+    /**
+     * District-wide list: native Phase 3 CFA only (excludes mirrored legacy Phase 2 rows).
+     * When a Phase 3 default fiscal year exists, scope to that FY like the staff dashboard.
+     */
+    private function applyDistrictPhase3OnlyFilters(Builder $query): void
+    {
+        $query->where(function (Builder $q): void {
+            $q->whereNull('source')
+                ->orWhere('source', '!=', 'legacy_phase2');
+        });
+        $activeFyId = (int) optional(FiscalYear::phase3Default())->id;
+        if ($activeFyId > 0) {
+            $query->where('fiscal_year_id', $activeFyId);
+        }
     }
 
     private function applyApplicationsSearch(Builder $query, string $search): void

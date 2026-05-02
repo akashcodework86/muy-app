@@ -60,7 +60,7 @@
 
     <p style="color:#64748b;font-size:0.9rem;margin:0 0 1rem;">
         @if ($scope === 'district')
-            Showing all submissions from your assigned district{{ ! empty($districtName) ? ' ('.$districtName.')' : '' }}, including source and referral details.
+            Showing Phase 3 CFA submissions from your assigned district{{ ! empty($districtName) ? ' ('.$districtName.')' : '' }} (current Phase 3 fiscal year; legacy Phase 2 mirrors excluded), including source and referral details.
         @else
             Showing only submissions that used <strong>your</strong> referral link. Newest first.
         @endif
