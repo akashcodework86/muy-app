@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Services\AdminAuditLogger;
 use App\Services\ServiceTargetDeliverableSyncService;
@@ -26,7 +27,15 @@ class ServiceCategoryController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('admin.service-catalog.index', ['categories' => $categories]);
+        $serviceCatalogStats = [
+            'total' => Service::query()->count(),
+            'active' => Service::query()->where('is_active', true)->count(),
+        ];
+
+        return view('admin.service-catalog.index', [
+            'categories' => $categories,
+            'serviceCatalogStats' => $serviceCatalogStats,
+        ]);
     }
 
     public function create(Request $request): View

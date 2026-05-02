@@ -6,6 +6,28 @@
 @section('content')
     @php
         $hasQuickUpdateRoute = \Illuminate\Support\Facades\Route::has('admin.service-catalog.services.quick-update');
+        $hasSetActive = \Illuminate\Support\Facades\Route::has('admin.service-catalog.services.set-active');
+        $hasBulkActive = \Illuminate\Support\Facades\Route::has('admin.service-catalog.services.bulk-active');
+        $catStats = $serviceCatalogStats ?? ['total' => 0, 'active' => 0];
+        $catStatsInactive = max(0, (int) ($catStats['total'] ?? 0) - (int) ($catStats['active'] ?? 0));
+        $catalogActiveRows = collect();
+        $catalogInactiveRows = collect();
+        foreach ($categories as $cat) {
+            foreach ($cat->services as $s) {
+                $row = ['name' => (string) $s->name, 'code' => (string) $s->code, 'category' => (string) $cat->name];
+                if ($s->is_active) {
+                    $catalogActiveRows->push($row);
+                } else {
+                    $catalogInactiveRows->push($row);
+                }
+            }
+        }
+        $catalogActiveRows = $catalogActiveRows->sortBy(fn ($r) => mb_strtolower($r['category'].' '.$r['name']))->values();
+        $catalogInactiveRows = $catalogInactiveRows->sortBy(fn ($r) => mb_strtolower($r['category'].' '.$r['name']))->values();
+        $bulkTotal = (int) ($catStats['total'] ?? 0);
+        $bulkActiveCount = (int) ($catStats['active'] ?? 0);
+        $bulkAllActive = $bulkTotal > 0 && $bulkActiveCount === $bulkTotal;
+        $bulkMixed = $bulkTotal > 0 && $bulkActiveCount > 0 && $bulkActiveCount < $bulkTotal;
     @endphp
     @if (session('status'))
         <p style="color:#166534; margin:0 0 1rem;">{{ session('status') }}</p>
@@ -24,6 +46,115 @@
         <a href="{{ route('admin.service-catalog.categories.create') }}" style="display:inline-block; background:#18181b; color:#fff; padding:0.45rem 0.85rem; border-radius:6px; text-decoration:none; font-size:0.9rem;">Add category</a>
         <a href="{{ route('admin.service-catalog.services.create') }}" style="display:inline-block; background:#fff; color:#18181b; border:1px solid #d4d4d8; padding:0.45rem 0.85rem; border-radius:6px; text-decoration:none; font-size:0.9rem;">Add service</a>
     </div>
+
+    @if (($catStats['total'] ?? 0) > 0)
+        <div style="margin:0 0 1rem; padding:0.85rem 1rem; background:#fafafa; border:1px solid #e4e4e7; border-radius:10px;">
+            <strong style="font-size:0.95rem; color:#18181b; display:block; margin-bottom:0.35rem;">Catalog availability</strong>
+            <p style="margin:0 0 0.75rem; font-size:0.82rem; color:#52525b; line-height:1.45;">
+                <strong>Active</strong> services can be used where the app checks this flag (e.g. selection lists).
+                <strong>Inactive</strong> services stay in the catalog but are hidden or blocked for new use until turned back on.
+            </p>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:0.85rem;">
+                <div style="background:#fff; border:1px solid #bbf7d0; border-radius:8px; padding:0.65rem 0.75rem; min-height:5rem;">
+                    <div style="font-size:0.8rem; font-weight:700; color:#166534; margin-bottom:0.45rem;">
+                        Active <span style="font-weight:600; color:#15803d;">({{ $catalogActiveRows->count() }})</span>
+                    </div>
+                    <ul style="margin:0; padding:0; list-style:none; max-height:14rem; overflow:auto; font-size:0.8rem; line-height:1.35;">
+                        @foreach ($catalogActiveRows as $row)
+                            <li style="padding:0.2rem 0; border-bottom:1px solid #f4f4f5;">
+                                <span style="color:#18181b;">{{ $row['name'] }}</span>
+                                <span style="color:#a1a1aa; font-size:0.75rem;"> · {{ $row['category'] }}</span>
+                                <span style="color:#71717a; font-size:0.72rem;"> · <code style="font-size:0.72rem;">{{ $row['code'] }}</code></span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+                <div style="background:#fff; border:1px solid #fcd34d; border-radius:8px; padding:0.65rem 0.75rem; min-height:5rem;">
+                    <div style="font-size:0.8rem; font-weight:700; color:#b45309; margin-bottom:0.45rem;">
+                        Inactive <span style="font-weight:600; color:#c2410c;">({{ $catalogInactiveRows->count() }})</span>
+                    </div>
+                    @if ($catalogInactiveRows->isEmpty())
+                        <p style="margin:0; font-size:0.8rem; color:#71717a;">None — every service is active.</p>
+                    @else
+                        <ul style="margin:0; padding:0; list-style:none; max-height:14rem; overflow:auto; font-size:0.8rem; line-height:1.35;">
+                            @foreach ($catalogInactiveRows as $row)
+                                <li style="padding:0.2rem 0; border-bottom:1px solid #fef3c7;">
+                                    <span style="color:#18181b;">{{ $row['name'] }}</span>
+                                    <span style="color:#a1a1aa; font-size:0.75rem;"> · {{ $row['category'] }}</span>
+                                    <span style="color:#71717a; font-size:0.72rem;"> · <code style="font-size:0.72rem;">{{ $row['code'] }}</code></span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if ($hasBulkActive && ($catStats['total'] ?? 0) > 0)
+        <div style="margin:0 0 1rem; padding:0.65rem 0.85rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; display:flex; flex-wrap:wrap; align-items:center; gap:0.65rem 1rem;">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem;">
+                <strong style="font-size:0.88rem; color:#0f172a;">All services</strong>
+                <span style="font-size:0.8rem; color:#64748b;">{{ (int) $catStats['active'] }} active · {{ $catStatsInactive }} inactive</span>
+            </div>
+            <span style="flex:1; min-width:0.5rem;"></span>
+            <form method="post" action="{{ route('admin.service-catalog.services.bulk-active') }}" id="svc-bulk-active-form" style="margin:0; display:flex; align-items:center; gap:0.5rem;">
+                @csrf
+                <input type="hidden" name="is_active" value="{{ $bulkAllActive ? '1' : '0' }}" id="svc-bulk-is-active">
+                <label class="svc-toggle svc-toggle--bulk" title="{{ $bulkAllActive ? 'All active — turn all off' : ($bulkMixed ? 'Mixed — turn all on or all off' : 'All inactive — turn all on') }}">
+                    <input
+                        type="checkbox"
+                        role="switch"
+                        id="svc-bulk-toggle"
+                        class="svc-toggle-input"
+                        aria-label="All catalog services active"
+                        @if ($bulkAllActive) checked @endif
+                    >
+                    <span class="svc-toggle-track" aria-hidden="true"><span class="svc-toggle-thumb"></span></span>
+                </label>
+                @if ($bulkMixed)
+                    <span style="font-size:0.75rem; color:#64748b; white-space:nowrap;">Some on, some off</span>
+                @endif
+            </form>
+        </div>
+        @push('scripts')
+        <script>
+            (function () {
+                var cb = document.getElementById('svc-bulk-toggle');
+                var hidden = document.getElementById('svc-bulk-is-active');
+                var form = document.getElementById('svc-bulk-active-form');
+                if (!cb || !hidden || !form) return;
+                var bulkMixed = @json($bulkMixed);
+                var bulkAllActive = @json($bulkAllActive);
+                function revert() {
+                    if (bulkMixed) {
+                        cb.checked = false;
+                        cb.indeterminate = true;
+                    } else {
+                        cb.checked = bulkAllActive;
+                        cb.indeterminate = false;
+                    }
+                }
+                if (bulkMixed) {
+                    cb.indeterminate = true;
+                }
+                cb.addEventListener('change', function () {
+                    cb.indeterminate = false;
+                    var wantOn = cb.checked;
+                    hidden.value = wantOn ? '1' : '0';
+                    var msg = wantOn
+                        ? 'Turn every catalog service on?'
+                        : 'Turn every catalog service off?';
+                    if (!window.confirm(msg)) {
+                        revert();
+                        return;
+                    }
+                    form.submit();
+                });
+            })();
+        </script>
+        @endpush
+    @endif
 
     @forelse ($categories as $category)
         <div style="background:#fff; border:1px solid #e4e4e7; border-radius:8px; margin-bottom:0.75rem; padding:0.8rem 0.95rem;">
@@ -51,51 +182,75 @@
             @if ($category->services->isEmpty())
                 <p style="margin:0.5rem 0 0; font-size:0.84rem; color:#71717a;">No services yet.</p>
             @else
-                <ul style="margin:0.55rem 0 0; padding-left:1.1rem; font-size:0.85rem;">
+                <ul style="margin:0.55rem 0 0; padding:0; list-style:none; font-size:0.85rem;">
                     @foreach ($category->services as $svc)
-                        <li style="margin-bottom:0.25rem;">
-                            <code>{{ $svc->code }}</code> — {{ $svc->name }}
-                            @include('admin.service-catalog.partials.reporting-tier-badge', ['svc' => $svc])
-                            @if ($svc->requires_approval)
-                                <span style="background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; padding:0 0.4rem; border-radius:999px; font-size:0.72rem; font-weight:600; margin-left:0.2rem;">Needs approval</span>
+                        <li style="display:flex; align-items:flex-start; gap:0.6rem; margin-bottom:0.4rem; padding:0.5rem 0.6rem; border-radius:7px; border-left:3px solid {{ $svc->is_active ? '#22c55e' : '#f59e0b' }}; background:{{ $svc->is_active ? '#f0fdf4' : '#fffbeb' }};">
+                            @if ($hasSetActive)
+                                <form method="post" action="{{ route('admin.service-catalog.services.set-active', $svc) }}" class="svc-active-form" style="margin:0; flex-shrink:0; padding-top:0.12rem;">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="hidden" name="is_active" value="{{ $svc->is_active ? '1' : '0' }}" class="svc-active-hidden">
+                                    <label class="svc-toggle" title="{{ $svc->is_active ? 'Active — click to turn off' : 'Inactive — click to turn on' }}">
+                                        <input
+                                            type="checkbox"
+                                            role="switch"
+                                            class="svc-toggle-input"
+                                            aria-label="{{ $svc->is_active ? 'Active, switch to turn off' : 'Inactive, switch to turn on' }}"
+                                            {{ $svc->is_active ? 'checked' : '' }}
+                                            onchange="var f=this.closest('form'); f.querySelector('.svc-active-hidden').value=this.checked?'1':'0'; f.submit();"
+                                        >
+                                        <span class="svc-toggle-track" aria-hidden="true"><span class="svc-toggle-thumb"></span></span>
+                                    </label>
+                                </form>
                             @endif
-                            @if ($svc->requires_document)
-                                <span style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd; padding:0 0.4rem; border-radius:999px; font-size:0.72rem; font-weight:600; margin-left:0.2rem;">Doc required</span>
-                            @endif
-                            @if ($svc->allows_multiple)<span style="color:#0369a1; margin-left:0.2rem;">· multiple</span>@endif
-                            @if (! $svc->is_active)<span style="color:#b45309; margin-left:0.2rem;">· inactive</span>@endif
-                            @if ($hasQuickUpdateRoute)
-                                — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
-                                <span style="color:#d4d4d8;">|</span>
-                                <button
-                                    type="button"
-                                    class="js-quick-edit-open"
-                                    data-id="{{ (int) $svc->id }}"
-                                    data-name="{{ (string) $svc->name }}"
-                                    data-code="{{ (string) $svc->code }}"
-                                    data-category-id="{{ (int) $svc->service_category_id }}"
-                                    data-sort-order="{{ (int) $svc->sort_order }}"
-                                    data-is-active="{{ $svc->is_active ? '1' : '0' }}"
-                                    data-allows-multiple="{{ $svc->allows_multiple ? '1' : '0' }}"
-                                    data-requires-approval="{{ $svc->requires_approval ? '1' : '0' }}"
-                                    data-requires-document="{{ $svc->requires_document ? '1' : '0' }}"
-                                    data-has-pdf="{{ in_array('pdf', is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [], true) ? '1' : '0' }}"
-                                    data-has-image="{{ in_array('image', is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [], true) ? '1' : '0' }}"
-                                    data-reporting-tier="{{ (string) ($svc->reporting_tier ?? 'unset') }}"
-                                    data-avg="{{ $svc->estimated_market_price_avg }}"
-                                    data-min="{{ $svc->estimated_market_price_min }}"
-                                    data-max="{{ $svc->estimated_market_price_max }}"
-                                    data-note="{{ (string) ($svc->market_price_basis_note ?? '') }}"
-                                    style="background:none;border:none;padding:0;color:#1d4ed8;cursor:pointer;font-size:inherit;text-decoration:underline;"
-                                >Quick edit</button>
-                            @else
-                                — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
-                            @endif
-                            <form method="post" action="{{ route('admin.service-catalog.services.destroy', $svc) }}" style="display:inline;" onsubmit="return confirm('Delete this service?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" style="background:none;border:none;padding:0;color:#b91c1c;cursor:pointer;font-size:inherit;text-decoration:underline;">Delete</button>
-                            </form>
+                            <div style="flex:1; min-width:0;">
+                                @if ($svc->is_active)
+                                    <span style="font-size:0.7rem; font-weight:700; color:#15803d; background:#dcfce7; border:1px solid #86efac; padding:0.05rem 0.4rem; border-radius:999px; vertical-align:middle; margin-right:0.35rem;">Active</span>
+                                @else
+                                    <span style="font-size:0.7rem; font-weight:700; color:#b45309; background:#ffedd5; border:1px solid #fdba74; padding:0.05rem 0.4rem; border-radius:999px; vertical-align:middle; margin-right:0.35rem;">Inactive</span>
+                                @endif
+                                <code>{{ $svc->code }}</code> — {{ $svc->name }}
+                                @include('admin.service-catalog.partials.reporting-tier-badge', ['svc' => $svc])
+                                @if ($svc->requires_approval)
+                                    <span style="background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; padding:0 0.4rem; border-radius:999px; font-size:0.72rem; font-weight:600; margin-left:0.2rem;">Needs approval</span>
+                                @endif
+                                @if ($svc->requires_document)
+                                    <span style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd; padding:0 0.4rem; border-radius:999px; font-size:0.72rem; font-weight:600; margin-left:0.2rem;">Doc required</span>
+                                @endif
+                                @if ($svc->allows_multiple)<span style="color:#0369a1; margin-left:0.2rem;">· multiple</span>@endif
+                                @if ($hasQuickUpdateRoute)
+                                    — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
+                                    <span style="color:#d4d4d8;">|</span>
+                                    <button
+                                        type="button"
+                                        class="js-quick-edit-open"
+                                        data-id="{{ (int) $svc->id }}"
+                                        data-name="{{ (string) $svc->name }}"
+                                        data-code="{{ (string) $svc->code }}"
+                                        data-category-id="{{ (int) $svc->service_category_id }}"
+                                        data-sort-order="{{ (int) $svc->sort_order }}"
+                                        data-is-active="{{ $svc->is_active ? '1' : '0' }}"
+                                        data-allows-multiple="{{ $svc->allows_multiple ? '1' : '0' }}"
+                                        data-requires-approval="{{ $svc->requires_approval ? '1' : '0' }}"
+                                        data-requires-document="{{ $svc->requires_document ? '1' : '0' }}"
+                                        data-has-pdf="{{ in_array('pdf', is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [], true) ? '1' : '0' }}"
+                                        data-has-image="{{ in_array('image', is_array($svc->allowed_document_types) ? $svc->allowed_document_types : [], true) ? '1' : '0' }}"
+                                        data-reporting-tier="{{ (string) ($svc->reporting_tier ?? 'unset') }}"
+                                        data-avg="{{ $svc->estimated_market_price_avg }}"
+                                        data-min="{{ $svc->estimated_market_price_min }}"
+                                        data-max="{{ $svc->estimated_market_price_max }}"
+                                        data-note="{{ (string) ($svc->market_price_basis_note ?? '') }}"
+                                        style="background:none;border:none;padding:0;color:#1d4ed8;cursor:pointer;font-size:inherit;text-decoration:underline;"
+                                    >Quick edit</button>
+                                @else
+                                    — <a href="{{ route('admin.service-catalog.services.edit', $svc) }}">Edit</a>
+                                @endif
+                                <form method="post" action="{{ route('admin.service-catalog.services.destroy', $svc) }}" style="display:inline;" onsubmit="return confirm('Delete this service?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" style="background:none;border:none;padding:0;color:#b91c1c;cursor:pointer;font-size:inherit;text-decoration:underline;">Delete</button>
+                                </form>
+                            </div>
                         </li>
                     @endforeach
                 </ul>
@@ -238,4 +393,60 @@
         })();
     </script>
     @endif
+
+@push('styles')
+<style>
+    .svc-toggle {
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+        vertical-align: middle;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .svc-toggle-input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+        margin: 0;
+    }
+    .svc-toggle-input:focus-visible + .svc-toggle-track {
+        outline: 2px solid #2563eb;
+        outline-offset: 3px;
+    }
+    .svc-toggle-track {
+        display: block;
+        width: 2.85rem;
+        height: 1.5rem;
+        border-radius: 999px;
+        background: #d4d4d8;
+        transition: background 0.18s ease;
+        position: relative;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
+    .svc-toggle-input:checked + .svc-toggle-track {
+        background: #22c55e;
+    }
+    .svc-toggle-input:indeterminate + .svc-toggle-track {
+        background: #94a3b8;
+    }
+    .svc-toggle-input:indeterminate + .svc-toggle-track .svc-toggle-thumb {
+        transform: translateX(0.675rem);
+    }
+    .svc-toggle-thumb {
+        position: absolute;
+        width: 1.2rem;
+        height: 1.2rem;
+        border-radius: 50%;
+        background: #fff;
+        top: 0.15rem;
+        left: 0.15rem;
+        transition: transform 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    .svc-toggle-input:checked + .svc-toggle-track .svc-toggle-thumb {
+        transform: translateX(1.35rem);
+    }
+</style>
+@endpush
 @endsection

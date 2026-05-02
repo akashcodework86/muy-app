@@ -264,6 +264,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('service-catalog/categories/{service_category}', [ServiceCategoryController::class, 'destroy'])->name('service-catalog.categories.destroy');
         Route::get('service-catalog/services/create', [CatalogServiceController::class, 'create'])->name('service-catalog.services.create');
         Route::post('service-catalog/services', [CatalogServiceController::class, 'store'])->name('service-catalog.services.store');
+        Route::post('service-catalog/services/bulk-active', [CatalogServiceController::class, 'bulkSetActive'])->name('service-catalog.services.bulk-active');
+        Route::patch('service-catalog/services/{service}/active', [CatalogServiceController::class, 'setActive'])->name('service-catalog.services.set-active');
         // Convenience: /services/{id} → edit (avoids 404/500 when /edit is omitted).
         Route::get('service-catalog/services/{service}', function (\App\Models\Service $service) {
             return redirect()->route('admin.service-catalog.services.edit', $service);

@@ -383,6 +383,60 @@ class CatalogServiceController extends Controller
         return redirect()->route('admin.service-catalog.index')->with('status', 'Service updated from quick edit.');
     }
 
+    public function setActive(Request $request, Service $service): RedirectResponse
+    {
+        $validated = $request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $before = ['is_active' => $service->is_active];
+        $service->is_active = (bool) $validated['is_active'];
+        $service->save();
+
+        $this->auditLogger->record(
+            $request,
+            'catalog_service.active_toggled',
+            Service::class,
+            $service->id,
+            $before,
+            ['is_active' => $service->is_active],
+            'Catalog service active flag updated from catalog list.',
+        );
+
+        return redirect()->route('admin.service-catalog.index')->with('status', 'Service availability updated.');
+    }
+
+    public function bulkSetActive(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $active = (bool) $validated['is_active'];
+        $total = Service::query()->count();
+        if ($total === 0) {
+            return redirect()->route('admin.service-catalog.index')->with('status', 'No services in the catalog yet.');
+        }
+
+        $beforeActive = Service::query()->where('is_active', true)->count();
+        Service::query()->update(['is_active' => $active]);
+
+        $this->auditLogger->record(
+            $request,
+            'catalog_service.bulk_active',
+            null,
+            null,
+            ['active_count' => $beforeActive, 'total' => $total],
+            ['is_active' => $active, 'affected' => $total],
+            'Bulk set active flag for all catalog services.',
+        );
+
+        return redirect()->route('admin.service-catalog.index')->with(
+            'status',
+            $active ? 'All services are now active.' : 'All services are now inactive.',
+        );
+    }
+
     public function destroy(Request $request, Service $service): RedirectResponse
     {
         if (ServiceCase::query()->where('service_id', $service->id)->exists()) {
