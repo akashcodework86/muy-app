@@ -30,7 +30,8 @@ $composerBin = getenv('MUY_COMPOSER') ?: 'composer';
 $out(shell_exec('cd '.escapeshellarg($projectPath).' && '.$composerBin.' install --no-dev --no-interaction --optimize-autoloader 2>&1'));
 
 echo "--- migrations (php artisan migrate --force) ---\n";
-$out(shell_exec('cd '.escapeshellarg($projectPath).' && php artisan migrate --force --no-interaction 2>&1'));
+$migrateShell = 'cd '.escapeshellarg($projectPath).' && php artisan migrate --force --no-interaction 2>&1; printf "\n__MIGRATE_EXIT__%s\n" "$?"';
+$out(shell_exec($migrateShell));
 
 echo "--- optimize:clear ---\n";
 $out(shell_exec('cd '.escapeshellarg($projectPath).' && php artisan optimize:clear 2>&1'));
