@@ -8,26 +8,20 @@ use App\Models\CfaSubmission;
 use App\Models\District;
 use App\Services\CfaSubmissionAuditSnapshot;
 use App\Services\LegacyPhase2ApplicationDetailService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CfaSubmissionController extends Controller
 {
     public function index(Request $request): View
     {
         $districts = District::orderBy('name')->get(['id', 'name']);
+        $filters = $this->extractFilters($request);
 
-        $name       = trim((string) $request->query('name', ''));
-        $districtId = $request->query('district_id');
-        $sector     = trim((string) $request->query('sector', ''));
-
-        $submissions = CfaSubmission::query()
-            ->when($name !== '', fn ($q) => $q->where('applicant_name', 'like', "%{$name}%"))
-            ->when($districtId, fn ($q) => $q->where('district_id', (int) $districtId))
-            ->when($sector !== '', fn ($q) => $q->whereRaw(
-                "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.business_category')) = ?",
-                [$sector]
-            ))
+        $submissions = $this->filteredQuery($filters)
             ->with(['district', 'referralUser', 'fiscalYear'])
             ->orderByDesc('created_at')
             ->paginate(25)
@@ -37,8 +31,113 @@ class CfaSubmissionController extends Controller
             'submissions' => $submissions,
             'districts' => $districts,
             'sectors' => config('cfa.business_categories'),
-            'filters' => ['name' => $name, 'district_id' => $districtId, 'sector' => $sector],
+            'filters' => $filters,
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $filters = $this->extractFilters($request);
+        $query = $this->filteredQuery($filters)
+            ->with(['district:id,name', 'referralUser:id,name', 'fiscalYear:id,code,name']);
+
+        $filename = 'cfa-applications-'.now()->format('Ymd_His').'.csv';
+        $headers = [
+            'application_no',
+            'submitted_at_ist',
+            'applicant_name',
+            'phone',
+            'district',
+            'lgd_state_code',
+            'lgd_district_code',
+            'lgd_block_code',
+            'source',
+            'referral_staff',
+            'fiscal_year',
+            'business_category',
+            'payload_json',
+        ];
+
+        return response()->streamDownload(function () use ($query, $headers): void {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+            fputcsv($out, $headers);
+            (clone $query)->reorder()->chunkById(500, function ($rows) use ($out): void {
+                foreach ($rows as $row) {
+                    $payload = is_array($row->payload) ? $row->payload : (array) $row->payload;
+                    $bc = isset($payload['business_category']) ? (string) $payload['business_category'] : '';
+                    $record = [
+                        $row->application_no ?? '',
+                        optional($row->created_at)->timezone('Asia/Kolkata')->format('Y-m-d H:i:s') ?? '',
+                        $row->applicant_name ?? '',
+                        $row->phone ?? '',
+                        $row->district?->name ?? '',
+                        $row->lgd_state_code ?? '',
+                        $row->lgd_district_code ?? '',
+                        $row->lgd_block_code ?? '',
+                        $row->source ?? '',
+                        $row->referralUser?->name ?? '',
+                        $row->fiscalYear?->code ?? $row->fiscalYear?->name ?? '',
+                        $bc,
+                        json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    ];
+                    fputcsv($out, $record);
+                }
+            }, 'id');
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * @return array{name: string, district_id: int|null, sector: string, from: string, to: string}
+     */
+    private function extractFilters(Request $request): array
+    {
+        $name = trim((string) $request->query('name', ''));
+        $districtId = $request->query('district_id');
+        $sector = trim((string) $request->query('sector', ''));
+        $from = trim((string) $request->query('from', ''));
+        $to = trim((string) $request->query('to', ''));
+
+        $v = Validator::make(
+            ['from' => $from, 'to' => $to],
+            [
+                'from' => ['nullable', 'date_format:Y-m-d'],
+                'to' => ['nullable', 'date_format:Y-m-d'],
+            ]
+        );
+        if ($v->fails()) {
+            $from = '';
+            $to = '';
+        }
+
+        return [
+            'name' => $name,
+            'district_id' => $districtId ? (int) $districtId : null,
+            'sector' => $sector,
+            'from' => $from,
+            'to' => $to,
+        ];
+    }
+
+    /**
+     * @param  array{name: string, district_id: int|null, sector: string, from: string, to: string}  $filters
+     */
+    private function filteredQuery(array $filters): Builder
+    {
+        return CfaSubmission::query()
+            ->when($filters['name'] !== '', fn ($q) => $q->where('applicant_name', 'like', '%'.$filters['name'].'%'))
+            ->when($filters['district_id'], fn ($q) => $q->where('district_id', $filters['district_id']))
+            ->when($filters['sector'] !== '', fn ($q) => $q->whereRaw(
+                "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.business_category')) = ?",
+                [$filters['sector']]
+            ))
+            ->when($filters['from'] !== '', fn ($q) => $q->whereDate('created_at', '>=', $filters['from']))
+            ->when($filters['to'] !== '', fn ($q) => $q->whereDate('created_at', '<=', $filters['to']));
     }
 
     public function show(CfaSubmission $cfa_submission): View

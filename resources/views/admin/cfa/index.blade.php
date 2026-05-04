@@ -8,6 +8,9 @@
 @endpush
 
 @section('content')
+        @php
+            $cfaHasFilters = ($filters['name'] ?? '') || ($filters['district_id'] ?? null) || ($filters['sector'] ?? '') || ($filters['from'] ?? '') || ($filters['to'] ?? '');
+        @endphp
         <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <form method="get" action="{{ route('admin.cfa.index') }}" class="flex flex-wrap items-end gap-3">
 
@@ -43,7 +46,7 @@
                         >
                             <option value="">All districts</option>
                             @foreach ($districts as $dist)
-                                <option value="{{ $dist->id }}" @selected((string) ($filters['district_id'] ?? '') === (string) $dist->id)>{{ $dist->name }}</option>
+                                <option value="{{ $dist->id }}" @selected((int) ($filters['district_id'] ?? 0) === (int) $dist->id)>{{ $dist->name }}</option>
                             @endforeach
                         </select>
                         <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -72,8 +75,30 @@
                     </div>
                 </div>
 
+                {{-- Submitted from / to (created_at date) --}}
+                <div class="flex flex-col gap-1">
+                    <label for="cfa-from" class="text-xs font-medium text-slate-500 uppercase tracking-wide">From date</label>
+                    <input
+                        id="cfa-from"
+                        type="date"
+                        name="from"
+                        value="{{ $filters['from'] ?? '' }}"
+                        class="w-40 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    />
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label for="cfa-to" class="text-xs font-medium text-slate-500 uppercase tracking-wide">To date</label>
+                    <input
+                        id="cfa-to"
+                        type="date"
+                        name="to"
+                        value="{{ $filters['to'] ?? '' }}"
+                        class="w-40 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    />
+                </div>
+
                 {{-- Action buttons --}}
-                <div class="flex items-center gap-2 pb-0.5">
+                <div class="flex flex-wrap items-center gap-2 pb-0.5">
                     <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400">
                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                             <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.8"/>
@@ -81,7 +106,16 @@
                         </svg>
                         Search
                     </button>
-                    @if ($filters['name'] || $filters['district_id'] || $filters['sector'])
+                    <a
+                        href="{{ route('admin.cfa.export', request()->query()) }}"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                    >
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M10 3v10M10 13l-3-3m3 3l3-3M4 17h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Download CSV
+                    </a>
+                    @if ($cfaHasFilters)
                         <a href="{{ route('admin.cfa.index') }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50">
                             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                                 <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -95,7 +129,7 @@
 
             <p class="mt-3 text-sm text-slate-500">
                 Public form submissions (referral-linked) for all-time Phase 3 data. Newest first.
-                @if ($filters['name'] || $filters['district_id'] || $filters['sector'])
+                @if ($cfaHasFilters)
                     &mdash; <span class="font-medium text-indigo-600">{{ $submissions->total() }} result(s) found</span>
                 @endif
             </p>

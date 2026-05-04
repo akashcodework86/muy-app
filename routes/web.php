@@ -237,6 +237,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         })->name('ops.cache-clear');
 
         Route::get('cfa-applications', [CfaSubmissionController::class, 'index'])->name('cfa.index');
+        Route::get('cfa-applications/export', [CfaSubmissionController::class, 'export'])->name('cfa.export');
         Route::get('cfa-applications/{cfa_submission}', [CfaSubmissionController::class, 'show'])->name('cfa.show');
         Route::get('cfa-applications-phase1-legacy', [LegacyPhase1CfaApplicationController::class, 'index'])->name('phase1-cfa.index');
         Route::get('cfa-applications-phase2-legacy', [LegacyPhase2CfaApplicationController::class, 'index'])->name('phase2-cfa.index');
