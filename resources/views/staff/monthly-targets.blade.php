@@ -107,6 +107,8 @@
             $fyRange = $fiscalYear->starts_on && $fiscalYear->ends_on
                 ? $fiscalYear->starts_on->format('j M Y').' – '.$fiscalYear->ends_on->format('j M Y')
                 : null;
+            $fyEndDay = $fiscalYear->ends_on ? \Carbon\Carbon::parse($fiscalYear->ends_on)->endOfDay() : null;
+            $fyAlreadyEnded = $fyEndDay && $fyEndDay->isPast();
         @endphp
 
         <p class="staff-mis-note">
@@ -142,9 +144,15 @@
                     </select>
                 </div>
                 @if ($fyRange)
-                    <span class="staff-mis-fy-hint">Covers <strong>{{ $fyRange }}</strong> (M1 = first month of this FY).</span>
+                    <span class="staff-mis-fy-hint">Covers <strong>{{ $fyRange }}</strong> (M1 = first month of this FY). Each column <strong>M1…M12</strong> is a calendar month <em>inside this range only</em> — e.g. for FY 2025-26, “M2 May” means <strong>May 2025</strong>, not May 2026.</span>
                 @endif
             </form>
+            @if ($fyAlreadyEnded)
+                <div class="staff-mis-empty" style="background:#eff6ff;border-color:#93c5fd;color:#1e3a8a;margin-top:0.75rem;max-width:52rem;">
+                    <strong>This fiscal year has already closed</strong> (ended {{ $fiscalYear->ends_on?->format('j M Y') ?? '—' }}).
+                    Phase 3 <strong>Services</strong> approvals dated <strong>after</strong> that are counted in the <strong>next</strong> fiscal year on this page — pick the latest FY (e.g. FY 2026-27) in the dropdown above to see those achievements.
+                </div>
+            @endif
             @if ($collapsedCount > 0)
                 <button type="button" class="staff-mis-show-all" id="staffMisExpandAll" aria-expanded="false">
                     Show all activities ({{ $collapsedCount }} collapsed)
