@@ -278,7 +278,7 @@
                             </table>
                         </div>
                     </div>
-                    <p class="staff-mis-footnote">Phase 2 legacy achievements <strong>selected FY</strong> ki dates ke andar count hote hain (M1–M12). Phase 3 <strong>approved</strong> service cases (Services → maker–checker) isi FY mein <code>approved_at</code> (ya complete/submit time) ke mahine se count hote hain; catalog <code>svc_*</code> deliverable ko jahan bana ho wahan <strong>core MIS deliverable</strong> (jaise <code>artisan_card</code>) par bhi roll-up hota hai taaki targets wali row par achievement dikhe. FY dropdown wahi chunein jisme approval date aati ho (May 2026 → FY 2026-27). MUY CFA referrals alag se isi FY ke <code>cfa_submissions</code> se.</p>
+                    <p class="staff-mis-footnote">Phase 2 legacy achievements are counted inside the <strong>selected FY</strong> date window (M1–M12). Phase 3 <strong>approved</strong> service cases (Services → maker–checker) are counted in the month of <code>approved_at</code> (or completed/submit time if approval time is missing) within that same FY. Catalog <code>svc_*</code> lines roll up to the matching <strong>core MIS deliverable</strong> (for example <code>artisan_card</code>) so totals appear on the same row as your targets. Pick the FY dropdown that contains your approval date (e.g. May 2026 → FY 2026-27). MUY CFA referrals are counted separately from <code>cfa_submissions</code> for this FY.</p>
                 </div>
             </details>
         @endforeach
