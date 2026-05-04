@@ -18,6 +18,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Throwable;
 
 class StaffServiceCaseController extends Controller
 {
@@ -109,7 +110,12 @@ class StaffServiceCaseController extends Controller
         $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
 
-        $services = $this->pickerServices();
+        try {
+            $services = $this->pickerServices();
+        } catch (Throwable $e) {
+            report($e);
+            $services = collect();
+        }
 
         $eligible = $this->eligibleSubmissions($staff);
         $prefillId = (int) $request->query('cfa_submission_id', 0);
@@ -117,7 +123,12 @@ class StaffServiceCaseController extends Controller
             $prefillId = 0;
         }
         $prefillLegacyId = (int) $request->query('legacy_application_id', 0);
-        $legacyRows = $this->legacyApplications->eligibleLegacyApplicationsForStaff($staff);
+        try {
+            $legacyRows = $this->legacyApplications->eligibleLegacyApplicationsForStaff($staff);
+        } catch (Throwable $e) {
+            report($e);
+            $legacyRows = collect();
+        }
         if ($prefillLegacyId > 0 && ! $legacyRows->contains(fn ($r) => (int) $r->id === $prefillLegacyId)) {
             $prefillLegacyId = 0;
         }
@@ -150,16 +161,40 @@ class StaffServiceCaseController extends Controller
 
         $existingPairs = $existingCfaPairs->merge($existingLegacyPairs)->values();
 
-        $legacyPriorJson = $legacyRows->mapWithKeys(function ($row) {
-            $id = (int) $row->id;
+        try {
+            $legacyPriorJson = $legacyRows->mapWithKeys(function ($row) {
+                $id = (int) $row->id;
+
+                return [
+                    $id => [
+                        'prior' => $this->legacyApplications->legacyAssignedServicesForDisplay($id),
+                        'blocked_service_ids' => $this->legacyApplications->blockedServiceIds($id, null),
+                    ],
+                ];
+            })->all();
+        } catch (Throwable $e) {
+            report($e);
+            $legacyPriorJson = [];
+        }
+
+        $servicesJson = $services->map(function (Service $s) {
+            $schema = [];
+            try {
+                $schema = ServiceFieldTypes::normalizeSchema($s->field_schema ?? []);
+            } catch (Throwable $e) {
+                report($e);
+            }
 
             return [
-                $id => [
-                    'prior' => $this->legacyApplications->legacyAssignedServicesForDisplay($id),
-                    'blocked_service_ids' => $this->legacyApplications->blockedServiceIds($id, null),
-                ],
+                'id' => $s->id,
+                'name' => $s->name,
+                'category_name' => $s->category?->name ?? 'Other',
+                'requires_document' => (bool) $s->requires_document,
+                'requires_approval' => (bool) $s->requires_approval,
+                'allows_multiple' => (bool) $s->allows_multiple,
+                'schema' => $schema,
             ];
-        })->all();
+        })->values();
 
         return view('staff.services.create', [
             'submissions' => $eligible->get(),
@@ -168,15 +203,7 @@ class StaffServiceCaseController extends Controller
             'defaultCfaSubmissionId' => $prefillId,
             'defaultLegacyApplicationId' => $prefillLegacyId,
             'services' => $services,
-            'servicesJson' => $services->map(fn (Service $s) => [
-                'id' => $s->id,
-                'name' => $s->name,
-                'category_name' => $s->category?->name ?? 'Other',
-                'requires_document' => (bool) $s->requires_document,
-                'requires_approval' => (bool) $s->requires_approval,
-                'allows_multiple' => (bool) $s->allows_multiple,
-                'schema' => ServiceFieldTypes::normalizeSchema($s->field_schema ?? []),
-            ])->values(),
+            'servicesJson' => $servicesJson,
             'existingNonMultiplePairs' => $existingPairs,
         ]);
     }
