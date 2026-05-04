@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CfaSubmission;
 use App\Models\District;
+use App\Models\FiscalYear;
 use App\Services\CfaSubmissionAuditSnapshot;
+use Carbon\Carbon;
 use App\Services\LegacyPhase2ApplicationDetailService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -178,11 +180,26 @@ class CfaSubmissionController extends Controller
     }
 
     /**
+     * Same CFA scope as the state dashboard hero counts (see StateAdminDashboardService $phase3Scope).
+     */
+    private function applyPhase3DashboardScope(Builder $query): Builder
+    {
+        $phase3FloorDate = Carbon::create(2026, 4, 1)->startOfDay();
+        $activeFyId = (int) (optional(FiscalYear::phase3Default())->id ?? 0);
+
+        return $query->when(
+            $activeFyId > 0,
+            fn ($q) => $q->where('fiscal_year_id', $activeFyId),
+            fn ($q) => $q->where('created_at', '>=', $phase3FloorDate)
+        );
+    }
+
+    /**
      * @param  array{name: string, district_id: int|null, sector: string, from: string, to: string}  $filters
      */
     private function filteredQuery(array $filters): Builder
     {
-        return CfaSubmission::query()
+        return $this->applyPhase3DashboardScope(CfaSubmission::query())
             ->when($filters['name'] !== '', fn ($q) => $q->where('applicant_name', 'like', '%'.$filters['name'].'%'))
             ->when($filters['district_id'], fn ($q) => $q->where('district_id', $filters['district_id']))
             ->when($filters['sector'] !== '', fn ($q) => $q->whereRaw(

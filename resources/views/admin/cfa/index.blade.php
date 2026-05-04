@@ -128,7 +128,7 @@
             </form>
 
             <p class="mt-3 text-sm text-slate-500">
-                Public form submissions (referral-linked) for all-time Phase 3 data. Newest first.
+                Same scope as the state dashboard CFA total (active FY when set, otherwise from 01 Apr 2026). CSV download uses this scope plus any filters above. Newest first.
                 @if ($cfaHasFilters)
                     &mdash; <span class="font-medium text-indigo-600">{{ $submissions->total() }} result(s) found</span>
                 @endif
