@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CfaSubmission;
 use App\Models\Deliverable;
 use App\Models\FiscalYear;
+use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\StaffMonthlyTarget;
 use App\Models\User;
@@ -193,8 +194,13 @@ class StaffMonthlyTargetsDashboardService
         $out = [];
         $rollupCache = [];
 
+        $districtId = (int) ($user->district_id ?? 0);
+
         $cases = ServiceCase::query()
-            ->where('status', ServiceCase::STATUS_APPROVED)
+            ->where(function ($q): void {
+                $q->where('status', ServiceCase::STATUS_APPROVED)
+                    ->orWhere('status', ServiceCase::STATUS_COMPLETED);
+            })
             ->where(function ($q) use ($userId): void {
                 $q->where('submitted_by', $userId)
                     ->orWhere(function ($inner) use ($userId): void {
@@ -203,6 +209,13 @@ class StaffMonthlyTargetsDashboardService
                         })->where('created_by', $userId);
                     });
             })
+            ->when(
+                $districtId > 0,
+                fn ($q) => $q->whereHas(
+                    'cfaSubmission',
+                    fn ($qq) => $qq->where('district_id', $districtId)
+                )
+            )
             ->whereHas('service', fn ($q) => $q->whereNotNull('deliverable_id'))
             ->with(['service:id,deliverable_id,code'])
             ->get([
@@ -213,10 +226,6 @@ class StaffMonthlyTargetsDashboardService
             ]);
 
         foreach ($cases as $case) {
-            $deliverableId = (int) ($case->service?->deliverable_id ?? 0);
-            if ($deliverableId < 1) {
-                continue;
-            }
             $at = $case->approved_at ?? $case->completed_at ?? $case->submitted_at;
             if ($at === null) {
                 continue;
@@ -228,7 +237,7 @@ class StaffMonthlyTargetsDashboardService
             if ($idx === null) {
                 continue;
             }
-            foreach ($this->phase3RollupDeliverableIds($deliverableId, $rollupCache) as $did) {
+            foreach ($this->achievementDeliverableIdsForService($case->service, $rollupCache) as $did) {
                 if (! isset($out[$did])) {
                     $out[$did] = array_fill(1, 12, 0);
                 }
@@ -274,10 +283,12 @@ class StaffMonthlyTargetsDashboardService
         if (str_starts_with($code, 'svc_')) {
             $suffix = substr($code, strlen('svc_'));
             if ($suffix !== '') {
+                $suffixKey = strtolower($suffix);
                 $core = Deliverable::query()
-                    ->where('code', $suffix)
+                    ->whereRaw('LOWER(code) = ?', [$suffixKey])
                     ->where('id', '!=', $d->id)
                     ->orderBy('sort_order')
+                    ->orderBy('id')
                     ->first();
                 if ($core !== null) {
                     $ids[] = (int) $core->id;
@@ -285,8 +296,10 @@ class StaffMonthlyTargetsDashboardService
             }
         } else {
             $synced = Deliverable::query()
-                ->where('code', 'svc_'.$code)
+                ->whereRaw('LOWER(code) = ?', ['svc_'.strtolower($code)])
                 ->where('id', '!=', $d->id)
+                ->orderBy('sort_order')
+                ->orderBy('id')
                 ->first();
             if ($synced !== null) {
                 $ids[] = (int) $synced->id;
@@ -296,5 +309,43 @@ class StaffMonthlyTargetsDashboardService
         $cache[$deliverableId] = array_values(array_unique($ids));
 
         return $cache[$deliverableId];
+    }
+
+    /**
+     * Credit Phase 3 approved cases to every MIS / catalog deliverable row that should reflect them.
+     * Category target mode uses {@code svc_cat_*} on the service; staff rows still use core MIS codes
+     * (matched via {@see Service::$code} → {@see Deliverable::$code}).
+     *
+     * @param  array<int, list<int>>  $rollupCache
+     * @return list<int>
+     */
+    private function achievementDeliverableIdsForService(?Service $service, array &$rollupCache): array
+    {
+        if ($service === null) {
+            return [];
+        }
+
+        $ids = [];
+        $linkedId = (int) ($service->deliverable_id ?? 0);
+        if ($linkedId > 0) {
+            foreach ($this->phase3RollupDeliverableIds($linkedId, $rollupCache) as $id) {
+                $ids[] = $id;
+            }
+        }
+
+        $svcCode = strtolower(trim((string) ($service->code ?? '')));
+        if ($svcCode !== '' && ! str_starts_with($svcCode, 'svc')) {
+            $misLine = Deliverable::query()
+                ->whereRaw('LOWER(TRIM(code)) = ?', [$svcCode])
+                ->whereRaw('LOWER(code) NOT LIKE ?', ['svc%'])
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->first();
+            if ($misLine !== null) {
+                $ids[] = (int) $misLine->id;
+            }
+        }
+
+        return array_values(array_unique(array_filter($ids, fn (int $id) => $id > 0)));
     }
 }
