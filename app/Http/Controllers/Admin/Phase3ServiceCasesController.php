@@ -7,21 +7,27 @@ use App\Models\District;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCaseAttachment;
+use App\Services\LegacyApplicationServiceCaseSupport;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Font;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Phase3ServiceCasesController extends Controller
 {
+    private bool $legacyPhase2JoinsApplied = false;
+
+    private ?string $legacyPhase2DbSafe = null;
+
     public function index(Request $request): View
     {
         $filters = $this->validatedFilters($request);
@@ -56,7 +62,7 @@ class Phase3ServiceCasesController extends Controller
             ->withQueryString();
 
         $summaryRows = (clone $baseQuery)
-            ->select('service_cases.status', DB::raw('COUNT(*) as total'))
+            ->select('service_cases.status', DB::raw('COUNT(DISTINCT service_cases.id) as total'))
             ->groupBy('service_cases.status')
             ->pluck('total', 'status');
 
@@ -68,21 +74,25 @@ class Phase3ServiceCasesController extends Controller
             'rejected' => (int) ($summaryRows[ServiceCase::STATUS_REJECTED] ?? 0),
         ];
 
-        $districtCountsRows = (clone $baseQuery)
-            ->select('cfa_submissions.district_id', DB::raw('COUNT(*) as total'))
-            ->groupBy('cfa_submissions.district_id')
-            ->pluck('total', 'district_id');
+        $statsQuery = $this->buildFilteredQuery($filters);
+        $this->applyFilters($statsQuery, $filters, ignoreDistrictFilter: true);
 
         $districtCounts = District::query()
             ->orderBy('name')
             ->get(['id', 'name'])
-            ->map(function (District $district) use ($districtCountsRows): array {
+            ->map(function (District $district) use ($statsQuery): array {
+                $row = clone $statsQuery;
+                $this->constrainToLaravelDistrict($row, (int) $district->id);
+                $total = $this->countDistinctServiceCases($row);
+
                 return [
                     'id' => (int) $district->id,
                     'name' => (string) $district->name,
-                    'total' => (int) ($districtCountsRows[$district->id] ?? 0),
+                    'total' => $total,
                 ];
             });
+
+        $legacyPreviews = $this->buildLegacyPreviewMap($cases->getCollection());
 
         return view('admin.phase3-services.index', [
             'cases' => $cases,
@@ -91,6 +101,7 @@ class Phase3ServiceCasesController extends Controller
             'services' => Service::query()->orderBy('name')->get(['id', 'name', 'service_category_id']),
             'districts' => District::query()->orderBy('name')->get(['id', 'name']),
             'districtCounts' => $districtCounts,
+            'legacyPreviews' => $legacyPreviews,
         ]);
     }
 
@@ -101,6 +112,7 @@ class Phase3ServiceCasesController extends Controller
         $this->applyFilters($query, $filters);
 
         $rows = $query->orderByDesc('service_cases.created_at')->get();
+        $legacyPreviews = $this->buildLegacyPreviewMap($rows);
 
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
@@ -149,21 +161,22 @@ class Phase3ServiceCasesController extends Controller
         $sheet->getRowDimension(1)->setRowHeight(22);
 
         $statusColors = [
-            'approved'         => 'D1FAE5',
+            'approved' => 'D1FAE5',
             'pending_approval' => 'FEF3C7',
-            'sent_back'        => 'FFEDD5',
-            'rejected'         => 'FEE2E2',
-            'draft'            => 'F3F4F6',
-            'cancelled'        => 'F1F5F9',
+            'sent_back' => 'FFEDD5',
+            'rejected' => 'FEE2E2',
+            'draft' => 'F3F4F6',
+            'cancelled' => 'F1F5F9',
         ];
 
         $rowNum = 2;
         foreach ($rows as $case) {
+            $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
             $sheet->setCellValue('A'.$rowNum, $rowNum - 1);
             $sheet->setCellValue('B'.$rowNum, (string) ($case->reference_number ?: ''));
-            $sheet->setCellValue('C'.$rowNum, (string) ($case->cfaSubmission?->application_no ?? ''));
-            $sheet->setCellValue('D'.$rowNum, (string) ($case->cfaSubmission?->applicant_name ?? ''));
-            $sheet->setCellValue('E'.$rowNum, (string) ($case->cfaSubmission?->district?->name ?? ''));
+            $sheet->setCellValue('C'.$rowNum, (string) ($case->cfaSubmission?->application_no ?? ($lp['application_no'] ?? '')));
+            $sheet->setCellValue('D'.$rowNum, (string) ($case->cfaSubmission?->applicant_name ?? ($lp['applicant_name'] ?? '')));
+            $sheet->setCellValue('E'.$rowNum, (string) ($case->cfaSubmission?->district?->name ?? ($lp['district'] ?? '')));
             $sheet->setCellValue('F'.$rowNum, (string) ($case->service?->category?->name ?? ''));
             $sheet->setCellValue('G'.$rowNum, (string) ($case->service?->name ?? ''));
             $sheet->setCellValue('H'.$rowNum, strtoupper((string) ($case->service?->reporting_tier ?? 'UNSET')));
@@ -242,7 +255,7 @@ class Phase3ServiceCasesController extends Controller
         ]);
     }
 
-    private function applyFilters($query, array $filters): void
+    private function applyFilters($query, array $filters, bool $ignoreDistrictFilter = false): void
     {
         if ($filters['q'] !== '') {
             $like = '%'.$filters['q'].'%';
@@ -250,11 +263,22 @@ class Phase3ServiceCasesController extends Controller
                 $q->where('service_cases.reference_number', 'like', $like)
                     ->orWhere('cfa_submissions.application_no', 'like', $like)
                     ->orWhere('cfa_submissions.applicant_name', 'like', $like);
+                if ($this->legacyPhase2JoinsApplied) {
+                    $q->orWhere('legacy_phase2_app.application_no', 'like', $like);
+                }
+                if ($this->legacyPhase2DbSafe !== null) {
+                    $db = $this->legacyPhase2DbSafe;
+                    $q->orWhereExists(function ($sub) use ($like, $db): void {
+                        $sub->from(DB::raw("`{$db}`.`rbi_applicant_details` as d"))
+                            ->whereColumn('d.application_id', 'service_cases.legacy_application_id')
+                            ->where('d.applicant_name', 'like', $like);
+                    });
+                }
             });
         }
 
-        if ($filters['district_id'] > 0) {
-            $query->where('cfa_submissions.district_id', $filters['district_id']);
+        if (! $ignoreDistrictFilter && $filters['district_id'] > 0) {
+            $this->constrainToLaravelDistrict($query, $filters['district_id']);
         }
 
         if ($filters['service_id'] > 0) {
@@ -288,9 +312,27 @@ class Phase3ServiceCasesController extends Controller
 
     private function buildFilteredQuery(array $filters)
     {
-        return ServiceCase::query()
+        $this->legacyPhase2JoinsApplied = false;
+        $this->legacyPhase2DbSafe = null;
+
+        $support = app(LegacyApplicationServiceCaseSupport::class);
+        $query = ServiceCase::query()
             ->select('service_cases.*')
-            ->join('cfa_submissions', 'cfa_submissions.id', '=', 'service_cases.cfa_submission_id')
+            ->leftJoin('cfa_submissions', 'cfa_submissions.id', '=', 'service_cases.cfa_submission_id');
+
+        $legacyDb = (string) config('database.connections.legacy.database', '');
+        if ($legacyDb !== '' && $support->legacyDbAvailable()) {
+            $this->legacyPhase2JoinsApplied = true;
+            $this->legacyPhase2DbSafe = str_replace('`', '``', $legacyDb);
+            $query->leftJoin(
+                DB::raw("`{$this->legacyPhase2DbSafe}`.`rbi_applications` as legacy_phase2_app"),
+                'legacy_phase2_app.id',
+                '=',
+                'service_cases.legacy_application_id'
+            );
+        }
+
+        return $query
             ->with([
                 'service.category:id,name',
                 'cfaSubmission:id,application_no,applicant_name,district_id',
@@ -300,6 +342,85 @@ class Phase3ServiceCasesController extends Controller
                 'approver:id,name',
                 'attachments:id,service_case_id,disk,path,original_name,mime_type,size_bytes',
             ]);
+    }
+
+    private function constrainToLaravelDistrict($query, int $laravelDistrictId): void
+    {
+        $support = app(LegacyApplicationServiceCaseSupport::class);
+        $names = $support->legacyDistrictNameCandidatesForLaravelDistrictId($laravelDistrictId);
+        $validNames = [];
+        foreach ($names as $n) {
+            $norm = mb_strtolower(trim($n));
+            if ($norm !== '') {
+                $validNames[] = $norm;
+            }
+        }
+
+        $db = $this->legacyPhase2DbSafe;
+
+        $query->where(function ($w) use ($laravelDistrictId, $validNames, $db): void {
+            $w->where('cfa_submissions.district_id', $laravelDistrictId);
+            if ($validNames === [] || $db === null) {
+                return;
+            }
+            $w->orWhere(function ($inner) use ($validNames, $db): void {
+                $inner->whereNotNull('service_cases.legacy_application_id');
+                $inner->whereExists(function ($sub) use ($validNames, $db): void {
+                    $sub->from(DB::raw("`{$db}`.`rbi_applicant_details` as d"))
+                        ->whereColumn('d.application_id', 'service_cases.legacy_application_id');
+                    $sub->where(function ($nameMatch) use ($validNames): void {
+                        $first = true;
+                        foreach ($validNames as $norm) {
+                            if ($first) {
+                                $nameMatch->whereRaw('LOWER(TRIM(COALESCE(d.district, ""))) = ?', [$norm]);
+                                $first = false;
+                            } else {
+                                $nameMatch->orWhereRaw('LOWER(TRIM(COALESCE(d.district, ""))) = ?', [$norm]);
+                            }
+                        }
+                    });
+                });
+            });
+        });
+    }
+
+    /**
+     * @param  Collection<int, ServiceCase>|\Illuminate\Database\Eloquent\Collection<int, ServiceCase>  $cases
+     * @return array<int, array{applicant_name: string, application_no: string, district: string}|null>
+     */
+    private function buildLegacyPreviewMap($cases): array
+    {
+        $support = app(LegacyApplicationServiceCaseSupport::class);
+        if (! $support->legacyDbAvailable()) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($cases as $case) {
+            $lid = (int) ($case->legacy_application_id ?? 0);
+            if ($lid < 1 || array_key_exists($lid, $out)) {
+                continue;
+            }
+            $out[$lid] = $support->incubateePreview($lid);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  Builder<ServiceCase>  $query
+     */
+    private function countDistinctServiceCases($query): int
+    {
+        $q = clone $query;
+        $base = $q->getQuery();
+        $base->columns = null;
+        $base->orders = null;
+        $base->unionOrders = null;
+        $base->limit = null;
+        $base->offset = null;
+
+        return (int) $q->selectRaw('COUNT(DISTINCT service_cases.id) as aggregate')->value('aggregate');
     }
 
     private function validatedFilters(Request $request): array
@@ -324,7 +445,7 @@ class Phase3ServiceCasesController extends Controller
             return '';
         }
         $dt = $value instanceof Carbon ? $value : Carbon::parse((string) $value);
+
         return $dt->format('Y-m-d H:i');
     }
-
 }

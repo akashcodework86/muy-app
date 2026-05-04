@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\StateStaff;
 
 use App\Http\Controllers\Controller;
-use App\Models\DistrictServiceSpoc;
 use App\Models\District;
+use App\Models\DistrictServiceSpoc;
 use App\Models\OnboardingBatch;
 use App\Models\ServiceCase;
 use App\Models\ServiceCaseEvent;
 use App\Models\User;
 use App\Notifications\ServiceCaseWorkflowNotification;
 use App\Services\AppSettingsService;
+use App\Services\LegacyApplicationServiceCaseSupport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class SpocServiceCaseController extends Controller
 {
     public function __construct(
         private AppSettingsService $settings,
+        private LegacyApplicationServiceCaseSupport $legacyApplications,
     ) {}
 
     public function index(Request $request): View
@@ -42,11 +44,32 @@ class SpocServiceCaseController extends Controller
         if ($districtId > 0 && ! in_array($districtId, $districtIds, true)) {
             $districtId = 0;
         }
+        $legacyAppIds = $this->legacyApplicationIdsForSpocDistricts($districtIds);
+
         $scopeBase = ServiceCase::query()
-            ->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds));
+            ->where(function ($outer) use ($districtIds, $legacyAppIds): void {
+                $outer->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds));
+                if ($legacyAppIds !== []) {
+                    $outer->orWhere(function ($qq) use ($legacyAppIds): void {
+                        $qq->whereNotNull('legacy_application_id')
+                            ->whereNull('cfa_submission_id')
+                            ->whereIn('legacy_application_id', $legacyAppIds);
+                    });
+                }
+            });
 
         if ($districtId > 0) {
-            $scopeBase->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
+            $legacyForOne = $this->legacyApplications->legacyApplicationIdsInLaravelDistrict($districtId);
+            $scopeBase->where(function ($qq) use ($districtId, $legacyForOne): void {
+                $qq->whereHas('cfaSubmission', fn ($q) => $q->where('district_id', $districtId));
+                if ($legacyForOne !== []) {
+                    $qq->orWhere(function ($q) use ($legacyForOne): void {
+                        $q->whereNotNull('legacy_application_id')
+                            ->whereNull('cfa_submission_id')
+                            ->whereIn('legacy_application_id', $legacyForOne);
+                    });
+                }
+            });
         }
         if ($batchId > 0) {
             $scopeBase->whereHas('cfaSubmission.onboardingBatchMembership', fn ($qq) => $qq->where('onboarding_batch_id', $batchId));
@@ -88,6 +111,14 @@ class SpocServiceCaseController extends Controller
         }
 
         $cases = $q->orderByDesc('updated_at')->paginate(20)->withQueryString();
+
+        $cases->getCollection()->transform(function (ServiceCase $case) {
+            if ($case->legacy_application_id && ! $case->cfa_submission_id) {
+                $case->legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $case->legacy_application_id);
+            }
+
+            return $case;
+        });
 
         $districtOptions = District::query()
             ->whereIn('id', $districtIds)
@@ -133,8 +164,14 @@ class SpocServiceCaseController extends Controller
             'rejector',
         ]);
 
+        $legacyIncubateePreview = null;
+        if ($service_case->legacy_application_id && ! $service_case->cfa_submission_id) {
+            $legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $service_case->legacy_application_id);
+        }
+
         return view('spoc.service-cases.show', [
             'case' => $service_case,
+            'legacyIncubateePreview' => $legacyIncubateePreview,
         ]);
     }
 
@@ -346,8 +383,7 @@ class SpocServiceCaseController extends Controller
 
     private function assertCaseInSpocDistrict(ServiceCase $case, int $spocUserId): void
     {
-        $case->loadMissing('cfaSubmission');
-        $districtId = (int) ($case->cfaSubmission?->district_id ?? 0);
+        $districtId = $this->resolveCaseDistrictId($case);
         abort_unless($districtId > 0, 404);
 
         $allowed = DistrictServiceSpoc::query()
@@ -356,6 +392,38 @@ class SpocServiceCaseController extends Controller
             ->exists();
 
         abort_unless($allowed, 403);
+    }
+
+    private function resolveCaseDistrictId(ServiceCase $case): int
+    {
+        $case->loadMissing('cfaSubmission');
+        if ($case->cfa_submission_id && $case->cfaSubmission) {
+            return (int) $case->cfaSubmission->district_id;
+        }
+
+        if ($case->legacy_application_id) {
+            $resolved = $this->legacyApplications->laravelDistrictIdForLegacyApplication((int) $case->legacy_application_id);
+
+            return (int) ($resolved ?? 0);
+        }
+
+        return 0;
+    }
+
+    /**
+     * @param  list<int>  $districtIds
+     * @return list<int>
+     */
+    private function legacyApplicationIdsForSpocDistricts(array $districtIds): array
+    {
+        $out = [];
+        foreach ($districtIds as $did) {
+            foreach ($this->legacyApplications->legacyApplicationIdsInLaravelDistrict((int) $did) as $lid) {
+                $out[] = $lid;
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     private function notifyDistrictStaff(ServiceCase $serviceCase, User $spoc, string $action): void
@@ -415,4 +483,3 @@ class SpocServiceCaseController extends Controller
         ]));
     }
 }
-

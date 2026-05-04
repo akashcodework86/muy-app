@@ -36,6 +36,7 @@ class ServiceCase extends Model
 
     protected $fillable = [
         'cfa_submission_id',
+        'legacy_application_id',
         'service_id',
         'status',
         'payload',

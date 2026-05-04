@@ -419,6 +419,7 @@
                     <tbody>
                         @foreach ($cases as $case)
                             @php
+                                $lip = $case->legacyIncubateePreview ?? null;
                                 $statusSlug = strtolower(str_replace(' ', '_', (string) $case->status));
                                 $pendingDays = null;
                                 if ($case->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL) {
@@ -444,8 +445,8 @@
                                     $responseClass = 'svc-response--rejected';
                                 }
                                 $searchText = strtolower(trim(
-                                    ($case->cfaSubmission?->applicant_name ?? '').' '.
-                                    ($case->cfaSubmission?->application_no ?? '').' '.
+                                    ($case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '') : '')).' '.
+                                    ($case->cfaSubmission?->application_no ?? (is_array($lip) ? ($lip['application_no'] ?? '') : '')).' '.
                                     ($case->service?->name ?? '').' '.
                                     str_replace('_', ' ', (string) $case->status).' '.
                                     ($case->spoc?->name ?? '').' '.
@@ -455,9 +456,11 @@
                             @endphp
                             <tr class="svc-row" data-search="{{ $searchText }}">
                                 <td>
-                                    <strong>{{ $case->cfaSubmission?->applicant_name ?? '—' }}</strong>
+                                    <strong>{{ $case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '—') : '—') }}</strong>
                                     @if ($case->cfaSubmission?->application_no)
                                         <div class="svc-muted">{{ $case->cfaSubmission->application_no }}</div>
+                                    @elseif (is_array($lip) && ($lip['application_no'] ?? '') !== '')
+                                        <div class="svc-muted">{{ $lip['application_no'] }} <span style="color:#94a3b8;">(legacy)</span></div>
                                     @endif
                                 </td>
                                 <td>{{ $case->service?->name ?? '—' }}</td>

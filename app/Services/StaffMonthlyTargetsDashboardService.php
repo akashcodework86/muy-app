@@ -5,8 +5,6 @@ namespace App\Services;
 use App\Models\CfaSubmission;
 use App\Models\Deliverable;
 use App\Models\FiscalYear;
-use App\Models\Service;
-use App\Models\ServiceCase;
 use App\Models\StaffMonthlyTarget;
 use App\Models\User;
 use App\Services\LegacyPhase2\LegacyRbiServicesAssignedAchievementService;
@@ -19,6 +17,7 @@ class StaffMonthlyTargetsDashboardService
         private StaffDeliverableMonthlyTargetService $targets,
         private LegacyRbiServicesAssignedAchievementService $legacyServicesAchievement,
         private Phase2TargetsPhpAchievementService $phase2TargetsAchievement,
+        private ServiceCaseAchievementService $serviceCaseAchievement,
     ) {}
 
     /**
@@ -98,7 +97,7 @@ class StaffMonthlyTargetsDashboardService
             ? $this->phase2TargetsAchievement->countsByDeliverableAndFiscalMonth($user, $fy)
             : $this->legacyServicesAchievement->countsByDeliverableAndFiscalMonth($user, $fy);
 
-        $phase3Achievement = $this->phase3ApprovedServiceCaseCountsByDeliverableAndFiscalMonth($user, $fy);
+        $appCaseAchievement = $this->serviceCaseAchievement->countsByDeliverableAndFiscalMonth($userId, $fy);
 
         $rows = [];
         $deliverables = Deliverable::query()
@@ -129,13 +128,14 @@ class StaffMonthlyTargetsDashboardService
 
             $legacyMonthly = $legacyAchievement[$d->id] ?? array_fill(1, 12, 0);
             $legacyAnnualTotal = array_sum($legacyMonthly);
-            $phase3Monthly = $phase3Achievement[$d->id] ?? array_fill(1, 12, 0);
-            $phase3AnnualTotal = array_sum($phase3Monthly);
+
+            $appCaseMonthly = $appCaseAchievement[$d->id] ?? array_fill(1, 12, 0);
+            $appCaseAnnualTotal = array_sum($appCaseMonthly);
 
             $hasDistrictTarget = $districtTarget !== null && (int) $districtTarget > 0;
             $tracksAchievement = $d->code === 'cfa'
                 || $legacyAnnualTotal > 0
-                || $phase3AnnualTotal > 0
+                || $appCaseAnnualTotal > 0
                 || $monthlySum > 0
                 || $hasDistrictTarget;
 
@@ -150,7 +150,7 @@ class StaffMonthlyTargetsDashboardService
                 }
             } elseif ($tracksAchievement) {
                 foreach (range(1, 12) as $m) {
-                    $v = max((int) $legacyMonthly[$m], (int) $phase3Monthly[$m]);
+                    $v = (int) $legacyMonthly[$m] + (int) $appCaseMonthly[$m];
                     $monthlyAchievement[$m] = $v;
                     $achievementAnnual += $v;
                 }
@@ -160,7 +160,7 @@ class StaffMonthlyTargetsDashboardService
                 || $monthlySum > 0
                 || $achievementAnnual > 0
                 || $legacyAnnualTotal > 0
-                || $phase3AnnualTotal > 0
+                || $appCaseAnnualTotal > 0
                 || $hasDistrictTarget;
 
             $rows[] = [
@@ -178,174 +178,5 @@ class StaffMonthlyTargetsDashboardService
         }
 
         return $rows;
-    }
-
-    /**
-     * Phase 3 maker–checker: approved service cases, bucketed by FY month (same ladder as {@see FiscalYear::fiscalMonthIndex()}).
-     *
-     * @return array<int, array<int, int>> deliverable_id => [ 1..12 => count ]
-     */
-    private function phase3ApprovedServiceCaseCountsByDeliverableAndFiscalMonth(User $user, FiscalYear $fy): array
-    {
-        $fyStart = Carbon::parse($fy->starts_on)->startOfDay();
-        $fyEnd = Carbon::parse($fy->ends_on)->endOfDay();
-        $userId = (int) $user->id;
-
-        $out = [];
-        $rollupCache = [];
-
-        $districtId = (int) ($user->district_id ?? 0);
-
-        $cases = ServiceCase::query()
-            ->where(function ($q): void {
-                $q->where('status', ServiceCase::STATUS_APPROVED)
-                    ->orWhere('status', ServiceCase::STATUS_COMPLETED);
-            })
-            ->where(function ($q) use ($userId): void {
-                $q->where('submitted_by', $userId)
-                    ->orWhere(function ($inner) use ($userId): void {
-                        $inner->where(function ($w): void {
-                            $w->whereNull('submitted_by')->orWhere('submitted_by', 0);
-                        })->where('created_by', $userId);
-                    });
-            })
-            ->when(
-                $districtId > 0,
-                fn ($q) => $q->whereHas(
-                    'cfaSubmission',
-                    fn ($qq) => $qq->where('district_id', $districtId)
-                )
-            )
-            ->whereHas('service', fn ($q) => $q->whereNotNull('deliverable_id'))
-            ->with(['service:id,deliverable_id,code'])
-            ->get([
-                'id',
-                'approved_at',
-                'completed_at',
-                'submitted_at',
-            ]);
-
-        foreach ($cases as $case) {
-            $at = $case->approved_at ?? $case->completed_at ?? $case->submitted_at;
-            if ($at === null) {
-                continue;
-            }
-            if ($at->lt($fyStart) || $at->gt($fyEnd)) {
-                continue;
-            }
-            $idx = $fy->fiscalMonthIndex($at);
-            if ($idx === null) {
-                continue;
-            }
-            foreach ($this->achievementDeliverableIdsForService($case->service, $rollupCache) as $did) {
-                if (! isset($out[$did])) {
-                    $out[$did] = array_fill(1, 12, 0);
-                }
-                $out[$did][$idx]++;
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * Map catalog sync deliverables ({@code svc_*}) onto core MIS rows (e.g. {@code artisan_card}) so
-     * achievement lands on the same row staff targets use.
-     *
-     * @param  array<int, list<int>>  $cache
-     * @return list<int>
-     */
-    private function phase3RollupDeliverableIds(int $deliverableId, array &$cache): array
-    {
-        if ($deliverableId < 1) {
-            return [];
-        }
-        if (isset($cache[$deliverableId])) {
-            return $cache[$deliverableId];
-        }
-
-        $d = Deliverable::query()->find($deliverableId);
-        if ($d === null) {
-            $cache[$deliverableId] = [$deliverableId];
-
-            return $cache[$deliverableId];
-        }
-
-        $code = (string) $d->code;
-        $ids = [(int) $d->id];
-
-        if (str_starts_with($code, 'svc_cat_')) {
-            $cache[$deliverableId] = $ids;
-
-            return $cache[$deliverableId];
-        }
-
-        if (str_starts_with($code, 'svc_')) {
-            $suffix = substr($code, strlen('svc_'));
-            if ($suffix !== '') {
-                $suffixKey = strtolower($suffix);
-                $core = Deliverable::query()
-                    ->whereRaw('LOWER(code) = ?', [$suffixKey])
-                    ->where('id', '!=', $d->id)
-                    ->orderBy('sort_order')
-                    ->orderBy('id')
-                    ->first();
-                if ($core !== null) {
-                    $ids[] = (int) $core->id;
-                }
-            }
-        } else {
-            $synced = Deliverable::query()
-                ->whereRaw('LOWER(code) = ?', ['svc_'.strtolower($code)])
-                ->where('id', '!=', $d->id)
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->first();
-            if ($synced !== null) {
-                $ids[] = (int) $synced->id;
-            }
-        }
-
-        $cache[$deliverableId] = array_values(array_unique($ids));
-
-        return $cache[$deliverableId];
-    }
-
-    /**
-     * Credit Phase 3 approved cases to every MIS / catalog deliverable row that should reflect them.
-     * Category target mode uses {@code svc_cat_*} on the service; staff rows still use core MIS codes
-     * (matched via {@see Service::$code} → {@see Deliverable::$code}).
-     *
-     * @param  array<int, list<int>>  $rollupCache
-     * @return list<int>
-     */
-    private function achievementDeliverableIdsForService(?Service $service, array &$rollupCache): array
-    {
-        if ($service === null) {
-            return [];
-        }
-
-        $ids = [];
-        $linkedId = (int) ($service->deliverable_id ?? 0);
-        if ($linkedId > 0) {
-            foreach ($this->phase3RollupDeliverableIds($linkedId, $rollupCache) as $id) {
-                $ids[] = $id;
-            }
-        }
-
-        $svcCode = strtolower(trim((string) ($service->code ?? '')));
-        if ($svcCode !== '' && ! str_starts_with($svcCode, 'svc')) {
-            $misLine = Deliverable::query()
-                ->whereRaw('LOWER(TRIM(code)) = ?', [$svcCode])
-                ->whereRaw('LOWER(code) NOT LIKE ?', ['svc%'])
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->first();
-            if ($misLine !== null) {
-                $ids[] = (int) $misLine->id;
-            }
-        }
-
-        return array_values(array_unique(array_filter($ids, fn (int $id) => $id > 0)));
     }
 }

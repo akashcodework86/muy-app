@@ -48,6 +48,15 @@
         border: 1px solid rgba(148, 163, 184, 0.3);
     }
     .batches-filters .fld { display: flex; flex-direction: column; gap: 0.25rem; min-width: 140px; }
+    .batches-filters .fld--grow { flex: 1 1 220px; min-width: 200px; max-width: 420px; }
+    .batches-banner {
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        border: 1px solid #fcd34d;
+        background: #fffbeb;
+        color: #92400e;
+        font-size: 0.88rem;
+    }
     .batches-filters label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; font-weight: 700; }
     .batches-filters select, .batches-filters input {
         padding: 0.45rem 0.6rem;
@@ -150,23 +159,45 @@
 @endpush
 
 @section('content')
+@php
+    $batchSource = $batchSource ?? 'phase3';
+    $routeLegacyShowName = $routeLegacyShowName ?? 'staff.batches.legacy.show';
+@endphp
 <div class="batches-shell">
+
+    @if (! empty($legacyRequestedButUnavailable))
+        <div class="batches-banner" role="status">
+            Legacy Phase 2 database is not available (set <code>LEGACY_DB_*</code> in <code>.env</code> and ensure tables
+            <code>rbi_onboarding_batches</code>, <code>rbi_onboarded_applicants</code>, <code>rbi_applicant_details</code>, <code>rbi_applications</code> exist). Showing Phase 3 batches only.
+        </div>
+    @endif
 
     {{-- Totals --}}
     <div class="batches-totals">
         <div class="card card--accent">
-            <div class="card__label">Total batches</div>
+            <div class="card__label">{{ $batchSource === 'legacy' ? 'Legacy batches' : 'Total batches' }}</div>
             <div class="card__value">{{ number_format($totals['total']) }}</div>
         </div>
-        <div class="card">
-            <div class="card__label">Locked</div>
-            <div class="card__value">{{ number_format($totals['locked']) }}</div>
-        </div>
-        <div class="card">
-            <div class="card__label">Draft</div>
-            <div class="card__value">{{ number_format($totals['draft']) }}</div>
-        </div>
-        @if ($scope['type'] === 'state')
+        @if ($batchSource === 'legacy')
+            <div class="card">
+                <div class="card__label">Source</div>
+                <div class="card__value" style="font-size:1.05rem; padding-top:0.35rem;">rbiphase2 · read-only</div>
+            </div>
+            <div class="card">
+                <div class="card__label">Phase 3</div>
+                <div class="card__value" style="font-size:1.05rem; padding-top:0.35rem;">Switch data source below to manage current FY batches.</div>
+            </div>
+        @else
+            <div class="card">
+                <div class="card__label">Locked</div>
+                <div class="card__value">{{ number_format($totals['locked']) }}</div>
+            </div>
+            <div class="card">
+                <div class="card__label">Draft</div>
+                <div class="card__value">{{ number_format($totals['draft']) }}</div>
+            </div>
+        @endif
+        @if ($scope['type'] === 'state' && $batchSource !== 'legacy')
             <div class="card">
                 <div class="card__label">Scope</div>
                 <div class="card__value" style="font-size:1.05rem; padding-top:0.35rem;">All hubs · all districts</div>
@@ -183,6 +214,24 @@
 
     {{-- Filters --}}
     <form method="get" action="{{ $routeIndex }}" class="batches-filters">
+        <div class="fld">
+            <label for="fld-source">Data source</label>
+            <select id="fld-source" name="source" onchange="this.form.submit()">
+                <option value="phase3" @selected($batchSource === 'phase3')>FY 2025-26 · Phase 3 (this MIS)</option>
+                <option value="legacy" @selected($batchSource === 'legacy') @if (empty($legacyDbConfigured) || empty($legacyTablesOk)) disabled @endif>Earlier phases · Legacy onboarding (rbiphase2)</option>
+            </select>
+        </div>
+        <div class="fld fld--grow">
+            <label for="fld-q">Search applicants / batch</label>
+            <input
+                id="fld-q"
+                type="search"
+                name="q"
+                value="{{ $filters['q'] ?? '' }}"
+                placeholder="Name, phone, application no., application id, batch id…"
+                autocomplete="off"
+            >
+        </div>
         @if ($scope['type'] === 'state')
             <div class="fld">
                 <label for="fld-hub">Hub</label>
@@ -208,16 +257,18 @@
                 </select>
             </div>
         @endif
-        <div class="fld">
-            <label for="fld-status">Status</label>
-            <select id="fld-status" name="status" onchange="this.form.submit()">
-                <option value="">All statuses</option>
-                <option value="locked"  @selected(($filters['status'] ?? '') === 'locked')>Locked</option>
-                <option value="draft"   @selected(($filters['status'] ?? '') === 'draft')>Draft</option>
-            </select>
-        </div>
+        @if ($batchSource === 'phase3')
+            <div class="fld">
+                <label for="fld-status">Status</label>
+                <select id="fld-status" name="status" onchange="this.form.submit()">
+                    <option value="">All statuses</option>
+                    <option value="locked"  @selected(($filters['status'] ?? '') === 'locked')>Locked</option>
+                    <option value="draft"   @selected(($filters['status'] ?? '') === 'draft')>Draft</option>
+                </select>
+            </div>
+        @endif
         <div class="actions">
-            @if (($filters['hub'] ?? null) || ($filters['district'] ?? null) || ($filters['status'] ?? null))
+            @if (($filters['hub'] ?? null) || ($filters['district'] ?? null) || ($filters['status'] ?? null) || ($filters['q'] ?? null) || $batchSource === 'legacy')
                 <a href="{{ $routeIndex }}" class="btn-sm">Clear</a>
             @endif
             <button type="submit" class="btn-sm btn-primary">Apply</button>
@@ -230,87 +281,116 @@
             <thead>
                 <tr>
                     <th>Batch</th>
-                    @if ($scope['type'] === 'state')
-                        <th>Hub</th>
+                    @if ($batchSource === 'phase3')
+                        @if ($scope['type'] === 'state')
+                            <th>Hub</th>
+                        @endif
+                        @if ($scope['type'] !== 'district')
+                            <th>District</th>
+                        @endif
+                        <th>Status</th>
+                        <th>Members</th>
+                        <th>Onboarding Letter</th>
+                        <th>Onboarding date</th>
+                        <th>Locked at</th>
+                    @else
+                        <th>Onboard district (legacy)</th>
+                        <th>Members</th>
                     @endif
-                    @if ($scope['type'] !== 'district')
-                        <th>District</th>
-                    @endif
-                    <th>Status</th>
-                    <th>Members</th>
-                    <th>Onboarding Letter</th>
-                    <th>Onboarding date</th>
-                    <th>Locked at</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse ($batches as $b)
-                    <tr>
-                        <td data-label="Batch">
-                            <a href="{{ route($routeShowName, $b->id) }}">{{ $b->name }}</a>
-                            <div class="muted">#{{ $b->id }}</div>
-                        </td>
-                        @if ($scope['type'] === 'state')
-                            <td data-label="Hub">{{ $b->hub?->name ?? '—' }}</td>
-                        @endif
-                        @if ($scope['type'] !== 'district')
-                            <td data-label="District">{{ $b->district?->name ?? '—' }}</td>
-                        @endif
-                        <td data-label="Status">
-                            @if ($b->status === 'locked')
-                                <span class="tag tag--locked">Locked</span>
-                            @elseif ($b->status === 'draft')
-                                <span class="tag tag--draft">Draft</span>
-                            @else
-                                <span class="tag tag--muted">{{ ucfirst($b->status) }}</span>
+                @if ($batchSource === 'legacy')
+                    @forelse ($batches as $b)
+                        <tr>
+                            <td data-label="Batch">
+                                <a href="{{ route($routeLegacyShowName, $b->id) }}">{{ $b->batch_name ?: '—' }}</a>
+                                <div class="muted">Legacy #{{ $b->id }}</div>
+                            </td>
+                            <td data-label="Onboard district">{{ $b->onboard_district ?: '—' }}</td>
+                            <td data-label="Members">
+                                <strong>{{ (int) ($b->member_count ?? 0) }}</strong>
+                            </td>
+                            <td data-label="Actions">
+                                <a href="{{ route($routeLegacyShowName, $b->id) }}" class="btn-sm">View</a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="empty-state">
+                                No legacy batches to show. Try adjusting hub / district filters or search.
+                            </td>
+                        </tr>
+                    @endforelse
+                @else
+                    @forelse ($batches as $b)
+                        <tr>
+                            <td data-label="Batch">
+                                <a href="{{ route($routeShowName, $b->id) }}">{{ $b->name }}</a>
+                                <div class="muted">#{{ $b->id }}</div>
+                            </td>
+                            @if ($scope['type'] === 'state')
+                                <td data-label="Hub">{{ $b->hub?->name ?? '—' }}</td>
                             @endif
-                        </td>
-                        <td data-label="Members">
-                            <strong>{{ $b->member_count }}</strong>
-                            <span class="muted">/ {{ $b->target_size }}</span>
-                        </td>
-                        <td data-label="Onboarding Letter">
-                            @if ($b->has_cdo_pdf)
-                                <span class="tag tag--ok">Uploaded</span>
-                                <a href="{{ route((auth()->user()->role === 'state_admin' ? 'admin' : 'staff').'.batches.onboarding-letter', $b->id) }}" style="margin-left:0.45rem;">View</a>
-                            @elseif ($b->cdo_overdue)
-                                <span class="tag tag--overdue">Overdue</span>
-                            @elseif ($b->cdo_pending)
-                                <span class="tag tag--pending">Pending</span>
-                            @else
-                                <span class="tag tag--muted">—</span>
+                            @if ($scope['type'] !== 'district')
+                                <td data-label="District">{{ $b->district?->name ?? '—' }}</td>
                             @endif
-                        </td>
-                        <td data-label="Onboarding">
-                            {{ optional($b->onboarding_date)->format('d M Y') ?? '—' }}
-                        </td>
-                        <td data-label="Locked at">
-                            {{ optional($b->locked_at)->timezone(config('app.timezone'))->format('d M Y, H:i') ?? '—' }}
-                        </td>
-                        <td data-label="Actions">
-                            <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;">
-                                <a href="{{ route($routeShowName, $b->id) }}" class="btn-sm">View</a>
-                                @if (($scope['type'] ?? '') === 'state' && $b->status === 'locked' && ! $b->has_cdo_pdf)
-                                    <form method="post" action="{{ route('admin.hub-batch-compliance.extend') }}" style="display:flex;gap:0.35rem;align-items:center;">
-                                        @csrf
-                                        <input type="hidden" name="onboarding_batch_id" value="{{ $b->id }}">
-                                        <input type="date" name="extended_until" required
-                                            value="{{ optional($b->pdf_deadline_extended_until ?? $b->locked_at?->copy()->addDays(5))->format('Y-m-d') }}"
-                                            style="padding:0.3rem 0.4rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.78rem;">
-                                        <button type="submit" class="btn-sm" style="padding:0.3rem 0.55rem;">Extend</button>
-                                    </form>
+                            <td data-label="Status">
+                                @if ($b->status === 'locked')
+                                    <span class="tag tag--locked">Locked</span>
+                                @elseif ($b->status === 'draft')
+                                    <span class="tag tag--draft">Draft</span>
+                                @else
+                                    <span class="tag tag--muted">{{ ucfirst($b->status) }}</span>
                                 @endif
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="9" class="empty-state">
-                            No batches to show.
-                        </td>
-                    </tr>
-                @endforelse
+                            </td>
+                            <td data-label="Members">
+                                <strong>{{ $b->member_count }}</strong>
+                                <span class="muted">/ {{ $b->target_size }}</span>
+                            </td>
+                            <td data-label="Onboarding Letter">
+                                @if ($b->has_cdo_pdf)
+                                    <span class="tag tag--ok">Uploaded</span>
+                                    <a href="{{ route((auth()->user()->role === 'state_admin' ? 'admin' : 'staff').'.batches.onboarding-letter', $b->id) }}" style="margin-left:0.45rem;">View</a>
+                                @elseif ($b->cdo_overdue)
+                                    <span class="tag tag--overdue">Overdue</span>
+                                @elseif ($b->cdo_pending)
+                                    <span class="tag tag--pending">Pending</span>
+                                @else
+                                    <span class="tag tag--muted">—</span>
+                                @endif
+                            </td>
+                            <td data-label="Onboarding">
+                                {{ optional($b->onboarding_date)->format('d M Y') ?? '—' }}
+                            </td>
+                            <td data-label="Locked at">
+                                {{ optional($b->locked_at)->timezone(config('app.timezone'))->format('d M Y, H:i') ?? '—' }}
+                            </td>
+                            <td data-label="Actions">
+                                <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;">
+                                    <a href="{{ route($routeShowName, $b->id) }}" class="btn-sm">View</a>
+                                    @if (($scope['type'] ?? '') === 'state' && $b->status === 'locked' && ! $b->has_cdo_pdf)
+                                        <form method="post" action="{{ route('admin.hub-batch-compliance.extend') }}" style="display:flex;gap:0.35rem;align-items:center;">
+                                            @csrf
+                                            <input type="hidden" name="onboarding_batch_id" value="{{ $b->id }}">
+                                            <input type="date" name="extended_until" required
+                                                value="{{ optional($b->pdf_deadline_extended_until ?? $b->locked_at?->copy()->addDays(5))->format('Y-m-d') }}"
+                                                style="padding:0.3rem 0.4rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.78rem;">
+                                            <button type="submit" class="btn-sm" style="padding:0.3rem 0.55rem;">Extend</button>
+                                        </form>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="9" class="empty-state">
+                                No batches to show.
+                            </td>
+                        </tr>
+                    @endforelse
+                @endif
             </tbody>
         </table>
         @if ($batches->hasPages())

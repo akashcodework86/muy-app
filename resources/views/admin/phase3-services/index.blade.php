@@ -22,6 +22,7 @@
             'cancelled' => 'background:#f8fafc;color:#475569;border:1px solid #e2e8f0;',
         ];
         $activeFilterCount = collect($filters)->filter(fn ($v) => (string) $v !== '')->count();
+        $legacyPreviews = $legacyPreviews ?? [];
     @endphp
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.7rem;margin-bottom:1rem;">
@@ -149,6 +150,7 @@
             <tbody>
                 @forelse ($cases as $case)
                     @php
+                        $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
                         $attachments = $case->attachments->map(fn ($a) => [
                             'id' => (int) $a->id,
                             'name' => (string) ($a->original_name ?: 'Attachment'),
@@ -163,10 +165,10 @@
                             <span style="font-weight:600;">{{ $case->reference_number ?: '—' }}</span>
                         </td>
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
-                            <div style="font-weight:700;color:#111827;">{{ $case->cfaSubmission?->applicant_name ?? '—' }}</div>
-                            <div style="font-size:0.78rem;color:#64748b;">{{ $case->cfaSubmission?->application_no ?? '—' }}</div>
+                            <div style="font-weight:700;color:#111827;">{{ $case->cfaSubmission?->applicant_name ?? ($lp['applicant_name'] ?? null) ?: '—' }}</div>
+                            <div style="font-size:0.78rem;color:#64748b;">{{ $case->cfaSubmission?->application_no ?? ($lp['application_no'] ?? null) ?: '—' }}</div>
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">{{ $case->cfaSubmission?->district?->name ?? '—' }}</td>
+                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">{{ $case->cfaSubmission?->district?->name ?? ($lp['district'] ?? null) ?: '—' }}</td>
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
                             <div style="font-weight:700;color:#111827;">{{ $case->service?->name ?? '—' }}</div>
                             <div style="font-size:0.78rem;color:#64748b;">{{ $case->service?->category?->name ?? '—' }}</div>

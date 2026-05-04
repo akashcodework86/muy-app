@@ -140,11 +140,30 @@
 
     <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:52rem;margin-bottom:1rem;">
         <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">Incubatee</h3>
-        <p style="margin:0;font-size:0.88rem;"><strong>{{ $case->cfaSubmission?->applicant_name ?? '—' }}</strong></p>
+        @php $lip = $legacyIncubateePreview ?? null; @endphp
+        <p style="margin:0;font-size:0.88rem;"><strong>
+            @if ($case->cfaSubmission)
+                {{ $case->cfaSubmission->applicant_name }}
+            @elseif (is_array($lip))
+                {{ $lip['applicant_name'] ?? '—' }}
+            @else
+                —
+            @endif
+        </strong></p>
         <p style="margin:0.25rem 0 0;font-size:0.82rem;color:#52525b;">
-            {{ $case->cfaSubmission?->application_no ?? '—' }}
-            @if ($case->cfaSubmission?->district?->name)
-                · {{ $case->cfaSubmission->district->name }}
+            @if ($case->cfaSubmission)
+                {{ $case->cfaSubmission->application_no ?? '—' }}
+                @if ($case->cfaSubmission->district?->name)
+                    · {{ $case->cfaSubmission->district->name }}
+                @endif
+            @elseif (is_array($lip))
+                {{ $lip['application_no'] ?? '—' }}
+                @if (($lip['district'] ?? '') !== '')
+                    · {{ $lip['district'] }}
+                @endif
+                <span style="color:#64748b;"> · Legacy #{{ $case->legacy_application_id }}</span>
+            @else
+                —
             @endif
         </p>
     </div>

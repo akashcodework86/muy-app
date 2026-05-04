@@ -183,12 +183,13 @@
                 <tbody>
                     @foreach ($cases as $case)
                         @php
+                            $lip = $case->legacyIncubateePreview ?? null;
                             $statusClass = strtolower((string) $case->status);
                             $search = strtolower(trim(
-                                ($case->cfaSubmission?->applicant_name ?? '').' '.
-                                ($case->cfaSubmission?->application_no ?? '').' '.
+                                ($case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '') : '')).' '.
+                                ($case->cfaSubmission?->application_no ?? (is_array($lip) ? ($lip['application_no'] ?? '') : '')).' '.
                                 ($case->service?->name ?? '').' '.
-                                ($case->cfaSubmission?->district?->name ?? '').' '.
+                                ($case->cfaSubmission?->district?->name ?? (is_array($lip) ? ($lip['district'] ?? '') : '')).' '.
                                 ($case->cfaSubmission?->onboardingBatchMembership?->batch?->name ?? '').' '.
                                 ($case->submitter?->name ?? '').' '.
                                 str_replace('_', ' ', (string) $case->status)
@@ -197,13 +198,15 @@
                         @endphp
                         <tr data-search="{{ $search }}">
                             <td>
-                                <strong>{{ $case->cfaSubmission?->applicant_name ?? '—' }}</strong>
+                                <strong>{{ $case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '—') : '—') }}</strong>
                                 @if ($case->cfaSubmission?->application_no)
                                     <div class="sq-muted">{{ $case->cfaSubmission->application_no }}</div>
+                                @elseif (is_array($lip) && ($lip['application_no'] ?? '') !== '')
+                                    <div class="sq-muted">{{ $lip['application_no'] }} <span style="color:#94a3b8;">(legacy)</span></div>
                                 @endif
                             </td>
                             <td>{{ $case->service?->name ?? '—' }}</td>
-                            <td>{{ $case->cfaSubmission?->district?->name ?? '—' }}</td>
+                            <td>{{ $case->cfaSubmission?->district?->name ?? (is_array($lip) ? ($lip['district'] ?? '—') : '—') }}</td>
                             <td>{{ $case->cfaSubmission?->onboardingBatchMembership?->batch?->name ?? '—' }}</td>
                             <td>{{ $case->submitter?->name ?? '—' }}</td>
                             <td>
@@ -216,8 +219,8 @@
                                         <button
                                             type="button"
                                             class="sq-btn sq-btn--primary js-review-open"
-                                            data-applicant="{{ $case->cfaSubmission?->applicant_name ?? '—' }}"
-                                            data-app-no="{{ $case->cfaSubmission?->application_no ?? '—' }}"
+                                            data-applicant="{{ $case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '—') : '—') }}"
+                                            data-app-no="{{ $case->cfaSubmission?->application_no ?? (is_array($lip) ? ($lip['application_no'] ?? '—') : '—') }}"
                                             data-service="{{ $case->service?->name ?? '—' }}"
                                             data-submitter="{{ $case->submitter?->name ?? '—' }}"
                                             data-updated="{{ $case->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}"

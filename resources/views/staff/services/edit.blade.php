@@ -18,9 +18,20 @@
 
     <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.8rem 0.9rem;max-width:48rem;margin-bottom:0.8rem;">
         <p style="margin:0;font-size:0.86rem;">
-            <strong>Incubatee:</strong> {{ $case->cfaSubmission?->applicant_name ?? '—' }}
-            @if ($case->cfaSubmission?->application_no)
-                · {{ $case->cfaSubmission->application_no }}
+            <strong>Incubatee:</strong>
+            @if ($case->cfaSubmission)
+                {{ $case->cfaSubmission->applicant_name }}
+                @if ($case->cfaSubmission->application_no)
+                    · {{ $case->cfaSubmission->application_no }}
+                @endif
+            @elseif (! empty($legacyIncubateePreview))
+                {{ $legacyIncubateePreview['applicant_name'] ?: '—' }}
+                @if ($legacyIncubateePreview['application_no'] !== '')
+                    · {{ $legacyIncubateePreview['application_no'] }}
+                @endif
+                <span style="color:#64748b;font-size:0.78rem;">(Phase 2 legacy #{{ $case->legacy_application_id }})</span>
+            @else
+                —
             @endif
         </p>
         <p style="margin:0.25rem 0 0;font-size:0.86rem;"><strong>Service:</strong> {{ $case->service?->name ?? '—' }}</p>

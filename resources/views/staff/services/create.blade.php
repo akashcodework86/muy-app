@@ -6,11 +6,11 @@
 @section('content')
     <p style="margin:0 0 1rem;"><a href="{{ route('staff.services.index') }}">← Service cases</a></p>
 
-    @if ($submissions->isEmpty())
+    @if ($submissions->isEmpty() && ($legacyRows ?? collect())->isEmpty())
         <p style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:0.75rem 1rem;border-radius:8px;font-size:0.88rem;">
             No eligible incubatees found for your district with the current eligibility rules.
             @if (app(\App\Services\AppSettingsService::class)->get('service_module.eligibility') === 'onboarded_only')
-                Only incubatees who are in an onboarding batch are listed. State admin can widen this under <strong>Service module settings</strong>.
+                Only incubatees who are in an onboarding batch are listed for Phase 3. Phase 2 legacy list requires the legacy database connection.
             @endif
         </p>
     @else
@@ -25,10 +25,13 @@
         <form id="serviceSubmitForm" method="post" action="{{ route('staff.services.store') }}" enctype="multipart/form-data" style="max-width:42rem;">
             @csrf
 
+            <p style="margin:0 0 0.65rem;font-size:0.82rem;color:#52525b;">Choose <strong>one</strong> incubatee source: Phase 3 CFA (this MIS) <em>or</em> Phase 2 legacy application (rbiphase2, onboarded).</p>
+
+            @if ($submissions->isNotEmpty())
             <div style="margin-bottom:0.85rem;">
-                <label for="cfa_submission_id" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Incubatee (CFA)</label>
-                <select id="cfa_submission_id" name="cfa_submission_id" required style="width:100%;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
-                    <option value="">— Select —</option>
+                <label for="cfa_submission_id" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Incubatee — Phase 3 CFA</label>
+                <select id="cfa_submission_id" name="cfa_submission_id" style="width:100%;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                    <option value="">— Not using Phase 3 CFA —</option>
                     @foreach ($submissions as $sub)
                         <option value="{{ $sub->id }}" @selected((int) old('cfa_submission_id', (int) ($defaultCfaSubmissionId ?? 0)) === (int) $sub->id)>
                             {{ $sub->applicant_name }} @if ($sub->application_no) · {{ $sub->application_no }} @endif
@@ -36,6 +39,29 @@
                     @endforeach
                 </select>
             </div>
+            @else
+                <input type="hidden" name="cfa_submission_id" id="cfa_submission_id" value="">
+            @endif
+
+            @if (($legacyRows ?? collect())->isNotEmpty())
+            <div style="margin-bottom:0.85rem;">
+                <label for="legacy_application_id" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Incubatee — Phase 2 legacy (rbiphase2)</label>
+                <select id="legacy_application_id" name="legacy_application_id" style="width:100%;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                    <option value="">— Not using legacy application —</option>
+                    @foreach ($legacyRows as $lr)
+                        <option value="{{ $lr->id }}" @selected((int) old('legacy_application_id', (int) ($defaultLegacyApplicationId ?? 0)) === (int) $lr->id)>
+                            {{ $lr->applicant_name }} @if ($lr->application_no) · {{ $lr->application_no }} @endif <span style="color:#71717a;">(legacy #{{ $lr->id }})</span>
+                        </option>
+                    @endforeach
+                </select>
+                <div id="legacy_prior_wrap" style="display:none;margin-top:0.45rem;padding:0.55rem 0.65rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:0.8rem;color:#334155;">
+                    <strong style="display:block;margin-bottom:0.25rem;">Services already recorded in Phase 2 (legacy)</strong>
+                    <ul id="legacy_prior_list" style="margin:0;padding-left:1.1rem;"></ul>
+                </div>
+            </div>
+            @else
+                <input type="hidden" name="legacy_application_id" id="legacy_application_id" value="">
+            @endif
 
             <div style="margin-bottom:0.85rem;">
                 <label for="service_id" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Service</label>
@@ -92,14 +118,44 @@
             (function () {
                 const SERVICES = @json($servicesJson);
                 const EXISTING_NON_MULTIPLE = new Set(@json($existingNonMultiplePairs ?? []));
+                const LEGACY_PRIOR = @json($legacyPriorJson ?? []);
 
                 const selSvc = document.getElementById('service_id');
                 const selSub = document.getElementById('cfa_submission_id');
+                const selLegacy = document.getElementById('legacy_application_id');
+                const legacyPriorWrap = document.getElementById('legacy_prior_wrap');
+                const legacyPriorList = document.getElementById('legacy_prior_list');
                 const meta = document.getElementById('svc_meta');
                 const wrapDel = document.getElementById('wrap_delivered');
                 const wrapAtt = document.getElementById('wrap_attach');
                 const box = document.getElementById('schema_fields');
                 const serviceById = new Map(SERVICES.map(function (s) { return [parseInt(s.id, 10), s]; }));
+
+                function incubateePrefix() {
+                    const leg = selLegacy ? parseInt(selLegacy.value || '0', 10) : 0;
+                    if (leg > 0) return 'l:' + leg;
+                    const cfa = selSub ? parseInt(selSub.value || '0', 10) : 0;
+                    if (cfa > 0) return 'c:' + cfa;
+                    return '';
+                }
+
+                function updateLegacyPrior() {
+                    if (!legacyPriorWrap || !legacyPriorList || !selLegacy || selLegacy.tagName !== 'SELECT') return;
+                    const leg = parseInt(selLegacy.value || '0', 10);
+                    if (!leg || !LEGACY_PRIOR[leg] || !Array.isArray(LEGACY_PRIOR[leg].prior) || LEGACY_PRIOR[leg].prior.length === 0) {
+                        legacyPriorWrap.style.display = 'none';
+                        legacyPriorList.innerHTML = '';
+                        return;
+                    }
+                    legacyPriorWrap.style.display = 'block';
+                    legacyPriorList.innerHTML = '';
+                    LEGACY_PRIOR[leg].prior.forEach(function (row) {
+                        const li = document.createElement('li');
+                        const parts = [row.service_name || '—', row.category ? '(' + row.category + ')' : ''].filter(Boolean);
+                        li.textContent = parts.join(' ');
+                        legacyPriorList.appendChild(li);
+                    });
+                }
 
                 function esc(s) {
                     const d = document.createElement('div');
@@ -109,7 +165,8 @@
 
                 function render() {
                     const id = parseInt(selSvc.value || '0', 10);
-                    const subId = parseInt(selSub.value || '0', 10);
+                    const subId = parseInt(selSub ? (selSub.value || '0') : '0', 10);
+                    const legId = selLegacy ? parseInt(selLegacy.value || '0', 10) : 0;
                     const svc = SERVICES.find(function (x) { return parseInt(x.id, 10) === id; });
                     box.innerHTML = '';
                     meta.textContent = '';
@@ -131,7 +188,13 @@
                         wrapDel.style.display = 'block';
                     }
 
-                    const isDuplicateNotAllowed = subId > 0 && !svc.allows_multiple && EXISTING_NON_MULTIPLE.has(subId + ':' + id);
+                    const pfx = incubateePrefix();
+                    const extraBlocked = (legId > 0 && LEGACY_PRIOR[legId] && Array.isArray(LEGACY_PRIOR[legId].blocked_service_ids))
+                        ? new Set(LEGACY_PRIOR[legId].blocked_service_ids.map(function (x) { return parseInt(x, 10); }))
+                        : new Set();
+                    const isDuplicateNotAllowed = pfx && !svc.allows_multiple && (
+                        EXISTING_NON_MULTIPLE.has(pfx + ':' + id) || extraBlocked.has(id)
+                    );
                     if (isDuplicateNotAllowed) {
                         meta.textContent = 'This incubatee already has this service. Multiple cases are disabled for this service.';
                         const p = document.createElement('p');
@@ -300,7 +363,11 @@
                 }
 
                 function refreshServiceOptionLocks() {
-                    const subId = parseInt(selSub.value || '0', 10);
+                    const pfx = incubateePrefix();
+                    const legId = selLegacy ? parseInt(selLegacy.value || '0', 10) : 0;
+                    const extraBlocked = (legId > 0 && LEGACY_PRIOR[legId] && Array.isArray(LEGACY_PRIOR[legId].blocked_service_ids))
+                        ? new Set(LEGACY_PRIOR[legId].blocked_service_ids.map(function (x) { return parseInt(x, 10); }))
+                        : new Set();
                     const opts = Array.from(selSvc.options || []);
                     opts.forEach(function (opt) {
                         const serviceId = parseInt(opt.value || '0', 10);
@@ -308,7 +375,9 @@
                         const svc = serviceById.get(serviceId);
                         if (!svc) return;
                         if (!opt.dataset.baseLabel) opt.dataset.baseLabel = opt.textContent;
-                        const blocked = subId > 0 && !svc.allows_multiple && EXISTING_NON_MULTIPLE.has(subId + ':' + serviceId);
+                        const blocked = pfx && !svc.allows_multiple && (
+                            EXISTING_NON_MULTIPLE.has(pfx + ':' + serviceId) || extraBlocked.has(serviceId)
+                        );
                         opt.disabled = blocked;
                         opt.textContent = blocked ? (opt.dataset.baseLabel + ' (Already assigned)') : opt.dataset.baseLabel;
                     });
@@ -321,10 +390,23 @@
                 }
 
                 selSvc.addEventListener('change', render);
-                selSub.addEventListener('change', function () {
-                    refreshServiceOptionLocks();
-                    render();
-                });
+                if (selSub && selSub.tagName === 'SELECT') {
+                    selSub.addEventListener('change', function () {
+                        if (parseInt(selSub.value || '0', 10) > 0 && selLegacy) selLegacy.value = '';
+                        updateLegacyPrior();
+                        refreshServiceOptionLocks();
+                        render();
+                    });
+                }
+                if (selLegacy && selLegacy.tagName === 'SELECT') {
+                    selLegacy.addEventListener('change', function () {
+                        if (parseInt(selLegacy.value || '0', 10) > 0 && selSub && selSub.tagName === 'SELECT') selSub.value = '';
+                        updateLegacyPrior();
+                        refreshServiceOptionLocks();
+                        render();
+                    });
+                }
+                updateLegacyPrior();
                 refreshServiceOptionLocks();
                 render();
             })();
@@ -397,13 +479,26 @@
                 function duplicateBlockedSelection() {
                     const serviceEl = document.getElementById('service_id');
                     const submissionEl = document.getElementById('cfa_submission_id');
-                    if (!serviceEl || !submissionEl) return false;
+                    const legacyEl = document.getElementById('legacy_application_id');
+                    if (!serviceEl) return false;
                     const serviceId = parseInt(serviceEl.value || '0', 10);
-                    const submissionId = parseInt(submissionEl.value || '0', 10);
-                    if (!serviceId || !submissionId) return false;
+                    if (!serviceId) return false;
                     const svc = SERVICES.find(function (x) { return parseInt(x.id, 10) === serviceId; });
                     if (!svc || svc.allows_multiple) return false;
-                    return EXISTING_NON_MULTIPLE.has(submissionId + ':' + serviceId);
+                    let pfx = '';
+                    const leg = legacyEl ? parseInt(legacyEl.value || '0', 10) : 0;
+                    if (leg > 0) pfx = 'l:' + leg;
+                    else if (submissionEl) {
+                        const cfa = parseInt(submissionEl.value || '0', 10);
+                        if (cfa > 0) pfx = 'c:' + cfa;
+                    }
+                    if (!pfx) return false;
+                    if (EXISTING_NON_MULTIPLE.has(pfx + ':' + serviceId)) return true;
+                    const LEGACY_PRIOR2 = @json($legacyPriorJson ?? []);
+                    if (leg > 0 && LEGACY_PRIOR2[leg] && Array.isArray(LEGACY_PRIOR2[leg].blocked_service_ids)) {
+                        return LEGACY_PRIOR2[leg].blocked_service_ids.map(function (x) { return parseInt(x, 10); }).indexOf(serviceId) >= 0;
+                    }
+                    return false;
                 }
 
                 function runStepPlan() {

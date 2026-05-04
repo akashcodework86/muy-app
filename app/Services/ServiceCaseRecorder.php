@@ -16,7 +16,6 @@ use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -24,6 +23,7 @@ class ServiceCaseRecorder
 {
     public function __construct(
         private SchemaValidator $schemaValidator,
+        private LegacyApplicationServiceCaseSupport $legacyApplications,
     ) {}
 
     /**
@@ -80,6 +80,44 @@ class ServiceCaseRecorder
     }
 
     /**
+     * Phase 2 (rbiphase2) incubatee with no local mirrored CFA — stored on {@see ServiceCase::$legacy_application_id}.
+     */
+    public function createLegacyDraft(int $legacyApplicationId, Service $service, User $staff): ServiceCase
+    {
+        if (! $service->is_active) {
+            throw ValidationException::withMessages(['service_id' => 'This service is inactive.']);
+        }
+
+        $this->legacyApplications->assertLegacyApplicationInStaffDistrict($staff, $legacyApplicationId);
+
+        $existing = ServiceCase::query()
+            ->where('legacy_application_id', $legacyApplicationId)
+            ->where('service_id', $service->id);
+
+        if (! $service->allows_multiple && $existing->exists()) {
+            throw ValidationException::withMessages([
+                'service_id' => 'This service allows only one case per incubatee. This incubatee already has this service assigned.',
+            ]);
+        }
+
+        $case = ServiceCase::query()->create([
+            'cfa_submission_id' => null,
+            'legacy_application_id' => $legacyApplicationId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_DRAFT,
+            'payload' => null,
+            'reference_number' => null,
+            'delivered_on' => null,
+            'completed_at' => null,
+            'created_by' => (int) $staff->id,
+        ]);
+
+        $this->recordEvent($case, (int) $staff->id, 'draft_created', ['legacy_application_id' => $legacyApplicationId]);
+
+        return $case;
+    }
+
+    /**
      * Staff submits a draft or re-submits after send-back.
      *
      * @param  array<string, mixed>  $attributes  actor_id, reference_number?, delivered_on?, payload?
@@ -119,6 +157,13 @@ class ServiceCaseRecorder
             : $this->schemaValidator->validate($schema, $rawPayload);
 
         $requiresApproval = (bool) $service->requires_approval;
+        $districtId = $this->districtIdForCase($case);
+        if ($requiresApproval && (! $districtId || $districtId < 1)) {
+            throw ValidationException::withMessages([
+                'district' => 'Cannot route this case to a SPOC — district could not be resolved. Ask state admin to align legacy district names with this MIS.',
+            ]);
+        }
+
         $deliveredOn = $attributes['delivered_on'] ?? null;
 
         if (! $requiresApproval) {
@@ -177,7 +222,7 @@ class ServiceCaseRecorder
 
             if ($requiresApproval) {
                 $case->status = ServiceCase::STATUS_PENDING_APPROVAL;
-                $case->spoc_user_id = $this->resolveSpocUserId($case->cfaSubmission?->district_id);
+                $case->spoc_user_id = $this->resolveSpocUserId($this->districtIdForCase($case));
                 $case->sla_deadline_at = BusinessDays::add(now(), 3);
                 $case->approved_at = null;
                 $case->approved_by = null;
@@ -262,6 +307,21 @@ class ServiceCaseRecorder
         $row = DistrictServiceSpoc::query()->where('district_id', $districtId)->first();
 
         return $row?->state_staff_user_id;
+    }
+
+    private function districtIdForCase(ServiceCase $case): ?int
+    {
+        if ($case->cfa_submission_id) {
+            $case->loadMissing('cfaSubmission');
+
+            return $case->cfaSubmission ? (int) $case->cfaSubmission->district_id : null;
+        }
+
+        if ($case->legacy_application_id) {
+            return $this->legacyApplications->laravelDistrictIdForLegacyApplication((int) $case->legacy_application_id);
+        }
+
+        return null;
     }
 
     private function assertAllowedUpload(Service $service, UploadedFile $file): void

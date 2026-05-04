@@ -247,8 +247,16 @@ class StaffPortalController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        $payload = is_array($cfa_submission->payload) ? $cfa_submission->payload : [];
+        $legacyAppId = (int) ($payload['legacy_application_id'] ?? 0);
+
         $serviceCases = ServiceCase::query()
-            ->where('cfa_submission_id', $cfa_submission->id)
+            ->where(function ($q) use ($cfa_submission, $legacyAppId): void {
+                $q->where('cfa_submission_id', $cfa_submission->id);
+                if ($legacyAppId > 0) {
+                    $q->orWhere('legacy_application_id', $legacyAppId);
+                }
+            })
             ->with(['service.category'])
             ->orderByDesc('created_at')
             ->get();

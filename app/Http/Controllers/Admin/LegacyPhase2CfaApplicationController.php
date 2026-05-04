@@ -31,38 +31,38 @@ class LegacyPhase2CfaApplicationController extends Controller
 
         if ($fiscalYears->isEmpty()) {
             return view('admin.phase2-cfa.index', [
-                'rows'               => $this->emptyPaginator(),
-                'fiscalYears'        => $fiscalYears,
-                'fiscalYearId'       => 0,
-                'fiscalYear'         => null,
-                'districts'          => [],
-                'legacyUnavailable'  => false,
-                'legacyMissingTables'=> false,
+                'rows' => $this->emptyPaginator(),
+                'fiscalYears' => $fiscalYears,
+                'fiscalYearId' => 0,
+                'fiscalYear' => null,
+                'districts' => [],
+                'legacyUnavailable' => false,
+                'legacyMissingTables' => false,
             ]);
         }
 
         $fiscalYear = FiscalYear::query()->find($fiscalYearId);
         if ($fiscalYear === null) {
             return view('admin.phase2-cfa.index', [
-                'rows'               => $this->emptyPaginator(),
-                'fiscalYears'        => $fiscalYears,
-                'fiscalYearId'       => 0,
-                'fiscalYear'         => null,
-                'districts'          => [],
-                'legacyUnavailable'  => false,
-                'legacyMissingTables'=> false,
+                'rows' => $this->emptyPaginator(),
+                'fiscalYears' => $fiscalYears,
+                'fiscalYearId' => 0,
+                'fiscalYear' => null,
+                'districts' => [],
+                'legacyUnavailable' => false,
+                'legacyMissingTables' => false,
             ]);
         }
 
         if ((string) config('database.connections.legacy.database', '') === '') {
             return view('admin.phase2-cfa.index', [
-                'rows'               => $this->emptyPaginator(),
-                'fiscalYears'        => $fiscalYears,
-                'fiscalYearId'       => $fiscalYearId,
-                'fiscalYear'         => $fiscalYear,
-                'districts'          => [],
-                'legacyUnavailable'  => true,
-                'legacyMissingTables'=> false,
+                'rows' => $this->emptyPaginator(),
+                'fiscalYears' => $fiscalYears,
+                'fiscalYearId' => $fiscalYearId,
+                'fiscalYear' => $fiscalYear,
+                'districts' => [],
+                'legacyUnavailable' => true,
+                'legacyMissingTables' => false,
             ]);
         }
 
@@ -71,30 +71,30 @@ class LegacyPhase2CfaApplicationController extends Controller
                 && Schema::connection('legacy')->hasTable('rbi_applicant_details');
         } catch (\Exception $e) {
             return view('admin.phase2-cfa.index', [
-                'rows'               => $this->emptyPaginator(),
-                'fiscalYears'        => $fiscalYears,
-                'fiscalYearId'       => $fiscalYearId,
-                'fiscalYear'         => $fiscalYear,
-                'districts'          => [],
-                'legacyUnavailable'  => true,
-                'legacyMissingTables'=> false,
+                'rows' => $this->emptyPaginator(),
+                'fiscalYears' => $fiscalYears,
+                'fiscalYearId' => $fiscalYearId,
+                'fiscalYear' => $fiscalYear,
+                'districts' => [],
+                'legacyUnavailable' => true,
+                'legacyMissingTables' => false,
             ]);
         }
 
         if (! $hasTables) {
             return view('admin.phase2-cfa.index', [
-                'rows'               => $this->emptyPaginator(),
-                'fiscalYears'        => $fiscalYears,
-                'fiscalYearId'       => $fiscalYearId,
-                'fiscalYear'         => $fiscalYear,
-                'districts'          => [],
-                'legacyUnavailable'  => false,
-                'legacyMissingTables'=> true,
+                'rows' => $this->emptyPaginator(),
+                'fiscalYears' => $fiscalYears,
+                'fiscalYearId' => $fiscalYearId,
+                'fiscalYear' => $fiscalYear,
+                'districts' => [],
+                'legacyUnavailable' => false,
+                'legacyMissingTables' => true,
             ]);
         }
 
         $start = Carbon::parse($fiscalYear->starts_on)->toDateString();
-        $end   = Carbon::parse($fiscalYear->ends_on)->toDateString();
+        $end = Carbon::parse($fiscalYear->ends_on)->toDateString();
 
         // Distinct districts for filter dropdown
         $districts = DB::connection('legacy')
@@ -130,12 +130,19 @@ class LegacyPhase2CfaApplicationController extends Controller
             $query->where('d.district', $request->input('district'));
         }
 
-        // Filter: search by applicant name or phone
+        // Filter: search by applicant name, phone, application no., or numeric application id
         if ($request->filled('search')) {
-            $search = '%' . $request->input('search') . '%';
-            $query->where(function ($q) use ($search) {
+            $raw = trim((string) $request->input('search'));
+            $search = '%'.$raw.'%';
+            $query->where(function ($q) use ($search, $raw) {
                 $q->where('d.applicant_name', 'like', $search)
-                  ->orWhere('d.phone', 'like', $search);
+                    ->orWhere('d.phone', 'like', $search)
+                    ->orWhere('a.application_no', 'like', $search);
+                if ($raw !== '' && ctype_digit($raw)) {
+                    $id = (int) $raw;
+                    $q->orWhere('a.id', $id)
+                        ->orWhere('d.application_id', $id);
+                }
             });
         }
 
@@ -144,20 +151,20 @@ class LegacyPhase2CfaApplicationController extends Controller
         $rows = $query->paginate(100)->withQueryString();
 
         return view('admin.phase2-cfa.index', [
-            'rows'               => $rows,
-            'fiscalYears'        => $fiscalYears,
-            'fiscalYearId'       => $fiscalYearId,
-            'fiscalYear'         => $fiscalYear,
-            'districts'          => $districts,
-            'legacyUnavailable'  => false,
-            'legacyMissingTables'=> false,
+            'rows' => $rows,
+            'fiscalYears' => $fiscalYears,
+            'fiscalYearId' => $fiscalYearId,
+            'fiscalYear' => $fiscalYear,
+            'districts' => $districts,
+            'legacyUnavailable' => false,
+            'legacyMissingTables' => false,
         ]);
     }
 
     private function emptyPaginator(): LengthAwarePaginator
     {
         return new LengthAwarePaginator([], 0, 100, 1, [
-            'path'  => request()->url(),
+            'path' => request()->url(),
             'query' => request()->query(),
         ]);
     }

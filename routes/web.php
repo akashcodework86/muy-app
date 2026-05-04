@@ -2,23 +2,22 @@
 
 use App\Http\Controllers\Account\ProfileController;
 use App\Http\Controllers\Admin\AuditLogController;
-use App\Http\Controllers\Admin\FieldCoordinatorAttendanceAdminController;
-use App\Http\Controllers\StateStaff\SpocServiceCaseController;
 use App\Http\Controllers\Admin\CatalogServiceController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DesignationController;
+use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\DocumentRepositoryController;
+use App\Http\Controllers\Admin\FieldCoordinatorAttendanceAdminController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
+use App\Http\Controllers\Admin\PendingActionsController;
 use App\Http\Controllers\Admin\Phase3ServiceCasesController;
-use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
+use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceModuleSettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
-use App\Http\Controllers\Admin\DistrictSpocController;
-use App\Http\Controllers\Admin\PendingActionsController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Admin\TeamDirectoryController;
@@ -27,8 +26,8 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentLibraryController;
-use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Hub\HubApplicationsController;
+use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Hub\HubOnboardingInsightController;
 use App\Http\Controllers\Hub\HubStaffPerformanceController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
@@ -37,12 +36,15 @@ use App\Http\Controllers\LiveOpsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
-use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\FieldCoordinatorAttendanceController;
+use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
+use App\Http\Controllers\StateStaff\SpocServiceCaseController;
 use App\Models\Deliverable;
 use App\Models\District;
+use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\TargetValidationService;
 use Illuminate\Http\Request;
@@ -172,6 +174,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         /** Read-only batches view for district staff (scoped to their own district) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
+        Route::get('batches/legacy/{legacy_batch}', [BatchReadOnlyController::class, 'showLegacy'])
+            ->whereNumber('legacy_batch')
+            ->name('batches.legacy.show');
         Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
         Route::get('batches/{batch}/onboarding-letter', [BatchReadOnlyController::class, 'downloadOnboardingLetter'])->name('batches.onboarding-letter');
 
@@ -257,7 +262,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('service-catalog/categories/create', [ServiceCategoryController::class, 'create'])->name('service-catalog.categories.create');
         Route::post('service-catalog/categories', [ServiceCategoryController::class, 'store'])->name('service-catalog.categories.store');
         // Convenience: /categories/{id} -> edit (avoid errors when /edit is omitted).
-        Route::get('service-catalog/categories/{service_category}', function (\App\Models\ServiceCategory $serviceCategory) {
+        Route::get('service-catalog/categories/{service_category}', function (ServiceCategory $serviceCategory) {
             return redirect()->route('admin.service-catalog.categories.edit', $serviceCategory);
         })->name('service-catalog.categories.redirect-edit');
         Route::get('service-catalog/categories/{service_category}/edit', [ServiceCategoryController::class, 'edit'])->name('service-catalog.categories.edit');
@@ -268,7 +273,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('service-catalog/services/bulk-active', [CatalogServiceController::class, 'bulkSetActive'])->name('service-catalog.services.bulk-active');
         Route::patch('service-catalog/services/{service}/active', [CatalogServiceController::class, 'setActive'])->name('service-catalog.services.set-active');
         // Convenience: /services/{id} → edit (avoids 404/500 when /edit is omitted).
-        Route::get('service-catalog/services/{service}', function (\App\Models\Service $service) {
+        Route::get('service-catalog/services/{service}', function (Service $service) {
             return redirect()->route('admin.service-catalog.services.edit', $service);
         })->name('service-catalog.services.redirect-edit');
         Route::get('service-catalog/services/{service}/edit', [CatalogServiceController::class, 'edit'])->name('service-catalog.services.edit');
@@ -345,6 +350,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
+        Route::get('batches/legacy/{legacy_batch}', [BatchReadOnlyController::class, 'showLegacy'])
+            ->whereNumber('legacy_batch')
+            ->name('batches.legacy.show');
         Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
         Route::get('batches/{batch}/onboarding-letter', [BatchReadOnlyController::class, 'downloadOnboardingLetter'])->name('batches.onboarding-letter');
 

@@ -8,11 +8,13 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\User;
 use App\Services\AppSettingsService;
+use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\ServiceCaseRecorder;
 use App\Support\ServiceFieldTypes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -22,6 +24,7 @@ class StaffServiceCaseController extends Controller
     public function __construct(
         private AppSettingsService $settings,
         private ServiceCaseRecorder $recorder,
+        private LegacyApplicationServiceCaseSupport $legacyApplications,
     ) {}
 
     public function index(Request $request): View
@@ -40,8 +43,20 @@ class StaffServiceCaseController extends Controller
             $status = '';
         }
 
+        $districtId = (int) $staff->district_id;
+        $legacyIds = $this->legacyApplications->legacyApplicationIdsInLaravelDistrict($districtId);
+
         $q = ServiceCase::query()
-            ->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', (int) $staff->district_id))
+            ->where(function ($outer) use ($districtId, $legacyIds): void {
+                $outer->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
+                if ($legacyIds !== []) {
+                    $outer->orWhere(function ($qq) use ($legacyIds): void {
+                        $qq->whereNotNull('legacy_application_id')
+                            ->whereNull('cfa_submission_id')
+                            ->whereIn('legacy_application_id', $legacyIds);
+                    });
+                }
+            })
             ->with([
                 'cfaSubmission:id,applicant_name,application_no,district_id',
                 'service.category',
@@ -67,6 +82,14 @@ class StaffServiceCaseController extends Controller
         }
 
         $cases = $q->orderByDesc('updated_at')->paginate(20)->withQueryString();
+        $cases->getCollection()->transform(function (ServiceCase $case) {
+            if ($case->legacy_application_id && ! $case->cfa_submission_id) {
+                $case->legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $case->legacy_application_id);
+            }
+
+            return $case;
+        });
+
         $services = Service::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -93,23 +116,57 @@ class StaffServiceCaseController extends Controller
         if ($prefillId > 0 && ! (clone $eligible)->whereKey($prefillId)->exists()) {
             $prefillId = 0;
         }
+        $prefillLegacyId = (int) $request->query('legacy_application_id', 0);
+        $legacyRows = $this->legacyApplications->eligibleLegacyApplicationsForStaff($staff);
+        if ($prefillLegacyId > 0 && ! $legacyRows->contains(fn ($r) => (int) $r->id === $prefillLegacyId)) {
+            $prefillLegacyId = 0;
+        }
+
         $submissionIds = (clone $eligible)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $legacyIds = $legacyRows->pluck('id')->map(fn ($id) => (int) $id)->all();
         $nonMultipleServiceIds = $services
             ->filter(fn (Service $s) => ! (bool) $s->allows_multiple)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();
-        $existingPairs = ServiceCase::query()
+
+        $existingCfaPairs = ServiceCase::query()
             ->select(['cfa_submission_id', 'service_id'])
             ->when($submissionIds !== [], fn ($q) => $q->whereIn('cfa_submission_id', $submissionIds), fn ($q) => $q->whereRaw('1 = 0'))
             ->when($nonMultipleServiceIds !== [], fn ($q) => $q->whereIn('service_id', $nonMultipleServiceIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->whereNotNull('cfa_submission_id')
             ->get()
-            ->map(fn ($r) => ((int) $r->cfa_submission_id).':'.((int) $r->service_id))
+            ->map(fn ($r) => 'c:'.((int) $r->cfa_submission_id).':'.((int) $r->service_id))
             ->values();
+
+        $existingLegacyPairs = ServiceCase::query()
+            ->select(['legacy_application_id', 'service_id'])
+            ->when($legacyIds !== [], fn ($q) => $q->whereIn('legacy_application_id', $legacyIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($nonMultipleServiceIds !== [], fn ($q) => $q->whereIn('service_id', $nonMultipleServiceIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->whereNotNull('legacy_application_id')
+            ->get()
+            ->map(fn ($r) => 'l:'.((int) $r->legacy_application_id).':'.((int) $r->service_id))
+            ->values();
+
+        $existingPairs = $existingCfaPairs->merge($existingLegacyPairs)->values();
+
+        $legacyPriorJson = $legacyRows->mapWithKeys(function ($row) {
+            $id = (int) $row->id;
+
+            return [
+                $id => [
+                    'prior' => $this->legacyApplications->legacyAssignedServicesForDisplay($id),
+                    'blocked_service_ids' => $this->legacyApplications->blockedServiceIds($id, null),
+                ],
+            ];
+        })->all();
 
         return view('staff.services.create', [
             'submissions' => $eligible->get(),
+            'legacyRows' => $legacyRows,
+            'legacyPriorJson' => $legacyPriorJson,
             'defaultCfaSubmissionId' => $prefillId,
+            'defaultLegacyApplicationId' => $prefillLegacyId,
             'services' => $services,
             'servicesJson' => $services->map(fn (Service $s) => [
                 'id' => $s->id,
@@ -130,7 +187,8 @@ class StaffServiceCaseController extends Controller
         $staff = $this->staffOrAbort($request);
 
         $validated = $request->validate([
-            'cfa_submission_id' => ['required', 'integer', 'exists:cfa_submissions,id'],
+            'cfa_submission_id' => ['nullable', 'integer', 'exists:cfa_submissions,id'],
+            'legacy_application_id' => ['nullable', 'integer', 'min:1'],
             'service_id' => ['required', 'integer', 'exists:services,id'],
             'reference_number' => ['nullable', 'string', 'max:191'],
             'delivered_on' => ['nullable', 'date'],
@@ -141,12 +199,27 @@ class StaffServiceCaseController extends Controller
             'attachments.*' => ['file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
         ]);
 
-        $submission = CfaSubmission::query()->findOrFail((int) $validated['cfa_submission_id']);
-        $this->assertSubmissionEligible($staff, $submission);
+        $cfaId = (int) ($validated['cfa_submission_id'] ?? 0);
+        $legacyId = (int) ($validated['legacy_application_id'] ?? 0);
+        if (($cfaId > 0) === ($legacyId > 0)) {
+            throw ValidationException::withMessages([
+                'cfa_submission_id' => 'Choose exactly one incubatee: either a Phase 3 CFA or a Phase 2 legacy application.',
+            ]);
+        }
 
         $service = Service::query()->whereKey((int) $validated['service_id'])->firstOrFail();
         if (! $service->is_active) {
             return back()->withErrors(['service_id' => 'This service is inactive.'])->withInput();
+        }
+
+        $blocked = $cfaId > 0
+            ? $this->legacyApplications->blockedServiceIds(null, $cfaId)
+            : $this->legacyApplications->blockedServiceIds($legacyId, null);
+
+        if (! $service->allows_multiple && in_array((int) $service->id, $blocked, true)) {
+            throw ValidationException::withMessages([
+                'service_id' => 'This incubatee already has this service (Phase 2 legacy or an open case in this MIS).',
+            ]);
         }
 
         $payload = is_array($validated['payload'] ?? null) ? $validated['payload'] : [];
@@ -169,7 +242,14 @@ class StaffServiceCaseController extends Controller
         }
 
         try {
-            $case = $this->recorder->createDraft($submission, $service, (int) $staff->id);
+            if ($cfaId > 0) {
+                $submission = CfaSubmission::query()->findOrFail($cfaId);
+                $this->assertSubmissionEligible($staff, $submission);
+                $case = $this->recorder->createDraft($submission, $service, (int) $staff->id);
+            } else {
+                $case = $this->recorder->createLegacyDraft($legacyId, $service, $staff);
+            }
+
             $this->recorder->submit($case, [
                 'actor_id' => (int) $staff->id,
                 'reference_number' => $validated['reference_number'] ?? null,
@@ -198,8 +278,14 @@ class StaffServiceCaseController extends Controller
             'events.user',
         ]);
 
+        $legacyIncubateePreview = null;
+        if ($service_case->legacy_application_id && ! $service_case->cfa_submission_id) {
+            $legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $service_case->legacy_application_id);
+        }
+
         return view('staff.services.show', [
             'case' => $service_case,
+            'legacyIncubateePreview' => $legacyIncubateePreview,
         ]);
     }
 
@@ -217,10 +303,16 @@ class StaffServiceCaseController extends Controller
             'attachments',
         ]);
 
+        $legacyIncubateePreview = null;
+        if ($service_case->legacy_application_id && ! $service_case->cfa_submission_id) {
+            $legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $service_case->legacy_application_id);
+        }
+
         return view('staff.services.edit', [
             'case' => $service_case,
             'schema' => ServiceFieldTypes::normalizeSchema($service_case->service?->field_schema ?? []),
             'payload' => is_array($service_case->payload) ? $service_case->payload : [],
+            'legacyIncubateePreview' => $legacyIncubateePreview,
         ]);
     }
 
@@ -414,11 +506,23 @@ class StaffServiceCaseController extends Controller
 
     private function assertCaseInDistrict(User $staff, ServiceCase $case): void
     {
-        $case->loadMissing('cfaSubmission');
-        abort_unless(
-            $case->cfaSubmission && (int) $case->cfaSubmission->district_id === (int) $staff->district_id,
-            403
-        );
+        if ($case->cfa_submission_id) {
+            $case->loadMissing('cfaSubmission');
+            abort_unless(
+                $case->cfaSubmission && (int) $case->cfaSubmission->district_id === (int) $staff->district_id,
+                403
+            );
+
+            return;
+        }
+
+        if ($case->legacy_application_id) {
+            $this->legacyApplications->assertLegacyApplicationInStaffDistrict($staff, (int) $case->legacy_application_id);
+
+            return;
+        }
+
+        abort(403);
     }
 
     private function assertCaseOwnedByStaff(User $staff, ServiceCase $case): void
@@ -442,7 +546,7 @@ class StaffServiceCaseController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Service>
+     * @return Collection<int, Service>
      */
     private function pickerServices()
     {
