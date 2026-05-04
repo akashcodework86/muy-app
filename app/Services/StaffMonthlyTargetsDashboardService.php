@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CfaSubmission;
 use App\Models\Deliverable;
 use App\Models\FiscalYear;
+use App\Models\ServiceCase;
 use App\Models\StaffMonthlyTarget;
 use App\Models\User;
 use App\Services\LegacyPhase2\LegacyRbiServicesAssignedAchievementService;
@@ -96,6 +97,8 @@ class StaffMonthlyTargetsDashboardService
             ? $this->phase2TargetsAchievement->countsByDeliverableAndFiscalMonth($user, $fy)
             : $this->legacyServicesAchievement->countsByDeliverableAndFiscalMonth($user, $fy);
 
+        $phase3Achievement = $this->phase3ApprovedServiceCaseCountsByDeliverableAndFiscalMonth($user, $fy);
+
         $rows = [];
         $deliverables = Deliverable::query()
             ->where('is_active', true)
@@ -125,10 +128,13 @@ class StaffMonthlyTargetsDashboardService
 
             $legacyMonthly = $legacyAchievement[$d->id] ?? array_fill(1, 12, 0);
             $legacyAnnualTotal = array_sum($legacyMonthly);
+            $phase3Monthly = $phase3Achievement[$d->id] ?? array_fill(1, 12, 0);
+            $phase3AnnualTotal = array_sum($phase3Monthly);
 
             $hasDistrictTarget = $districtTarget !== null && (int) $districtTarget > 0;
             $tracksAchievement = $d->code === 'cfa'
                 || $legacyAnnualTotal > 0
+                || $phase3AnnualTotal > 0
                 || $monthlySum > 0
                 || $hasDistrictTarget;
 
@@ -143,8 +149,9 @@ class StaffMonthlyTargetsDashboardService
                 }
             } elseif ($tracksAchievement) {
                 foreach (range(1, 12) as $m) {
-                    $monthlyAchievement[$m] = (int) $legacyMonthly[$m];
-                    $achievementAnnual += (int) $legacyMonthly[$m];
+                    $v = max((int) $legacyMonthly[$m], (int) $phase3Monthly[$m]);
+                    $monthlyAchievement[$m] = $v;
+                    $achievementAnnual += $v;
                 }
             }
 
@@ -152,6 +159,7 @@ class StaffMonthlyTargetsDashboardService
                 || $monthlySum > 0
                 || $achievementAnnual > 0
                 || $legacyAnnualTotal > 0
+                || $phase3AnnualTotal > 0
                 || $hasDistrictTarget;
 
             $rows[] = [
@@ -169,5 +177,60 @@ class StaffMonthlyTargetsDashboardService
         }
 
         return $rows;
+    }
+
+    /**
+     * Phase 3 maker–checker: approved service cases, bucketed by FY month (same ladder as {@see FiscalYear::fiscalMonthIndex()}).
+     *
+     * @return array<int, array<int, int>> deliverable_id => [ 1..12 => count ]
+     */
+    private function phase3ApprovedServiceCaseCountsByDeliverableAndFiscalMonth(User $user, FiscalYear $fy): array
+    {
+        $fyStart = Carbon::parse($fy->starts_on)->startOfDay();
+        $fyEnd = Carbon::parse($fy->ends_on)->endOfDay();
+        $userId = (int) $user->id;
+
+        $out = [];
+
+        $cases = ServiceCase::query()
+            ->where('status', ServiceCase::STATUS_APPROVED)
+            ->where(function ($q) use ($userId): void {
+                $q->where('submitted_by', $userId)
+                    ->orWhere(function ($inner) use ($userId): void {
+                        $inner->whereNull('submitted_by')->where('created_by', $userId);
+                    });
+            })
+            ->whereHas('service', fn ($q) => $q->whereNotNull('deliverable_id'))
+            ->with('service:id,deliverable_id')
+            ->get([
+                'id',
+                'approved_at',
+                'completed_at',
+                'submitted_at',
+            ]);
+
+        foreach ($cases as $case) {
+            $deliverableId = (int) ($case->service?->deliverable_id ?? 0);
+            if ($deliverableId < 1) {
+                continue;
+            }
+            $at = $case->approved_at ?? $case->completed_at ?? $case->submitted_at;
+            if ($at === null) {
+                continue;
+            }
+            if ($at->lt($fyStart) || $at->gt($fyEnd)) {
+                continue;
+            }
+            $idx = $fy->fiscalMonthIndex($at);
+            if ($idx === null) {
+                continue;
+            }
+            if (! isset($out[$deliverableId])) {
+                $out[$deliverableId] = array_fill(1, 12, 0);
+            }
+            $out[$deliverableId][$idx]++;
+        }
+
+        return $out;
     }
 }

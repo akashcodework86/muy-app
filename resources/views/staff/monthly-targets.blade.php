@@ -270,7 +270,7 @@
                             </table>
                         </div>
                     </div>
-                    <p class="staff-mis-footnote">Phase 2 legacy achievements <strong>selected FY</strong> ki dates ke andar count hote hain (M1–M12). MUY CFA referrals alag se isi FY ke <code>cfa_submissions</code> se.</p>
+                    <p class="staff-mis-footnote">Phase 2 legacy achievements <strong>selected FY</strong> ki dates ke andar count hote hain (M1–M12). Phase 3 <strong>approved</strong> service cases (Services → maker–checker) isi FY mein <code>approved_at</code> ke mahine se deliverable par count hote hain — FY dropdown wahi chunein jisme approval date aati ho (jaise May 2026 → FY 2026-27). MUY CFA referrals alag se isi FY ke <code>cfa_submissions</code> se.</p>
                 </div>
             </details>
         @endforeach
