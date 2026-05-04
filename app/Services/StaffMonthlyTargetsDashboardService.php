@@ -191,17 +191,20 @@ class StaffMonthlyTargetsDashboardService
         $userId = (int) $user->id;
 
         $out = [];
+        $rollupCache = [];
 
         $cases = ServiceCase::query()
             ->where('status', ServiceCase::STATUS_APPROVED)
             ->where(function ($q) use ($userId): void {
                 $q->where('submitted_by', $userId)
                     ->orWhere(function ($inner) use ($userId): void {
-                        $inner->whereNull('submitted_by')->where('created_by', $userId);
+                        $inner->where(function ($w): void {
+                            $w->whereNull('submitted_by')->orWhere('submitted_by', 0);
+                        })->where('created_by', $userId);
                     });
             })
             ->whereHas('service', fn ($q) => $q->whereNotNull('deliverable_id'))
-            ->with('service:id,deliverable_id')
+            ->with(['service:id,deliverable_id,code'])
             ->get([
                 'id',
                 'approved_at',
@@ -225,12 +228,73 @@ class StaffMonthlyTargetsDashboardService
             if ($idx === null) {
                 continue;
             }
-            if (! isset($out[$deliverableId])) {
-                $out[$deliverableId] = array_fill(1, 12, 0);
+            foreach ($this->phase3RollupDeliverableIds($deliverableId, $rollupCache) as $did) {
+                if (! isset($out[$did])) {
+                    $out[$did] = array_fill(1, 12, 0);
+                }
+                $out[$did][$idx]++;
             }
-            $out[$deliverableId][$idx]++;
         }
 
         return $out;
+    }
+
+    /**
+     * Map catalog sync deliverables ({@code svc_*}) onto core MIS rows (e.g. {@code artisan_card}) so
+     * achievement lands on the same row staff targets use.
+     *
+     * @param  array<int, list<int>>  $cache
+     * @return list<int>
+     */
+    private function phase3RollupDeliverableIds(int $deliverableId, array &$cache): array
+    {
+        if ($deliverableId < 1) {
+            return [];
+        }
+        if (isset($cache[$deliverableId])) {
+            return $cache[$deliverableId];
+        }
+
+        $d = Deliverable::query()->find($deliverableId);
+        if ($d === null) {
+            $cache[$deliverableId] = [$deliverableId];
+
+            return $cache[$deliverableId];
+        }
+
+        $code = (string) $d->code;
+        $ids = [(int) $d->id];
+
+        if (str_starts_with($code, 'svc_cat_')) {
+            $cache[$deliverableId] = $ids;
+
+            return $cache[$deliverableId];
+        }
+
+        if (str_starts_with($code, 'svc_')) {
+            $suffix = substr($code, strlen('svc_'));
+            if ($suffix !== '') {
+                $core = Deliverable::query()
+                    ->where('code', $suffix)
+                    ->where('id', '!=', $d->id)
+                    ->orderBy('sort_order')
+                    ->first();
+                if ($core !== null) {
+                    $ids[] = (int) $core->id;
+                }
+            }
+        } else {
+            $synced = Deliverable::query()
+                ->where('code', 'svc_'.$code)
+                ->where('id', '!=', $d->id)
+                ->first();
+            if ($synced !== null) {
+                $ids[] = (int) $synced->id;
+            }
+        }
+
+        $cache[$deliverableId] = array_values(array_unique($ids));
+
+        return $cache[$deliverableId];
     }
 }
