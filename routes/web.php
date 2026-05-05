@@ -151,6 +151,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('applications.export');
         Route::get('applications/{cfa_submission}', [StaffPortalController::class, 'showCfaSubmission'])->name('applications.show');
         Route::get('applications/{cfa_submission}/edit', [StaffPortalController::class, 'editCfaSubmission'])->name('applications.edit');
+        Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
+        Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
         Route::put('applications/{cfa_submission}', [StaffPortalController::class, 'updateCfaSubmission'])
             ->middleware('throttle:30,1')
             ->name('applications.update');
@@ -202,6 +204,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     /** State Staff (SPOC) — maker-checker approval queue */
     Route::middleware('state_staff')->prefix('spoc')->name('spoc.')->group(function () {
         Route::get('service-cases', [SpocServiceCaseController::class, 'index'])->name('service-cases.index');
+        Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
+        Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
         Route::get('service-cases/{service_case}', [SpocServiceCaseController::class, 'show'])->name('service-cases.show');
         Route::post('service-cases/{service_case}/approve', [SpocServiceCaseController::class, 'approve'])
             ->middleware('throttle:60,1')
@@ -369,6 +373,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
         Route::get('applications', [HubApplicationsController::class, 'index'])->name('applications.index');
+        Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
+        Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
         Route::get('applications/export', [HubApplicationsController::class, 'export'])->name('applications.export');
         Route::get('batches', [HubBatchController::class, 'index'])->name('batches.index');
         Route::get('batches/{batch}/onboarding-letter', [BatchReadOnlyController::class, 'downloadOnboardingLetter'])->name('batches.onboarding-letter');

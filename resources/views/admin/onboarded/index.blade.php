@@ -92,7 +92,7 @@
         </div>
     </div>
 
-    <form method="get" action="{{ route('admin.onboarded.index') }}" class="onb-filters">
+    <form method="get" action="{{ route($routeIndex ?? 'admin.onboarded.index') }}" class="onb-filters">
         <div class="onb-fld">
             <label for="fld-hub">Hub</label>
             <select id="fld-hub" name="hub" onchange="this.form.submit()">
@@ -124,10 +124,10 @@
         </div>
         <div class="onb-actions">
             @if (($filters['hub'] ?? null) || ($filters['district'] ?? null) || ($filters['q'] ?? null))
-                <a href="{{ route('admin.onboarded.index') }}" class="btn-sm">Clear</a>
+                <a href="{{ route($routeIndex ?? 'admin.onboarded.index') }}" class="btn-sm">Clear</a>
             @endif
             <a
-                href="{{ route('admin.onboarded.export', array_filter(['hub' => $filters['hub'] ?? null, 'district' => $filters['district'] ?? null, 'q' => $filters['q'] ?? null])) }}"
+                href="{{ route($routeExport ?? 'admin.onboarded.export', array_filter(['hub' => $filters['hub'] ?? null, 'district' => $filters['district'] ?? null, 'q' => $filters['q'] ?? null])) }}"
                 class="btn-sm"
             >Export Excel</a>
             <button type="submit" class="btn-sm btn-primary">Apply</button>

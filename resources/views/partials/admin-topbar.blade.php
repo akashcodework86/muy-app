@@ -33,6 +33,9 @@
         str_starts_with($r, 'admin.phase1-cfa') => 'phase1-cfa',
         str_starts_with($r, 'admin.phase2-cfa') => 'phase2-cfa',
         str_starts_with($r, 'admin.onboarded') => 'onboarded',
+        str_starts_with($r, 'hub.onboarded') => 'onboarded',
+        str_starts_with($r, 'staff.onboarded') => 'onboarded',
+        str_starts_with($r, 'spoc.onboarded') => 'onboarded',
         str_starts_with($r, 'admin.phase3-services') => 'phase3-services',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
@@ -230,6 +233,9 @@
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>
+            <a href="{{ route('spoc.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
+                {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
+            </a>
             <a href="{{ route('spoc.service-cases.index') }}" class="admin-topbar__link @if ($activeNav === 'spoc-queue') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Approval queue</span>
             </a>
@@ -243,6 +249,9 @@
         <nav class="admin-topbar__nav" aria-label="Hub">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
+            </a>
+            <a href="{{ route('hub.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
+                {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
             </a>
             <a href="{{ route('hub.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-batches') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
@@ -263,6 +272,9 @@
         <nav class="admin-topbar__nav" aria-label="Staff">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
+            </a>
+            <a href="{{ route('staff.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
+                {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
             </a>
             <a href="{{ route('staff.monthly-targets') }}" class="admin-topbar__link @if ($activeNav === 'staff-targets') is-active @endif">
                 {!! $i('calendar') !!}<span class="admin-topbar__link-text">Monthly targets</span>

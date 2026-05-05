@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\District;
+use App\Models\DistrictServiceSpoc;
 use App\Models\Hub;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -16,15 +17,18 @@ class OnboardedApplicantController extends Controller
 {
     public function index(Request $request): View
     {
-        [$hubId, $districtId, $q] = $this->extractFilters($request);
+        $scope = $this->resolveScope($request);
+        [$hubId, $districtId, $q] = $this->extractFilters($request, $scope);
 
         $hubs = Hub::query()
+            ->when($scope['hub_id'] !== null, fn ($query) => $query->where('id', $scope['hub_id']))
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'name']);
 
         $districts = District::query()
             ->when($hubId, fn ($query) => $query->where('hub_id', $hubId))
+            ->when($scope['district_ids'] !== null, fn ($query) => $query->whereIn('id', $scope['district_ids']))
             ->orderBy('name')
             ->get(['id', 'name', 'hub_id']);
 
@@ -42,12 +46,15 @@ class OnboardedApplicantController extends Controller
                 'district' => $districtId,
                 'q' => $q,
             ],
+            'routeIndex' => $this->routeNameFor($request, 'index'),
+            'routeExport' => $this->routeNameFor($request, 'export'),
         ]);
     }
 
     public function export(Request $request): StreamedResponse
     {
-        [$hubId, $districtId, $q] = $this->extractFilters($request);
+        $scope = $this->resolveScope($request);
+        [$hubId, $districtId, $q] = $this->extractFilters($request, $scope);
         $commonColumns = $this->commonColumnMap();
         $rows = $this->buildRows($hubId, $districtId, $q);
 
@@ -92,13 +99,72 @@ class OnboardedApplicantController extends Controller
         ]);
     }
 
-    private function extractFilters(Request $request): array
+    private function extractFilters(Request $request, array $scope): array
     {
-        $hubId = $request->integer('hub') ?: null;
+        $hubId = $scope['hub_id'] ?? null;
+        if ($hubId === null) {
+            $hubId = $request->integer('hub') ?: null;
+        }
+
         $districtId = $request->integer('district') ?: null;
+        $allowedDistrictIds = $scope['district_ids'] ?? null;
+        if (is_array($allowedDistrictIds)) {
+            if ($districtId !== null && ! in_array($districtId, $allowedDistrictIds, true)) {
+                $districtId = null;
+            }
+            if ($districtId === null && count($allowedDistrictIds) === 1) {
+                $districtId = (int) $allowedDistrictIds[0];
+            }
+        }
+
         $q = trim((string) $request->string('q')->toString());
 
         return [$hubId, $districtId, $q];
+    }
+
+    private function resolveScope(Request $request): array
+    {
+        $user = $request->user();
+        if (! $user) {
+            return ['hub_id' => null, 'district_ids' => null];
+        }
+
+        if ($user->role === 'hub_admin') {
+            return ['hub_id' => (int) $user->hub_id, 'district_ids' => null];
+        }
+
+        if ($user->role === 'district_staff') {
+            return [
+                'hub_id' => (int) $user->hub_id,
+                'district_ids' => $user->district_id ? [(int) $user->district_id] : [],
+            ];
+        }
+
+        if ($user->role === 'state_staff') {
+            $ids = DistrictServiceSpoc::query()
+                ->where('state_staff_user_id', (int) $user->id)
+                ->pluck('district_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+            return ['hub_id' => null, 'district_ids' => $ids];
+        }
+
+        return ['hub_id' => null, 'district_ids' => null];
+    }
+
+    private function routeNameFor(Request $request, string $action): string
+    {
+        $role = $request->user()?->role;
+
+        return match ($role) {
+            'hub_admin' => 'hub.onboarded.'.$action,
+            'district_staff' => 'staff.onboarded.'.$action,
+            'state_staff' => 'spoc.onboarded.'.$action,
+            default => 'admin.onboarded.'.$action,
+        };
     }
 
     private function buildRows(?int $hubId, ?int $districtId, string $q): Collection
