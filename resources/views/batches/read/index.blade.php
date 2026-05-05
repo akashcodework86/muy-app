@@ -365,7 +365,7 @@
                                 {{ optional($b->onboarding_date)->format('d M Y') ?? '—' }}
                             </td>
                             <td data-label="Locked at">
-                                {{ $b->locked_at?->timezone(config('app.timezone'))->format('d M Y, H:i') ?? '—' }}
+                                {{ optional($b->locked_at)->timezone(config('app.timezone'))->format('d M Y, H:i') ?? '—' }}
                             </td>
                             <td data-label="Actions">
                                 <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;">

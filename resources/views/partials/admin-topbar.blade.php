@@ -32,6 +32,7 @@
         str_starts_with($r, 'admin.cfa') => 'cfa',
         str_starts_with($r, 'admin.phase1-cfa') => 'phase1-cfa',
         str_starts_with($r, 'admin.phase2-cfa') => 'phase2-cfa',
+        str_starts_with($r, 'admin.onboarded') => 'onboarded',
         str_starts_with($r, 'admin.phase3-services') => 'phase3-services',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
@@ -131,6 +132,9 @@
                     </a>
                     <a href="{{ route('admin.phase2-cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase2-cfa') is-active @endif" role="menuitem">
                         {!! $i('database') !!}<span>CFA (FY 2025-26 Data)</span>
+                    </a>
+                    <a href="{{ route('admin.onboarded.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarded') is-active @endif" role="menuitem">
+                        {!! $i('batches') !!}<span>Onboarded</span>
                     </a>
                     <a href="{{ route('admin.phase3-services.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase3-services') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Phase 3 Service Cases</span>

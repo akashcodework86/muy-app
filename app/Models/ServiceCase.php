@@ -53,6 +53,7 @@ class ServiceCase extends Model
         'rejected_at',
         'rejected_by',
         'rejected_note',
+        'udyam_registration_type',
         'sla_deadline_at',
         'created_by',
     ];

@@ -158,6 +158,21 @@
                             'url' => route('admin.phase3-services.attachments.view', ['service_case' => $case->id, 'attachment' => $a->id]),
                         ])->values()->all();
                         $isSlaBreached = $case->sla_deadline_at && \Illuminate\Support\Carbon::parse($case->sla_deadline_at)->isPast() && ! in_array($case->status, ['approved', 'rejected', 'cancelled'], true);
+                        $serviceCodeLower = strtolower((string) ($case->service?->code ?? ''));
+                        $serviceNameLower = strtolower((string) ($case->service?->name ?? ''));
+                        $isUdyamService = $serviceCodeLower === 'udyam_registration'
+                            || str_contains($serviceCodeLower, 'udyam')
+                            || str_contains($serviceNameLower, 'udyam');
+                        $udyamTypeLabel = match ((string) ($case->udyam_registration_type ?? '')) {
+                            'existing' => 'Existing',
+                            'new' => 'New',
+                            default => '',
+                        };
+                        $udyamTypeDisplay = $udyamTypeLabel !== ''
+                            ? $udyamTypeLabel
+                            : (($isUdyamService && $case->status === 'pending_approval')
+                                ? 'Awaiting SPOC selection'
+                                : '');
                     @endphp
                     <tr>
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">{{ $loop->iteration + (($cases->currentPage() - 1) * $cases->perPage()) }}</td>
@@ -172,6 +187,13 @@
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
                             <div style="font-weight:700;color:#111827;">{{ $case->service?->name ?? '—' }}</div>
                             <div style="font-size:0.78rem;color:#64748b;">{{ $case->service?->category?->name ?? '—' }}</div>
+                            @if ($isUdyamService && $udyamTypeDisplay !== '')
+                                <div style="margin-top:0.26rem;">
+                                    <span style="display:inline-flex;align-items:center;padding:0.14rem 0.45rem;border-radius:999px;font-size:0.72rem;font-weight:800;letter-spacing:0.01em;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;">
+                                        Udyam: {{ $udyamTypeDisplay }}
+                                    </span>
+                                </div>
+                            @endif
                         </td>
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
                             <span style="font-size:0.75rem;padding:0.12rem 0.4rem;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">
