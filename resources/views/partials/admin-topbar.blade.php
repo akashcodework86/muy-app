@@ -26,6 +26,7 @@
     if ($initials === '') {
         $initials = 'MU';
     }
+    $hasAdminCfaIndex = \Illuminate\Support\Facades\Route::has('admin.cfa.index');
     $r = request()->route()?->getName() ?? '';
     $activeNav = match (true) {
         $r === 'dashboard' => 'dashboard',
@@ -127,9 +128,11 @@
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Applications</p>
-                    <a href="{{ route('admin.cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'cfa') is-active @endif" role="menuitem">
-                        {!! $i('doc') !!}<span>CFA applications</span>
-                    </a>
+                    @if ($hasAdminCfaIndex)
+                        <a href="{{ route('admin.cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'cfa') is-active @endif" role="menuitem">
+                            {!! $i('doc') !!}<span>CFA applications</span>
+                        </a>
+                    @endif
                     <a href="{{ route('admin.phase1-cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase1-cfa') is-active @endif" role="menuitem">
                         {!! $i('database') !!}<span>CFA (FY 2024-25 Data)</span>
                     </a>
