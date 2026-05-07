@@ -408,6 +408,7 @@
                         <tr>
                             <th>Incubatee</th>
                             <th>Service</th>
+                            <th>Assigned by</th>
                             <th>Assigned SPOC</th>
                             <th>Responded by</th>
                             <th>Response</th>
@@ -432,6 +433,9 @@
                                     ?? $case->rejector?->name
                                     ?? (($case->status === \App\Models\ServiceCase::STATUS_SENT_BACK) ? $case->spoc?->name : null)
                                     ?? null;
+                                $assignedByName = $case->submitter?->name
+                                    ?? $case->creator?->name
+                                    ?? '—';
                                 $responseText = '—';
                                 $responseClass = 'svc-response--none';
                                 if ($case->status === \App\Models\ServiceCase::STATUS_APPROVED) {
@@ -448,6 +452,7 @@
                                     ($case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '') : '')).' '.
                                     ($case->cfaSubmission?->application_no ?? (is_array($lip) ? ($lip['application_no'] ?? '') : '')).' '.
                                     ($case->service?->name ?? '').' '.
+                                    ($assignedByName ?? '').' '.
                                     str_replace('_', ' ', (string) $case->status).' '.
                                     ($case->spoc?->name ?? '').' '.
                                     ($responderName ?? '').' '.
@@ -464,6 +469,7 @@
                                     @endif
                                 </td>
                                 <td>{{ $case->service?->name ?? '—' }}</td>
+                                <td>{{ $assignedByName }}</td>
                                 <td>
                                     <span class="svc-spoc-pill {{ $case->spoc?->name ? '' : 'svc-spoc-pill--empty' }}">
                                         {{ $case->spoc?->name ?? 'Not assigned' }}

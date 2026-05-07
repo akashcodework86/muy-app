@@ -142,6 +142,7 @@
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Status</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">SLA</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Submitted</th>
+                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Assigned by</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">SPOC</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Documents</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Actions</th>
@@ -214,6 +215,9 @@
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;color:#475569;">
                             {{ $case->submitted_at ? \Illuminate\Support\Carbon::parse($case->submitted_at)->format('d M Y, h:i A') : '—' }}
                         </td>
+                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
+                            {{ $case->submitter?->name ?? $case->creator?->name ?? '—' }}
+                        </td>
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">{{ $case->spoc?->name ?? 'Unassigned' }}</td>
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;white-space:nowrap;">
                             <span style="font-weight:700;">{{ count($attachments) }}</span>
@@ -236,7 +240,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="12" style="padding:1rem;color:#64748b;">No Phase 3 service cases found for selected filters.</td>
+                        <td colspan="13" style="padding:1rem;color:#64748b;">No Phase 3 service cases found for selected filters.</td>
                     </tr>
                 @endforelse
             </tbody>

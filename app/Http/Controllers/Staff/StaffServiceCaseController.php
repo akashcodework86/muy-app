@@ -61,6 +61,8 @@ class StaffServiceCaseController extends Controller
             ->with([
                 'cfaSubmission:id,applicant_name,application_no,district_id',
                 'service.category',
+                'submitter:id,name',
+                'creator:id,name',
                 'spoc:id,name',
                 'approver:id,name',
                 'rejector:id,name',
@@ -161,6 +163,45 @@ class StaffServiceCaseController extends Controller
 
         $existingPairs = $existingCfaPairs->merge($existingLegacyPairs)->values();
 
+        $priorCfaCases = ServiceCase::query()
+            ->with(['service:id,name', 'submitter:id,name', 'creator:id,name'])
+            ->when($submissionIds !== [], fn ($q) => $q->whereIn('cfa_submission_id', $submissionIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->whereNotNull('cfa_submission_id')
+            ->orderByDesc('created_at')
+            ->get(['id', 'cfa_submission_id', 'service_id', 'status', 'submitted_by', 'created_by', 'created_at']);
+
+        $priorLegacyCases = ServiceCase::query()
+            ->with(['service:id,name', 'submitter:id,name', 'creator:id,name'])
+            ->when($legacyIds !== [], fn ($q) => $q->whereIn('legacy_application_id', $legacyIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->whereNotNull('legacy_application_id')
+            ->orderByDesc('created_at')
+            ->get(['id', 'legacy_application_id', 'service_id', 'status', 'submitted_by', 'created_by', 'created_at']);
+
+        $priorCasesJson = [
+            'cfa' => $priorCfaCases
+                ->groupBy(fn (ServiceCase $case) => (int) $case->cfa_submission_id)
+                ->map(fn (Collection $rows) => $rows->map(function (ServiceCase $case): array {
+                    return [
+                        'service_name' => (string) ($case->service?->name ?? 'Service'),
+                        'status' => (string) $case->status,
+                        'staff_name' => (string) ($case->submitter?->name ?? $case->creator?->name ?? 'Unknown'),
+                        'created_at' => optional($case->created_at)->timezone(config('app.timezone'))->format('d M Y H:i') ?? '',
+                    ];
+                })->values()->all())
+                ->all(),
+            'legacy' => $priorLegacyCases
+                ->groupBy(fn (ServiceCase $case) => (int) $case->legacy_application_id)
+                ->map(fn (Collection $rows) => $rows->map(function (ServiceCase $case): array {
+                    return [
+                        'service_name' => (string) ($case->service?->name ?? 'Service'),
+                        'status' => (string) $case->status,
+                        'staff_name' => (string) ($case->submitter?->name ?? $case->creator?->name ?? 'Unknown'),
+                        'created_at' => optional($case->created_at)->timezone(config('app.timezone'))->format('d M Y H:i') ?? '',
+                    ];
+                })->values()->all())
+                ->all(),
+        ];
+
         try {
             $legacyPriorJson = $legacyRows->mapWithKeys(function ($row) {
                 $id = (int) $row->id;
@@ -205,6 +246,7 @@ class StaffServiceCaseController extends Controller
             'services' => $services,
             'servicesJson' => $servicesJson,
             'existingNonMultiplePairs' => $existingPairs,
+            'priorCasesJson' => $priorCasesJson,
         ]);
     }
 

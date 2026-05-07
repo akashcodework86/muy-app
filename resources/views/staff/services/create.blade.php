@@ -4,6 +4,63 @@
 @section('heading', 'New service submission')
 
 @section('content')
+    <style>
+        .svc-create-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 320px;
+            gap: 1rem;
+            align-items: start;
+        }
+        .svc-create-side {
+            border: 1px solid #c7d2fe;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%);
+            padding: 0.85rem;
+            position: sticky;
+            top: 1rem;
+            box-shadow: 0 10px 24px rgba(79, 70, 229, 0.12);
+        }
+        .svc-create-side h4 {
+            margin: 0 0 0.5rem;
+            font-size: 0.9rem;
+            color: #312e81;
+        }
+        .svc-create-side ul {
+            margin: 0;
+            padding-left: 1.1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+        .svc-create-side li {
+            font-size: 0.81rem;
+            color: #1f2937;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0.45rem 0.5rem;
+        }
+        .svc-create-side .meta {
+            display: block;
+            margin-top: 0.12rem;
+            font-size: 0.76rem;
+            color: #475569;
+        }
+        .svc-create-side .empty {
+            margin: 0;
+            font-size: 0.81rem;
+            color: #475569;
+        }
+        @media (max-width: 1040px) {
+            .svc-create-grid {
+                grid-template-columns: 1fr;
+            }
+            .svc-create-side {
+                position: static;
+            }
+        }
+    </style>
+
     <p style="margin:0 0 1rem;"><a href="{{ route('staff.services.index') }}">← Service cases</a></p>
 
     @if ($submissions->isEmpty() && ($legacyRows ?? collect())->isEmpty())
@@ -22,8 +79,9 @@
             </ul>
         @endif
 
-        <form id="serviceSubmitForm" method="post" action="{{ route('staff.services.store') }}" enctype="multipart/form-data" style="max-width:42rem;">
-            @csrf
+        <div class="svc-create-grid">
+            <form id="serviceSubmitForm" method="post" action="{{ route('staff.services.store') }}" enctype="multipart/form-data" style="max-width:42rem;">
+                @csrf
 
             <p style="margin:0 0 0.65rem;font-size:0.82rem;color:#52525b;">Choose <strong>one</strong> incubatee source: Phase 3 CFA (this MIS) <em>or</em> Phase 2 legacy application (rbiphase2, onboarded).</p>
 
@@ -100,8 +158,15 @@
                 <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;">
             </div>
 
-            <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.55rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;">Submit</button>
-        </form>
+                <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.55rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;">Submit</button>
+            </form>
+
+            <aside class="svc-create-side">
+                <h4>Already given services</h4>
+                <p id="prior_services_empty" class="empty">Select an incubatee to see service history and staff details.</p>
+                <ul id="prior_services_list" style="display:none;"></ul>
+            </aside>
+        </div>
 
         <div id="submitProgressOverlay" style="display:none;position:fixed;inset:0;background:rgba(9,12,22,0.62);z-index:9999;align-items:center;justify-content:center;padding:1.2rem;">
             <div style="width:min(760px,97vw);min-height:280px;background:#ffffff;border-radius:18px;padding:1.6rem 1.45rem 1.65rem;border:1px solid #e4e4e7;box-shadow:0 24px 60px rgba(0,0,0,0.28);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;">
@@ -119,12 +184,15 @@
                 const SERVICES = @json($servicesJson);
                 const EXISTING_NON_MULTIPLE = new Set(@json($existingNonMultiplePairs ?? []));
                 const LEGACY_PRIOR = @json($legacyPriorJson ?? []);
+                const PRIOR_CASES = @json($priorCasesJson ?? ['cfa' => [], 'legacy' => []]);
 
                 const selSvc = document.getElementById('service_id');
                 const selSub = document.getElementById('cfa_submission_id');
                 const selLegacy = document.getElementById('legacy_application_id');
                 const legacyPriorWrap = document.getElementById('legacy_prior_wrap');
                 const legacyPriorList = document.getElementById('legacy_prior_list');
+                const priorServicesList = document.getElementById('prior_services_list');
+                const priorServicesEmpty = document.getElementById('prior_services_empty');
                 const meta = document.getElementById('svc_meta');
                 const wrapDel = document.getElementById('wrap_delivered');
                 const wrapAtt = document.getElementById('wrap_attach');
@@ -155,6 +223,40 @@
                         li.textContent = parts.join(' ');
                         legacyPriorList.appendChild(li);
                     });
+                }
+
+                function renderPriorServices() {
+                    if (!priorServicesList || !priorServicesEmpty) return;
+                    let rows = [];
+                    const leg = selLegacy ? parseInt(selLegacy.value || '0', 10) : 0;
+                    const cfa = selSub ? parseInt(selSub.value || '0', 10) : 0;
+                    if (leg > 0) rows = (PRIOR_CASES.legacy && PRIOR_CASES.legacy[leg]) ? PRIOR_CASES.legacy[leg] : [];
+                    else if (cfa > 0) rows = (PRIOR_CASES.cfa && PRIOR_CASES.cfa[cfa]) ? PRIOR_CASES.cfa[cfa] : [];
+
+                    priorServicesList.innerHTML = '';
+                    if (!Array.isArray(rows) || rows.length === 0) {
+                        priorServicesEmpty.textContent = (leg > 0 || cfa > 0)
+                            ? 'No earlier services found for this incubatee.'
+                            : 'Select an incubatee to see service history and staff details.';
+                        priorServicesEmpty.style.display = 'block';
+                        priorServicesList.style.display = 'none';
+                        return;
+                    }
+
+                    rows.forEach(function (row) {
+                        const li = document.createElement('li');
+                        const status = row.status ? String(row.status).replace(/_/g, ' ') : 'unknown';
+                        li.innerHTML =
+                            '<strong>' + esc(row.service_name || 'Service') + '</strong>' +
+                            '<span class="meta">By ' + esc(row.staff_name || 'Unknown') +
+                            ' · ' + esc(status) +
+                            (row.created_at ? ' · ' + esc(row.created_at) : '') +
+                            '</span>';
+                        priorServicesList.appendChild(li);
+                    });
+
+                    priorServicesEmpty.style.display = 'none';
+                    priorServicesList.style.display = 'flex';
                 }
 
                 function esc(s) {
@@ -394,6 +496,7 @@
                     selSub.addEventListener('change', function () {
                         if (parseInt(selSub.value || '0', 10) > 0 && selLegacy) selLegacy.value = '';
                         updateLegacyPrior();
+                        renderPriorServices();
                         refreshServiceOptionLocks();
                         render();
                     });
@@ -402,11 +505,13 @@
                     selLegacy.addEventListener('change', function () {
                         if (parseInt(selLegacy.value || '0', 10) > 0 && selSub && selSub.tagName === 'SELECT') selSub.value = '';
                         updateLegacyPrior();
+                        renderPriorServices();
                         refreshServiceOptionLocks();
                         render();
                     });
                 }
                 updateLegacyPrior();
+                renderPriorServices();
                 refreshServiceOptionLocks();
                 render();
             })();

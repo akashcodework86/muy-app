@@ -338,6 +338,7 @@ class Phase3ServiceCasesController extends Controller
                 'cfaSubmission:id,application_no,applicant_name,district_id',
                 'cfaSubmission.district:id,name',
                 'submitter:id,name',
+                'creator:id,name',
                 'spoc:id,name',
                 'approver:id,name',
                 'attachments:id,service_case_id,disk,path,original_name,mime_type,size_bytes',
