@@ -222,6 +222,16 @@
         </label>
     </div>
 
+    <div class="form-group full-width" style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:0.75rem 0.85rem;">
+        <label class="form-label" for="public_cfa_submit_mode" style="font-weight:700;color:#9a3412;">
+            Public CFA submit type <span style="color:#dc2626">*</span>
+        </label>
+        <select class="form-select" name="public_cfa_submit_mode" id="public_cfa_submit_mode" required style="border-color:#fb923c;">
+            <option value="self" @selected(old('public_cfa_submit_mode', 'self') === 'self')>Self Submitted</option>
+            <option value="gdc_team" @selected(old('public_cfa_submit_mode') === 'gdc_team')>By GDC Team</option>
+        </select>
+    </div>
+
     <div class="form-actions">
         <button type="button" class="btn-back" id="backToA">← Back</button>
         <button type="submit" class="btn-success" id="cfaSubmitBtn" disabled>Submit application</button>

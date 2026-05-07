@@ -160,8 +160,16 @@
                             <td class="whitespace-nowrap px-3 py-3 text-xs text-slate-500" title="MoPR LGD snapshot at submit">{{ $row->lgd_state_code ?? '—' }} / {{ $row->lgd_district_code ?? '—' }} / {{ $row->lgd_block_code ?? '—' }}</td>
                             <td class="px-3 py-3 text-slate-500">
                                 @if ($row->source === 'public_form')
+                                    @php
+                                        $submitMode = is_array($row->payload ?? null)
+                                            ? (string) ($row->payload['public_cfa_submit_mode'] ?? 'self')
+                                            : 'self';
+                                        $publicSourceLabel = $submitMode === 'gdc_team'
+                                            ? 'BY GDC TEAM'
+                                            : '🌐 Public / Walk-in';
+                                    @endphp
                                     <span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
-                                        🌐 Public / Walk-in
+                                        {{ $publicSourceLabel }}
                                     </span>
                                 @else
                                     {{ $row->referralUser?->name ?? '—' }}

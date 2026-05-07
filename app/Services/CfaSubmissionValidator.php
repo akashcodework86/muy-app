@@ -298,6 +298,7 @@ class CfaSubmissionValidator
             'expectations'            => ['required', 'array', 'min:1'],
             'expectations.*'          => [Rule::in($expectationValues)],
             'expectation_other_text'  => ['nullable', 'string', 'max:500'],
+            'public_cfa_submit_mode'  => ['required', Rule::in(['self', 'gdc_team'])],
             'consent'                 => ['accepted'],
         ];
 
