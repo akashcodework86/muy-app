@@ -93,6 +93,7 @@
 
     @php
         use App\Models\ServiceCase;
+        $districtNameById = ($districtOptions ?? collect())->pluck('name', 'id');
         $tabs = [
             '' => 'All',
             ServiceCase::STATUS_PENDING_APPROVAL => 'Pending approval',
@@ -154,9 +155,7 @@
                     <select name="batch_id" class="sq-search" style="max-width:20rem;">
                         <option value="">All batches</option>
                         @foreach (($batchOptions ?? collect()) as $batch)
-                            @php
-                                $dName = ($districtOptions ?? collect())->firstWhere('id', $batch->district_id)?->name;
-                            @endphp
+                            @php $dName = $districtNameById->get($batch->district_id); @endphp
                             <option value="{{ (int) $batch->id }}" @selected((int) ($filterBatchId ?? 0) === (int) $batch->id)>
                                 {{ $batch->name }}@if($dName) — {{ $dName }}@endif
                             </option>
@@ -271,6 +270,7 @@
                         <h4>Approve</h4>
                         <form id="sqApproveForm" method="post" action="">
                             @csrf
+                            <input id="sqApproveRedirect" type="hidden" name="redirect_to" value="">
                             <button type="submit" class="sq-btn sq-btn--ok" onclick="return confirm('Approve this case?')">Approve now</button>
                         </form>
                     </div>
@@ -279,6 +279,7 @@
                         <h4>Send back</h4>
                         <form id="sqSendBackForm" method="post" action="">
                             @csrf
+                            <input id="sqSendBackRedirect" type="hidden" name="redirect_to" value="">
                             <textarea name="note" required class="sq-note" placeholder="What should staff fix?"></textarea>
                             <div style="margin-top:0.45rem;">
                                 <button type="submit" class="sq-btn sq-btn--warn">Send back</button>
@@ -290,6 +291,7 @@
                         <h4>Reject</h4>
                         <form id="sqRejectForm" method="post" action="">
                             @csrf
+                            <input id="sqRejectRedirect" type="hidden" name="redirect_to" value="">
                             <textarea name="note" required class="sq-note" placeholder="Why are you rejecting this case?"></textarea>
                             <div style="margin-top:0.45rem;">
                                 <button type="submit" class="sq-btn sq-btn--danger">Reject</button>
@@ -340,6 +342,9 @@
             const approveForm = document.getElementById('sqApproveForm');
             const sendBackForm = document.getElementById('sqSendBackForm');
             const rejectForm = document.getElementById('sqRejectForm');
+            const approveRedirect = document.getElementById('sqApproveRedirect');
+            const sendBackRedirect = document.getElementById('sqSendBackRedirect');
+            const rejectRedirect = document.getElementById('sqRejectRedirect');
             const openButtons = Array.from(document.querySelectorAll('.js-review-open'));
             const docButtons = Array.from(document.querySelectorAll('.js-doc-open'));
             const docModal = document.getElementById('sqDocModal');
@@ -364,6 +369,10 @@
                     approveForm.action = btn.dataset.approveUrl || '';
                     sendBackForm.action = btn.dataset.sendBackUrl || '';
                     rejectForm.action = btn.dataset.rejectUrl || '';
+                    const currentUrl = window.location.href || '';
+                    if (approveRedirect) approveRedirect.value = currentUrl;
+                    if (sendBackRedirect) sendBackRedirect.value = currentUrl;
+                    if (rejectRedirect) rejectRedirect.value = currentUrl;
                     sendBackForm.reset();
                     rejectForm.reset();
                     setModal(true);

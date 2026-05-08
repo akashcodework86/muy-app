@@ -205,8 +205,7 @@ class SpocServiceCaseController extends Controller
         });
         $this->notifyDistrictStaff($service_case, $spoc, 'approved');
 
-        return redirect()
-            ->route('spoc.service-cases.index')
+        return $this->redirectToQueue($request)
             ->with('status', 'Case approved.');
     }
 
@@ -243,8 +242,7 @@ class SpocServiceCaseController extends Controller
         });
         $this->notifyDistrictStaff($service_case, $spoc, 'sent_back');
 
-        return redirect()
-            ->route('spoc.service-cases.show', $service_case)
+        return $this->redirectToQueue($request)
             ->with('status', 'Case sent back to district staff.');
     }
 
@@ -281,8 +279,7 @@ class SpocServiceCaseController extends Controller
         });
         $this->notifyDistrictStaff($service_case, $spoc, 'rejected');
 
-        return redirect()
-            ->route('spoc.service-cases.show', $service_case)
+        return $this->redirectToQueue($request)
             ->with('status', 'Case rejected.');
     }
 
@@ -481,6 +478,18 @@ class SpocServiceCaseController extends Controller
             'comment' => $note !== '' ? $note : null,
             'action' => $action,
         ]));
+    }
+
+    private function redirectToQueue(Request $request): RedirectResponse
+    {
+        $target = trim((string) $request->input('redirect_to', ''));
+        $appUrl = rtrim((string) config('app.url'), '/');
+
+        if ($target !== '' && $appUrl !== '' && str_starts_with($target, $appUrl.'/')) {
+            return redirect()->to($target);
+        }
+
+        return redirect()->route('spoc.service-cases.index');
     }
 
 }
