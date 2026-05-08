@@ -206,7 +206,7 @@ class SpocServiceCaseController extends Controller
         $this->notifyDistrictStaff($service_case, $spoc, 'approved');
 
         return redirect()
-            ->route('spoc.service-cases.show', $service_case)
+            ->route('spoc.service-cases.index')
             ->with('status', 'Case approved.');
     }
 
