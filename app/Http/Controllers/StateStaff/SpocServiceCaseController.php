@@ -483,13 +483,39 @@ class SpocServiceCaseController extends Controller
     private function redirectToQueue(Request $request): RedirectResponse
     {
         $target = trim((string) $request->input('redirect_to', ''));
-        $appUrl = rtrim((string) config('app.url'), '/');
-
-        if ($target !== '' && $appUrl !== '' && str_starts_with($target, $appUrl.'/')) {
+        if ($target !== '' && $this->isSafeQueueUrl($target)) {
             return redirect()->to($target);
         }
 
         return redirect()->route('spoc.service-cases.index');
+    }
+
+    private function isSafeQueueUrl(string $url): bool
+    {
+        if ($url === '') {
+            return false;
+        }
+
+        // Allow relative queue URLs from forms posted within this app.
+        if (str_starts_with($url, '/')) {
+            return str_contains($url, '/spoc/service-cases');
+        }
+
+        $target = parse_url($url);
+        $current = parse_url(url('/'));
+        if (! is_array($target) || ! is_array($current)) {
+            return false;
+        }
+
+        $targetHost = strtolower((string) ($target['host'] ?? ''));
+        $currentHost = strtolower((string) ($current['host'] ?? ''));
+        if ($targetHost === '' || $currentHost === '' || $targetHost !== $currentHost) {
+            return false;
+        }
+
+        $targetPath = (string) ($target['path'] ?? '');
+
+        return str_contains($targetPath, '/spoc/service-cases');
     }
 
 }
