@@ -1,6 +1,6 @@
 <?php
 
-// Deploy: git pull → composer install → migrate → npm build → clear caches → rebuild config/routes.
+// Deploy: git pull → composer install → migrate → clear caches → rebuild config/routes.
 // Optional env: MUY_DEPLOY_PATH, MUY_COMPOSER (see comments in repo README or below).
 
 $secret = 'muy-deploy-2024'; // Security key
@@ -52,29 +52,6 @@ $out(implode("\n", $lines));
 if ($migrateExit !== 0) {
     echo "\n<span style='color:#f87171;font-weight:bold'>❌ MIGRATIONS FAILED (exit {$migrateExit}). Database was NOT fully updated. Fix the error above, push, and run deploy again.</span>\n";
     echo "\n<span style='color:#94a3b8'>Tip: if you see duplicate column on `services`, pull latest code — migration 2026_04_28_100000 is idempotent.</span>\n";
-    echo '</pre>';
-    exit;
-}
-
-echo "--- frontend install (npm ci, fallback npm install) ---\n";
-$run($projectPath, 'npm --prefix '.escapeshellarg($projectPath).' ci --no-audit --no-fund', $lines, $npmCiExit);
-$out(implode("\n", $lines));
-if ($npmCiExit !== 0) {
-    echo "\n<span style='color:#fbbf24;font-weight:bold'>⚠️ npm ci failed (exit {$npmCiExit}). Trying npm install…</span>\n";
-    $run($projectPath, 'npm --prefix '.escapeshellarg($projectPath).' install --no-audit --no-fund', $lines, $npmInstallExit);
-    $out(implode("\n", $lines));
-    if ($npmInstallExit !== 0) {
-        echo "\n<span style='color:#f87171;font-weight:bold'>❌ Frontend dependency install failed. Fix npm errors and redeploy.</span>\n";
-        echo '</pre>';
-        exit;
-    }
-}
-
-echo "--- frontend build (npm run build) ---\n";
-$run($projectPath, 'npm --prefix '.escapeshellarg($projectPath).' run build', $lines, $npmBuildExit);
-$out(implode("\n", $lines));
-if ($npmBuildExit !== 0) {
-    echo "\n<span style='color:#f87171;font-weight:bold'>❌ Frontend build failed (exit {$npmBuildExit}). Fix build issues and redeploy.</span>\n";
     echo '</pre>';
     exit;
 }
