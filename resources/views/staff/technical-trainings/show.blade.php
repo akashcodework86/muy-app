@@ -29,9 +29,6 @@
     .tp-show-btn--primary:hover { background:#4338ca; color:#fff; }
     .tp-show-btn--secondary { background:#fff; color:#334155; border-color:#cbd5e1; }
     .tp-show-btn--secondary:hover { background:#f8fafc; }
-    .tp-show-media { display:flex; flex-wrap:wrap; gap:0.65rem; }
-    .tp-show-media img { width:140px; height:96px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0; }
-    .tp-show-media a { display:inline-flex; align-items:center; padding:0.4rem 0.65rem; border:1px solid #cbd5e1; border-radius:8px; text-decoration:none; color:#334155; font-size:0.82rem; font-weight:600; }
     .tp-show-table-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:auto; }
     .tp-show-table-head { padding:0.95rem 1.1rem; border-bottom:1px solid #e2e8f0; }
     .tp-show-table-head h3 { margin:0; font-size:0.98rem; font-weight:800; color:#0f172a; }
@@ -50,6 +47,13 @@
 @endpush
 
 @section('content')
+@php
+    $attachmentRoute = match ($currentRole) {
+        'state_admin' => 'admin.technical-trainings.attachment',
+        'state_staff' => 'spoc.technical-trainings.attachment',
+        default => 'staff.technical-trainings.attachment',
+    };
+@endphp
 <div class="tp-show-shell">
     @if (session('status'))
         <div class="tp-show-alert">
@@ -112,32 +116,11 @@
 
     <div class="tp-show-card">
         <h3 class="tp-show-card__title">Uploaded Photos / Video / Docs</h3>
-        @if (is_array($row->attendance_media_json) && count($row->attendance_media_json))
-            <div class="tp-show-media">
-                @foreach ($row->attendance_media_json as $idx => $media)
-                    @if (is_array($media))
-                        @php
-                            $mediaPath = (string) ($media['path'] ?? '');
-                            $mediaMime = (string) ($media['mime'] ?? '');
-                            $mediaName = (string) ($media['original_name'] ?? ('Media '.($idx + 1)));
-                        @endphp
-                        @if ($mediaPath !== '')
-                            @if (str_starts_with($mediaMime, 'image/'))
-                                <a href="{{ \Illuminate\Support\Facades\Storage::url($mediaPath) }}" target="_blank" rel="noopener">
-                                    <img src="{{ \Illuminate\Support\Facades\Storage::url($mediaPath) }}" alt="{{ $mediaName }}">
-                                </a>
-                            @else
-                                <a href="{{ \Illuminate\Support\Facades\Storage::url($mediaPath) }}" target="_blank" rel="noopener">
-                                    {{ $mediaName }}
-                                </a>
-                            @endif
-                        @endif
-                    @endif
-                @endforeach
-            </div>
-        @else
-            <p class="tp-show-empty">No media uploaded.</p>
-        @endif
+        @include('staff.technical-trainings.partials.attendance-media-preview', [
+            'mediaItems' => (array) $row->attendance_media_json,
+            'attachmentRoute' => $attachmentRoute,
+            'record' => $row,
+        ])
     </div>
 
     <div class="tp-show-table-card">

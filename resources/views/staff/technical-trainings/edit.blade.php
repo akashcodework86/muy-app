@@ -56,21 +56,16 @@
 
             <div class="tp-section">
                 <div class="tp-field">
-                    <label>Uploaded attendance sheet (optional)</label>
+                    <label>Upload photos, videos, or documents (optional)</label>
                     <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.mkv,.doc,.docx,.xls,.xlsx" multiple>
+                    <p class="tp-field-hint">Choose files again to add more uploads. New files are saved with the current uploads, up to 25 files total.</p>
                     @if (is_array($row->attendance_media_json) && count($row->attendance_media_json))
                         <p class="tp-field-hint">Current uploads:</p>
-                        <div class="tp-media-preview">
-                            @foreach ($row->attendance_media_json as $media)
-                                @if (is_array($media))
-                                    @if (str_starts_with((string) ($media['mime'] ?? ''), 'image/'))
-                                        <img src="{{ \Illuminate\Support\Facades\Storage::url((string) ($media['path'] ?? '')) }}" alt="{{ $media['original_name'] ?? 'Media' }}">
-                                    @else
-                                        <span class="tp-media-chip">{{ $media['original_name'] ?? 'File' }}</span>
-                                    @endif
-                                @endif
-                            @endforeach
-                        </div>
+                        @include('staff.technical-trainings.partials.attendance-media-preview', [
+                            'mediaItems' => (array) $row->attendance_media_json,
+                            'attachmentRoute' => 'staff.technical-trainings.attachment',
+                            'record' => $row,
+                        ])
                     @endif
                     <div id="tpMediaPreview" class="tp-media-preview"></div>
                 </div>

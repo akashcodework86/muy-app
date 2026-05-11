@@ -7,7 +7,9 @@ use App\Models\Hub;
 use App\Models\TechnicalTraining;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class TechnicalTrainingAttendanceTest extends TestCase
@@ -137,6 +139,99 @@ class TechnicalTrainingAttendanceTest extends TestCase
         ]);
     }
 
+    public function test_district_staff_can_upload_multiple_attendance_media_files(): void
+    {
+        Storage::fake();
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $incubateeId = $this->seedOnboardedIncubatee($district);
+
+        $response = $this->actingAs($staff)->post(route('staff.technical-trainings.store'), [
+            'session_date' => '2026-05-18',
+            'session_name' => 'Multi-file session',
+            'selected_incubatees' => [$incubateeId],
+            'attendance_media' => [
+                UploadedFile::fake()->image('photo-one.jpg'),
+                UploadedFile::fake()->create('notes.docx', 120, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+                UploadedFile::fake()->create('clip.mp4', 240, 'video/mp4'),
+            ],
+        ]);
+
+        $response->assertRedirect(route('staff.technical-trainings.dashboard'));
+
+        $entry = TechnicalTraining::query()->firstOrFail();
+        $this->assertCount(3, (array) $entry->attendance_media_json);
+        Storage::assertExists((string) $entry->attendance_media_json[0]['path']);
+        Storage::assertExists((string) $entry->attendance_media_json[1]['path']);
+        Storage::assertExists((string) $entry->attendance_media_json[2]['path']);
+    }
+
+    public function test_update_appends_new_attendance_media_without_removing_existing(): void
+    {
+        Storage::fake();
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $incubateeId = $this->seedOnboardedIncubatee($district);
+        $existingPath = 'technical-training-attendance-media/existing.jpg';
+        Storage::put($existingPath, 'existing image');
+        $entry = $this->createTechnicalTraining($district, $staff, 'Existing session', [$incubateeId], null, [[
+            'path' => $existingPath,
+            'original_name' => 'existing.jpg',
+            'mime' => 'image/jpeg',
+            'size_bytes' => 14,
+            'type' => 'image',
+        ]]);
+
+        $response = $this->actingAs($staff)->put(route('staff.technical-trainings.update', $entry), [
+            'session_date' => '2026-05-19',
+            'session_name' => 'Existing session',
+            'selected_incubatees' => [$incubateeId],
+            'attendance_media' => [
+                UploadedFile::fake()->create('extra.pdf', 100, 'application/pdf'),
+            ],
+        ]);
+
+        $response->assertRedirect(route('staff.technical-trainings.dashboard'));
+
+        $entry->refresh();
+        $this->assertCount(2, (array) $entry->attendance_media_json);
+        $this->assertSame($existingPath, $entry->attendance_media_json[0]['path']);
+        Storage::assertExists((string) $entry->attendance_media_json[1]['path']);
+    }
+
+    public function test_authorized_user_can_download_uploaded_attachment(): void
+    {
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $incubateeId = $this->seedOnboardedIncubatee($district);
+        $path = 'technical-training-attendance-media/test-upload.docx';
+        Storage::put($path, 'sample document');
+
+        $entry = $this->createTechnicalTraining($district, $staff, 'Attachment session', [$incubateeId], null, [[
+            'path' => $path,
+            'original_name' => 'test-upload.docx',
+            'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'size_bytes' => 15,
+            'type' => 'document',
+        ]]);
+
+        $this->actingAs($staff)->get(route('staff.technical-trainings.attachment', $entry))
+            ->assertOk()
+            ->assertHeader('content-disposition');
+    }
+
     public function test_export_includes_session_name_and_brief_headers(): void
     {
         $district = $this->createDistrict();
@@ -167,6 +262,7 @@ class TechnicalTrainingAttendanceTest extends TestCase
         string $sessionName,
         array $incubateeIds = [1],
         ?string $sessionBrief = null,
+        array $attendanceMedia = [],
     ): TechnicalTraining {
         return TechnicalTraining::query()->create([
             'submitted_by_user_id' => $staff->id,
@@ -176,7 +272,7 @@ class TechnicalTrainingAttendanceTest extends TestCase
             'district_name' => $district->name,
             'session_name' => $sessionName,
             'session_brief' => $sessionBrief,
-            'attendance_media_json' => [],
+            'attendance_media_json' => $attendanceMedia,
             'selected_incubatee_ids' => $incubateeIds,
             'selected_incubatees_snapshot' => [[
                 'incubatee_id' => $incubateeIds[0],

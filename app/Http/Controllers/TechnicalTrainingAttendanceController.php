@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TechnicalTrainingAttendanceController extends Controller
@@ -62,7 +63,9 @@ class TechnicalTrainingAttendanceController extends Controller
             'training_batch_name' => ['nullable', 'string', 'max:191'],
             'selected_incubatees' => ['required', 'array', 'min:1'],
             'selected_incubatees.*' => ['integer', 'not_in:0'],
-        ], $this->attendanceMediaValidationRules()));
+        ], $this->attendanceMediaValidationRules(), [
+            'attendance_media' => ['nullable', 'array', 'max:25'],
+        ]));
 
         $districtId = (int) ($user->district_id ?: 0);
         abort_unless($districtId > 0, 422, 'District assignment is required to submit attendance.');
@@ -263,7 +266,9 @@ class TechnicalTrainingAttendanceController extends Controller
             'training_batch_name' => ['nullable', 'string', 'max:191'],
             'selected_incubatees' => ['required', 'array', 'min:1'],
             'selected_incubatees.*' => ['integer', 'not_in:0'],
-        ], $this->attendanceMediaValidationRules()));
+        ], $this->attendanceMediaValidationRules(), [
+            'attendance_media' => ['nullable', 'array', 'max:25'],
+        ]));
 
         $districtId = (int) ($technicalTraining->district_id ?: 0);
         $selectedIds = $this->normalizeSelectedIncubateeIds((array) $validated['selected_incubatees']);
@@ -275,9 +280,18 @@ class TechnicalTrainingAttendanceController extends Controller
                 ->withErrors(['selected_incubatees' => 'One or more selected incubatees are invalid for this district.']);
         }
 
-        if ($request->hasFile('attendance_media')) {
-            $this->deleteExistingMediaFiles($technicalTraining);
-            $technicalTraining->attendance_media_json = $this->storeUploadedMedia((array) $request->file('attendance_media', []));
+        $newUploads = array_values(array_filter((array) $request->file('attendance_media', [])));
+        if ($newUploads !== []) {
+            $existingMedia = collect((array) $technicalTraining->attendance_media_json)
+                ->filter(fn ($item): bool => is_array($item))
+                ->values();
+            $combinedCount = $existingMedia->count() + count($newUploads);
+            abort_if($combinedCount > 25, 422, 'You can upload up to 25 files per session.');
+
+            $technicalTraining->attendance_media_json = $existingMedia
+                ->merge($this->storeUploadedMedia($newUploads))
+                ->values()
+                ->all();
         }
 
         $technicalTraining->event_date = $validated['session_date'];
@@ -293,16 +307,43 @@ class TechnicalTrainingAttendanceController extends Controller
             ->with('status', 'Technical training attendance updated.');
     }
 
-    public function downloadAttachment(Request $request, TechnicalTraining $technicalTraining): StreamedResponse
+    public function downloadAttachment(Request $request, TechnicalTraining $technicalTraining): StreamedResponse|BinaryFileResponse
     {
         $this->assertCanAccessRecord($request->user()->role, (int) ($request->user()->district_id ?: 0), $technicalTraining);
-        $media = collect((array) $technicalTraining->attendance_media_json)->first();
+
+        $index = max(0, (int) $request->query('index', 0));
+        $media = collect((array) $technicalTraining->attendance_media_json)->get($index);
         abort_if(! is_array($media), 404);
+
         $path = (string) ($media['path'] ?? '');
         abort_if($path === '', 404);
         abort_unless(Storage::exists($path), 404);
 
-        return Storage::download($path, (string) ($media['original_name'] ?? basename($path)));
+        $filename = (string) ($media['original_name'] ?? basename($path));
+        $mime = (string) ($media['mime'] ?? '');
+        $inline = $request->boolean('inline') && $this->canServeInlineAttendanceMedia($mime, $filename);
+
+        if ($inline) {
+            return response()->file(Storage::path($path), [
+                'Content-Type' => $mime !== '' ? $mime : 'application/octet-stream',
+                'Content-Disposition' => 'inline; filename="'.str_replace('"', '', $filename).'"',
+            ]);
+        }
+
+        return Storage::download($path, $filename);
+    }
+
+    private function canServeInlineAttendanceMedia(string $mime, string $filename): bool
+    {
+        if (str_starts_with($mime, 'image/') || str_starts_with($mime, 'video/')) {
+            return true;
+        }
+
+        if ($mime === 'application/pdf' || str_ends_with(strtolower($filename), '.pdf')) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

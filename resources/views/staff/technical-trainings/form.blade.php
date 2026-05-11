@@ -41,8 +41,7 @@
     .tp-selected-count { display:inline-flex; align-items:center; justify-content:center; min-width:1.45rem; height:1.45rem; border-radius:999px; background:#4f46e5; color:#fff; font-size:0.72rem; font-weight:800; }
     .tp-selected-empty { margin:0; padding:0.75rem; color:#64748b; font-size:0.84rem; }
     .tp-field-hint { margin:0.2rem 0 0; color:#64748b; font-size:0.78rem; line-height:1.4; }
-    .tp-media-preview { display:flex; flex-wrap:wrap; gap:0.55rem; margin-top:0.55rem; }
-    .tp-media-preview img { width:96px; height:72px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0; }
+    .tp-media-preview { margin-top:0.55rem; }
     .tp-media-chip { display:inline-flex; align-items:center; padding:0.35rem 0.55rem; border-radius:8px; border:1px solid #cbd5e1; background:#f8fafc; font-size:0.78rem; color:#334155; }
     .tp-actions { margin-top:1.25rem; display:flex; flex-wrap:wrap; gap:0.65rem; align-items:center; }
     .tp-submit { border:none; border-radius:8px; background:#4f46e5; color:#fff; padding:0.62rem 1rem; font-weight:700; cursor:pointer; font-size:0.88rem; }
@@ -115,9 +114,9 @@
 
             <div class="tp-section">
                 <div class="tp-field">
-                    <label>Uploaded attendance sheet (optional)</label>
+                    <label>Upload photos, videos, or documents (optional)</label>
                     <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.mkv,.doc,.docx,.xls,.xlsx" multiple>
-                    <p class="tp-field-hint">Each file can be up to 50 MB. PDF, image, video, Word, and Excel files are accepted.</p>
+                    <p class="tp-field-hint">Select multiple files at once or use Choose files again to add more before submitting. Up to 25 files, 50 MB each. Images, videos, PDF, Word, and Excel are accepted.</p>
                     <div id="tpMediaPreview" class="tp-media-preview"></div>
                 </div>
             </div>
@@ -162,6 +161,12 @@
             </div>
         </form>
     </div>
+
+    @include('staff.technical-trainings.partials.attendance-media-preview', [
+        'mediaItems' => [],
+        'showEmptyMessage' => false,
+        'record' => null,
+    ])
 </div>
 @endsection
 
@@ -264,25 +269,129 @@
     }
 
     if (mediaInput && mediaPreview) {
-        mediaInput.addEventListener('change', function () {
+        const selectedFiles = new DataTransfer();
+        const previewUrls = new Map();
+
+        const detectKind = function (file) {
+            const type = file.type || '';
+            const name = (file.name || '').toLowerCase();
+            if (type.startsWith('image/')) {
+                return 'image';
+            }
+            if (type.startsWith('video/')) {
+                return 'video';
+            }
+            if (type === 'application/pdf' || name.endsWith('.pdf')) {
+                return 'pdf';
+            }
+            return 'file';
+        };
+
+        const fileLabel = function (kind, file) {
+            if (kind === 'pdf') {
+                return 'PDF';
+            }
+            if (kind === 'video') {
+                return 'Video';
+            }
+            if (kind === 'file') {
+                const parts = (file.name || '').split('.');
+                return parts.length > 1 ? parts.pop().toUpperCase() : 'File';
+            }
+            return 'Photo';
+        };
+
+        const fileKey = function (file) {
+            return [file.name, file.size, file.lastModified].join('::');
+        };
+
+        const syncMediaInput = function () {
+            mediaInput.files = selectedFiles.files;
+        };
+
+        const releasePreviewUrls = function () {
+            previewUrls.forEach((url) => URL.revokeObjectURL(url));
+            previewUrls.clear();
+        };
+
+        const renderPendingPreview = function () {
+            releasePreviewUrls();
             mediaPreview.innerHTML = '';
-            const files = Array.from(this.files || []);
+            const files = Array.from(selectedFiles.files || []);
             if (!files.length) {
                 return;
             }
+
+            const grid = document.createElement('div');
+            grid.className = 'tt-media-grid';
+            mediaPreview.appendChild(grid);
+
             files.forEach((file) => {
-                if ((file.type || '').startsWith('image/')) {
+                const kind = detectKind(file);
+                const objectUrl = URL.createObjectURL(file);
+                previewUrls.set(fileKey(file), objectUrl);
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'tt-media-tile js-tt-media-open';
+                button.setAttribute('data-view-url', objectUrl);
+                button.setAttribute('data-download-url', objectUrl);
+                button.setAttribute('data-media-kind', kind);
+                button.setAttribute('data-media-name', file.name || 'Attachment');
+                button.setAttribute('aria-label', 'Open ' + (file.name || 'Attachment'));
+
+                if (kind === 'image') {
                     const img = document.createElement('img');
-                    img.alt = file.name;
-                    img.src = URL.createObjectURL(file);
-                    mediaPreview.appendChild(img);
+                    img.className = 'tt-media-tile__thumb';
+                    img.alt = file.name || 'Image preview';
+                    img.src = objectUrl;
+                    button.appendChild(img);
+                } else if (kind === 'video') {
+                    const wrap = document.createElement('span');
+                    wrap.className = 'tt-media-tile__video';
+                    const video = document.createElement('video');
+                    video.className = 'tt-media-tile__video-el';
+                    video.muted = true;
+                    video.playsInline = true;
+                    video.preload = 'metadata';
+                    video.src = objectUrl;
+                    const play = document.createElement('span');
+                    play.className = 'tt-media-tile__play';
+                    play.textContent = '▶';
+                    wrap.appendChild(video);
+                    wrap.appendChild(play);
+                    button.appendChild(wrap);
                 } else {
-                    const chip = document.createElement('span');
-                    chip.className = 'tp-media-chip';
-                    chip.textContent = file.name;
-                    mediaPreview.appendChild(chip);
+                    const doc = document.createElement('span');
+                    doc.className = 'tt-media-tile__doc';
+                    const badge = document.createElement('span');
+                    badge.className = 'tt-media-tile__doc-badge';
+                    badge.textContent = fileLabel(kind, file);
+                    doc.appendChild(badge);
+                    button.appendChild(doc);
+                }
+
+                const name = document.createElement('span');
+                name.className = 'tt-media-tile__name';
+                name.textContent = file.name || 'Attachment';
+                button.appendChild(name);
+                grid.appendChild(button);
+            });
+        };
+
+        const addFiles = function (fileList) {
+            Array.from(fileList || []).forEach((file) => {
+                const key = fileKey(file);
+                const alreadySelected = Array.from(selectedFiles.files).some((existing) => fileKey(existing) === key);
+                if (!alreadySelected) {
+                    selectedFiles.items.add(file);
                 }
             });
+            syncMediaInput();
+            renderPendingPreview();
+        };
+
+        mediaInput.addEventListener('change', function () {
+            addFiles(this.files);
         });
     }
 
