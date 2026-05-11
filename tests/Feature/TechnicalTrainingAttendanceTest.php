@@ -1,0 +1,242 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\District;
+use App\Models\Hub;
+use App\Models\TechnicalTraining;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
+
+class TechnicalTrainingAttendanceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_district_staff_can_submit_technical_training_attendance(): void
+    {
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $incubateeId = $this->seedOnboardedIncubatee($district);
+
+        $response = $this->actingAs($staff)->post(route('staff.technical-trainings.store'), [
+            'session_date' => '2026-05-18',
+            'session_name' => 'Product design workshop',
+            'session_brief' => 'Hands-on session for packaging design.',
+            'selected_incubatees' => [$incubateeId],
+        ]);
+
+        $response->assertRedirect(route('staff.technical-trainings.dashboard'));
+
+        $this->assertDatabaseHas('technical_trainings', [
+            'district_id' => $district->id,
+            'session_name' => 'Product design workshop',
+            'session_brief' => 'Hands-on session for packaging design.',
+            'submitted_by_user_id' => $staff->id,
+        ]);
+    }
+
+    public function test_district_staff_cannot_submit_without_district_assignment(): void
+    {
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => null,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($staff)->post(route('staff.technical-trainings.store'), [
+            'session_date' => '2026-05-18',
+            'session_name' => 'Product design workshop',
+            'selected_incubatees' => [1],
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_district_staff_dashboard_is_scoped_to_own_district(): void
+    {
+        $districtA = $this->createDistrict('district-a', 'District A');
+        $districtB = $this->createDistrict('district-b', 'District B');
+        $staffA = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $districtA->id,
+            'is_active' => true,
+        ]);
+
+        $this->createTechnicalTraining($districtA, $staffA, 'Visible session');
+        $this->createTechnicalTraining($districtB, User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $districtB->id,
+            'is_active' => true,
+        ]), 'Hidden session');
+
+        $response = $this->actingAs($staffA)->get(route('staff.technical-trainings.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('Visible session');
+        $response->assertDontSee('Hidden session');
+    }
+
+    public function test_state_admin_and_spoc_can_view_statewide_dashboard(): void
+    {
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $spoc = User::factory()->create(['role' => 'state_staff', 'is_active' => true]);
+
+        $this->createTechnicalTraining($district, $staff, 'Statewide session');
+
+        $this->actingAs($admin)->get(route('admin.technical-trainings.dashboard'))
+            ->assertOk()
+            ->assertSee('Statewide session');
+
+        $this->actingAs($spoc)->get(route('spoc.technical-trainings.dashboard'))
+            ->assertOk()
+            ->assertSee('Statewide session');
+    }
+
+    public function test_only_original_submitter_can_edit_entry(): void
+    {
+        $district = $this->createDistrict();
+        $submitter = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $otherStaff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $incubateeId = $this->seedOnboardedIncubatee($district);
+        $entry = $this->createTechnicalTraining($district, $submitter, 'Original session', [$incubateeId]);
+
+        $this->actingAs($otherStaff)->get(route('staff.technical-trainings.edit', $entry))
+            ->assertForbidden();
+
+        $this->actingAs($submitter)->put(route('staff.technical-trainings.update', $entry), [
+            'session_date' => '2026-05-20',
+            'session_name' => 'Updated session',
+            'session_brief' => 'Updated brief',
+            'selected_incubatees' => [$incubateeId],
+        ])->assertRedirect(route('staff.technical-trainings.dashboard'));
+
+        $this->assertDatabaseHas('technical_trainings', [
+            'id' => $entry->id,
+            'session_name' => 'Updated session',
+            'session_brief' => 'Updated brief',
+        ]);
+    }
+
+    public function test_export_includes_session_name_and_brief_headers(): void
+    {
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $incubateeId = $this->seedOnboardedIncubatee($district);
+        $this->createTechnicalTraining($district, $staff, 'Export session', [$incubateeId], 'Export brief');
+
+        $response = $this->actingAs($staff)->get(route('staff.technical-trainings.export'));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        $this->assertStringContainsString('Session Name', $response->streamedContent());
+        $this->assertStringContainsString('Session Brief', $response->streamedContent());
+        $this->assertStringContainsString('Export session', $response->streamedContent());
+        $this->assertStringContainsString('Export brief', $response->streamedContent());
+    }
+
+    /**
+     * @param  list<int>  $incubateeIds
+     */
+    private function createTechnicalTraining(
+        District $district,
+        User $staff,
+        string $sessionName,
+        array $incubateeIds = [1],
+        ?string $sessionBrief = null,
+    ): TechnicalTraining {
+        return TechnicalTraining::query()->create([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => (string) $staff->name,
+            'event_date' => '2026-05-18',
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'session_name' => $sessionName,
+            'session_brief' => $sessionBrief,
+            'attendance_media_json' => [],
+            'selected_incubatee_ids' => $incubateeIds,
+            'selected_incubatees_snapshot' => [[
+                'incubatee_id' => $incubateeIds[0],
+                'source' => 'phase3',
+                'name' => 'Test Applicant',
+                'application_no' => 'APP-1',
+                'phone' => '9999999999',
+                'gender' => 'M',
+                'village' => 'Village',
+                'block_name' => 'Block',
+                'onboarding_batch_id' => 1,
+                'onboarding_batch_name' => 'Batch 1',
+            ]],
+        ]);
+    }
+
+    private function seedOnboardedIncubatee(District $district): int
+    {
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Test Applicant',
+            'phone' => '9999999999',
+            'payload' => json_encode(['gender' => 'M', 'village' => 'Village', 'block' => 'Block']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $batchId = (int) DB::table('onboarding_batches')->insertGetId([
+            'hub_id' => $district->hub_id,
+            'district_id' => $district->id,
+            'name' => 'Batch 1',
+            'target_size' => 1,
+            'status' => 'locked',
+            'locked_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('onboarding_batch_cfa')->insert([
+            'onboarding_batch_id' => $batchId,
+            'cfa_submission_id' => $cfaId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $cfaId;
+    }
+
+    private function createDistrict(string $slug = 'test-district', string $name = 'Test District'): District
+    {
+        $hub = Hub::query()->firstOrCreate(
+            ['slug' => 'test-hub'],
+            ['name' => 'Test Hub', 'sort_order' => 1]
+        );
+
+        return District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => $slug,
+            'name' => $name,
+            'sort_order' => 1,
+        ]);
+    }
+}
