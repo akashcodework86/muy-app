@@ -42,6 +42,7 @@ use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
 use App\Http\Controllers\StateStaff\SpocServiceCaseController;
+use App\Http\Controllers\TrainingPackageAttendanceController;
 use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\Service;
@@ -174,6 +175,20 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('attendance', [FieldCoordinatorAttendanceController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('attendance.store');
+        Route::get('training-packages', [TrainingPackageAttendanceController::class, 'create'])->name('training-packages.create');
+        Route::post('training-packages', [TrainingPackageAttendanceController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('training-packages.store');
+        Route::get('training-packages/dashboard', [TrainingPackageAttendanceController::class, 'dashboard'])->name('training-packages.dashboard');
+        Route::get('training-packages/export', [TrainingPackageAttendanceController::class, 'export'])->name('training-packages.export');
+        Route::get('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'show'])->name('training-packages.show');
+        Route::get('training-packages/{trainingPackage}/export', [TrainingPackageAttendanceController::class, 'exportSingle'])->name('training-packages.export-single');
+        Route::get('training-packages/{trainingPackage}/edit', [TrainingPackageAttendanceController::class, 'edit'])->name('training-packages.edit');
+        Route::put('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('training-packages.update');
+        Route::get('training-packages/{trainingPackage}/attachment', [TrainingPackageAttendanceController::class, 'downloadAttachment'])
+            ->name('training-packages.attachment');
 
         /** Read-only batches view for district staff (scoped to their own district) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
@@ -218,6 +233,12 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('service-cases.reject');
         Route::get('service-cases/{service_case}/attachments/{attachment}/download', [SpocServiceCaseController::class, 'downloadAttachment'])
             ->name('service-cases.attachments.download');
+        Route::get('training-packages/dashboard', [TrainingPackageAttendanceController::class, 'dashboard'])->name('training-packages.dashboard');
+        Route::get('training-packages/export', [TrainingPackageAttendanceController::class, 'export'])->name('training-packages.export');
+        Route::get('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'show'])->name('training-packages.show');
+        Route::get('training-packages/{trainingPackage}/export', [TrainingPackageAttendanceController::class, 'exportSingle'])->name('training-packages.export-single');
+        Route::get('training-packages/{trainingPackage}/attachment', [TrainingPackageAttendanceController::class, 'downloadAttachment'])
+            ->name('training-packages.attachment');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -354,6 +375,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('attendance', [FieldCoordinatorAttendanceAdminController::class, 'index'])->name('attendance.index');
         Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceAdminController::class, 'downloadAttachment'])
             ->name('attendance.attachment');
+        Route::get('training-packages/dashboard', [TrainingPackageAttendanceController::class, 'dashboard'])->name('training-packages.dashboard');
+        Route::get('training-packages/export', [TrainingPackageAttendanceController::class, 'export'])->name('training-packages.export');
+        Route::get('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'show'])->name('training-packages.show');
+        Route::get('training-packages/{trainingPackage}/export', [TrainingPackageAttendanceController::class, 'exportSingle'])->name('training-packages.export-single');
+        Route::get('training-packages/{trainingPackage}/attachment', [TrainingPackageAttendanceController::class, 'downloadAttachment'])
+            ->name('training-packages.attachment');
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');

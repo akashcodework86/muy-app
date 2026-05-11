@@ -1,0 +1,134 @@
+@extends('staff.training-packages.form')
+
+@section('title', 'Edit Training Package Attendance')
+@section('heading', 'Edit Training Package Attendance')
+
+@section('content')
+<div class="tp-shell">
+    @php
+        $oldSelectedIds = collect((array) old('selected_incubatees', $selectedIds))
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $oldModules = (array) old('training_packages', (array) ($row->training_packages ?? [$row->training_package]));
+    @endphp
+
+    @if ($errors->any())
+        <div class="tp-alert tp-alert--error">
+            <strong>Please fix:</strong>
+            <ul>
+                @foreach ($errors->all() as $e)
+                    <li>{{ $e }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <div class="tp-card">
+        <h3 class="tp-card__title">Update Submission</h3>
+        <form method="post" action="{{ route('staff.training-packages.update', $row) }}" enctype="multipart/form-data">
+            @csrf
+            @method('put')
+            <div class="tp-grid">
+                <div class="tp-field">
+                    <label>Session Taken By</label>
+                    <input type="text" class="tp-readonly" value="{{ $row->submitted_by_name }}" readonly>
+                </div>
+                <div class="tp-field">
+                    <label>Date of Session *</label>
+                    <input type="date" name="session_date" value="{{ old('session_date', $row->event_date?->format('Y-m-d')) }}" required>
+                </div>
+                <div class="tp-field">
+                    <label>District</label>
+                    <input type="text" class="tp-readonly" value="{{ $row->district_name ?: ($row->district?->name ?? 'NA') }}" readonly>
+                </div>
+                @if ($row->monthSession)
+                    <div class="tp-field tp-field--full">
+                        <label>{{ $row->monthSession->is_extra ? 'Extra session' : 'Planned session' }}</label>
+                        <input type="text" class="tp-readonly" value="{{ $row->monthSession->session_name }}{{ $row->monthSession->is_extra ? ' (Extra)' : '' }}" readonly>
+                    </div>
+                @endif
+                <div class="tp-field">
+                    <label>Training Batch (optional custom)</label>
+                    <input type="text" name="training_batch_name" value="{{ old('training_batch_name', $row->training_batch_name) }}">
+                </div>
+                <div class="tp-field tp-field--full">
+                    <label>Training Packages (multi-select) *</label>
+                    <div class="tp-checkgrid">
+                        @foreach (['t1' => 'T1', 't2' => 'T2', 't3' => 'T3', 't4' => 'T4'] as $moduleValue => $moduleLabel)
+                            <label>
+                                <input type="checkbox" name="training_packages[]" value="{{ $moduleValue }}" @checked(in_array($moduleValue, $oldModules, true))>
+                                <span>{{ $moduleLabel }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
+            <div class="tp-section">
+                <div class="tp-field">
+                    <label>Uploaded attendance sheet (optional)</label>
+                    <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.mkv,.doc,.docx,.xls,.xlsx" multiple>
+                    @if (is_array($row->attendance_media_json) && count($row->attendance_media_json))
+                        <p class="tp-field-hint">Current uploads:</p>
+                        <div class="tp-media-preview">
+                            @foreach ($row->attendance_media_json as $media)
+                                @if (is_array($media))
+                                    @if (str_starts_with((string) ($media['mime'] ?? ''), 'image/'))
+                                        <img src="{{ \Illuminate\Support\Facades\Storage::url((string) ($media['path'] ?? '')) }}" alt="{{ $media['original_name'] ?? 'Media' }}">
+                                    @else
+                                        <span class="tp-media-chip">{{ $media['original_name'] ?? 'File' }}</span>
+                                    @endif
+                                @endif
+                            @endforeach
+                        </div>
+                    @endif
+                    <div id="tpMediaPreview" class="tp-media-preview"></div>
+                </div>
+            </div>
+
+            <div class="tp-section">
+                <h4 class="tp-section__title">Manual Attendance Selection *</h4>
+                <div class="tp-two-col">
+                    <div class="tp-col">
+                        <p class="tp-note">
+                            Total onboarded applicants in district: <strong>{{ (int) ($totalOnboardedCount ?? $incubatees->count()) }}</strong>
+                            (Phase 3 CFA and Phase 2 legacy rbiphase2).
+                        </p>
+                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search onboarded incubatees by name/application/phone">
+                        <div class="tp-list" id="tpSourceList">
+                            @foreach ($incubatees as $item)
+                                @php $checked = in_array((int) $item['incubatee_id'], $oldSelectedIds, true); @endphp
+                                <label class="tp-item" data-search="{{ strtolower($item['name'].' '.$item['application_no'].' '.$item['phone']) }}">
+                                    <input type="checkbox" class="tp-check" value="{{ $item['incubatee_id'] }}" @checked($checked)>
+                                    <div>
+                                        <h4>{{ $item['name'] ?: 'Unnamed' }}</h4>
+                                        <div class="tp-meta">
+                                            <span class="tp-pill @if(($item['source'] ?? 'phase3') === 'legacy_phase2') tp-pill--legacy @endif">
+                                                {{ ($item['source'] ?? 'phase3') === 'legacy_phase2' ? 'Phase 2 legacy' : 'Phase 3 CFA' }}
+                                            </span>
+                                            <span class="tp-pill">App: {{ $item['application_no'] ?: 'NA' }}</span>
+                                            <span class="tp-pill">Batch: {{ $item['onboarding_batch_name'] ?: 'NA' }}</span>
+                                        </div>
+                                        <div class="tp-meta">Phone: {{ $item['phone'] ?: 'NA' }} | Block: {{ $item['block_name'] ?: 'NA' }} | Village: {{ $item['village'] ?: 'NA' }}</div>
+                                    </div>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="tp-col">
+                        <p class="tp-right-title">Selected Incubatees <span id="tpSelectedCount" class="tp-selected-count">0</span></p>
+                        <div class="tp-list" id="tpSelectedPanel"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tpHiddenInputs"></div>
+            <div class="tp-actions">
+                <button class="tp-submit" type="submit">Update attendance</button>
+                <a class="tp-link" href="{{ route('staff.training-packages.export-single', $row) }}">Excel Export</a>
+                <a class="tp-link" href="{{ route('staff.training-packages.dashboard') }}">Back to dashboard</a>
+            </div>
+        </form>
+    </div>
+</div>
+@endsection

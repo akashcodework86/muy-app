@@ -67,6 +67,14 @@
         str_starts_with($r, 'staff.batches') => 'staff-batches',
         $r === 'staff.attendance.index' => 'staff-attendance',
         $r === 'staff.attendance.view'  => 'staff-attendance-view',
+        str_starts_with($r, 'staff.training-packages.create') => 'staff-training-packages-submit',
+        str_starts_with($r, 'staff.training-packages.edit') => 'staff-training-packages-submit',
+        str_starts_with($r, 'staff.training-packages.dashboard') => 'staff-training-packages-dashboard',
+        str_starts_with($r, 'staff.training-packages.show') => 'staff-training-packages-dashboard',
+        str_starts_with($r, 'spoc.training-packages.dashboard') => 'staff-training-packages-dashboard',
+        str_starts_with($r, 'spoc.training-packages.show') => 'staff-training-packages-dashboard',
+        str_starts_with($r, 'admin.training-packages.dashboard') => 'staff-training-packages-dashboard',
+        str_starts_with($r, 'admin.training-packages.show') => 'staff-training-packages-dashboard',
         str_starts_with($r, 'account.') => 'account',
         str_starts_with($r, 'incubatee.documents') => 'documents',
         str_starts_with($r, 'incubatee.') => 'incubatee',
@@ -75,7 +83,7 @@
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
@@ -196,6 +204,16 @@
                     <a href="{{ route('admin.phase3-services.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase3-services') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>All services</span>
                     </a>
+                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'staff-training-packages-dashboard') is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('calendar') !!}<span>Training and Capacity Building</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('admin.training-packages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-training-packages-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Training Package Attendance</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </details>
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['documents', 'admin-documents'], true)) is-active @endif">
@@ -228,6 +246,7 @@
                     </a>
                 </div>
             </details>
+
         </nav>
         @endif
 
@@ -306,6 +325,20 @@
                     @endif
                     <a href="{{ route('staff.attendance.view') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance-view') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>View attendance</span>
+                    </a>
+                </div>
+            </details>
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-training-packages-submit','staff-training-packages-dashboard'], true)) is-active @endif">
+                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">Training Package Attendance</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Training package attendance</p>
+                    <a href="{{ route('staff.training-packages.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-training-packages-submit') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Submission form</span>
+                    </a>
+                    <a href="{{ route('staff.training-packages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-training-packages-dashboard') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>View dashboard</span>
                     </a>
                 </div>
             </details>

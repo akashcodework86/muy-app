@@ -112,6 +112,215 @@ class LegacyApplicationServiceCaseSupport
     }
 
     /**
+     * Onboarded legacy incubatees for a Laravel district (rbiphase2), shaped for attendance pickers.
+     *
+     * Legacy rows use a negative {@see incubatee_id} so they do not collide with Phase 3 CFA ids.
+     *
+     * @return Collection<int, array{
+     *     incubatee_id: int,
+     *     legacy_application_id: int,
+     *     source: string,
+     *     name: string,
+     *     application_no: string,
+     *     phone: string,
+     *     gender: string,
+     *     village: string,
+     *     block_name: string,
+     *     onboarding_batch_id: int,
+     *     onboarding_batch_name: string
+     * }>
+     */
+    public function onboardedIncubateesForLaravelDistrict(int $laravelDistrictId, string $search = ''): Collection
+    {
+        if (! $this->legacyDbAvailable() || $laravelDistrictId < 1) {
+            return collect();
+        }
+
+        if (! Schema::connection('legacy')->hasTable('rbi_onboarded_applicants')) {
+            return collect();
+        }
+
+        $district = District::query()->find($laravelDistrictId);
+        if ($district === null) {
+            return collect();
+        }
+
+        $names = $this->districtDisplayNames($district);
+        if ($names === []) {
+            return collect();
+        }
+
+        $query = DB::connection('legacy')
+            ->table('rbi_onboarded_applicants as oa')
+            ->join('rbi_applications as a', 'a.id', '=', 'oa.application_id')
+            ->join('rbi_applicant_details as d', 'd.application_id', '=', 'oa.application_id')
+            ->leftJoin('rbi_onboarding_batches as ob', 'ob.id', '=', 'oa.onboarding_batch_id')
+            ->whereIn('d.district', $names)
+            ->select([
+                'a.id as application_id',
+                'd.applicant_name',
+                'a.application_no',
+                'd.phone',
+                'd.gender',
+                'd.village',
+                'd.block as block_name',
+                'ob.id as onboarding_batch_id',
+                'ob.batch_name as onboarding_batch_name',
+            ]);
+
+        if ($search !== '') {
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
+            $query->where(function ($q) use ($like): void {
+                $q->where('d.applicant_name', 'like', $like)
+                    ->orWhere('a.application_no', 'like', $like)
+                    ->orWhere('d.phone', 'like', $like)
+                    ->orWhere('ob.batch_name', 'like', $like);
+            });
+        }
+
+        return $query
+            ->orderBy('d.applicant_name')
+            ->get()
+            ->map(function ($row): array {
+                $legacyApplicationId = (int) ($row->application_id ?? 0);
+
+                return [
+                    'incubatee_id' => $legacyApplicationId > 0 ? -1 * $legacyApplicationId : 0,
+                    'legacy_application_id' => $legacyApplicationId,
+                    'source' => 'legacy_phase2',
+                    'name' => (string) ($row->applicant_name ?? ''),
+                    'application_no' => (string) ($row->application_no ?? ''),
+                    'phone' => (string) ($row->phone ?? ''),
+                    'gender' => (string) ($row->gender ?? ''),
+                    'village' => (string) ($row->village ?? ''),
+                    'block_name' => (string) ($row->block_name ?? ''),
+                    'onboarding_batch_id' => (int) ($row->onboarding_batch_id ?? 0),
+                    'onboarding_batch_name' => (string) ($row->onboarding_batch_name ?? ''),
+                ];
+            })
+            ->filter(fn (array $row): bool => (int) ($row['incubatee_id'] ?? 0) !== 0)
+            ->unique('incubatee_id')
+            ->values();
+    }
+
+    public function onboardedIncubateeCountForLaravelDistrict(int $laravelDistrictId): int
+    {
+        return $this->onboardedIncubateesForLaravelDistrict($laravelDistrictId)->count();
+    }
+
+    /**
+     * @param  list<int>  $legacyApplicationIds
+     * @return array<int, array{
+     *     name: string,
+     *     application_no: string,
+     *     phone: string,
+     *     gender: string,
+     *     village: string,
+     *     block_name: string
+     * }>
+     */
+    public function applicantSnapshotsByLegacyApplicationIds(array $legacyApplicationIds): array
+    {
+        $legacyApplicationIds = array_values(array_unique(array_filter(
+            array_map(fn ($id): int => (int) $id, $legacyApplicationIds),
+            fn (int $id): bool => $id > 0
+        )));
+
+        if (! $this->legacyDbAvailable() || $legacyApplicationIds === []) {
+            return [];
+        }
+
+        return DB::connection('legacy')
+            ->table('rbi_applicant_details as d')
+            ->join('rbi_applications as a', 'a.id', '=', 'd.application_id')
+            ->whereIn('d.application_id', $legacyApplicationIds)
+            ->get([
+                'd.application_id',
+                'd.applicant_name',
+                'a.application_no',
+                'd.phone',
+                'd.gender',
+                'd.village',
+                'd.block',
+            ])
+            ->mapWithKeys(function ($row): array {
+                $legacyApplicationId = (int) ($row->application_id ?? 0);
+                if ($legacyApplicationId <= 0) {
+                    return [];
+                }
+
+                return [
+                    $legacyApplicationId => [
+                        'name' => (string) ($row->applicant_name ?? ''),
+                        'application_no' => (string) ($row->application_no ?? ''),
+                        'phone' => (string) ($row->phone ?? ''),
+                        'gender' => (string) ($row->gender ?? ''),
+                        'village' => (string) ($row->village ?? ''),
+                        'block_name' => (string) ($row->block ?? ''),
+                    ],
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param  list<string>  $applicationNumbers
+     * @return array<string, array{
+     *     legacy_application_id: int,
+     *     name: string,
+     *     application_no: string,
+     *     phone: string,
+     *     gender: string,
+     *     village: string,
+     *     block_name: string
+     * }>
+     */
+    public function applicantSnapshotsByLegacyApplicationNumbers(array $applicationNumbers): array
+    {
+        $applicationNumbers = array_values(array_unique(array_filter(array_map(
+            fn ($number): string => trim((string) $number),
+            $applicationNumbers
+        ))));
+
+        if (! $this->legacyDbAvailable() || $applicationNumbers === []) {
+            return [];
+        }
+
+        return DB::connection('legacy')
+            ->table('rbi_applicant_details as d')
+            ->join('rbi_applications as a', 'a.id', '=', 'd.application_id')
+            ->whereIn('a.application_no', $applicationNumbers)
+            ->get([
+                'd.application_id',
+                'd.applicant_name',
+                'a.application_no',
+                'd.phone',
+                'd.gender',
+                'd.village',
+                'd.block',
+            ])
+            ->mapWithKeys(function ($row): array {
+                $applicationNo = trim((string) ($row->application_no ?? ''));
+                if ($applicationNo === '') {
+                    return [];
+                }
+
+                return [
+                    mb_strtolower($applicationNo) => [
+                        'legacy_application_id' => (int) ($row->application_id ?? 0),
+                        'name' => (string) ($row->applicant_name ?? ''),
+                        'application_no' => $applicationNo,
+                        'phone' => (string) ($row->phone ?? ''),
+                        'gender' => (string) ($row->gender ?? ''),
+                        'village' => (string) ($row->village ?? ''),
+                        'block_name' => (string) ($row->block ?? ''),
+                    ],
+                ];
+            })
+            ->all();
+    }
+
+    /**
      * Onboarded legacy incubatees in the staff district (for service picker).
      *
      * @return Collection<int, object{id: int, applicant_name: string, application_no: string, district: string}>

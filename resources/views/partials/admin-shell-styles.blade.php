@@ -994,7 +994,7 @@
         box-shadow:
             0 24px 54px -18px rgba(15, 23, 42, 0.22),
             0 8px 24px -12px rgba(20, 184, 166, 0.24);
-        overflow: hidden;
+        overflow: visible;
     }
     .admin-topbar__dropdown-panel::before {
         content: '';
@@ -1167,6 +1167,59 @@
     .admin-topbar__dropdown-item.is-active .admin-topbar__link-ico {
         color: #0d9488;
     }
+    .admin-topbar__dropdown-subgroup {
+        position: relative;
+    }
+    .admin-topbar__dropdown-subtrigger {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        width: 100%;
+        padding: 0.55rem 2rem 0.55rem 0.85rem;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #334155;
+        text-decoration: none;
+        transition: background 0.15s, color 0.15s;
+        cursor: default;
+        box-sizing: border-box;
+    }
+    .admin-topbar__dropdown-subtrigger::after {
+        content: '';
+        position: absolute;
+        right: 0.95rem;
+        top: 50%;
+        width: 0.36rem;
+        height: 0.36rem;
+        margin-top: -0.22rem;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(-45deg);
+        opacity: 0.7;
+    }
+    .admin-topbar__dropdown-subgroup:hover > .admin-topbar__dropdown-subtrigger,
+    .admin-topbar__dropdown-subgroup.is-active > .admin-topbar__dropdown-subtrigger {
+        background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(99, 102, 241, 0.12));
+        color: #0f766e;
+    }
+    .admin-topbar__dropdown-subpanel {
+        display: none;
+        position: absolute;
+        left: calc(100% + 0.35rem);
+        top: 0.15rem;
+        min-width: 15rem;
+        padding: 0.4rem;
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid rgba(226, 232, 240, 0.95);
+        border-radius: 14px;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+        z-index: 260;
+    }
+    .admin-topbar__dropdown-subgroup:hover > .admin-topbar__dropdown-subpanel,
+    .admin-topbar__dropdown-subgroup:focus-within > .admin-topbar__dropdown-subpanel {
+        display: block;
+    }
     .admin-topbar__dropdown-item--button {
         /* ensure the logout button aligns like other items */
         display: flex;
@@ -1303,6 +1356,23 @@
         }
         /* Hide the aurora stripe inside mobile dropdown panel */
         .admin-topbar__dropdown-panel::before { display: none; }
+        .admin-topbar__dropdown-subtrigger {
+            cursor: pointer;
+            padding-right: 0.85rem;
+        }
+        .admin-topbar__dropdown-subtrigger::after {
+            display: none;
+        }
+        .admin-topbar__dropdown-subpanel {
+            display: block;
+            position: static;
+            min-width: 0;
+            width: 100%;
+            border: none;
+            box-shadow: none;
+            background: transparent;
+            padding: 0.2rem 0 0.2rem 0.6rem;
+        }
 
         /* Compact right-side strip */
         .admin-topbar__right {
