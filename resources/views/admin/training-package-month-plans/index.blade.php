@@ -183,6 +183,7 @@
     .tpmp-btn--ghost { background:#fff; color:#334155; border:1px solid #cbd5e1; padding:0.32rem 0.55rem; border-radius:6px; cursor:pointer; font-size:0.72rem; }
     .tpmp-btn--xs { padding:0.12rem 0.38rem; font-size:0.62rem; font-weight:700; line-height:1.2; white-space:nowrap; }
     .tpmp-btn--danger { background:#fff1f2; color:#b91c1c; border:1px solid #fecaca; }
+    .tpmp-session-card__actions { grid-column:1 / -1; display:flex; justify-content:flex-end; }
     .tpmp-actions { display:flex; flex-wrap:wrap; gap:0.65rem; align-items:center; margin-top:1rem; }
     @media (max-width: 900px) {
         .tpmp-district-brief__grid { grid-template-columns:repeat(auto-fit, minmax(6.5rem, 1fr)); }
@@ -336,9 +337,13 @@
                                         <button type="button" class="tpmp-btn--ghost tpmp-btn--xs js-edit-session-name">Edit name</button>
                                     </div>
                                     <input class="tpmp-session-card__input tpmp-session-card__input--name @if($slot->session_name) is-hidden @endif" type="text" name="districts[{{ $districtIndex }}][sessions][{{ $slotIndex }}][session_name]" value="{{ $slot->session_name }}" placeholder="Session name" maxlength="191">
-                                    @unless ($filled)
-                                        <button type="button" class="tpmp-btn--ghost tpmp-btn--danger js-remove-session">Remove</button>
-                                    @endunless
+                                    <div class="tpmp-session-card__actions">
+                                        @if ($slot->id)
+                                            <button type="button" class="tpmp-btn--ghost tpmp-btn--danger tpmp-btn--xs js-delete-session" data-delete-url="{{ route('admin.training-package-month-plans.sessions.destroy', $slot) }}">Delete session</button>
+                                        @else
+                                            <button type="button" class="tpmp-btn--ghost tpmp-btn--danger tpmp-btn--xs js-remove-session">Remove</button>
+                                        @endif
+                                    </div>
                                     </div>
                                 </div>
                             @empty
@@ -368,6 +373,9 @@
                                         <button type="button" class="tpmp-btn--ghost tpmp-btn--xs js-edit-session-name">Edit name</button>
                                     </div>
                                     <input class="tpmp-session-card__input tpmp-session-card__input--name @if($extraSlot->session_name) is-hidden @endif" type="text" name="districts[{{ $districtIndex }}][extra_sessions][{{ $extraIndex }}][session_name]" value="{{ $extraSlot->session_name }}" placeholder="Session name" maxlength="191">
+                                    <div class="tpmp-session-card__actions">
+                                        <button type="button" class="tpmp-btn--ghost tpmp-btn--danger tpmp-btn--xs js-delete-session" data-delete-url="{{ route('admin.training-package-month-plans.sessions.destroy', $extraSlot) }}">Delete session</button>
+                                    </div>
                                     </div>
                                 </div>
                             @endforeach
@@ -425,11 +433,44 @@
                         '<button type="button" class="tpmp-btn--ghost tpmp-btn--xs js-edit-session-name">Edit name</button>' +
                     '</div>' +
                     '<input class="tpmp-session-card__input tpmp-session-card__input--name" type="text" name="districts[' + districtIndex + '][sessions][' + sessionIndex + '][session_name]" placeholder="Session name" maxlength="191">' +
-                    '<button type="button" class="tpmp-btn--ghost tpmp-btn--danger js-remove-session">Remove</button>' +
+                    '<div class="tpmp-session-card__actions">' +
+                        '<button type="button" class="tpmp-btn--ghost tpmp-btn--danger tpmp-btn--xs js-remove-session">Remove</button>' +
+                    '</div>' +
                 '</div>';
             list.appendChild(row);
         });
     });
+
+    function submitDeleteRequest(url) {
+        if (!url || !confirm('Delete this session and any submitted attendance for it?')) {
+            return;
+        }
+
+        const tokenInput = form.querySelector('input[name="_token"]');
+        if (!(tokenInput instanceof HTMLInputElement) || tokenInput.value === '') {
+            return;
+        }
+
+        const deleteForm = document.createElement('form');
+        deleteForm.method = 'post';
+        deleteForm.action = url;
+        deleteForm.style.display = 'none';
+
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = '_token';
+        csrf.value = tokenInput.value;
+        deleteForm.appendChild(csrf);
+
+        const method = document.createElement('input');
+        method.type = 'hidden';
+        method.name = '_method';
+        method.value = 'DELETE';
+        deleteForm.appendChild(method);
+
+        document.body.appendChild(deleteForm);
+        deleteForm.submit();
+    }
 
     function syncSessionNameDisplay(card) {
         const input = card.querySelector('.tpmp-session-card__input--name');
@@ -454,6 +495,11 @@
     form.addEventListener('click', function (event) {
         const target = event.target;
         if (!(target instanceof HTMLElement)) {
+            return;
+        }
+
+        if (target.classList.contains('js-delete-session')) {
+            submitDeleteRequest(target.getAttribute('data-delete-url'));
             return;
         }
 

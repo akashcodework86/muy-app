@@ -455,6 +455,84 @@ class TrainingPackageMonthSessionTest extends TestCase
         $response->assertSessionHasErrors('month_session_id');
     }
 
+    public function test_admin_can_delete_open_month_session(): void
+    {
+        $district = $this->createDistrict();
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $service = app(TrainingPackageMonthSessionService::class);
+
+        $service->syncMonthPlan(2026, 5, [[
+            'district_id' => $district->id,
+            'sessions' => [
+                ['session_name' => 'Open session'],
+            ],
+        ]], (int) $admin->id);
+
+        $slot = TrainingPackageMonthSession::query()->where('session_name', 'Open session')->firstOrFail();
+
+        $response = $this->actingAs($admin)->delete(route('admin.training-package-month-plans.sessions.destroy', $slot));
+
+        $response->assertRedirect(route('admin.training-package-month-plans.index', [
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+        ]));
+        $this->assertDatabaseMissing('training_package_month_sessions', [
+            'id' => $slot->id,
+        ]);
+    }
+
+    public function test_admin_can_delete_filled_month_session_and_attendance(): void
+    {
+        $district = $this->createDistrict();
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $service = app(TrainingPackageMonthSessionService::class);
+
+        $service->syncMonthPlan(2026, 5, [[
+            'district_id' => $district->id,
+            'sessions' => [
+                ['session_name' => 'Filled session'],
+            ],
+        ]], (int) $admin->id);
+
+        $slot = TrainingPackageMonthSession::query()->where('session_name', 'Filled session')->firstOrFail();
+
+        $package = TrainingPackage::query()->create([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => 'Staff One',
+            'event_date' => '2026-05-10',
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'month_session_id' => $slot->id,
+            'training_package' => 't1',
+            'training_packages' => ['t1'],
+            'attendance_file_path' => null,
+            'attendance_file_name' => null,
+            'attendance_file_mime' => null,
+            'attendance_file_size_bytes' => null,
+            'attendance_media_json' => [],
+            'selected_incubatee_ids' => [1],
+            'selected_incubatees_snapshot' => [['incubatee_id' => 1, 'name' => 'A']],
+        ]);
+
+        $response = $this->actingAs($admin)->delete(route('admin.training-package-month-plans.sessions.destroy', $slot));
+
+        $response->assertRedirect(route('admin.training-package-month-plans.index', [
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+        ]));
+        $this->assertDatabaseMissing('training_package_month_sessions', [
+            'id' => $slot->id,
+        ]);
+        $this->assertDatabaseMissing('training_packages', [
+            'id' => $package->id,
+        ]);
+    }
+
     private function seedOnboardedIncubatee(District $district): int
     {
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([

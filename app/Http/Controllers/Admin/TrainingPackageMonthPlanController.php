@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\District;
+use App\Models\TrainingPackageMonthSession;
 use App\Services\AdminAuditLogger;
 use App\Services\TrainingPackageMonthSessionService;
 use Illuminate\Http\RedirectResponse;
@@ -108,5 +109,40 @@ class TrainingPackageMonthPlanController extends Controller
                 'calendar_month' => $calendarMonth,
             ])
             ->with('status', 'Monthly training package sessions saved.');
+    }
+
+    public function destroySession(Request $request, TrainingPackageMonthSession $trainingPackageMonthSession): RedirectResponse
+    {
+        abort_unless(Schema::hasTable('training_package_month_sessions'), 422, 'Training package month sessions table is missing.');
+
+        $calendarYear = (int) $trainingPackageMonthSession->calendar_year;
+        $calendarMonth = (int) $trainingPackageMonthSession->calendar_month;
+        $hadAttendance = $trainingPackageMonthSession->trainingPackage()->exists();
+
+        $this->monthSessions->deleteMonthSession($trainingPackageMonthSession);
+
+        $this->auditLogger->record(
+            $request,
+            'training_package_month_plan.session.delete',
+            TrainingPackageMonthSession::class,
+            (int) $trainingPackageMonthSession->id,
+            null,
+            [
+                'calendar_year' => $calendarYear,
+                'calendar_month' => $calendarMonth,
+                'district_id' => (int) $trainingPackageMonthSession->district_id,
+                'session_name' => (string) $trainingPackageMonthSession->session_name,
+                'is_extra' => (bool) $trainingPackageMonthSession->is_extra,
+                'had_attendance' => $hadAttendance,
+            ],
+            'Deleted training package month session.'
+        );
+
+        return redirect()
+            ->route('admin.training-package-month-plans.index', [
+                'calendar_year' => $calendarYear,
+                'calendar_month' => $calendarMonth,
+            ])
+            ->with('status', 'Session deleted.');
     }
 }

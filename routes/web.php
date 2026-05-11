@@ -290,6 +290,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('training-package-month-plans.store');
+        Route::delete('training-package-month-plans/sessions/{trainingPackageMonthSession}', [TrainingPackageMonthPlanController::class, 'destroySession'])
+            ->middleware('throttle:30,1')
+            ->name('training-package-month-plans.sessions.destroy');
 
         Route::get('service-catalog', [ServiceCategoryController::class, 'index'])->name('service-catalog.index');
         Route::get('service-catalog/categories/create', [ServiceCategoryController::class, 'create'])->name('service-catalog.categories.create');

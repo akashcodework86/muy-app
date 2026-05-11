@@ -7,6 +7,7 @@ use App\Models\TrainingPackage;
 use App\Models\TrainingPackageMonthSession;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class TrainingPackageMonthSessionService
@@ -309,6 +310,25 @@ class TrainingPackageMonthSessionService
         return TrainingPackage::query()->where('month_session_id', $slotId)->exists();
     }
 
+    public function deleteMonthSession(TrainingPackageMonthSession $slot): void
+    {
+        DB::transaction(function () use ($slot): void {
+            $slot = TrainingPackageMonthSession::query()
+                ->with('trainingPackage')
+                ->whereKey($slot->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $package = $slot->trainingPackage;
+            if ($package !== null) {
+                $this->deleteTrainingPackageMedia($package);
+                $package->delete();
+            }
+
+            $slot->delete();
+        });
+    }
+
     /**
      * @param  Collection<int, TrainingPackageMonthSession>  $plannedSlots
      * @param  Collection<int, TrainingPackageMonthSession>  $extraSlots
@@ -330,5 +350,19 @@ class TrainingPackageMonthSessionService
             'remaining' => max(0, $required - $filled),
             'extra_filled' => $extraFilled,
         ];
+    }
+
+    private function deleteTrainingPackageMedia(TrainingPackage $trainingPackage): void
+    {
+        foreach ((array) $trainingPackage->attendance_media_json as $media) {
+            if (! is_array($media)) {
+                continue;
+            }
+
+            $path = (string) ($media['path'] ?? '');
+            if ($path !== '' && Storage::exists($path)) {
+                Storage::delete($path);
+            }
+        }
     }
 }
