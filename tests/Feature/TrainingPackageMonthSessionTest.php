@@ -102,14 +102,14 @@ class TrainingPackageMonthSessionTest extends TestCase
         $service->syncMonthPlan(2026, 5, [[
             'district_id' => $district->id,
             'sessions' => [
-                ['id' => $filledSlot->id, 'session_name' => 'Filled session'],
+                ['id' => $filledSlot->id, 'session_name' => 'Renamed filled session'],
                 ['id' => $openSlot->id, 'session_name' => 'Renamed open session'],
             ],
         ]], (int) $admin->id);
 
         $this->assertDatabaseHas('training_package_month_sessions', [
             'id' => $filledSlot->id,
-            'session_name' => 'Filled session',
+            'session_name' => 'Renamed filled session',
         ]);
         $this->assertDatabaseHas('training_package_month_sessions', [
             'id' => $openSlot->id,
@@ -319,6 +319,41 @@ class TrainingPackageMonthSessionTest extends TestCase
         $this->assertDatabaseHas('training_package_month_sessions', [
             'id' => $extraSlot->id,
             'session_name' => 'Extra retained',
+            'is_extra' => true,
+        ]);
+    }
+
+    public function test_admin_can_rename_extra_session_name(): void
+    {
+        $district = $this->createDistrict();
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $service = app(TrainingPackageMonthSessionService::class);
+
+        $extraSlot = $service->createExtraSlotForDistrictMonth(
+            (int) $district->id,
+            2026,
+            5,
+            'Original extra',
+            (int) $staff->id,
+            '2026-05-15',
+        );
+
+        $service->syncMonthPlan(2026, 5, [[
+            'district_id' => $district->id,
+            'sessions' => [],
+            'extra_sessions' => [
+                ['id' => $extraSlot->id, 'session_name' => 'Renamed extra session'],
+            ],
+        ]], (int) $admin->id);
+
+        $this->assertDatabaseHas('training_package_month_sessions', [
+            'id' => $extraSlot->id,
+            'session_name' => 'Renamed extra session',
             'is_extra' => true,
         ]);
     }

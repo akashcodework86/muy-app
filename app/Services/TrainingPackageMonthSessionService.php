@@ -179,7 +179,11 @@ class TrainingPackageMonthSessionService
     }
 
     /**
-     * @param  array<int, array{district_id:int,sessions:array<int, array{id?:int,session_name:string}>}>  $districtPlans
+     * @param  array<int, array{
+     *     district_id:int,
+     *     sessions:array<int, array{id?:int,session_name:string}>,
+     *     extra_sessions?:array<int, array{id?:int,session_name:string}>
+     * }>  $districtPlans
      */
     public function syncMonthPlan(int $calendarYear, int $calendarMonth, array $districtPlans, int $userId): void
     {
@@ -239,9 +243,7 @@ class TrainingPackageMonthSessionService
                         $keptIds[] = $slot->id;
 
                         $slot->sort_order = $targetSortOrder;
-                        if ($slot->trainingPackage === null) {
-                            $slot->session_name = (string) $session['session_name'];
-                        }
+                        $slot->session_name = (string) $session['session_name'];
                         $slot->updated_by_user_id = $userId;
                         $slot->save();
 
@@ -274,6 +276,29 @@ class TrainingPackageMonthSessionService
                     if (! in_array((int) $slot->id, $keptIds, true)) {
                         $slot->delete();
                     }
+                }
+
+                $extraSessions = collect((array) ($districtPlan['extra_sessions'] ?? []))
+                    ->map(fn ($session): array => [
+                        'id' => isset($session['id']) ? (int) $session['id'] : 0,
+                        'session_name' => trim((string) ($session['session_name'] ?? '')),
+                    ])
+                    ->filter(fn (array $session): bool => $session['id'] > 0 && $session['session_name'] !== '');
+
+                foreach ($extraSessions as $extraSession) {
+                    if (! $existing->has((int) $extraSession['id'])) {
+                        continue;
+                    }
+
+                    /** @var TrainingPackageMonthSession $slot */
+                    $slot = $existing->get((int) $extraSession['id']);
+                    if (! (bool) $slot->is_extra) {
+                        continue;
+                    }
+
+                    $slot->session_name = (string) $extraSession['session_name'];
+                    $slot->updated_by_user_id = $userId;
+                    $slot->save();
                 }
             }
         });

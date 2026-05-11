@@ -40,6 +40,7 @@
         str_starts_with($r, 'admin.phase3-services') => 'phase3-services',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
+        str_starts_with($r, 'admin.training-package-month-plans') => 'training-package-month-plans',
         str_starts_with($r, 'admin.staff') => 'staff',
         str_starts_with($r, 'admin.state-staff') => 'state-staff',
         str_starts_with($r, 'admin.service-spocs') => 'service-spocs',
@@ -81,7 +82,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance'], true);
+    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents'], true);
@@ -188,6 +189,9 @@
                     </a>
                     <a href="{{ route('admin.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'attendance') is-active @endif" role="menuitem">
                         {!! $i('calendar') !!}<span>Field attendance</span>
+                    </a>
+                    <a href="{{ route('admin.training-package-month-plans.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'training-package-month-plans') is-active @endif" role="menuitem">
+                        {!! $i('calendar') !!}<span>Training package session targets</span>
                     </a>
                 </div>
             </details>

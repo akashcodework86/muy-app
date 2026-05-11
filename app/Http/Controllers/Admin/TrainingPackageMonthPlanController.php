@@ -66,6 +66,9 @@ class TrainingPackageMonthPlanController extends Controller
             'districts.*.sessions' => ['nullable', 'array'],
             'districts.*.sessions.*.id' => ['nullable', 'integer', 'min:1'],
             'districts.*.sessions.*.session_name' => ['nullable', 'string', 'max:191'],
+            'districts.*.extra_sessions' => ['nullable', 'array'],
+            'districts.*.extra_sessions.*.id' => ['nullable', 'integer', 'min:1'],
+            'districts.*.extra_sessions.*.session_name' => ['nullable', 'string', 'max:191'],
         ]);
 
         $calendarYear = (int) $validated['calendar_year'];
@@ -74,6 +77,7 @@ class TrainingPackageMonthPlanController extends Controller
             ->map(fn (array $row): array => [
                 'district_id' => (int) $row['district_id'],
                 'sessions' => array_values((array) ($row['sessions'] ?? [])),
+                'extra_sessions' => array_values((array) ($row['extra_sessions'] ?? [])),
             ])
             ->all();
 
