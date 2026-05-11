@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
+use App\Http\Controllers\Admin\TrainingPackageMonthPlanController;
 use App\Http\Controllers\Admin\TeamDirectoryController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Auth\LoginController;
@@ -285,6 +286,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('targets/state', [TargetController::class, 'stateUpdate'])->name('targets.state.update');
         Route::get('targets/district', [TargetController::class, 'districtForm'])->name('targets.district');
         Route::post('targets/district', [TargetController::class, 'districtUpdate'])->name('targets.district.update');
+        Route::get('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'index'])->name('training-package-month-plans.index');
+        Route::post('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('training-package-month-plans.store');
 
         Route::get('service-catalog', [ServiceCategoryController::class, 'index'])->name('service-catalog.index');
         Route::get('service-catalog/categories/create', [ServiceCategoryController::class, 'create'])->name('service-catalog.categories.create');
