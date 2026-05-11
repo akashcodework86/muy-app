@@ -460,7 +460,6 @@ class TrainingPackageAttendanceController extends Controller
         }
 
         return $this->onboardedPhase3ApplicantsForDistrict($districtId, $search)
-            ->concat($this->legacyApplications->onboardedIncubateesForLaravelDistrict($districtId, $search))
             ->sortBy(fn (array $row): string => mb_strtolower((string) ($row['name'] ?? '')))
             ->values();
     }
@@ -523,8 +522,7 @@ class TrainingPackageAttendanceController extends Controller
             return 0;
         }
 
-        return $this->onboardedPhase3ApplicantCountForDistrict($districtId)
-            + $this->legacyApplications->onboardedIncubateeCountForLaravelDistrict($districtId);
+        return $this->onboardedPhase3ApplicantCountForDistrict($districtId);
     }
 
     private function onboardedPhase3ApplicantCountForDistrict(int $districtId): int

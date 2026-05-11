@@ -455,10 +455,9 @@
                 <div class="tp-two-col">
                     <div class="tp-col">
                         <p class="tp-note">
-                            Total onboarded applicants in district: <strong>{{ (int) ($totalOnboardedCount ?? $incubatees->count()) }}</strong>
-                            (Phase 3 CFA and Phase 2 legacy rbiphase2).
+                            rbiphase3 onboarded applicants in district: <strong>{{ (int) ($totalOnboardedCount ?? $incubatees->count()) }}</strong>
                         </p>
-                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search onboarded incubatees by name/application/phone">
+                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search rbiphase3 onboarded applicants by name/application/phone">
                         <div class="tp-list" id="tpSourceList">
                             @forelse ($incubatees as $row)
                                 <label class="tp-item" data-search="{{ strtolower($row['name'].' '.$row['application_no'].' '.$row['phone']) }}">
@@ -466,9 +465,6 @@
                                     <div>
                                         <h4>{{ $row['name'] ?: 'Unnamed' }}</h4>
                                         <div class="tp-meta">
-                                            <span class="tp-pill @if(($row['source'] ?? 'phase3') === 'legacy_phase2') tp-pill--legacy @endif">
-                                                {{ ($row['source'] ?? 'phase3') === 'legacy_phase2' ? 'Phase 2 legacy' : 'Phase 3 CFA' }}
-                                            </span>
                                             <span class="tp-pill">App: {{ $row['application_no'] ?: 'NA' }}</span>
                                             <span class="tp-pill">Batch: {{ $row['onboarding_batch_name'] ?: 'NA' }}</span>
                                         </div>
@@ -476,7 +472,7 @@
                                     </div>
                                 </label>
                             @empty
-                                <p class="tp-selected-empty">No onboarded incubatees found for your district.</p>
+                                <p class="tp-selected-empty">No rbiphase3 onboarded applicants found for your district.</p>
                             @endforelse
                         </div>
                     </div>

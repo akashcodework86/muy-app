@@ -91,10 +91,9 @@
                 <div class="tp-two-col">
                     <div class="tp-col">
                         <p class="tp-note">
-                            Total onboarded applicants in district: <strong>{{ (int) ($totalOnboardedCount ?? $incubatees->count()) }}</strong>
-                            (Phase 3 CFA and Phase 2 legacy rbiphase2).
+                            rbiphase3 onboarded applicants in district: <strong>{{ (int) ($totalOnboardedCount ?? $incubatees->count()) }}</strong>
                         </p>
-                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search onboarded incubatees by name/application/phone">
+                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search rbiphase3 onboarded applicants by name/application/phone">
                         <div class="tp-list" id="tpSourceList">
                             @foreach ($incubatees as $item)
                                 @php $checked = in_array((int) $item['incubatee_id'], $oldSelectedIds, true); @endphp
@@ -103,9 +102,6 @@
                                     <div>
                                         <h4>{{ $item['name'] ?: 'Unnamed' }}</h4>
                                         <div class="tp-meta">
-                                            <span class="tp-pill @if(($item['source'] ?? 'phase3') === 'legacy_phase2') tp-pill--legacy @endif">
-                                                {{ ($item['source'] ?? 'phase3') === 'legacy_phase2' ? 'Phase 2 legacy' : 'Phase 3 CFA' }}
-                                            </span>
                                             <span class="tp-pill">App: {{ $item['application_no'] ?: 'NA' }}</span>
                                             <span class="tp-pill">Batch: {{ $item['onboarding_batch_name'] ?: 'NA' }}</span>
                                         </div>
