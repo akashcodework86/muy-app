@@ -404,6 +404,8 @@ class TrainingPackageMonthSessionTest extends TestCase
 
     public function test_staff_can_submit_extra_session(): void
     {
+        config(['features.training_package_extra_sessions' => true]);
+
         $district = $this->createDistrict();
         $staff = User::factory()->create([
             'role' => 'district_staff',

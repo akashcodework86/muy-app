@@ -240,7 +240,8 @@
             $monthSlots = $monthSlots ?? collect();
             $monthExtraSlots = $monthExtraSlots ?? collect();
             $monthSummary = (array) ($monthSummary ?? ['required' => 0, 'filled' => 0, 'remaining' => 0, 'extra_filled' => 0]);
-            $sessionMode = old('session_mode', 'planned');
+            $extraSessionsEnabled = (bool) ($extraSessionsEnabled ?? false);
+            $sessionMode = $extraSessionsEnabled ? old('session_mode', 'planned') : 'planned';
             $monthOptions = $monthOptions ?? collect(range(1, 12))->mapWithKeys(fn (int $month): array => [$month => now()->setDate($planYear, $month, 1)->format('F')]);
             $monthTarget = (int) ($monthSummary['required'] ?? 0);
             $monthAchievement = (int) ($monthSummary['filled'] ?? 0);
@@ -304,7 +305,7 @@
                             </div>
                             <div class="tp-month-compact__meta">{{ $monthProgressPct }}% complete</div>
                         </div>
-                        @if ((int) ($monthSummary['extra_filled'] ?? 0) > 0)
+                        @if ($extraSessionsEnabled && (int) ($monthSummary['extra_filled'] ?? 0) > 0)
                             <div class="tp-month-compact__extra">Extra done: {{ number_format((int) ($monthSummary['extra_filled'] ?? 0)) }}</div>
                         @endif
                     </aside>
@@ -312,14 +313,14 @@
 
                 @if ((int) ($monthSummary['required'] ?? 0) === 0)
                     <div class="tp-alert tp-alert--warning" style="margin-top:0.75rem;">
-                        No planned sessions are assigned for this month yet. You can still record an extra session below, or contact the state admin for planned targets.
+                        No planned sessions are assigned for this month yet. Contact the state admin for planned targets.
                     </div>
                 @endif
             </div>
 
             <div class="tp-form-divider">
                 <h4 class="tp-form-divider__title">Attendance submission</h4>
-                <p class="tp-form-divider__note">Choose a planned session from the monthly target, or record an extra session that does not change the monthly target.</p>
+                <p class="tp-form-divider__note">Choose a planned session from the monthly target.</p>
             </div>
         @endif
 
@@ -329,18 +330,22 @@
                 <input type="hidden" name="plan_year" value="{{ $planYear }}">
                 <input type="hidden" name="plan_month" value="{{ $planMonth }}">
                 <div class="tp-section" style="margin-top:0;">
-                    <div class="tp-session-mode" role="radiogroup" aria-label="Session type">
-                        <label>
-                            <input type="radio" name="session_mode" value="planned" @checked($sessionMode === 'planned')>
-                            <span>Planned session</span>
-                        </label>
-                        <label>
-                            <input type="radio" name="session_mode" value="extra" @checked($sessionMode === 'extra')>
-                            <span>Extra session</span>
-                        </label>
-                    </div>
+                    @if ($extraSessionsEnabled)
+                        <div class="tp-session-mode" role="radiogroup" aria-label="Session type">
+                            <label>
+                                <input type="radio" name="session_mode" value="planned" @checked($sessionMode === 'planned')>
+                                <span>Planned session</span>
+                            </label>
+                            <label>
+                                <input type="radio" name="session_mode" value="extra" @checked($sessionMode === 'extra')>
+                                <span>Extra session</span>
+                            </label>
+                        </div>
+                    @else
+                        <input type="hidden" name="session_mode" value="planned">
+                    @endif
 
-                    <div class="tp-planned-panel @if($sessionMode === 'extra') is-hidden @endif" id="tpPlannedPanel">
+                    <div class="tp-planned-panel @if($extraSessionsEnabled && $sessionMode === 'extra') is-hidden @endif" id="tpPlannedPanel">
                         <div class="tp-field">
                             <label for="month_session_id">Planned session *</label>
                             <select id="month_session_id" name="month_session_id" data-plan-disabled="{{ (int) ($monthSummary['required'] ?? 0) === 0 ? '1' : '0' }}" @disabled((int) ($monthSummary['required'] ?? 0) === 0)>
@@ -380,6 +385,7 @@
                         @endif
                     </div>
 
+                    @if ($extraSessionsEnabled)
                     <div class="tp-extra-panel @if($sessionMode === 'extra') is-active @endif" id="tpExtraPanel">
                         <div class="tp-field">
                             <label for="extra_session_name">Extra session name *</label>
@@ -407,6 +413,7 @@
                                 </div>
                             @endforeach
                         </div>
+                    @endif
                     @endif
                 </div>
             @endif

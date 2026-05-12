@@ -24,4 +24,13 @@ return [
     */
     'service_case_assignment' => env('FEATURE_SERVICE_CASE_ASSIGNMENT', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Training package extra sessions
+    |--------------------------------------------------------------------------
+    | District staff can record extra sessions outside the monthly target.
+    | Hidden by default while the feature is being refined.
+    */
+    'training_package_extra_sessions' => env('FEATURE_TRAINING_PACKAGE_EXTRA_SESSIONS', false),
+
 ];

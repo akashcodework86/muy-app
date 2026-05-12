@@ -22,6 +22,11 @@ class TrainingPackageAttendanceController extends Controller
 {
     use ValidatesAttendanceMediaUploads;
 
+    private function extraSessionsEnabled(): bool
+    {
+        return (bool) config('features.training_package_extra_sessions', false);
+    }
+
     public function __construct(
         private TrainingPackageMonthSessionService $monthSessions,
         private LegacyApplicationServiceCaseSupport $legacyApplications,
@@ -86,11 +91,14 @@ class TrainingPackageAttendanceController extends Controller
         $monthPlanningEnabled = Schema::hasTable('training_package_month_sessions');
 
         if ($monthPlanningEnabled) {
-            $rules['session_mode'] = ['required', Rule::in(['planned', 'extra'])];
+            $allowedSessionModes = $this->extraSessionsEnabled()
+                ? ['planned', 'extra']
+                : ['planned'];
+            $rules['session_mode'] = ['required', Rule::in($allowedSessionModes)];
             $rules['plan_year'] = ['required', 'integer', 'min:2000', 'max:'.(now()->year + 1)];
             $rules['plan_month'] = ['required', 'integer', 'min:1', 'max:12'];
 
-            if ($request->input('session_mode') === 'extra') {
+            if ($this->extraSessionsEnabled() && $request->input('session_mode') === 'extra') {
                 $rules['extra_session_name'] = ['required', 'string', 'max:191'];
                 $rules['month_session_id'] = ['nullable', 'prohibited'];
             } else {
@@ -903,6 +911,7 @@ class TrainingPackageAttendanceController extends Controller
 
         return [
             'monthPlanningEnabled' => $monthPlanningEnabled,
+            'extraSessionsEnabled' => $this->extraSessionsEnabled(),
             'planYear' => $planYear,
             'planMonth' => $planMonth,
             'monthSlots' => $monthSlots,
