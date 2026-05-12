@@ -455,6 +455,9 @@
                         }
 
                         if (field.required && input.type !== 'hidden') input.required = true;
+                        if (key === 'scheme_name' && svc.name && (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA')) {
+                            input.value = svc.name;
+                        }
                         wrap.appendChild(input);
                         box.appendChild(wrap);
                     });

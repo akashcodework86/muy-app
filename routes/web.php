@@ -298,6 +298,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
         Route::get('phase3-services', [Phase3ServiceCasesController::class, 'index'])->name('phase3-services.index');
         Route::get('phase3-services/export', [Phase3ServiceCasesController::class, 'export'])->name('phase3-services.export');
+        Route::get('phase3-services/{service_case}', [Phase3ServiceCasesController::class, 'show'])->name('phase3-services.show');
         Route::get('phase3-services/{service_case}/attachments/{attachment}/view', [Phase3ServiceCasesController::class, 'viewAttachment'])
             ->name('phase3-services.attachments.view');
 

@@ -11,6 +11,19 @@ use App\Support\ServiceFieldTypes as T;
  */
 class ServiceSchemaTemplates
 {
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function convergenceWithLineDepartments(): array
+    {
+        return [
+            ['key' => 'scheme_name', 'label' => 'Name of scheme', 'type' => T::TEXT, 'required' => true, 'help' => 'Defaults from the selected service; edit if needed.'],
+            ['key' => 'scheme_registration_date', 'label' => 'Date of scheme registration', 'type' => T::DATE, 'required' => true],
+            ['key' => 'applied_amount', 'label' => 'Applied amount (₹)', 'type' => T::AMOUNT, 'required' => false],
+            ['key' => 'sanctioned_amount', 'label' => 'Sanctioned amount (₹)', 'type' => T::AMOUNT, 'required' => false],
+        ];
+    }
+
     public static function all(): array
     {
         return [
@@ -209,12 +222,7 @@ class ServiceSchemaTemplates
                 ['key' => 'order_value', 'label' => 'Order value (₹)', 'type' => T::AMOUNT, 'required' => false],
             ],
 
-            'Convergence with Line Departments' => [
-                ['key' => 'department_name', 'label' => 'Department name', 'type' => T::TEXT, 'required' => true],
-                ['key' => 'convergence_type', 'label' => 'Convergence type', 'type' => T::TEXT, 'required' => false],
-                ['key' => 'convergence_date', 'label' => 'Convergence date', 'type' => T::DATE, 'required' => true],
-                ['key' => 'official_reference', 'label' => 'Official reference', 'type' => T::TEXT, 'required' => false],
-            ],
+            'Convergence with Line Departments' => self::convergenceWithLineDepartments(),
 
             'Incubatees Pitch deck preparations' => [
                 ['key' => 'deck_stage', 'label' => 'Deck stage', 'type' => T::SELECT, 'required' => true, 'options' => [

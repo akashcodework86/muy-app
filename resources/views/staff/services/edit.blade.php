@@ -66,6 +66,9 @@
                             $type = $field['type'] ?? 'text';
                             $oldValue = old("payload.$key");
                             $currentValue = is_array($oldValue) ? $oldValue : ($oldValue ?? ($payload[$key] ?? null));
+                            if ($key === 'scheme_name' && ($currentValue === null || $currentValue === '') && $case->service?->name) {
+                                $currentValue = $case->service->name;
+                            }
                         @endphp
                         <div class="svc-field-row" data-field-key="{{ $key }}" data-visible-if-field="{{ $field['visible_if']['field'] ?? '' }}" data-visible-if-value="{{ $field['visible_if']['value'] ?? '' }}">
                             <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.2rem;">

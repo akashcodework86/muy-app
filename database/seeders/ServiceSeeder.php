@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\ServiceSchemaTemplates;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -16,6 +17,11 @@ class ServiceSeeder extends Seeder
         $d = fn (string $code) => DB::table('deliverables')->where('code', $code)->value('id');
         /** Default subcatalog under each top category ({parent_slug}_services), created by ServiceCategorySeeder. */
         $sub = fn (string $parentSlug) => DB::table('service_categories')->where('slug', $parentSlug.'_services')->value('id');
+        $convergenceCategoryId = (int) $sub('convergence');
+        $convergenceFieldSchema = json_encode(
+            ServiceSchemaTemplates::convergenceWithLineDepartments(),
+            JSON_UNESCAPED_UNICODE
+        );
 
         $items = [
             // Business Formalisation → deliverable 6
@@ -76,7 +82,7 @@ class ServiceSeeder extends Seeder
         ];
 
         foreach ($items as [$catId, $code, $name, $delCode, $sort]) {
-            DB::table('services')->insert([
+            $row = [
                 'service_category_id' => $catId,
                 'deliverable_id' => $d($delCode),
                 'code' => $code,
@@ -85,7 +91,13 @@ class ServiceSeeder extends Seeder
                 'is_active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+
+            if ($convergenceCategoryId > 0 && (int) $catId === $convergenceCategoryId) {
+                $row['field_schema'] = $convergenceFieldSchema;
+            }
+
+            DB::table('services')->insert($row);
         }
     }
 }

@@ -105,6 +105,31 @@ class Phase3ServiceCasesController extends Controller
         ]);
     }
 
+    public function show(ServiceCase $service_case): View
+    {
+        $service_case->load([
+            'service.category',
+            'cfaSubmission.district',
+            'submitter:id,name',
+            'creator:id,name',
+            'spoc:id,name',
+            'approver:id,name',
+            'attachments',
+            'events.user',
+        ]);
+
+        $legacyIncubateePreview = null;
+        if ($service_case->legacy_application_id && ! $service_case->cfa_submission_id) {
+            $legacyIncubateePreview = app(LegacyApplicationServiceCaseSupport::class)
+                ->incubateePreview((int) $service_case->legacy_application_id);
+        }
+
+        return view('admin.phase3-services.show', [
+            'case' => $service_case,
+            'legacyIncubateePreview' => $legacyIncubateePreview,
+        ]);
+    }
+
     public function export(Request $request): StreamedResponse
     {
         $filters = $this->validatedFilters($request);

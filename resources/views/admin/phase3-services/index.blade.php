@@ -145,7 +145,8 @@
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Assigned by</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">SPOC</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Documents</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Actions</th>
+                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">CFA</th>
+                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Details</th>
                 </tr>
             </thead>
             <tbody>
@@ -232,15 +233,18 @@
                         </td>
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
                             @if ($case->cfaSubmission)
-                                <a href="{{ route('admin.cfa.show', $case->cfaSubmission) }}">View Details</a>
+                                <a href="{{ route('admin.cfa.show', $case->cfaSubmission) }}">View CFA</a>
                             @else
                                 —
                             @endif
                         </td>
+                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
+                            <a href="{{ route('admin.phase3-services.show', $case) }}">View details</a>
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="13" style="padding:1rem;color:#64748b;">No Phase 3 service cases found for selected filters.</td>
+                        <td colspan="14" style="padding:1rem;color:#64748b;">No Phase 3 service cases found for selected filters.</td>
                     </tr>
                 @endforelse
             </tbody>
