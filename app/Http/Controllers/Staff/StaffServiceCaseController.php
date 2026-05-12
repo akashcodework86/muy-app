@@ -161,7 +161,7 @@ class StaffServiceCaseController extends Controller
             ->map(fn ($r) => 'l:'.((int) $r->legacy_application_id).':'.((int) $r->service_id))
             ->values();
 
-        $existingPairs = $existingCfaPairs->merge($existingLegacyPairs)->values();
+        $existingPairs = $existingCfaPairs->toBase()->merge($existingLegacyPairs)->values();
 
         $priorCfaCases = ServiceCase::query()
             ->with(['service:id,name', 'submitter:id,name', 'creator:id,name'])
