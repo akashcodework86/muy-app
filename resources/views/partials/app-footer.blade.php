@@ -4,6 +4,7 @@
     Use: @include('partials.app-footer')
 --}}
 @php
+    $logoUrl = asset('https://ukrbi.in/new/admin/muy.png');
     $appFooterYear = now()->year;
     $appFooterName = config('app.name', 'MUY');
     $appFooterContact = [
@@ -21,7 +22,7 @@
             {{-- Brand --}}
             <div class="muy-footer__col muy-footer__col--brand">
                 <div class="muy-footer__brand">
-                    <span class="muy-footer__logo" aria-hidden="true">MUY</span>
+                    <img src="{{ $logoUrl }}" alt="MUY Logo" class="muy-footer__logo">
                     <div>
                         <div class="muy-footer__brand-name">{{ $appFooterName }}</div>
                         <div class="muy-footer__brand-sub">Mukhyamantri Udyamshala Yojana · Uttarakhand</div>
@@ -153,17 +154,15 @@
         margin-bottom: 0.75rem;
     }
     .muy-footer__logo {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 44px; height: 44px;
-        border-radius: 12px;
-        font-weight: 800;
-        letter-spacing: 0.04em;
-        font-size: 0.9rem;
-        color: #0f2e3f;
-        background: linear-gradient(135deg, #5eead4 0%, #99f6e4 50%, #fef3c7 100%);
-        box-shadow: 0 8px 20px rgba(45, 212, 191, 0.35), inset 0 1px 0 rgba(255,255,255,0.6);
+        height: 46px;
+        width: auto;
+        max-width: 56px;
+        object-fit: contain;
+        padding: 2px;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        flex-shrink: 0;
     }
     .muy-footer__brand-name {
         font-size: 1.05rem;
