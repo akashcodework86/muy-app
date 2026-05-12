@@ -111,6 +111,49 @@ class TrainingPackageMonthPlanController extends Controller
             ->with('status', 'Monthly training package sessions saved.');
     }
 
+    public function assignDefaultSessions(Request $request): RedirectResponse
+    {
+        abort_unless(Schema::hasTable('training_package_month_sessions'), 422, 'Training package month sessions table is missing.');
+
+        $validated = $request->validate([
+            'calendar_year' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'calendar_month' => ['required', 'integer', 'min:1', 'max:12'],
+        ]);
+
+        $calendarYear = (int) $validated['calendar_year'];
+        $calendarMonth = (int) $validated['calendar_month'];
+        $assignedDistrictCount = $this->monthSessions->assignDefaultSessionsForMonth(
+            $calendarYear,
+            $calendarMonth,
+            (int) $request->user()->id
+        );
+
+        $this->auditLogger->record(
+            $request,
+            'training_package_month_plan.assign_defaults',
+            District::class,
+            null,
+            null,
+            [
+                'calendar_year' => $calendarYear,
+                'calendar_month' => $calendarMonth,
+                'assigned_district_count' => $assignedDistrictCount,
+            ],
+            'Assigned default training package sessions for the month.'
+        );
+
+        $status = $assignedDistrictCount > 0
+            ? 'Assigned Session 1 and Session 2 to '.$assignedDistrictCount.' district(s).'
+            : 'Every district already has required sessions for this month.';
+
+        return redirect()
+            ->route('admin.training-package-month-plans.index', [
+                'calendar_year' => $calendarYear,
+                'calendar_month' => $calendarMonth,
+            ])
+            ->with('status', $status);
+    }
+
     public function destroySession(Request $request, TrainingPackageMonthSession $trainingPackageMonthSession): RedirectResponse
     {
         abort_unless(Schema::hasTable('training_package_month_sessions'), 422, 'Training package month sessions table is missing.');

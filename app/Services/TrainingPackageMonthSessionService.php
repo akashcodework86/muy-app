@@ -305,6 +305,37 @@ class TrainingPackageMonthSessionService
         });
     }
 
+    /**
+     * @return int Number of districts that received the default required sessions.
+     */
+    public function assignDefaultSessionsForMonth(int $calendarYear, int $calendarMonth, int $userId): int
+    {
+        $districtPlans = District::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->filter(function (District $district) use ($calendarYear, $calendarMonth): bool {
+                return $this->plannedSlotsForDistrictMonth((int) $district->id, $calendarYear, $calendarMonth)->isEmpty();
+            })
+            ->map(fn (District $district): array => [
+                'district_id' => (int) $district->id,
+                'sessions' => [
+                    ['session_name' => 'Session 1'],
+                    ['session_name' => 'Session 2'],
+                ],
+            ])
+            ->values()
+            ->all();
+
+        if ($districtPlans === []) {
+            return 0;
+        }
+
+        $this->syncMonthPlan($calendarYear, $calendarMonth, $districtPlans, $userId);
+
+        return count($districtPlans);
+    }
+
     public function slotIsLinkedToPackage(int $slotId): bool
     {
         return TrainingPackage::query()->where('month_session_id', $slotId)->exists();

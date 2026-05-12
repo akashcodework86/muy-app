@@ -312,6 +312,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('training-package-month-plans.store');
+        Route::post('training-package-month-plans/assign-default-sessions', [TrainingPackageMonthPlanController::class, 'assignDefaultSessions'])
+            ->middleware('throttle:30,1')
+            ->name('training-package-month-plans.assign-default-sessions');
         Route::delete('training-package-month-plans/sessions/{trainingPackageMonthSession}', [TrainingPackageMonthPlanController::class, 'destroySession'])
             ->middleware('throttle:30,1')
             ->name('training-package-month-plans.sessions.destroy');

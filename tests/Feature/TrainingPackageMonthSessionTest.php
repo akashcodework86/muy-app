@@ -535,6 +535,87 @@ class TrainingPackageMonthSessionTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_assign_default_sessions_to_districts_without_required_slots(): void
+    {
+        $districtOne = $this->createDistrict('district-one', 'District One');
+        $districtTwo = $this->createDistrict('district-two', 'District Two');
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.training-package-month-plans.assign-default-sessions'), [
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+        ]);
+
+        $response->assertRedirect(route('admin.training-package-month-plans.index', [
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+        ]));
+        $response->assertSessionHas('status', 'Assigned Session 1 and Session 2 to 2 district(s).');
+
+        foreach ([$districtOne, $districtTwo] as $district) {
+            $this->assertDatabaseHas('training_package_month_sessions', [
+                'district_id' => $district->id,
+                'calendar_year' => 2026,
+                'calendar_month' => 5,
+                'session_name' => 'Session 1',
+                'sort_order' => 1,
+                'is_extra' => false,
+            ]);
+            $this->assertDatabaseHas('training_package_month_sessions', [
+                'district_id' => $district->id,
+                'calendar_year' => 2026,
+                'calendar_month' => 5,
+                'session_name' => 'Session 2',
+                'sort_order' => 2,
+                'is_extra' => false,
+            ]);
+        }
+    }
+
+    public function test_assign_default_sessions_skips_districts_with_existing_required_slots(): void
+    {
+        $district = $this->createDistrict();
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+        $service = app(TrainingPackageMonthSessionService::class);
+
+        $service->syncMonthPlan(2026, 5, [[
+            'district_id' => $district->id,
+            'sessions' => [
+                ['session_name' => 'Existing session'],
+            ],
+        ]], (int) $admin->id);
+
+        $response = $this->actingAs($admin)->post(route('admin.training-package-month-plans.assign-default-sessions'), [
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+        ]);
+
+        $response->assertRedirect(route('admin.training-package-month-plans.index', [
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+        ]));
+        $response->assertSessionHas('status', 'Every district already has required sessions for this month.');
+
+        $this->assertDatabaseHas('training_package_month_sessions', [
+            'district_id' => $district->id,
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+            'session_name' => 'Existing session',
+        ]);
+        $this->assertDatabaseMissing('training_package_month_sessions', [
+            'district_id' => $district->id,
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+            'session_name' => 'Session 1',
+        ]);
+    }
+
     private function seedOnboardedIncubatee(District $district): int
     {
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
@@ -567,18 +648,18 @@ class TrainingPackageMonthSessionTest extends TestCase
         return $cfaId;
     }
 
-    private function createDistrict(): District
+    private function createDistrict(string $slug = 'test-district', string $name = 'Test District'): District
     {
         $hub = Hub::query()->create([
-            'slug' => 'test-hub',
-            'name' => 'Test Hub',
+            'slug' => 'test-hub-'.$slug,
+            'name' => 'Test Hub '.$name,
             'sort_order' => 1,
         ]);
 
         return District::query()->create([
             'hub_id' => $hub->id,
-            'slug' => 'test-district',
-            'name' => 'Test District',
+            'slug' => $slug,
+            'name' => $name,
             'sort_order' => 1,
         ]);
     }

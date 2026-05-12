@@ -227,6 +227,13 @@
             <button type="submit" class="tpmp-btn">Load month</button>
         </form>
 
+        <form method="post" action="{{ route('admin.training-package-month-plans.assign-default-sessions') }}" class="tpmp-filters" onsubmit="return confirm('Assign Session 1 and Session 2 to every district without required sessions for this month?');">
+            @csrf
+            <input type="hidden" name="calendar_year" value="{{ $calendarYear }}">
+            <input type="hidden" name="calendar_month" value="{{ $calendarMonth }}">
+            <button type="submit" class="tpmp-btn--ghost" @disabled(!empty($migrationMissing))>Assign Session 1 &amp; 2 to all districts</button>
+        </form>
+
         <div class="tpmp-summary">
             <div class="tpmp-stat">
                 <div class="tpmp-stat__label">Required statewide</div>
