@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TrainingPackageAttendanceController extends Controller
@@ -154,7 +155,7 @@ class TrainingPackageAttendanceController extends Controller
             if (! $media) {
                 continue;
             }
-            $mediaPath = $media->store('training-package-attendance-media');
+            $mediaPath = $media->store('training-package-attendance-media', 'public');
             $mime = (string) ($media->getClientMimeType() ?? '');
             $type = Str::startsWith($mime, 'image/')
                 ? 'image'
@@ -417,7 +418,7 @@ class TrainingPackageAttendanceController extends Controller
                 if (! $media) {
                     continue;
                 }
-                $mediaPath = $media->store('training-package-attendance-media');
+                $mediaPath = $media->store('training-package-attendance-media', 'public');
                 $mime = (string) ($media->getClientMimeType() ?? '');
                 $type = Str::startsWith($mime, 'image/')
                     ? 'image'
@@ -456,9 +457,11 @@ class TrainingPackageAttendanceController extends Controller
         abort_if(! is_array($media), 404);
         $path = (string) ($media['path'] ?? '');
         abort_if($path === '', 404);
-        abort_unless(Storage::exists($path), 404);
 
-        return Storage::download($path, (string) ($media['original_name'] ?? basename($path)));
+        $disk = Storage::disk('public')->exists($path) ? 'public' : 'local';
+        abort_unless(Storage::disk($disk)->exists($path), 404);
+
+        return Storage::disk($disk)->download($path, (string) ($media['original_name'] ?? basename($path)));
     }
 
     private function onboardedIncubateesForDistrict(int $districtId, string $search = ''): Collection
@@ -838,8 +841,13 @@ class TrainingPackageAttendanceController extends Controller
                 continue;
             }
             $path = (string) ($media['path'] ?? '');
-            if ($path !== '' && Storage::exists($path)) {
-                Storage::delete($path);
+            if ($path === '') {
+                continue;
+            }
+            foreach (['public', 'local'] as $disk) {
+                if (Storage::disk($disk)->exists($path)) {
+                    Storage::disk($disk)->delete($path);
+                }
             }
         }
     }
