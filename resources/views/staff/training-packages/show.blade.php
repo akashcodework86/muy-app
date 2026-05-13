@@ -131,17 +131,14 @@
                             $mediaPath = (string) ($media['path'] ?? '');
                             $mediaMime = (string) ($media['mime'] ?? '');
                             $mediaName = (string) ($media['original_name'] ?? ('Media '.($idx + 1)));
-                            $mediaUrl = $mediaPath !== ''
-                                ? \Illuminate\Support\Facades\Storage::disk('public')->url($mediaPath)
-                                : '';
                         @endphp
-                        @if ($mediaUrl !== '')
+                        @if ($mediaPath !== '')
                             @if (str_starts_with($mediaMime, 'image/'))
-                                <a href="{{ $mediaUrl }}" target="_blank" rel="noopener">
-                                    <img src="{{ $mediaUrl }}" alt="{{ $mediaName }}">
+                                <a href="{{ \Illuminate\Support\Facades\Storage::url($mediaPath) }}" target="_blank" rel="noopener">
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::url($mediaPath) }}" alt="{{ $mediaName }}">
                                 </a>
                             @else
-                                <a href="{{ $mediaUrl }}" target="_blank" rel="noopener">
+                                <a href="{{ \Illuminate\Support\Facades\Storage::url($mediaPath) }}" target="_blank" rel="noopener">
                                     {{ $mediaName }}
                                 </a>
                             @endif
