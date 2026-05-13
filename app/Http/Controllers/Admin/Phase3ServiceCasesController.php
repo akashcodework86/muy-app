@@ -7,6 +7,7 @@ use App\Models\District;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCaseAttachment;
+use App\Models\User;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -101,6 +102,10 @@ class Phase3ServiceCasesController extends Controller
             'services' => Service::query()->orderBy('name')->get(['id', 'name', 'service_category_id']),
             'districts' => District::query()->orderBy('name')->get(['id', 'name']),
             'districtCounts' => $districtCounts,
+            'spocs' => User::query()
+                ->where('role', 'state_staff')
+                ->orderBy('name')
+                ->get(['id', 'name']),
             'legacyPreviews' => $legacyPreviews,
         ]);
     }
@@ -310,6 +315,12 @@ class Phase3ServiceCasesController extends Controller
             $query->where('service_cases.service_id', $filters['service_id']);
         }
 
+        if ($filters['spoc_id'] === 'unassigned') {
+            $query->whereNull('service_cases.spoc_user_id');
+        } elseif (is_numeric($filters['spoc_id']) && (int) $filters['spoc_id'] > 0) {
+            $query->where('service_cases.spoc_user_id', (int) $filters['spoc_id']);
+        }
+
         if ($filters['status'] !== '') {
             $query->where('service_cases.status', $filters['status']);
         }
@@ -456,6 +467,7 @@ class Phase3ServiceCasesController extends Controller
             'district_id' => (int) $request->query('district_id', 0),
             'category_id' => 0,
             'service_id' => (int) $request->query('service_id', 0),
+            'spoc_id' => trim((string) $request->query('spoc_id', '')),
             'status' => trim((string) $request->query('status', '')),
             'reporting_tier' => trim((string) $request->query('reporting_tier', '')),
             'has_docs' => trim((string) $request->query('has_docs', '')),

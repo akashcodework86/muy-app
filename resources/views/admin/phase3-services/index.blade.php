@@ -96,6 +96,14 @@
                 @endforeach
             </select>
 
+            <select name="spoc_id" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
+                <option value="">All SPOCs</option>
+                <option value="unassigned" @selected($filters['spoc_id'] === 'unassigned')>Unassigned</option>
+                @foreach ($spocs as $spoc)
+                    <option value="{{ $spoc->id }}" @selected((string) $filters['spoc_id'] === (string) $spoc->id)>{{ $spoc->name }}</option>
+                @endforeach
+            </select>
+
             <select name="status" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
                 <option value="">All statuses</option>
                 @foreach ($statusLabel as $statusKey => $statusText)
