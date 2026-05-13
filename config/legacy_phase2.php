@@ -122,4 +122,16 @@ return [
             ],
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Legacy incubatee profile (Phase 2 MIS)
+    |--------------------------------------------------------------------------
+    |
+    | Optional absolute base URL (with trailing slash) where legacy PHP served
+    | files such as product images or incubatee photos, e.g. https://host/rbiphase2/
+    | When empty, product images fall back to placeholders unless stored locally.
+    |
+    */
+    'legacy_public_assets_base_url' => rtrim((string) env('LEGACY_PUBLIC_ASSETS_BASE_URL', ''), '/'),
 ];

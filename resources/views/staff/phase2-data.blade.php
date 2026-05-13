@@ -97,6 +97,7 @@
                         <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">Business</th>
                         <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">Services (all)</th>
                         <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">Service flags</th>
+                        <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">CFA</th>
                         <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">Onboard</th>
                     </tr>
                 </thead>
@@ -141,6 +142,20 @@
                                 <div>Fin: <strong>{{ $row['finance_service'] }}</strong></div>
                                 <div>Trn: <strong>{{ $row['training_service'] }}</strong></div>
                             </td>
+                            <td style="padding:0.5rem 0.65rem;border-bottom:1px solid #f1f5f9;vertical-align:top;min-width:8.5rem;">
+                                @php
+                                    $legacyId = (int) ($row['legacy_application_id'] ?? 0);
+                                @endphp
+                                @if ($legacyId > 0)
+                                    <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;">
+                                        <a href="{{ route('staff.phase2-profile.show', ['legacy_application' => $legacyId]) }}" style="font-weight:700;color:#0369a1;text-decoration:none;">View</a>
+                                        <span style="color:#cbd5e1;font-weight:700;">·</span>
+                                        <a href="{{ route('staff.phase2-profile.show', ['legacy_application' => $legacyId, 'autopdf' => 1]) }}" style="font-weight:700;color:#7c3aed;text-decoration:none;">PDF</a>
+                                    </div>
+                                @else
+                                    <span style="color:#94a3b8;">—</span>
+                                @endif
+                            </td>
                             <td style="padding:0.5rem 0.65rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;">
                                 @if ($row['onboarding_status'] === 'yes')
                                     <span style="display:inline-block;padding:0.18rem 0.5rem;border-radius:999px;background:#dcfce7;color:#166534;font-weight:700;font-size:0.75rem;">Yes</span>
@@ -151,7 +166,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" style="padding:1.2rem 0.65rem;color:#64748b;">No Phase 2 records found for your district and filters.</td>
+                            <td colspan="11" style="padding:1.2rem 0.65rem;color:#64748b;">No Phase 2 records found for your district and filters.</td>
                         </tr>
                     @endforelse
                 </tbody>

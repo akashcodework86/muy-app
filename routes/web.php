@@ -21,9 +21,9 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
-use App\Http\Controllers\Admin\TrainingPackageMonthPlanController;
 use App\Http\Controllers\Admin\TeamDirectoryController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
+use App\Http\Controllers\Admin\TrainingPackageMonthPlanController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
@@ -40,6 +40,7 @@ use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
 use App\Http\Controllers\Staff\FieldCoordinatorAttendanceController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
+use App\Http\Controllers\Staff\LegacyPhase2IncubateeProfileController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
 use App\Http\Controllers\StateStaff\SpocServiceCaseController;
@@ -152,6 +153,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('applications/export', [StaffPortalController::class, 'applicationsExport'])
             ->middleware('throttle:15,1')
             ->name('applications.export');
+        Route::get('applications/{cfa_submission}/export-csv', [StaffPortalController::class, 'exportSingleCfaSubmission'])
+            ->middleware('throttle:30,1')
+            ->name('applications.export-single');
         Route::get('applications/{cfa_submission}', [StaffPortalController::class, 'showCfaSubmission'])->name('applications.show');
         Route::get('applications/{cfa_submission}/edit', [StaffPortalController::class, 'editCfaSubmission'])->name('applications.edit');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
@@ -171,6 +175,20 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('phase1-data', [StaffPortalController::class, 'phase1Data'])->name('phase1-data');
         Route::get('phase2-data', [StaffPortalController::class, 'phase2Data'])->name('phase2-data');
         Route::get('phase2-data/export', [StaffPortalController::class, 'exportPhase2Data'])->name('phase2-data.export');
+        Route::get('phase2-applications/logo-mark', [LegacyPhase2IncubateeProfileController::class, 'headerLogo'])
+            ->middleware('throttle:60,1')
+            ->name('phase2-profile.logo');
+        Route::get('phase2-applications/{legacy_application}', [LegacyPhase2IncubateeProfileController::class, 'show'])
+            ->whereNumber('legacy_application')
+            ->name('phase2-profile.show');
+        Route::get('phase2-applications/{legacy_application}/photo', [LegacyPhase2IncubateeProfileController::class, 'photo'])
+            ->whereNumber('legacy_application')
+            ->middleware('throttle:120,1')
+            ->name('phase2-profile.photo');
+        Route::post('phase2-applications/{legacy_application}/photo', [LegacyPhase2IncubateeProfileController::class, 'uploadPhoto'])
+            ->whereNumber('legacy_application')
+            ->middleware('throttle:15,1')
+            ->name('phase2-profile.photo.upload');
         Route::get('attendance', [FieldCoordinatorAttendanceController::class, 'index'])->name('attendance.index');
         Route::get('attendance/view', [FieldCoordinatorAttendanceController::class, 'view'])->name('attendance.view');
         Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceController::class, 'downloadAttachment'])->name('attendance.attachment');

@@ -234,6 +234,80 @@ class StaffPortalController extends Controller
         }, $filename, $responseHeaders);
     }
 
+    /**
+     * CSV of one CFA submission (same columns as bulk {@see applicationsExport}), for staff who may view it.
+     */
+    public function exportSingleCfaSubmission(Request $request, CfaSubmission $cfa_submission): StreamedResponse
+    {
+        $this->assertOwnReferral($request, $cfa_submission);
+        $cfa_submission->load(['district', 'referralUser', 'fiscalYear']);
+
+        $payload = is_array($cfa_submission->payload) ? $cfa_submission->payload : [];
+        $flat = $this->flattenCfaPayloadForExport($payload);
+        $payloadHeaderKeys = array_keys($flat);
+        sort($payloadHeaderKeys, SORT_STRING);
+
+        $baseHeaders = [
+            'id',
+            'application_no',
+            'created_at',
+            'updated_at',
+            'fiscal_year_id',
+            'fiscal_year_label',
+            'district_id',
+            'district_name',
+            'lgd_state_code',
+            'lgd_district_code',
+            'lgd_block_code',
+            'source',
+            'applicant_name',
+            'phone',
+            'referral_user_id',
+            'referral_user_name',
+        ];
+        $headers = array_merge($baseHeaders, $payloadHeaderKeys);
+
+        $slug = preg_replace('/[^a-z0-9_-]+/i', '-', strtolower((string) ($cfa_submission->application_no ?? 'cfa'))) ?: 'cfa';
+        $filename = 'cfa-'.$slug.'-'.now()->format('Ymd_His').'.csv';
+        $responseHeaders = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ];
+
+        return response()->streamDownload(function () use ($cfa_submission, $flat, $payloadHeaderKeys, $headers) {
+            $out = fopen('php://output', 'wb');
+            if ($out === false) {
+                return;
+            }
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, $headers);
+            $fy = $cfa_submission->fiscalYear;
+            $line = [
+                $cfa_submission->id,
+                $cfa_submission->application_no ?? '',
+                $cfa_submission->created_at?->format('Y-m-d H:i:s') ?? '',
+                $cfa_submission->updated_at?->format('Y-m-d H:i:s') ?? '',
+                $cfa_submission->fiscal_year_id ?? '',
+                $fy?->name ?? $fy?->code ?? '',
+                $cfa_submission->district_id ?? '',
+                $cfa_submission->district?->name ?? '',
+                $cfa_submission->lgd_state_code ?? '',
+                $cfa_submission->lgd_district_code ?? '',
+                $cfa_submission->lgd_block_code ?? '',
+                $cfa_submission->source ?? '',
+                $cfa_submission->applicant_name ?? '',
+                $cfa_submission->phone ?? '',
+                $cfa_submission->referral_user_id ?? '',
+                $cfa_submission->referralUser?->name ?? '',
+            ];
+            foreach ($payloadHeaderKeys as $pk) {
+                $line[] = $flat[$pk] ?? '';
+            }
+            fputcsv($out, $line);
+            fclose($out);
+        }, $filename, $responseHeaders);
+    }
+
     public function showCfaSubmission(Request $request, CfaSubmission $cfa_submission): View
     {
         $this->assertOwnReferral($request, $cfa_submission);
@@ -583,13 +657,13 @@ class StaffPortalController extends Controller
 
         $servicesByApp = $this->servicesByApplicationIds($applicationIds);
 
-        $rows->setCollection(
-            $rows->getCollection()->map(function ($row) use ($servicesByApp) {
-                $serviceRows = $servicesByApp[(int) ($row->application_id ?? 0)] ?? [];
+        $mappedRows = $rows->getCollection()->map(function ($row) use ($servicesByApp) {
+            $serviceRows = $servicesByApp[(int) ($row->application_id ?? 0)] ?? [];
 
-                return $this->buildPhase2ViewRow($row, $serviceRows);
-            })
-        );
+            return $this->buildPhase2ViewRow($row, $serviceRows);
+        });
+
+        $rows->setCollection($mappedRows);
 
         return view('staff.phase2-data', [
             'staff' => $staff,
@@ -697,6 +771,12 @@ class StaffPortalController extends Controller
             ->all();
         $servicesByApp = $this->servicesByApplicationIds($applicationIds);
 
+        $viewRowsForExport = $allRows->map(function ($row) use ($servicesByApp) {
+            $serviceRows = $servicesByApp[(int) ($row->application_id ?? 0)] ?? [];
+
+            return $this->buildPhase2ViewRow($row, $serviceRows);
+        });
+
         $fileNameDistrict = preg_replace('/[^a-z0-9]+/i', '-', strtolower($districtName)) ?: 'district';
         $filename = 'phase2-data-'.$fileNameDistrict.'-'.now()->format('Ymd_His').'.csv';
 
@@ -705,7 +785,7 @@ class StaffPortalController extends Controller
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ];
 
-        return response()->streamDownload(function () use ($allRows, $servicesByApp) {
+        return response()->streamDownload(function () use ($viewRowsForExport) {
             $out = fopen('php://output', 'wb');
             if ($out === false) {
                 return;
@@ -739,12 +819,10 @@ class StaffPortalController extends Controller
                 'Training Details',
                 'Other Services Details',
                 'All Services',
+                'CFA',
             ]);
 
-            foreach ($allRows as $row) {
-                $serviceRows = $servicesByApp[(int) ($row->application_id ?? 0)] ?? [];
-                $viewRow = $this->buildPhase2ViewRow($row, $serviceRows);
-
+            foreach ($viewRowsForExport as $viewRow) {
                 fputcsv($out, [
                     $viewRow['application_no'],
                     $viewRow['applicant_name'],
@@ -770,6 +848,7 @@ class StaffPortalController extends Controller
                     $viewRow['training_details'],
                     $viewRow['other_services_details'],
                     $viewRow['all_services'],
+                    (string) ((int) ($viewRow['legacy_application_id'] ?? 0)),
                 ]);
             }
 
@@ -892,7 +971,7 @@ class StaffPortalController extends Controller
 
     /**
      * @param  list<object>  $serviceRows
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     private function buildPhase2ViewRow(object $row, array $serviceRows): array
     {
@@ -900,6 +979,7 @@ class StaffPortalController extends Controller
         $services = $this->summarizeServices($serviceRows);
 
         return [
+            'legacy_application_id' => (int) ($row->application_id ?? 0),
             'application_no' => (string) ($row->application_no ?: $na),
             'applicant_name' => (string) ($row->applicant_name ?: $na),
             'phone' => (string) ($row->phone ?: $na),
@@ -1111,6 +1191,53 @@ class StaffPortalController extends Controller
             403,
             'You can only access applications from your assigned district or your own referrals.'
         );
+    }
+
+    /**
+     * Phase 2 legacy rows match CFA by {@see CfaSubmission::$application_no}. Keys are
+     * `mb_strtolower(trim(application_no))` for case-insensitive lookup.
+     *
+     * @param  list<string>  $applicationNos
+     * @return array<string, CfaSubmission>
+     */
+    private function cfaSubmissionsByApplicationNoKeyVisibleToStaff(User $staff, array $applicationNos): array
+    {
+        $normalizedKeys = collect($applicationNos)
+            ->map(fn ($n) => mb_strtolower(trim((string) $n)))
+            ->filter(fn ($k) => $k !== '' && $k !== 'na')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($normalizedKeys === []) {
+            return [];
+        }
+
+        $staffId = (int) $staff->id;
+        $districtId = (int) ($staff->district_id ?? 0);
+
+        $query = CfaSubmission::query()
+            ->where(function (Builder $q) use ($normalizedKeys): void {
+                foreach ($normalizedKeys as $nk) {
+                    $q->orWhereRaw('LOWER(TRIM(application_no)) = ?', [$nk]);
+                }
+            })
+            ->where(function (Builder $q) use ($staffId, $districtId): void {
+                $q->where('referral_user_id', $staffId);
+                if ($districtId > 0) {
+                    $q->orWhere('district_id', $districtId);
+                }
+            });
+
+        $out = [];
+        foreach ($query->cursor() as $submission) {
+            $k = mb_strtolower(trim((string) ($submission->application_no ?? '')));
+            if ($k !== '') {
+                $out[$k] = $submission;
+            }
+        }
+
+        return $out;
     }
 
     /**
