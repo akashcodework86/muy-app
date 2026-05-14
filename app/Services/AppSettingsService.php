@@ -33,13 +33,24 @@ class AppSettingsService
         // Service module (maker-checker workflow)
         'service_module.enabled' => false,
         'service_module.eligibility' => 'onboarded_only', // 'all' | 'onboarded_only'
+
+        // District staff — Phase 3 attendance modules (top bar + routes)
+        'staff_nav.training_package.visible' => true,
+        'staff_nav.technical_training.visible' => true,
+        'staff_nav.eap_edp_session.visible' => true,
+        'staff_nav.district_workshop.visible' => true,
     ];
 
     public function get(string $key, mixed $fallback = null): mixed
     {
         $all = $this->all();
         if (array_key_exists($key, $all)) {
-            return $all[$key];
+            $value = $all[$key];
+            if ($value === null && array_key_exists($key, self::DEFAULTS)) {
+                return self::DEFAULTS[$key];
+            }
+
+            return $value;
         }
 
         return $fallback ?? self::DEFAULTS[$key] ?? null;
@@ -47,7 +58,9 @@ class AppSettingsService
 
     public function isEnabled(string $key): bool
     {
-        return (bool) $this->get($key, false);
+        $raw = $this->get($key, self::DEFAULTS[$key] ?? false);
+
+        return filter_var($raw, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**

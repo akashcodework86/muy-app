@@ -9,7 +9,12 @@
         str_contains(strtolower((string) ($u->designationRecord?->name ?? '')), 'field coordinator')
         || str_contains(strtolower((string) ($u->designationRecord?->name ?? '')), 'field co-ordinator')
     );
-    $staffServiceModuleOn = $showStaffNav && app(\App\Services\AppSettingsService::class)->isEnabled('service_module.enabled');
+    $appSettings = app(\App\Services\AppSettingsService::class);
+    $staffServiceModuleOn = $showStaffNav && $appSettings->isEnabled('service_module.enabled');
+    $staffNavTrainingPackage = $appSettings->isEnabled('staff_nav.training_package.visible');
+    $staffNavTechnicalTraining = $appSettings->isEnabled('staff_nav.technical_training.visible');
+    $staffNavEapEdp = $appSettings->isEnabled('staff_nav.eap_edp_session.visible');
+    $staffNavDistrictWorkshop = $appSettings->isEnabled('staff_nav.district_workshop.visible');
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
         'district_staff' => 'District staff',
@@ -56,6 +61,7 @@
         str_starts_with($r, 'library.documents') => 'documents',
         str_starts_with($r, 'admin.service-catalog') => 'service-catalog',
         str_starts_with($r, 'admin.service-module-settings') => 'service-module-settings',
+        str_starts_with($r, 'admin.staff-phase3-attendance-nav') => 'staff-phase3-attendance-nav',
         str_starts_with($r, 'admin.batches') => 'admin-batches',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         str_starts_with($r, 'hub.applications') => 'hub-applications',
@@ -92,6 +98,14 @@
         str_starts_with($r, 'spoc.eap-edp-sessions.show') => 'staff-eap-edp-sessions-dashboard',
         str_starts_with($r, 'admin.eap-edp-sessions.dashboard') => 'staff-eap-edp-sessions-dashboard',
         str_starts_with($r, 'admin.eap-edp-sessions.show') => 'staff-eap-edp-sessions-dashboard',
+        str_starts_with($r, 'staff.district-workshop-sessions.create') => 'staff-district-workshop-sessions-submit',
+        str_starts_with($r, 'staff.district-workshop-sessions.edit') => 'staff-district-workshop-sessions-submit',
+        str_starts_with($r, 'staff.district-workshop-sessions.dashboard') => 'staff-district-workshop-sessions-dashboard',
+        str_starts_with($r, 'staff.district-workshop-sessions.show') => 'staff-district-workshop-sessions-dashboard',
+        str_starts_with($r, 'spoc.district-workshop-sessions.dashboard') => 'staff-district-workshop-sessions-dashboard',
+        str_starts_with($r, 'spoc.district-workshop-sessions.show') => 'staff-district-workshop-sessions-dashboard',
+        str_starts_with($r, 'admin.district-workshop-sessions.dashboard') => 'staff-district-workshop-sessions-dashboard',
+        str_starts_with($r, 'admin.district-workshop-sessions.show') => 'staff-district-workshop-sessions-dashboard',
         str_starts_with($r, 'account.') => 'account',
         str_starts_with($r, 'incubatee.documents') => 'documents',
         str_starts_with($r, 'incubatee.') => 'incubatee',
@@ -100,8 +114,8 @@
     };
     $targetsStaffActive = in_array($activeNav, ['state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard'], true);
-    $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'admin-documents'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard'], true);
+    $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents'], true);
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -224,7 +238,7 @@
                     <a href="{{ route('admin.phase3-services.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase3-services') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>All services</span>
                     </a>
-                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard'], true)) is-active @endif">
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('calendar') !!}<span>Training and Capacity Building</span>
                         </span>
@@ -237,6 +251,9 @@
                             </a>
                             <a href="{{ route('admin.eap-edp-sessions.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-eap-edp-sessions-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>EAP / EDP sessions</span>
+                            </a>
+                            <a href="{{ route('admin.district-workshop-sessions.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-district-workshop-sessions-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>District level workshop</span>
                             </a>
                         </div>
                     </div>
@@ -269,6 +286,9 @@
                     </a>
                     <a href="{{ route('admin.service-module-settings.edit') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-module-settings') is-active @endif" role="menuitem">
                         {!! $i('cog') !!}<span>Service module settings</span>
+                    </a>
+                    <a href="{{ route('admin.staff-phase3-attendance-nav.edit') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-phase3-attendance-nav') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>Staff training menus</span>
                     </a>
                 </div>
             </details>
@@ -354,6 +374,7 @@
                     </a>
                 </div>
             </details>
+            @if ($staffNavTrainingPackage)
             <details class="admin-topbar__details">
                 <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-training-packages-submit','staff-training-packages-dashboard'], true)) is-active @endif">
                     {!! $i('calendar') !!}<span class="admin-topbar__link-text">Training Package Attendance</span>
@@ -368,6 +389,8 @@
                     </a>
                 </div>
             </details>
+            @endif
+            @if ($staffNavTechnicalTraining)
             <details class="admin-topbar__details">
                 <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-technical-trainings-submit','staff-technical-trainings-dashboard'], true)) is-active @endif">
                     {!! $i('calendar') !!}<span class="admin-topbar__link-text">Technical training to incubatees</span>
@@ -382,6 +405,8 @@
                     </a>
                 </div>
             </details>
+            @endif
+            @if ($staffNavEapEdp)
             <details class="admin-topbar__details">
                 <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-eap-edp-sessions-submit','staff-eap-edp-sessions-dashboard'], true)) is-active @endif">
                     {!! $i('calendar') !!}<span class="admin-topbar__link-text">EAP / EDP sessions</span>
@@ -396,6 +421,23 @@
                     </a>
                 </div>
             </details>
+            @endif
+            @if ($staffNavDistrictWorkshop)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-district-workshop-sessions-submit','staff-district-workshop-sessions-dashboard'], true)) is-active @endif">
+                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">District level workshop</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">District level workshop attendance</p>
+                    <a href="{{ route('staff.district-workshop-sessions.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-district-workshop-sessions-submit') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Submission form</span>
+                    </a>
+                    <a href="{{ route('staff.district-workshop-sessions.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-district-workshop-sessions-dashboard') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>View dashboard</span>
+                    </a>
+                </div>
+            </details>
+            @endif
             <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase2-data') is-active @endif">
                 {!! $i('pie') !!}<span class="admin-topbar__link-text">FY 2025-26 Data</span>
             </a>

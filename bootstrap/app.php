@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureDistrictStaff;
+use App\Http\Middleware\EnsureDistrictStaffPhase3AttendanceNavVisible;
 use App\Http\Middleware\EnsureHubAdmin;
 use App\Http\Middleware\EnsureIncubatee;
 use App\Http\Middleware\EnsureStateAdmin;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'state_staff' => EnsureStateStaff::class,
             'hub_admin' => EnsureHubAdmin::class,
             'district_staff' => EnsureDistrictStaff::class,
+            'staff_phase3_attendance_nav' => EnsureDistrictStaffPhase3AttendanceNavVisible::class,
             'incubatee' => EnsureIncubatee::class,
             'active' => EnsureUserIsActive::class,
         ]);

@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceModuleSettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
+use App\Http\Controllers\Admin\StaffPhase3AttendanceNavController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Admin\TeamDirectoryController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\Admin\TrainingPackageMonthPlanController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DistrictWorkshopSessionAttendanceController;
 use App\Http\Controllers\DocumentLibraryController;
 use App\Http\Controllers\EapEdpSessionAttendanceController;
 use App\Http\Controllers\Hub\HubApplicationsController;
@@ -196,48 +198,73 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('attendance', [FieldCoordinatorAttendanceController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('attendance.store');
-        Route::get('training-packages', [TrainingPackageAttendanceController::class, 'create'])->name('training-packages.create');
-        Route::post('training-packages', [TrainingPackageAttendanceController::class, 'store'])
-            ->middleware('throttle:30,1')
-            ->name('training-packages.store');
-        Route::get('training-packages/dashboard', [TrainingPackageAttendanceController::class, 'dashboard'])->name('training-packages.dashboard');
-        Route::get('training-packages/export', [TrainingPackageAttendanceController::class, 'export'])->name('training-packages.export');
-        Route::get('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'show'])->name('training-packages.show');
-        Route::get('training-packages/{trainingPackage}/export', [TrainingPackageAttendanceController::class, 'exportSingle'])->name('training-packages.export-single');
-        Route::get('training-packages/{trainingPackage}/edit', [TrainingPackageAttendanceController::class, 'edit'])->name('training-packages.edit');
-        Route::put('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'update'])
-            ->middleware('throttle:30,1')
-            ->name('training-packages.update');
-        Route::get('training-packages/{trainingPackage}/attachment', [TrainingPackageAttendanceController::class, 'downloadAttachment'])
-            ->name('training-packages.attachment');
-        Route::get('technical-trainings', [TechnicalTrainingAttendanceController::class, 'create'])->name('technical-trainings.create');
-        Route::post('technical-trainings', [TechnicalTrainingAttendanceController::class, 'store'])
-            ->middleware('throttle:30,1')
-            ->name('technical-trainings.store');
-        Route::get('technical-trainings/dashboard', [TechnicalTrainingAttendanceController::class, 'dashboard'])->name('technical-trainings.dashboard');
-        Route::get('technical-trainings/export', [TechnicalTrainingAttendanceController::class, 'export'])->name('technical-trainings.export');
-        Route::get('technical-trainings/{technicalTraining}', [TechnicalTrainingAttendanceController::class, 'show'])->name('technical-trainings.show');
-        Route::get('technical-trainings/{technicalTraining}/export', [TechnicalTrainingAttendanceController::class, 'exportSingle'])->name('technical-trainings.export-single');
-        Route::get('technical-trainings/{technicalTraining}/edit', [TechnicalTrainingAttendanceController::class, 'edit'])->name('technical-trainings.edit');
-        Route::put('technical-trainings/{technicalTraining}', [TechnicalTrainingAttendanceController::class, 'update'])
-            ->middleware('throttle:30,1')
-            ->name('technical-trainings.update');
-        Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
-            ->name('technical-trainings.attachment');
-        Route::get('eap-edp-sessions', [EapEdpSessionAttendanceController::class, 'create'])->name('eap-edp-sessions.create');
-        Route::post('eap-edp-sessions', [EapEdpSessionAttendanceController::class, 'store'])
-            ->middleware('throttle:30,1')
-            ->name('eap-edp-sessions.store');
-        Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
-        Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
-        Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');
-        Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
-        Route::get('eap-edp-sessions/{eapEdpSession}/edit', [EapEdpSessionAttendanceController::class, 'edit'])->name('eap-edp-sessions.edit');
-        Route::put('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'update'])
-            ->middleware('throttle:30,1')
-            ->name('eap-edp-sessions.update');
-        Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
-            ->name('eap-edp-sessions.attachment');
+        Route::middleware('staff_phase3_attendance_nav:training_package')->group(function (): void {
+            Route::get('training-packages', [TrainingPackageAttendanceController::class, 'create'])->name('training-packages.create');
+            Route::post('training-packages', [TrainingPackageAttendanceController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('training-packages.store');
+            Route::get('training-packages/dashboard', [TrainingPackageAttendanceController::class, 'dashboard'])->name('training-packages.dashboard');
+            Route::get('training-packages/export', [TrainingPackageAttendanceController::class, 'export'])->name('training-packages.export');
+            Route::get('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'show'])->name('training-packages.show');
+            Route::get('training-packages/{trainingPackage}/export', [TrainingPackageAttendanceController::class, 'exportSingle'])->name('training-packages.export-single');
+            Route::get('training-packages/{trainingPackage}/edit', [TrainingPackageAttendanceController::class, 'edit'])->name('training-packages.edit');
+            Route::put('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'update'])
+                ->middleware('throttle:30,1')
+                ->name('training-packages.update');
+            Route::get('training-packages/{trainingPackage}/attachment', [TrainingPackageAttendanceController::class, 'downloadAttachment'])
+                ->name('training-packages.attachment');
+        });
+
+        Route::middleware('staff_phase3_attendance_nav:technical_training')->group(function (): void {
+            Route::get('technical-trainings', [TechnicalTrainingAttendanceController::class, 'create'])->name('technical-trainings.create');
+            Route::post('technical-trainings', [TechnicalTrainingAttendanceController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('technical-trainings.store');
+            Route::get('technical-trainings/dashboard', [TechnicalTrainingAttendanceController::class, 'dashboard'])->name('technical-trainings.dashboard');
+            Route::get('technical-trainings/export', [TechnicalTrainingAttendanceController::class, 'export'])->name('technical-trainings.export');
+            Route::get('technical-trainings/{technicalTraining}', [TechnicalTrainingAttendanceController::class, 'show'])->name('technical-trainings.show');
+            Route::get('technical-trainings/{technicalTraining}/export', [TechnicalTrainingAttendanceController::class, 'exportSingle'])->name('technical-trainings.export-single');
+            Route::get('technical-trainings/{technicalTraining}/edit', [TechnicalTrainingAttendanceController::class, 'edit'])->name('technical-trainings.edit');
+            Route::put('technical-trainings/{technicalTraining}', [TechnicalTrainingAttendanceController::class, 'update'])
+                ->middleware('throttle:30,1')
+                ->name('technical-trainings.update');
+            Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
+                ->name('technical-trainings.attachment');
+        });
+
+        Route::middleware('staff_phase3_attendance_nav:eap_edp_session')->group(function (): void {
+            Route::get('eap-edp-sessions', [EapEdpSessionAttendanceController::class, 'create'])->name('eap-edp-sessions.create');
+            Route::post('eap-edp-sessions', [EapEdpSessionAttendanceController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('eap-edp-sessions.store');
+            Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
+            Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
+            Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');
+            Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
+            Route::get('eap-edp-sessions/{eapEdpSession}/edit', [EapEdpSessionAttendanceController::class, 'edit'])->name('eap-edp-sessions.edit');
+            Route::put('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'update'])
+                ->middleware('throttle:30,1')
+                ->name('eap-edp-sessions.update');
+            Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
+                ->name('eap-edp-sessions.attachment');
+        });
+
+        Route::middleware('staff_phase3_attendance_nav:district_workshop')->group(function (): void {
+            Route::get('district-workshop-sessions', [DistrictWorkshopSessionAttendanceController::class, 'create'])->name('district-workshop-sessions.create');
+            Route::post('district-workshop-sessions', [DistrictWorkshopSessionAttendanceController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('district-workshop-sessions.store');
+            Route::get('district-workshop-sessions/dashboard', [DistrictWorkshopSessionAttendanceController::class, 'dashboard'])->name('district-workshop-sessions.dashboard');
+            Route::get('district-workshop-sessions/export', [DistrictWorkshopSessionAttendanceController::class, 'export'])->name('district-workshop-sessions.export');
+            Route::get('district-workshop-sessions/{districtWorkshopSession}', [DistrictWorkshopSessionAttendanceController::class, 'show'])->name('district-workshop-sessions.show');
+            Route::get('district-workshop-sessions/{districtWorkshopSession}/export', [DistrictWorkshopSessionAttendanceController::class, 'exportSingle'])->name('district-workshop-sessions.export-single');
+            Route::get('district-workshop-sessions/{districtWorkshopSession}/edit', [DistrictWorkshopSessionAttendanceController::class, 'edit'])->name('district-workshop-sessions.edit');
+            Route::put('district-workshop-sessions/{districtWorkshopSession}', [DistrictWorkshopSessionAttendanceController::class, 'update'])
+                ->middleware('throttle:30,1')
+                ->name('district-workshop-sessions.update');
+            Route::get('district-workshop-sessions/{districtWorkshopSession}/attachment', [DistrictWorkshopSessionAttendanceController::class, 'downloadAttachment'])
+                ->name('district-workshop-sessions.attachment');
+        });
 
         /** Read-only batches view for district staff (scoped to their own district) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
@@ -300,6 +327,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
         Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
             ->name('eap-edp-sessions.attachment');
+        Route::get('district-workshop-sessions/dashboard', [DistrictWorkshopSessionAttendanceController::class, 'dashboard'])->name('district-workshop-sessions.dashboard');
+        Route::get('district-workshop-sessions/export', [DistrictWorkshopSessionAttendanceController::class, 'export'])->name('district-workshop-sessions.export');
+        Route::get('district-workshop-sessions/{districtWorkshopSession}', [DistrictWorkshopSessionAttendanceController::class, 'show'])->name('district-workshop-sessions.show');
+        Route::get('district-workshop-sessions/{districtWorkshopSession}/export', [DistrictWorkshopSessionAttendanceController::class, 'exportSingle'])->name('district-workshop-sessions.export-single');
+        Route::get('district-workshop-sessions/{districtWorkshopSession}/attachment', [DistrictWorkshopSessionAttendanceController::class, 'downloadAttachment'])
+            ->name('district-workshop-sessions.attachment');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -415,6 +448,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         /** Service module runtime settings (master switch + eligibility scope). */
         Route::get('service-module-settings', [ServiceModuleSettingsController::class, 'edit'])->name('service-module-settings.edit');
         Route::put('service-module-settings', [ServiceModuleSettingsController::class, 'update'])->name('service-module-settings.update');
+        Route::get('staff-phase3-attendance-nav', [StaffPhase3AttendanceNavController::class, 'edit'])->name('staff-phase3-attendance-nav.edit');
+        Route::put('staff-phase3-attendance-nav', [StaffPhase3AttendanceNavController::class, 'update'])->name('staff-phase3-attendance-nav.update');
 
         Route::get('staff/{user}/monthly-targets', [StaffDeliverableMonthlyTargetController::class, 'index'])->name('staff.monthly-targets.index');
         Route::get('staff/{user}/monthly-targets/{deliverable_code}/edit', [StaffDeliverableMonthlyTargetController::class, 'edit'])
@@ -465,6 +500,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
         Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
             ->name('eap-edp-sessions.attachment');
+        Route::get('district-workshop-sessions/dashboard', [DistrictWorkshopSessionAttendanceController::class, 'dashboard'])->name('district-workshop-sessions.dashboard');
+        Route::get('district-workshop-sessions/export', [DistrictWorkshopSessionAttendanceController::class, 'export'])->name('district-workshop-sessions.export');
+        Route::get('district-workshop-sessions/{districtWorkshopSession}', [DistrictWorkshopSessionAttendanceController::class, 'show'])->name('district-workshop-sessions.show');
+        Route::get('district-workshop-sessions/{districtWorkshopSession}/export', [DistrictWorkshopSessionAttendanceController::class, 'exportSingle'])->name('district-workshop-sessions.export-single');
+        Route::get('district-workshop-sessions/{districtWorkshopSession}/attachment', [DistrictWorkshopSessionAttendanceController::class, 'downloadAttachment'])
+            ->name('district-workshop-sessions.attachment');
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
