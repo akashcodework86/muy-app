@@ -28,6 +28,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentLibraryController;
+use App\Http\Controllers\EapEdpSessionAttendanceController;
 use App\Http\Controllers\Hub\HubApplicationsController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Hub\HubOnboardingInsightController;
@@ -223,6 +224,20 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('technical-trainings.update');
         Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
             ->name('technical-trainings.attachment');
+        Route::get('eap-edp-sessions', [EapEdpSessionAttendanceController::class, 'create'])->name('eap-edp-sessions.create');
+        Route::post('eap-edp-sessions', [EapEdpSessionAttendanceController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('eap-edp-sessions.store');
+        Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
+        Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
+        Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');
+        Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
+        Route::get('eap-edp-sessions/{eapEdpSession}/edit', [EapEdpSessionAttendanceController::class, 'edit'])->name('eap-edp-sessions.edit');
+        Route::put('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('eap-edp-sessions.update');
+        Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
+            ->name('eap-edp-sessions.attachment');
 
         /** Read-only batches view for district staff (scoped to their own district) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
@@ -279,6 +294,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('technical-trainings/{technicalTraining}/export', [TechnicalTrainingAttendanceController::class, 'exportSingle'])->name('technical-trainings.export-single');
         Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
             ->name('technical-trainings.attachment');
+        Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
+        Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
+        Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');
+        Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
+        Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
+            ->name('eap-edp-sessions.attachment');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -438,6 +459,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('technical-trainings/{technicalTraining}/export', [TechnicalTrainingAttendanceController::class, 'exportSingle'])->name('technical-trainings.export-single');
         Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
             ->name('technical-trainings.attachment');
+        Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
+        Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
+        Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');
+        Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
+        Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
+            ->name('eap-edp-sessions.attachment');
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
