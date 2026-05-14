@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 
 class ServiceCase extends Model
 {
@@ -33,6 +34,20 @@ class ServiceCase extends Model
         self::STATUS_APPROVED,
         self::STATUS_SENT_BACK,
     ];
+
+    /**
+     * True when the `service_cases.legacy_application_id` column exists (Phase 2 bridge migration applied).
+     */
+    public static function supportsLegacyApplicationLink(): bool
+    {
+        static $cached = null;
+
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        return $cached = Schema::hasColumn((new static)->getTable(), 'legacy_application_id');
+    }
 
     protected $fillable = [
         'cfa_submission_id',

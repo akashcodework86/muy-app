@@ -404,7 +404,7 @@ class LegacyApplicationServiceCaseSupport
             $ids = array_merge($ids, $local);
         }
 
-        if ($legacyApplicationId !== null && $legacyApplicationId > 0) {
+        if ($legacyApplicationId !== null && $legacyApplicationId > 0 && ServiceCase::supportsLegacyApplicationLink()) {
             $localLegacy = ServiceCase::query()
                 ->where('legacy_application_id', $legacyApplicationId)
                 ->whereIn('status', ServiceCase::BLOCKING_STATUSES)

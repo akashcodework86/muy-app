@@ -50,7 +50,7 @@ class StaffServiceCaseController extends Controller
         $q = ServiceCase::query()
             ->where(function ($outer) use ($districtId, $legacyIds): void {
                 $outer->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
-                if ($legacyIds !== []) {
+                if (ServiceCase::supportsLegacyApplicationLink() && $legacyIds !== []) {
                     $outer->orWhere(function ($qq) use ($legacyIds): void {
                         $qq->whereNotNull('legacy_application_id')
                             ->whereNull('cfa_submission_id')
@@ -86,7 +86,7 @@ class StaffServiceCaseController extends Controller
 
         $cases = $q->orderByDesc('updated_at')->paginate(20)->withQueryString();
         $cases->getCollection()->transform(function (ServiceCase $case) {
-            if ($case->legacy_application_id && ! $case->cfa_submission_id) {
+            if (ServiceCase::supportsLegacyApplicationLink() && $case->legacy_application_id && ! $case->cfa_submission_id) {
                 $case->legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $case->legacy_application_id);
             }
 
@@ -152,14 +152,16 @@ class StaffServiceCaseController extends Controller
             ->map(fn ($r) => 'c:'.((int) $r->cfa_submission_id).':'.((int) $r->service_id))
             ->values();
 
-        $existingLegacyPairs = ServiceCase::query()
-            ->select(['legacy_application_id', 'service_id'])
-            ->when($legacyIds !== [], fn ($q) => $q->whereIn('legacy_application_id', $legacyIds), fn ($q) => $q->whereRaw('1 = 0'))
-            ->when($nonMultipleServiceIds !== [], fn ($q) => $q->whereIn('service_id', $nonMultipleServiceIds), fn ($q) => $q->whereRaw('1 = 0'))
-            ->whereNotNull('legacy_application_id')
-            ->get()
-            ->map(fn ($r) => 'l:'.((int) $r->legacy_application_id).':'.((int) $r->service_id))
-            ->values();
+        $existingLegacyPairs = ServiceCase::supportsLegacyApplicationLink()
+            ? ServiceCase::query()
+                ->select(['legacy_application_id', 'service_id'])
+                ->when($legacyIds !== [], fn ($q) => $q->whereIn('legacy_application_id', $legacyIds), fn ($q) => $q->whereRaw('1 = 0'))
+                ->when($nonMultipleServiceIds !== [], fn ($q) => $q->whereIn('service_id', $nonMultipleServiceIds), fn ($q) => $q->whereRaw('1 = 0'))
+                ->whereNotNull('legacy_application_id')
+                ->get()
+                ->map(fn ($r) => 'l:'.((int) $r->legacy_application_id).':'.((int) $r->service_id))
+                ->values()
+            : collect();
 
         $existingPairs = $existingCfaPairs->toBase()->merge($existingLegacyPairs)->values();
 
@@ -273,6 +275,11 @@ class StaffServiceCaseController extends Controller
         if (($cfaId > 0) === ($legacyId > 0)) {
             throw ValidationException::withMessages([
                 'cfa_submission_id' => 'Choose exactly one incubatee: either a Phase 3 CFA or a Phase 2 legacy application.',
+            ]);
+        }
+        if ($legacyId > 0 && ! ServiceCase::supportsLegacyApplicationLink()) {
+            throw ValidationException::withMessages([
+                'legacy_application_id' => 'Legacy application–linked cases are not enabled until the server database is updated (run migrations). Use a Phase 3 CFA incubatee instead.',
             ]);
         }
 

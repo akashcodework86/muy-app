@@ -357,7 +357,7 @@ class Phase3ServiceCasesController extends Controller
             ->leftJoin('cfa_submissions', 'cfa_submissions.id', '=', 'service_cases.cfa_submission_id');
 
         $legacyDb = (string) config('database.connections.legacy.database', '');
-        if ($legacyDb !== '' && $support->legacyDbAvailable()) {
+        if ($legacyDb !== '' && $support->legacyDbAvailable() && ServiceCase::supportsLegacyApplicationLink()) {
             $this->legacyPhase2JoinsApplied = true;
             $this->legacyPhase2DbSafe = str_replace('`', '``', $legacyDb);
             $query->leftJoin(
@@ -397,7 +397,7 @@ class Phase3ServiceCasesController extends Controller
 
         $query->where(function ($w) use ($laravelDistrictId, $validNames, $db): void {
             $w->where('cfa_submissions.district_id', $laravelDistrictId);
-            if ($validNames === [] || $db === null) {
+            if ($validNames === [] || $db === null || ! ServiceCase::supportsLegacyApplicationLink()) {
                 return;
             }
             $w->orWhere(function ($inner) use ($validNames, $db): void {

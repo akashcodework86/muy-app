@@ -16,12 +16,31 @@ class PendingActionsController extends Controller
     {
         $filterSpocId = (int) $request->query('spoc_id', 0);
         $filterDistrictId = (int) $request->query('district_id', 0);
+        $countableStatuses = [
+            ServiceCase::STATUS_PENDING_APPROVAL,
+            ServiceCase::STATUS_SENT_BACK,
+            ServiceCase::STATUS_APPROVED,
+            ServiceCase::STATUS_REJECTED,
+        ];
+
+        $submittedBase = ServiceCase::query()
+            ->whereIn('status', $countableStatuses)
+            ->whereHas('submitter', fn ($q) => $q->where('role', 'district_staff'));
 
         $base = ServiceCase::query()
             ->where('status', ServiceCase::STATUS_PENDING_APPROVAL)
             ->whereHas('submitter', fn ($q) => $q->where('role', 'district_staff'));
 
         $totalPending = (clone $base)->count();
+        $totalSubmissions = (clone $submittedBase)->count();
+        $pendingRate = $totalSubmissions > 0
+            ? round(($totalPending / $totalSubmissions) * 100, 1)
+            : 0.0;
+        $totalUniqueApplications = (clone $submittedBase)->distinct('cfa_submission_id')->count('cfa_submission_id');
+        $pendingUniqueApplications = (clone $base)->distinct('cfa_submission_id')->count('cfa_submission_id');
+        $affectedApplicationRate = $totalUniqueApplications > 0
+            ? round(($pendingUniqueApplications / $totalUniqueApplications) * 100, 1)
+            : 0.0;
         $districtsImpacted = (clone $base)
             ->join('cfa_submissions as cs', 'cs.id', '=', 'service_cases.cfa_submission_id')
             ->distinct('cs.district_id')
@@ -96,7 +115,12 @@ class PendingActionsController extends Controller
             ->get(['id', 'name']);
 
         return view('admin.pending-actions.index', [
+            'totalSubmissions' => $totalSubmissions,
             'totalPending' => $totalPending,
+            'pendingRate' => $pendingRate,
+            'pendingUniqueApplications' => $pendingUniqueApplications,
+            'totalUniqueApplications' => $totalUniqueApplications,
+            'affectedApplicationRate' => $affectedApplicationRate,
             'districtsImpacted' => $districtsImpacted,
             'spocsWithPending' => $spocStats->where('spoc_id', '>', 0)->count(),
             'avgPendingDays' => $avgPendingDays,

@@ -49,8 +49,19 @@
     <div class="pa-grid">
         <div class="pa-cards">
             <div class="pa-card">
+                <div class="pa-k">Total submissions</div>
+                <div class="pa-v">{{ number_format((int) $totalSubmissions) }}</div>
+                <div class="pa-sub">District staff service submissions</div>
+            </div>
+            <div class="pa-card">
                 <div class="pa-k">Total pending</div>
                 <div class="pa-v">{{ number_format((int) $totalPending) }}</div>
+                <div class="pa-sub">{{ number_format((int) $totalPending) }} of {{ number_format((int) $totalSubmissions) }} awaiting action</div>
+            </div>
+            <div class="pa-card">
+                <div class="pa-k">Pending ratio</div>
+                <div class="pa-v">{{ number_format((float) $pendingRate, 1) }}%</div>
+                <div class="pa-sub">Pending vs total submissions</div>
             </div>
             <div class="pa-card">
                 <div class="pa-k">SPOCs with pending</div>
@@ -59,6 +70,11 @@
             <div class="pa-card">
                 <div class="pa-k">Districts impacted</div>
                 <div class="pa-v">{{ number_format((int) $districtsImpacted) }}</div>
+            </div>
+            <div class="pa-card">
+                <div class="pa-k">Applications affected</div>
+                <div class="pa-v">{{ number_format((int) $pendingUniqueApplications) }}</div>
+                <div class="pa-sub">{{ number_format((float) $affectedApplicationRate, 1) }}% of {{ number_format((int) $totalUniqueApplications) }} unique applications</div>
             </div>
             <div class="pa-card">
                 <div class="pa-k">Average age (days)</div>

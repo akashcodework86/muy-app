@@ -327,7 +327,7 @@ class StaffPortalController extends Controller
         $serviceCases = ServiceCase::query()
             ->where(function ($q) use ($cfa_submission, $legacyAppId): void {
                 $q->where('cfa_submission_id', $cfa_submission->id);
-                if ($legacyAppId > 0) {
+                if (ServiceCase::supportsLegacyApplicationLink() && $legacyAppId > 0) {
                     $q->orWhere('legacy_application_id', $legacyAppId);
                 }
             })

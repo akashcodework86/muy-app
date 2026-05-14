@@ -49,7 +49,7 @@ class SpocServiceCaseController extends Controller
         $scopeBase = ServiceCase::query()
             ->where(function ($outer) use ($districtIds, $legacyAppIds): void {
                 $outer->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds));
-                if ($legacyAppIds !== []) {
+                if (ServiceCase::supportsLegacyApplicationLink() && $legacyAppIds !== []) {
                     $outer->orWhere(function ($qq) use ($legacyAppIds): void {
                         $qq->whereNotNull('legacy_application_id')
                             ->whereNull('cfa_submission_id')
@@ -62,7 +62,7 @@ class SpocServiceCaseController extends Controller
             $legacyForOne = $this->legacyApplications->legacyApplicationIdsInLaravelDistrict($districtId);
             $scopeBase->where(function ($qq) use ($districtId, $legacyForOne): void {
                 $qq->whereHas('cfaSubmission', fn ($q) => $q->where('district_id', $districtId));
-                if ($legacyForOne !== []) {
+                if (ServiceCase::supportsLegacyApplicationLink() && $legacyForOne !== []) {
                     $qq->orWhere(function ($q) use ($legacyForOne): void {
                         $q->whereNotNull('legacy_application_id')
                             ->whereNull('cfa_submission_id')

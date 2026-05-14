@@ -88,6 +88,12 @@ class ServiceCaseRecorder
             throw ValidationException::withMessages(['service_id' => 'This service is inactive.']);
         }
 
+        if (! ServiceCase::supportsLegacyApplicationLink()) {
+            throw ValidationException::withMessages([
+                'legacy_application_id' => 'Legacy application–linked cases are not enabled until the server database is updated (run migrations). Use a Phase 3 CFA incubatee instead.',
+            ]);
+        }
+
         $this->legacyApplications->assertLegacyApplicationInStaffDistrict($staff, $legacyApplicationId);
 
         $existing = ServiceCase::query()
