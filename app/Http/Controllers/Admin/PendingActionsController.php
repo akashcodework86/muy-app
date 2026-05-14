@@ -154,6 +154,9 @@ class PendingActionsController extends Controller
                 $sentBack = (int) ($sentBackMap[$spocId] ?? 0);
                 $rejected = (int) ($rejectedMap[$spocId] ?? 0);
                 $pending = (int) ($pendingMap[$spocId] ?? 0);
+                $pendingRate = $entriesReceived > 0
+                    ? round(($pending / $entriesReceived) * 100, 1)
+                    : 0.0;
 
                 return [
                     'spoc_id' => $spocId,
@@ -163,6 +166,7 @@ class PendingActionsController extends Controller
                     'sent_back_count' => $sentBack,
                     'rejected_count' => $rejected,
                     'pending_count' => $pending,
+                    'pending_rate' => $pendingRate,
                 ];
             })
             ->sortByDesc('entries_received')

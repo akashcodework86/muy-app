@@ -132,6 +132,7 @@
                         <th>Sent back</th>
                         <th>Rejected</th>
                         <th>Currently pending</th>
+                        <th>Pending %</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -143,9 +144,10 @@
                             <td>{{ number_format((int) $row['sent_back_count']) }}</td>
                             <td>{{ number_format((int) $row['rejected_count']) }}</td>
                             <td><span class="pa-pill">{{ number_format((int) $row['pending_count']) }}</span></td>
+                            <td>{{ number_format((float) $row['pending_rate'], 1) }}%</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="pa-mini">No SPOC-level action data found.</td></tr>
+                        <tr><td colspan="7" class="pa-mini">No SPOC-level action data found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
