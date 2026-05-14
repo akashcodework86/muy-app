@@ -29,6 +29,7 @@
         .pa-table th { text-align:left; padding:0.55rem 0.62rem; border-bottom:1px solid #e5e7eb; background:#f8fafc; color:#64748b; font-size:0.74rem; text-transform:uppercase; letter-spacing:.05em; }
         .pa-table td { padding:0.55rem 0.62rem; border-bottom:1px solid #f8fafc; vertical-align:middle; }
         .pa-table tr:hover td { background:#fcfcff; }
+        .pa-metric-table { min-width: 860px; }
         .pa-act { display:inline-flex; gap:0.34rem; }
         .pa-link { border:1px solid #c7d2fe; color:#3730a3; background:#eef2ff; border-radius:8px; padding:0.28rem 0.5rem; font-size:0.75rem; font-weight:700; text-decoration:none; }
         .pa-link--ghost { border-color:#d1d5db; color:#334155; background:#fff; }
@@ -119,6 +120,35 @@
                     @endforelse
                 </ul>
             </div>
+        </div>
+
+        <div class="pa-table-wrap">
+            <table class="pa-table pa-metric-table">
+                <thead>
+                    <tr>
+                        <th>SPOC</th>
+                        <th>Entries received</th>
+                        <th>Approved</th>
+                        <th>Sent back</th>
+                        <th>Rejected</th>
+                        <th>Currently pending</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($spocPerformance as $row)
+                        <tr>
+                            <td><strong>{{ $row['spoc_name'] }}</strong></td>
+                            <td>{{ number_format((int) $row['entries_received']) }}</td>
+                            <td>{{ number_format((int) $row['approved_count']) }}</td>
+                            <td>{{ number_format((int) $row['sent_back_count']) }}</td>
+                            <td>{{ number_format((int) $row['rejected_count']) }}</td>
+                            <td><span class="pa-pill">{{ number_format((int) $row['pending_count']) }}</span></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="pa-mini">No SPOC-level action data found.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
 
         <form method="get" class="pa-tools">
