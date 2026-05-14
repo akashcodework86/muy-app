@@ -16,6 +16,7 @@ class TrainingPackage extends Model
         'month_session_id',
         'block',
         'training_batch_name',
+        'workshop_delivery',
         'training_package',
         'training_packages',
         'attendance_file_path',

@@ -51,6 +51,17 @@
                     <label>Training Batch (optional custom)</label>
                     <input type="text" name="training_batch_name" value="{{ old('training_batch_name', $row->training_batch_name) }}">
                 </div>
+                @if (\Illuminate\Support\Facades\Schema::hasColumn('training_packages', 'workshop_delivery'))
+                    @php $oldWorkshop = old('workshop_delivery', $row->workshop_delivery ?: 'physical'); @endphp
+                    <div class="tp-field tp-workshop-field">
+                        <label for="workshop_delivery">Virtual or physical workshop *</label>
+                        <select id="workshop_delivery" name="workshop_delivery" class="tp-workshop-select" required>
+                            <option value="virtual" @selected($oldWorkshop === 'virtual')>Virtual workshop</option>
+                            <option value="physical" @selected($oldWorkshop === 'physical')>Physical workshop</option>
+                        </select>
+                        <p class="tp-workshop-hint">Choose whether this session was held online or in person.</p>
+                    </div>
+                @endif
                 <div class="tp-field tp-field--full">
                     <label>Training Packages (multi-select) *</label>
                     <div class="tp-checkgrid">

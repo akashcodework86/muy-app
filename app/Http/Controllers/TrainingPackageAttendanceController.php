@@ -88,6 +88,10 @@ class TrainingPackageAttendanceController extends Controller
             'selected_incubatees.*' => ['integer', 'not_in:0'],
         ], $this->attendanceMediaValidationRules());
 
+        if (Schema::hasColumn('training_packages', 'workshop_delivery')) {
+            $rules['workshop_delivery'] = ['required', Rule::in(['virtual', 'physical'])];
+        }
+
         $monthPlanningEnabled = Schema::hasTable('training_package_month_sessions');
 
         if ($monthPlanningEnabled) {
@@ -186,6 +190,9 @@ class TrainingPackageAttendanceController extends Controller
             'selected_incubatee_ids' => $selectedIds->all(),
             'selected_incubatees_snapshot' => $snapshots->all(),
         ];
+        if (Schema::hasColumn('training_packages', 'workshop_delivery')) {
+            $attributes['workshop_delivery'] = (string) $validated['workshop_delivery'];
+        }
         $this->mergeLegacyTrainingPackageColumn($attributes, $selectedModules);
 
         DB::transaction(function () use ($monthPlanningEnabled, $sessionMode, $districtId, $validated, $user, &$monthSession, $attributes): void {
@@ -376,14 +383,20 @@ class TrainingPackageAttendanceController extends Controller
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $validated = $request->validate(array_merge([
+        $updateRules = array_merge([
             'session_date' => ['required', 'date'],
             'training_batch_name' => ['nullable', 'string', 'max:191'],
             'training_packages' => ['required', 'array', 'min:1'],
             'training_packages.*' => ['required', Rule::in(['t1', 't2', 't3', 't4'])],
             'selected_incubatees' => ['required', 'array', 'min:1'],
             'selected_incubatees.*' => ['integer', 'not_in:0'],
-        ], $this->attendanceMediaValidationRules()));
+        ], $this->attendanceMediaValidationRules());
+
+        if (Schema::hasColumn('training_packages', 'workshop_delivery')) {
+            $updateRules['workshop_delivery'] = ['required', Rule::in(['virtual', 'physical'])];
+        }
+
+        $validated = $request->validate($updateRules);
 
         $districtId = (int) ($trainingPackage->district_id ?: 0);
         $selectedIds = $this->normalizeSelectedIncubateeIds((array) $validated['selected_incubatees']);
@@ -436,6 +449,9 @@ class TrainingPackageAttendanceController extends Controller
         $trainingPackage->event_date = $validated['session_date'];
         $trainingPackage->block = null;
         $trainingPackage->training_batch_name = trim((string) ($validated['training_batch_name'] ?? '')) ?: null;
+        if (Schema::hasColumn('training_packages', 'workshop_delivery')) {
+            $trainingPackage->workshop_delivery = (string) $validated['workshop_delivery'];
+        }
         $trainingPackage->training_packages = $selectedModules->all();
         if (Schema::hasColumn('training_packages', 'training_package')) {
             $trainingPackage->training_package = (string) ($selectedModules->first() ?? 't1');
@@ -759,6 +775,7 @@ class TrainingPackageAttendanceController extends Controller
             'Session Taken By',
             'District',
             'Training Batch',
+            'Workshop (Virtual / Physical)',
             'Training Modules',
             'Uploaded Media Count',
             'Selected Applicants Count',
@@ -790,12 +807,19 @@ class TrainingPackageAttendanceController extends Controller
                     continue;
                 }
 
+                $workshopLabel = match ((string) ($entry->workshop_delivery ?? '')) {
+                    'virtual' => 'Virtual',
+                    'physical' => 'Physical',
+                    default => '',
+                };
+
                 $base = [
                     (string) $entry->id,
                     (string) ($entry->event_date?->format('Y-m-d') ?? ''),
                     (string) $entry->submitted_by_name,
                     (string) ($entry->district_name ?: ($entry->district?->name ?? '')),
                     (string) ($entry->training_batch_name ?? ''),
+                    $workshopLabel,
                     strtoupper(implode(', ', (array) ($entry->training_packages ?? [$entry->training_package]))),
                     (string) count((array) $entry->attendance_media_json),
                     (string) (is_array($entry->selected_incubatee_ids) ? count($entry->selected_incubatee_ids) : 0),

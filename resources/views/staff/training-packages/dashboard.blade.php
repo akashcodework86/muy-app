@@ -150,6 +150,7 @@
                 <th>Session Taken By</th>
                 <th>District</th>
                 <th>Session Name</th>
+                <th>Workshop</th>
                 <th>Training Modules</th>
                 <th>Attendees</th>
                 <th>Actions</th>
@@ -179,6 +180,15 @@
                             <span class="tp-pill">Extra</span>
                         @endif
                     </td>
+                    <td>
+                        @if (($row->workshop_delivery ?? '') === 'virtual')
+                            <span class="tp-pill" title="Virtual workshop">Virtual</span>
+                        @elseif (($row->workshop_delivery ?? '') === 'physical')
+                            <span class="tp-pill" style="background:#ecfdf5;color:#047857;border-color:#a7f3d0;" title="Physical workshop">Physical</span>
+                        @else
+                            —
+                        @endif
+                    </td>
                     <td><span class="tp-pill">{{ $moduleLabel !== '' ? $moduleLabel : 'NA' }}</span></td>
                     <td>{{ number_format($attendeeCount) }}</td>
                     <td>
@@ -196,7 +206,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="tp-empty">No entries found.</td>
+                    <td colspan="9" class="tp-empty">No entries found.</td>
                 </tr>
             @endforelse
             </tbody>

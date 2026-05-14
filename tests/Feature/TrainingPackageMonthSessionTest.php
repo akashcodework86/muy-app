@@ -420,6 +420,7 @@ class TrainingPackageMonthSessionTest extends TestCase
             'plan_month' => 5,
             'extra_session_name' => 'Field visit',
             'session_date' => '2026-05-18',
+            'workshop_delivery' => 'physical',
             'training_packages' => ['t1'],
             'selected_incubatees' => [$incubateeId],
         ]);
@@ -450,6 +451,7 @@ class TrainingPackageMonthSessionTest extends TestCase
             'plan_year' => 2026,
             'plan_month' => 5,
             'session_date' => '2026-05-18',
+            'workshop_delivery' => 'virtual',
             'training_packages' => ['t1'],
             'selected_incubatees' => [$incubateeId],
         ]);

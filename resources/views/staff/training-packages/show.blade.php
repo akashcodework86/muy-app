@@ -96,6 +96,18 @@
                 <span class="tp-show-field__value">{{ $row->training_batch_name ?: '—' }}</span>
             </div>
             <div class="tp-show-field">
+                <span class="tp-show-field__label">Workshop format</span>
+                <span class="tp-show-field__value">
+                    @if (($row->workshop_delivery ?? '') === 'virtual')
+                        Virtual workshop
+                    @elseif (($row->workshop_delivery ?? '') === 'physical')
+                        Physical workshop
+                    @else
+                        —
+                    @endif
+                </span>
+            </div>
+            <div class="tp-show-field">
                 <span class="tp-show-field__label">Total Selected</span>
                 <span class="tp-show-field__value">{{ is_array($row->selected_incubatee_ids) ? count($row->selected_incubatee_ids) : 0 }}</span>
             </div>

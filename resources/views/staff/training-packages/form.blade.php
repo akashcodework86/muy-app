@@ -172,6 +172,29 @@
     .tp-session-mode { display:flex; flex-wrap:wrap; gap:0.75rem 1rem; margin-bottom:0.75rem; }
     .tp-session-mode label { display:inline-flex; align-items:center; gap:0.4rem; font-size:0.84rem; font-weight:600; color:#0f172a; margin:0; }
     .tp-session-mode input { margin:0; }
+    .tp-workshop-field .tp-workshop-select {
+        cursor:pointer;
+        font-weight:600;
+        color:#0f172a;
+        border:1px solid #c7d2fe;
+        border-radius:10px;
+        padding:0.62rem 2.35rem 0.62rem 0.75rem;
+        background-color:#fff;
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke='%234338ca' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+        background-repeat:no-repeat;
+        background-position:right 0.65rem center;
+        background-size:1rem;
+        appearance:none;
+        box-shadow:0 2px 8px rgba(79,70,229,0.06);
+        transition:border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .tp-workshop-field .tp-workshop-select:hover { border-color:#a5b4fc; }
+    .tp-workshop-field .tp-workshop-select:focus {
+        outline:none;
+        border-color:#4f46e5;
+        box-shadow:0 0 0 3px rgba(79,70,229,0.2);
+    }
+    .tp-workshop-field .tp-workshop-hint { margin:0.35rem 0 0; font-size:0.78rem; color:#64748b; line-height:1.4; }
     .tp-session-board__item--extra { border-color:#fed7aa; background:#fff7ed; }
     .tp-session-board__badge {
         display:inline-flex;
@@ -434,6 +457,17 @@
                     <label>Training Batch (optional custom)</label>
                     <input type="text" name="training_batch_name" value="{{ old('training_batch_name') }}" placeholder="Optional batch text">
                 </div>
+                @if (\Illuminate\Support\Facades\Schema::hasColumn('training_packages', 'workshop_delivery'))
+                @php $workshopDelivery = old('workshop_delivery', 'physical'); @endphp
+                <div class="tp-field tp-workshop-field">
+                    <label for="workshop_delivery">Virtual or physical workshop *</label>
+                    <select id="workshop_delivery" name="workshop_delivery" class="tp-workshop-select" required>
+                        <option value="virtual" @selected($workshopDelivery === 'virtual')>Virtual workshop</option>
+                        <option value="physical" @selected($workshopDelivery === 'physical')>Physical workshop</option>
+                    </select>
+                    <p class="tp-workshop-hint">Choose whether this session was held online or in person.</p>
+                </div>
+                @endif
                 <div class="tp-field tp-field--full">
                     <label>Training Packages (multi-select) *</label>
                     @php $oldModules = (array) old('training_packages', []); @endphp
