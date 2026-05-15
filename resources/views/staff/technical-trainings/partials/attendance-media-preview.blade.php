@@ -241,7 +241,44 @@
             background:#fff;
         }
         .tt-media-modal__video { width:100%; background:#0f172a; }
-        .tt-media-modal__fallback { font-size:0.86rem; color:#334155; line-height:1.5; }
+        .tt-media-modal__fallback {
+            max-width:28rem;
+            margin:1.5rem auto;
+            padding:1.1rem 1.15rem;
+            text-align:center;
+            background:#fff;
+            border:1px solid #e2e8f0;
+            border-radius:12px;
+            box-shadow:0 4px 14px rgba(15,23,42,0.06);
+        }
+        .tt-media-modal__fallback-lead {
+            margin:0 0 0.55rem;
+            font-size:0.92rem;
+            font-weight:700;
+            color:#0f172a;
+            line-height:1.45;
+        }
+        .tt-media-modal__fallback-sub {
+            margin:0 0 1rem;
+            font-size:0.82rem;
+            color:#64748b;
+            line-height:1.5;
+        }
+        .tt-media-modal__fallback-download {
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            padding:0.55rem 1.15rem;
+            border-radius:9px;
+            background:#4f46e5;
+            color:#fff !important;
+            font-weight:800;
+            font-size:0.86rem;
+            text-decoration:none;
+            border:1px solid #4338ca;
+            box-shadow:0 4px 12px rgba(79,70,229,0.25);
+        }
+        .tt-media-modal__fallback-download:hover { background:#4338ca; color:#fff !important; }
     </style>
     @endpush
 
@@ -266,22 +303,52 @@
             }
         }
 
+        function previewHintForFileName(fileName) {
+            const n = (fileName || '').toLowerCase();
+            if (n.endsWith('.docx') || n.endsWith('.doc')) {
+                return {
+                    lead: 'Word file — no in-browser preview',
+                    sub: 'Browsers cannot show .doc / .docx inside this window. Download the attendance sheet and open it in Microsoft Word or another compatible app.',
+                };
+            }
+            if (n.endsWith('.xlsx') || n.endsWith('.xls')) {
+                return {
+                    lead: 'Excel file — no in-browser preview',
+                    sub: 'Browsers cannot show .xls / .xlsx here. Download the file and open it in Microsoft Excel or another compatible app.',
+                };
+            }
+            if (n.endsWith('.pptx') || n.endsWith('.ppt')) {
+                return {
+                    lead: 'Presentation — no in-browser preview',
+                    sub: 'Download the file to open it in PowerPoint or another compatible app.',
+                };
+            }
+
+            return {
+                lead: 'Preview not available',
+                sub: 'This file type cannot be shown inside the browser. Download the file to open it on your device.',
+            };
+        }
+
         function openModal(viewUrl, downloadUrl, kind, name) {
             if (!modalBody || !modalTitle) {
                 return;
             }
 
-            modalTitle.textContent = name || 'Attachment';
+            const safeName = name || 'Attachment';
+            modalTitle.textContent = safeName;
             modalBody.innerHTML = '';
 
+            const href = downloadUrl || viewUrl || '#';
             if (downloadBtn) {
-                downloadBtn.href = downloadUrl || viewUrl || '#';
+                downloadBtn.href = href;
+                downloadBtn.textContent = 'Download';
             }
 
             if (kind === 'image') {
                 const img = document.createElement('img');
                 img.className = 'tt-media-modal__img';
-                img.alt = name || 'Image preview';
+                img.alt = safeName + ' preview';
                 img.src = viewUrl;
                 modalBody.appendChild(img);
             } else if (kind === 'video') {
@@ -296,13 +363,28 @@
                 const frame = document.createElement('iframe');
                 frame.className = 'tt-media-modal__frame';
                 frame.src = viewUrl;
-                frame.title = name || 'PDF preview';
+                frame.title = safeName + ' preview';
                 modalBody.appendChild(frame);
             } else {
-                const fallback = document.createElement('div');
-                fallback.className = 'tt-media-modal__fallback';
-                fallback.innerHTML = 'Preview is not available for this file type. <a href="' + (downloadUrl || viewUrl) + '" target="_blank" rel="noopener">Open file</a>.';
-                modalBody.appendChild(fallback);
+                const hint = previewHintForFileName(safeName);
+                const wrap = document.createElement('div');
+                wrap.className = 'tt-media-modal__fallback';
+                const lead = document.createElement('p');
+                lead.className = 'tt-media-modal__fallback-lead';
+                lead.textContent = hint.lead;
+                const sub = document.createElement('p');
+                sub.className = 'tt-media-modal__fallback-sub';
+                sub.textContent = hint.sub;
+                const dl = document.createElement('a');
+                dl.className = 'tt-media-modal__fallback-download';
+                dl.href = href;
+                dl.target = '_blank';
+                dl.rel = 'noopener';
+                dl.textContent = 'Download file';
+                wrap.appendChild(lead);
+                wrap.appendChild(sub);
+                wrap.appendChild(dl);
+                modalBody.appendChild(wrap);
             }
 
             modal.classList.add('is-open');
@@ -349,7 +431,7 @@
         <div class="tt-media-modal__head">
             <div id="ttMediaModalTitle" class="tt-media-modal__title">Attachment</div>
             <div class="tt-media-modal__actions">
-                <a id="ttMediaModalDownload" class="tt-media-modal__btn" href="#" target="_blank" rel="noopener">Open file</a>
+                <a id="ttMediaModalDownload" class="tt-media-modal__btn" href="#" target="_blank" rel="noopener">Download</a>
                 <button type="button" id="ttMediaModalClose" class="tt-media-modal__btn">Close</button>
             </div>
         </div>

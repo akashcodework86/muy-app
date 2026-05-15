@@ -245,6 +245,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::put('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'update'])
                 ->middleware('throttle:30,1')
                 ->name('eap-edp-sessions.update');
+            Route::delete('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'destroy'])
+                ->middleware('throttle:30,1')
+                ->name('eap-edp-sessions.destroy');
             Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
                 ->name('eap-edp-sessions.attachment');
         });

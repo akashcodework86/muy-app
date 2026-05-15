@@ -30,20 +30,9 @@
     .tp-show-btn--primary:hover { background:#4338ca; color:#fff; }
     .tp-show-btn--secondary { background:#fff; color:#334155; border-color:#cbd5e1; }
     .tp-show-btn--secondary:hover { background:#f8fafc; }
-    .tp-show-table-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:auto; }
-    .tp-show-table-head { padding:0.95rem 1.1rem; border-bottom:1px solid #e2e8f0; }
-    .tp-show-table-head h3 { margin:0; font-size:0.98rem; font-weight:800; color:#0f172a; }
-    .tp-show-table { width:100%; border-collapse:collapse; font-size:0.84rem; }
-    .tp-show-table thead tr { background:#f8fafc; }
-    .tp-show-table th,
-    .tp-show-table td { text-align:left; padding:0.7rem 0.8rem; border-bottom:1px solid #e2e8f0; vertical-align:top; }
-    .tp-show-table tbody tr:last-child td { border-bottom:none; }
-    .tp-show-phone { display:inline-flex; align-items:center; gap:0.35rem; padding:0.18rem 0.5rem; border-radius:999px; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; font-weight:800; text-decoration:none; }
-    .tp-show-phone:hover { background:#dbeafe; }
-    .tp-show-source { display:inline-flex; align-items:center; padding:0.16rem 0.5rem; border-radius:999px; font-size:0.72rem; font-weight:800; }
-    .tp-show-source--phase3 { background:#eef2ff; color:#3730a3; }
-    .tp-show-source--legacy { background:#fff7ed; color:#9a3412; }
-    .tp-show-empty { padding:1rem; color:#64748b; }
+    .tp-show-btn--danger { background:#fff; color:#b91c1c; border-color:#fecaca; }
+    .tp-show-btn--danger:hover { background:#fef2f2; color:#991b1b; }
+    .tp-show-delete-form { display:inline; }
     .ees-ws-pill {
         display:inline-flex;
         align-items:center;
@@ -55,6 +44,15 @@
     }
     .ees-ws-pill--virtual { background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; }
     .ees-ws-pill--physical { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
+    .ees-att-strip {
+        display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;
+    }
+    .ees-att-chip {
+        display:inline-flex; align-items:center; gap:0.35rem;
+        padding:0.35rem 0.65rem; border-radius:10px; font-size:0.84rem; font-weight:800;
+        border:1px solid #e2e8f0; background:#f8fafc; color:#0f172a;
+    }
+    .ees-att-chip strong { color:#4f46e5; font-weight:900; }
 </style>
 @endpush
 
@@ -65,6 +63,9 @@
         'state_staff' => 'spoc.eap-edp-sessions.attachment',
         default => 'staff.eap-edp-sessions.attachment',
     };
+    $m = (int) ($row->attendance_male_count ?? 0);
+    $f = (int) ($row->attendance_female_count ?? 0);
+    $t = (int) ($row->attendance_total_count ?? ($m + $f));
 @endphp
 <div class="tp-show-shell">
     @if (session('status'))
@@ -104,9 +105,15 @@
                 <span class="tp-show-field__label">Notes</span>
                 <span class="tp-show-field__value">{{ $row->notes ?: '—' }}</span>
             </div>
-            <div class="tp-show-field">
-                <span class="tp-show-field__label">Total Selected</span>
-                <span class="tp-show-field__value">{{ is_array($row->selected_incubatee_ids) ? count($row->selected_incubatee_ids) : 0 }}</span>
+            <div class="tp-show-field tp-show-field--full">
+                <span class="tp-show-field__label">Attendance (headcount)</span>
+                <span class="tp-show-field__value">
+                    <span class="ees-att-strip">
+                        <span class="ees-att-chip">Male <strong>{{ number_format($m) }}</strong></span>
+                        <span class="ees-att-chip">Female <strong>{{ number_format($f) }}</strong></span>
+                        <span class="ees-att-chip">Total <strong>{{ number_format($t) }}</strong></span>
+                    </span>
+                </span>
             </div>
             <div class="tp-show-field">
                 <span class="tp-show-field__label">Submitted At</span>
@@ -121,6 +128,16 @@
             } }}">Excel Export</a>
             @if ($canEdit)
                 <a class="tp-show-btn tp-show-btn--secondary" href="{{ route('staff.eap-edp-sessions.edit', $row) }}">Edit Entry</a>
+                <form
+                    class="tp-show-delete-form"
+                    method="post"
+                    action="{{ route('staff.eap-edp-sessions.destroy', $row) }}"
+                    onsubmit="return confirm('Delete this EAP/EDP session entry permanently? This cannot be undone.');"
+                >
+                    @csrf
+                    @method('delete')
+                    <button type="submit" class="tp-show-btn tp-show-btn--danger">Delete Entry</button>
+                </form>
             @endif
             <a class="tp-show-btn tp-show-btn--secondary" href="{{ match ($currentRole) {
                 'state_admin' => route('admin.eap-edp-sessions.dashboard'),
@@ -131,66 +148,12 @@
     </div>
 
     <div class="tp-show-card">
-        <h3 class="tp-show-card__title">Uploaded Photos / Video / Docs</h3>
+        <h3 class="tp-show-card__title">Attendance sheet (uploaded)</h3>
         @include('staff.technical-trainings.partials.attendance-media-preview', [
             'mediaItems' => (array) $row->attendance_media_json,
             'attachmentRoute' => $attachmentRoute,
             'record' => $row,
         ])
-    </div>
-
-    <div class="tp-show-table-card">
-        <div class="tp-show-table-head">
-            <h3>Selected Applicants</h3>
-        </div>
-        <table class="tp-show-table">
-            <thead>
-            <tr>
-                <th>Sr. No.</th>
-                <th>Source</th>
-                <th>Name</th>
-                <th>Application No</th>
-                <th>Phone</th>
-                <th>Gender</th>
-                <th>Village</th>
-                <th>Block</th>
-                <th>Onboarding Batch</th>
-            </tr>
-            </thead>
-            <tbody>
-            @forelse ((array) ($applicantSnapshots ?? $row->selected_incubatees_snapshot) as $snap)
-                @php
-                    $phone = trim((string) ($snap['phone'] ?? ''));
-                    $isLegacy = ($snap['source'] ?? '') === 'legacy_phase2' || (int) ($snap['incubatee_id'] ?? 0) < 0;
-                @endphp
-                <tr>
-                    <td>{{ $loop->iteration }}</td>
-                    <td>
-                        <span class="tp-show-source {{ $isLegacy ? 'tp-show-source--legacy' : 'tp-show-source--phase3' }}">
-                            {{ $isLegacy ? 'Phase 2 legacy' : 'Phase 3 CFA' }}
-                        </span>
-                    </td>
-                    <td>{{ $snap['name'] ?? 'Unnamed' }}</td>
-                    <td>{{ $snap['application_no'] ?? 'NA' }}</td>
-                    <td>
-                        @if ($phone !== '')
-                            <a class="tp-show-phone" href="tel:{{ preg_replace('/\s+/', '', $phone) }}">{{ $phone }}</a>
-                        @else
-                            NA
-                        @endif
-                    </td>
-                    <td>{{ trim((string) ($snap['gender'] ?? '')) !== '' ? $snap['gender'] : 'NA' }}</td>
-                    <td>{{ trim((string) ($snap['village'] ?? '')) !== '' ? $snap['village'] : 'NA' }}</td>
-                    <td>{{ trim((string) ($snap['block_name'] ?? '')) !== '' ? $snap['block_name'] : 'NA' }}</td>
-                    <td>{{ $snap['onboarding_batch_name'] ?? 'NA' }}</td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="9" class="tp-show-empty">No selected applicants found in snapshot.</td>
-                </tr>
-            @endforelse
-            </tbody>
-        </table>
     </div>
 </div>
 @endsection

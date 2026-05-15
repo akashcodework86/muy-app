@@ -17,6 +17,9 @@ class EapEdpSession extends Model
         'program_type',
         'topic',
         'workshop_mode',
+        'attendance_male_count',
+        'attendance_female_count',
+        'attendance_total_count',
         'notes',
         'attendance_media_json',
         'selected_incubatee_ids',
@@ -27,10 +30,20 @@ class EapEdpSession extends Model
     {
         return [
             'event_date' => 'date',
+            'attendance_male_count' => 'integer',
+            'attendance_female_count' => 'integer',
+            'attendance_total_count' => 'integer',
             'attendance_media_json' => 'array',
             'selected_incubatee_ids' => 'array',
             'selected_incubatees_snapshot' => 'array',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (EapEdpSession $session): void {
+            $session->attendance_total_count = (int) ($session->attendance_male_count ?? 0) + (int) ($session->attendance_female_count ?? 0);
+        });
     }
 
     protected function formattedProgramType(): Attribute

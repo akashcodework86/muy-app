@@ -21,31 +21,20 @@
     .tp-field label { font-size:0.82rem; font-weight:700; color:#0f172a; line-height:1.35; }
     .tp-field input[type="text"],
     .tp-field input[type="date"],
+    .tp-field input[type="number"],
     .tp-field input[type="file"],
     .tp-field textarea { width:100%; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:8px; padding:0.58rem 0.7rem; font-size:0.88rem; background:#fff; }
     .tp-field textarea { min-height:5.5rem; resize:vertical; }
     .tp-field input[type="file"] { padding:0.45rem 0.55rem; background:#f8fafc; }
     .tp-readonly { background:#f8fafc; color:#64748b; }
-    .tp-two-col { display:grid; grid-template-columns:minmax(0, 1.15fr) minmax(0, 0.85fr); gap:1rem; align-items:start; }
-    .tp-col { display:flex; flex-direction:column; gap:0.55rem; min-width:0; }
-    .tp-note { margin:0; color:#64748b; font-size:0.8rem; line-height:1.45; }
-    .tp-search { width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:0.55rem 0.7rem; font-size:0.88rem; box-sizing:border-box; }
-    .tp-list { max-height:420px; overflow:auto; border:1px solid #e2e8f0; border-radius:10px; padding:0.55rem; background:#f8fafc; }
-    .tp-item { display:flex; gap:0.65rem; align-items:flex-start; border:1px solid #e2e8f0; border-radius:10px; padding:0.6rem 0.65rem; background:#fff; margin-bottom:0.5rem; cursor:pointer; }
-    .tp-item:last-child { margin-bottom:0; }
-    .tp-item input { margin-top:0.15rem; flex-shrink:0; }
-    .tp-item h4 { margin:0; font-size:0.86rem; line-height:1.35; }
-    .tp-meta { margin-top:0.25rem; color:#64748b; font-size:0.76rem; line-height:1.4; }
-    .tp-pill { display:inline-block; font-size:0.7rem; background:#eef2ff; color:#3730a3; border-radius:999px; padding:0.14rem 0.48rem; margin:0 0.3rem 0.25rem 0; }
-    .tp-right-title { margin:0; font-size:0.86rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:0.45rem; }
-    .tp-selected-count { display:inline-flex; align-items:center; justify-content:center; min-width:1.45rem; height:1.45rem; border-radius:999px; background:#4f46e5; color:#fff; font-size:0.72rem; font-weight:800; }
-    .tp-selected-empty { margin:0; padding:0.75rem; color:#64748b; font-size:0.84rem; }
     .tp-field-hint { margin:0.2rem 0 0; color:#64748b; font-size:0.78rem; line-height:1.4; }
     .tp-media-preview { margin-top:0.55rem; }
     .tp-actions { margin-top:1.25rem; display:flex; flex-wrap:wrap; gap:0.65rem; align-items:center; }
     .tp-submit { border:none; border-radius:8px; background:#4f46e5; color:#fff; padding:0.62rem 1rem; font-weight:700; cursor:pointer; font-size:0.88rem; }
     .tp-link { color:#4f46e5; font-weight:700; text-decoration:none; font-size:0.88rem; }
-    .tp-btn-remove { margin-top:0.45rem; border:1px solid #fecaca; background:#fff; color:#b91c1c; border-radius:8px; padding:0.28rem 0.55rem; font-size:0.76rem; font-weight:700; cursor:pointer; }
+    .ees-att-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:0.85rem 1rem; }
+    @media (max-width:640px) { .ees-att-grid { grid-template-columns:1fr; } }
+    .ees-att-total input { font-weight:800; color:#0f172a; letter-spacing:0.02em; }
 </style>
 @endpush
 
@@ -73,12 +62,6 @@
             </ul>
         </div>
     @endif
-
-    @php
-        $oldSelectedIds = collect((array) old('selected_incubatees', []))
-            ->map(fn ($id) => (int) $id)
-            ->all();
-    @endphp
 
     <div class="tp-card">
         <h3 class="tp-card__title">Submission Form</h3>
@@ -109,48 +92,33 @@
             </div>
 
             <div class="tp-section">
-                <div class="tp-field">
-                    <label>Upload photos, videos, or documents (optional)</label>
-                    <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.mkv,.doc,.docx,.xls,.xlsx" multiple>
-                    <p class="tp-field-hint">Select multiple files at once or use Choose files again to add more before submitting. Up to 25 files, 50 MB each. Images, videos, PDF, Word, and Excel are accepted.</p>
-                    <div id="tpMediaPreview" class="tp-media-preview"></div>
+                <h4 class="tp-section__title">Attendance (headcount) *</h4>
+                <p class="tp-field-hint" style="margin:0 0 0.75rem;">Open sessions: record how many participants attended by gender. Total updates automatically.</p>
+                <div class="ees-att-grid">
+                    <div class="tp-field">
+                        <label for="attendance_male_count">No. of male *</label>
+                        <input id="attendance_male_count" type="number" name="attendance_male_count" min="0" step="1" value="{{ old('attendance_male_count', 0) }}" required inputmode="numeric">
+                    </div>
+                    <div class="tp-field">
+                        <label for="attendance_female_count">No. of female *</label>
+                        <input id="attendance_female_count" type="number" name="attendance_female_count" min="0" step="1" value="{{ old('attendance_female_count', 0) }}" required inputmode="numeric">
+                    </div>
+                    <div class="tp-field ees-att-total">
+                        <label for="eesAttendanceTotalDisplay">Total attendance</label>
+                        <input id="eesAttendanceTotalDisplay" type="text" class="tp-readonly" value="0" readonly aria-live="polite">
+                    </div>
                 </div>
             </div>
 
             <div class="tp-section">
-                <h4 class="tp-section__title">Manual Attendance Selection * (required)</h4>
-                <div class="tp-two-col">
-                    <div class="tp-col">
-                        <p class="tp-note">
-                            rbiphase3 onboarded applicants in district: <strong>{{ (int) ($totalOnboardedCount ?? $incubatees->count()) }}</strong>
-                        </p>
-                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search rbiphase3 onboarded applicants by name/application/phone">
-                        <div class="tp-list" id="tpSourceList">
-                            @forelse ($incubatees as $applicant)
-                                <label class="tp-item" data-search="{{ strtolower($applicant['name'].' '.$applicant['application_no'].' '.$applicant['phone']) }}">
-                                    <input type="checkbox" class="tp-check" value="{{ $applicant['incubatee_id'] }}" @checked(in_array((int) $applicant['incubatee_id'], $oldSelectedIds, true))>
-                                    <div>
-                                        <h4>{{ $applicant['name'] ?: 'Unnamed' }}</h4>
-                                        <div class="tp-meta">
-                                            <span class="tp-pill">App: {{ $applicant['application_no'] ?: 'NA' }}</span>
-                                            <span class="tp-pill">Batch: {{ $applicant['onboarding_batch_name'] ?: 'NA' }}</span>
-                                        </div>
-                                        <div class="tp-meta">Phone: {{ $applicant['phone'] ?: 'NA' }} | Block: {{ $applicant['block_name'] ?: 'NA' }} | Village: {{ $applicant['village'] ?: 'NA' }}</div>
-                                    </div>
-                                </label>
-                            @empty
-                                <p class="tp-selected-empty">No rbiphase3 onboarded applicants found for your district.</p>
-                            @endforelse
-                        </div>
-                    </div>
-                    <div class="tp-col">
-                        <p class="tp-right-title">Selected Incubatees <span id="tpSelectedCount" class="tp-selected-count">0</span></p>
-                        <div class="tp-list" id="tpSelectedPanel"></div>
-                    </div>
+                <div class="tp-field tp-field--full">
+                    <label>Upload attendance sheet *</label>
+                    <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.mkv,.doc,.docx,.xls,.xlsx" multiple>
+                    <p class="tp-field-hint">At least one file is required (signed attendance sheet, register scan, etc.). Up to 25 files, 50 MB each. PDF, images, Word, Excel, and short video clips are accepted.</p>
+                    <div id="tpMediaPreview" class="tp-media-preview"></div>
                 </div>
             </div>
 
-            <div id="tpHiddenInputs"></div>
             <div class="tp-actions">
                 <button class="tp-submit" type="submit">Submit attendance</button>
                 <a class="tp-link" href="{{ route('staff.eap-edp-sessions.dashboard') }}">View dashboard</a>
@@ -169,100 +137,22 @@
 @push('scripts')
 <script>
 (function () {
-    const checks = Array.from(document.querySelectorAll('.tp-check'));
-    const selectedPanel = document.getElementById('tpSelectedPanel');
-    const hiddenInputs = document.getElementById('tpHiddenInputs');
-    const search = document.getElementById('tpSearch');
-    const sourceList = document.getElementById('tpSourceList');
-    const selectedCount = document.getElementById('tpSelectedCount');
+    const maleEl = document.getElementById('attendance_male_count');
+    const femaleEl = document.getElementById('attendance_female_count');
+    const totalEl = document.getElementById('eesAttendanceTotalDisplay');
     const mediaInput = document.getElementById('tpMediaInput');
     const mediaPreview = document.getElementById('tpMediaPreview');
-    const selectedMap = new Map();
 
-    function sourceCardForCheckbox(el) {
-        return el && el.closest('.tp-item') ? el.closest('.tp-item') : null;
+    function syncTotal() {
+        if (!totalEl) return;
+        const m = parseInt(String(maleEl && maleEl.value !== '' ? maleEl.value : '0'), 10) || 0;
+        const f = parseInt(String(femaleEl && femaleEl.value !== '' ? femaleEl.value : '0'), 10) || 0;
+        totalEl.value = String(m + f);
     }
 
-    function syncMapFromCheckbox(el) {
-        const id = String(el.value || '');
-        if (id === '') return;
-        if (el.checked) {
-            const card = sourceCardForCheckbox(el);
-            if (card) {
-                selectedMap.set(id, card.cloneNode(true));
-            }
-        } else {
-            selectedMap.delete(id);
-        }
-    }
-
-    function renderSelected() {
-        hiddenInputs.innerHTML = '';
-        if (selectedCount) {
-            selectedCount.textContent = String(selectedMap.size);
-        }
-        if (!selectedMap.size) {
-            selectedPanel.innerHTML = '<p class="tp-selected-empty">No incubatee selected yet.</p>';
-            return;
-        }
-
-        selectedPanel.innerHTML = '';
-        selectedMap.forEach((storedCard, selectedId) => {
-            const card = storedCard.cloneNode(true);
-            const cardCheckbox = card.querySelector('.tp-check');
-            if (cardCheckbox) {
-                cardCheckbox.remove();
-            }
-
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.textContent = 'Remove';
-            removeBtn.className = 'tp-btn-remove';
-            removeBtn.addEventListener('click', function () {
-                const linkedCheckbox = checks.find((c) => String(c.value || '') === String(selectedId));
-                if (linkedCheckbox) {
-                    linkedCheckbox.checked = false;
-                }
-                selectedMap.delete(String(selectedId));
-                renderSelected();
-            });
-
-            const content = card.querySelector('div');
-            if (content) {
-                content.appendChild(removeBtn);
-            } else {
-                card.appendChild(removeBtn);
-            }
-
-            selectedPanel.appendChild(card);
-
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'selected_incubatees[]';
-            input.value = String(selectedId);
-            hiddenInputs.appendChild(input);
-        });
-    }
-
-    checks.forEach((el) => {
-        if (el.checked) {
-            syncMapFromCheckbox(el);
-        }
-        el.addEventListener('change', function () {
-            syncMapFromCheckbox(el);
-            renderSelected();
-        });
-    });
-
-    if (search && sourceList) {
-        search.addEventListener('input', function () {
-            const term = (this.value || '').toLowerCase().trim();
-            sourceList.querySelectorAll('.tp-item').forEach((item) => {
-                const hay = item.getAttribute('data-search') || '';
-                item.style.display = term === '' || hay.includes(term) ? '' : 'none';
-            });
-        });
-    }
+    if (maleEl) maleEl.addEventListener('input', syncTotal);
+    if (femaleEl) femaleEl.addEventListener('input', syncTotal);
+    syncTotal();
 
     if (mediaInput && mediaPreview) {
         const selectedFiles = new DataTransfer();
@@ -271,25 +161,15 @@
         const detectKind = function (file) {
             const type = file.type || '';
             const name = (file.name || '').toLowerCase();
-            if (type.startsWith('image/')) {
-                return 'image';
-            }
-            if (type.startsWith('video/')) {
-                return 'video';
-            }
-            if (type === 'application/pdf' || name.endsWith('.pdf')) {
-                return 'pdf';
-            }
+            if (type.startsWith('image/')) return 'image';
+            if (type.startsWith('video/')) return 'video';
+            if (type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
             return 'file';
         };
 
         const fileLabel = function (kind, file) {
-            if (kind === 'pdf') {
-                return 'PDF';
-            }
-            if (kind === 'video') {
-                return 'Video';
-            }
+            if (kind === 'pdf') return 'PDF';
+            if (kind === 'video') return 'Video';
             if (kind === 'file') {
                 const parts = (file.name || '').split('.');
                 return parts.length > 1 ? parts.pop().toUpperCase() : 'File';
@@ -314,9 +194,7 @@
             releasePreviewUrls();
             mediaPreview.innerHTML = '';
             const files = Array.from(selectedFiles.files || []);
-            if (!files.length) {
-                return;
-            }
+            if (!files.length) return;
 
             const grid = document.createElement('div');
             grid.className = 'tt-media-grid';
@@ -378,9 +256,7 @@
             Array.from(fileList || []).forEach((file) => {
                 const key = fileKey(file);
                 const alreadySelected = Array.from(selectedFiles.files).some((existing) => fileKey(existing) === key);
-                if (!alreadySelected) {
-                    selectedFiles.items.add(file);
-                }
+                if (!alreadySelected) selectedFiles.items.add(file);
             });
             syncMediaInput();
             renderPendingPreview();
@@ -390,8 +266,6 @@
             addFiles(this.files);
         });
     }
-
-    renderSelected();
 }());
 </script>
 @endpush

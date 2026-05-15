@@ -4,12 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\EapEdpSession;
-use App\Services\LegacyApplicationServiceCaseSupport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -23,23 +21,13 @@ class EapEdpSessionAttendanceController extends Controller
 
     private const PROGRAM_TYPE = 'eap_edp';
 
-    public function __construct(
-        private LegacyApplicationServiceCaseSupport $legacyApplications,
-    ) {}
-
     public function create(Request $request): View
     {
         $user = $request->user()->load('district');
         abort_unless($this->canSubmit($user->role), 403);
 
-        $districtId = (int) ($user->district_id ?: 0);
-        $incubatees = $this->onboardedIncubateesForDistrict($districtId, trim((string) $request->query('q', '')))
-            ->values();
-
         return view('staff.eap-edp-sessions.form', [
             'user' => $user,
-            'incubatees' => $incubatees,
-            'totalOnboardedCount' => $this->onboardedIncubateesCountForDistrict($districtId),
             'migrationMissing' => ! Schema::hasTable('eap_edp_sessions'),
         ]);
     }
@@ -64,25 +52,25 @@ class EapEdpSessionAttendanceController extends Controller
             'topic' => ['required', 'string', 'max:191'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'notes' => ['nullable', 'string', 'max:5000'],
-            'selected_incubatees' => ['required', 'array', 'min:1'],
-            'selected_incubatees.*' => ['integer', 'not_in:0'],
+            'attendance_male_count' => ['required', 'integer', 'min:0'],
+            'attendance_female_count' => ['required', 'integer', 'min:0'],
         ], $this->attendanceMediaValidationRules(), [
-            'attendance_media' => ['nullable', 'array', 'max:25'],
+            'attendance_media' => ['required', 'array', 'min:1', 'max:25'],
         ]));
 
         $districtId = (int) ($user->district_id ?: 0);
         abort_unless($districtId > 0, 422, 'District assignment is required to submit attendance.');
 
-        $selectedIds = $this->normalizeSelectedIncubateeIds((array) $validated['selected_incubatees']);
-        $snapshots = $this->snapshotsForSelectedIncubatees($districtId, $selectedIds);
-
-        if ($snapshots->isEmpty() || $snapshots->count() !== $selectedIds->count()) {
-            return back()
-                ->withInput()
-                ->withErrors(['selected_incubatees' => 'One or more selected incubatees are invalid for your district.']);
-        }
+        $male = (int) $validated['attendance_male_count'];
+        $female = (int) $validated['attendance_female_count'];
+        $total = $male + $female;
 
         $mediaItems = $this->storeUploadedMedia((array) $request->file('attendance_media', []));
+        if ($mediaItems === []) {
+            return back()
+                ->withInput()
+                ->withErrors(['attendance_media' => 'Upload at least one attendance sheet file.']);
+        }
 
         EapEdpSession::query()->create([
             'submitted_by_user_id' => (int) $user->id,
@@ -93,10 +81,13 @@ class EapEdpSessionAttendanceController extends Controller
             'program_type' => self::PROGRAM_TYPE,
             'topic' => trim((string) $validated['topic']),
             'workshop_mode' => (string) $validated['workshop_mode'],
+            'attendance_male_count' => $male,
+            'attendance_female_count' => $female,
+            'attendance_total_count' => $total,
             'notes' => trim((string) ($validated['notes'] ?? '')) ?: null,
             'attendance_media_json' => $mediaItems,
-            'selected_incubatee_ids' => $selectedIds->all(),
-            'selected_incubatees_snapshot' => $snapshots->all(),
+            'selected_incubatee_ids' => [],
+            'selected_incubatees_snapshot' => [],
         ]);
 
         return redirect()
@@ -126,12 +117,18 @@ class EapEdpSessionAttendanceController extends Controller
         $search = trim((string) $request->query('q', ''));
         if ($search !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
-            $query->where(function ($q) use ($like): void {
+            $query->where(function ($q) use ($like, $search): void {
                 $q->where('submitted_by_name', 'like', $like)
                     ->orWhere('district_name', 'like', $like)
                     ->orWhere('topic', 'like', $like)
                     ->orWhere('notes', 'like', $like)
                     ->orWhere('workshop_mode', 'like', $like);
+                if (ctype_digit($search)) {
+                    $n = (int) $search;
+                    $q->orWhere('attendance_male_count', $n)
+                        ->orWhere('attendance_female_count', $n)
+                        ->orWhere('attendance_total_count', $n);
+                }
             });
         }
 
@@ -179,7 +176,6 @@ class EapEdpSessionAttendanceController extends Controller
 
         return view('staff.eap-edp-sessions.show', [
             'row' => $eapEdpSession,
-            'applicantSnapshots' => $this->enrichedApplicantSnapshots($eapEdpSession),
             'currentRole' => (string) $user->role,
             'canEdit' => (string) $user->role === 'district_staff'
                 && (int) $eapEdpSession->submitted_by_user_id === (int) $user->id,
@@ -199,12 +195,18 @@ class EapEdpSessionAttendanceController extends Controller
         $search = trim((string) $request->query('q', ''));
         if ($search !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
-            $query->where(function ($q) use ($like): void {
+            $query->where(function ($q) use ($like, $search): void {
                 $q->where('submitted_by_name', 'like', $like)
                     ->orWhere('district_name', 'like', $like)
                     ->orWhere('topic', 'like', $like)
                     ->orWhere('notes', 'like', $like)
                     ->orWhere('workshop_mode', 'like', $like);
+                if (ctype_digit($search)) {
+                    $n = (int) $search;
+                    $q->orWhere('attendance_male_count', $n)
+                        ->orWhere('attendance_female_count', $n)
+                        ->orWhere('attendance_total_count', $n);
+                }
             });
         }
 
@@ -242,15 +244,9 @@ class EapEdpSessionAttendanceController extends Controller
         $user = $request->user()->load('district');
         $this->assertCanEdit($eapEdpSession, (int) $user->id);
 
-        $incubatees = $this->onboardedIncubateesForDistrict((int) ($eapEdpSession->district_id ?: 0))
-            ->values();
-
         return view('staff.eap-edp-sessions.edit', [
             'user' => $user,
             'row' => $eapEdpSession,
-            'incubatees' => $incubatees,
-            'totalOnboardedCount' => $this->onboardedIncubateesCountForDistrict((int) ($eapEdpSession->district_id ?: 0)),
-            'selectedIds' => collect((array) $eapEdpSession->selected_incubatee_ids)->map(fn ($id): int => (int) $id)->all(),
         ]);
     }
 
@@ -268,48 +264,78 @@ class EapEdpSessionAttendanceController extends Controller
             'topic' => ['required', 'string', 'max:191'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'notes' => ['nullable', 'string', 'max:5000'],
-            'selected_incubatees' => ['required', 'array', 'min:1'],
-            'selected_incubatees.*' => ['integer', 'not_in:0'],
+            'attendance_male_count' => ['required', 'integer', 'min:0'],
+            'attendance_female_count' => ['required', 'integer', 'min:0'],
+            'remove_media_indices' => ['nullable', 'array'],
+            'remove_media_indices.*' => ['integer', 'min:0'],
         ], $this->attendanceMediaValidationRules(), [
             'attendance_media' => ['nullable', 'array', 'max:25'],
         ]));
 
-        $districtId = (int) ($eapEdpSession->district_id ?: 0);
-        $selectedIds = $this->normalizeSelectedIncubateeIds((array) $validated['selected_incubatees']);
-        $snapshots = $this->snapshotsForSelectedIncubatees($districtId, $selectedIds);
+        $male = (int) $validated['attendance_male_count'];
+        $female = (int) $validated['attendance_female_count'];
+        $total = $male + $female;
 
-        if ($snapshots->isEmpty() || $snapshots->count() !== $selectedIds->count()) {
-            return back()
-                ->withInput()
-                ->withErrors(['selected_incubatees' => 'One or more selected incubatees are invalid for this district.']);
-        }
+        $existingMedia = collect((array) $eapEdpSession->attendance_media_json)
+            ->filter(fn ($item): bool => is_array($item))
+            ->values();
+        $removeIndices = collect($request->input('remove_media_indices', []))
+            ->map(fn ($index): int => (int) $index)
+            ->unique()
+            ->values();
+
+        $keptMedia = $existingMedia
+            ->filter(fn ($item, int $index): bool => ! $removeIndices->contains($index))
+            ->values();
+
+        $removedMedia = $existingMedia
+            ->filter(fn ($item, int $index): bool => $removeIndices->contains($index))
+            ->values();
 
         $newUploads = array_values(array_filter((array) $request->file('attendance_media', [])));
-        if ($newUploads !== []) {
-            $existingMedia = collect((array) $eapEdpSession->attendance_media_json)
-                ->filter(fn ($item): bool => is_array($item))
-                ->values();
-            $combinedCount = $existingMedia->count() + count($newUploads);
-            abort_if($combinedCount > 25, 422, 'You can upload up to 25 files per session.');
 
-            $eapEdpSession->attendance_media_json = $existingMedia
-                ->merge($this->storeUploadedMedia($newUploads))
-                ->values()
-                ->all();
+        if ($keptMedia->isEmpty() && $newUploads === []) {
+            return back()
+                ->withInput()
+                ->withErrors(['attendance_media' => 'At least one attendance sheet file is required. Keep an existing file or upload a new one.']);
         }
+
+        $combinedCount = $keptMedia->count() + count($newUploads);
+        abort_if($combinedCount > 25, 422, 'You can upload up to 25 files per session.');
+
+        $this->deleteMediaFiles($removedMedia->all());
+
+        $eapEdpSession->attendance_media_json = $keptMedia
+            ->merge($this->storeUploadedMedia($newUploads))
+            ->values()
+            ->all();
 
         $eapEdpSession->event_date = $validated['session_date'];
         $eapEdpSession->program_type = self::PROGRAM_TYPE;
         $eapEdpSession->topic = trim((string) $validated['topic']);
         $eapEdpSession->workshop_mode = (string) $validated['workshop_mode'];
+        $eapEdpSession->attendance_male_count = $male;
+        $eapEdpSession->attendance_female_count = $female;
+        $eapEdpSession->attendance_total_count = $total;
         $eapEdpSession->notes = trim((string) ($validated['notes'] ?? '')) ?: null;
-        $eapEdpSession->selected_incubatee_ids = $selectedIds->all();
-        $eapEdpSession->selected_incubatees_snapshot = $snapshots->all();
         $eapEdpSession->save();
 
         return redirect()
             ->route('staff.eap-edp-sessions.dashboard')
             ->with('status', 'EAP/EDP session attendance updated.');
+    }
+
+    public function destroy(Request $request, EapEdpSession $eapEdpSession): RedirectResponse
+    {
+        $user = $request->user();
+        $this->assertCanEdit($eapEdpSession, (int) $user->id);
+
+        $this->deleteMediaFiles((array) $eapEdpSession->attendance_media_json);
+        $eapEdpSession->delete();
+
+        return redirect()
+            ->route('staff.eap-edp-sessions.dashboard')
+            ->with('status', 'EAP/EDP session entry deleted.');
     }
 
     public function downloadAttachment(Request $request, EapEdpSession $eapEdpSession): StreamedResponse|BinaryFileResponse
@@ -381,244 +407,21 @@ class EapEdpSessionAttendanceController extends Controller
         return $mediaItems;
     }
 
-    private function onboardedIncubateesForDistrict(int $districtId, string $search = ''): Collection
-    {
-        if ($districtId <= 0) {
-            return collect();
-        }
-
-        return $this->onboardedPhase3ApplicantsForDistrict($districtId, $search)
-            ->sortBy(fn (array $row): string => mb_strtolower((string) ($row['name'] ?? '')))
-            ->values();
-    }
-
-    private function onboardedPhase3ApplicantsForDistrict(int $districtId, string $search = ''): Collection
-    {
-        $payloadValue = fn (string $path): string => DB::connection()->getDriverName() === 'sqlite'
-            ? "json_extract(cs.payload, '$.{$path}')"
-            : "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.{$path}'))";
-
-        $query = DB::table('onboarding_batch_cfa as obc')
-            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
-            ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
-            ->where('ob.status', 'locked')
-            ->whereNotNull('ob.locked_at')
-            ->where('cs.district_id', $districtId)
-            ->selectRaw("
-                cs.id as incubatee_id,
-                cs.applicant_name as name,
-                cs.application_no as application_no,
-                cs.phone as phone,
-                {$payloadValue('gender')} as gender,
-                {$payloadValue('village')} as village,
-                {$payloadValue('block')} as block_name,
-                ob.id as onboarding_batch_id,
-                ob.name as onboarding_batch_name
-            ");
-
-        if ($search !== '') {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
-            $query->where(function ($q) use ($like): void {
-                $q->where('cs.applicant_name', 'like', $like)
-                    ->orWhere('cs.application_no', 'like', $like)
-                    ->orWhere('cs.phone', 'like', $like);
-            });
-        }
-
-        return $query
-            ->orderByDesc('obc.created_at')
-            ->get()
-            ->map(fn ($row): array => [
-                'incubatee_id' => (int) $row->incubatee_id,
-                'source' => 'phase3',
-                'name' => (string) ($row->name ?? ''),
-                'application_no' => (string) ($row->application_no ?? ''),
-                'phone' => (string) ($row->phone ?? ''),
-                'gender' => (string) ($row->gender ?? ''),
-                'village' => (string) ($row->village ?? ''),
-                'block_name' => (string) ($row->block_name ?? ''),
-                'onboarding_batch_id' => (int) ($row->onboarding_batch_id ?? 0),
-                'onboarding_batch_name' => (string) ($row->onboarding_batch_name ?? ''),
-            ])
-            ->unique('incubatee_id')
-            ->values();
-    }
-
-    private function onboardedIncubateesCountForDistrict(int $districtId): int
-    {
-        if ($districtId <= 0) {
-            return 0;
-        }
-
-        return (int) DB::table('onboarding_batch_cfa as obc')
-            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
-            ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
-            ->where('ob.status', 'locked')
-            ->whereNotNull('ob.locked_at')
-            ->where('cs.district_id', $districtId)
-            ->distinct('cs.id')
-            ->count('cs.id');
-    }
-
     /**
-     * @param  list<int|string>  $rawIds
+     * @param  list<array<string, mixed>|mixed>  $mediaItems
      */
-    private function normalizeSelectedIncubateeIds(array $rawIds): Collection
+    private function deleteMediaFiles(array $mediaItems): void
     {
-        return collect($rawIds)
-            ->map(fn ($id): int => (int) $id)
-            ->filter(fn (int $id): bool => $id !== 0)
-            ->unique()
-            ->values();
-    }
-
-    private function snapshotsForSelectedIncubatees(int $districtId, Collection $selectedIds): Collection
-    {
-        $snapshotMap = $this->onboardedIncubateesForDistrict($districtId)
-            ->keyBy(fn (array $row): int => (int) $row['incubatee_id']);
-
-        return $selectedIds
-            ->map(fn (int $id): ?array => $snapshotMap->get($id))
-            ->filter()
-            ->values();
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function enrichedApplicantSnapshots(EapEdpSession $session): array
-    {
-        $snapshots = collect((array) $session->selected_incubatees_snapshot)
-            ->map(fn ($snap): array => is_array($snap) ? $snap : [])
-            ->values();
-
-        $legacyApplicationIds = [];
-        $legacyApplicationNumbers = [];
-
-        foreach ($snapshots as $snap) {
-            if (! $this->snapshotNeedsLegacyDetailEnrichment($snap)) {
+        foreach ($mediaItems as $media) {
+            if (! is_array($media)) {
                 continue;
             }
 
-            $legacyApplicationId = $this->legacyApplicationIdFromSnapshot($snap);
-            if ($legacyApplicationId > 0) {
-                $legacyApplicationIds[] = $legacyApplicationId;
-            }
-
-            $incubateeId = (int) ($snap['incubatee_id'] ?? 0);
-            if ($incubateeId > 0) {
-                $legacyApplicationIds[] = $incubateeId;
-            }
-
-            $applicationNumber = trim((string) ($snap['application_no'] ?? ''));
-            if ($applicationNumber !== '') {
-                $legacyApplicationNumbers[] = $applicationNumber;
+            $path = (string) ($media['path'] ?? '');
+            if ($path !== '' && Storage::exists($path)) {
+                Storage::delete($path);
             }
         }
-
-        $legacyDetailsById = $this->legacyApplications->applicantSnapshotsByLegacyApplicationIds($legacyApplicationIds);
-        $legacyDetailsByApplicationNumber = $this->legacyApplications->applicantSnapshotsByLegacyApplicationNumbers($legacyApplicationNumbers);
-
-        return $snapshots
-            ->map(function (array $snap) use ($legacyDetailsById, $legacyDetailsByApplicationNumber): array {
-                if (! $this->snapshotNeedsLegacyDetailEnrichment($snap)) {
-                    return $snap;
-                }
-
-                $details = $this->resolveLegacyApplicantDetails($snap, $legacyDetailsById, $legacyDetailsByApplicationNumber);
-                if ($details === null) {
-                    return $snap;
-                }
-
-                return $this->mergeLegacyApplicantDetailsIntoSnapshot($snap, $details);
-            })
-            ->all();
-    }
-
-    private function snapshotNeedsLegacyDetailEnrichment(array $snap): bool
-    {
-        if (($snap['source'] ?? '') === 'legacy_phase2' || (int) ($snap['incubatee_id'] ?? 0) < 0) {
-            return true;
-        }
-
-        foreach (['gender', 'village', 'block_name'] as $field) {
-            if (trim((string) ($snap[$field] ?? '')) === '') {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function legacyApplicationIdFromSnapshot(array $snap): int
-    {
-        $legacyApplicationId = (int) ($snap['legacy_application_id'] ?? 0);
-        if ($legacyApplicationId > 0) {
-            return $legacyApplicationId;
-        }
-
-        $incubateeId = (int) ($snap['incubatee_id'] ?? 0);
-
-        return $incubateeId < 0 ? abs($incubateeId) : 0;
-    }
-
-    /**
-     * @param  array<int, array<string, string>>  $legacyDetailsById
-     * @param  array<string, array<string, mixed>>  $legacyDetailsByApplicationNumber
-     * @return array<string, mixed>|null
-     */
-    private function resolveLegacyApplicantDetails(
-        array $snap,
-        array $legacyDetailsById,
-        array $legacyDetailsByApplicationNumber,
-    ): ?array {
-        $legacyApplicationId = $this->legacyApplicationIdFromSnapshot($snap);
-        if ($legacyApplicationId > 0 && isset($legacyDetailsById[$legacyApplicationId])) {
-            return array_merge(
-                ['legacy_application_id' => $legacyApplicationId],
-                $legacyDetailsById[$legacyApplicationId]
-            );
-        }
-
-        $incubateeId = (int) ($snap['incubatee_id'] ?? 0);
-        if ($incubateeId > 0 && isset($legacyDetailsById[$incubateeId])) {
-            return array_merge(
-                ['legacy_application_id' => $incubateeId],
-                $legacyDetailsById[$incubateeId]
-            );
-        }
-
-        $applicationNumber = mb_strtolower(trim((string) ($snap['application_no'] ?? '')));
-        if ($applicationNumber !== '' && isset($legacyDetailsByApplicationNumber[$applicationNumber])) {
-            return $legacyDetailsByApplicationNumber[$applicationNumber];
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  array<string, mixed>  $snap
-     * @param  array<string, mixed>  $details
-     * @return array<string, mixed>
-     */
-    private function mergeLegacyApplicantDetailsIntoSnapshot(array $snap, array $details): array
-    {
-        foreach (['name', 'application_no', 'phone', 'gender', 'village', 'block_name'] as $field) {
-            $detailValue = trim((string) ($details[$field] ?? ''));
-            if ($detailValue !== '') {
-                $snap[$field] = $detailValue;
-            }
-        }
-
-        $legacyApplicationId = (int) ($details['legacy_application_id'] ?? 0);
-        if ($legacyApplicationId > 0) {
-            $snap['legacy_application_id'] = $legacyApplicationId;
-            $snap['incubatee_id'] = -1 * $legacyApplicationId;
-        }
-
-        $snap['source'] = 'legacy_phase2';
-
-        return $snap;
     }
 
     /**
@@ -672,19 +475,12 @@ class EapEdpSessionAttendanceController extends Controller
             'Topic',
             'Workshop mode',
             'Notes',
-            'Uploaded Media Count',
-            'Selected Applicants Count',
+            'Attendance sheet files',
+            'Male count',
+            'Female count',
+            'Total attendance',
             'Created At',
             'Updated At',
-            'Applicant Incubatee ID',
-            'Applicant Name',
-            'Applicant Application No',
-            'Applicant Phone',
-            'Applicant Gender',
-            'Applicant Village',
-            'Applicant Block',
-            'Applicant Onboarding Batch ID',
-            'Applicant Onboarding Batch Name',
         ];
 
         return response()->streamDownload(function () use ($rows, $headers): void {
@@ -702,7 +498,7 @@ class EapEdpSessionAttendanceController extends Controller
                     continue;
                 }
 
-                $base = [
+                fputcsv($out, [
                     (string) $entry->id,
                     (string) ($entry->event_date?->format('Y-m-d') ?? ''),
                     (string) $entry->submitted_by_name,
@@ -712,32 +508,12 @@ class EapEdpSessionAttendanceController extends Controller
                     (string) $entry->formatted_workshop_mode,
                     (string) ($entry->notes ?? ''),
                     (string) count((array) $entry->attendance_media_json),
-                    (string) (is_array($entry->selected_incubatee_ids) ? count($entry->selected_incubatee_ids) : 0),
+                    (string) (int) ($entry->attendance_male_count ?? 0),
+                    (string) (int) ($entry->attendance_female_count ?? 0),
+                    (string) (int) ($entry->attendance_total_count ?? 0),
                     (string) ($entry->created_at?->format('Y-m-d H:i:s') ?? ''),
                     (string) ($entry->updated_at?->format('Y-m-d H:i:s') ?? ''),
-                ];
-
-                $snapshots = collect((array) $entry->selected_incubatees_snapshot);
-                if ($snapshots->isEmpty()) {
-                    fputcsv($out, array_merge($base, array_fill(0, 9, '')));
-
-                    continue;
-                }
-
-                foreach ($snapshots as $snap) {
-                    $snap = is_array($snap) ? $snap : [];
-                    fputcsv($out, array_merge($base, [
-                        (string) ($snap['incubatee_id'] ?? ''),
-                        (string) ($snap['name'] ?? ''),
-                        (string) ($snap['application_no'] ?? ''),
-                        (string) ($snap['phone'] ?? ''),
-                        (string) ($snap['gender'] ?? ''),
-                        (string) ($snap['village'] ?? ''),
-                        (string) ($snap['block_name'] ?? ''),
-                        (string) ($snap['onboarding_batch_id'] ?? ''),
-                        (string) ($snap['onboarding_batch_name'] ?? ''),
-                    ]));
-                }
+                ]);
             }
 
             fclose($out);

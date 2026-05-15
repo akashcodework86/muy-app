@@ -58,6 +58,22 @@
         font-weight:700;
     }
     .tp-btn--edit:hover { background:#f8fafc; }
+    .tp-btn--delete {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:0.42rem 0.8rem;
+        border-radius:8px;
+        border:1px solid #fecaca;
+        background:#fff;
+        color:#b91c1c;
+        font-size:0.8rem;
+        font-weight:700;
+        cursor:pointer;
+        font-family:inherit;
+    }
+    .tp-btn--delete:hover { background:#fef2f2; }
+    .tp-delete-inline { display:inline; margin:0; }
     .tp-empty { padding:1rem; color:#64748b; }
     .tp-brief { color:#64748b; font-size:0.8rem; line-height:1.4; margin-top:0.2rem; max-width:24rem; }
     .ees-ws-pill {
@@ -71,6 +87,24 @@
     }
     .ees-ws-pill--virtual { background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; }
     .ees-ws-pill--physical { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
+    .ees-dash-att { display:flex; flex-direction:column; gap:0.55rem; align-items:flex-start; min-width:0; }
+    .ees-dash-att__counts { display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem 0.75rem; }
+    .ees-dash-att__pair { display:inline-flex; align-items:center; gap:0.28rem; font-size:0.84rem; color:#0f172a; }
+    .ees-dash-att__icon { display:inline-flex; flex-shrink:0; }
+    .ees-dash-att__icon--male { color:#2563eb; }
+    .ees-dash-att__icon--female { color:#db2777; }
+    .ees-dash-att__num { font-weight:800; font-variant-numeric:tabular-nums; }
+    .ees-dash-att__total { font-size:0.76rem; font-weight:700; color:#64748b; }
+    .ees-dash-att__doc-btn {
+        display:inline-flex; align-items:center; gap:0.35rem;
+        padding:0.38rem 0.65rem; border-radius:8px; border:1px solid #c7d2fe;
+        background:#eef2ff; color:#3730a3; font-size:0.78rem; font-weight:800;
+        cursor:pointer; font-family:inherit;
+        box-shadow:0 2px 8px rgba(79,70,229,0.1);
+    }
+    .ees-dash-att__doc-btn:hover { background:#e0e7ff; color:#312e81; }
+    .ees-dash-att__doc-icon { display:inline-flex; flex-shrink:0; }
+    .ees-dash-att__no-doc { font-size:0.76rem; color:#94a3b8; font-weight:600; }
 </style>
 @endpush
 
@@ -142,6 +176,14 @@
         </form>
     </div>
 
+    @php
+        $eapEdpAttachmentRoute = match ($currentRole ?? auth()->user()->role) {
+            'state_admin' => 'admin.eap-edp-sessions.attachment',
+            'state_staff' => 'spoc.eap-edp-sessions.attachment',
+            default => 'staff.eap-edp-sessions.attachment',
+        };
+    @endphp
+
     <div class="tp-table-card">
         <table class="tp-table">
             <thead>
@@ -153,7 +195,7 @@
                 <th>Workshop</th>
                 <th>Topic</th>
                 <th>Notes</th>
-                <th>Attendees</th>
+                <th>Attendance</th>
                 <th>Actions</th>
             </tr>
             </thead>
@@ -163,9 +205,6 @@
                     $rowNumber = (!empty($isPaginated) && $rows instanceof \Illuminate\Contracts\Pagination\Paginator)
                         ? ((int) ($rows->firstItem() ?? 1) + $loop->index)
                         : ($loop->iteration);
-                    $attendeeCount = is_array($row->selected_incubatee_ids) && count($row->selected_incubatee_ids) > 0
-                        ? count($row->selected_incubatee_ids)
-                        : count((array) $row->selected_incubatees_snapshot);
                 @endphp
                 <tr>
                     <td>{{ $rowNumber }}</td>
@@ -185,7 +224,12 @@
                             —
                         @endif
                     </td>
-                    <td>{{ number_format($attendeeCount) }}</td>
+                    <td>
+                        @include('staff.eap-edp-sessions.partials.dashboard-attendance-cell', [
+                            'row' => $row,
+                            'attachmentRouteName' => $eapEdpAttachmentRoute,
+                        ])
+                    </td>
                     <td>
                         <div class="tp-row-actions">
                             <a class="tp-btn--view" href="{{ match ($currentRole ?? auth()->user()->role) {
@@ -195,6 +239,16 @@
                             } }}">View</a>
                             @if (auth()->user()->role === 'district_staff' && (int) $row->submitted_by_user_id === (int) auth()->id())
                                 <a class="tp-btn--edit" href="{{ route('staff.eap-edp-sessions.edit', $row) }}">Edit</a>
+                                <form
+                                    class="tp-delete-inline"
+                                    method="post"
+                                    action="{{ route('staff.eap-edp-sessions.destroy', $row) }}"
+                                    onsubmit="return confirm('Delete this EAP/EDP session entry permanently?');"
+                                >
+                                    @csrf
+                                    @method('delete')
+                                    <button type="submit" class="tp-btn--delete">Delete</button>
+                                </form>
                             @endif
                         </div>
                     </td>
@@ -211,5 +265,12 @@
     @if (!empty($isPaginated) && $rows instanceof \Illuminate\Contracts\Pagination\Paginator && $rows->hasPages())
         <div>{{ $rows->links() }}</div>
     @endif
+
+    @include('staff.technical-trainings.partials.attendance-media-preview', [
+        'mediaItems' => [],
+        'attachmentRoute' => $eapEdpAttachmentRoute,
+        'record' => \App\Models\EapEdpSession::make(),
+        'showEmptyMessage' => false,
+    ])
 </div>
 @endsection
