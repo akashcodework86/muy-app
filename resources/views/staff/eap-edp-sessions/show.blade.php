@@ -63,6 +63,11 @@
         'state_staff' => 'spoc.eap-edp-sessions.attachment',
         default => 'staff.eap-edp-sessions.attachment',
     };
+    $photoRoute = match ($currentRole) {
+        'state_admin' => 'admin.eap-edp-sessions.photo',
+        'state_staff' => 'spoc.eap-edp-sessions.photo',
+        default => 'staff.eap-edp-sessions.photo',
+    };
     $m = (int) ($row->attendance_male_count ?? 0);
     $f = (int) ($row->attendance_female_count ?? 0);
     $t = (int) ($row->attendance_total_count ?? ($m + $f));
@@ -148,6 +153,42 @@
     </div>
 
     <div class="tp-show-card">
+        <h3 class="tp-show-card__title">Session photos</h3>
+        @php
+            $sessionPhotos = collect(is_array($row->session_photos_json ?? null) ? $row->session_photos_json : [])
+                ->filter(fn ($p): bool => is_array($p) && (string) ($p['path'] ?? '') !== '')
+                ->values();
+        @endphp
+        @if ($sessionPhotos->isEmpty())
+            <p style="margin:0;color:#64748b;font-size:0.88rem;">No session photos uploaded.</p>
+        @else
+            <div class="ees-photo-existing-grid">
+                @foreach ($sessionPhotos as $idx => $photo)
+                    @php
+                        $photoName = (string) ($photo['original_name'] ?? ('Photo '.($idx + 1)));
+                        $viewQuery = array_filter(['index' => $idx > 0 ? $idx : null, 'inline' => 1]);
+                        $viewUrl = route($photoRoute, $row).'?'.http_build_query($viewQuery);
+                        $dlQuery = $idx > 0 ? ['index' => $idx] : [];
+                        $downloadUrl = route($photoRoute, $row).($dlQuery !== [] ? '?'.http_build_query($dlQuery) : '');
+                    @endphp
+                    <button
+                        type="button"
+                        class="js-tt-media-open"
+                        style="padding:0;border:none;background:none;"
+                        data-view-url="{{ $viewUrl }}"
+                        data-download-url="{{ $downloadUrl }}"
+                        data-media-kind="image"
+                        data-media-name="{{ $photoName }}"
+                        aria-label="View {{ $photoName }}"
+                    >
+                        <img class="ees-photo-existing-thumb" src="{{ $viewUrl }}" alt="{{ $photoName }}" loading="lazy">
+                    </button>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
+    <div class="tp-show-card">
         <h3 class="tp-show-card__title">Attendance sheet (uploaded)</h3>
         @include('staff.technical-trainings.partials.attendance-media-preview', [
             'mediaItems' => (array) $row->attendance_media_json,
@@ -155,5 +196,7 @@
             'record' => $row,
         ])
     </div>
+
+    @include('staff.eap-edp-sessions.partials.photo-upload-scripts')
 </div>
 @endsection

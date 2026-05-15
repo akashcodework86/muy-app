@@ -3,6 +3,8 @@
 @section('title', 'EAP / EDP sessions')
 @section('heading', 'EAP / EDP sessions (combined)')
 
+@include('staff.eap-edp-sessions.partials.photo-upload-scripts')
+
 @push('styles')
 <style>
     .tp-shell { display:flex; flex-direction:column; gap:1.25rem; }
@@ -107,6 +109,15 @@
                         <label for="eesAttendanceTotalDisplay">Total attendance</label>
                         <input id="eesAttendanceTotalDisplay" type="text" class="tp-readonly" value="0" readonly aria-live="polite">
                     </div>
+                </div>
+            </div>
+
+            <div class="tp-section">
+                <div class="tp-field tp-field--full">
+                    <label>Session photos (optional)</label>
+                    <input id="eesSessionPhotosInput" type="file" name="session_photos[]" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple>
+                    <p class="tp-field-hint">Upload multiple photos from the session. JPG, PNG, or WebP, up to 25 photos (10 MB each). Click × on a thumbnail to remove before submitting.</p>
+                    <div id="eesSessionPhotosPreview"></div>
                 </div>
             </div>
 

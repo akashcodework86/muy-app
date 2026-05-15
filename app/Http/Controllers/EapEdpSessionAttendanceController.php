@@ -43,7 +43,10 @@ class EapEdpSessionAttendanceController extends Controller
                 ->withErrors(['topic' => 'EAP/EDP sessions table is missing. Please run migrations first.']);
         }
 
-        if ($uploadErrors = $this->attendanceMediaUploadErrors($request)) {
+        if ($uploadErrors = array_merge(
+            $this->attendanceMediaUploadErrors($request),
+            $this->sessionPhotosUploadErrors($request)
+        )) {
             return back()->withInput()->withErrors($uploadErrors);
         }
 
@@ -54,8 +57,9 @@ class EapEdpSessionAttendanceController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
             'attendance_male_count' => ['required', 'integer', 'min:0'],
             'attendance_female_count' => ['required', 'integer', 'min:0'],
-        ], $this->attendanceMediaValidationRules(), [
+        ], $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(), [
             'attendance_media' => ['required', 'array', 'min:1', 'max:25'],
+            'session_photos' => ['nullable', 'array', 'max:25'],
         ]));
 
         $districtId = (int) ($user->district_id ?: 0);
@@ -72,7 +76,9 @@ class EapEdpSessionAttendanceController extends Controller
                 ->withErrors(['attendance_media' => 'Upload at least one attendance sheet file.']);
         }
 
-        EapEdpSession::query()->create([
+        $photoItems = $this->storeUploadedPhotos($this->sessionPhotoUploads($request));
+
+        $sessionPayload = [
             'submitted_by_user_id' => (int) $user->id,
             'submitted_by_name' => (string) $user->name,
             'event_date' => $validated['session_date'],
@@ -88,7 +94,13 @@ class EapEdpSessionAttendanceController extends Controller
             'attendance_media_json' => $mediaItems,
             'selected_incubatee_ids' => [],
             'selected_incubatees_snapshot' => [],
-        ]);
+        ];
+
+        if (Schema::hasColumn('eap_edp_sessions', 'session_photos_json')) {
+            $sessionPayload['session_photos_json'] = $photoItems;
+        }
+
+        EapEdpSession::query()->create($sessionPayload);
 
         return redirect()
             ->route('staff.eap-edp-sessions.dashboard')
@@ -255,7 +267,10 @@ class EapEdpSessionAttendanceController extends Controller
         $user = $request->user();
         $this->assertCanEdit($eapEdpSession, (int) $user->id);
 
-        if ($uploadErrors = $this->attendanceMediaUploadErrors($request)) {
+        if ($uploadErrors = array_merge(
+            $this->attendanceMediaUploadErrors($request),
+            $this->sessionPhotosUploadErrors($request)
+        )) {
             return back()->withInput()->withErrors($uploadErrors);
         }
 
@@ -268,8 +283,11 @@ class EapEdpSessionAttendanceController extends Controller
             'attendance_female_count' => ['required', 'integer', 'min:0'],
             'remove_media_indices' => ['nullable', 'array'],
             'remove_media_indices.*' => ['integer', 'min:0'],
-        ], $this->attendanceMediaValidationRules(), [
+            'remove_photo_indices' => ['nullable', 'array'],
+            'remove_photo_indices.*' => ['integer', 'min:0'],
+        ], $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(), [
             'attendance_media' => ['nullable', 'array', 'max:25'],
+            'session_photos' => ['nullable', 'array', 'max:25'],
         ]));
 
         $male = (int) $validated['attendance_male_count'];
@@ -310,6 +328,30 @@ class EapEdpSessionAttendanceController extends Controller
             ->values()
             ->all();
 
+        $existingPhotos = collect((array) $eapEdpSession->session_photos_json)
+            ->filter(fn ($item): bool => is_array($item))
+            ->values();
+        $removePhotoIndices = collect($request->input('remove_photo_indices', []))
+            ->map(fn ($index): int => (int) $index)
+            ->unique()
+            ->values();
+        $keptPhotos = $existingPhotos
+            ->filter(fn ($item, int $index): bool => ! $removePhotoIndices->contains($index))
+            ->values();
+        $removedPhotos = $existingPhotos
+            ->filter(fn ($item, int $index): bool => $removePhotoIndices->contains($index))
+            ->values();
+        $newPhotos = $this->sessionPhotoUploads($request);
+        $photoCount = $keptPhotos->count() + count($newPhotos);
+        abort_if($photoCount > 25, 422, 'You can upload up to 25 session photos per entry.');
+        $this->deleteMediaFiles($removedPhotos->all());
+        if (Schema::hasColumn('eap_edp_sessions', 'session_photos_json')) {
+            $eapEdpSession->session_photos_json = $keptPhotos
+                ->merge($this->storeUploadedPhotos($newPhotos))
+                ->values()
+                ->all();
+        }
+
         $eapEdpSession->event_date = $validated['session_date'];
         $eapEdpSession->program_type = self::PROGRAM_TYPE;
         $eapEdpSession->topic = trim((string) $validated['topic']);
@@ -331,6 +373,7 @@ class EapEdpSessionAttendanceController extends Controller
         $this->assertCanEdit($eapEdpSession, (int) $user->id);
 
         $this->deleteMediaFiles((array) $eapEdpSession->attendance_media_json);
+        $this->deleteMediaFiles((array) $eapEdpSession->session_photos_json);
         $eapEdpSession->delete();
 
         return redirect()
@@ -362,6 +405,119 @@ class EapEdpSessionAttendanceController extends Controller
         }
 
         return Storage::download($path, $filename);
+    }
+
+    public function downloadPhoto(Request $request, EapEdpSession $eapEdpSession): StreamedResponse|BinaryFileResponse
+    {
+        $this->assertCanAccessRecord($request->user()->role, (int) ($request->user()->district_id ?: 0), $eapEdpSession);
+
+        $index = max(0, (int) $request->query('index', 0));
+        $photo = collect((array) $eapEdpSession->session_photos_json)->get($index);
+        abort_if(! is_array($photo), 404);
+
+        $path = (string) ($photo['path'] ?? '');
+        abort_if($path === '', 404);
+        abort_unless(Storage::exists($path), 404);
+
+        $filename = (string) ($photo['original_name'] ?? basename($path));
+        $mime = (string) ($photo['mime'] ?? 'image/jpeg');
+
+        if ($request->boolean('inline')) {
+            return response()->file(Storage::path($path), [
+                'Content-Type' => $mime !== '' ? $mime : 'image/jpeg',
+                'Content-Disposition' => 'inline; filename="'.str_replace('"', '', $filename).'"',
+            ]);
+        }
+
+        return Storage::download($path, $filename);
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function sessionPhotosValidationRules(): array
+    {
+        return [
+            'session_photos' => ['nullable', 'array', 'max:25'],
+            'session_photos.*' => ['nullable', 'file', 'max:10240'],
+        ];
+    }
+
+    /**
+     * @return list<UploadedFile>
+     */
+    private function sessionPhotoUploads(Request $request): array
+    {
+        $files = $request->file('session_photos');
+        if ($files === null) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            is_array($files) ? $files : [$files],
+            fn ($file): bool => $file instanceof UploadedFile && $file->isValid()
+        ));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function sessionPhotosUploadErrors(Request $request): array
+    {
+        $errors = [];
+
+        foreach ($this->sessionPhotoUploads($request) as $index => $file) {
+            if (! $file instanceof UploadedFile || $file->isValid()) {
+                continue;
+            }
+
+            $errors['session_photos.'.$index] = $this->describeFailedUpload($file);
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param  list<UploadedFile|null>  $files
+     * @return list<array<string, mixed>>
+     */
+    private function storeUploadedPhotos(array $files): array
+    {
+        $photoItems = [];
+
+        foreach ($files as $photo) {
+            if (! $photo instanceof UploadedFile || ! $photo->isValid()) {
+                continue;
+            }
+
+            if (! $this->isAllowedSessionPhoto($photo)) {
+                continue;
+            }
+
+            $photoPath = $photo->store('eap-edp-session-photos');
+            $mime = (string) ($photo->getClientMimeType() ?? 'image/jpeg');
+            $photoItems[] = [
+                'path' => $photoPath,
+                'original_name' => (string) $photo->getClientOriginalName(),
+                'mime' => $mime,
+                'size_bytes' => (int) ($photo->getSize() ?? 0),
+                'type' => 'image',
+            ];
+        }
+
+        return $photoItems;
+    }
+
+    private function isAllowedSessionPhoto(UploadedFile $photo): bool
+    {
+        $mime = strtolower((string) $photo->getMimeType());
+        if (str_starts_with($mime, 'image/')) {
+            return true;
+        }
+
+        $extension = strtolower((string) $photo->getClientOriginalExtension());
+
+        return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'heic', 'heif'], true);
     }
 
     private function canServeInlineAttendanceMedia(string $mime, string $filename): bool
@@ -476,6 +632,7 @@ class EapEdpSessionAttendanceController extends Controller
             'Workshop mode',
             'Notes',
             'Attendance sheet files',
+            'Session photos',
             'Male count',
             'Female count',
             'Total attendance',
@@ -508,6 +665,7 @@ class EapEdpSessionAttendanceController extends Controller
                     (string) $entry->formatted_workshop_mode,
                     (string) ($entry->notes ?? ''),
                     (string) count((array) $entry->attendance_media_json),
+                    (string) count((array) $entry->session_photos_json),
                     (string) (int) ($entry->attendance_male_count ?? 0),
                     (string) (int) ($entry->attendance_female_count ?? 0),
                     (string) (int) ($entry->attendance_total_count ?? 0),

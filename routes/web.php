@@ -250,6 +250,8 @@ Route::middleware(['auth', 'active'])->group(function () {
                 ->name('eap-edp-sessions.destroy');
             Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
                 ->name('eap-edp-sessions.attachment');
+            Route::get('eap-edp-sessions/{eapEdpSession}/photo', [EapEdpSessionAttendanceController::class, 'downloadPhoto'])
+                ->name('eap-edp-sessions.photo');
         });
 
         Route::middleware('staff_phase3_attendance_nav:district_workshop')->group(function (): void {
@@ -330,6 +332,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
         Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
             ->name('eap-edp-sessions.attachment');
+        Route::get('eap-edp-sessions/{eapEdpSession}/photo', [EapEdpSessionAttendanceController::class, 'downloadPhoto'])
+            ->name('eap-edp-sessions.photo');
         Route::get('district-workshop-sessions/dashboard', [DistrictWorkshopSessionAttendanceController::class, 'dashboard'])->name('district-workshop-sessions.dashboard');
         Route::get('district-workshop-sessions/export', [DistrictWorkshopSessionAttendanceController::class, 'export'])->name('district-workshop-sessions.export');
         Route::get('district-workshop-sessions/{districtWorkshopSession}', [DistrictWorkshopSessionAttendanceController::class, 'show'])->name('district-workshop-sessions.show');
@@ -503,6 +507,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
         Route::get('eap-edp-sessions/{eapEdpSession}/attachment', [EapEdpSessionAttendanceController::class, 'downloadAttachment'])
             ->name('eap-edp-sessions.attachment');
+        Route::get('eap-edp-sessions/{eapEdpSession}/photo', [EapEdpSessionAttendanceController::class, 'downloadPhoto'])
+            ->name('eap-edp-sessions.photo');
         Route::get('district-workshop-sessions/dashboard', [DistrictWorkshopSessionAttendanceController::class, 'dashboard'])->name('district-workshop-sessions.dashboard');
         Route::get('district-workshop-sessions/export', [DistrictWorkshopSessionAttendanceController::class, 'export'])->name('district-workshop-sessions.export');
         Route::get('district-workshop-sessions/{districtWorkshopSession}', [DistrictWorkshopSessionAttendanceController::class, 'show'])->name('district-workshop-sessions.show');

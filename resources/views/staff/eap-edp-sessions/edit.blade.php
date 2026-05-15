@@ -3,6 +3,8 @@
 @section('title', 'Edit EAP / EDP session')
 @section('heading', 'Edit EAP / EDP session')
 
+@include('staff.eap-edp-sessions.partials.photo-upload-scripts')
+
 @push('styles')
 <style>
     .tp-shell { display:flex; flex-direction:column; gap:1.25rem; }
@@ -107,6 +109,21 @@
                         <label for="eesAttendanceTotalDisplay">Total attendance</label>
                         <input id="eesAttendanceTotalDisplay" type="text" class="tp-readonly" value="{{ (int) ($row->attendance_male_count ?? 0) + (int) ($row->attendance_female_count ?? 0) }}" readonly aria-live="polite">
                     </div>
+                </div>
+            </div>
+
+            <div class="tp-section">
+                <h4 class="tp-section__title">Session photos (optional)</h4>
+                <div class="tp-field tp-field--full">
+                    <label>Add more photos</label>
+                    <input id="eesSessionPhotosInput" type="file" name="session_photos[]" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple>
+                    <p class="tp-field-hint">JPG, PNG, or WebP, up to 25 photos total. Click × to remove existing or new photos before saving.</p>
+                    @include('staff.eap-edp-sessions.partials.edit-existing-photos', [
+                        'photoItems' => (array) ($row->session_photos_json ?? []),
+                        'photoRoute' => 'staff.eap-edp-sessions.photo',
+                        'record' => $row,
+                    ])
+                    <div id="eesSessionPhotosPreview"></div>
                 </div>
             </div>
 

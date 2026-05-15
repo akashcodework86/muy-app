@@ -22,6 +22,7 @@ class EapEdpSession extends Model
         'attendance_total_count',
         'notes',
         'attendance_media_json',
+        'session_photos_json',
         'selected_incubatee_ids',
         'selected_incubatees_snapshot',
     ];
@@ -34,6 +35,7 @@ class EapEdpSession extends Model
             'attendance_female_count' => 'integer',
             'attendance_total_count' => 'integer',
             'attendance_media_json' => 'array',
+            'session_photos_json' => 'array',
             'selected_incubatee_ids' => 'array',
             'selected_incubatees_snapshot' => 'array',
         ];

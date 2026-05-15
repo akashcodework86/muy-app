@@ -182,6 +182,11 @@
             'state_staff' => 'spoc.eap-edp-sessions.attachment',
             default => 'staff.eap-edp-sessions.attachment',
         };
+        $eapEdpPhotoRoute = match ($currentRole ?? auth()->user()->role) {
+            'state_admin' => 'admin.eap-edp-sessions.photo',
+            'state_staff' => 'spoc.eap-edp-sessions.photo',
+            default => 'staff.eap-edp-sessions.photo',
+        };
     @endphp
 
     <div class="tp-table-card">
@@ -196,6 +201,7 @@
                 <th>Topic</th>
                 <th>Notes</th>
                 <th>Attendance</th>
+                <th>Images</th>
                 <th>Actions</th>
             </tr>
             </thead>
@@ -231,6 +237,12 @@
                         ])
                     </td>
                     <td>
+                        @include('staff.eap-edp-sessions.partials.dashboard-photos-cell', [
+                            'row' => $row,
+                            'photoRouteName' => $eapEdpPhotoRoute,
+                        ])
+                    </td>
+                    <td>
                         <div class="tp-row-actions">
                             <a class="tp-btn--view" href="{{ match ($currentRole ?? auth()->user()->role) {
                                 'state_admin' => route('admin.eap-edp-sessions.show', $row),
@@ -255,7 +267,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="tp-empty">No entries found.</td>
+                    <td colspan="10" class="tp-empty">No entries found.</td>
                 </tr>
             @endforelse
             </tbody>
@@ -266,6 +278,7 @@
         <div>{{ $rows->links() }}</div>
     @endif
 
+    @include('staff.eap-edp-sessions.partials.photo-upload-scripts')
     @include('staff.technical-trainings.partials.attendance-media-preview', [
         'mediaItems' => [],
         'attachmentRoute' => $eapEdpAttachmentRoute,
