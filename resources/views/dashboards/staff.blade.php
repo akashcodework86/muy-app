@@ -3145,7 +3145,7 @@
             </a>
             <a href="{{ route('staff.attendance.index') }}" class="staff-portal-link">
                 <i class="fa-solid fa-calendar-check" aria-hidden="true"></i>
-                Field attendance
+                Field report
             </a>
             <a href="{{ route('staff.applications') }}" class="staff-portal-link">
                 <i class="fa-solid fa-file-lines" aria-hidden="true"></i>

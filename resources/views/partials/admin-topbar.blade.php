@@ -116,6 +116,19 @@
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents'], true);
+    $staffFieldWorkNavKeys = [
+        'staff-attendance', 'staff-attendance-view',
+        'staff-training-packages-submit', 'staff-training-packages-dashboard',
+        'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard',
+        'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard',
+        'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard',
+    ];
+    $staffFieldWorkActive = in_array($activeNav, $staffFieldWorkNavKeys, true);
+    $showStaffFieldWorkNav = $isFieldCoordinator
+        || $staffNavTrainingPackage
+        || $staffNavTechnicalTraining
+        || $staffNavEapEdp
+        || $staffNavDistrictWorkshop;
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -221,7 +234,7 @@
                         {!! $i('users') !!}<span>Team directory</span>
                     </a>
                     <a href="{{ route('admin.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'attendance') is-active @endif" role="menuitem">
-                        {!! $i('calendar') !!}<span>Field attendance</span>
+                        {!! $i('calendar') !!}<span>Field reports</span>
                     </a>
                 </div>
             </details>
@@ -358,86 +371,8 @@
             <a href="{{ route('staff.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-batches') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
             </a>
-                <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-attendance','staff-attendance-view'], true)) is-active @endif">
-                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">Attendance</span>
-                </summary>
-                <div class="admin-topbar__dropdown-panel" role="menu">
-                    <p class="admin-topbar__dropdown-kicker" role="presentation">Field attendance</p>
-                    @if ($isFieldCoordinator)
-                        <a href="{{ route('staff.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance') is-active @endif" role="menuitem">
-                            {!! $i('doc') !!}<span>Submit attendance</span>
-                        </a>
-                    @endif
-                    <a href="{{ route('staff.attendance.view') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance-view') is-active @endif" role="menuitem">
-                        {!! $i('bars') !!}<span>View attendance</span>
-                    </a>
-                </div>
-            </details>
-            @if ($staffNavTrainingPackage)
-            <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-training-packages-submit','staff-training-packages-dashboard'], true)) is-active @endif">
-                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">Training Package Attendance</span>
-                </summary>
-                <div class="admin-topbar__dropdown-panel" role="menu">
-                    <p class="admin-topbar__dropdown-kicker" role="presentation">Training package attendance</p>
-                    <a href="{{ route('staff.training-packages.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-training-packages-submit') is-active @endif" role="menuitem">
-                        {!! $i('doc') !!}<span>Submission form</span>
-                    </a>
-                    <a href="{{ route('staff.training-packages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-training-packages-dashboard') is-active @endif" role="menuitem">
-                        {!! $i('bars') !!}<span>View dashboard</span>
-                    </a>
-                </div>
-            </details>
-            @endif
-            @if ($staffNavTechnicalTraining)
-            <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-technical-trainings-submit','staff-technical-trainings-dashboard'], true)) is-active @endif">
-                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">Technical training to incubatees</span>
-                </summary>
-                <div class="admin-topbar__dropdown-panel" role="menu">
-                    <p class="admin-topbar__dropdown-kicker" role="presentation">Technical training to incubatees</p>
-                    <a href="{{ route('staff.technical-trainings.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-technical-trainings-submit') is-active @endif" role="menuitem">
-                        {!! $i('doc') !!}<span>Submission form</span>
-                    </a>
-                    <a href="{{ route('staff.technical-trainings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-technical-trainings-dashboard') is-active @endif" role="menuitem">
-                        {!! $i('bars') !!}<span>View dashboard</span>
-                    </a>
-                </div>
-            </details>
-            @endif
-            @if ($staffNavEapEdp)
-            <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-eap-edp-sessions-submit','staff-eap-edp-sessions-dashboard'], true)) is-active @endif">
-                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">EAP / EDP sessions</span>
-                </summary>
-                <div class="admin-topbar__dropdown-panel" role="menu">
-                    <p class="admin-topbar__dropdown-kicker" role="presentation">EAP / EDP sessions (combined)</p>
-                    <a href="{{ route('staff.eap-edp-sessions.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-eap-edp-sessions-submit') is-active @endif" role="menuitem">
-                        {!! $i('doc') !!}<span>Submission form</span>
-                    </a>
-                    <a href="{{ route('staff.eap-edp-sessions.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-eap-edp-sessions-dashboard') is-active @endif" role="menuitem">
-                        {!! $i('bars') !!}<span>View dashboard</span>
-                    </a>
-                </div>
-            </details>
-            @endif
-            @if ($staffNavDistrictWorkshop)
-            <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-district-workshop-sessions-submit','staff-district-workshop-sessions-dashboard'], true)) is-active @endif">
-                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">District level workshop</span>
-                </summary>
-                <div class="admin-topbar__dropdown-panel" role="menu">
-                    <p class="admin-topbar__dropdown-kicker" role="presentation">District level workshop attendance</p>
-                    <a href="{{ route('staff.district-workshop-sessions.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-district-workshop-sessions-submit') is-active @endif" role="menuitem">
-                        {!! $i('doc') !!}<span>Submission form</span>
-                    </a>
-                    <a href="{{ route('staff.district-workshop-sessions.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-district-workshop-sessions-dashboard') is-active @endif" role="menuitem">
-                        {!! $i('bars') !!}<span>View dashboard</span>
-                    </a>
-                </div>
-            </details>
-            @endif
+            @include('partials.staff-field-work-nav')
+
             <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase2-data') is-active @endif">
                 {!! $i('pie') !!}<span class="admin-topbar__link-text">FY 2025-26 Data</span>
             </a>

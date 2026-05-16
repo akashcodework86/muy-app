@@ -201,6 +201,9 @@
         margin-top: 0;
         transform: rotate(225deg);
     }
+    .admin-topbar__dropdown-panel--wide {
+        min-width: 16.5rem;
+    }
     .admin-topbar__dropdown-panel {
         position: absolute;
         left: 0;
