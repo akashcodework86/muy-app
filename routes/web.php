@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\OnboardedApplicantController;
 use App\Http\Controllers\Admin\PendingActionsController;
 use App\Http\Controllers\Admin\Phase3ServiceCasesController;
+use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceModuleSettingsController;
@@ -98,6 +99,10 @@ Route::post('/cfa/public', [PublicCfaWalkInController::class, 'store'])
 /** DANGER: runs programme:wipe-structure. ?key= must match PROGRAMME_WIPE_SECRET (.env). Optional &app_settings=1. Remove route + ProgrammeStructureWipeController after one-time use. No throttle — key is the gate; avoids 429 during setup retries. */
 Route::get('programme-wipe-run', [ProgrammeStructureWipeController::class, 'execute'])
     ->name('programme-wipe-run');
+
+/** One-shot: runs migrate --force. ?key= must match MIGRATION_RUN_SECRET (.env). Remove after use. */
+Route::get('migration-run', [MigrationRunController::class, 'execute'])
+    ->name('migration-run');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'create'])->name('login');
