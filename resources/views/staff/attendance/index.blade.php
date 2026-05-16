@@ -130,6 +130,26 @@
                         </select>
                         <span id="attGpHint" style="font-size:0.72rem;color:var(--att-muted);"></span>
                     </div>
+                    <div class="att-field">
+                        <label>Area / village <span class="att-req">*</span></label>
+                        <input type="text" name="area" value="{{ old('area') }}" required class="att-input" placeholder="Village or area name visited">
+                    </div>
+                </div>
+
+                <p class="att-section-label" style="margin-top:1.4rem;">Participants</p>
+                <div class="att-grid">
+                    <div class="att-field">
+                        <label>Male <span class="att-req">*</span></label>
+                        <input type="number" name="participants_male_count" id="attMaleCount" value="{{ old('participants_male_count', 0) }}" min="0" required class="att-input">
+                    </div>
+                    <div class="att-field">
+                        <label>Female <span class="att-req">*</span></label>
+                        <input type="number" name="participants_female_count" id="attFemaleCount" value="{{ old('participants_female_count', 0) }}" min="0" required class="att-input">
+                    </div>
+                    <div class="att-field">
+                        <label>Total participants</label>
+                        <input type="number" id="attTotalParticipants" value="{{ (int) old('participants_male_count', 0) + (int) old('participants_female_count', 0) }}" readonly class="att-input att-input--readonly">
+                    </div>
                 </div>
 
                 <div class="att-field" style="margin-top:1.2rem;">
@@ -168,6 +188,8 @@
                         <th>District</th>
                         <th>Block</th>
                         <th>Gram panchayat</th>
+                        <th>Area / village</th>
+                        <th>Participants</th>
                         <th>Photos</th>
                         <th>Remark</th>
                     </tr>
@@ -180,6 +202,15 @@
                             <td>{{ $row->district?->name ?? '—' }}</td>
                             <td>{{ $row->block ?: '—' }}</td>
                             <td>{{ $row->gramPanchayat?->name ?? ($row->isLegacyNumericReport() ? '— (legacy)' : '—') }}</td>
+                            <td>{{ $row->area ?: '—' }}</td>
+                            <td style="font-size:0.82rem;">
+                                @if ((int) $row->participants_total > 0 || (int) $row->participants_male_count > 0 || (int) $row->participants_female_count > 0)
+                                    <strong>{{ number_format((int) $row->participants_total) }}</strong> total<br>
+                                    <span style="color:var(--att-muted);">M {{ number_format((int) $row->participants_male_count) }} · F {{ number_format((int) $row->participants_female_count) }}</span>
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td>
                                 @if ($media !== [])
                                     <span class="att-photo-count">{{ count($media) }} photo(s)</span>
@@ -199,7 +230,7 @@
                             <td><span class="att-remark">{{ $row->remark ?: '—' }}</span></td>
                         </tr>
                     @empty
-                        <tr><td colspan="6"><div class="att-empty">No submissions yet.</div></td></tr>
+                        <tr><td colspan="8"><div class="att-empty">No submissions yet.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -267,6 +298,18 @@
     gpSearch?.addEventListener('input', () => renderGpOptions(allItems));
 
     if (blockSelect.value) loadGramPanchayats(blockSelect.value);
+
+    const maleInput = document.getElementById('attMaleCount');
+    const femaleInput = document.getElementById('attFemaleCount');
+    const totalInput = document.getElementById('attTotalParticipants');
+    function updateParticipantTotal() {
+        if (!totalInput) return;
+        const male = parseInt(maleInput?.value || '0', 10) || 0;
+        const female = parseInt(femaleInput?.value || '0', 10) || 0;
+        totalInput.value = String(male + female);
+    }
+    maleInput?.addEventListener('input', updateParticipantTotal);
+    femaleInput?.addEventListener('input', updateParticipantTotal);
 })();
 </script>
 @endpush

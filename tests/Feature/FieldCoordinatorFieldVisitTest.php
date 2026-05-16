@@ -45,6 +45,9 @@ class FieldCoordinatorFieldVisitTest extends TestCase
             'visit_date' => '2026-05-16',
             'district_block_id' => $block->id,
             'gram_panchayat_id' => $gp->id,
+            'area' => 'Supai village',
+            'participants_male_count' => 12,
+            'participants_female_count' => 18,
             'remark' => 'Chaupal meeting',
             'visit_media' => [
                 UploadedFile::fake()->create('visit-1.jpg', 100, 'image/jpeg'),
@@ -57,6 +60,10 @@ class FieldCoordinatorFieldVisitTest extends TestCase
         $report = FieldCoordinatorAttendanceReport::query()->firstOrFail();
         $this->assertSame('Bhaisiya Chhana', $report->block);
         $this->assertSame($gp->id, $report->gram_panchayat_id);
+        $this->assertSame('Supai village', $report->area);
+        $this->assertSame(30, $report->participants_total);
+        $this->assertSame(12, $report->participants_male_count);
+        $this->assertSame(18, $report->participants_female_count);
         $this->assertSame('Chaupal meeting', $report->remark);
         $this->assertCount(2, $report->visitMediaItems());
         Storage::disk('local')->assertExists((string) $report->visit_media_json[0]['path']);

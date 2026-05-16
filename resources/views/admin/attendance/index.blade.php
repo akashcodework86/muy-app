@@ -346,6 +346,8 @@
                         <th>District</th>
                         <th>Block</th>
                         <th>Gram panchayat</th>
+                        <th>Area / village</th>
+                        <th>Participants</th>
                         <th>Photos</th>
                         <th>Remark</th>
                     </tr>
@@ -359,6 +361,15 @@
                             <td>{{ $row->district?->name ?? '—' }}</td>
                             <td>{{ $row->block ?: '—' }}</td>
                             <td>{{ $row->gramPanchayat?->name ?? '—' }}</td>
+                            <td>{{ $row->area ?: '—' }}</td>
+                            <td style="font-size:0.82rem;">
+                                @if ((int) $row->participants_total > 0)
+                                    <strong>{{ number_format((int) $row->participants_total) }}</strong><br>
+                                    <span style="color:var(--adatt-muted);">M {{ number_format((int) $row->participants_male_count) }} · F {{ number_format((int) $row->participants_female_count) }}</span>
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td>
                                 @if ($media !== [])
                                     {{ count($media) }} photo(s)
@@ -374,7 +385,7 @@
                             <td style="font-size:0.82rem;color:var(--adatt-muted);max-width:14rem;">{{ $row->remark ?: '—' }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="7"><div class="adatt-empty">No submissions found.</div></td></tr>
+                        <tr><td colspan="9"><div class="adatt-empty">No submissions found.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>

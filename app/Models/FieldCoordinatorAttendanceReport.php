@@ -22,6 +22,8 @@ class FieldCoordinatorAttendanceReport extends Model
         'villages_visited_total',
         'villages_covered',
         'participants_total',
+        'participants_male_count',
+        'participants_female_count',
         'cfas_filled_total',
         'outreach_programmes_total',
         'attachment_path',
