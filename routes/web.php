@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\DocumentRepositoryController;
 use App\Http\Controllers\Admin\FieldCoordinatorAttendanceAdminController;
+use App\Http\Controllers\Admin\GramPanchayatImportController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
@@ -490,6 +491,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('attendance', [FieldCoordinatorAttendanceAdminController::class, 'index'])->name('attendance.index');
         Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceAdminController::class, 'downloadAttachment'])
             ->name('attendance.attachment');
+        Route::get('gram-panchayats/import', [GramPanchayatImportController::class, 'show'])->name('gram-panchayats.import');
+        Route::post('gram-panchayats/import', [GramPanchayatImportController::class, 'store'])
+            ->middleware('throttle:5,1')
+            ->name('gram-panchayats.import.store');
         Route::get('training-packages/dashboard', [TrainingPackageAttendanceController::class, 'dashboard'])->name('training-packages.dashboard');
         Route::get('training-packages/export', [TrainingPackageAttendanceController::class, 'export'])->name('training-packages.export');
         Route::get('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'show'])->name('training-packages.show');

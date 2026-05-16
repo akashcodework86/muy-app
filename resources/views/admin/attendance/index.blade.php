@@ -270,7 +270,12 @@
 
     {{-- Filter card --}}
     <div class="adatt-filter-card">
-        <h3><i class="fa-solid fa-filter" style="margin-right:0.35rem;"></i>Filter records</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+            <h3 style="margin:0;"><i class="fa-solid fa-filter" style="margin-right:0.35rem;"></i>Filter records</h3>
+            <a href="{{ route('admin.gram-panchayats.import') }}" class="adatt-btn" style="text-decoration:none;font-size:0.8rem;">
+                <i class="fa-solid fa-file-import"></i> Import gram panchayats CSV
+            </a>
+        </div>
         <form method="get" action="{{ route('admin.attendance.index') }}">
             <div class="adatt-filter-row">
 
