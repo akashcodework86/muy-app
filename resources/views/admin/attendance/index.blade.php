@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Field Coordinator Attendance')
-@section('heading', 'Field Coordinator Attendance')
+@section('title', 'Field visit photos')
+@section('heading', 'Field visit photos')
 
 @push('styles')
 <style>
@@ -275,7 +275,7 @@
             <div class="adatt-filter-row">
 
                 <div class="adatt-filter-field" style="max-width:280px;">
-                    <label>Search (area, block, name)</label>
+                    <label>Search (name, block, GP, remark)</label>
                     <input type="search" name="q" value="{{ $searchQuery ?? '' }}"
                         placeholder="Search…" class="adatt-filter-input">
                 </div>
@@ -316,49 +316,20 @@
         </form>
     </div>
 
-    {{-- Summary chips --}}
-    @php
-        $totalReports      = $reports->total();
-        $totalParticipants = $reports->getCollection()->sum('participants_total');
-        $totalCfas         = $reports->getCollection()->sum('cfas_filled_total');
-        $totalOutreach     = $reports->getCollection()->sum('outreach_programmes_total');
-    @endphp
     <div class="adatt-chips">
         <div class="adatt-chip">
-            <div class="adatt-chip__icon adatt-chip__icon--indigo"><i class="fa-solid fa-calendar-check"></i></div>
+            <div class="adatt-chip__icon adatt-chip__icon--indigo"><i class="fa-solid fa-camera"></i></div>
             <div class="adatt-chip__body">
-                <div class="adatt-chip__label">Total reports</div>
-                <div class="adatt-chip__value">{{ number_format($totalReports) }}</div>
-            </div>
-        </div>
-        <div class="adatt-chip">
-            <div class="adatt-chip__icon adatt-chip__icon--teal"><i class="fa-solid fa-users"></i></div>
-            <div class="adatt-chip__body">
-                <div class="adatt-chip__label">Participants (page)</div>
-                <div class="adatt-chip__value">{{ number_format($totalParticipants) }}</div>
-            </div>
-        </div>
-        <div class="adatt-chip">
-            <div class="adatt-chip__icon adatt-chip__icon--amber"><i class="fa-solid fa-file-pen"></i></div>
-            <div class="adatt-chip__body">
-                <div class="adatt-chip__label">CFAs filled (page)</div>
-                <div class="adatt-chip__value">{{ number_format($totalCfas) }}</div>
-            </div>
-        </div>
-        <div class="adatt-chip">
-            <div class="adatt-chip__icon adatt-chip__icon--rose"><i class="fa-solid fa-bullhorn"></i></div>
-            <div class="adatt-chip__body">
-                <div class="adatt-chip__label">Outreach (page)</div>
-                <div class="adatt-chip__value">{{ number_format($totalOutreach) }}</div>
+                <div class="adatt-chip__label">Total submissions</div>
+                <div class="adatt-chip__value">{{ number_format($reports->total()) }}</div>
             </div>
         </div>
     </div>
 
-    {{-- Table card --}}
     <div class="adatt-table-card">
         <div class="adatt-table-head">
             <div class="adatt-table-head-icon"><i class="fa-solid fa-table-list"></i></div>
-            <h3>Attendance records</h3>
+            <h3>Field visit submissions</h3>
             <span class="adatt-count">{{ number_format($reports->total()) }} total</span>
         </div>
         <div style="overflow-x:auto;">
@@ -367,147 +338,43 @@
                     <tr>
                         <th>Coordinator</th>
                         <th>Visit date</th>
-                        <th>Entry date</th>
-                        <th>Area / Block / District</th>
-                        <th>Villages covered</th>
-                        <th>Participants</th>
-                        <th>CFAs filled</th>
-                        <th>Outreach</th>
-                        <th>CFA status</th>
-                        <th>Doc</th>
+                        <th>District</th>
+                        <th>Block</th>
+                        <th>Gram panchayat</th>
+                        <th>Photos</th>
+                        <th>Remark</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($reports as $row)
-                        @php
-                            $mapKey   = $row->field_coordinator_user_id.'_'.$row->visit_date?->format('Y-m-d');
-                            $cfaCount = (int) ($cfaMap[$mapKey] ?? 0);
-                            $reported = (int) $row->cfas_filled_total;
-                        @endphp
+                        @php $media = $row->visitMediaItems(); @endphp
                         <tr>
-                            {{-- Coordinator --}}
+                            <td><div class="adatt-coord-name">{{ $row->field_coordinator_name }}</div></td>
+                            <td><span class="adatt-date-badge">{{ $row->visit_date?->format('d M Y') }}</span></td>
+                            <td>{{ $row->district?->name ?? '—' }}</td>
+                            <td>{{ $row->block ?: '—' }}</td>
+                            <td>{{ $row->gramPanchayat?->name ?? '—' }}</td>
                             <td>
-                                <div class="adatt-coord-name">{{ $row->field_coordinator_name }}</div>
-                                @if ($row->district?->name)
-                                    <div><span class="adatt-coord-district">
-                                        <i class="fa-solid fa-location-dot" style="font-size:0.6rem;"></i>
-                                        {{ $row->district->name }}
-                                    </span></div>
-                                @endif
-                                <div class="adatt-coord-meta">ID {{ $row->field_coordinator_user_id }}</div>
-                            </td>
-
-                            {{-- Visit date --}}
-                            <td>
-                                <span class="adatt-date-badge">
-                                    {{ $row->visit_date?->format('d M Y') }}
-                                </span>
-                            </td>
-
-                            {{-- Entry date --}}
-                            <td style="color:var(--adatt-muted);font-size:0.8rem;">
-                                {{ $row->entry_date?->format('d M Y') }}
-                            </td>
-
-                            {{-- Location --}}
-                            <td>
-                                @if($row->area)
-                                    <div class="adatt-loc-area">{{ $row->area }}</div>
-                                @endif
-                                @if($row->block)
-                                    <div class="adatt-loc-block">{{ $row->block }}</div>
-                                @endif
-                                @if($row->district?->name)
-                                    <div class="adatt-loc-dist">
-                                        <i class="fa-solid fa-building" style="font-size:0.6rem;"></i>
-                                        {{ $row->district->name }}
-                                    </div>
-                                @endif
-                                @if(!$row->area && !$row->block && !$row->district?->name)
-                                    <span style="color:var(--adatt-muted);">—</span>
-                                @endif
-                            </td>
-
-                            {{-- Villages --}}
-                            <td>
-                                <div class="adatt-village-count">
-                                    {{ number_format((int)$row->villages_visited_total) }} visited
-                                </div>
-                                @if(is_array($row->villages_covered) && count($row->villages_covered))
-                                    <div class="adatt-village-tags">
-                                        @foreach($row->villages_covered as $v)
-                                            <span class="adatt-village-tag">{{ $v }}</span>
-                                        @endforeach
-                                    </div>
-                                @endif
-                            </td>
-
-                            {{-- Stats --}}
-                            <td><span class="adatt-num">{{ number_format((int)$row->participants_total) }}</span></td>
-                            <td><span class="adatt-num">{{ number_format($reported) }}</span></td>
-                            <td><span class="adatt-num">{{ number_format((int)$row->outreach_programmes_total) }}</span></td>
-
-                            {{-- CFA status --}}
-                            <td>
-                                @if ($cfaCount > 0 && $cfaCount >= $reported)
-                                    <div class="cfa-status-cell cfa-status-cell--match">
-                                        <span class="cfa-match">
-                                            <i class="fa-solid fa-circle-check"></i>
-                                            {{ $cfaCount }} CFA(s) match
-                                        </span>
-                                        <div class="cfa-status-brief">
-                                            Referral CFAs on this visit date meet or exceed reported ({{ $reported }}) for this coordinator.
-                                        </div>
-                                    </div>
-                                @elseif ($cfaCount > 0)
-                                    <div class="cfa-status-cell cfa-status-cell--mismatch">
-                                        <span class="cfa-mismatch">
-                                            <i class="fa-solid fa-triangle-exclamation"></i>
-                                            {{ $cfaCount }} CFA(s) vs {{ $reported }} reported
-                                        </span>
-                                        <div class="cfa-status-brief">
-                                            Fewer CFAs than reported — ask the coordinator to verify referrals or the number entered.
-                                        </div>
-                                    </div>
+                                @if ($media !== [])
+                                    {{ count($media) }} photo(s)
+                                    @foreach ($media as $idx => $item)
+                                        <a href="{{ route('admin.attendance.attachment', ['attendanceReport' => $row, 'index' => $idx]) }}" class="adatt-dl-btn" style="margin:0.15rem 0.15rem 0 0;display:inline-flex;"><i class="fa-solid fa-image"></i> {{ $idx + 1 }}</a>
+                                    @endforeach
+                                @elseif ($row->attachment_path)
+                                    <a href="{{ route('admin.attendance.attachment', $row) }}" class="adatt-dl-btn">Legacy</a>
                                 @else
-                                    <div class="cfa-status-cell cfa-status-cell--neutral">
-                                        <span class="cfa-neutral">
-                                            <i class="fa-solid fa-circle-minus"></i>
-                                            No CFAs on this date
-                                        </span>
-                                        <div class="cfa-status-brief">
-                                            No CFA submissions via this coordinator’s referral on this visit date (by submission date).
-                                        </div>
-                                    </div>
+                                    —
                                 @endif
                             </td>
-
-                            {{-- Attachment --}}
-                            <td>
-                                @if ($row->attachment_path)
-                                    <a href="{{ route('admin.attendance.attachment', $row) }}" class="adatt-dl-btn">
-                                        <i class="fa-solid fa-download"></i> Download
-                                    </a>
-                                @else
-                                    <span style="color:#a1a1aa;">—</span>
-                                @endif
-                            </td>
+                            <td style="font-size:0.82rem;color:var(--adatt-muted);max-width:14rem;">{{ $row->remark ?: '—' }}</td>
                         </tr>
                     @empty
-                        <tr>
-                            <td colspan="10">
-                                <div class="adatt-empty">
-                                    <i class="fa-regular fa-folder-open"></i>
-                                    No attendance records found for the selected filters.
-                                </div>
-                            </td>
-                        </tr>
+                        <tr><td colspan="7"><div class="adatt-empty">No submissions found.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </div>
-
     @if ($reports->hasPages())
         <div>{{ $reports->links() }}</div>
     @endif

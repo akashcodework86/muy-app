@@ -193,6 +193,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:15,1')
             ->name('phase2-profile.photo.upload');
         Route::get('attendance', [FieldCoordinatorAttendanceController::class, 'index'])->name('attendance.index');
+        Route::get('attendance/gram-panchayats', [FieldCoordinatorAttendanceController::class, 'gramPanchayats'])->name('attendance.gram-panchayats');
         Route::get('attendance/view', [FieldCoordinatorAttendanceController::class, 'view'])->name('attendance.view');
         Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceController::class, 'downloadAttachment'])->name('attendance.attachment');
         Route::post('attendance', [FieldCoordinatorAttendanceController::class, 'store'])

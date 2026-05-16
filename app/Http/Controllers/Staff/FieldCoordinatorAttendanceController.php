@@ -3,71 +3,98 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
-use App\Models\CfaSubmission;
+use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\DistrictBlock;
 use App\Models\FieldCoordinatorAttendanceReport;
+use App\Models\GramPanchayat;
 use App\Models\User;
+use App\Services\FieldVisitMediaStorage;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FieldCoordinatorAttendanceController extends Controller
 {
+    use ValidatesAttendanceMediaUploads;
+
+    public function __construct(
+        private readonly FieldVisitMediaStorage $mediaStorage,
+    ) {}
+
     public function index(Request $request): View
     {
         $user = $request->user()->load(['district', 'designationRecord']);
         abort_unless($this->isFieldCoordinator($user), 403);
 
         $districtId = (int) ($user->district_id ?: 0);
-        $blocks = $districtId > 0
-            ? DistrictBlock::orderedNamesForDistrict($districtId)
-            : config('cfa.blocks_by_district.'.($user->district?->name ?? ''), []);
+        $blockRows = $districtId > 0
+            ? DistrictBlock::query()
+                ->where('district_id', $districtId)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name'])
+            : collect();
 
         if (! Schema::hasTable('field_coordinator_attendance_reports')) {
             return view('staff.attendance.index', [
                 'reports' => collect(),
                 'user' => $user,
-                'blocks' => $blocks,
+                'blockRows' => $blockRows,
+                'gramPanchayatsEnabled' => false,
                 'migrationMissing' => true,
             ]);
         }
 
         $reports = FieldCoordinatorAttendanceReport::query()
             ->where('field_coordinator_user_id', (int) $user->id)
-            ->with('district')
+            ->with(['district', 'gramPanchayat'])
             ->orderByDesc('visit_date')
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
 
-        // CFA count per visit date for this coordinator
-        $visitDates = $reports->pluck('visit_date')
-            ->filter()
-            ->map(fn ($d) => $d->format('Y-m-d'))
-            ->unique()
-            ->values()
-            ->all();
+        return view('staff.attendance.index', [
+            'reports' => $reports,
+            'user' => $user,
+            'blockRows' => $blockRows,
+            'gramPanchayatsEnabled' => Schema::hasTable('gram_panchayats'),
+            'migrationMissing' => false,
+        ]);
+    }
 
-        $cfaByDate = [];
-        if ($visitDates !== []) {
-            $cfaByDate = CfaSubmission::query()
-                ->where('referral_user_id', (int) $user->id)
-                ->whereIn(DB::raw('DATE(created_at)'), $visitDates)
-                ->selectRaw('DATE(created_at) as cfa_date, COUNT(*) as cfa_count')
-                ->groupBy('cfa_date')
-                ->pluck('cfa_count', 'cfa_date')
-                ->all();
+    public function gramPanchayats(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless(Schema::hasTable('gram_panchayats'), 404);
+
+        $blockId = (int) $request->query('district_block_id', 0);
+        abort_if($blockId <= 0, 422);
+
+        $block = DistrictBlock::query()->findOrFail($blockId);
+        abort_unless((int) $block->district_id === (int) ($user->district_id ?: 0), 403);
+
+        $search = trim((string) $request->query('q', ''));
+
+        $query = GramPanchayat::query()
+            ->where('district_block_id', $blockId)
+            ->orderBy('name');
+
+        if ($search !== '') {
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
+            $query->where('name', 'like', $like);
         }
 
-        return view('staff.attendance.index', [
-            'reports'    => $reports,
-            'user'       => $user,
-            'blocks'     => $blocks,
-            'cfaByDate'  => $cfaByDate,
+        $items = $query->limit(100)->get(['id', 'name']);
+
+        return response()->json([
+            'items' => $items->map(fn (GramPanchayat $gp) => [
+                'id' => $gp->id,
+                'name' => $gp->name,
+            ])->values(),
         ]);
     }
 
@@ -77,14 +104,15 @@ class FieldCoordinatorAttendanceController extends Controller
 
         if (! Schema::hasTable('field_coordinator_attendance_reports')) {
             return view('staff.attendance.view', [
-                'reports'        => collect(),
-                'user'           => $user,
-                'cfaByDate'      => [],
+                'reports' => collect(),
+                'user' => $user,
+                'blockOptions' => [],
                 'migrationMissing' => true,
             ]);
         }
 
-        $query = FieldCoordinatorAttendanceReport::query()->with('district');
+        $query = FieldCoordinatorAttendanceReport::query()
+            ->with(['district', 'gramPanchayat']);
         if ($this->isFieldCoordinator($user)) {
             $query->where('field_coordinator_user_id', (int) $user->id);
         } else {
@@ -107,36 +135,6 @@ class FieldCoordinatorAttendanceController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        $visitDates = $reports->pluck('visit_date')
-            ->filter()
-            ->map(fn ($d) => $d->format('Y-m-d'))
-            ->unique()->values()->all();
-
-        $cfaByDate = [];
-        if ($visitDates !== []) {
-            $cfaByDateQuery = CfaSubmission::query()
-                ->whereIn(DB::raw('DATE(created_at)'), $visitDates)
-                ->selectRaw('DATE(created_at) as cfa_date, COUNT(*) as cfa_count');
-
-            if ($this->isFieldCoordinator($user)) {
-                $cfaByDateQuery->where('referral_user_id', (int) $user->id);
-            } else {
-                $cfaByDateQuery->where('district_id', (int) ($user->district_id ?: 0));
-            }
-
-            $cfaByDate = $cfaByDateQuery
-                ->groupBy('cfa_date')
-                ->pluck('cfa_count', 'cfa_date')
-                ->all();
-        }
-
-        // Summary totals for visible page
-        $totalVillages    = $reports->sum('villages_visited_total');
-        $totalParticipants = $reports->sum('participants_total');
-        $totalCfas        = $reports->sum('cfas_filled_total');
-        $totalOutreach    = $reports->sum('outreach_programmes_total');
-
-        // All blocks submitted by this staff for filter dropdown
         $blockOptionsQuery = FieldCoordinatorAttendanceReport::query();
         if ($this->isFieldCoordinator($user)) {
             $blockOptionsQuery->where('field_coordinator_user_id', (int) $user->id);
@@ -152,14 +150,10 @@ class FieldCoordinatorAttendanceController extends Controller
             ->all();
 
         return view('staff.attendance.view', [
-            'reports'          => $reports,
-            'user'             => $user,
-            'cfaByDate'        => $cfaByDate,
-            'totalVillages'    => $totalVillages,
-            'totalParticipants'=> $totalParticipants,
-            'totalCfas'        => $totalCfas,
-            'totalOutreach'    => $totalOutreach,
-            'blockOptions'     => $blockOptions,
+            'reports' => $reports,
+            'user' => $user,
+            'blockOptions' => $blockOptions,
+            'migrationMissing' => false,
         ]);
     }
 
@@ -174,74 +168,92 @@ class FieldCoordinatorAttendanceController extends Controller
                 ->withErrors(['attendance' => 'Attendance table is missing. Please run migrations first.']);
         }
 
-        $validated = $request->validate([
+        $rules = [
             'visit_date' => ['required', 'date'],
-            'entry_date' => ['required', 'date'],
-            'area' => ['nullable', 'string', 'max:191'],
-            'block' => ['nullable', 'string', 'max:191'],
-            'villages_visited_total' => ['required', 'integer', 'min:0'],
-            'villages_covered' => ['nullable', 'string', 'max:4000'],
-            'participants_total' => ['required', 'integer', 'min:0'],
-            'cfas_filled_total' => ['required', 'integer', 'min:0'],
-            'outreach_programmes_total' => ['required', 'integer', 'min:0'],
-            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120'],
-        ]);
+            'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
+            'gram_panchayat_id' => ['required', 'integer', 'exists:gram_panchayats,id'],
+            'remark' => ['nullable', 'string', 'max:2000'],
+            'visit_media' => ['required', 'array', 'min:1', 'max:15'],
+            'visit_media.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ];
 
-        $attachmentPath = null;
-        $attachmentName = null;
-        $attachmentMime = null;
-        $attachmentSize = null;
-        if ($request->hasFile('attachment')) {
-            $file = $request->file('attachment');
-            $attachmentPath = $file->store('attendance-attachments');
-            $attachmentName = $file->getClientOriginalName();
-            $attachmentMime = $file->getClientMimeType();
-            $attachmentSize = $file->getSize();
+        if (! Schema::hasTable('gram_panchayats')) {
+            unset($rules['gram_panchayat_id']);
+            $rules['gram_panchayat_id'] = ['nullable'];
         }
 
-        $villages = collect(preg_split('/\r\n|\r|\n/', (string) ($validated['villages_covered'] ?? '')) ?: [])
-            ->map(fn ($v) => trim((string) $v))
-            ->filter()
-            ->values()
-            ->all();
+        $validated = $request->validate($rules);
+        $uploadErrors = [];
+        foreach ((array) $request->file('visit_media', []) as $index => $file) {
+            if ($file instanceof \Illuminate\Http\UploadedFile && ! $file->isValid()) {
+                $uploadErrors['visit_media.'.$index] = $this->describeFailedUpload($file);
+            }
+        }
+        if ($uploadErrors !== []) {
+            return back()->withErrors($uploadErrors)->withInput();
+        }
+
+        $districtId = (int) ($user->district_id ?: 0);
+        $block = DistrictBlock::query()->findOrFail((int) $validated['district_block_id']);
+        abort_unless((int) $block->district_id === $districtId, 422);
+
+        $gramPanchayat = null;
+        if (Schema::hasTable('gram_panchayats')) {
+            $gramPanchayat = GramPanchayat::query()->findOrFail((int) $validated['gram_panchayat_id']);
+            abort_unless((int) $gramPanchayat->district_block_id === (int) $block->id, 422);
+        }
+
+        $mediaItems = $this->mediaStorage->storeMany((array) $request->file('visit_media', []));
+        if ($mediaItems === []) {
+            return back()
+                ->withErrors(['visit_media' => 'Upload at least one photo.'])
+                ->withInput();
+        }
 
         FieldCoordinatorAttendanceReport::query()->create([
             'field_coordinator_user_id' => (int) $user->id,
             'field_coordinator_name' => (string) $user->name,
             'visit_date' => $validated['visit_date'],
-            'entry_date' => $validated['entry_date'],
-            'area' => $validated['area'] ?? null,
-            'block' => $validated['block'] ?? null,
-            'district_id' => (int) ($user->district_id ?: 0) ?: null,
-            'villages_visited_total' => (int) $validated['villages_visited_total'],
-            'villages_covered' => $villages,
-            'participants_total' => (int) $validated['participants_total'],
-            'cfas_filled_total' => (int) $validated['cfas_filled_total'],
-            'outreach_programmes_total' => (int) $validated['outreach_programmes_total'],
-            'attachment_path' => $attachmentPath,
-            'attachment_original_name' => $attachmentName,
-            'attachment_mime' => $attachmentMime,
-            'attachment_size_bytes' => $attachmentSize,
+            'entry_date' => now()->toDateString(),
+            'block' => (string) $block->name,
+            'district_block_id' => (int) $block->id,
+            'gram_panchayat_id' => $gramPanchayat?->id,
+            'remark' => $validated['remark'] ?? null,
+            'visit_media_json' => $mediaItems,
+            'district_id' => $districtId > 0 ? $districtId : null,
+            'villages_visited_total' => 0,
+            'villages_covered' => null,
+            'participants_total' => 0,
+            'cfas_filled_total' => 0,
+            'outreach_programmes_total' => 0,
         ]);
 
-        return redirect()->route('staff.attendance.index')->with('status', 'Attendance report submitted.');
+        return redirect()
+            ->route('staff.attendance.index')
+            ->with('status', 'Field visit photos submitted.');
     }
 
-    public function downloadAttachment(FieldCoordinatorAttendanceReport $attendanceReport, Request $request): StreamedResponse
-    {
+    public function downloadAttachment(
+        FieldCoordinatorAttendanceReport $attendanceReport,
+        Request $request,
+    ): StreamedResponse {
         $user = $request->user()->load('designationRecord');
         $isOwn = (int) $attendanceReport->field_coordinator_user_id === (int) $user->id;
         $isDistrictViewer = ! $this->isFieldCoordinator($user)
             && (int) ($attendanceReport->district_id ?: 0) > 0
             && (int) ($attendanceReport->district_id ?: 0) === (int) ($user->district_id ?: 0);
         abort_unless($isOwn || $isDistrictViewer, 403);
-        abort_if(! $attendanceReport->attachment_path, 404);
-        abort_unless(Storage::exists($attendanceReport->attachment_path), 404);
 
-        return Storage::download(
-            $attendanceReport->attachment_path,
-            $attendanceReport->attachment_original_name ?: basename($attendanceReport->attachment_path)
-        );
+        $index = $request->query('index');
+        if ($index !== null && $index !== '') {
+            return $this->mediaStorage->download(
+                $attendanceReport,
+                (int) $index,
+                $request->boolean('inline'),
+            );
+        }
+
+        return $this->mediaStorage->legacyDownload($attendanceReport);
     }
 
     private function isFieldCoordinator(User $user): bool

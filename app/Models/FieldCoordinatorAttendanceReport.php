@@ -14,6 +14,10 @@ class FieldCoordinatorAttendanceReport extends Model
         'entry_date',
         'area',
         'block',
+        'district_block_id',
+        'gram_panchayat_id',
+        'remark',
+        'visit_media_json',
         'district_id',
         'villages_visited_total',
         'villages_covered',
@@ -32,6 +36,7 @@ class FieldCoordinatorAttendanceReport extends Model
             'visit_date' => 'date',
             'entry_date' => 'date',
             'villages_covered' => 'array',
+            'visit_media_json' => 'array',
         ];
     }
 
@@ -43,5 +48,38 @@ class FieldCoordinatorAttendanceReport extends Model
     public function district(): BelongsTo
     {
         return $this->belongsTo(District::class);
+    }
+
+    public function districtBlock(): BelongsTo
+    {
+        return $this->belongsTo(DistrictBlock::class);
+    }
+
+    public function gramPanchayat(): BelongsTo
+    {
+        return $this->belongsTo(GramPanchayat::class);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function visitMediaItems(): array
+    {
+        return collect((array) $this->visit_media_json)
+            ->filter(fn ($item) => is_array($item) && (string) ($item['path'] ?? '') !== '')
+            ->values()
+            ->all();
+    }
+
+    public function isLegacyNumericReport(): bool
+    {
+        return $this->visit_media_json === null
+            && (
+                (int) $this->villages_visited_total > 0
+                || (int) $this->participants_total > 0
+                || (int) $this->cfas_filled_total > 0
+                || (int) $this->outreach_programmes_total > 0
+                || $this->attachment_path !== null
+            );
     }
 }
