@@ -118,16 +118,11 @@ class FieldCoordinatorAttendanceController extends Controller
         }
         abort_if($total <= 0, 422, 'This submission has no participants — template is not required.');
 
-        $gramPanchayatName = (string) ($attendanceReport->gramPanchayat?->name ?? '');
-        if ($gramPanchayatName === '') {
-            $gramPanchayatName = (string) ($attendanceReport->area ?: '—');
-        }
-
         return $this->attendanceSheetService->streamTemplateDownload(
             $total,
             (string) ($attendanceReport->district?->name ?? $user->district?->name ?? ''),
             (string) ($attendanceReport->block ?? ''),
-            $gramPanchayatName,
+            $attendanceReport->attendanceSheetGramPanchayatLabel(),
         );
     }
 
@@ -365,7 +360,7 @@ class FieldCoordinatorAttendanceController extends Controller
             (int) $attendanceReport->participants_female_count,
             (string) ($attendanceReport->district?->name ?? ''),
             (string) ($attendanceReport->block ?? ''),
-            (string) ($attendanceReport->gramPanchayat?->name ?? ''),
+            $attendanceReport->attendanceSheetGramPanchayatLabel(),
         );
 
         if ($attendanceReport->attendance_sheet_path) {

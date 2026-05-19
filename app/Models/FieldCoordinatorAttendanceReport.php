@@ -82,6 +82,19 @@ class FieldCoordinatorAttendanceReport extends Model
         return (string) ($this->attendance_sheet_path ?? '') !== '';
     }
 
+    /**
+     * Label used in attendance sheet template column G (matches legacy rows using area/village).
+     */
+    public function attendanceSheetGramPanchayatLabel(): string
+    {
+        $name = trim((string) ($this->gramPanchayat?->name ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        return trim((string) ($this->area ?? ''));
+    }
+
     public function isLegacyNumericReport(): bool
     {
         return $this->visit_media_json === null

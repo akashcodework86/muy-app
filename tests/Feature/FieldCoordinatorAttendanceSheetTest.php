@@ -131,6 +131,45 @@ class FieldCoordinatorAttendanceSheetTest extends TestCase
         $this->assertTrue(FieldCoordinatorAttendanceReport::query()->firstOrFail()->hasAttendanceSheet());
     }
 
+    public function test_legacy_report_validates_sheet_using_area_when_gram_panchayat_missing(): void
+    {
+        Storage::fake();
+
+        [$staff, $block, $gp, $district] = $this->createFieldCoordinatorContext();
+
+        $report = FieldCoordinatorAttendanceReport::query()->create([
+            'field_coordinator_user_id' => $staff->id,
+            'field_coordinator_name' => $staff->name,
+            'visit_date' => '2026-04-25',
+            'entry_date' => '2026-04-25',
+            'block' => $block->name,
+            'district_block_id' => $block->id,
+            'gram_panchayat_id' => null,
+            'area' => 'Demo Area',
+            'district_id' => $district->id,
+            'participants_male_count' => 10,
+            'participants_female_count' => 10,
+            'participants_total' => 20,
+            'visit_media_json' => [[
+                'path' => 'field-visit-media/test.jpg',
+                'original_name' => 'test.jpg',
+                'mime' => 'image/jpeg',
+                'size_bytes' => 100,
+                'type' => 'image',
+            ]],
+        ]);
+
+        $sheet = $this->makeAttendanceSheetFile(10, 10, $district->name, $block->name, 'Demo Area');
+
+        $this->actingAs($staff)
+            ->post(route('staff.attendance.sheet.upload', $report), [
+                'attendance_sheet' => $sheet,
+            ])
+            ->assertRedirect(route('staff.attendance.index'));
+
+        $this->assertTrue($report->fresh()->hasAttendanceSheet());
+    }
+
     public function test_field_coordinator_can_upload_sheet_for_existing_submission(): void
     {
         Storage::fake();
