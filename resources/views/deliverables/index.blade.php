@@ -10,7 +10,7 @@
     @endphp
 
     <p style="font-size:0.88rem;color:#52525b;margin:0 0 0.65rem;max-width:56rem;">
-        Individual MIS indicators only (no category totals). <strong>Scope:</strong> {{ $scopeLabel }}.
+        Category headings match the official MIS sheet (targets/achievement blank on headings). <strong>Scope:</strong> {{ $scopeLabel }}.
         <strong>Period:</strong> {{ $periodLabel }}.
         Targets = @if ($scope->usesStateTargets) state @else district @endif (FY {{ $fyName }}), same rows as
         <a href="{{ route('admin.targets.state', ['fiscal_year_id' => $fiscalYearId]) }}">State targets</a> (MIS + per-service codes).
@@ -81,14 +81,17 @@
             </thead>
             <tbody>
                 @forelse ($rows as $row)
-                    <tr>
+                    @php
+                        $isHeading = in_array($row['row_type'], ['pillar', 'subcategory'], true);
+                    @endphp
+                    <tr @if ($isHeading) style="background:#ffedd5;font-weight:700;" @endif>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['serial'] }}</td>
                         <td style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;">{{ $row['name'] }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['indicator_type'] ?: '—' }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['level'] ?: '—' }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['target'] !== null ? number_format($row['target']) : '—' }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ number_format($row['achievement']) }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '—' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $isHeading ? '' : ($row['indicator_type'] ?: '—') }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $isHeading ? '' : ($row['level'] ?: '—') }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ ! $isHeading && $row['target'] !== null ? number_format($row['target']) : '' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ ! $isHeading && $row['achievement'] !== null ? number_format($row['achievement']) : '' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ ! $isHeading && $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '' }}</td>
                     </tr>
                 @empty
                     <tr>

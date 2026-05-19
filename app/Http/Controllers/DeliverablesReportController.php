@@ -54,13 +54,21 @@ class DeliverablesReportController extends Controller
 
         $rowNum = 2;
         foreach ($report['rows'] as $row) {
+            $isHeading = in_array($row['row_type'] ?? '', ['pillar', 'subcategory'], true);
             $sheet->setCellValue('A'.$rowNum, $row['serial']);
             $sheet->setCellValue('B'.$rowNum, $row['name']);
-            $sheet->setCellValue('C'.$rowNum, $row['indicator_type']);
-            $sheet->setCellValue('D'.$rowNum, $row['level']);
-            $sheet->setCellValue('E'.$rowNum, $row['target'] ?? '');
-            $sheet->setCellValue('F'.$rowNum, $row['achievement']);
-            $sheet->setCellValue('G'.$rowNum, $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '');
+            $sheet->setCellValue('C'.$rowNum, $isHeading ? '' : ($row['indicator_type'] ?? ''));
+            $sheet->setCellValue('D'.$rowNum, $isHeading ? '' : ($row['level'] ?? ''));
+            $sheet->setCellValue('E'.$rowNum, $isHeading ? '' : ($row['target'] ?? ''));
+            $sheet->setCellValue('F'.$rowNum, $isHeading ? '' : ($row['achievement'] ?? ''));
+            $sheet->setCellValue('G'.$rowNum, $isHeading ? '' : ($row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : ''));
+
+            if ($isHeading) {
+                $sheet->getStyle('A'.$rowNum.':G'.$rowNum)->applyFromArray([
+                    'font' => ['bold' => true],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFEDD5']],
+                ]);
+            }
 
             $rowNum++;
         }

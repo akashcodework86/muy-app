@@ -33,7 +33,7 @@ class DeliverablesReportTest extends TestCase
             ->assertOk()
             ->assertSee('Deliverables')
             ->assertSee('Call for Application')
-            ->assertDontSee('Outreach and Mobilisation')
+            ->assertSee('Outreach and Mobilisation')
             ->assertSee('District');
     }
 
@@ -65,12 +65,19 @@ class DeliverablesReportTest extends TestCase
         $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
         $serials = collect($report['rows'])->pluck('serial')->all();
 
-        $this->assertSame('1.1', $serials[0]);
-        $this->assertNotContains('1', $serials);
-        $this->assertNotContains('2', $serials);
+        $this->assertSame('1', $serials[0]);
+        $this->assertSame('1.1', $serials[1]);
+        $this->assertContains('2', $serials);
+        $this->assertContains('4', $serials);
+        $this->assertContains('4.1', $serials);
         $this->assertContains('4.1.1', $serials);
+        $this->assertContains('4.2.4', $serials);
         $this->assertContains('12.2', $serials);
-        $this->assertTrue(collect($report['rows'])->every(fn ($r) => $r['row_type'] === 'leaf'));
+
+        $heading = collect($report['rows'])->firstWhere('serial', '4');
+        $this->assertSame('pillar', $heading['row_type']);
+        $this->assertNull($heading['target']);
+        $this->assertNull($heading['achievement']);
     }
 
     public function test_cfa_count_uses_fiscal_year_id_not_created_at_window(): void

@@ -94,7 +94,7 @@ class ProgramDeliverablesReportService
         $pillarIndex = 0;
         foreach (config('program_deliverables.matrix', []) as $pillar) {
             $pillarIndex++;
-            $this->appendIndicatorLeaves($rows, $pillar, [(string) $pillarIndex]);
+            $this->appendMatrixRows($rows, $pillar, [(string) $pillarIndex]);
         }
 
         return [
@@ -175,18 +175,21 @@ class ProgramDeliverablesReportService
     }
 
     /**
-     * Output only measurable indicators (no category / subcategory summary rows).
+     * Pillar / subcategory rows are headings (blank target & achievement); leaves carry metrics.
      *
      * @param  list<string>  $serialParts
      */
-    private function appendIndicatorLeaves(array &$rows, array $node, array $serialParts): void
+    private function appendMatrixRows(array &$rows, array $node, array $serialParts): void
     {
         $children = $node['children'] ?? [];
-        $hasSource = isset($node['source']);
+        $rowType = (string) ($node['row_type'] ?? 'leaf');
+        $serial = implode('.', $serialParts);
 
-        if ($hasSource) {
+        if ($rowType === 'pillar' || $rowType === 'subcategory') {
+            $rows[] = $this->formatHeadingRow($node, $serial);
+        } elseif (isset($node['source'])) {
             $metrics = $this->resolveNodeMetrics($node);
-            $rows[] = $this->formatRow($node, implode('.', $serialParts), $metrics);
+            $rows[] = $this->formatRow($node, $serial, $metrics);
         }
 
         if ($children === []) {
@@ -196,8 +199,26 @@ class ProgramDeliverablesReportService
         $childIndex = 0;
         foreach ($children as $child) {
             $childIndex++;
-            $this->appendIndicatorLeaves($rows, $child, [...$serialParts, (string) $childIndex]);
+            $this->appendMatrixRows($rows, $child, [...$serialParts, (string) $childIndex]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     * @return array<string, mixed>
+     */
+    private function formatHeadingRow(array $node, string $serial): array
+    {
+        return [
+            'row_type' => (string) ($node['row_type'] ?? 'pillar'),
+            'serial' => $serial,
+            'name' => (string) ($node['name'] ?? ''),
+            'indicator_type' => '',
+            'level' => '',
+            'target' => null,
+            'achievement' => null,
+            'achievement_pct' => null,
+        ];
     }
 
     /**
