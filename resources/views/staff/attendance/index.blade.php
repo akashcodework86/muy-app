@@ -166,7 +166,7 @@
                     <div class="att-file-wrap" style="margin-top:0.4rem;">
                         <i class="fa-solid fa-file-excel"></i>
                         <span>If uploading now: .xlsx must match total participants exactly</span>
-                        <input type="file" name="attendance_sheet" id="attSheetInput" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                        <input type="file" name="attendance_sheet" id="attSheetInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
                     </div>
                 </div>
 
@@ -246,7 +246,7 @@
                                         </a>
                                         <form method="post" action="{{ route('staff.attendance.sheet.upload', $row) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.35rem;min-width:11rem;">
                                             @csrf
-                                            <input type="file" name="attendance_sheet" accept=".xlsx,.xls" required style="font-size:0.75rem;">
+                                            <input type="file" name="attendance_sheet" accept=".xlsx,.xls,.csv" required style="font-size:0.75rem;">
                                             <button type="submit" class="att-btn" style="padding:0.35rem 0.6rem;font-size:0.75rem;">Upload filled sheet</button>
                                         </form>
                                     @endif

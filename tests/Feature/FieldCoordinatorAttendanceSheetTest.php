@@ -94,6 +94,43 @@ class FieldCoordinatorAttendanceSheetTest extends TestCase
         Storage::disk('local')->assertExists((string) $report->attendance_sheet_path);
     }
 
+    public function test_csv_template_and_upload_work_without_excel_library(): void
+    {
+        Storage::fake();
+
+        [$staff, $block, $gp, $district] = $this->createFieldCoordinatorContext();
+
+        $service = app(\App\Services\FieldVisitAttendanceSheetService::class);
+        if ($service->spreadsheetLibraryAvailable()) {
+            $this->markTestSkipped('PhpSpreadsheet is installed; CSV-only path not exercised.');
+        }
+
+        $this->actingAs($staff)
+            ->get(route('staff.attendance.sheet-template', [
+                'district_block_id' => $block->id,
+                'gram_panchayat_id' => $gp->id,
+                'participants_male_count' => 1,
+                'participants_female_count' => 1,
+            ]))
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+        $csv = $this->makeAttendanceCsvFile(1, 1, $district->name, $block->name, $gp->name);
+
+        $this->actingAs($staff)->post(route('staff.attendance.store'), [
+            'visit_date' => '2026-05-19',
+            'district_block_id' => $block->id,
+            'gram_panchayat_id' => $gp->id,
+            'area' => 'Test village',
+            'participants_male_count' => 1,
+            'participants_female_count' => 1,
+            'visit_media' => [UploadedFile::fake()->create('visit.jpg', 100, 'image/jpeg')],
+            'attendance_sheet' => $csv,
+        ])->assertRedirect(route('staff.attendance.index'));
+
+        $this->assertTrue(FieldCoordinatorAttendanceReport::query()->firstOrFail()->hasAttendanceSheet());
+    }
+
     public function test_field_coordinator_can_upload_sheet_for_existing_submission(): void
     {
         Storage::fake();
@@ -158,6 +195,44 @@ class FieldCoordinatorAttendanceSheetTest extends TestCase
         ]);
 
         return [$staff, $block, $gp, $district];
+    }
+
+    private function makeAttendanceCsvFile(
+        int $male,
+        int $female,
+        string $district,
+        string $block,
+        string $gramPanchayat,
+    ): UploadedFile {
+        $xlsx = $this->makeAttendanceSheetFile($male, $female, $district, $block, $gramPanchayat);
+        $path = tempnam(sys_get_temp_dir(), 'att-csv-');
+        $out = fopen($path, 'w');
+        fputcsv($out, \App\Services\FieldVisitAttendanceSheetService::HEADERS);
+        $total = $male + $female;
+        $rowIndex = 0;
+        for ($i = 1; $i <= $total; $i++) {
+            $gender = $rowIndex < $male ? 'M' : 'F';
+            $rowIndex++;
+            fputcsv($out, [
+                (string) $i,
+                'Participant '.$i,
+                $gender,
+                '9876543'.str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+                $district,
+                $block,
+                $gramPanchayat,
+            ]);
+        }
+        fclose($out);
+        unlink($xlsx->getPathname());
+
+        return new UploadedFile(
+            $path,
+            'attendance-sheet.csv',
+            'text/csv',
+            null,
+            true,
+        );
     }
 
     private function makeAttendanceSheetFile(

@@ -244,7 +244,7 @@ class FieldCoordinatorAttendanceController extends Controller
             'remark' => ['nullable', 'string', 'max:2000'],
             'visit_media' => ['required', 'array', 'min:1', 'max:15'],
             'visit_media.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'attendance_sheet' => ['nullable', 'file', 'mimes:xlsx,xls', 'max:10240'],
+            'attendance_sheet' => ['nullable', 'file', 'mimes:xlsx,xls,csv,txt', 'max:10240'],
         ];
 
         if (! Schema::hasTable('gram_panchayats')) {
@@ -350,7 +350,7 @@ class FieldCoordinatorAttendanceController extends Controller
         abort_if($participantsTotal <= 0, 422);
 
         $validated = $request->validate([
-            'attendance_sheet' => ['required', 'file', 'mimes:xlsx,xls', 'max:10240'],
+            'attendance_sheet' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:10240'],
         ]);
 
         $sheetFile = $request->file('attendance_sheet');

@@ -50,6 +50,11 @@ class FieldVisitAttendanceSheetService
         ];
     }
 
+    public function spreadsheetLibraryAvailable(): bool
+    {
+        return class_exists(Spreadsheet::class);
+    }
+
     public function streamTemplateDownload(
         int $participantRows,
         string $districtName,
@@ -58,12 +63,46 @@ class FieldVisitAttendanceSheetService
     ): StreamedResponse {
         abort_if($participantRows <= 0, 422, 'Set participant counts before downloading the template.');
 
-        $spreadsheet = $this->buildTemplateSpreadsheet(
+        if ($this->spreadsheetLibraryAvailable()) {
+            return $this->streamXlsxTemplateDownload(
+                $participantRows,
+                $districtName,
+                $blockName,
+                $gramPanchayatName,
+            );
+        }
+
+        return $this->streamCsvTemplateDownload(
             $participantRows,
             $districtName,
             $blockName,
             $gramPanchayatName,
         );
+    }
+
+    private function streamXlsxTemplateDownload(
+        int $participantRows,
+        string $districtName,
+        string $blockName,
+        string $gramPanchayatName,
+    ): StreamedResponse {
+        try {
+            $spreadsheet = $this->buildTemplateSpreadsheet(
+                $participantRows,
+                $districtName,
+                $blockName,
+                $gramPanchayatName,
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $this->streamCsvTemplateDownload(
+                $participantRows,
+                $districtName,
+                $blockName,
+                $gramPanchayatName,
+            );
+        }
 
         $filename = 'muy-attendance-sheet-'.$participantRows.'-participants.xlsx';
 
@@ -75,6 +114,44 @@ class FieldVisitAttendanceSheetService
             $filename,
             [
                 'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ],
+        );
+    }
+
+    private function streamCsvTemplateDownload(
+        int $participantRows,
+        string $districtName,
+        string $blockName,
+        string $gramPanchayatName,
+    ): StreamedResponse {
+        $filename = 'muy-attendance-sheet-'.$participantRows.'-participants.csv';
+
+        return response()->streamDownload(
+            function () use ($participantRows, $districtName, $blockName, $gramPanchayatName): void {
+                $out = fopen('php://output', 'w');
+                if ($out === false) {
+                    return;
+                }
+
+                fputcsv($out, self::HEADERS);
+
+                for ($i = 1; $i <= $participantRows; $i++) {
+                    fputcsv($out, [
+                        (string) $i,
+                        '',
+                        '',
+                        '',
+                        $districtName,
+                        $blockName,
+                        $gramPanchayatName,
+                    ]);
+                }
+
+                fclose($out);
+            },
+            $filename,
+            [
+                'Content-Type' => 'text/csv; charset=UTF-8',
             ],
         );
     }
@@ -103,9 +180,29 @@ class FieldVisitAttendanceSheetService
         }
 
         $extension = strtolower((string) $file->getClientOriginalExtension());
+        if ($extension === 'csv') {
+            $this->assertValidCsvUpload(
+                $file,
+                $expectedTotal,
+                $expectedMale,
+                $expectedFemale,
+                $expectedDistrict,
+                $expectedBlock,
+                $expectedGramPanchayat,
+            );
+
+            return;
+        }
+
         if (! in_array($extension, ['xlsx', 'xls'], true)) {
             throw ValidationException::withMessages([
-                'attendance_sheet' => 'Upload the Excel file (.xlsx) downloaded from this system.',
+                'attendance_sheet' => 'Upload the template file (.xlsx or .csv) downloaded from this system.',
+            ]);
+        }
+
+        if (! $this->spreadsheetLibraryAvailable()) {
+            throw ValidationException::withMessages([
+                'attendance_sheet' => 'Excel upload is not available on the server yet. Download the .csv template, fill it, and upload the same .csv file.',
             ]);
         }
 
@@ -120,14 +217,111 @@ class FieldVisitAttendanceSheetService
         $sheet = $spreadsheet->getActiveSheet();
         $this->assertHeaderRow($sheet);
 
+        $rows = [];
+        $lastDataRow = $expectedTotal + 1;
+        for ($row = 2; $row <= $lastDataRow; $row++) {
+            $rows[$row] = $this->readRow($sheet, $row);
+        }
+
+        $extraRow = $this->firstExtraDataRow($sheet, $lastDataRow + 1);
+
+        $this->assertValidatedParticipantRows(
+            $rows,
+            $expectedTotal,
+            $expectedMale,
+            $expectedFemale,
+            $expectedDistrict,
+            $expectedBlock,
+            $expectedGramPanchayat,
+            $extraRow,
+        );
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertValidCsvUpload(
+        UploadedFile $file,
+        int $expectedTotal,
+        int $expectedMale,
+        int $expectedFemale,
+        string $expectedDistrict,
+        string $expectedBlock,
+        string $expectedGramPanchayat,
+    ): void {
+        $handle = fopen($file->getRealPath(), 'r');
+        if ($handle === false) {
+            throw ValidationException::withMessages([
+                'attendance_sheet' => 'Could not read the CSV file.',
+            ]);
+        }
+
+        $header = fgetcsv($handle);
+        if (! is_array($header)) {
+            fclose($handle);
+            throw ValidationException::withMessages([
+                'attendance_sheet' => 'The CSV file is empty.',
+            ]);
+        }
+
+        $this->assertHeaderValues($header);
+
+        $rows = [];
+        $excelRow = 2;
+        while (($data = fgetcsv($handle)) !== false) {
+            if (! is_array($data)) {
+                continue;
+            }
+
+            $rowValues = $this->rowValuesFromCsvLine($data);
+            if ($excelRow <= $expectedTotal + 1) {
+                $rows[$excelRow] = $rowValues;
+            } elseif ($this->rowHasAnyData($rowValues)) {
+                fclose($handle);
+                throw ValidationException::withMessages([
+                    'attendance_sheet' => [
+                        'Remove extra data below row '.($expectedTotal + 1).' (unexpected data on row '.$excelRow.').',
+                    ],
+                ]);
+            }
+
+            $excelRow++;
+        }
+
+        fclose($handle);
+
+        $this->assertValidatedParticipantRows(
+            $rows,
+            $expectedTotal,
+            $expectedMale,
+            $expectedFemale,
+            $expectedDistrict,
+            $expectedBlock,
+            $expectedGramPanchayat,
+            null,
+        );
+    }
+
+    /**
+     * @param  array<int, array<string, string>>  $rows
+     */
+    private function assertValidatedParticipantRows(
+        array $rows,
+        int $expectedTotal,
+        int $expectedMale,
+        int $expectedFemale,
+        string $expectedDistrict,
+        string $expectedBlock,
+        string $expectedGramPanchayat,
+        ?int $extraRowFromSpreadsheet,
+    ): void {
         $errors = [];
         $maleCount = 0;
         $femaleCount = 0;
         $validRows = 0;
-        $lastDataRow = $expectedTotal + 1;
 
-        for ($row = 2; $row <= $lastDataRow; $row++) {
-            $rowValues = $this->readRow($sheet, $row);
+        for ($row = 2; $row <= $expectedTotal + 1; $row++) {
+            $rowValues = $rows[$row] ?? $this->emptyRowValues();
             $rowErrors = $this->validateDataRow(
                 $row,
                 $rowValues,
@@ -170,15 +364,62 @@ class FieldVisitAttendanceSheetService
             $errors[] = 'Female count in sheet ('.$femaleCount.') must match the form ('.$expectedFemale.').';
         }
 
-        $extraRow = $this->firstExtraDataRow($sheet, $lastDataRow + 1);
-        if ($extraRow !== null) {
-            $errors[] = 'Remove extra data below row '.($expectedTotal + 1).' (unexpected data on row '.$extraRow.').';
+        if ($extraRowFromSpreadsheet !== null) {
+            $errors[] = 'Remove extra data below row '.($expectedTotal + 1).' (unexpected data on row '.$extraRowFromSpreadsheet.').';
         }
 
         if ($errors !== []) {
             throw ValidationException::withMessages([
                 'attendance_sheet' => array_values(array_unique($errors)),
             ]);
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function emptyRowValues(): array
+    {
+        return [
+            'sr_no' => '',
+            'name' => '',
+            'gender' => '',
+            'mobile' => '',
+            'district' => '',
+            'block' => '',
+            'grampanchayat' => '',
+        ];
+    }
+
+    /**
+     * @param  list<string|null>  $data
+     * @return array<string, string>
+     */
+    private function rowValuesFromCsvLine(array $data): array
+    {
+        return [
+            'sr_no' => trim((string) ($data[0] ?? '')),
+            'name' => trim((string) ($data[1] ?? '')),
+            'gender' => trim((string) ($data[2] ?? '')),
+            'mobile' => trim((string) ($data[3] ?? '')),
+            'district' => trim((string) ($data[4] ?? '')),
+            'block' => trim((string) ($data[5] ?? '')),
+            'grampanchayat' => trim((string) ($data[6] ?? '')),
+        ];
+    }
+
+    /**
+     * @param  list<string|null>  $header
+     */
+    private function assertHeaderValues(array $header): void
+    {
+        foreach (self::HEADERS as $index => $expected) {
+            $actual = $this->normalizeHeader((string) ($header[$index] ?? ''));
+            if ($actual !== $this->normalizeHeader($expected)) {
+                throw ValidationException::withMessages([
+                    'attendance_sheet' => 'Use the attendance template from this page (column headers do not match).',
+                ]);
+            }
         }
     }
 
@@ -226,16 +467,13 @@ class FieldVisitAttendanceSheetService
 
     private function assertHeaderRow(Worksheet $sheet): void
     {
+        $header = [];
         foreach (self::HEADERS as $index => $expected) {
             $col = chr(ord('A') + $index);
-            $actual = $this->normalizeHeader((string) $sheet->getCell($col.'1')->getValue());
-            $expectedNorm = $this->normalizeHeader($expected);
-            if ($actual !== $expectedNorm) {
-                throw ValidationException::withMessages([
-                    'attendance_sheet' => 'Use the attendance template from this page (column headers do not match).',
-                ]);
-            }
+            $header[] = (string) $sheet->getCell($col.'1')->getValue();
         }
+
+        $this->assertHeaderValues($header);
     }
 
     /**
