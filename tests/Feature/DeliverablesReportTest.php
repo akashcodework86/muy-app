@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\DistrictDeliverableTarget;
+use App\Models\StaffMonthlyTarget;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\Service;
@@ -53,7 +54,7 @@ class DeliverablesReportTest extends TestCase
         $this->actingAs($staff)
             ->get(route('staff.deliverables.index'))
             ->assertOk()
-            ->assertSee('Your district')
+            ->assertSee('Deliverables')
             ->assertDontSee('name="district_id"', false);
     }
 
@@ -189,6 +190,111 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($participants);
         $this->assertSame(2, $workshops['achievement']);
         $this->assertSame(65, $participants['achievement']);
+    }
+
+    public function test_district_staff_sees_district_target_via_svc_deliverable_mapping(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'staff-gst-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'staff-gst-district',
+            'name' => 'Staff GST District',
+            'sort_order' => 1,
+        ]);
+
+        $svcGst = Deliverable::query()->create([
+            'sort_order' => 18,
+            'code' => 'svc_gst',
+            'name' => 'GST',
+            'mis_entry_label' => 'GST',
+            'is_active' => true,
+        ]);
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $svcGst->id,
+            'target_total' => 42,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser($staff);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '4.2.4');
+
+        $this->assertNotNull($row);
+        $this->assertSame(42, $row['target']);
+    }
+
+    public function test_district_staff_falls_back_to_staff_monthly_targets_when_no_district_row(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'staff-fssai-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'staff-fssai-district',
+            'name' => 'Staff FSSAI District',
+            'sort_order' => 1,
+        ]);
+
+        $svcFssai = Deliverable::query()->create([
+            'sort_order' => 17,
+            'code' => 'svc_fssai',
+            'name' => 'FSSAI',
+            'mis_entry_label' => 'FSSAI',
+            'is_active' => true,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        foreach (range(1, 12) as $month) {
+            StaffMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'user_id' => $staff->id,
+                'deliverable_id' => $svcFssai->id,
+                'month_number' => $month,
+                'target_count' => 2,
+            ]);
+        }
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser($staff);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '4.2.2');
+
+        $this->assertNotNull($row);
+        $this->assertSame(24, $row['target']);
     }
 
     public function test_state_target_resolves_for_gst_via_svc_deliverable_row(): void

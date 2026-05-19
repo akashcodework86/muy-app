@@ -8,7 +8,9 @@ use App\Models\FiscalYear;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\Service;
 use App\Models\ServiceCase;
+use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
+use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use Carbon\Carbon;
@@ -118,60 +120,128 @@ class ProgramDeliverablesReportService
         if ($this->useStateTargets) {
             $targets = [];
             $rows = StateDeliverableTarget::query()
-                ->with('deliverable:id,code,name')
                 ->where('fiscal_year_id', $fiscalYear->id)
-                ->get();
+                ->pluck('target_total', 'deliverable_id');
 
-            $serviceCodesByDeliverableId = Service::query()
-                ->where('is_active', true)
-                ->whereNotNull('deliverable_id')
-                ->get(['deliverable_id', 'code'])
-                ->groupBy('deliverable_id')
-                ->map(fn ($group) => $group->pluck('code')->map(fn ($c) => strtolower((string) $c))->all());
-
-            foreach ($rows as $row) {
-                $deliverableId = (int) $row->deliverable_id;
-                $total = (int) $row->target_total;
-                $targets[$deliverableId] = $total;
-
-                $deliverableCode = strtolower(trim((string) ($row->deliverable->code ?? '')));
-                $this->indexStateTargetLookupCode($deliverableCode, $total);
-                if (str_starts_with($deliverableCode, 'svc_')) {
-                    $this->indexStateTargetLookupCode(substr($deliverableCode, 4), $total);
-                }
-
-                foreach ($serviceCodesByDeliverableId[$deliverableId] ?? [] as $serviceCode) {
-                    $this->indexStateTargetLookupCode($serviceCode, $total);
-                    $this->indexStateTargetLookupCode(
-                        $this->serviceTargetDeliverables->deliverableCodeForServiceCode($serviceCode),
-                        $total,
-                    );
-                }
-
-                $norm = $this->normalizeLabel((string) ($row->deliverable->name ?? ''));
-                if ($norm !== '' && $total > 0) {
-                    $this->targetsByNameNorm[$norm] = max($this->targetsByNameNorm[$norm] ?? 0, $total);
-                }
+            foreach ($rows as $deliverableId => $total) {
+                $targets[(int) $deliverableId] = (int) $total;
             }
+
+            $this->buildTargetIndexesFromTotals($targets);
 
             return $targets;
         }
 
-        $query = DistrictDeliverableTarget::query()
-            ->where('fiscal_year_id', $fiscalYear->id)
-            ->selectRaw('deliverable_id, SUM(target_total) as target_total')
-            ->groupBy('deliverable_id');
+        return $this->loadDistrictScopedTargets($fiscalYear);
+    }
 
-        if ($this->districtIds !== null) {
-            if ($this->districtIds === []) {
-                return [];
-            }
-            $query->whereIn('district_id', $this->districtIds);
+    /**
+     * District / hub / SPOC: sum district_deliverable_targets for scope, with svc_* code mapping
+     * (same resolution as state admin). Falls back to staff monthly allocations when no district row.
+     *
+     * @return array<int, int>
+     */
+    private function loadDistrictScopedTargets(FiscalYear $fiscalYear): array
+    {
+        if ($this->districtIds === []) {
+            return [];
         }
 
-        return $query->pluck('target_total', 'deliverable_id')
-            ->map(fn ($v) => (int) $v)
-            ->all();
+        $targets = [];
+
+        $districtQuery = DistrictDeliverableTarget::query()
+            ->where('fiscal_year_id', $fiscalYear->id);
+
+        if ($this->districtIds !== null) {
+            $districtQuery->whereIn('district_id', $this->districtIds);
+        }
+
+        foreach ($districtQuery->get(['deliverable_id', 'target_total']) as $row) {
+            $id = (int) $row->deliverable_id;
+            $targets[$id] = ($targets[$id] ?? 0) + (int) $row->target_total;
+        }
+
+        if ($this->districtIds !== null && Schema::hasTable('staff_monthly_targets')) {
+            $staffUserIds = User::query()
+                ->whereIn('district_id', $this->districtIds)
+                ->whereIn('role', ['district_staff', 'state_staff'])
+                ->pluck('id');
+
+            if ($staffUserIds->isNotEmpty()) {
+                $monthlyTotals = StaffMonthlyTarget::query()
+                    ->where('fiscal_year_id', $fiscalYear->id)
+                    ->whereIn('user_id', $staffUserIds)
+                    ->selectRaw('deliverable_id, SUM(target_count) as total')
+                    ->groupBy('deliverable_id')
+                    ->pluck('total', 'deliverable_id');
+
+                foreach ($monthlyTotals as $deliverableId => $total) {
+                    $deliverableId = (int) $deliverableId;
+                    $total = (int) $total;
+                    if ($total <= 0 || array_key_exists($deliverableId, $targets)) {
+                        continue;
+                    }
+                    $targets[$deliverableId] = $total;
+                }
+            }
+        }
+
+        $this->buildTargetIndexesFromTotals($targets);
+
+        return $targets;
+    }
+
+    /**
+     * Map deliverable ids to MIS / service codes for target resolution (state + district).
+     *
+     * @param  array<int, int>  $targets
+     */
+    private function buildTargetIndexesFromTotals(array $targets): void
+    {
+        if ($targets === []) {
+            return;
+        }
+
+        $deliverableIds = array_map('intval', array_keys($targets));
+        $deliverables = Deliverable::query()
+            ->whereIn('id', $deliverableIds)
+            ->get(['id', 'code', 'name'])
+            ->keyBy('id');
+
+        $serviceCodesByDeliverableId = Service::query()
+            ->where('is_active', true)
+            ->whereNotNull('deliverable_id')
+            ->whereIn('deliverable_id', $deliverableIds)
+            ->get(['deliverable_id', 'code'])
+            ->groupBy('deliverable_id')
+            ->map(fn ($group) => $group->pluck('code')->map(fn ($c) => strtolower((string) $c))->all());
+
+        foreach ($targets as $deliverableId => $total) {
+            $total = (int) $total;
+            $deliverable = $deliverables->get((int) $deliverableId);
+            if (! $deliverable) {
+                continue;
+            }
+
+            $deliverableCode = strtolower(trim((string) $deliverable->code));
+            $this->indexStateTargetLookupCode($deliverableCode, $total);
+            if (str_starts_with($deliverableCode, 'svc_')) {
+                $this->indexStateTargetLookupCode(substr($deliverableCode, 4), $total);
+            }
+
+            foreach ($serviceCodesByDeliverableId[(int) $deliverableId] ?? [] as $serviceCode) {
+                $this->indexStateTargetLookupCode($serviceCode, $total);
+                $this->indexStateTargetLookupCode(
+                    $this->serviceTargetDeliverables->deliverableCodeForServiceCode($serviceCode),
+                    $total,
+                );
+            }
+
+            $norm = $this->normalizeLabel((string) $deliverable->name);
+            if ($norm !== '' && $total > 0) {
+                $this->targetsByNameNorm[$norm] = max($this->targetsByNameNorm[$norm] ?? 0, $total);
+            }
+        }
     }
 
     /**
