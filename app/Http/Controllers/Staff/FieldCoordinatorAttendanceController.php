@@ -100,6 +100,37 @@ class FieldCoordinatorAttendanceController extends Controller
         );
     }
 
+    public function downloadAttendanceSheetTemplateForReport(
+        FieldCoordinatorAttendanceReport $attendanceReport,
+        Request $request,
+    ): StreamedResponse {
+        $user = $request->user();
+        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
+
+        $attendanceReport->load(['district', 'gramPanchayat']);
+
+        $male = (int) $attendanceReport->participants_male_count;
+        $female = (int) $attendanceReport->participants_female_count;
+        $total = (int) $attendanceReport->participants_total;
+        if ($total <= 0) {
+            $total = $male + $female;
+        }
+        abort_if($total <= 0, 422, 'This submission has no participants — template is not required.');
+
+        $gramPanchayatName = (string) ($attendanceReport->gramPanchayat?->name ?? '');
+        if ($gramPanchayatName === '') {
+            $gramPanchayatName = (string) ($attendanceReport->area ?: '—');
+        }
+
+        return $this->attendanceSheetService->streamTemplateDownload(
+            $total,
+            (string) ($attendanceReport->district?->name ?? $user->district?->name ?? ''),
+            (string) ($attendanceReport->block ?? ''),
+            $gramPanchayatName,
+        );
+    }
+
     public function gramPanchayats(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -254,11 +285,11 @@ class FieldCoordinatorAttendanceController extends Controller
         $participantsTotal = $male + $female;
 
         $sheetPayload = [];
-        if ($participantsTotal > 0) {
-            $sheetFile = $request->file('attendance_sheet');
-            if (! $sheetFile instanceof UploadedFile) {
+        $sheetFile = $request->file('attendance_sheet');
+        if ($sheetFile instanceof UploadedFile) {
+            if ($participantsTotal <= 0) {
                 return back()
-                    ->withErrors(['attendance_sheet' => 'Download the attendance template, fill all rows, and upload it.'])
+                    ->withErrors(['attendance_sheet' => 'Set participant counts before uploading an attendance sheet.'])
                     ->withInput();
             }
 
@@ -297,9 +328,14 @@ class FieldCoordinatorAttendanceController extends Controller
             ...$sheetPayload,
         ]);
 
+        $status = 'Field visit report submitted.';
+        if ($participantsTotal > 0 && $sheetPayload === []) {
+            $status .= ' You can upload the attendance Excel sheet later from My submissions.';
+        }
+
         return redirect()
             ->route('staff.attendance.index')
-            ->with('status', 'Field visit report submitted.');
+            ->with('status', $status);
     }
 
     public function uploadAttendanceSheet(

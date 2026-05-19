@@ -36,7 +36,28 @@ class FieldCoordinatorAttendanceSheetTest extends TestCase
             ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }
 
-    public function test_submit_requires_valid_attendance_sheet_when_participants_present(): void
+    public function test_submit_without_attendance_sheet_is_allowed_when_participants_present(): void
+    {
+        Storage::fake();
+
+        [$staff, $block, $gp] = $this->createFieldCoordinatorContext();
+
+        $this->actingAs($staff)->post(route('staff.attendance.store'), [
+            'visit_date' => '2026-05-19',
+            'district_block_id' => $block->id,
+            'gram_panchayat_id' => $gp->id,
+            'area' => 'Test village',
+            'participants_male_count' => 2,
+            'participants_female_count' => 1,
+            'visit_media' => [UploadedFile::fake()->create('visit.jpg', 100, 'image/jpeg')],
+        ])->assertRedirect(route('staff.attendance.index'));
+
+        $report = FieldCoordinatorAttendanceReport::query()->firstOrFail();
+        $this->assertFalse($report->hasAttendanceSheet());
+        $this->assertSame(3, $report->participants_total);
+    }
+
+    public function test_submit_validates_attendance_sheet_when_uploaded(): void
     {
         Storage::fake();
 

@@ -155,17 +155,17 @@
                 <div id="attSheetSection" style="margin-top:1.2rem;display:none;">
                     <p class="att-section-label">Attendance sheet (Excel)</p>
                     <p style="font-size:0.8rem;color:var(--att-muted);margin:0 0 0.75rem;">
-                        Download the template — one row per participant. Fill every field: Name, Gender (M/F), Mobile. District, block and gram panchayat are pre-filled.
+                        Download the template anytime (one row per participant). Upload is optional — submit photos first, then upload the filled sheet from <strong>My submissions</strong>.
                     </p>
                     <div style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:center;margin-bottom:0.75rem;">
                         <a href="#" id="attDownloadTemplate" class="att-btn" style="text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);">
                             <i class="fa-solid fa-file-excel"></i> <span id="attDownloadTemplateLabel">Download template</span>
                         </a>
                     </div>
-                    <label style="font-size:0.78rem;font-weight:600;">Upload filled sheet <span class="att-req" id="attSheetReq">*</span></label>
+                    <label style="font-size:0.78rem;font-weight:600;">Upload filled sheet <span style="font-weight:400;color:var(--att-muted);">(optional — can do later)</span></label>
                     <div class="att-file-wrap" style="margin-top:0.4rem;">
                         <i class="fa-solid fa-file-excel"></i>
-                        <span>.xlsx — row count must match total participants exactly</span>
+                        <span>If uploading now: .xlsx must match total participants exactly</span>
                         <input type="file" name="attendance_sheet" id="attSheetInput" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
                     </div>
                 </div>
@@ -194,6 +194,9 @@
     </div>
 
     <div class="att-table-wrap">
+        <p style="font-size:0.82rem;color:var(--att-muted);margin:0 0 0.5rem 1.4rem;">
+            <strong>New visit?</strong> Download the template in the form above. For past visits, use <strong>Download template</strong> in the table.
+        </p>
         <div class="att-table-head">
             <div class="att-card__head-icon" style="background:linear-gradient(135deg,#ccfbf1,#a7f3d0);color:var(--att-teal);"><i class="fa-solid fa-clock-rotate-left"></i></div>
             <h3 style="margin:0;font-size:0.95rem;font-weight:700;">My submissions</h3>
@@ -237,10 +240,14 @@
                                             <i class="fa-solid fa-file-excel"></i> View sheet
                                         </a>
                                     @else
+                                        <span style="display:inline-block;padding:0.15rem 0.45rem;border-radius:999px;background:#fffbeb;color:#b45309;font-size:0.68rem;font-weight:700;margin-bottom:0.35rem;">Sheet pending</span><br>
+                                        <a href="{{ route('staff.attendance.sheet-template.report', $row) }}" class="att-btn" style="padding:0.35rem 0.65rem;font-size:0.75rem;text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);margin-bottom:0.35rem;">
+                                            <i class="fa-solid fa-download"></i> Download template ({{ number_format((int) $row->participants_total) }} rows)
+                                        </a>
                                         <form method="post" action="{{ route('staff.attendance.sheet.upload', $row) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.35rem;min-width:11rem;">
                                             @csrf
                                             <input type="file" name="attendance_sheet" accept=".xlsx,.xls" required style="font-size:0.75rem;">
-                                            <button type="submit" class="att-btn" style="padding:0.35rem 0.6rem;font-size:0.75rem;">Upload</button>
+                                            <button type="submit" class="att-btn" style="padding:0.35rem 0.6rem;font-size:0.75rem;">Upload filled sheet</button>
                                         </form>
                                     @endif
                                 @else
@@ -353,9 +360,6 @@
 
         if (sheetSection) {
             sheetSection.style.display = total > 0 ? 'block' : 'none';
-        }
-        if (sheetInput) {
-            sheetInput.required = total > 0;
         }
         if (downloadLabel) {
             downloadLabel.textContent = total > 0
