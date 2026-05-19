@@ -5,17 +5,8 @@
 
 @section('content')
     @php
-        $fyName = $fiscalYear?->name ?? '—';
         $queryParams = $filter->queryParams();
     @endphp
-
-    <p style="font-size:0.88rem;color:#52525b;margin:0 0 0.65rem;max-width:56rem;">
-        Category headings match the official MIS sheet (targets/achievement blank on headings). <strong>Scope:</strong> {{ $scopeLabel }}.
-        <strong>Period:</strong> {{ $periodLabel }}.
-        Targets = @if ($scope->usesStateTargets) state @else district @endif (FY {{ $fyName }}), same rows as
-        <a href="{{ route('admin.targets.state', ['fiscal_year_id' => $fiscalYearId]) }}">State targets</a> (MIS + per-service codes).
-        CFA &amp; onboarding match the state dashboard. Rows <strong>1.3 / 1.3.1</strong> = Field work visits (<code>/my/attendance</code>): workshop count &amp; participants.
-    </p>
 
     <form method="get" action="{{ route($indexRoute) }}" style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:flex-end;margin-bottom:1rem;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.9rem;">
         <div style="display:flex;flex-direction:column;gap:0.25rem;">
