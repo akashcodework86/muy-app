@@ -2,6 +2,9 @@
 
 return [
 
+    /** Phase 3 CFA floor — must match StateAdminDashboardService. */
+    'phase3_floor_date' => '2026-04-01',
+
     /*
     |--------------------------------------------------------------------------
     | Official MIS indicator sequence (S.N. 1 … 12)

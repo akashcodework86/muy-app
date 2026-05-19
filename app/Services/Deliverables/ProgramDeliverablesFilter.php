@@ -62,6 +62,14 @@ class ProgramDeliverablesFilter
         return [null, null];
     }
 
+    /** User narrowed period beyond the default full fiscal year. */
+    public function hasExplicitDateFilter(): bool
+    {
+        return $this->month !== null
+            || $this->dateFrom !== null
+            || $this->dateTo !== null;
+    }
+
     /**
      * @return array<string, mixed>
      */

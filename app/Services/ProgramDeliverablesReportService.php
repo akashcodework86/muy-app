@@ -38,6 +38,8 @@ class ProgramDeliverablesReportService
 
     private bool $useStateTargets = true;
 
+    private ?ProgramDeliverablesFilter $filter = null;
+
     /**
      * @return array{
      *     fiscalYear: ?FiscalYear,
@@ -59,6 +61,7 @@ class ProgramDeliverablesReportService
         [$resolvedFyId] = FiscalYear::resolveIdForUi($filter->fiscalYearId);
         $fiscalYear = $fiscalYears->firstWhere('id', $resolvedFyId);
 
+        $this->filter = $filter;
         $this->activeFiscalYear = $fiscalYear;
         $this->districtIds = $scope->effectiveDistrictIds($filter->districtId);
         $this->useStateTargets = $scope->usesStateTargets && $this->districtIds === null;
@@ -274,7 +277,7 @@ class ProgramDeliverablesReportService
 
         $query = DB::table('cfa_submissions');
         $this->applyDistrictScope($query, 'district_id');
-        $this->applyPeriodFilter($query, 'created_at');
+        $this->applyCfaAchievementScope($query);
 
         return (int) $query->count();
     }
@@ -292,9 +295,65 @@ class ProgramDeliverablesReportService
             ->whereNotNull('ob.locked_at');
 
         $this->applyDistrictScope($query, 'cs.district_id');
-        $this->applyPeriodFilter($query, 'ob.locked_at');
+        $this->applyOnboardingAchievementScope($query);
 
         return (int) $query->count();
+    }
+
+    /**
+     * Align with state dashboard: CFA achievement = submissions tagged to the FY (`fiscal_year_id`),
+     * not every row whose `created_at` falls in the FY calendar window.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyCfaAchievementScope($query): void
+    {
+        $fyId = (int) ($this->activeFiscalYear?->id ?? 0);
+
+        if ($fyId > 0 && Schema::hasColumn('cfa_submissions', 'fiscal_year_id')) {
+            $query->where('fiscal_year_id', $fyId);
+
+            if ($this->filter?->hasExplicitDateFilter()) {
+                $this->applyPeriodFilter($query, 'created_at');
+            }
+
+            return;
+        }
+
+        $floor = $this->phase3FloorDate();
+        if ($this->periodFrom && $this->periodTo) {
+            $from = $this->periodFrom->copy();
+            if ($from->lt($floor)) {
+                $from = $floor->copy();
+            }
+            $query->whereBetween('created_at', [$from->toDateTimeString(), $this->periodTo->toDateTimeString()]);
+        } else {
+            $query->where('created_at', '>=', $floor->toDateTimeString());
+        }
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyOnboardingAchievementScope($query): void
+    {
+        $floor = $this->phase3FloorDate();
+        $query->where('ob.locked_at', '>=', $floor->toDateTimeString());
+
+        if ($this->filter?->hasExplicitDateFilter() && $this->periodFrom && $this->periodTo) {
+            $from = $this->periodFrom->copy();
+            if ($from->lt($floor)) {
+                $from = $floor->copy();
+            }
+            $query->whereBetween('ob.locked_at', [$from->toDateTimeString(), $this->periodTo->toDateTimeString()]);
+        }
+    }
+
+    private function phase3FloorDate(): Carbon
+    {
+        $raw = (string) config('program_deliverables.phase3_floor_date', '2026-04-01');
+
+        return Carbon::parse($raw)->startOfDay();
     }
 
     private function fieldVisitSessionsCount(): int

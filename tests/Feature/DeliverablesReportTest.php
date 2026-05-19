@@ -68,6 +68,56 @@ class DeliverablesReportTest extends TestCase
         $this->assertContains('12.2', $serials);
     }
 
+    public function test_cfa_count_uses_fiscal_year_id_not_created_at_window(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2025-26'],
+            [
+                'name' => 'FY 2025-26',
+                'starts_on' => '2025-04-01',
+                'ends_on' => '2026-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'cfa-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'cfa-district',
+            'name' => 'District',
+            'sort_order' => 1,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $fy->id,
+                'applicant_name' => 'Tagged',
+                'phone' => '9000000001',
+                'payload' => json_encode([]),
+                'created_at' => '2025-06-01',
+                'updated_at' => now(),
+            ],
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => null,
+                'applicant_name' => 'Date only',
+                'phone' => '9000000002',
+                'payload' => json_encode([]),
+                'created_at' => '2025-06-15',
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '1.1');
+
+        $this->assertNotNull($row);
+        $this->assertSame(1, $row['achievement']);
+    }
+
     public function test_business_registration_row_counts_approved_cases_in_district_scope(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
