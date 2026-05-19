@@ -203,6 +203,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('attendance/gram-panchayats', [FieldCoordinatorAttendanceController::class, 'gramPanchayats'])->name('attendance.gram-panchayats');
         Route::get('attendance/view', [FieldCoordinatorAttendanceController::class, 'view'])->name('attendance.view');
         Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceController::class, 'downloadAttachment'])->name('attendance.attachment');
+        Route::get('attendance/{attendanceReport}/edit', [FieldCoordinatorAttendanceController::class, 'edit'])->name('attendance.edit');
+        Route::put('attendance/{attendanceReport}', [FieldCoordinatorAttendanceController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.update');
+        Route::delete('attendance/{attendanceReport}', [FieldCoordinatorAttendanceController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.destroy');
         Route::get('attendance/{attendanceReport}/attendance-sheet-template', [FieldCoordinatorAttendanceController::class, 'downloadAttendanceSheetTemplateForReport'])->name('attendance.sheet-template.report');
         Route::get('attendance/{attendanceReport}/attendance-sheet', [FieldCoordinatorAttendanceController::class, 'downloadAttendanceSheet'])->name('attendance.sheet.download');
         Route::post('attendance/{attendanceReport}/attendance-sheet', [FieldCoordinatorAttendanceController::class, 'uploadAttendanceSheet'])

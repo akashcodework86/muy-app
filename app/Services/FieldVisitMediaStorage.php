@@ -88,4 +88,19 @@ class FieldVisitMediaStorage
             $report->attachment_original_name ?: basename($report->attachment_path)
         );
     }
+
+    public function deleteAllForReport(FieldCoordinatorAttendanceReport $report): void
+    {
+        foreach ($report->visitMediaItems() as $item) {
+            $path = (string) ($item['path'] ?? '');
+            if ($path !== '' && Storage::exists($path)) {
+                Storage::delete($path);
+            }
+        }
+
+        $legacyPath = (string) ($report->attachment_path ?? '');
+        if ($legacyPath !== '' && Storage::exists($legacyPath)) {
+            Storage::delete($legacyPath);
+        }
+    }
 }

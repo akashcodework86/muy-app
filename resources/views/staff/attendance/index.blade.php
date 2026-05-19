@@ -214,6 +214,7 @@
                         <th>Attendance sheet</th>
                         <th>Photos</th>
                         <th>Remark</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -271,9 +272,21 @@
                                 @endif
                             </td>
                             <td><span class="att-remark">{{ $row->remark ?: '—' }}</span></td>
+                            <td style="white-space:nowrap;">
+                                <a href="{{ route('staff.attendance.edit', $row) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:#4f46e5;text-decoration:none;margin-right:0.5rem;">
+                                    <i class="fa-solid fa-pen"></i> Edit
+                                </a>
+                                <form method="post" action="{{ route('staff.attendance.destroy', $row) }}" style="display:inline;" onsubmit="return confirm('Delete this visit submission?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" style="background:none;border:none;padding:0;font-size:0.78rem;font-weight:700;color:#dc2626;cursor:pointer;display:inline-flex;align-items:center;gap:0.25rem;">
+                                        <i class="fa-solid fa-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9"><div class="att-empty">No submissions yet.</div></td></tr>
+                        <tr><td colspan="10"><div class="att-empty">No submissions yet.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>

@@ -374,6 +374,135 @@ class FieldCoordinatorAttendanceController extends Controller
             ->with('status', 'Attendance sheet uploaded.');
     }
 
+    public function edit(FieldCoordinatorAttendanceReport $attendanceReport, Request $request): View
+    {
+        $user = $request->user()->load(['district', 'designationRecord']);
+        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
+
+        $districtId = (int) ($user->district_id ?: 0);
+        $blockRows = $districtId > 0
+            ? DistrictBlock::query()
+                ->where('district_id', $districtId)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name'])
+            : collect();
+
+        $attendanceReport->load(['district', 'gramPanchayat']);
+
+        return view('staff.attendance.edit', [
+            'report' => $attendanceReport,
+            'user' => $user,
+            'blockRows' => $blockRows,
+            'gramPanchayatsEnabled' => Schema::hasTable('gram_panchayats'),
+        ]);
+    }
+
+    public function update(
+        FieldCoordinatorAttendanceReport $attendanceReport,
+        Request $request,
+    ): RedirectResponse {
+        $user = $request->user()->load(['district', 'designationRecord']);
+        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
+
+        $rules = [
+            'visit_date' => ['required', 'date'],
+            'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
+            'gram_panchayat_id' => ['required', 'integer', 'exists:gram_panchayats,id'],
+            'area' => ['required', 'string', 'max:191'],
+            'participants_male_count' => ['required', 'integer', 'min:0'],
+            'participants_female_count' => ['required', 'integer', 'min:0'],
+            'remark' => ['nullable', 'string', 'max:2000'],
+        ];
+
+        if (! Schema::hasTable('gram_panchayats')) {
+            unset($rules['gram_panchayat_id']);
+            $rules['gram_panchayat_id'] = ['nullable'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $districtId = (int) ($user->district_id ?: 0);
+        $block = DistrictBlock::query()->findOrFail((int) $validated['district_block_id']);
+        abort_unless((int) $block->district_id === $districtId, 422);
+
+        $gramPanchayat = null;
+        if (Schema::hasTable('gram_panchayats')) {
+            $gramPanchayat = GramPanchayat::query()->findOrFail((int) $validated['gram_panchayat_id']);
+            abort_unless((int) $gramPanchayat->district_block_id === (int) $block->id, 422);
+        }
+
+        $male = (int) $validated['participants_male_count'];
+        $female = (int) $validated['participants_female_count'];
+        $participantsTotal = $male + $female;
+
+        $attendanceReport->load(['district', 'gramPanchayat']);
+
+        $locationOrCountsChanged = (int) $attendanceReport->participants_male_count !== $male
+            || (int) $attendanceReport->participants_female_count !== $female
+            || (int) $attendanceReport->participants_total !== $participantsTotal
+            || (int) $attendanceReport->district_block_id !== (int) $block->id
+            || (int) $attendanceReport->gram_panchayat_id !== (int) ($gramPanchayat?->id ?: 0)
+            || (string) $attendanceReport->area !== (string) $validated['area']
+            || (string) $attendanceReport->block !== (string) $block->name;
+
+        if ($locationOrCountsChanged && $attendanceReport->hasAttendanceSheet()) {
+            $sheetPath = (string) $attendanceReport->attendance_sheet_path;
+            if ($sheetPath !== '' && Storage::exists($sheetPath)) {
+                Storage::delete($sheetPath);
+            }
+            $attendanceReport->attendance_sheet_path = null;
+            $attendanceReport->attendance_sheet_original_name = null;
+            $attendanceReport->attendance_sheet_mime = null;
+            $attendanceReport->attendance_sheet_size_bytes = null;
+        }
+
+        $attendanceReport->update([
+            'visit_date' => $validated['visit_date'],
+            'block' => (string) $block->name,
+            'district_block_id' => (int) $block->id,
+            'gram_panchayat_id' => $gramPanchayat?->id,
+            'area' => $validated['area'],
+            'remark' => $validated['remark'] ?? null,
+            'participants_male_count' => $male,
+            'participants_female_count' => $female,
+            'participants_total' => $participantsTotal,
+            'district_id' => $districtId > 0 ? $districtId : null,
+        ]);
+
+        $status = 'Visit updated.';
+        if ($locationOrCountsChanged && $participantsTotal > 0) {
+            $status .= ' Download a new attendance template and upload the sheet again.';
+        }
+
+        return redirect()
+            ->route('staff.attendance.index')
+            ->with('status', $status);
+    }
+
+    public function destroy(
+        FieldCoordinatorAttendanceReport $attendanceReport,
+        Request $request,
+    ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
+
+        $sheetPath = (string) ($attendanceReport->attendance_sheet_path ?? '');
+        if ($sheetPath !== '' && Storage::exists($sheetPath)) {
+            Storage::delete($sheetPath);
+        }
+
+        $this->mediaStorage->deleteAllForReport($attendanceReport);
+        $attendanceReport->delete();
+
+        return redirect()
+            ->route('staff.attendance.index')
+            ->with('status', 'Visit deleted.');
+    }
+
     public function downloadAttendanceSheet(
         FieldCoordinatorAttendanceReport $attendanceReport,
         Request $request,
