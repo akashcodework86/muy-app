@@ -6,15 +6,16 @@
 @section('content')
     @php
         $fyName = $fiscalYear?->name ?? '—';
+        $queryParams = $filter->queryParams();
     @endphp
 
-    <p style="font-size:0.88rem;color:#52525b;margin:0 0 1rem;max-width:52rem;">
-        Official MIS indicator sequence (sections 1–12).
-        <strong>Target</strong> = state target (FY {{ $fyName }}).
-        <strong>Achievement</strong> = Phase 3 cases, CFA, onboarding, trainings, and field visits in this FY.
+    <p style="font-size:0.88rem;color:#52525b;margin:0 0 0.65rem;max-width:56rem;">
+        Official MIS sequence. <strong>Scope:</strong> {{ $scopeLabel }}.
+        <strong>Period:</strong> {{ $periodLabel }}.
+        Targets = @if ($scope->usesStateTargets && ! $filter->districtId) state @else district @endif (FY {{ $fyName }}).
     </p>
 
-    <form method="get" action="{{ route('admin.deliverables.index') }}" style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:flex-end;margin-bottom:1rem;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.9rem;">
+    <form method="get" action="{{ route($indexRoute) }}" style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:flex-end;margin-bottom:1rem;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.9rem;">
         <div style="display:flex;flex-direction:column;gap:0.25rem;">
             <label for="fiscal_year_id" style="font-size:0.75rem;font-weight:600;color:#475569;">Fiscal year</label>
             <select name="fiscal_year_id" id="fiscal_year_id" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:10rem;">
@@ -23,9 +24,44 @@
                 @endforeach
             </select>
         </div>
+        @if ($canPickDistrict)
+            <div style="display:flex;flex-direction:column;gap:0.25rem;">
+                <label for="district_id" style="font-size:0.75rem;font-weight:600;color:#475569;">District</label>
+                <select name="district_id" id="district_id" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:11rem;">
+                    <option value="">All in scope</option>
+                    @foreach ($districts as $d)
+                        <option value="{{ $d->id }}" @selected((int) ($filter->districtId ?? 0) === (int) $d->id)>{{ $d->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
+        <div style="display:flex;flex-direction:column;gap:0.25rem;">
+            <label for="month" style="font-size:0.75rem;font-weight:600;color:#475569;">Month</label>
+            <select name="month" id="month" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:8rem;">
+                <option value="">All months</option>
+                @foreach (range(1, 12) as $m)
+                    <option value="{{ $m }}" @selected((int) ($filter->month ?? 0) === $m)>{{ \Carbon\Carbon::create(null, $m, 1)->format('F') }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.25rem;">
+            <label for="year" style="font-size:0.75rem;font-weight:600;color:#475569;">Year</label>
+            <input type="number" name="year" id="year" value="{{ $filter->year }}" min="2020" max="2040" placeholder="e.g. 2025" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;width:6.5rem;">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.25rem;">
+            <label for="date_from" style="font-size:0.75rem;font-weight:600;color:#475569;">From</label>
+            <input type="date" name="date_from" id="date_from" value="{{ $filter->dateFrom }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.25rem;">
+            <label for="date_to" style="font-size:0.75rem;font-weight:600;color:#475569;">To</label>
+            <input type="date" name="date_to" id="date_to" value="{{ $filter->dateTo }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
+        </div>
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;cursor:pointer;">Apply</button>
-        <a href="{{ route('admin.deliverables.export', ['fiscal_year_id' => $fiscalYearId]) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;">⬇ Export .xlsx</a>
-        <a href="{{ route('admin.targets.state', ['fiscal_year_id' => $fiscalYearId]) }}" style="font-size:0.85rem;color:#4f46e5;margin-left:auto;">Edit state targets →</a>
+        <a href="{{ route($indexRoute) }}" style="padding:0.48rem 0.75rem;border:1px solid #d4d4d8;border-radius:8px;text-decoration:none;color:#334155;font-size:0.88rem;">Reset</a>
+        <a href="{{ route($exportRoute, $queryParams) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;">⬇ Export .xlsx</a>
+        @if ($showStateTargetsLink ?? false)
+            <a href="{{ route('admin.targets.state', ['fiscal_year_id' => $fiscalYearId]) }}" style="font-size:0.85rem;color:#4f46e5;margin-left:auto;">Edit state targets →</a>
+        @endif
     </form>
 
     <div style="overflow-x:auto;">
@@ -60,7 +96,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="padding:1.25rem;text-align:center;color:#64748b;border:1px solid #d4d4d8;">No service categories or services found. Add them under Service catalog.</td>
+                        <td colspan="7" style="padding:1.25rem;text-align:center;color:#64748b;border:1px solid #d4d4d8;">No data for this scope.</td>
                     </tr>
                 @endforelse
             </tbody>

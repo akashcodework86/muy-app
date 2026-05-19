@@ -3,11 +3,15 @@
 namespace App\Services;
 
 use App\Models\Deliverable;
+use App\Models\DistrictDeliverableTarget;
 use App\Models\FiscalYear;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\StateDeliverableTarget;
+use App\Services\Deliverables\ProgramDeliverablesFilter;
+use App\Services\Deliverables\ProgramDeliverablesScope;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -22,8 +26,17 @@ class ProgramDeliverablesReportService
     /** @var array<int, int> */
     private array $targetsByDeliverableId = [];
 
-  /** @var array<string, int> */
+    /** @var array<string, int> */
     private array $serviceIdsByCode = [];
+
+    /** @var list<int>|null */
+    private ?array $districtIds = null;
+
+    private ?Carbon $periodFrom = null;
+
+    private ?Carbon $periodTo = null;
+
+    private bool $useStateTargets = true;
 
     /**
      * @return array{
@@ -40,23 +53,19 @@ class ProgramDeliverablesReportService
      *     }>
      * }
      */
-    public function build(?int $fiscalYearId): array
+    public function build(ProgramDeliverablesFilter $filter, ProgramDeliverablesScope $scope): array
     {
         $fiscalYears = FiscalYear::forUiDropdown();
-        [$resolvedFyId] = FiscalYear::resolveIdForUi($fiscalYearId);
+        [$resolvedFyId] = FiscalYear::resolveIdForUi($filter->fiscalYearId);
         $fiscalYear = $fiscalYears->firstWhere('id', $resolvedFyId);
 
         $this->activeFiscalYear = $fiscalYear;
+        $this->districtIds = $scope->effectiveDistrictIds($filter->districtId);
+        $this->useStateTargets = $scope->usesStateTargets && $this->districtIds === null;
+        [$this->periodFrom, $this->periodTo] = $filter->resolvePeriod($fiscalYear);
 
-        $this->targetsByDeliverableId = $fiscalYear
-            ? StateDeliverableTarget::query()
-                ->where('fiscal_year_id', $fiscalYear->id)
-                ->pluck('target_total', 'deliverable_id')
-                ->map(fn ($v) => (int) $v)
-                ->all()
-            : [];
-
-        $this->achievementByServiceId = $this->achievementCountsByServiceId($fiscalYear);
+        $this->targetsByDeliverableId = $this->loadTargets($fiscalYear);
+        $this->achievementByServiceId = $this->achievementCountsByServiceId();
         $this->deliverableIdsByCode = Deliverable::query()
             ->pluck('id', 'code')
             ->map(fn ($id) => (int) $id)
@@ -81,9 +90,39 @@ class ProgramDeliverablesReportService
     }
 
     /**
-     * @param  list<array<string, mixed>>  $rows
-     * @param  list<string>  $serialParts
+     * @return array<int, int>
      */
+    private function loadTargets(?FiscalYear $fiscalYear): array
+    {
+        if (! $fiscalYear) {
+            return [];
+        }
+
+        if ($this->useStateTargets) {
+            return StateDeliverableTarget::query()
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->pluck('target_total', 'deliverable_id')
+                ->map(fn ($v) => (int) $v)
+                ->all();
+        }
+
+        $query = DistrictDeliverableTarget::query()
+            ->where('fiscal_year_id', $fiscalYear->id)
+            ->selectRaw('deliverable_id, SUM(target_total) as target_total')
+            ->groupBy('deliverable_id');
+
+        if ($this->districtIds !== null) {
+            if ($this->districtIds === []) {
+                return [];
+            }
+            $query->whereIn('district_id', $this->districtIds);
+        }
+
+        return $query->pluck('target_total', 'deliverable_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+    }
+
     /**
      * @return array{target: ?int, achievement: int}
      */
@@ -234,7 +273,8 @@ class ProgramDeliverablesReportService
         }
 
         $query = DB::table('cfa_submissions');
-        $this->applyFyDateFilter($query, 'created_at');
+        $this->applyDistrictScope($query, 'district_id');
+        $this->applyPeriodFilter($query, 'created_at');
 
         return (int) $query->count();
     }
@@ -247,10 +287,12 @@ class ProgramDeliverablesReportService
 
         $query = DB::table('onboarding_batch_cfa as obc')
             ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+            ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
             ->where('ob.status', 'locked')
             ->whereNotNull('ob.locked_at');
 
-        $this->applyFyDateFilter($query, 'ob.locked_at');
+        $this->applyDistrictScope($query, 'cs.district_id');
+        $this->applyPeriodFilter($query, 'ob.locked_at');
 
         return (int) $query->count();
     }
@@ -262,7 +304,8 @@ class ProgramDeliverablesReportService
         }
 
         $query = FieldCoordinatorAttendanceReport::query();
-        $this->applyFyDateFilterOnModel($query, 'visit_date');
+        $this->applyDistrictScopeOnModel($query, 'district_id');
+        $this->applyPeriodFilterOnModel($query, 'visit_date');
 
         return (int) $query->count();
     }
@@ -274,7 +317,8 @@ class ProgramDeliverablesReportService
         }
 
         $query = FieldCoordinatorAttendanceReport::query();
-        $this->applyFyDateFilterOnModel($query, 'visit_date');
+        $this->applyDistrictScopeOnModel($query, 'district_id');
+        $this->applyPeriodFilterOnModel($query, 'visit_date');
 
         return (int) $query->sum(DB::raw('COALESCE(participants_total, participants_male_count + participants_female_count, 0)'));
     }
@@ -287,7 +331,8 @@ class ProgramDeliverablesReportService
 
         $query = DB::table('district_workshop_sessions');
         $dateCol = Schema::hasColumn('district_workshop_sessions', 'session_date') ? 'session_date' : 'created_at';
-        $this->applyFyDateFilter($query, $dateCol);
+        $this->applyDistrictScope($query, 'district_id');
+        $this->applyPeriodFilter($query, $dateCol);
 
         return (int) $query->count();
     }
@@ -299,8 +344,12 @@ class ProgramDeliverablesReportService
         }
 
         $query = DB::table('eap_edp_sessions');
-        $dateCol = Schema::hasColumn('eap_edp_sessions', 'session_date') ? 'session_date' : 'created_at';
-        $this->applyFyDateFilter($query, $dateCol);
+        $dateCol = Schema::hasColumn('eap_edp_sessions', 'session_date') ? 'session_date' : 'event_date';
+        if (! Schema::hasColumn('eap_edp_sessions', $dateCol)) {
+            $dateCol = 'created_at';
+        }
+        $this->applyDistrictScope($query, 'district_id');
+        $this->applyPeriodFilter($query, $dateCol);
 
         return (int) $query->count();
     }
@@ -309,14 +358,17 @@ class ProgramDeliverablesReportService
     {
         if (Schema::hasTable('training_package_month_sessions')) {
             $query = DB::table('training_package_month_sessions');
-            $this->applyFyCalendarFilter($query);
+            $this->applyDistrictScope($query, 'district_id');
+            $this->applyBstMonthSessionPeriod($query);
 
             return (int) $query->count();
         }
 
         if (Schema::hasTable('training_packages')) {
             $query = DB::table('training_packages');
-            $this->applyFyDateFilter($query, 'created_at');
+            $dateCol = Schema::hasColumn('training_packages', 'event_date') ? 'event_date' : 'created_at';
+            $this->applyDistrictScope($query, 'district_id');
+            $this->applyPeriodFilter($query, $dateCol);
 
             return (int) $query->count();
         }
@@ -331,7 +383,9 @@ class ProgramDeliverablesReportService
         }
 
         $query = DB::table('training_packages');
-        $this->applyFyDateFilter($query, 'created_at');
+        $dateCol = Schema::hasColumn('training_packages', 'event_date') ? 'event_date' : 'created_at';
+        $this->applyDistrictScope($query, 'district_id');
+        $this->applyPeriodFilter($query, $dateCol);
 
         if (Schema::hasColumn('training_packages', 'participants_total')) {
             return (int) (clone $query)->sum('participants_total');
@@ -349,14 +403,19 @@ class ProgramDeliverablesReportService
         if (Schema::hasTable('technical_training_sessions')) {
             $query = DB::table('technical_training_sessions');
             $dateCol = Schema::hasColumn('technical_training_sessions', 'session_date') ? 'session_date' : 'created_at';
-            $this->applyFyDateFilter($query, $dateCol);
+            if (Schema::hasColumn('technical_training_sessions', 'district_id')) {
+                $this->applyDistrictScope($query, 'district_id');
+            }
+            $this->applyPeriodFilter($query, $dateCol);
 
             return (int) $query->count();
         }
 
         if (Schema::hasTable('technical_trainings')) {
             $query = DB::table('technical_trainings');
-            $this->applyFyDateFilter($query, 'created_at');
+            $dateCol = Schema::hasColumn('technical_trainings', 'event_date') ? 'event_date' : 'created_at';
+            $this->applyDistrictScope($query, 'district_id');
+            $this->applyPeriodFilter($query, $dateCol);
 
             return (int) $query->count();
         }
@@ -366,59 +425,84 @@ class ProgramDeliverablesReportService
 
     private ?FiscalYear $activeFiscalYear = null;
 
-    private function fiscalYear(): ?FiscalYear
-    {
-        return $this->activeFiscalYear;
-    }
-
     /**
      * @param  \Illuminate\Database\Query\Builder  $query
      */
-    private function applyFyDateFilter($query, string $column): void
+    private function applyDistrictScope($query, string $column): void
     {
-        $fy = $this->fiscalYear();
-        if (! $fy) {
+        if ($this->districtIds === null) {
             return;
         }
 
-        $start = $fy->starts_on?->toDateString();
-        $end = $fy->ends_on?->toDateString();
-        if ($start && $end) {
-            $query->whereBetween($column, [$start, $end.' 23:59:59']);
+        if ($this->districtIds === []) {
+            $query->whereRaw('0 = 1');
+
+            return;
         }
+
+        $query->whereIn($column, $this->districtIds);
     }
 
     /**
      * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FieldCoordinatorAttendanceReport>  $query
      */
-    private function applyFyDateFilterOnModel($query, string $column): void
+    private function applyDistrictScopeOnModel($query, string $column): void
     {
-        $fy = $this->fiscalYear();
-        if (! $fy) {
+        if ($this->districtIds === null) {
             return;
         }
 
-        $start = $fy->starts_on?->toDateString();
-        $end = $fy->ends_on?->toDateString();
-        if ($start && $end) {
-            $query->whereBetween($column, [$start, $end]);
+        if ($this->districtIds === []) {
+            $query->whereRaw('0 = 1');
+
+            return;
         }
+
+        $query->whereIn($column, $this->districtIds);
     }
 
     /**
      * @param  \Illuminate\Database\Query\Builder  $query
      */
-    private function applyFyCalendarFilter($query): void
+    private function applyPeriodFilter($query, string $column): void
     {
-        $fy = $this->fiscalYear();
-        if (! $fy || ! $fy->starts_on || ! $fy->ends_on) {
+        if (! $this->periodFrom || ! $this->periodTo) {
             return;
         }
 
-        $start = $fy->starts_on;
-        $end = $fy->ends_on;
-        $query->where(function ($q) use ($start, $end): void {
-            $cursor = $start->copy()->startOfMonth();
+        $query->whereBetween($column, [
+            $this->periodFrom->toDateTimeString(),
+            $this->periodTo->toDateTimeString(),
+        ]);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FieldCoordinatorAttendanceReport>  $query
+     */
+    private function applyPeriodFilterOnModel($query, string $column): void
+    {
+        if (! $this->periodFrom || ! $this->periodTo) {
+            return;
+        }
+
+        $query->whereBetween($column, [
+            $this->periodFrom->toDateString(),
+            $this->periodTo->toDateString(),
+        ]);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyBstMonthSessionPeriod($query): void
+    {
+        if (! $this->periodFrom || ! $this->periodTo) {
+            return;
+        }
+
+        $query->where(function ($q): void {
+            $cursor = $this->periodFrom->copy()->startOfMonth();
+            $end = $this->periodTo->copy()->startOfMonth();
             while ($cursor->lte($end)) {
                 $q->orWhere(function ($q2) use ($cursor): void {
                     $q2->where('calendar_year', $cursor->year)
@@ -496,29 +580,36 @@ class ProgramDeliverablesReportService
     /**
      * @return array<int, int>
      */
-    private function achievementCountsByServiceId(?FiscalYear $fiscalYear): array
+    private function achievementCountsByServiceId(): array
     {
-        $query = ServiceCase::query()
-            ->selectRaw('service_id, COUNT(*) as total')
-            ->where('status', ServiceCase::STATUS_APPROVED)
-            ->whereNotNull('service_id')
-            ->groupBy('service_id');
-
-        if ($fiscalYear) {
-            $start = $fiscalYear->starts_on?->toDateString();
-            $end = $fiscalYear->ends_on?->toDateString();
-            if ($start && $end) {
-                $query->where(function ($q) use ($start, $end): void {
-                    $q->whereBetween('approved_at', [$start, $end])
-                        ->orWhere(function ($q2) use ($start, $end): void {
-                            $q2->whereNull('approved_at')
-                                ->whereBetween('created_at', [$start.' 00:00:00', $end.' 23:59:59']);
-                        });
-                });
-            }
+        if ($this->districtIds === []) {
+            return [];
         }
 
-        return $query->pluck('total', 'service_id')
+        $query = ServiceCase::query()
+            ->selectRaw('service_cases.service_id, COUNT(*) as total')
+            ->where('service_cases.status', ServiceCase::STATUS_APPROVED)
+            ->whereNotNull('service_cases.service_id');
+
+        if ($this->districtIds !== null) {
+            $query->join('cfa_submissions as cs', 'cs.id', '=', 'service_cases.cfa_submission_id')
+                ->whereIn('cs.district_id', $this->districtIds);
+        }
+
+        if ($this->periodFrom && $this->periodTo) {
+            $from = $this->periodFrom->toDateString();
+            $to = $this->periodTo->toDateTimeString();
+            $query->where(function ($q) use ($from, $to): void {
+                $q->whereBetween('service_cases.approved_at', [$from, $to])
+                    ->orWhere(function ($q2) use ($from, $to): void {
+                        $q2->whereNull('service_cases.approved_at')
+                            ->whereBetween('service_cases.created_at', [$from, $to]);
+                    });
+            });
+        }
+
+        return $query->groupBy('service_cases.service_id')
+            ->pluck('total', 'service_id')
             ->map(fn ($v) => (int) $v)
             ->all();
     }

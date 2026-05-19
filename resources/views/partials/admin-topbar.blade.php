@@ -44,6 +44,9 @@
         str_starts_with($r, 'spoc.onboarded') => 'onboarded',
         str_starts_with($r, 'admin.phase3-services') => 'phase3-services',
         str_starts_with($r, 'admin.deliverables') => 'deliverables',
+        str_starts_with($r, 'hub.deliverables') => 'deliverables',
+        str_starts_with($r, 'staff.deliverables') => 'deliverables',
+        str_starts_with($r, 'spoc.deliverables') => 'deliverables',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
         str_starts_with($r, 'admin.training-package-month-plans') => 'training-package-month-plans',
@@ -324,6 +327,9 @@
             <a href="{{ route('spoc.service-cases.index') }}" class="admin-topbar__link @if ($activeNav === 'spoc-queue') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Approval queue</span>
             </a>
+            <a href="{{ route('spoc.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
+                {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
+            </a>
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>
@@ -344,6 +350,9 @@
             <a href="{{ route('hub.applications.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-applications') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Applications</span>
             </a>
+            <a href="{{ route('hub.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
+                {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
+            </a>
             <a href="{{ route('hub.staff-performance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-staff-performance') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Staff Performance</span>
             </a>
@@ -363,6 +372,9 @@
             </a>
             <a href="{{ route('staff.monthly-targets') }}" class="admin-topbar__link @if ($activeNav === 'staff-targets') is-active @endif">
                 {!! $i('calendar') !!}<span class="admin-topbar__link-text">Monthly targets</span>
+            </a>
+            <a href="{{ route('staff.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
+                {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
             </a>
             <a href="{{ route('staff.applications') }}" class="admin-topbar__link @if ($activeNav === 'staff-apps') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Applications</span>
