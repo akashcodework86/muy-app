@@ -9,9 +9,9 @@
     @endphp
 
     <p style="font-size:0.88rem;color:#52525b;margin:0 0 1rem;max-width:52rem;">
-        MIS-style matrix by <strong>service category</strong> and <strong>service</strong>.
-        <strong>Target</strong> = state target for the linked deliverable (FY {{ $fyName }}).
-        <strong>Achievement</strong> = approved Phase 3 service cases in this FY.
+        Official MIS indicator sequence (sections 1–12).
+        <strong>Target</strong> = state target (FY {{ $fyName }}).
+        <strong>Achievement</strong> = Phase 3 cases, CFA, onboarding, trainings, and field visits in this FY.
     </p>
 
     <form method="get" action="{{ route('admin.deliverables.index') }}" style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:flex-end;margin-bottom:1rem;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.9rem;">
@@ -44,9 +44,10 @@
             <tbody>
                 @forelse ($rows as $row)
                     @php
-                        $isCategory = $row['row_type'] === 'category';
-                        $bg = $isCategory ? '#fce7f3' : '#fff';
-                        $fontWeight = $isCategory ? '700' : '400';
+                        $isPillar = $row['row_type'] === 'pillar';
+                        $isSubcategory = $row['row_type'] === 'subcategory';
+                        $bg = $isPillar ? '#fce7f3' : '#fff';
+                        $fontWeight = ($isPillar || $isSubcategory) ? '700' : '400';
                     @endphp
                     <tr>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;font-weight:{{ $fontWeight }};">{{ $row['serial'] }}</td>
@@ -54,7 +55,7 @@
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;">{{ $row['indicator_type'] ?: '—' }}</td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;">{{ $row['level'] ?: '—' }}</td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;">{{ $row['target'] !== null ? number_format($row['target']) : '—' }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;font-weight:{{ $isCategory ? '700' : '400' }};">{{ number_format($row['achievement']) }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;font-weight:{{ ($isPillar || $isSubcategory) ? '700' : '400' }};">{{ number_format($row['achievement']) }}</td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;">{{ $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '—' }}</td>
                     </tr>
                 @empty

@@ -27,10 +27,28 @@ class DeliverablesReportTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.deliverables.index'))
             ->assertOk()
-            ->assertSee('Deliverables');
+            ->assertSee('Deliverables')
+            ->assertSee('Outreach and Mobilisation');
     }
 
-    public function test_report_builds_category_and_service_rows_with_targets_and_achievements(): void
+    public function test_report_follows_official_mis_sequence(): void
+    {
+        $report = app(ProgramDeliverablesReportService::class)->build(null);
+        $serials = collect($report['rows'])->pluck('serial')->all();
+
+        $this->assertSame('1', $serials[0]);
+        $this->assertSame('1.1', $serials[1]);
+        $this->assertContains('4.1.1', $serials);
+        $this->assertContains('12.2', $serials);
+
+        $idx4 = array_search('4', $serials, true);
+        $idx5 = array_search('5', $serials, true);
+        $this->assertNotFalse($idx4);
+        $this->assertNotFalse($idx5);
+        $this->assertLessThan($idx5, $idx4);
+    }
+
+    public function test_business_registration_row_counts_approved_cases(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
             ['code' => '2025-26'],
@@ -42,25 +60,17 @@ class DeliverablesReportTest extends TestCase
             ]
         );
 
-        $root = ServiceCategory::query()->create([
-            'slug' => 'test_root',
-            'name' => 'Business Formalisation',
-            'sort_order' => 1,
-            'target_mode' => ServiceCategory::TARGET_MODE_SERVICE,
-        ]);
-
         $child = ServiceCategory::query()->create([
-            'parent_id' => $root->id,
-            'slug' => 'test_root_services',
+            'slug' => 'bf_services',
             'name' => 'Services',
             'sort_order' => 0,
         ]);
 
         $deliverable = Deliverable::query()->create([
-            'sort_order' => 50,
-            'code' => 'test_udyam',
-            'name' => 'Udyam',
-            'mis_entry_label' => 'Udyam',
+            'sort_order' => 6,
+            'code' => 'business_registration',
+            'name' => 'Business Registration',
+            'mis_entry_label' => 'Business Registration',
             'is_active' => true,
         ]);
 
@@ -108,7 +118,10 @@ class DeliverablesReportTest extends TestCase
         $report = app(ProgramDeliverablesReportService::class)->build($fy->id);
         $rows = collect($report['rows']);
 
-        $this->assertTrue($rows->contains(fn ($r) => $r['row_type'] === 'category' && $r['serial'] === '1'));
-        $this->assertTrue($rows->contains(fn ($r) => $r['row_type'] === 'service' && $r['name'] === 'Udyam Registration' && $r['target'] === 100 && $r['achievement'] === 1));
+        $row = $rows->firstWhere('serial', '4.1.1');
+        $this->assertNotNull($row);
+        $this->assertSame('Business Registration', $row['name']);
+        $this->assertSame(100, $row['target']);
+        $this->assertSame(1, $row['achievement']);
     }
 }

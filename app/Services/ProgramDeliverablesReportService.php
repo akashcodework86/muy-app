@@ -2,15 +2,29 @@
 
 namespace App\Services;
 
+use App\Models\Deliverable;
 use App\Models\FiscalYear;
+use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\Service;
 use App\Models\ServiceCase;
-use App\Models\ServiceCategory;
 use App\Models\StateDeliverableTarget;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ProgramDeliverablesReportService
 {
+    /** @var array<string, int> */
+    private array $deliverableIdsByCode = [];
+
+    /** @var array<int, int> */
+    private array $achievementByServiceId = [];
+
+    /** @var array<int, int> */
+    private array $targetsByDeliverableId = [];
+
+  /** @var array<string, int> */
+    private array $serviceIdsByCode = [];
+
     /**
      * @return array{
      *     fiscalYear: ?FiscalYear,
@@ -32,7 +46,9 @@ class ProgramDeliverablesReportService
         [$resolvedFyId] = FiscalYear::resolveIdForUi($fiscalYearId);
         $fiscalYear = $fiscalYears->firstWhere('id', $resolvedFyId);
 
-        $targetsByDeliverableId = $fiscalYear
+        $this->activeFiscalYear = $fiscalYear;
+
+        $this->targetsByDeliverableId = $fiscalYear
             ? StateDeliverableTarget::query()
                 ->where('fiscal_year_id', $fiscalYear->id)
                 ->pluck('target_total', 'deliverable_id')
@@ -40,77 +56,22 @@ class ProgramDeliverablesReportService
                 ->all()
             : [];
 
-        $achievementByServiceId = $this->achievementCountsByServiceId($fiscalYear);
-
-        $roots = ServiceCategory::query()
-            ->whereNull('parent_id')
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
+        $this->achievementByServiceId = $this->achievementCountsByServiceId($fiscalYear);
+        $this->deliverableIdsByCode = Deliverable::query()
+            ->pluck('id', 'code')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $this->serviceIdsByCode = Service::query()
+            ->where('is_active', true)
+            ->pluck('id', 'code')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
         $rows = [];
-        $categoryIndex = 0;
-
-        foreach ($roots as $root) {
-            $categoryIndex++;
-            $serialPrefix = (string) $categoryIndex;
-
-            $services = $this->servicesForRootCategory($root);
-            $categoryTarget = null;
-            $categoryAchievement = 0;
-
-            foreach ($services as $service) {
-                $categoryAchievement += (int) ($achievementByServiceId[(int) $service->id] ?? 0);
-            }
-
-            if ($root->target_mode === ServiceCategory::TARGET_MODE_CATEGORY) {
-                $deliverableId = $services->first()?->deliverable_id;
-                if ($deliverableId) {
-                    $categoryTarget = $targetsByDeliverableId[(int) $deliverableId] ?? null;
-                }
-            } else {
-                $sumTarget = 0;
-                $hasTarget = false;
-                foreach ($services as $service) {
-                    $t = $targetsByDeliverableId[(int) ($service->deliverable_id ?? 0)] ?? null;
-                    if ($t !== null) {
-                        $sumTarget += $t;
-                        $hasTarget = true;
-                    }
-                }
-                $categoryTarget = $hasTarget ? $sumTarget : null;
-            }
-
-            $rows[] = [
-                'row_type' => 'category',
-                'serial' => $serialPrefix,
-                'name' => (string) $root->name,
-                'indicator_type' => '',
-                'level' => '',
-                'target' => $categoryTarget,
-                'achievement' => $categoryAchievement,
-                'achievement_pct' => $this->percent($categoryTarget, $categoryAchievement),
-            ];
-
-            $serviceIndex = 0;
-            foreach ($services as $service) {
-                $serviceIndex++;
-                $achievement = (int) ($achievementByServiceId[(int) $service->id] ?? 0);
-                $target = $root->target_mode === ServiceCategory::TARGET_MODE_CATEGORY
-                    ? null
-                    : ($targetsByDeliverableId[(int) ($service->deliverable_id ?? 0)] ?? null);
-
-                $rows[] = [
-                    'row_type' => 'service',
-                    'serial' => $serialPrefix.'.'.$serviceIndex,
-                    'name' => (string) $service->name,
-                    'indicator_type' => $this->indicatorTypeLabel($service),
-                    'level' => $this->levelLabel($service),
-                    'target' => $target,
-                    'achievement' => $achievement,
-                    'achievement_pct' => $this->percent($target, $achievement),
-                ];
-            }
+        $pillarIndex = 0;
+        foreach (config('program_deliverables.matrix', []) as $pillar) {
+            $pillarIndex++;
+            $this->appendBranch($rows, $pillar, [(string) $pillarIndex]);
         }
 
         return [
@@ -120,24 +81,416 @@ class ProgramDeliverablesReportService
     }
 
     /**
-     * @return Collection<int, Service>
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<string>  $serialParts
      */
-    private function servicesForRootCategory(ServiceCategory $root): Collection
+    /**
+     * @return array{target: ?int, achievement: int}
+     */
+    private function appendBranch(array &$rows, array $node, array $serialParts): array
     {
-        $childCategoryIds = ServiceCategory::query()
-            ->where('parent_id', $root->id)
+        $serial = implode('.', $serialParts);
+        $children = $node['children'] ?? [];
+
+        if ($children === []) {
+            $metrics = $this->resolveNodeMetrics($node);
+            $rows[] = $this->formatRow($node, $serial, $metrics);
+
+            return $metrics;
+        }
+
+        $childStartIndex = count($rows);
+        $childMetrics = [];
+        $childIndex = 0;
+
+        foreach ($children as $child) {
+            $childIndex++;
+            $childMetrics[] = $this->appendBranch($rows, $child, [...$serialParts, (string) $childIndex]);
+        }
+
+        $aggregated = $this->aggregateMetrics($childMetrics);
+        $metrics = isset($node['source'])
+            ? $this->mergeMetrics($this->resolveNodeMetrics($node), $aggregated)
+            : $aggregated;
+
+        array_splice($rows, $childStartIndex, 0, [$this->formatRow($node, $serial, $metrics)]);
+
+        return $metrics;
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     * @return array{target: ?int, achievement: int}
+     */
+    private function resolveNodeMetrics(array $node): array
+    {
+        $source = $node['source'] ?? ['type' => 'none'];
+        $achievement = $this->achievementForSource($source);
+        $target = $this->targetForSource($source);
+
+        return [
+            'target' => $target,
+            'achievement' => $achievement,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     */
+    private function achievementForSource(array $source): int
+    {
+        return match ($source['type'] ?? 'none') {
+            'deliverable' => $this->achievementForDeliverableCode((string) ($source['code'] ?? '')),
+            'service' => $this->achievementForServiceCode((string) ($source['code'] ?? '')),
+            'services' => $this->achievementForServiceCodes((array) ($source['codes'] ?? [])),
+            'cfa_count' => $this->cfaCount(),
+            'onboarding_count' => $this->onboardingCount(),
+            'field_visit_sessions' => $this->fieldVisitSessionsCount(),
+            'field_visit_participants' => $this->fieldVisitParticipantsCount(),
+            'district_workshop_sessions' => $this->districtWorkshopSessionsCount(),
+            'edp_sessions' => $this->edpSessionsCount(),
+            'bst_sessions' => $this->bstSessionsCount(),
+            'bst_participants' => $this->bstParticipantsCount(),
+            'technical_training_sessions' => $this->technicalTrainingSessionsCount(),
+            default => 0,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     */
+    private function targetForSource(array $source): ?int
+    {
+        $code = match ($source['type'] ?? 'none') {
+            'deliverable' => (string) ($source['code'] ?? ''),
+            'cfa_count', 'onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants' => (string) ($source['deliverable_code'] ?? ''),
+            default => '',
+        };
+
+        if ($code === '') {
+            return null;
+        }
+
+        $deliverableId = $this->deliverableIdsByCode[$code] ?? null;
+        if ($deliverableId === null) {
+            return null;
+        }
+
+        $target = $this->targetsByDeliverableId[(int) $deliverableId] ?? null;
+
+        return $target !== null ? (int) $target : null;
+    }
+
+    private function achievementForDeliverableCode(string $code): int
+    {
+        if ($code === '') {
+            return 0;
+        }
+
+        $deliverableId = $this->deliverableIdsByCode[$code] ?? null;
+        if ($deliverableId === null) {
+            return 0;
+        }
+
+        $serviceIds = Service::query()
+            ->where('deliverable_id', $deliverableId)
+            ->where('is_active', true)
             ->pluck('id')
+            ->map(fn ($id) => (int) $id)
             ->all();
 
-        $categoryIds = array_merge([(int) $root->id], array_map('intval', $childCategoryIds));
+        $total = 0;
+        foreach ($serviceIds as $serviceId) {
+            $total += (int) ($this->achievementByServiceId[$serviceId] ?? 0);
+        }
 
-        return Service::query()
-            ->with(['deliverable:id,code'])
-            ->whereIn('service_category_id', $categoryIds)
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
+        return $total;
+    }
+
+    private function achievementForServiceCode(string $code): int
+    {
+        $serviceId = $this->serviceIdsByCode[$code] ?? null;
+
+        return $serviceId ? (int) ($this->achievementByServiceId[$serviceId] ?? 0) : 0;
+    }
+
+    /**
+     * @param  list<string>  $codes
+     */
+    private function achievementForServiceCodes(array $codes): int
+    {
+        $total = 0;
+        foreach ($codes as $code) {
+            $total += $this->achievementForServiceCode((string) $code);
+        }
+
+        return $total;
+    }
+
+    private function cfaCount(): int
+    {
+        if (! Schema::hasTable('cfa_submissions')) {
+            return 0;
+        }
+
+        $query = DB::table('cfa_submissions');
+        $this->applyFyDateFilter($query, 'created_at');
+
+        return (int) $query->count();
+    }
+
+    private function onboardingCount(): int
+    {
+        if (! Schema::hasTable('onboarding_batch_cfa') || ! Schema::hasTable('onboarding_batches')) {
+            return 0;
+        }
+
+        $query = DB::table('onboarding_batch_cfa as obc')
+            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+            ->where('ob.status', 'locked')
+            ->whereNotNull('ob.locked_at');
+
+        $this->applyFyDateFilter($query, 'ob.locked_at');
+
+        return (int) $query->count();
+    }
+
+    private function fieldVisitSessionsCount(): int
+    {
+        if (! Schema::hasTable('field_coordinator_attendance_reports')) {
+            return 0;
+        }
+
+        $query = FieldCoordinatorAttendanceReport::query();
+        $this->applyFyDateFilterOnModel($query, 'visit_date');
+
+        return (int) $query->count();
+    }
+
+    private function fieldVisitParticipantsCount(): int
+    {
+        if (! Schema::hasTable('field_coordinator_attendance_reports')) {
+            return 0;
+        }
+
+        $query = FieldCoordinatorAttendanceReport::query();
+        $this->applyFyDateFilterOnModel($query, 'visit_date');
+
+        return (int) $query->sum(DB::raw('COALESCE(participants_total, participants_male_count + participants_female_count, 0)'));
+    }
+
+    private function districtWorkshopSessionsCount(): int
+    {
+        if (! Schema::hasTable('district_workshop_sessions')) {
+            return 0;
+        }
+
+        $query = DB::table('district_workshop_sessions');
+        $dateCol = Schema::hasColumn('district_workshop_sessions', 'session_date') ? 'session_date' : 'created_at';
+        $this->applyFyDateFilter($query, $dateCol);
+
+        return (int) $query->count();
+    }
+
+    private function edpSessionsCount(): int
+    {
+        if (! Schema::hasTable('eap_edp_sessions')) {
+            return 0;
+        }
+
+        $query = DB::table('eap_edp_sessions');
+        $dateCol = Schema::hasColumn('eap_edp_sessions', 'session_date') ? 'session_date' : 'created_at';
+        $this->applyFyDateFilter($query, $dateCol);
+
+        return (int) $query->count();
+    }
+
+    private function bstSessionsCount(): int
+    {
+        if (Schema::hasTable('training_package_month_sessions')) {
+            $query = DB::table('training_package_month_sessions');
+            $this->applyFyCalendarFilter($query);
+
+            return (int) $query->count();
+        }
+
+        if (Schema::hasTable('training_packages')) {
+            $query = DB::table('training_packages');
+            $this->applyFyDateFilter($query, 'created_at');
+
+            return (int) $query->count();
+        }
+
+        return 0;
+    }
+
+    private function bstParticipantsCount(): int
+    {
+        if (! Schema::hasTable('training_packages')) {
+            return 0;
+        }
+
+        $query = DB::table('training_packages');
+        $this->applyFyDateFilter($query, 'created_at');
+
+        if (Schema::hasColumn('training_packages', 'participants_total')) {
+            return (int) (clone $query)->sum('participants_total');
+        }
+
+        if (Schema::hasColumn('training_packages', 'male_participants') && Schema::hasColumn('training_packages', 'female_participants')) {
+            return (int) (clone $query)->sum(DB::raw('COALESCE(male_participants,0) + COALESCE(female_participants,0)'));
+        }
+
+        return (int) $query->count();
+    }
+
+    private function technicalTrainingSessionsCount(): int
+    {
+        if (Schema::hasTable('technical_training_sessions')) {
+            $query = DB::table('technical_training_sessions');
+            $dateCol = Schema::hasColumn('technical_training_sessions', 'session_date') ? 'session_date' : 'created_at';
+            $this->applyFyDateFilter($query, $dateCol);
+
+            return (int) $query->count();
+        }
+
+        if (Schema::hasTable('technical_trainings')) {
+            $query = DB::table('technical_trainings');
+            $this->applyFyDateFilter($query, 'created_at');
+
+            return (int) $query->count();
+        }
+
+        return 0;
+    }
+
+    private ?FiscalYear $activeFiscalYear = null;
+
+    private function fiscalYear(): ?FiscalYear
+    {
+        return $this->activeFiscalYear;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyFyDateFilter($query, string $column): void
+    {
+        $fy = $this->fiscalYear();
+        if (! $fy) {
+            return;
+        }
+
+        $start = $fy->starts_on?->toDateString();
+        $end = $fy->ends_on?->toDateString();
+        if ($start && $end) {
+            $query->whereBetween($column, [$start, $end.' 23:59:59']);
+        }
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FieldCoordinatorAttendanceReport>  $query
+     */
+    private function applyFyDateFilterOnModel($query, string $column): void
+    {
+        $fy = $this->fiscalYear();
+        if (! $fy) {
+            return;
+        }
+
+        $start = $fy->starts_on?->toDateString();
+        $end = $fy->ends_on?->toDateString();
+        if ($start && $end) {
+            $query->whereBetween($column, [$start, $end]);
+        }
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyFyCalendarFilter($query): void
+    {
+        $fy = $this->fiscalYear();
+        if (! $fy || ! $fy->starts_on || ! $fy->ends_on) {
+            return;
+        }
+
+        $start = $fy->starts_on;
+        $end = $fy->ends_on;
+        $query->where(function ($q) use ($start, $end): void {
+            $cursor = $start->copy()->startOfMonth();
+            while ($cursor->lte($end)) {
+                $q->orWhere(function ($q2) use ($cursor): void {
+                    $q2->where('calendar_year', $cursor->year)
+                        ->where('calendar_month', $cursor->month);
+                });
+                $cursor->addMonth();
+            }
+        });
+    }
+
+    /**
+     * @param  list<array{target: ?int, achievement: int}>  $metricsList
+     * @return array{target: ?int, achievement: int}
+     */
+    private function aggregateMetrics(array $metricsList): array
+    {
+        $achievement = 0;
+        $targetSum = 0;
+        $hasTarget = false;
+
+        foreach ($metricsList as $m) {
+            $achievement += (int) $m['achievement'];
+            if ($m['target'] !== null) {
+                $targetSum += (int) $m['target'];
+                $hasTarget = true;
+            }
+        }
+
+        return [
+            'target' => $hasTarget ? $targetSum : null,
+            'achievement' => $achievement,
+        ];
+    }
+
+    /**
+     * @param  array{target: ?int, achievement: int}  $a
+     * @param  array{target: ?int, achievement: int}  $b
+     * @return array{target: ?int, achievement: int}
+     */
+    private function mergeMetrics(array $a, array $b): array
+    {
+        $target = null;
+        if ($a['target'] !== null || $b['target'] !== null) {
+            $target = (int) ($a['target'] ?? 0) + (int) ($b['target'] ?? 0);
+        }
+
+        return [
+            'target' => $target,
+            'achievement' => (int) $a['achievement'] + (int) $b['achievement'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     * @param  array{target: ?int, achievement: int}  $metrics
+     * @return array<string, mixed>
+     */
+    private function formatRow(array $node, string $serial, array $metrics): array
+    {
+        $target = $metrics['target'];
+        $achievement = $metrics['achievement'];
+
+        return [
+            'row_type' => (string) ($node['row_type'] ?? 'leaf'),
+            'serial' => $serial,
+            'name' => (string) ($node['name'] ?? ''),
+            'indicator_type' => (string) ($node['indicator_type'] ?? ''),
+            'level' => (string) ($node['level'] ?? ''),
+            'target' => $target,
+            'achievement' => $achievement,
+            'achievement_pct' => $this->percent($target, $achievement),
+        ];
     }
 
     /**
@@ -168,28 +521,6 @@ class ProgramDeliverablesReportService
         return $query->pluck('total', 'service_id')
             ->map(fn ($v) => (int) $v)
             ->all();
-    }
-
-    private function indicatorTypeLabel(Service $service): string
-    {
-        return match ($service->reporting_tier) {
-            Service::REPORTING_KEY => 'Key Indicator',
-            Service::REPORTING_NON_KEY => 'Non-Key',
-            default => 'Non-Key',
-        };
-    }
-
-    private function levelLabel(Service $service): string
-    {
-        $code = strtolower((string) ($service->deliverable?->code ?? ''));
-        if ($code !== '') {
-            $mapped = config('program_deliverables.level_by_deliverable_code.'.$code);
-            if (is_string($mapped) && $mapped !== '') {
-                return $mapped;
-            }
-        }
-
-        return (string) config('program_deliverables.default_level', 'Spoke & Hub');
     }
 
     private function percent(?int $target, int $achievement): ?int
