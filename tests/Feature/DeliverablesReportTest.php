@@ -184,6 +184,58 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(65, $participants['achievement']);
     }
 
+    public function test_state_target_resolves_via_service_catalog_for_pitch_deck(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $child = ServiceCategory::query()->create(['slug' => 'inc', 'name' => 'Inc', 'sort_order' => 1]);
+        $mis = Deliverable::query()->create([
+            'sort_order' => 18,
+            'code' => 'pitch_deck_prep',
+            'name' => 'Pitch deck MIS',
+            'mis_entry_label' => 'Pitch',
+            'is_active' => true,
+        ]);
+        $svcDeliverable = Deliverable::query()->create([
+            'sort_order' => 55,
+            'code' => 'svc_pitch_deck',
+            'name' => 'Pitch Decks',
+            'mis_entry_label' => 'Pitch Decks',
+            'is_active' => true,
+        ]);
+
+        Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcDeliverable->id,
+            'code' => 'pitch_deck',
+            'name' => 'Pitch Deck',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $svcDeliverable->id,
+            'target_total' => 200,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '8.3');
+
+        $this->assertNotNull($row);
+        $this->assertSame(200, $row['target']);
+    }
+
     public function test_state_target_resolves_from_synced_svc_deliverable_code(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

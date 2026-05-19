@@ -220,14 +220,14 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'Spoke & Hub',
-                    'source' => ['type' => 'none'],
+                    'source' => ['type' => 'target_name', 'match' => 'specialized mentorship'],
                 ],
                 [
                     'name' => 'Mentorship Support through online portal',
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'State',
-                    'source' => ['type' => 'none'],
+                    'source' => ['type' => 'target_name', 'match' => 'mentorship support through online'],
                 ],
             ],
         ],
@@ -457,5 +457,19 @@ return [
     ],
 
     'default_level' => 'Spoke & Hub',
+
+    /*
+    | MIS deliverable code => service catalog code(s) used on State targets (svc_* rows).
+    */
+    'target_code_aliases' => [
+        'pitch_deck_prep' => ['pitch_deck'],
+        'pitchathon_demo' => ['demo_days'],
+        'market_link' => ['market_link', 'offline_connect'],
+        'bmc' => ['bmc_canvas'],
+        'business_registration' => [
+            'udyam_registration', 'shop_establishment', 'company_registration',
+            'uk_firm_registration', 'cooperative', 'already_registered',
+        ],
+    ],
 
 ];

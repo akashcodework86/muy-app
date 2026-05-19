@@ -30,6 +30,9 @@ class ProgramDeliverablesReportService
     /** @var array<int, int> */
     private array $targetsByDeliverableId = [];
 
+    /** @var array<string, int> normalized deliverable name => target */
+    private array $targetsByNameNorm = [];
+
     /** @var array<string, int> */
     private array $serviceIdsByCode = [];
 
@@ -101,16 +104,31 @@ class ProgramDeliverablesReportService
      */
     private function loadTargets(?FiscalYear $fiscalYear): array
     {
+        $this->targetsByNameNorm = [];
+
         if (! $fiscalYear) {
             return [];
         }
 
         if ($this->useStateTargets) {
-            return StateDeliverableTarget::query()
+            $targets = [];
+            $rows = StateDeliverableTarget::query()
+                ->with('deliverable:id,code,name')
                 ->where('fiscal_year_id', $fiscalYear->id)
-                ->pluck('target_total', 'deliverable_id')
-                ->map(fn ($v) => (int) $v)
-                ->all();
+                ->get();
+
+            foreach ($rows as $row) {
+                $deliverableId = (int) $row->deliverable_id;
+                $total = (int) $row->target_total;
+                $targets[$deliverableId] = $total;
+
+                $norm = $this->normalizeLabel((string) ($row->deliverable->name ?? ''));
+                if ($norm !== '' && $total > 0) {
+                    $this->targetsByNameNorm[$norm] = max($this->targetsByNameNorm[$norm] ?? 0, $total);
+                }
+            }
+
+            return $targets;
         }
 
         $query = DistrictDeliverableTarget::query()
@@ -164,7 +182,7 @@ class ProgramDeliverablesReportService
     {
         $source = $node['source'] ?? ['type' => 'none'];
         $achievement = $this->achievementForSource($source);
-        $target = $this->targetForSource($source);
+        $target = $this->targetForSource($source, (string) ($node['name'] ?? ''));
 
         return [
             'target' => $target,
@@ -199,9 +217,9 @@ class ProgramDeliverablesReportService
     /**
      * @param  array<string, mixed>  $source
      */
-    private function targetForSource(array $source): ?int
+    private function targetForSource(array $source, string $indicatorName = ''): ?int
     {
-        return match ($source['type'] ?? 'none') {
+        $target = match ($source['type'] ?? 'none') {
             'deliverable' => $this->resolveStateTargetForCodes([
                 (string) ($source['code'] ?? ''),
             ]),
@@ -212,53 +230,144 @@ class ProgramDeliverablesReportService
             'cfa_count', 'onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
+            'target_name' => $this->resolveStateTargetByNameKeyword((string) ($source['match'] ?? '')),
             default => null,
         };
+
+        if ($target !== null) {
+            return $target;
+        }
+
+        return $this->resolveStateTargetByIndicatorName($indicatorName);
     }
 
     /**
-     * State targets page may save under MIS codes (fssai) or synced per-service codes (svc_fssai).
+     * State targets are stored on MIS codes and/or per-service rows (svc_* from catalog sync).
      *
      * @param  list<string>  $codes
      */
     private function resolveStateTargetForCodes(array $codes, bool $sumServiceTargets = false): ?int
     {
-        $candidateCodes = [];
+        $deliverableIds = [];
         foreach ($codes as $code) {
-            $code = strtolower(trim($code));
-            if ($code === '') {
-                continue;
-            }
-            $candidateCodes[] = $code;
-            if (! str_starts_with($code, 'svc_')) {
-                $candidateCodes[] = $this->serviceTargetDeliverables->deliverableCodeForServiceCode($code);
-            }
+            $deliverableIds = array_merge($deliverableIds, $this->deliverableIdsForLookupCode((string) $code));
         }
+        $deliverableIds = array_values(array_unique(array_filter($deliverableIds)));
 
-        $candidateCodes = array_values(array_unique($candidateCodes));
-        if ($candidateCodes === []) {
+        if ($deliverableIds === []) {
             return null;
         }
 
         if ($sumServiceTargets) {
             $sum = 0;
             $hasAny = false;
-            foreach ($candidateCodes as $code) {
-                $target = $this->stateTargetForDeliverableCode($code);
-                if ($target === null) {
+            foreach ($deliverableIds as $id) {
+                if (! array_key_exists($id, $this->targetsByDeliverableId)) {
                     continue;
                 }
-                $sum += $target;
+                $sum += (int) $this->targetsByDeliverableId[$id];
                 $hasAny = true;
             }
 
             return $hasAny ? $sum : null;
         }
 
+        return $this->bestTargetForDeliverableIds($deliverableIds);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function deliverableIdsForLookupCode(string $code): array
+    {
+        $code = strtolower(trim($code));
+        if ($code === '') {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($this->candidateCodesForLookup($code) as $candidate) {
+            if (isset($this->deliverableIdsByCode[$candidate])) {
+                $ids[] = (int) $this->deliverableIdsByCode[$candidate];
+            }
+        }
+
+        $candidateCodes = $this->candidateCodesForLookup($code);
+        $serviceIds = Service::query()
+            ->where('is_active', true)
+            ->where(function ($q) use ($candidateCodes): void {
+                foreach ($candidateCodes as $candidate) {
+                    $q->orWhere('code', $candidate);
+                }
+                $q->orWhereHas('deliverable', function ($dq) use ($candidateCodes): void {
+                    $dq->whereIn('code', $candidateCodes);
+                });
+            })
+            ->pluck('deliverable_id');
+
+        foreach ($serviceIds as $id) {
+            if ($id) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function candidateCodesForLookup(string $code): array
+    {
+        $codes = array_values(array_unique(array_filter([
+            $code,
+            $this->serviceTargetDeliverables->deliverableCodeForServiceCode($code),
+        ])));
+
+        $aliases = config('program_deliverables.target_code_aliases.'.$code, []);
+        if (is_array($aliases)) {
+            foreach ($aliases as $alias) {
+                $alias = strtolower(trim((string) $alias));
+                if ($alias === '') {
+                    continue;
+                }
+                $codes[] = $alias;
+                $codes[] = $this->serviceTargetDeliverables->deliverableCodeForServiceCode($alias);
+            }
+        }
+
+        return array_values(array_unique(array_filter($codes)));
+    }
+
+    /**
+     * @param  list<int>  $deliverableIds
+     */
+    private function bestTargetForDeliverableIds(array $deliverableIds): ?int
+    {
         $best = null;
-        foreach ($candidateCodes as $code) {
-            $target = $this->stateTargetForDeliverableCode($code);
-            if ($target === null) {
+        foreach ($deliverableIds as $id) {
+            if (! array_key_exists($id, $this->targetsByDeliverableId)) {
+                continue;
+            }
+            $value = (int) $this->targetsByDeliverableId[$id];
+            if ($best === null || $value > $best) {
+                $best = $value;
+            }
+        }
+
+        return $best;
+    }
+
+    private function resolveStateTargetByNameKeyword(string $keyword): ?int
+    {
+        $keyword = $this->normalizeLabel($keyword);
+        if ($keyword === '') {
+            return null;
+        }
+
+        $best = null;
+        foreach ($this->targetsByNameNorm as $name => $target) {
+            if (! str_contains($name, $keyword)) {
                 continue;
             }
             if ($best === null || $target > $best) {
@@ -269,18 +378,37 @@ class ProgramDeliverablesReportService
         return $best;
     }
 
-    private function stateTargetForDeliverableCode(string $code): ?int
+    private function resolveStateTargetByIndicatorName(string $indicatorName): ?int
     {
-        $deliverableId = $this->deliverableIdsByCode[$code] ?? null;
-        if ($deliverableId === null) {
+        $indicator = $this->normalizeLabel($indicatorName);
+        if ($indicator === '') {
             return null;
         }
 
-        if (! array_key_exists((int) $deliverableId, $this->targetsByDeliverableId)) {
-            return null;
+        if (isset($this->targetsByNameNorm[$indicator])) {
+            return $this->targetsByNameNorm[$indicator];
         }
 
-        return (int) $this->targetsByDeliverableId[(int) $deliverableId];
+        $best = null;
+        foreach ($this->targetsByNameNorm as $name => $target) {
+            if (strlen($name) < 4) {
+                continue;
+            }
+            if (str_contains($indicator, $name) || str_contains($name, $indicator)) {
+                if ($best === null || $target > $best) {
+                    $best = $target;
+                }
+            }
+        }
+
+        return $best;
+    }
+
+    private function normalizeLabel(string $value): string
+    {
+        $value = strtolower(trim($value));
+
+        return trim(preg_replace('/\s+/', ' ', $value) ?? '');
     }
 
     private function achievementForDeliverableCode(string $code): int
