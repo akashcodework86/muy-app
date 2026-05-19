@@ -17,6 +17,10 @@ use Illuminate\Support\Facades\Schema;
 
 class ProgramDeliverablesReportService
 {
+    public function __construct(
+        private readonly ServiceTargetDeliverableSyncService $serviceTargetDeliverables,
+    ) {}
+
     /** @var array<string, int> */
     private array $deliverableIdsByCode = [];
 
@@ -197,24 +201,86 @@ class ProgramDeliverablesReportService
      */
     private function targetForSource(array $source): ?int
     {
-        $code = match ($source['type'] ?? 'none') {
-            'deliverable' => (string) ($source['code'] ?? ''),
-            'cfa_count', 'onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants' => (string) ($source['deliverable_code'] ?? ''),
-            default => '',
+        return match ($source['type'] ?? 'none') {
+            'deliverable' => $this->resolveStateTargetForCodes([
+                (string) ($source['code'] ?? ''),
+            ]),
+            'services' => $this->resolveStateTargetForCodes(
+                array_map('strval', (array) ($source['codes'] ?? [])),
+                sumServiceTargets: true,
+            ),
+            'cfa_count', 'onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants' => $this->resolveStateTargetForCodes([
+                (string) ($source['deliverable_code'] ?? ''),
+            ]),
+            default => null,
         };
+    }
 
-        if ($code === '') {
+    /**
+     * State targets page may save under MIS codes (fssai) or synced per-service codes (svc_fssai).
+     *
+     * @param  list<string>  $codes
+     */
+    private function resolveStateTargetForCodes(array $codes, bool $sumServiceTargets = false): ?int
+    {
+        $candidateCodes = [];
+        foreach ($codes as $code) {
+            $code = strtolower(trim($code));
+            if ($code === '') {
+                continue;
+            }
+            $candidateCodes[] = $code;
+            if (! str_starts_with($code, 'svc_')) {
+                $candidateCodes[] = $this->serviceTargetDeliverables->deliverableCodeForServiceCode($code);
+            }
+        }
+
+        $candidateCodes = array_values(array_unique($candidateCodes));
+        if ($candidateCodes === []) {
             return null;
         }
 
+        if ($sumServiceTargets) {
+            $sum = 0;
+            $hasAny = false;
+            foreach ($candidateCodes as $code) {
+                $target = $this->stateTargetForDeliverableCode($code);
+                if ($target === null) {
+                    continue;
+                }
+                $sum += $target;
+                $hasAny = true;
+            }
+
+            return $hasAny ? $sum : null;
+        }
+
+        $best = null;
+        foreach ($candidateCodes as $code) {
+            $target = $this->stateTargetForDeliverableCode($code);
+            if ($target === null) {
+                continue;
+            }
+            if ($best === null || $target > $best) {
+                $best = $target;
+            }
+        }
+
+        return $best;
+    }
+
+    private function stateTargetForDeliverableCode(string $code): ?int
+    {
         $deliverableId = $this->deliverableIdsByCode[$code] ?? null;
         if ($deliverableId === null) {
             return null;
         }
 
-        $target = $this->targetsByDeliverableId[(int) $deliverableId] ?? null;
+        if (! array_key_exists((int) $deliverableId, $this->targetsByDeliverableId)) {
+            return null;
+        }
 
-        return $target !== null ? (int) $target : null;
+        return (int) $this->targetsByDeliverableId[(int) $deliverableId];
     }
 
     private function achievementForDeliverableCode(string $code): int

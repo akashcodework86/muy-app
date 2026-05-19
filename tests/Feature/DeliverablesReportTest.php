@@ -11,6 +11,7 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\ServiceCategory;
+use App\Models\StateDeliverableTarget;
 use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
@@ -181,6 +182,49 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($participants);
         $this->assertSame(2, $workshops['achievement']);
         $this->assertSame(65, $participants['achievement']);
+    }
+
+    public function test_state_target_resolves_from_synced_svc_deliverable_code(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $mis = Deliverable::query()->create([
+            'sort_order' => 10,
+            'code' => 'artisan_card',
+            'name' => 'Artisan Card',
+            'mis_entry_label' => 'Artisan Card',
+            'is_active' => true,
+        ]);
+
+        $svc = Deliverable::query()->create([
+            'sort_order' => 50,
+            'code' => 'svc_artisan_card',
+            'name' => 'Artisan Card Service',
+            'mis_entry_label' => 'Artisan Card Service',
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $svc->id,
+            'target_total' => 260,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '4.2.1');
+
+        $this->assertNotNull($row);
+        $this->assertSame(260, $row['target']);
     }
 
     public function test_business_registration_row_counts_approved_cases_in_district_scope(): void

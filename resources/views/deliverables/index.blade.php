@@ -12,7 +12,8 @@
     <p style="font-size:0.88rem;color:#52525b;margin:0 0 0.65rem;max-width:56rem;">
         Individual MIS indicators only (no category totals). <strong>Scope:</strong> {{ $scopeLabel }}.
         <strong>Period:</strong> {{ $periodLabel }}.
-        Targets = @if ($scope->usesStateTargets && ! $filter->districtId) state @else district @endif (FY {{ $fyName }}).
+        Targets = @if ($scope->usesStateTargets && ! $filter->districtId) state @else district @endif (FY {{ $fyName }}), same rows as
+        <a href="{{ route('admin.targets.state', ['fiscal_year_id' => $fiscalYearId]) }}">State targets</a> (MIS + per-service codes).
         CFA &amp; onboarding match the state dashboard. Rows <strong>1.3 / 1.3.1</strong> = Field work visits (<code>/my/attendance</code>): workshop count &amp; participants.
     </p>
 
