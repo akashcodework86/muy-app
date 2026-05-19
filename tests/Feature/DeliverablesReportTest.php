@@ -184,6 +184,101 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(65, $participants['achievement']);
     }
 
+    public function test_state_target_resolves_for_gst_via_svc_deliverable_row(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $child = ServiceCategory::query()->create(['slug' => 'legal', 'name' => 'Legal', 'sort_order' => 1]);
+        Deliverable::query()->create([
+            'sort_order' => 8,
+            'code' => 'gst',
+            'name' => 'GST Registration',
+            'mis_entry_label' => 'GST',
+            'is_active' => true,
+        ]);
+        $svcGst = Deliverable::query()->create([
+            'sort_order' => 18,
+            'code' => 'svc_gst',
+            'name' => 'GST',
+            'mis_entry_label' => 'GST',
+            'is_active' => true,
+        ]);
+
+        Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcGst->id,
+            'code' => 'gst',
+            'name' => 'GST',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $svcGst->id,
+            'target_total' => 350,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '4.2.4');
+
+        $this->assertNotNull($row);
+        $this->assertSame(350, $row['target']);
+    }
+
+    public function test_state_target_shows_when_district_filter_applied_for_state_admin(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'gst-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'gst-district',
+            'name' => 'GST District',
+            'sort_order' => 1,
+        ]);
+
+        $svcGst = Deliverable::query()->create([
+            'sort_order' => 18,
+            'code' => 'svc_gst',
+            'name' => 'GST',
+            'mis_entry_label' => 'GST',
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $svcGst->id,
+            'target_total' => 350,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '4.2.4');
+
+        $this->assertNotNull($row);
+        $this->assertSame(350, $row['target']);
+    }
+
     public function test_state_target_resolves_via_service_catalog_for_pitch_deck(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

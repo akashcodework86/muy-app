@@ -33,6 +33,9 @@ class ProgramDeliverablesReportService
     /** @var array<string, int> normalized deliverable name => target */
     private array $targetsByNameNorm = [];
 
+    /** @var array<string, int> deliverable / service code => state target (incl. svc_* rows) */
+    private array $stateTargetsByLookupCode = [];
+
     /** @var array<string, int> */
     private array $serviceIdsByCode = [];
 
@@ -71,7 +74,8 @@ class ProgramDeliverablesReportService
         $this->filter = $filter;
         $this->activeFiscalYear = $fiscalYear;
         $this->districtIds = $scope->effectiveDistrictIds($filter->districtId);
-        $this->useStateTargets = $scope->usesStateTargets && $this->districtIds === null;
+        // State admin: always read State targets page values (even when a district filter is applied).
+        $this->useStateTargets = $scope->usesStateTargets;
         [$this->periodFrom, $this->periodTo] = $filter->resolvePeriod($fiscalYear);
 
         $this->targetsByDeliverableId = $this->loadTargets($fiscalYear);
@@ -105,6 +109,7 @@ class ProgramDeliverablesReportService
     private function loadTargets(?FiscalYear $fiscalYear): array
     {
         $this->targetsByNameNorm = [];
+        $this->stateTargetsByLookupCode = [];
 
         if (! $fiscalYear) {
             return [];
@@ -117,10 +122,31 @@ class ProgramDeliverablesReportService
                 ->where('fiscal_year_id', $fiscalYear->id)
                 ->get();
 
+            $serviceCodesByDeliverableId = Service::query()
+                ->where('is_active', true)
+                ->whereNotNull('deliverable_id')
+                ->get(['deliverable_id', 'code'])
+                ->groupBy('deliverable_id')
+                ->map(fn ($group) => $group->pluck('code')->map(fn ($c) => strtolower((string) $c))->all());
+
             foreach ($rows as $row) {
                 $deliverableId = (int) $row->deliverable_id;
                 $total = (int) $row->target_total;
                 $targets[$deliverableId] = $total;
+
+                $deliverableCode = strtolower(trim((string) ($row->deliverable->code ?? '')));
+                $this->indexStateTargetLookupCode($deliverableCode, $total);
+                if (str_starts_with($deliverableCode, 'svc_')) {
+                    $this->indexStateTargetLookupCode(substr($deliverableCode, 4), $total);
+                }
+
+                foreach ($serviceCodesByDeliverableId[$deliverableId] ?? [] as $serviceCode) {
+                    $this->indexStateTargetLookupCode($serviceCode, $total);
+                    $this->indexStateTargetLookupCode(
+                        $this->serviceTargetDeliverables->deliverableCodeForServiceCode($serviceCode),
+                        $total,
+                    );
+                }
 
                 $norm = $this->normalizeLabel((string) ($row->deliverable->name ?? ''));
                 if ($norm !== '' && $total > 0) {
@@ -269,10 +295,48 @@ class ProgramDeliverablesReportService
                 $hasAny = true;
             }
 
-            return $hasAny ? $sum : null;
+            if ($hasAny) {
+                return $sum;
+            }
+        } else {
+            $fromIds = $this->bestTargetForDeliverableIds($deliverableIds);
+            if ($fromIds !== null) {
+                return $fromIds;
+            }
         }
 
-        return $this->bestTargetForDeliverableIds($deliverableIds);
+        return $this->bestTargetForLookupCodes($codes);
+    }
+
+    /**
+     * @param  list<string>  $codes
+     */
+    private function bestTargetForLookupCodes(array $codes): ?int
+    {
+        $best = null;
+        foreach ($codes as $code) {
+            foreach ($this->candidateCodesForLookup((string) $code) as $candidate) {
+                if (! isset($this->stateTargetsByLookupCode[$candidate])) {
+                    continue;
+                }
+                $value = (int) $this->stateTargetsByLookupCode[$candidate];
+                if ($best === null || $value > $best) {
+                    $best = $value;
+                }
+            }
+        }
+
+        return $best;
+    }
+
+    private function indexStateTargetLookupCode(string $code, int $total): void
+    {
+        $code = strtolower(trim($code));
+        if ($code === '' || $total <= 0) {
+            return;
+        }
+
+        $this->stateTargetsByLookupCode[$code] = max($this->stateTargetsByLookupCode[$code] ?? 0, $total);
     }
 
     /**
@@ -391,7 +455,7 @@ class ProgramDeliverablesReportService
 
         $best = null;
         foreach ($this->targetsByNameNorm as $name => $target) {
-            if (strlen($name) < 4) {
+            if (strlen($name) < 3) {
                 continue;
             }
             if (str_contains($indicator, $name) || str_contains($name, $indicator)) {
@@ -417,21 +481,38 @@ class ProgramDeliverablesReportService
             return 0;
         }
 
-        $deliverableId = $this->deliverableIdsByCode[$code] ?? null;
-        if ($deliverableId === null) {
-            return 0;
+        $total = 0;
+        $countedServiceIds = [];
+
+        $directServiceId = $this->serviceIdsByCode[$code] ?? null;
+        if ($directServiceId) {
+            $total += (int) ($this->achievementByServiceId[$directServiceId] ?? 0);
+            $countedServiceIds[$directServiceId] = true;
         }
 
-        $serviceIds = Service::query()
-            ->where('deliverable_id', $deliverableId)
-            ->where('is_active', true)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
+        foreach ($this->candidateCodesForLookup($code) as $candidate) {
+            $candidateServiceId = $this->serviceIdsByCode[$candidate] ?? null;
+            if ($candidateServiceId && ! isset($countedServiceIds[$candidateServiceId])) {
+                $total += (int) ($this->achievementByServiceId[$candidateServiceId] ?? 0);
+                $countedServiceIds[$candidateServiceId] = true;
+            }
+        }
 
-        $total = 0;
-        foreach ($serviceIds as $serviceId) {
-            $total += (int) ($this->achievementByServiceId[$serviceId] ?? 0);
+        foreach ($this->deliverableIdsForLookupCode($code) as $deliverableId) {
+            $serviceIds = Service::query()
+                ->where('deliverable_id', $deliverableId)
+                ->where('is_active', true)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            foreach ($serviceIds as $serviceId) {
+                if (isset($countedServiceIds[$serviceId])) {
+                    continue;
+                }
+                $total += (int) ($this->achievementByServiceId[$serviceId] ?? 0);
+                $countedServiceIds[$serviceId] = true;
+            }
         }
 
         return $total;
