@@ -62,17 +62,6 @@ class DeliverablesReportController extends Controller
             $sheet->setCellValue('F'.$rowNum, $row['achievement']);
             $sheet->setCellValue('G'.$rowNum, $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '');
 
-            if ($row['row_type'] === 'pillar') {
-                $sheet->getStyle('A'.$rowNum.':G'.$rowNum)->applyFromArray([
-                    'font' => ['bold' => true],
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FCE7F3']],
-                ]);
-            } elseif ($row['row_type'] === 'subcategory') {
-                $sheet->getStyle('A'.$rowNum.':G'.$rowNum)->applyFromArray([
-                    'font' => ['bold' => true],
-                ]);
-            }
-
             $rowNum++;
         }
 

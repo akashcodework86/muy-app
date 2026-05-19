@@ -10,7 +10,7 @@
     @endphp
 
     <p style="font-size:0.88rem;color:#52525b;margin:0 0 0.65rem;max-width:56rem;">
-        Official MIS sequence. <strong>Scope:</strong> {{ $scopeLabel }}.
+        Individual MIS indicators only (no category totals). <strong>Scope:</strong> {{ $scopeLabel }}.
         <strong>Period:</strong> {{ $periodLabel }}.
         Targets = @if ($scope->usesStateTargets && ! $filter->districtId) state @else district @endif (FY {{ $fyName }}).
         CFA &amp; onboarding match the state dashboard. Rows <strong>1.3 / 1.3.1</strong> = Field work visits (<code>/my/attendance</code>): workshop count &amp; participants.
@@ -80,20 +80,14 @@
             </thead>
             <tbody>
                 @forelse ($rows as $row)
-                    @php
-                        $isPillar = $row['row_type'] === 'pillar';
-                        $isSubcategory = $row['row_type'] === 'subcategory';
-                        $bg = $isPillar ? '#fce7f3' : '#fff';
-                        $fontWeight = ($isPillar || $isSubcategory) ? '700' : '400';
-                    @endphp
                     <tr>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;font-weight:{{ $fontWeight }};">{{ $row['serial'] }}</td>
-                        <td style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;background:{{ $bg }};font-weight:{{ $fontWeight }};">{{ $row['name'] }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;">{{ $row['indicator_type'] ?: '—' }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;">{{ $row['level'] ?: '—' }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;">{{ $row['target'] !== null ? number_format($row['target']) : '—' }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;font-weight:{{ ($isPillar || $isSubcategory) ? '700' : '400' }};">{{ number_format($row['achievement']) }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;background:{{ $bg }};text-align:center;">{{ $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '—' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['serial'] }}</td>
+                        <td style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;">{{ $row['name'] }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['indicator_type'] ?: '—' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['level'] ?: '—' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['target'] !== null ? number_format($row['target']) : '—' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ number_format($row['achievement']) }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '—' }}</td>
                     </tr>
                 @empty
                     <tr>

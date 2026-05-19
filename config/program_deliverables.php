@@ -10,7 +10,7 @@ return [
     | Official MIS indicator sequence (S.N. 1 … 12)
     |--------------------------------------------------------------------------
     |
-    | row_type: pillar | subcategory | leaf
+    | Tree uses pillar/subcategory for ordering only; UI shows leaf indicators only (1.1, 1.2, …).
     | source types: deliverable, service, services, cfa_count, onboarding_count,
     |   field_work_workshops (1.3), field_work_participants (1.3.1) — staff Field work visits,
     |   district_workshop_sessions,

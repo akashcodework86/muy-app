@@ -83,7 +83,7 @@ class ProgramDeliverablesReportService
         $pillarIndex = 0;
         foreach (config('program_deliverables.matrix', []) as $pillar) {
             $pillarIndex++;
-            $this->appendBranch($rows, $pillar, [(string) $pillarIndex]);
+            $this->appendIndicatorLeaves($rows, $pillar, [(string) $pillarIndex]);
         }
 
         return [
@@ -127,41 +127,29 @@ class ProgramDeliverablesReportService
     }
 
     /**
-     * @return array{target: ?int, achievement: int}
+     * Output only measurable indicators (no category / subcategory summary rows).
+     *
+     * @param  list<string>  $serialParts
      */
-    private function appendBranch(array &$rows, array $node, array $serialParts): array
+    private function appendIndicatorLeaves(array &$rows, array $node, array $serialParts): void
     {
-        $serial = implode('.', $serialParts);
         $children = $node['children'] ?? [];
+        $hasSource = isset($node['source']);
+
+        if ($hasSource) {
+            $metrics = $this->resolveNodeMetrics($node);
+            $rows[] = $this->formatRow($node, implode('.', $serialParts), $metrics);
+        }
 
         if ($children === []) {
-            $metrics = $this->resolveNodeMetrics($node);
-            $rows[] = $this->formatRow($node, $serial, $metrics);
-
-            return $metrics;
+            return;
         }
 
-        $childStartIndex = count($rows);
-        $childMetrics = [];
         $childIndex = 0;
-
         foreach ($children as $child) {
             $childIndex++;
-            $childMetrics[] = $this->appendBranch($rows, $child, [...$serialParts, (string) $childIndex]);
+            $this->appendIndicatorLeaves($rows, $child, [...$serialParts, (string) $childIndex]);
         }
-
-        $aggregated = $this->aggregateMetrics($childMetrics);
-        $own = isset($node['source']) ? $this->resolveNodeMetrics($node) : null;
-
-        // Row has its own metric (e.g. 1.3 workshops) plus detail children (1.3.1 participants):
-        // show only the parent's metric on the parent line; roll-up sums stay on pillar rows.
-        $metrics = $own ?? $aggregated;
-
-        array_splice($rows, $childStartIndex, 0, [$this->formatRow($node, $serial, $metrics)]);
-
-        return $own !== null
-            ? $this->mergeMetrics($own, $aggregated)
-            : $aggregated;
     }
 
     /**
@@ -608,48 +596,6 @@ class ProgramDeliverablesReportService
                 $cursor->addMonth();
             }
         });
-    }
-
-    /**
-     * @param  list<array{target: ?int, achievement: int}>  $metricsList
-     * @return array{target: ?int, achievement: int}
-     */
-    private function aggregateMetrics(array $metricsList): array
-    {
-        $achievement = 0;
-        $targetSum = 0;
-        $hasTarget = false;
-
-        foreach ($metricsList as $m) {
-            $achievement += (int) $m['achievement'];
-            if ($m['target'] !== null) {
-                $targetSum += (int) $m['target'];
-                $hasTarget = true;
-            }
-        }
-
-        return [
-            'target' => $hasTarget ? $targetSum : null,
-            'achievement' => $achievement,
-        ];
-    }
-
-    /**
-     * @param  array{target: ?int, achievement: int}  $a
-     * @param  array{target: ?int, achievement: int}  $b
-     * @return array{target: ?int, achievement: int}
-     */
-    private function mergeMetrics(array $a, array $b): array
-    {
-        $target = null;
-        if ($a['target'] !== null || $b['target'] !== null) {
-            $target = (int) ($a['target'] ?? 0) + (int) ($b['target'] ?? 0);
-        }
-
-        return [
-            'target' => $target,
-            'achievement' => (int) $a['achievement'] + (int) $b['achievement'],
-        ];
     }
 
     /**
