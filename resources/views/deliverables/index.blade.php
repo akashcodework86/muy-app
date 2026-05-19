@@ -13,7 +13,7 @@
         Official MIS sequence. <strong>Scope:</strong> {{ $scopeLabel }}.
         <strong>Period:</strong> {{ $periodLabel }}.
         Targets = @if ($scope->usesStateTargets && ! $filter->districtId) state @else district @endif (FY {{ $fyName }}).
-        CFA &amp; onboarding counts match the state dashboard (FY tag / Phase 3 from 01 Apr 2026).
+        CFA &amp; onboarding match the state dashboard. Rows <strong>1.3 / 1.3.1</strong> = Field work visits (<code>/my/attendance</code>): workshop count &amp; participants.
     </p>
 
     <form method="get" action="{{ route($indexRoute) }}" style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:flex-end;margin-bottom:1rem;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.9rem;">

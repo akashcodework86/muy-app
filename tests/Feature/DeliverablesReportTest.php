@@ -9,6 +9,7 @@ use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\Service;
 use App\Models\ServiceCase;
+use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
@@ -116,6 +117,67 @@ class DeliverablesReportTest extends TestCase
 
         $this->assertNotNull($row);
         $this->assertSame(1, $row['achievement']);
+    }
+
+    public function test_field_work_maps_to_mis_rows_1_3_and_1_3_1(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'fw-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'fw-district',
+            'name' => 'District',
+            'sort_order' => 1,
+        ]);
+
+        $coordinator = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'hub_id' => $hub->id,
+        ]);
+
+        FieldCoordinatorAttendanceReport::query()->create([
+            'field_coordinator_user_id' => $coordinator->id,
+            'field_coordinator_name' => 'Test FC',
+            'district_id' => $district->id,
+            'visit_date' => '2026-06-10',
+            'entry_date' => '2026-06-10',
+            'participants_total' => 40,
+            'participants_male_count' => 20,
+            'participants_female_count' => 20,
+        ]);
+
+        FieldCoordinatorAttendanceReport::query()->create([
+            'field_coordinator_user_id' => $coordinator->id,
+            'field_coordinator_name' => 'Test FC',
+            'district_id' => $district->id,
+            'visit_date' => '2026-06-12',
+            'entry_date' => '2026-06-12',
+            'participants_total' => 25,
+            'participants_male_count' => 10,
+            'participants_female_count' => 15,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
+        $scope = new ProgramDeliverablesScope('district_staff', $hub->id, [$district->id], false);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $workshops = collect($report['rows'])->firstWhere('serial', '1.3');
+        $participants = collect($report['rows'])->firstWhere('serial', '1.3.1');
+
+        $this->assertNotNull($workshops);
+        $this->assertNotNull($participants);
+        $this->assertSame(2, $workshops['achievement']);
+        $this->assertSame(65, $participants['achievement']);
     }
 
     public function test_business_registration_row_counts_approved_cases_in_district_scope(): void

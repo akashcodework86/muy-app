@@ -12,7 +12,8 @@ return [
     |
     | row_type: pillar | subcategory | leaf
     | source types: deliverable, service, services, cfa_count, onboarding_count,
-    |   field_visit_sessions, field_visit_participants, district_workshop_sessions,
+    |   field_work_workshops (1.3), field_work_participants (1.3.1) — staff Field work visits,
+    |   district_workshop_sessions,
     |   edp_sessions, bst_sessions, bst_participants, technical_training_sessions,
     |   none (placeholder — target/achievement 0 unless deliverable mapped)
     |
@@ -41,14 +42,14 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Key Indicator',
                     'level' => 'Spoke & Hub',
-                    'source' => ['type' => 'field_visit_sessions'],
+                    'source' => ['type' => 'field_work_workshops'],
                     'children' => [
                         [
                             'name' => 'Participants in Awareness cum Outreach activities',
                             'row_type' => 'leaf',
                             'indicator_type' => 'Non-Key',
                             'level' => 'Spoke & Hub',
-                            'source' => ['type' => 'field_visit_participants'],
+                            'source' => ['type' => 'field_work_participants'],
                         ],
                     ],
                 ],

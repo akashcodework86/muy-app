@@ -151,13 +151,17 @@ class ProgramDeliverablesReportService
         }
 
         $aggregated = $this->aggregateMetrics($childMetrics);
-        $metrics = isset($node['source'])
-            ? $this->mergeMetrics($this->resolveNodeMetrics($node), $aggregated)
-            : $aggregated;
+        $own = isset($node['source']) ? $this->resolveNodeMetrics($node) : null;
+
+        // Row has its own metric (e.g. 1.3 workshops) plus detail children (1.3.1 participants):
+        // show only the parent's metric on the parent line; roll-up sums stay on pillar rows.
+        $metrics = $own ?? $aggregated;
 
         array_splice($rows, $childStartIndex, 0, [$this->formatRow($node, $serial, $metrics)]);
 
-        return $metrics;
+        return $own !== null
+            ? $this->mergeMetrics($own, $aggregated)
+            : $aggregated;
     }
 
     /**
@@ -187,8 +191,10 @@ class ProgramDeliverablesReportService
             'services' => $this->achievementForServiceCodes((array) ($source['codes'] ?? [])),
             'cfa_count' => $this->cfaCount(),
             'onboarding_count' => $this->onboardingCount(),
-            'field_visit_sessions' => $this->fieldVisitSessionsCount(),
-            'field_visit_participants' => $this->fieldVisitParticipantsCount(),
+            'field_work_workshops' => $this->fieldWorkWorkshopsCount(),
+            'field_work_participants' => $this->fieldWorkParticipantsCount(),
+            'field_visit_sessions' => $this->fieldWorkWorkshopsCount(),
+            'field_visit_participants' => $this->fieldWorkParticipantsCount(),
             'district_workshop_sessions' => $this->districtWorkshopSessionsCount(),
             'edp_sessions' => $this->edpSessionsCount(),
             'bst_sessions' => $this->bstSessionsCount(),
@@ -356,30 +362,62 @@ class ProgramDeliverablesReportService
         return Carbon::parse($raw)->startOfDay();
     }
 
-    private function fieldVisitSessionsCount(): int
+    /**
+     * MIS 1.3 — each Field work visit submission (staff /my/attendance).
+     */
+    private function fieldWorkWorkshopsCount(): int
     {
         if (! Schema::hasTable('field_coordinator_attendance_reports')) {
             return 0;
         }
 
         $query = FieldCoordinatorAttendanceReport::query();
-        $this->applyDistrictScopeOnModel($query, 'district_id');
-        $this->applyPeriodFilterOnModel($query, 'visit_date');
+        $this->applyFieldWorkAchievementScope($query);
 
         return (int) $query->count();
     }
 
-    private function fieldVisitParticipantsCount(): int
+    /**
+     * MIS 1.3.1 — sum of participants (M+F) on those Field work visits.
+     */
+    private function fieldWorkParticipantsCount(): int
     {
         if (! Schema::hasTable('field_coordinator_attendance_reports')) {
             return 0;
         }
 
         $query = FieldCoordinatorAttendanceReport::query();
-        $this->applyDistrictScopeOnModel($query, 'district_id');
-        $this->applyPeriodFilterOnModel($query, 'visit_date');
+        $this->applyFieldWorkAchievementScope($query);
 
-        return (int) $query->sum(DB::raw('COALESCE(participants_total, participants_male_count + participants_female_count, 0)'));
+        return (int) $query->sum(DB::raw(
+            'COALESCE(NULLIF(participants_total, 0), COALESCE(participants_male_count, 0) + COALESCE(participants_female_count, 0), 0)'
+        ));
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FieldCoordinatorAttendanceReport>  $query
+     */
+    private function applyFieldWorkAchievementScope($query): void
+    {
+        $this->applyDistrictScopeOnModel($query, 'district_id');
+
+        $floor = $this->phase3FloorDate();
+
+        if ($this->filter?->hasExplicitDateFilter() && $this->periodFrom && $this->periodTo) {
+            $from = $this->periodFrom->copy();
+            if ($from->lt($floor)) {
+                $from = $floor->copy();
+            }
+            $query->whereBetween('visit_date', [$from->toDateString(), $this->periodTo->toDateString()]);
+
+            return;
+        }
+
+        $query->where('visit_date', '>=', $floor->toDateString());
+
+        if ($this->periodTo) {
+            $query->where('visit_date', '<=', $this->periodTo->toDateString());
+        }
     }
 
     private function districtWorkshopSessionsCount(): int
