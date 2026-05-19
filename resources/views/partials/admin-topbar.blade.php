@@ -43,6 +43,7 @@
         str_starts_with($r, 'staff.onboarded') => 'onboarded',
         str_starts_with($r, 'spoc.onboarded') => 'onboarded',
         str_starts_with($r, 'admin.phase3-services') => 'phase3-services',
+        str_starts_with($r, 'admin.deliverables') => 'deliverables',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
         str_starts_with($r, 'admin.training-package-month-plans') => 'training-package-month-plans',
@@ -112,7 +113,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance'], true);
+    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents'], true);
@@ -206,6 +207,9 @@
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Planning &amp; performance</p>
+                    <a href="{{ route('admin.deliverables.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'deliverables') is-active @endif" role="menuitem">
+                        {!! $i('catalog') !!}<span>Deliverables</span>
+                    </a>
                     <a href="{{ route('admin.targets.state') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'state') is-active @endif" role="menuitem">
                         {!! $i('flag') !!}<span>State targets</span>
                     </a>

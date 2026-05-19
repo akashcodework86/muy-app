@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\StaffPhase3AttendanceNavController;
 use App\Http\Controllers\Admin\StateStaffController;
+use App\Http\Controllers\Admin\DeliverablesController;
 use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Admin\TeamDirectoryController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
@@ -403,6 +404,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('audit-log', [AuditLogController::class, 'index'])->name('audit.index');
 
+        Route::get('deliverables', [DeliverablesController::class, 'index'])->name('deliverables.index');
+        Route::get('deliverables/export', [DeliverablesController::class, 'export'])->name('deliverables.export');
         Route::get('targets/state', [TargetController::class, 'stateForm'])->name('targets.state');
         Route::post('targets/state', [TargetController::class, 'stateUpdate'])->name('targets.state.update');
         Route::get('targets/district', [TargetController::class, 'districtForm'])->name('targets.district');
