@@ -30,6 +30,10 @@ class FieldCoordinatorAttendanceReport extends Model
         'attachment_original_name',
         'attachment_mime',
         'attachment_size_bytes',
+        'attendance_sheet_path',
+        'attendance_sheet_original_name',
+        'attendance_sheet_mime',
+        'attendance_sheet_size_bytes',
     ];
 
     protected function casts(): array
@@ -71,6 +75,11 @@ class FieldCoordinatorAttendanceReport extends Model
             ->filter(fn ($item) => is_array($item) && (string) ($item['path'] ?? '') !== '')
             ->values()
             ->all();
+    }
+
+    public function hasAttendanceSheet(): bool
+    {
+        return (string) ($this->attendance_sheet_path ?? '') !== '';
     }
 
     public function isLegacyNumericReport(): bool

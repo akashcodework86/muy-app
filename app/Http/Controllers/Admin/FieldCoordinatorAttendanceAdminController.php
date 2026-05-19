@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\User;
+use App\Services\FieldVisitAttendanceSheetService;
 use App\Services\FieldVisitMediaStorage;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -14,6 +15,7 @@ class FieldCoordinatorAttendanceAdminController extends Controller
 {
     public function __construct(
         private readonly FieldVisitMediaStorage $mediaStorage,
+        private readonly FieldVisitAttendanceSheetService $attendanceSheetService,
     ) {}
 
     public function index(Request $request): View
@@ -80,5 +82,15 @@ class FieldCoordinatorAttendanceAdminController extends Controller
         }
 
         return $this->mediaStorage->legacyDownload($attendanceReport);
+    }
+
+    public function downloadAttendanceSheet(FieldCoordinatorAttendanceReport $attendanceReport): StreamedResponse
+    {
+        abort_unless($attendanceReport->hasAttendanceSheet(), 404);
+
+        return $this->attendanceSheetService->downloadStored(
+            (string) $attendanceReport->attendance_sheet_path,
+            (string) ($attendanceReport->attendance_sheet_original_name ?: 'attendance-sheet.xlsx'),
+        );
     }
 }

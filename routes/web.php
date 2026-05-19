@@ -12,10 +12,10 @@ use App\Http\Controllers\Admin\GramPanchayatImportController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
+use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\OnboardedApplicantController;
 use App\Http\Controllers\Admin\PendingActionsController;
 use App\Http\Controllers\Admin\Phase3ServiceCasesController;
-use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceModuleSettingsController;
@@ -199,9 +199,14 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:15,1')
             ->name('phase2-profile.photo.upload');
         Route::get('attendance', [FieldCoordinatorAttendanceController::class, 'index'])->name('attendance.index');
+        Route::get('attendance/attendance-sheet-template', [FieldCoordinatorAttendanceController::class, 'downloadAttendanceSheetTemplate'])->name('attendance.sheet-template');
         Route::get('attendance/gram-panchayats', [FieldCoordinatorAttendanceController::class, 'gramPanchayats'])->name('attendance.gram-panchayats');
         Route::get('attendance/view', [FieldCoordinatorAttendanceController::class, 'view'])->name('attendance.view');
         Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceController::class, 'downloadAttachment'])->name('attendance.attachment');
+        Route::get('attendance/{attendanceReport}/attendance-sheet', [FieldCoordinatorAttendanceController::class, 'downloadAttendanceSheet'])->name('attendance.sheet.download');
+        Route::post('attendance/{attendanceReport}/attendance-sheet', [FieldCoordinatorAttendanceController::class, 'uploadAttendanceSheet'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.sheet.upload');
         Route::post('attendance', [FieldCoordinatorAttendanceController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('attendance.store');
@@ -496,6 +501,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('attendance', [FieldCoordinatorAttendanceAdminController::class, 'index'])->name('attendance.index');
         Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceAdminController::class, 'downloadAttachment'])
             ->name('attendance.attachment');
+        Route::get('attendance/{attendanceReport}/attendance-sheet', [FieldCoordinatorAttendanceAdminController::class, 'downloadAttendanceSheet'])
+            ->name('attendance.sheet');
         Route::get('gram-panchayats/import', [GramPanchayatImportController::class, 'show'])->name('gram-panchayats.import');
         Route::post('gram-panchayats/import', [GramPanchayatImportController::class, 'store'])
             ->middleware('throttle:5,1')

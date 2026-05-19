@@ -77,7 +77,7 @@
         <div class="att-banner__icon"><i class="fa-solid fa-camera"></i></div>
         <div class="att-banner__body">
             <h2>Field visit photos</h2>
-            <p>Date, block, gram panchayat, photos and remark — that is all you need to submit.</p>
+            <p>Visit details, photos, and a filled attendance Excel sheet when participants are reported.</p>
         </div>
     </div>
 
@@ -152,6 +152,24 @@
                     </div>
                 </div>
 
+                <div id="attSheetSection" style="margin-top:1.2rem;display:none;">
+                    <p class="att-section-label">Attendance sheet (Excel)</p>
+                    <p style="font-size:0.8rem;color:var(--att-muted);margin:0 0 0.75rem;">
+                        Download the template — one row per participant. Fill every field: Name, Gender (M/F), Mobile. District, block and gram panchayat are pre-filled.
+                    </p>
+                    <div style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:center;margin-bottom:0.75rem;">
+                        <a href="#" id="attDownloadTemplate" class="att-btn" style="text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);">
+                            <i class="fa-solid fa-file-excel"></i> <span id="attDownloadTemplateLabel">Download template</span>
+                        </a>
+                    </div>
+                    <label style="font-size:0.78rem;font-weight:600;">Upload filled sheet <span class="att-req" id="attSheetReq">*</span></label>
+                    <div class="att-file-wrap" style="margin-top:0.4rem;">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>.xlsx — row count must match total participants exactly</span>
+                        <input type="file" name="attendance_sheet" id="attSheetInput" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                    </div>
+                </div>
+
                 <div class="att-field" style="margin-top:1.2rem;">
                     <label>Remark</label>
                     <textarea name="remark" class="att-textarea" rows="3" placeholder="Optional note about this visit">{{ old('remark') }}</textarea>
@@ -190,6 +208,7 @@
                         <th>Gram panchayat</th>
                         <th>Area / village</th>
                         <th>Participants</th>
+                        <th>Attendance sheet</th>
                         <th>Photos</th>
                         <th>Remark</th>
                     </tr>
@@ -211,6 +230,23 @@
                                     —
                                 @endif
                             </td>
+                            <td style="font-size:0.82rem;">
+                                @if ((int) $row->participants_total > 0)
+                                    @if ($row->hasAttendanceSheet())
+                                        <a href="{{ route('staff.attendance.sheet.download', $row) }}" style="color:var(--att-teal);font-weight:700;">
+                                            <i class="fa-solid fa-file-excel"></i> View sheet
+                                        </a>
+                                    @else
+                                        <form method="post" action="{{ route('staff.attendance.sheet.upload', $row) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.35rem;min-width:11rem;">
+                                            @csrf
+                                            <input type="file" name="attendance_sheet" accept=".xlsx,.xls" required style="font-size:0.75rem;">
+                                            <button type="submit" class="att-btn" style="padding:0.35rem 0.6rem;font-size:0.75rem;">Upload</button>
+                                        </form>
+                                    @endif
+                                @else
+                                    <span style="color:var(--att-muted);">N/A</span>
+                                @endif
+                            </td>
                             <td>
                                 @if ($media !== [])
                                     <span class="att-photo-count">{{ count($media) }} photo(s)</span>
@@ -230,7 +266,7 @@
                             <td><span class="att-remark">{{ $row->remark ?: '—' }}</span></td>
                         </tr>
                     @empty
-                        <tr><td colspan="8"><div class="att-empty">No submissions yet.</div></td></tr>
+                        <tr><td colspan="9"><div class="att-empty">No submissions yet.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -302,14 +338,62 @@
     const maleInput = document.getElementById('attMaleCount');
     const femaleInput = document.getElementById('attFemaleCount');
     const totalInput = document.getElementById('attTotalParticipants');
+    const sheetSection = document.getElementById('attSheetSection');
+    const sheetInput = document.getElementById('attSheetInput');
+    const downloadBtn = document.getElementById('attDownloadTemplate');
+    const downloadLabel = document.getElementById('attDownloadTemplateLabel');
+    const templateBaseUrl = @json(route('staff.attendance.sheet-template'));
+
     function updateParticipantTotal() {
         if (!totalInput) return;
         const male = parseInt(maleInput?.value || '0', 10) || 0;
         const female = parseInt(femaleInput?.value || '0', 10) || 0;
-        totalInput.value = String(male + female);
+        const total = male + female;
+        totalInput.value = String(total);
+
+        if (sheetSection) {
+            sheetSection.style.display = total > 0 ? 'block' : 'none';
+        }
+        if (sheetInput) {
+            sheetInput.required = total > 0;
+        }
+        if (downloadLabel) {
+            downloadLabel.textContent = total > 0
+                ? 'Download template (' + total + ' rows)'
+                : 'Download template';
+        }
     }
+
+    function buildTemplateUrl() {
+        const blockId = blockSelect?.value || '';
+        const gpId = gpSelect?.value || '';
+        const male = parseInt(maleInput?.value || '0', 10) || 0;
+        const female = parseInt(femaleInput?.value || '0', 10) || 0;
+        if (!blockId || !gpId || (male + female) <= 0) return null;
+        const params = new URLSearchParams({
+            district_block_id: blockId,
+            gram_panchayat_id: gpId,
+            participants_male_count: String(male),
+            participants_female_count: String(female),
+        });
+        return templateBaseUrl + '?' + params.toString();
+    }
+
+    downloadBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = buildTemplateUrl();
+        if (!url) {
+            alert('Select block, gram panchayat, and enter participant counts first.');
+            return;
+        }
+        window.location.href = url;
+    });
+
     maleInput?.addEventListener('input', updateParticipantTotal);
     femaleInput?.addEventListener('input', updateParticipantTotal);
+    blockSelect?.addEventListener('change', updateParticipantTotal);
+    gpSelect?.addEventListener('change', updateParticipantTotal);
+    updateParticipantTotal();
 })();
 </script>
 @endpush

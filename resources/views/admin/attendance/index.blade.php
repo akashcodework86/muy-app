@@ -348,6 +348,7 @@
                         <th>Gram panchayat</th>
                         <th>Area / village</th>
                         <th>Participants</th>
+                        <th>Sheet</th>
                         <th>Photos</th>
                         <th>Remark</th>
                     </tr>
@@ -371,6 +372,15 @@
                                 @endif
                             </td>
                             <td>
+                                @if ($row->hasAttendanceSheet())
+                                    <a href="{{ route('admin.attendance.sheet', $row) }}" class="adatt-dl-btn"><i class="fa-solid fa-file-excel"></i> Excel</a>
+                                @elseif ((int) $row->participants_total > 0)
+                                    <span style="color:#b45309;font-weight:600;">Missing</span>
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td>
                                 @if ($media !== [])
                                     {{ count($media) }} photo(s)
                                     @foreach ($media as $idx => $item)
@@ -385,7 +395,7 @@
                             <td style="font-size:0.82rem;color:var(--adatt-muted);max-width:14rem;">{{ $row->remark ?: '—' }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="9"><div class="adatt-empty">No submissions found.</div></td></tr>
+                        <tr><td colspan="10"><div class="adatt-empty">No submissions found.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
