@@ -15,6 +15,7 @@
     $staffNavTechnicalTraining = $appSettings->isEnabled('staff_nav.technical_training.visible');
     $staffNavEapEdp = $appSettings->isEnabled('staff_nav.eap_edp_session.visible');
     $staffNavDistrictWorkshop = $appSettings->isEnabled('staff_nav.district_workshop.visible');
+    $canSubmitSocialMediaPost = $u && \App\Support\SocialMediaPostAccess::canSubmit($u);
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
         'district_staff' => 'District staff',
@@ -110,6 +111,12 @@
         str_starts_with($r, 'spoc.district-workshop-sessions.show') => 'staff-district-workshop-sessions-dashboard',
         str_starts_with($r, 'admin.district-workshop-sessions.dashboard') => 'staff-district-workshop-sessions-dashboard',
         str_starts_with($r, 'admin.district-workshop-sessions.show') => 'staff-district-workshop-sessions-dashboard',
+        str_starts_with($r, 'spoc.social-media-posts.create') => 'social-media-posts-submit',
+        str_starts_with($r, 'spoc.social-media-posts.store') => 'social-media-posts-submit',
+        str_starts_with($r, 'spoc.social-media-posts.dashboard') => 'social-media-posts-dashboard',
+        str_starts_with($r, 'spoc.social-media-posts.show') => 'social-media-posts-dashboard',
+        str_starts_with($r, 'admin.social-media-posts.dashboard') => 'social-media-posts-dashboard',
+        str_starts_with($r, 'admin.social-media-posts.show') => 'social-media-posts-dashboard',
         str_starts_with($r, 'account.') => 'account',
         str_starts_with($r, 'incubatee.documents') => 'documents',
         str_starts_with($r, 'incubatee.') => 'incubatee',
@@ -118,7 +125,7 @@
     };
     $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'social-media-posts-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -277,6 +284,16 @@
                             </a>
                         </div>
                     </div>
+                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'social-media-posts-dashboard') is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('book') !!}<span>Branding, Communication &amp; Knowledge Management</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('admin.social-media-posts.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'social-media-posts-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Social Media Post</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </details>
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['documents', 'admin-documents'], true)) is-active @endif">
@@ -330,6 +347,11 @@
             <a href="{{ route('spoc.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
             </a>
+            @if ($canSubmitSocialMediaPost)
+            <a href="{{ route('spoc.social-media-posts.create') }}" class="admin-topbar__link @if (in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard'], true)) is-active @endif">
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">Social media</span>
+            </a>
+            @endif
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>

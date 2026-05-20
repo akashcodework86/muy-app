@@ -72,6 +72,7 @@ class DashboardController extends Controller
                 'pendingApprovals' => $pendingApprovals,
                 'overduePending' => $overduePending,
                 'approvedByYou' => $approvedByYou,
+                'canSubmitSocialMediaPost' => \App\Support\SocialMediaPostAccess::canSubmit($user),
             ]);
         }
 

@@ -51,6 +51,21 @@
             </ul>
         </div>
 
+        @if (!empty($canSubmitSocialMediaPost))
+        <div style="margin-top:1rem; background:#fff; border:1px solid rgba(148,163,184,0.3); border-radius:14px; padding:1.1rem 1.25rem;">
+            <h3 style="margin:0 0 0.35rem; font-size:0.95rem; color:#0f172a;">Social media posts</h3>
+            <p style="margin:0 0 0.65rem; font-size:0.86rem; color:#64748b;">Log state-level social media posts (date, URL, optional note).</p>
+            <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+                <a href="{{ route('spoc.social-media-posts.create') }}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border-radius:8px;background:#4f46e5;color:#fff;text-decoration:none;font-size:0.8rem;font-weight:700;">
+                    Log new post
+                </a>
+                <a href="{{ route('spoc.social-media-posts.dashboard') }}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;text-decoration:none;font-size:0.8rem;font-weight:700;">
+                    View my entries
+                </a>
+            </div>
+        </div>
+        @endif
+
         <div style="margin-top:1rem; background:#fff; border:1px solid rgba(148,163,184,0.3); border-radius:14px; padding:1.1rem 1.25rem;">
             <h3 style="margin:0 0 0.35rem; font-size:0.95rem; color:#0f172a;">Documents</h3>
             <p style="margin:0 0 0.65rem; font-size:0.86rem; color:#64748b;">Open role-authorized documents uploaded by state admin and teams.</p>

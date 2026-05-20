@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\SocialMediaPost;
+use App\Models\User;
+
+final class SocialMediaPostAccess
+{
+    public static function canSubmit(?User $user): bool
+    {
+        if (! $user || $user->role !== 'state_staff') {
+            return false;
+        }
+
+        $ids = config('social_media_posts.submitter_user_ids', []);
+        if ($ids !== [] && in_array((int) $user->id, $ids, true)) {
+            return true;
+        }
+
+        $names = config('social_media_posts.submitter_names', []);
+        if ($names === []) {
+            return false;
+        }
+
+        $normalized = self::normalizeName((string) $user->name);
+
+        foreach ($names as $allowed) {
+            if ($normalized === self::normalizeName((string) $allowed)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function canViewDashboard(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->role === 'state_admin') {
+            return true;
+        }
+
+        return self::canSubmit($user);
+    }
+
+    public static function canDelete(?User $user, SocialMediaPost $row): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->role === 'state_admin') {
+            return true;
+        }
+
+        return self::canSubmit($user)
+            && (int) $row->submitted_by_user_id === (int) $user->id;
+    }
+
+    private static function normalizeName(string $name): string
+    {
+        return mb_strtolower(trim(preg_replace('/\s+/u', ' ', $name) ?? ''));
+    }
+}
