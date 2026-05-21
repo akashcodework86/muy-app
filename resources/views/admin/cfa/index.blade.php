@@ -9,7 +9,7 @@
 
 @section('content')
         @php
-            $cfaHasFilters = ($filters['name'] ?? '') || ($filters['district_id'] ?? null) || ($filters['sector'] ?? '') || ($filters['from'] ?? '') || ($filters['to'] ?? '');
+            $cfaHasFilters = ($filters['name'] ?? '') || ($filters['application_no'] ?? '') || ($filters['district_id'] ?? null) || ($filters['sector'] ?? '') || ($filters['from'] ?? '') || ($filters['to'] ?? '');
         @endphp
         <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <form method="get" action="{{ route('admin.cfa.index') }}" class="flex flex-wrap items-end gap-3">
@@ -31,6 +31,26 @@
                             value="{{ $filters['name'] }}"
                             placeholder="Applicant name…"
                             class="w-52 rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                        />
+                    </div>
+                </div>
+
+                {{-- Application number search (all-time scope) --}}
+                <div class="flex flex-col gap-1">
+                    <label for="cfa-application-no" class="text-xs font-medium text-slate-500 uppercase tracking-wide">Search by application no.</label>
+                    <div class="relative">
+                        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+                            <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                <path d="M4 6h12M4 10h8M4 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+                        <input
+                            id="cfa-application-no"
+                            type="search"
+                            name="application_no"
+                            value="{{ $filters['application_no'] ?? '' }}"
+                            placeholder="e.g. 5040602D"
+                            class="w-44 rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
                         />
                     </div>
                 </div>
@@ -128,7 +148,8 @@
             </form>
 
             <p class="mt-3 text-sm text-slate-500">
-                Same scope as the state dashboard CFA total (active FY when set, otherwise from 01 Apr 2026). CSV download uses this scope plus any filters above. Newest first.
+                Default list matches the state dashboard CFA total (active FY when set, otherwise from 01 Apr 2026).
+                <strong>Application no. search</strong> looks across all CFA records (full history). CSV download uses the same filters as above. Newest first.
                 @if ($cfaHasFilters)
                     &mdash; <span class="font-medium text-indigo-600">{{ $submissions->total() }} result(s) found</span>
                 @endif

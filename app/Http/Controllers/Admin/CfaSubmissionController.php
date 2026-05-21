@@ -148,11 +148,12 @@ class CfaSubmissionController extends Controller
     }
 
     /**
-     * @return array{name: string, district_id: int|null, sector: string, from: string, to: string}
+     * @return array{name: string, application_no: string, district_id: int|null, sector: string, from: string, to: string}
      */
     private function extractFilters(Request $request): array
     {
         $name = trim((string) $request->query('name', ''));
+        $applicationNo = trim((string) $request->query('application_no', ''));
         $districtId = $request->query('district_id');
         $sector = trim((string) $request->query('sector', ''));
         $from = trim((string) $request->query('from', ''));
@@ -172,6 +173,7 @@ class CfaSubmissionController extends Controller
 
         return [
             'name' => $name,
+            'application_no' => $applicationNo,
             'district_id' => $districtId ? (int) $districtId : null,
             'sector' => $sector,
             'from' => $from,
@@ -195,11 +197,27 @@ class CfaSubmissionController extends Controller
     }
 
     /**
-     * @param  array{name: string, district_id: int|null, sector: string, from: string, to: string}  $filters
+     * @param  array{name: string, application_no: string, district_id: int|null, sector: string, from: string, to: string}  $filters
      */
     private function filteredQuery(array $filters): Builder
     {
-        return $this->applyPhase3DashboardScope(CfaSubmission::query())
+        $searchByApplicationNo = $filters['application_no'] !== '';
+
+        $query = CfaSubmission::query();
+        if (! $searchByApplicationNo) {
+            $query = $this->applyPhase3DashboardScope($query);
+        }
+
+        return $query
+            ->when($searchByApplicationNo, function (Builder $q) use ($filters): void {
+                $term = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['application_no']);
+                $q->where(function (Builder $inner) use ($term, $filters): void {
+                    $inner->where('application_no', 'like', '%'.$term.'%');
+                    if (ctype_digit($filters['application_no'])) {
+                        $inner->orWhere('id', (int) $filters['application_no']);
+                    }
+                });
+            })
             ->when($filters['name'] !== '', fn ($q) => $q->where('applicant_name', 'like', '%'.$filters['name'].'%'))
             ->when($filters['district_id'], fn ($q) => $q->where('district_id', $filters['district_id']))
             ->when($filters['sector'] !== '', fn ($q) => $q->whereRaw(
