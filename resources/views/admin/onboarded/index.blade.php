@@ -10,9 +10,10 @@
     /* ── KPI strip ── */
     .onb-kpi-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 0.75rem;
     }
+    @media (max-width: 1200px) { .onb-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 960px) { .onb-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 520px) { .onb-kpi-grid { grid-template-columns: 1fr; } }
 
@@ -38,7 +39,6 @@
     .onb-kpi--female { background: linear-gradient(135deg, #fdf2f8, #fce7f3); border-color: #f9a8d4; color: #be185d; }
     .onb-kpi--recent { background: linear-gradient(135deg, #fff7ed, #ffedd5); border-color: #fdba74; color: #c2410c; }
     .onb-kpi--lakhpati { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-color: #86efac; color: #15803d; }
-    .onb-kpi--potential { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-color: #6ee7b7; color: #047857; }
 
     .onb-kpi__label {
         font-size: 0.68rem;
@@ -516,22 +516,11 @@
             </div>
         </div>
         <div class="onb-kpi onb-kpi--lakhpati">
-            <div class="onb-kpi__label">Lakhpati Didi (Yes)</div>
-            <div class="onb-kpi__value">{{ number_format((int) ($overview['lakhpati_yes_count'] ?? 0)) }}</div>
-            <div class="onb-kpi__sub">
-                @if (! is_null($overview['lakhpati_yes_pct'] ?? null))
-                    {{ $overview['lakhpati_yes_pct'] }}% of onboarded · Phase 3 CFA data only
-                @else
-                    No onboarded applicants in current filter scope
-                @endif
-            </div>
-        </div>
-        <div class="onb-kpi onb-kpi--potential">
             <div class="onb-kpi__label">Potential Lakhpati Didi</div>
             <div class="onb-kpi__value">{{ number_format((int) ($overview['potential_lakhpati_count'] ?? 0)) }}</div>
             <div class="onb-kpi__sub">
                 @if (! is_null($overview['potential_lakhpati_pct'] ?? null))
-                    {{ $overview['potential_lakhpati_pct'] }}% of onboarded · SHG/CBO category, member Yes, or Lakhpati Yes
+                    {{ $overview['potential_lakhpati_pct'] }}% of onboarded · SHG/CBO, member Yes, or Lakhpati Yes
                 @else
                     No onboarded applicants in current filter scope
                 @endif
@@ -663,8 +652,7 @@
                         <div class="onb-district-card__meta">
                             <span><strong>{{ $districtRow['share_pct'] }}%</strong> share</span>
                             <span><strong>{{ $districtRow['female_pct'] }}%</strong> women</span>
-                            <span><strong>{{ number_format((int) ($districtRow['lakhpati_yes_count'] ?? 0)) }}</strong> Lakhpati ({{ $districtRow['lakhpati_yes_pct'] ?? 0 }}%)</span>
-                            <span><strong>{{ number_format((int) ($districtRow['potential_lakhpati_count'] ?? 0)) }}</strong> Potential ({{ $districtRow['potential_lakhpati_pct'] ?? 0 }}%)</span>
+                            <span><strong>{{ number_format((int) ($districtRow['potential_lakhpati_count'] ?? 0)) }}</strong> Potential Lakhpati ({{ $districtRow['potential_lakhpati_pct'] ?? 0 }}%)</span>
                             @if ((int) ($districtRow['target'] ?? 0) > 0)
                                 <span><strong>{{ (int) ($districtRow['target_progress_pct'] ?? 0) }}%</strong> of target</span>
                             @endif

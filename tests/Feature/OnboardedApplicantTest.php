@@ -36,12 +36,11 @@ class OnboardedApplicantTest extends TestCase
         $response->assertOk();
         $response->assertSee('District-wise onboarding');
         $response->assertSee('Total onboarded');
-        $response->assertSee('Lakhpati Didi (Yes)');
         $response->assertSee('Potential Lakhpati Didi');
         $response->assertSee('67%');
-        $response->assertSeeText('1 Lakhpati (50%)');
-        $response->assertSeeText('1 Lakhpati (100%)');
-        $response->assertSeeText('1 Potential (100%)');
+        $response->assertSeeText('1 Potential Lakhpati (50%)');
+        $response->assertSeeText('1 Potential Lakhpati (100%)');
+        $response->assertDontSee('Lakhpati Didi (Yes)');
         $response->assertSee('Almora');
         $response->assertSee('Nainital');
         $response->assertSee('Female Applicant');
@@ -63,7 +62,7 @@ class OnboardedApplicantTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
 
         $response->assertOk();
-        $response->assertSeeText('1 Lakhpati (50%)');
+        $response->assertSeeText('1 Potential Lakhpati (50%)');
     }
 
     public function test_onboarded_page_shows_target_progress_insights_and_sector_breakdown(): void
@@ -110,7 +109,7 @@ class OnboardedApplicantTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
 
         $response->assertOk();
-        $response->assertSeeText('3 Potential (75%)');
+        $response->assertSeeText('3 Potential Lakhpati (75%)');
     }
 
     public function test_potential_lakhpati_counts_individual_shg_member_yes(): void
@@ -128,7 +127,7 @@ class OnboardedApplicantTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
 
         $response->assertOk();
-        $response->assertSeeText('1 Potential (50%)');
+        $response->assertSeeText('1 Potential Lakhpati (50%)');
     }
 
     public function test_district_filter_limits_applicant_list(): void

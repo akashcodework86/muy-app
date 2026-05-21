@@ -299,7 +299,6 @@ class OnboardedApplicantController extends Controller
         $this->applyPhase3Filters($query, $hubId, $districtId, $q);
 
         $genderJson = $this->payloadJson('$.gender');
-        $lakhpatiYesSql = $this->lakhpatiYesCountSql();
         $potentialLakhpatiSql = $this->potentialLakhpatiCountSql();
 
         $row = (array) $query
@@ -315,7 +314,6 @@ class OnboardedApplicantController extends Controller
                     WHEN LOWER(TRIM(COALESCE({$genderJson}, ''))) IN ('male', 'm', 'man')
                     THEN 1 ELSE 0
                 END) as male_count,
-                {$lakhpatiYesSql} as lakhpati_yes_count,
                 {$potentialLakhpatiSql} as potential_lakhpati_count,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as this_month
@@ -326,7 +324,6 @@ class OnboardedApplicantController extends Controller
         $female = (int) ($row['female_count'] ?? 0);
         $male = (int) ($row['male_count'] ?? 0);
         $knownGender = $female + $male;
-        $lakhpatiYes = (int) ($row['lakhpati_yes_count'] ?? 0);
         $potentialLakhpati = (int) ($row['potential_lakhpati_count'] ?? 0);
 
         return [
@@ -336,8 +333,6 @@ class OnboardedApplicantController extends Controller
             'female_count' => $female,
             'male_count' => $male,
             'female_pct' => $knownGender > 0 ? (int) round(($female / $knownGender) * 100) : null,
-            'lakhpati_yes_count' => $lakhpatiYes,
-            'lakhpati_yes_pct' => $total > 0 ? (int) round(($lakhpatiYes / $total) * 100) : null,
             'potential_lakhpati_count' => $potentialLakhpati,
             'potential_lakhpati_pct' => $total > 0 ? (int) round(($potentialLakhpati / $total) * 100) : null,
             'recent_7_days' => (int) ($row['recent_7_days'] ?? 0),
@@ -355,7 +350,6 @@ class OnboardedApplicantController extends Controller
 
         $genderJson = $this->payloadJson('$.gender');
         $districtJson = $this->payloadJson('$.district');
-        $lakhpatiYesSql = $this->lakhpatiYesCountSql();
         $potentialLakhpatiSql = $this->potentialLakhpatiCountSql();
 
         $rows = $query
@@ -368,7 +362,6 @@ class OnboardedApplicantController extends Controller
                     WHEN LOWER(TRIM(COALESCE({$genderJson}, ''))) IN ('female', 'f', 'woman')
                     THEN 1 ELSE 0
                 END) as female_count,
-                {$lakhpatiYesSql} as lakhpati_yes_count,
                 {$potentialLakhpatiSql} as potential_lakhpati_count,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
                 MAX(obc.created_at) as last_onboarded_at
@@ -390,7 +383,6 @@ class OnboardedApplicantController extends Controller
             ->map(function ($row) use ($grandTotal, $targetsByDistrict): array {
                 $total = (int) $row->total;
                 $female = (int) $row->female_count;
-                $lakhpatiYes = (int) ($row->lakhpati_yes_count ?? 0);
                 $potentialLakhpati = (int) ($row->potential_lakhpati_count ?? 0);
                 $districtId = (int) ($row->district_id ?? 0);
                 $target = (int) ($targetsByDistrict[$districtId] ?? 0);
@@ -402,8 +394,6 @@ class OnboardedApplicantController extends Controller
                     'total' => $total,
                     'female_count' => $female,
                     'female_pct' => $total > 0 ? (int) round(($female / $total) * 100) : 0,
-                    'lakhpati_yes_count' => $lakhpatiYes,
-                    'lakhpati_yes_pct' => $total > 0 ? (int) round(($lakhpatiYes / $total) * 100) : 0,
                     'potential_lakhpati_count' => $potentialLakhpati,
                     'potential_lakhpati_pct' => $total > 0 ? (int) round(($potentialLakhpati / $total) * 100) : 0,
                     'target' => $target,
@@ -889,17 +879,6 @@ class OnboardedApplicantController extends Controller
         return "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '{$path}'))";
     }
 
-    private function lakhpatiYesCountSql(): string
-    {
-        $lakhpatiJson = $this->payloadJson('$.lakhpati');
-
-        return "SUM(CASE
-            WHEN {$this->phase3CfaSourceSql()}
-                AND LOWER(TRIM(COALESCE({$lakhpatiJson}, ''))) = 'yes'
-            THEN 1 ELSE 0
-        END)";
-    }
-
     private function potentialLakhpatiCountSql(): string
     {
         $categoryJson = $this->payloadJson('$.category');
@@ -1164,11 +1143,6 @@ class OnboardedApplicantController extends Controller
             $insights[] = 'Women represent '.(int) $overview['female_pct'].'% of recorded gender in the current scope.';
         }
 
-        if ((int) ($overview['lakhpati_yes_count'] ?? 0) > 0 && ! is_null($overview['lakhpati_yes_pct'] ?? null)) {
-            $insights[] = number_format((int) $overview['lakhpati_yes_count']).' Lakhpati Didis marked Yes ('
-                .(int) $overview['lakhpati_yes_pct'].'% of onboarded).';
-        }
-
         if ((int) ($overview['potential_lakhpati_count'] ?? 0) > 0 && ! is_null($overview['potential_lakhpati_pct'] ?? null)) {
             $insights[] = number_format((int) $overview['potential_lakhpati_count'])
                 .' potential Lakhpati Didis (SHG/CBO, member Yes, or Lakhpati Yes — '
@@ -1178,11 +1152,11 @@ class OnboardedApplicantController extends Controller
         if (count($districtSummaries) > 1) {
             $bestLakhpati = collect($districtSummaries)
                 ->filter(fn (array $row) => (int) ($row['total'] ?? 0) > 0)
-                ->sortByDesc(fn (array $row) => (int) ($row['lakhpati_yes_pct'] ?? 0))
+                ->sortByDesc(fn (array $row) => (int) ($row['potential_lakhpati_pct'] ?? 0))
                 ->first();
-            if ($bestLakhpati && (int) ($bestLakhpati['lakhpati_yes_pct'] ?? 0) > 0) {
-                $insights[] = 'Highest Lakhpati rate: '.($bestLakhpati['district_name'] ?? 'District')
-                    .' at '.(int) $bestLakhpati['lakhpati_yes_pct'].'%.';
+            if ($bestLakhpati && (int) ($bestLakhpati['potential_lakhpati_pct'] ?? 0) > 0) {
+                $insights[] = 'Highest potential Lakhpati Didi share: '.($bestLakhpati['district_name'] ?? 'District')
+                    .' at '.(int) $bestLakhpati['potential_lakhpati_pct'].'%.';
             }
 
             $inactive = collect($districtSummaries)
