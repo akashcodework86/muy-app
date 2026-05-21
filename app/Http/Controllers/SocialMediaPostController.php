@@ -20,34 +20,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SocialMediaPostController extends Controller
 {
-    public function __construct(
-        private SocialMediaPostPreviewService $previewService,
-    ) {}
-
-    public function index(Request $request): RedirectResponse
-    {
-        $user = $request->user();
-        abort_unless(SocialMediaPostAccess::canViewDashboard($user), 403);
-
-        $dashboardRoute = $user->role === 'state_admin'
-            ? 'admin.social-media-posts.dashboard'
-            : 'spoc.social-media-posts.dashboard';
-
-        if ($user->role === 'state_staff' && SocialMediaPostAccess::canSubmit($user)) {
-            if (Route::has('spoc.social-media-posts.create')) {
-                return redirect()->route('spoc.social-media-posts.create');
-            }
-
-            return redirect()->to(url('/spoc/social-media-posts/create'));
-        }
-
-        if (Route::has($dashboardRoute)) {
-            return redirect()->route($dashboardRoute);
-        }
-
-        return redirect()->to(url('/spoc/social-media-posts/dashboard'));
-    }
-
     public function create(Request $request): View
     {
         $user = $request->user();
@@ -75,7 +47,7 @@ class SocialMediaPostController extends Controller
         ]);
 
         return response()->json(
-            $this->withProxiedThumbnail($request, $this->previewService->resolve((string) $validated['url']))
+            $this->withProxiedThumbnail($request, $this->previewService()->resolve((string) $validated['url']))
         );
     }
 
@@ -86,7 +58,7 @@ class SocialMediaPostController extends Controller
 
         $encoded = (string) $request->query('src', '');
         $rawUrl = base64_decode(strtr($encoded, '-_', '+/'), true);
-        if (! is_string($rawUrl) || $rawUrl === '' || ! $this->previewService->shouldProxyThumbnail($rawUrl)) {
+        if (! is_string($rawUrl) || $rawUrl === '' || ! $this->previewService()->shouldProxyThumbnail($rawUrl)) {
             abort(400, 'Invalid thumbnail URL.');
         }
 
@@ -335,7 +307,7 @@ class SocialMediaPostController extends Controller
     private function withProxiedThumbnail(Request $request, array $resolved): array
     {
         $thumb = $resolved['thumbnail_url'] ?? null;
-        if (! is_string($thumb) || $thumb === '' || ! $this->previewService->shouldProxyThumbnail($thumb)) {
+        if (! is_string($thumb) || $thumb === '' || ! $this->previewService()->shouldProxyThumbnail($thumb)) {
             return $resolved;
         }
 
@@ -352,7 +324,7 @@ class SocialMediaPostController extends Controller
 
     private function proxiedThumbnailUrl(Request $request, ?string $thumb): ?string
     {
-        if (! is_string($thumb) || $thumb === '' || ! $this->previewService->shouldProxyThumbnail($thumb)) {
+        if (! is_string($thumb) || $thumb === '' || ! $this->previewService()->shouldProxyThumbnail($thumb)) {
             return $thumb;
         }
 
@@ -370,7 +342,7 @@ class SocialMediaPostController extends Controller
      */
     private function previewMetaForUrl(string $url): array
     {
-        $resolved = $this->previewService->resolve($url);
+        $resolved = $this->previewService()->resolve($url);
 
         return [
             'platform' => ($resolved['platform'] ?? '') !== '' ? (string) $resolved['platform'] : null,
@@ -398,7 +370,7 @@ class SocialMediaPostController extends Controller
                 'mode' => str_contains(strtolower((string) $post->post_url), 'instagram.com')
                     ? 'instagram_embed'
                     : 'thumbnail',
-                'platform' => $post->platform ?: $this->previewService->platformLabel((string) $post->post_url),
+                'platform' => $post->platform ?: $this->previewService()->platformLabel((string) $post->post_url),
                 'url' => (string) $post->post_url,
                 'iframe_src' => null,
                 'thumbnail_url' => $thumb,
@@ -408,9 +380,14 @@ class SocialMediaPostController extends Controller
             ];
         }
 
-        $resolved = $this->previewService->resolve((string) $post->post_url);
+        $resolved = $this->previewService()->resolve((string) $post->post_url);
 
         return $request !== null ? $this->withProxiedThumbnail($request, $resolved) : $resolved;
+    }
+
+    private function previewService(): SocialMediaPostPreviewService
+    {
+        return app(SocialMediaPostPreviewService::class);
     }
 
     private function streamExportCsv(Collection $rows, string $filename): StreamedResponse
