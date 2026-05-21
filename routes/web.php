@@ -34,7 +34,7 @@ use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DistrictWorkshopSessionAttendanceController;
 use App\Http\Controllers\DocumentLibraryController;
-use App\Http\Controllers\EapEdpSessionAttendanceController;
+use App\Http\Controllers\FieldCoordinatorReportController;
 use App\Http\Controllers\Hub\HubApplicationsController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Hub\HubOnboardingInsightController;
@@ -179,6 +179,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('applications/{cfa_submission}/edit', [StaffPortalController::class, 'editCfaSubmission'])->name('applications.edit');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
+        Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
+        Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
+        Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');
         Route::put('applications/{cfa_submission}', [StaffPortalController::class, 'updateCfaSubmission'])
             ->middleware('throttle:30,1')
             ->name('applications.update');
@@ -335,6 +338,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('service-cases', [SpocServiceCaseController::class, 'index'])->name('service-cases.index');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
+        Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
+        Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
+        Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
         Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
         Route::get('deliverables/breakdown/export/csv', [DeliverablesReportController::class, 'breakdownExportCsv'])->name('deliverables.breakdown.export.csv');
@@ -553,6 +559,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('documents/{document}/versions', [DocumentRepositoryController::class, 'uploadVersion'])->name('documents.upload-version');
         Route::delete('documents/{document}', [DocumentRepositoryController::class, 'destroy'])->name('documents.destroy');
         Route::get('attendance', [FieldCoordinatorAttendanceAdminController::class, 'index'])->name('attendance.index');
+        Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
+        Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
+        Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');
         Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceAdminController::class, 'downloadAttachment'])
             ->name('attendance.attachment');
         Route::get('attendance/{attendanceReport}/attendance-sheet', [FieldCoordinatorAttendanceAdminController::class, 'downloadAttendanceSheet'])
@@ -622,6 +631,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('applications', [HubApplicationsController::class, 'index'])->name('applications.index');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
+        Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
+        Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
+        Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');
         Route::get('applications/export', [HubApplicationsController::class, 'export'])->name('applications.export');
         Route::get('batches', [HubBatchController::class, 'index'])->name('batches.index');
         Route::get('batches/{batch}/onboarding-letter', [BatchReadOnlyController::class, 'downloadOnboardingLetter'])->name('batches.onboarding-letter');

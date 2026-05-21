@@ -59,6 +59,10 @@
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
         str_starts_with($r, 'team.') => 'team-directory',
         str_starts_with($r, 'admin.attendance') => 'attendance',
+        str_starts_with($r, 'admin.field-coordinator-reports') => 'field-coordinator-report',
+        str_starts_with($r, 'hub.field-coordinator-reports') => 'field-coordinator-report',
+        str_starts_with($r, 'staff.field-coordinator-reports') => 'field-coordinator-report',
+        str_starts_with($r, 'spoc.field-coordinator-reports') => 'field-coordinator-report',
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
         str_starts_with($r, 'admin.ops.migrations') => 'ops-migrations',
@@ -126,7 +130,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance'], true);
+    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'social-media-posts-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents'], true);
@@ -253,6 +257,9 @@
                     <a href="{{ route('admin.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'attendance') is-active @endif" role="menuitem">
                         {!! $i('calendar') !!}<span>Field reports</span>
                     </a>
+                    <a href="{{ route('admin.field-coordinator-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-coordinator-report') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>Field coordinator report</span>
+                    </a>
                 </div>
             </details>
 
@@ -350,6 +357,9 @@
             <a href="{{ route('spoc.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
             </a>
+            <a href="{{ route('spoc.field-coordinator-reports.index') }}" class="admin-topbar__link @if ($activeNav === 'field-coordinator-report') is-active @endif">
+                {!! $i('calendar') !!}<span class="admin-topbar__link-text">Field coordinator report</span>
+            </a>
             @if ($canSubmitSocialMediaPost)
             <a href="{{ route('spoc.social-media-posts.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard'], true)) is-active @endif">
                 {!! $i('doc') !!}<span class="admin-topbar__link-text">Social media</span>
@@ -378,6 +388,9 @@
             <a href="{{ route('hub.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
             </a>
+            <a href="{{ route('hub.field-coordinator-reports.index') }}" class="admin-topbar__link @if ($activeNav === 'field-coordinator-report') is-active @endif">
+                {!! $i('calendar') !!}<span class="admin-topbar__link-text">Field coordinator report</span>
+            </a>
             <a href="{{ route('hub.staff-performance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-staff-performance') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Staff Performance</span>
             </a>
@@ -400,6 +413,9 @@
             </a>
             <a href="{{ route('staff.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
+            </a>
+            <a href="{{ route('staff.field-coordinator-reports.index') }}" class="admin-topbar__link @if ($activeNav === 'field-coordinator-report') is-active @endif">
+                {!! $i('calendar') !!}<span class="admin-topbar__link-text">Field coordinator report</span>
             </a>
             <a href="{{ route('staff.applications') }}" class="admin-topbar__link @if ($activeNav === 'staff-apps') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Applications</span>
