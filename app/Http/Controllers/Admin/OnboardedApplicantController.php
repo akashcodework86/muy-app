@@ -895,14 +895,6 @@ class OnboardedApplicantController extends Controller
         return "LOWER(TRIM(COALESCE(cs.source, ''))) NOT IN ('legacy_phase2', 'rbiphase2')";
     }
 
-    private function sectorLabelSql(): string
-    {
-        $category = $this->payloadJson('$.business_category');
-        $appCategory = $this->payloadJson('$.app_business_category');
-
-        return "COALESCE(NULLIF(TRIM({$category}), ''), NULLIF(TRIM({$appCategory}), ''), 'Not recorded')";
-    }
-
     private function onboardingAchievedCount(?int $hubId, ?int $districtId, array $scope): int
     {
         $query = $this->phase3BaseQuery($scope);
@@ -1041,23 +1033,26 @@ class OnboardedApplicantController extends Controller
         $this->applyPhase3Filters($query, $hubId, $districtId, $q);
         $query->whereRaw($this->phase3CfaSourceSql());
 
-        $sectorExpr = $this->sectorLabelSql();
-        $rows = $query
-            ->selectRaw("{$sectorExpr} as sector_label, COUNT(*) as total")
-            ->groupByRaw($sectorExpr)
-            ->orderByDesc('total')
-            ->get();
+        $category = $this->payloadJson('$.business_category');
+        $appCategory = $this->payloadJson('$.app_business_category');
 
-        $grandTotal = max(1, (int) $rows->sum('total'));
+        $counts = $query
+            ->selectRaw("{$category} as sector_category, {$appCategory} as sector_app_category")
+            ->get()
+            ->map(fn ($row) => $this->resolveSectorLabel($row))
+            ->countBy()
+            ->sortDesc();
+
+        $grandTotal = max(1, (int) $counts->sum());
         $topLimit = 6;
-        $topRows = $rows->take($topLimit);
-        $otherTotal = (int) $rows->slice($topLimit)->sum('total');
+        $topRows = $counts->take($topLimit);
+        $otherTotal = (int) $counts->slice($topLimit)->sum();
 
         $mapped = $topRows
-            ->map(fn ($row) => [
-                'sector' => (string) $row->sector_label,
-                'count' => (int) $row->total,
-                'pct' => (int) round(((int) $row->total / $grandTotal) * 100),
+            ->map(fn (int $total, string $sector) => [
+                'sector' => $sector,
+                'count' => $total,
+                'pct' => (int) round(($total / $grandTotal) * 100),
             ])
             ->values()
             ->all();
@@ -1071,9 +1066,19 @@ class OnboardedApplicantController extends Controller
         }
 
         return [
-            'total' => (int) $rows->sum('total'),
+            'total' => (int) $counts->sum(),
             'rows' => $mapped,
         ];
+    }
+
+    private function resolveSectorLabel(object $row): string
+    {
+        $label = trim((string) ($row->sector_category ?? ''));
+        if ($label === '') {
+            $label = trim((string) ($row->sector_app_category ?? ''));
+        }
+
+        return $label !== '' ? $label : 'Not recorded';
     }
 
     /**
