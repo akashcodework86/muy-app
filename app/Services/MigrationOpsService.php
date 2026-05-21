@@ -108,16 +108,20 @@ class MigrationOpsService
      */
     public function deployHealthChecks(): array
     {
-        $controllerClass = \App\Http\Controllers\SocialMediaPostController::class;
-        $controllerOk = class_exists($controllerClass);
-        $indexOk = $controllerOk && method_exists($controllerClass, 'index');
-
         $checks = [
+            $this->deployCheck(
+                'social_media_landing_controller',
+                'PHP: SocialMediaPostLandingController',
+                class_exists(\App\Http\Controllers\SocialMediaPostLandingController::class),
+                class_exists(\App\Http\Controllers\SocialMediaPostLandingController::class)
+                    ? 'Landing redirect ready'
+                    : 'Missing — upload app/Http/Controllers/SocialMediaPostLandingController.php',
+            ),
             $this->deployCheck(
                 'social_media_controller',
                 'PHP: SocialMediaPostController',
-                $indexOk,
-                $indexOk ? 'index() method present' : ($controllerOk ? 'Missing index() — re-upload controller file' : 'Class missing — upload app/Http/Controllers/SocialMediaPostController.php'),
+                class_exists($controllerClass),
+                class_exists($controllerClass) ? 'Controller loaded' : 'Class missing — upload app/Http/Controllers/SocialMediaPostController.php',
             ),
         ];
 

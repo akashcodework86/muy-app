@@ -69,5 +69,33 @@ echo "--- route:cache ---\n";
 $run($projectPath, 'php artisan route:cache', $lines, $routeExit);
 $out(implode("\n", $lines));
 
+echo "\n--- social media deploy check ---\n";
+$smpFiles = [
+    'app/Http/Controllers/SocialMediaPostController.php',
+    'app/Http/Controllers/SocialMediaPostLandingController.php',
+    'app/Services/SocialMediaPostPreviewService.php',
+    'app/Support/SocialMediaPostAccess.php',
+    'app/Support/SocialMediaPostPlatforms.php',
+    'config/social_media_posts.php',
+    'resources/views/social-media-posts/form.blade.php',
+    'public/social-media-health.php',
+];
+foreach ($smpFiles as $relative) {
+    $full = $projectPath.'/'.$relative;
+    echo $relative.': '.(is_file($full) ? 'OK' : 'MISSING')."\n";
+}
+
+$healthScript = $projectPath.'/public/social-media-health.php';
+if (is_file($healthScript)) {
+    echo "Health URL: /social-media-health.php?key=akash\n";
+} else {
+    echo "Health URL: unavailable (upload public/social-media-health.php)\n";
+}
+
+$run($projectPath, 'php artisan route:list --name=social-media-posts.index --columns=method,uri,name,action', $lines, $routeListExit);
+if ($lines !== []) {
+    echo implode("\n", $lines)."\n";
+}
+
 echo "\n=== DEPLOY COMPLETE ===\n";
 echo '</pre>';
