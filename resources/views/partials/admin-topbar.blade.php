@@ -112,6 +112,7 @@
         str_starts_with($r, 'admin.district-workshop-sessions.dashboard') => 'staff-district-workshop-sessions-dashboard',
         str_starts_with($r, 'admin.district-workshop-sessions.show') => 'staff-district-workshop-sessions-dashboard',
         str_starts_with($r, 'spoc.social-media-posts.create') => 'social-media-posts-submit',
+        str_starts_with($r, 'spoc.social-media-posts.index') => 'social-media-posts-submit',
         str_starts_with($r, 'spoc.social-media-posts.store') => 'social-media-posts-submit',
         str_starts_with($r, 'spoc.social-media-posts.dashboard') => 'social-media-posts-dashboard',
         str_starts_with($r, 'spoc.social-media-posts.show') => 'social-media-posts-dashboard',
@@ -348,7 +349,7 @@
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
             </a>
             @if ($canSubmitSocialMediaPost)
-            <a href="{{ route('spoc.social-media-posts.create') }}" class="admin-topbar__link @if (in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard'], true)) is-active @endif">
+            <a href="{{ route('spoc.social-media-posts.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard'], true)) is-active @endif">
                 {!! $i('doc') !!}<span class="admin-topbar__link-text">Social media</span>
             </a>
             @endif

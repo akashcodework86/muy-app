@@ -23,6 +23,22 @@ class SocialMediaPostController extends Controller
         private SocialMediaPostPreviewService $previewService,
     ) {}
 
+    public function index(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless(SocialMediaPostAccess::canViewDashboard($user), 403);
+
+        $dashboardRoute = $user->role === 'state_admin'
+            ? 'admin.social-media-posts.dashboard'
+            : 'spoc.social-media-posts.dashboard';
+
+        if ($user->role === 'state_staff' && SocialMediaPostAccess::canSubmit($user)) {
+            return redirect()->route('spoc.social-media-posts.create');
+        }
+
+        return redirect()->route($dashboardRoute);
+    }
+
     public function create(Request $request): View
     {
         $user = $request->user();
@@ -30,7 +46,7 @@ class SocialMediaPostController extends Controller
 
         return view('social-media-posts.form', [
             'user' => $user,
-            'migrationMissing' => ! Schema::hasTable('social_media_posts'),
+            'migrationMissing' => ! $this->socialMediaPostsReady(),
             'storeRoute' => 'spoc.social-media-posts.store',
             'dashboardRoute' => 'spoc.social-media-posts.dashboard',
             'previewRoute' => 'spoc.social-media-posts.preview',
@@ -92,10 +108,10 @@ class SocialMediaPostController extends Controller
         $user = $request->user();
         abort_unless(SocialMediaPostAccess::canSubmit($user), 403);
 
-        if (! Schema::hasTable('social_media_posts')) {
+        if (! $this->socialMediaPostsReady()) {
             return redirect()
                 ->route('spoc.social-media-posts.create')
-                ->withErrors(['posted_on' => 'Social media posts table is missing. Please run migrations first.']);
+                ->withErrors(['posted_on' => 'Social media posts database is not ready. Please run migrations first.']);
         }
 
         $validated = $request->validate([
@@ -132,35 +148,41 @@ class SocialMediaPostController extends Controller
         $user = $request->user();
         abort_unless(SocialMediaPostAccess::canViewDashboard($user), 403);
 
-        if (! Schema::hasTable('social_media_posts')) {
+        if (! $this->socialMediaPostsReady()) {
             return $this->dashboardView($request, collect(), true, null);
         }
 
-        $query = SocialMediaPost::query()->with(['submitter:id,name']);
-        $this->scopeDashboardQuery($query, $user);
+        try {
+            $query = SocialMediaPost::query()->with(['submitter:id,name']);
+            $this->scopeDashboardQuery($query, $user);
 
-        $search = trim((string) $request->query('q', ''));
-        if ($search !== '') {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
-            $query->where(function ($q) use ($like): void {
-                $q->where('submitted_by_name', 'like', $like)
-                    ->orWhere('post_url', 'like', $like)
-                    ->orWhere('description', 'like', $like);
-            });
-        }
+            $search = trim((string) $request->query('q', ''));
+            if ($search !== '') {
+                $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
+                $query->where(function ($q) use ($like): void {
+                    $q->where('submitted_by_name', 'like', $like)
+                        ->orWhere('post_url', 'like', $like)
+                        ->orWhere('description', 'like', $like);
+                });
+            }
 
-        if ($request->filled('from')) {
-            $query->whereDate('posted_on', '>=', (string) $request->query('from'));
-        }
-        if ($request->filled('to')) {
-            $query->whereDate('posted_on', '<=', (string) $request->query('to'));
-        }
+            if ($request->filled('from')) {
+                $query->whereDate('posted_on', '>=', (string) $request->query('from'));
+            }
+            if ($request->filled('to')) {
+                $query->whereDate('posted_on', '<=', (string) $request->query('to'));
+            }
 
-        $rows = $query
-            ->orderByDesc('posted_on')
-            ->orderByDesc('id')
-            ->paginate(25)
-            ->withQueryString();
+            $rows = $query
+                ->orderByDesc('posted_on')
+                ->orderByDesc('id')
+                ->paginate(25)
+                ->withQueryString();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $this->dashboardView($request, collect(), true, null);
+        }
 
         return $this->dashboardView($request, $rows, false, [
             'q' => $search,
@@ -237,6 +259,21 @@ class SocialMediaPostController extends Controller
         $rows = $query->orderByDesc('posted_on')->orderByDesc('id')->get();
 
         return $this->streamExportCsv($rows, 'social-media-posts-'.now()->format('Ymd_His').'.csv');
+    }
+
+    private function socialMediaPostsReady(): bool
+    {
+        if (! Schema::hasTable('social_media_posts')) {
+            return false;
+        }
+
+        foreach (['posted_platforms', 'platform', 'thumbnail_url', 'preview_title'] as $column) {
+            if (! Schema::hasColumn('social_media_posts', $column)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function dashboardView(Request $request, mixed $rows, bool $migrationMissing, ?array $filters): View

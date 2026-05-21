@@ -13,6 +13,19 @@ class SocialMediaPostTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_social_media_index_redirects_submitter_to_create(): void
+    {
+        $sanjna = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($sanjna)
+            ->get(route('spoc.social-media-posts.index'))
+            ->assertRedirect(route('spoc.social-media-posts.create'));
+    }
+
     public function test_sanjna_state_staff_can_create_post(): void
     {
         Http::fake([

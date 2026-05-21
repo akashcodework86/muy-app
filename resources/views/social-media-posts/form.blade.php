@@ -57,7 +57,8 @@
 <div class="smp-shell">
     @if (!empty($migrationMissing))
         <div class="smp-alert smp-alert--warning">
-            <strong>Table not found.</strong> Run <code>php artisan migrate</code> first.
+            <strong>Database update required.</strong> Run <code>php artisan migrate</code> for the social media posts tables
+            (<code>posted_platforms</code>, preview fields).
         </div>
     @endif
 

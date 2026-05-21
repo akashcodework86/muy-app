@@ -63,6 +63,8 @@ final class SocialMediaPostAccess
 
     private static function normalizeName(string $name): string
     {
-        return mb_strtolower(trim(preg_replace('/\s+/u', ' ', $name) ?? ''));
+        $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
+
+        return function_exists('mb_strtolower') ? mb_strtolower($name) : strtolower($name);
     }
 }

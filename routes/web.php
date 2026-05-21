@@ -381,6 +381,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('social-media-posts', [SocialMediaPostController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('social-media-posts.store');
+        Route::get('social-media-posts', [SocialMediaPostController::class, 'index'])->name('social-media-posts.index');
         Route::get('social-media-posts/dashboard', [SocialMediaPostController::class, 'dashboard'])->name('social-media-posts.dashboard');
         Route::get('social-media-posts/export', [SocialMediaPostController::class, 'export'])->name('social-media-posts.export');
         Route::get('social-media-posts/{socialMediaPost}', [SocialMediaPostController::class, 'show'])->name('social-media-posts.show');
@@ -575,6 +576,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('district-workshop-sessions/{districtWorkshopSession}/attachment', [DistrictWorkshopSessionAttendanceController::class, 'downloadAttachment'])
             ->name('district-workshop-sessions.attachment');
         Route::get('social-media-posts/dashboard', [SocialMediaPostController::class, 'dashboard'])->name('social-media-posts.dashboard');
+        Route::get('social-media-posts', [SocialMediaPostController::class, 'index'])->name('social-media-posts.index');
         Route::get('social-media-posts/thumbnail', [SocialMediaPostController::class, 'thumbnail'])->name('social-media-posts.thumbnail');
         Route::get('social-media-posts/export', [SocialMediaPostController::class, 'export'])->name('social-media-posts.export');
         Route::get('social-media-posts/{socialMediaPost}', [SocialMediaPostController::class, 'show'])->name('social-media-posts.show');
