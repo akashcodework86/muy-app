@@ -27,7 +27,8 @@
     @endforeach
 
     <p style="margin-top:1rem;">
-        <a href="{{ route('admin.service-catalog.index') }}">Back to service catalog</a>
+        <a href="{{ route('admin.ops.migrations') }}">Database migrations</a>
+        · <a href="{{ route('admin.service-catalog.index') }}">Back to service catalog</a>
     </p>
 @endsection
 

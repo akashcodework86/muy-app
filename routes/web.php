@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\GramPanchayatImportController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
+use App\Http\Controllers\Admin\MigrationOpsController;
 use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\OnboardedApplicantController;
 use App\Http\Controllers\Admin\PendingActionsController;
@@ -415,6 +416,12 @@ Route::middleware(['auth', 'active'])->group(function () {
                 'results' => $results,
             ]);
         })->name('ops.cache-clear');
+
+        Route::get('ops/migrations', [MigrationOpsController::class, 'index'])->name('ops.migrations');
+        Route::post('ops/migrations/run', [MigrationOpsController::class, 'run'])->name('ops.migrations.run');
+        Route::get('ops/migrations/sql/{bundle}', [MigrationOpsController::class, 'downloadSql'])
+            ->where('bundle', '[A-Za-z0-9_-]+')
+            ->name('ops.migrations.sql');
 
         Route::get('cfa-applications', [CfaSubmissionController::class, 'index'])->name('cfa.index');
         Route::get('cfa-applications/export', [CfaSubmissionController::class, 'export'])->name('cfa.export');
