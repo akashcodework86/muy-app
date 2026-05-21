@@ -30,20 +30,6 @@
     .tp-show-btn--primary:hover { background:#4338ca; color:#fff; }
     .tp-show-btn--secondary { background:#fff; color:#334155; border-color:#cbd5e1; }
     .tp-show-btn--secondary:hover { background:#f8fafc; }
-    .tp-show-table-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:auto; }
-    .tp-show-table-head { padding:0.95rem 1.1rem; border-bottom:1px solid #e2e8f0; }
-    .tp-show-table-head h3 { margin:0; font-size:0.98rem; font-weight:800; color:#0f172a; }
-    .tp-show-table { width:100%; border-collapse:collapse; font-size:0.84rem; }
-    .tp-show-table thead tr { background:#f8fafc; }
-    .tp-show-table th,
-    .tp-show-table td { text-align:left; padding:0.7rem 0.8rem; border-bottom:1px solid #e2e8f0; vertical-align:top; }
-    .tp-show-table tbody tr:last-child td { border-bottom:none; }
-    .tp-show-phone { display:inline-flex; align-items:center; gap:0.35rem; padding:0.18rem 0.5rem; border-radius:999px; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; font-weight:800; text-decoration:none; }
-    .tp-show-phone:hover { background:#dbeafe; }
-    .tp-show-source { display:inline-flex; align-items:center; padding:0.16rem 0.5rem; border-radius:999px; font-size:0.72rem; font-weight:800; }
-    .tp-show-source--phase3 { background:#eef2ff; color:#3730a3; }
-    .tp-show-source--legacy { background:#fff7ed; color:#9a3412; }
-    .tp-show-empty { padding:1rem; color:#64748b; }
     .ees-ws-pill {
         display:inline-flex;
         align-items:center;
@@ -65,6 +51,7 @@
         'state_staff' => 'spoc.district-workshop-sessions.attachment',
         default => 'staff.district-workshop-sessions.attachment',
     };
+    $hasParticipantCounts = ((int) ($row->male_participants ?? 0) + (int) ($row->female_participants ?? 0)) > 0;
 @endphp
 <div class="tp-show-shell">
     @if (session('status'))
@@ -96,17 +83,28 @@
                     </span>
                 </span>
             </div>
-            <div class="tp-show-field tp-show-field--full">
-                <span class="tp-show-field__label">Topic</span>
-                <span class="tp-show-field__value">{{ $row->topic }}</span>
-            </div>
+            @if ($hasParticipantCounts)
+                <div class="tp-show-field">
+                    <span class="tp-show-field__label">Male participants</span>
+                    <span class="tp-show-field__value">{{ number_format((int) $row->male_participants) }}</span>
+                </div>
+                <div class="tp-show-field">
+                    <span class="tp-show-field__label">Female participants</span>
+                    <span class="tp-show-field__value">{{ number_format((int) $row->female_participants) }}</span>
+                </div>
+                <div class="tp-show-field">
+                    <span class="tp-show-field__label">Total participants</span>
+                    <span class="tp-show-field__value">{{ number_format($row->totalParticipantCount()) }}</span>
+                </div>
+            @else
+                <div class="tp-show-field">
+                    <span class="tp-show-field__label">Total participants</span>
+                    <span class="tp-show-field__value">{{ number_format($row->totalParticipantCount()) }} <span style="font-weight:500;color:#64748b;font-size:0.82rem;">(legacy entry)</span></span>
+                </div>
+            @endif
             <div class="tp-show-field tp-show-field--full">
                 <span class="tp-show-field__label">Notes</span>
                 <span class="tp-show-field__value">{{ $row->notes ?: '—' }}</span>
-            </div>
-            <div class="tp-show-field">
-                <span class="tp-show-field__label">Total Selected</span>
-                <span class="tp-show-field__value">{{ is_array($row->selected_incubatee_ids) ? count($row->selected_incubatee_ids) : 0 }}</span>
             </div>
             <div class="tp-show-field">
                 <span class="tp-show-field__label">Submitted At</span>
@@ -131,66 +129,12 @@
     </div>
 
     <div class="tp-show-card">
-        <h3 class="tp-show-card__title">Uploaded Photos / Video / Docs</h3>
+        <h3 class="tp-show-card__title">Uploaded Attendance Files</h3>
         @include('staff.technical-trainings.partials.attendance-media-preview', [
             'mediaItems' => (array) $row->attendance_media_json,
             'attachmentRoute' => $attachmentRoute,
             'record' => $row,
         ])
-    </div>
-
-    <div class="tp-show-table-card">
-        <div class="tp-show-table-head">
-            <h3>Selected Applicants</h3>
-        </div>
-        <table class="tp-show-table">
-            <thead>
-            <tr>
-                <th>Sr. No.</th>
-                <th>Source</th>
-                <th>Name</th>
-                <th>Application No</th>
-                <th>Phone</th>
-                <th>Gender</th>
-                <th>Village</th>
-                <th>Block</th>
-                <th>Onboarding Batch</th>
-            </tr>
-            </thead>
-            <tbody>
-            @forelse ((array) ($applicantSnapshots ?? $row->selected_incubatees_snapshot) as $snap)
-                @php
-                    $phone = trim((string) ($snap['phone'] ?? ''));
-                    $isLegacy = ($snap['source'] ?? '') === 'legacy_phase2' || (int) ($snap['incubatee_id'] ?? 0) < 0;
-                @endphp
-                <tr>
-                    <td>{{ $loop->iteration }}</td>
-                    <td>
-                        <span class="tp-show-source {{ $isLegacy ? 'tp-show-source--legacy' : 'tp-show-source--phase3' }}">
-                            {{ $isLegacy ? 'Phase 2 legacy' : 'Phase 3 CFA' }}
-                        </span>
-                    </td>
-                    <td>{{ $snap['name'] ?? 'Unnamed' }}</td>
-                    <td>{{ $snap['application_no'] ?? 'NA' }}</td>
-                    <td>
-                        @if ($phone !== '')
-                            <a class="tp-show-phone" href="tel:{{ preg_replace('/\s+/', '', $phone) }}">{{ $phone }}</a>
-                        @else
-                            NA
-                        @endif
-                    </td>
-                    <td>{{ trim((string) ($snap['gender'] ?? '')) !== '' ? $snap['gender'] : 'NA' }}</td>
-                    <td>{{ trim((string) ($snap['village'] ?? '')) !== '' ? $snap['village'] : 'NA' }}</td>
-                    <td>{{ trim((string) ($snap['block_name'] ?? '')) !== '' ? $snap['block_name'] : 'NA' }}</td>
-                    <td>{{ $snap['onboarding_batch_name'] ?? 'NA' }}</td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="9" class="tp-show-empty">No selected applicants found in snapshot.</td>
-                </tr>
-            @endforelse
-            </tbody>
-        </table>
     </div>
 </div>
 @endsection

@@ -795,7 +795,9 @@ class ProgramDeliverablesReportService
         }
 
         $query = DB::table('district_workshop_sessions');
-        $dateCol = Schema::hasColumn('district_workshop_sessions', 'session_date') ? 'session_date' : 'created_at';
+        $dateCol = Schema::hasColumn('district_workshop_sessions', 'event_date')
+            ? 'event_date'
+            : (Schema::hasColumn('district_workshop_sessions', 'session_date') ? 'session_date' : 'created_at');
         $this->applyDistrictScope($query, 'district_id');
         $this->applyPeriodFilter($query, $dateCol);
 

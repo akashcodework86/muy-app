@@ -58,7 +58,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'onboarding_count' => $this->onboardingBreakdown(),
             'field_work_workshops', 'field_visit_sessions' => $this->fieldWorkBreakdown(false),
             'field_work_participants', 'field_visit_participants' => $this->fieldWorkBreakdown(true),
-            'district_workshop_sessions' => $this->simpleTableBreakdown('district_workshop_sessions', 'session_date', 'created_at'),
+            'district_workshop_sessions' => $this->simpleTableBreakdown('district_workshop_sessions', 'event_date', 'created_at'),
             'edp_sessions' => $this->edpBreakdown(),
             'bst_sessions' => $this->bstSessionsBreakdown(),
             'bst_participants' => $this->bstParticipantsBreakdown(),

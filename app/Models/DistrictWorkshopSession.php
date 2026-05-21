@@ -17,6 +17,8 @@ class DistrictWorkshopSession extends Model
         'topic',
         'workshop_mode',
         'notes',
+        'male_participants',
+        'female_participants',
         'attendance_media_json',
         'selected_incubatee_ids',
         'selected_incubatees_snapshot',
@@ -26,10 +28,26 @@ class DistrictWorkshopSession extends Model
     {
         return [
             'event_date' => 'date',
+            'male_participants' => 'integer',
+            'female_participants' => 'integer',
             'attendance_media_json' => 'array',
             'selected_incubatee_ids' => 'array',
             'selected_incubatees_snapshot' => 'array',
         ];
+    }
+
+    public function totalParticipantCount(): int
+    {
+        $fromCounts = (int) ($this->male_participants ?? 0) + (int) ($this->female_participants ?? 0);
+        if ($fromCounts > 0) {
+            return $fromCounts;
+        }
+
+        if (is_array($this->selected_incubatee_ids) && count($this->selected_incubatee_ids) > 0) {
+            return count($this->selected_incubatee_ids);
+        }
+
+        return count((array) $this->selected_incubatees_snapshot);
     }
 
     protected function formattedProgramType(): Attribute

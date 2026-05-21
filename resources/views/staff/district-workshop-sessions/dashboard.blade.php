@@ -151,9 +151,10 @@
                 <th>Session Taken By</th>
                 <th>District</th>
                 <th>Workshop</th>
-                <th>Topic</th>
+                <th>Male</th>
+                <th>Female</th>
+                <th>Total</th>
                 <th>Notes</th>
-                <th>Attendees</th>
                 <th>Actions</th>
             </tr>
             </thead>
@@ -163,9 +164,6 @@
                     $rowNumber = (!empty($isPaginated) && $rows instanceof \Illuminate\Contracts\Pagination\Paginator)
                         ? ((int) ($rows->firstItem() ?? 1) + $loop->index)
                         : ($loop->iteration);
-                    $attendeeCount = is_array($row->selected_incubatee_ids) && count($row->selected_incubatee_ids) > 0
-                        ? count($row->selected_incubatee_ids)
-                        : count((array) $row->selected_incubatees_snapshot);
                 @endphp
                 <tr>
                     <td>{{ $rowNumber }}</td>
@@ -177,7 +175,9 @@
                             {{ $row->formatted_workshop_mode }}
                         </span>
                     </td>
-                    <td>{{ $row->topic }}</td>
+                    <td>{{ number_format((int) ($row->male_participants ?? 0)) }}</td>
+                    <td>{{ number_format((int) ($row->female_participants ?? 0)) }}</td>
+                    <td>{{ number_format($row->totalParticipantCount()) }}</td>
                     <td>
                         @if ($row->notes)
                             <div class="tp-brief">{{ \Illuminate\Support\Str::limit($row->notes, 120) }}</div>
@@ -185,7 +185,6 @@
                             —
                         @endif
                     </td>
-                    <td>{{ number_format($attendeeCount) }}</td>
                     <td>
                         <div class="tp-row-actions">
                             <a class="tp-btn--view" href="{{ match ($currentRole ?? auth()->user()->role) {
@@ -201,7 +200,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="tp-empty">No entries found.</td>
+                    <td colspan="11" class="tp-empty">No entries found.</td>
                 </tr>
             @endforelse
             </tbody>
