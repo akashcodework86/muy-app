@@ -490,11 +490,11 @@ class DeliverablesReportTest extends TestCase
     public function test_business_registration_row_counts_approved_cases_in_district_scope(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
-            ['code' => '2025-26'],
+            ['code' => '2026-27'],
             [
-                'name' => 'FY 2025-26',
-                'starts_on' => '2025-04-01',
-                'ends_on' => '2026-03-31',
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
                 'is_active' => true,
             ]
         );
@@ -530,7 +530,7 @@ class DeliverablesReportTest extends TestCase
         $service = Service::query()->create([
             'service_category_id' => $child->id,
             'deliverable_id' => $deliverable->id,
-            'code' => 'udyam_test',
+            'code' => 'udyam_registration',
             'name' => 'Udyam Registration',
             'sort_order' => 1,
             'is_active' => true,
@@ -567,7 +567,7 @@ class DeliverablesReportTest extends TestCase
             'service_id' => $service->id,
             'status' => ServiceCase::STATUS_APPROVED,
             'reference_number' => 'SC-TEST-1',
-            'approved_at' => '2025-06-01',
+            'approved_at' => '2026-06-01',
         ]);
 
         ServiceCase::query()->create([
@@ -575,7 +575,7 @@ class DeliverablesReportTest extends TestCase
             'service_id' => $service->id,
             'status' => ServiceCase::STATUS_APPROVED,
             'reference_number' => 'SC-TEST-2',
-            'approved_at' => '2025-06-01',
+            'approved_at' => '2026-06-01',
         ]);
 
         $filter = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
@@ -587,5 +587,91 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame(50, $row['target']);
         $this->assertSame(1, $row['achievement']);
+    }
+
+    public function test_fssai_achievement_counts_via_svc_deliverable_and_service_alias(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'fssai-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'fssai-district',
+            'name' => 'FSSAI District',
+            'sort_order' => 1,
+        ]);
+
+        $child = ServiceCategory::query()->create(['slug' => 'legal', 'name' => 'Legal', 'sort_order' => 1]);
+        $misFssai = Deliverable::query()->create([
+            'sort_order' => 7,
+            'code' => 'fssai',
+            'name' => 'FSSAI',
+            'mis_entry_label' => 'FSSAI',
+            'is_active' => true,
+        ]);
+        $svcFssai = Deliverable::query()->create([
+            'sort_order' => 57,
+            'code' => 'svc_fssai',
+            'name' => 'FSSAI Service',
+            'mis_entry_label' => 'FSSAI',
+            'is_active' => true,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcFssai->id,
+            'code' => 'fssai_registration',
+            'name' => 'FSSAI Registration',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $svcFssai->id,
+            'target_total' => 750,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'FSSAI Applicant',
+            'phone' => '9999999901',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-FSSAI-1',
+            'approved_at' => '2026-06-15',
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-FSSAI-2',
+            'approved_at' => '2026-07-01',
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '4.2.2');
+
+        $this->assertNotNull($row);
+        $this->assertSame(750, $row['target']);
+        $this->assertSame(2, $row['achievement']);
     }
 }

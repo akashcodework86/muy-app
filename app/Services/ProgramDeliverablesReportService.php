@@ -29,6 +29,9 @@ class ProgramDeliverablesReportService
     /** @var array<int, int> */
     private array $achievementByServiceId = [];
 
+    /** @var array<string, int> MIS deliverable code => approved service case count */
+    private array $achievementByMisCode = [];
+
     /** @var array<int, int> */
     private array $targetsByDeliverableId = [];
 
@@ -81,7 +84,7 @@ class ProgramDeliverablesReportService
         [$this->periodFrom, $this->periodTo] = $filter->resolvePeriod($fiscalYear);
 
         $this->targetsByDeliverableId = $this->loadTargets($fiscalYear);
-        $this->achievementByServiceId = $this->achievementCountsByServiceId();
+        $this->loadServiceCaseAchievements();
         $this->deliverableIdsByCode = Deliverable::query()
             ->pluck('id', 'code')
             ->map(fn ($id) => (int) $id)
@@ -572,6 +575,18 @@ class ProgramDeliverablesReportService
             return 0;
         }
 
+        foreach ($this->candidateCodesForLookup($code) as $candidate) {
+            $keys = [$candidate];
+            if (str_starts_with($candidate, 'svc_')) {
+                $keys[] = substr($candidate, 4);
+            }
+            foreach ($keys as $key) {
+                if ($key !== '' && isset($this->achievementByMisCode[$key])) {
+                    return (int) $this->achievementByMisCode[$key];
+                }
+            }
+        }
+
         $total = 0;
         $countedServiceIds = [];
 
@@ -592,7 +607,6 @@ class ProgramDeliverablesReportService
         foreach ($this->deliverableIdsForLookupCode($code) as $deliverableId) {
             $serviceIds = Service::query()
                 ->where('deliverable_id', $deliverableId)
-                ->where('is_active', true)
                 ->pluck('id')
                 ->map(fn ($id) => (int) $id)
                 ->all();
@@ -989,38 +1003,112 @@ class ProgramDeliverablesReportService
     /**
      * @return array<int, int>
      */
-    private function achievementCountsByServiceId(): array
+    private function loadServiceCaseAchievements(): void
     {
+        $this->achievementByServiceId = [];
+        $this->achievementByMisCode = [];
+
         if ($this->districtIds === []) {
-            return [];
+            return;
         }
 
-        $query = ServiceCase::query()
-            ->selectRaw('service_cases.service_id, COUNT(*) as total')
-            ->where('service_cases.status', ServiceCase::STATUS_APPROVED)
-            ->whereNotNull('service_cases.service_id');
+        if (! Schema::hasTable('service_cases') || ! Schema::hasTable('services')) {
+            return;
+        }
+
+        $dateExpr = $this->serviceCaseAchievementDateExpression();
+
+        $statuses = [ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_COMPLETED];
+
+        $query = DB::table('service_cases as sc')
+            ->join('services as s', 's.id', '=', 'sc.service_id')
+            ->leftJoin('deliverables as d', 'd.id', '=', 's.deliverable_id')
+            ->whereIn('sc.status', $statuses)
+            ->whereNotNull('sc.service_id');
 
         if ($this->districtIds !== null) {
-            $query->join('cfa_submissions as cs', 'cs.id', '=', 'service_cases.cfa_submission_id')
+            $query->join('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
                 ->whereIn('cs.district_id', $this->districtIds);
         }
 
+        $floor = $this->phase3FloorDate();
         if ($this->periodFrom && $this->periodTo) {
-            $from = $this->periodFrom->toDateString();
-            $to = $this->periodTo->toDateTimeString();
-            $query->where(function ($q) use ($from, $to): void {
-                $q->whereBetween('service_cases.approved_at', [$from, $to])
-                    ->orWhere(function ($q2) use ($from, $to): void {
-                        $q2->whereNull('service_cases.approved_at')
-                            ->whereBetween('service_cases.created_at', [$from, $to]);
-                    });
-            });
+            $from = $this->periodFrom->copy();
+            if ($this->periodTo->gte($floor) && $from->lt($floor)) {
+                $from = $floor->copy();
+            }
+            $query->whereBetween(DB::raw($dateExpr), [$from->toDateTimeString(), $this->periodTo->toDateTimeString()]);
+        } elseif ($this->periodTo && $this->periodTo->gte($floor)) {
+            $query->where(DB::raw($dateExpr), '>=', $floor->toDateTimeString());
         }
 
-        return $query->groupBy('service_cases.service_id')
-            ->pluck('total', 'service_id')
-            ->map(fn ($v) => (int) $v)
-            ->all();
+        $rows = $query
+            ->selectRaw('s.code as service_code, d.code as deliverable_code, sc.service_id, COUNT(*) as total')
+            ->groupBy('s.code', 'd.code', 'sc.service_id')
+            ->get();
+
+        foreach ($rows as $row) {
+            $total = (int) $row->total;
+            $serviceId = (int) $row->service_id;
+            $this->achievementByServiceId[$serviceId] = ($this->achievementByServiceId[$serviceId] ?? 0) + $total;
+
+            foreach ($this->misCodesForAchievementKeys(
+                (string) ($row->service_code ?? ''),
+                (string) ($row->deliverable_code ?? ''),
+            ) as $misCode) {
+                $this->achievementByMisCode[$misCode] = ($this->achievementByMisCode[$misCode] ?? 0) + $total;
+            }
+        }
+    }
+
+    private function serviceCaseAchievementDateExpression(): string
+    {
+        if (Schema::hasColumn('service_cases', 'approved_at')) {
+            if (Schema::hasColumn('service_cases', 'completed_at')) {
+                return 'COALESCE(sc.approved_at, sc.completed_at, sc.created_at)';
+            }
+
+            return 'COALESCE(sc.approved_at, sc.created_at)';
+        }
+
+        if (Schema::hasColumn('service_cases', 'completed_at')) {
+            return 'COALESCE(sc.completed_at, sc.created_at)';
+        }
+
+        return 'sc.created_at';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function misCodesForAchievementKeys(string $serviceCode, string $deliverableCode): array
+    {
+        $codes = [];
+        $serviceCode = strtolower(trim($serviceCode));
+        $deliverableCode = strtolower(trim($deliverableCode));
+
+        if ($deliverableCode !== '') {
+            $codes[] = $deliverableCode;
+            if (str_starts_with($deliverableCode, 'svc_')) {
+                $codes[] = substr($deliverableCode, 4);
+            }
+        }
+
+        if ($serviceCode !== '') {
+            $codes[] = $serviceCode;
+        }
+
+        foreach (config('program_deliverables.target_code_aliases', []) as $misCode => $aliases) {
+            if (! is_array($aliases)) {
+                continue;
+            }
+            $misCode = strtolower(trim((string) $misCode));
+            if ($serviceCode === $misCode || in_array($serviceCode, $aliases, true)) {
+                $codes[] = $misCode;
+            }
+        }
+
+        return array_values(array_unique(array_filter($codes)));
     }
 
     private function percent(?int $target, int $achievement): ?int
