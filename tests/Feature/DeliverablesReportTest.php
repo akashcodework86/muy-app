@@ -8,6 +8,8 @@ use App\Models\DistrictDeliverableTarget;
 use App\Models\StaffMonthlyTarget;
 use App\Models\FiscalYear;
 use App\Models\Hub;
+use App\Models\OnboardingBatch;
+use App\Models\OnboardingBatchCfa;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\FieldCoordinatorAttendanceReport;
@@ -913,5 +915,111 @@ class DeliverablesReportTest extends TestCase
                 'period_label',
                 'scope_label',
             ]);
+    }
+
+    public function test_deliverables_breakdown_returns_json_for_onboarding(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'onb-breakdown-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'onb-breakdown-district',
+            'name' => 'Onboarding District',
+            'sort_order' => 1,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Onboarded Applicant',
+            'phone' => '9999999905',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $batch = OnboardingBatch::query()->create([
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'name' => 'Batch Alpha',
+            'target_size' => 20,
+            'status' => 'locked',
+            'locked_at' => '2026-05-15 10:00:00',
+        ]);
+
+        OnboardingBatchCfa::query()->create([
+            'onboarding_batch_id' => $batch->id,
+            'cfa_submission_id' => $cfaId,
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.deliverables.breakdown', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '2.1',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('serial', '2.1')
+            ->assertJsonPath('name', 'Incubatees Onboarded')
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('source_type_label', 'Onboarded incubatees');
+    }
+
+    public function test_deliverables_breakdown_returns_json_for_field_work(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'fw-breakdown-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'fw-breakdown-district',
+            'name' => 'Field District',
+            'sort_order' => 1,
+        ]);
+
+        $coordinator = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'hub_id' => $hub->id,
+        ]);
+
+        FieldCoordinatorAttendanceReport::query()->create([
+            'field_coordinator_user_id' => $coordinator->id,
+            'field_coordinator_name' => 'FC One',
+            'district_id' => $district->id,
+            'visit_date' => '2026-06-10',
+            'entry_date' => '2026-06-10',
+            'area' => 'Block A',
+            'participants_total' => 10,
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.deliverables.breakdown', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '1.3',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('serial', '1.3')
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('source_type_label', 'Field work visits');
     }
 }

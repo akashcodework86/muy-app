@@ -244,13 +244,21 @@ class ProgramDeliverablesAchievementBreakdownService
             ->get();
 
         $records = (clone $query)
-            ->select(['cs.id', 'cs.application_no', 'cs.applicant_name', 'd.name as district_name', 'h.name as hub_name', 'ob.locked_at', 'ob.batch_code'])
+            ->select([
+                'cs.id',
+                'cs.application_no',
+                'cs.applicant_name',
+                'd.name as district_name',
+                'h.name as hub_name',
+                'ob.locked_at',
+                'ob.name as batch_name',
+            ])
             ->orderByDesc('ob.locked_at')
             ->limit(100)
             ->get()
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
-                'reference' => (string) ($row->batch_code ?: $row->application_no ?: '—'),
+                'reference' => (string) ($row->application_no ?: $row->batch_name ?: '—'),
                 'applicant' => (string) ($row->applicant_name ?: '—'),
                 'district' => (string) ($row->district_name ?: '—'),
                 'hub' => (string) ($row->hub_name ?: '—'),
@@ -281,7 +289,7 @@ class ProgramDeliverablesAchievementBreakdownService
         $monthExpr = $this->monthKeySql('field_coordinator_attendance_reports.visit_date');
 
         $countExpr = $participants
-            ? 'COALESCE(NULLIF(field_coordinator_attendance_reports.participants_total, 0), COALESCE(field_coordinator_attendance_reports.participants_male_count, 0) + COALESCE(field_coordinator_attendance_reports.participants_female_count, 0), 0)'
+            ? $this->fieldWorkParticipantCountExpression()
             : '1';
 
         $rows = (clone $query)
@@ -299,7 +307,8 @@ class ProgramDeliverablesAchievementBreakdownService
             ->select([
                 'field_coordinator_attendance_reports.id',
                 'field_coordinator_attendance_reports.visit_date',
-                'field_coordinator_attendance_reports.venue',
+                'field_coordinator_attendance_reports.area',
+                'field_coordinator_attendance_reports.block',
                 'field_coordinator_attendance_reports.participants_total',
                 'd.name as district_name',
                 'h.name as hub_name',
@@ -310,7 +319,7 @@ class ProgramDeliverablesAchievementBreakdownService
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
                 'reference' => 'Visit #'.$row->id,
-                'applicant' => (string) ($row->venue ?: 'Field visit'),
+                'applicant' => (string) (trim(($row->area ?? '').($row->block ? ', '.$row->block : '')) ?: 'Field visit'),
                 'district' => (string) ($row->district_name ?: '—'),
                 'hub' => (string) ($row->hub_name ?: '—'),
                 'service' => $participants ? 'Participants' : 'Field work visit',
@@ -1022,5 +1031,16 @@ class ProgramDeliverablesAchievementBreakdownService
             'pgsql' => "to_char({$columnExpression}, 'YYYY-MM')",
             default => "DATE_FORMAT({$columnExpression}, '%Y-%m')",
         };
+    }
+
+    private function fieldWorkParticipantCountExpression(): string
+    {
+        $table = 'field_coordinator_attendance_reports';
+
+        if (Schema::hasColumn($table, 'participants_male_count') && Schema::hasColumn($table, 'participants_female_count')) {
+            return 'COALESCE(NULLIF('.$table.'.participants_total, 0), COALESCE('.$table.'.participants_male_count, 0) + COALESCE('.$table.'.participants_female_count, 0), 0)';
+        }
+
+        return 'COALESCE('.$table.'.participants_total, 0)';
     }
 }

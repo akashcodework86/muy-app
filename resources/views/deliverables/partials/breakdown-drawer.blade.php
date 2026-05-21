@@ -335,6 +335,9 @@
         activeSerial = serial;
         document.getElementById('dlv-drawer-serial').textContent = 'S.N. ' + serial;
         document.getElementById('dlv-drawer-title').textContent = name;
+        document.getElementById('dlv-drawer-scope').textContent = 'Loading…';
+        document.getElementById('dlv-drawer-period').textContent = 'Loading…';
+        document.getElementById('dlv-drawer-source').textContent = 'Loading…';
         body.innerHTML = '<div class="dlv-loading"><div class="dlv-spinner"></div><div>Loading breakdown…</div></div>';
         overlay.classList.add('is-open');
         overlay.setAttribute('aria-hidden', 'false');
@@ -346,13 +349,19 @@
         fetch(breakdownUrl + '?' + params.toString(), {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         })
-            .then((res) => {
-                if (!res.ok) throw new Error('Failed to load breakdown');
-                return res.json();
+            .then(async (res) => {
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.message || 'Failed to load breakdown');
+                }
+                return data;
             })
             .then(renderBreakdown)
-            .catch(() => {
-                body.innerHTML = '<div class="dlv-loading">Could not load breakdown. Please try again.</div>';
+            .catch((err) => {
+                document.getElementById('dlv-drawer-scope').textContent = '—';
+                document.getElementById('dlv-drawer-period').textContent = '—';
+                document.getElementById('dlv-drawer-source').textContent = '—';
+                body.innerHTML = '<div class="dlv-loading">' + (err.message || 'Could not load breakdown. Please try again.') + '</div>';
             });
     }
 
