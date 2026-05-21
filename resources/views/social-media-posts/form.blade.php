@@ -31,6 +31,25 @@
     .smp-actions { display:flex; flex-wrap:wrap; gap:0.65rem; align-items:center; margin-top:0.5rem; }
     .smp-submit { border:none; border-radius:8px; background:#4f46e5; color:#fff; padding:0.62rem 1rem; font-weight:700; cursor:pointer; font-size:0.88rem; }
     .smp-link { color:#4f46e5; font-weight:700; text-decoration:none; font-size:0.88rem; }
+    .smp-platforms { display:flex; flex-wrap:wrap; gap:0.4rem; }
+    .smp-platforms--empty { color:#94a3b8; font-size:0.84rem; }
+    .smp-platforms__chip {
+        display:inline-flex; align-items:center; gap:0.35rem;
+        padding:0.28rem 0.55rem; border-radius:999px;
+        background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3;
+        font-size:0.76rem; font-weight:700;
+    }
+    .smp-platform-checks {
+        display:grid; grid-template-columns:repeat(auto-fill, minmax(9.5rem, 1fr));
+        gap:0.45rem; margin-top:0.15rem;
+    }
+    .smp-platform-check {
+        display:flex; align-items:center; gap:0.45rem;
+        padding:0.45rem 0.55rem; border:1px solid #e2e8f0; border-radius:8px;
+        background:#f8fafc; cursor:pointer; font-size:0.84rem; font-weight:600; color:#0f172a;
+    }
+    .smp-platform-check input { width:1rem; height:1rem; accent-color:#4f46e5; cursor:pointer; }
+    .smp-platform-check:has(input:checked) { background:#eef2ff; border-color:#c7d2fe; }
 </style>
 @endpush
 
@@ -70,6 +89,27 @@
                     <label for="post_url">Post URL *</label>
                     <input type="url" id="post_url" name="post_url" value="{{ old('post_url') }}" required placeholder="https://…" inputmode="url" autocomplete="url">
                     <p class="smp-hint">Paste the live link (Instagram, YouTube, Facebook, etc.). Preview loads automatically; Instagram and similar apps cannot be embedded directly.</p>
+                </div>
+                <div class="smp-field">
+                    <label>Posted on platforms *</label>
+                    <p class="smp-hint" style="margin-top:0;">Tick every platform where this post was published.</p>
+                    <div class="smp-platform-checks">
+                        @foreach ($platformOptions as $slug => $label)
+                            <label class="smp-platform-check">
+                                <input
+                                    type="checkbox"
+                                    name="posted_platforms[]"
+                                    value="{{ $slug }}"
+                                    data-platform-slug="{{ $slug }}"
+                                    @checked(in_array($slug, old('posted_platforms', []), true))
+                                >
+                                <span>{{ $label }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    @error('posted_platforms')
+                        <p class="smp-hint" style="color:#b91c1c;">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div class="smp-field">
                     <label for="description">Short description (optional)</label>
@@ -177,6 +217,26 @@
         box.classList.toggle('smp-preview-box--embed', mode === 'instagram_embed');
         if (mode === 'instagram_embed' && window.smpMountInstagramEmbeds) {
             window.smpMountInstagramEmbeds(box);
+        }
+        suggestPlatformFromPreview(data.platform || '');
+    }
+
+    function suggestPlatformFromPreview(platformLabel) {
+        const slugMap = {
+            Instagram: 'instagram',
+            YouTube: 'youtube',
+            Facebook: 'facebook',
+            LinkedIn: 'linkedin',
+            X: 'x',
+            Threads: 'threads',
+        };
+        const slug = slugMap[platformLabel] || null;
+        if (!slug) {
+            return;
+        }
+        const input = document.querySelector(`input[data-platform-slug="${slug}"]`);
+        if (input && !input.checked) {
+            input.checked = true;
         }
     }
 

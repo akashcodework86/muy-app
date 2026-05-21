@@ -12,6 +12,7 @@ class SocialMediaPost extends Model
         'submitted_by_name',
         'posted_on',
         'post_url',
+        'posted_platforms',
         'platform',
         'thumbnail_url',
         'preview_title',
@@ -22,6 +23,7 @@ class SocialMediaPost extends Model
     {
         return [
             'posted_on' => 'date',
+            'posted_platforms' => 'array',
         ];
     }
 

@@ -15,4 +15,18 @@ return [
     'submitter_names' => [
         'Sanjna Mishra',
     ],
+
+    /*
+    | Platforms the submitter can tick (post published on which channels).
+    */
+    'platforms' => [
+        'instagram' => 'Instagram',
+        'youtube' => 'YouTube',
+        'facebook' => 'Facebook',
+        'linkedin' => 'LinkedIn',
+        'x' => 'X (Twitter)',
+        'threads' => 'Threads',
+        'whatsapp' => 'WhatsApp',
+        'other' => 'Other',
+    ],
 ];

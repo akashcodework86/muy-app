@@ -33,6 +33,7 @@ class SocialMediaPostTest extends TestCase
         $response = $this->actingAs($sanjna)->post(route('spoc.social-media-posts.store'), [
             'posted_on' => '2026-05-20',
             'post_url' => 'https://www.instagram.com/reel/abc123/',
+            'posted_platforms' => ['instagram', 'facebook'],
             'description' => 'Launch post',
         ]);
 
@@ -46,6 +47,27 @@ class SocialMediaPostTest extends TestCase
             'preview_title' => 'Launch post preview',
             'platform' => 'Instagram',
         ]);
+
+        $post = SocialMediaPost::query()->where('post_url', 'https://www.instagram.com/reel/abc123/')->first();
+        $this->assertNotNull($post);
+        $this->assertSame(['instagram', 'facebook'], $post->posted_platforms);
+    }
+
+    public function test_create_post_requires_at_least_one_platform(): void
+    {
+        $sanjna = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($sanjna)
+            ->post(route('spoc.social-media-posts.store'), [
+                'posted_on' => '2026-05-20',
+                'post_url' => 'https://www.instagram.com/reel/abc123/',
+                'description' => 'Launch post',
+            ])
+            ->assertSessionHasErrors('posted_platforms');
     }
 
     public function test_other_state_staff_cannot_create_post(): void

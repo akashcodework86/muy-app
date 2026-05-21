@@ -42,6 +42,13 @@
     }
     .smp-btn--delete:hover { background:#fef2f2; }
     .smp-delete-inline { display:inline; margin:0; }
+    .smp-platforms { display:flex; flex-wrap:wrap; gap:0.35rem; max-width:14rem; }
+    .smp-platforms__chip {
+        display:inline-flex; align-items:center;
+        padding:0.18rem 0.45rem; border-radius:999px;
+        background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3;
+        font-size:0.72rem; font-weight:700; white-space:nowrap;
+    }
 </style>
 @endpush
 
@@ -122,6 +129,7 @@
                     <th>Preview</th>
                     <th>Date</th>
                     <th>URL</th>
+                    <th>Platforms</th>
                     <th>Description</th>
                     @if (!empty($isAdminView))
                         <th>Submitted by</th>
@@ -145,6 +153,7 @@
                         <td>
                             <a class="smp-url" href="{{ $row->post_url }}" target="_blank" rel="noopener noreferrer">{{ $row->post_url }}</a>
                         </td>
+                        <td>@include('social-media-posts.partials.platform-badges', ['row' => $row])</td>
                         <td><span class="smp-desc">{{ $row->description ?: '—' }}</span></td>
                         @if (!empty($isAdminView))
                             <td>{{ $row->submitted_by_name }}</td>
@@ -174,7 +183,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ !empty($isAdminView) ? 7 : 6 }}" class="smp-empty">No entries yet.</td>
+                        <td colspan="{{ !empty($isAdminView) ? 8 : 7 }}" class="smp-empty">No entries yet.</td>
                     </tr>
                 @endforelse
             </tbody>

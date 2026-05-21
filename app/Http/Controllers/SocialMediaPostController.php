@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SocialMediaPost;
 use App\Services\SocialMediaPostPreviewService;
 use App\Support\SocialMediaPostAccess;
+use App\Support\SocialMediaPostPlatforms;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -13,6 +14,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SocialMediaPostController extends Controller
@@ -32,6 +34,7 @@ class SocialMediaPostController extends Controller
             'storeRoute' => 'spoc.social-media-posts.store',
             'dashboardRoute' => 'spoc.social-media-posts.dashboard',
             'previewRoute' => 'spoc.social-media-posts.preview',
+            'platformOptions' => SocialMediaPostPlatforms::options(),
         ]);
     }
 
@@ -98,17 +101,21 @@ class SocialMediaPostController extends Controller
         $validated = $request->validate([
             'posted_on' => ['required', 'date'],
             'post_url' => ['required', 'url', 'max:2048'],
+            'posted_platforms' => ['required', 'array', 'min:1'],
+            'posted_platforms.*' => ['string', Rule::in(array_keys(SocialMediaPostPlatforms::options()))],
             'description' => ['nullable', 'string', 'max:500'],
         ]);
 
         $postUrl = trim((string) $validated['post_url']);
         $previewMeta = $this->previewMetaForUrl($postUrl);
+        $postedPlatforms = SocialMediaPostPlatforms::normalize($validated['posted_platforms']);
 
         SocialMediaPost::query()->create([
             'submitted_by_user_id' => (int) $user->id,
             'submitted_by_name' => (string) $user->name,
             'posted_on' => $validated['posted_on'],
             'post_url' => $postUrl,
+            'posted_platforms' => $postedPlatforms,
             'platform' => $previewMeta['platform'],
             'thumbnail_url' => $previewMeta['thumbnail_url'],
             'preview_title' => $previewMeta['preview_title'],
@@ -364,6 +371,7 @@ class SocialMediaPostController extends Controller
             'Entry ID',
             'Posted on',
             'Post URL',
+            'Posted on platforms',
             'Description',
             'Submitted by',
             'Created at',
@@ -388,6 +396,7 @@ class SocialMediaPostController extends Controller
                     $row->id,
                     $row->posted_on?->format('Y-m-d') ?? '',
                     $row->post_url,
+                    SocialMediaPostPlatforms::labelsText(is_array($row->posted_platforms) ? $row->posted_platforms : null),
                     $row->description ?? '',
                     $row->submitted_by_name,
                     $row->created_at?->format('Y-m-d H:i') ?? '',
