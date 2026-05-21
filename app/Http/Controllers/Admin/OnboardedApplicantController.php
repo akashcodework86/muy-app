@@ -883,7 +883,6 @@ class OnboardedApplicantController extends Controller
     {
         $categoryJson = $this->payloadJson('$.category');
         $appCategoryJson = $this->payloadJson('$.app_category');
-        $lakhpatiJson = $this->payloadJson('$.lakhpati');
         $isMemberJson = $this->payloadJson('$.is_member');
         $isShgMemberJson = $this->payloadJson('$.is_shg_member');
 
@@ -892,9 +891,16 @@ class OnboardedApplicantController extends Controller
                 AND (
                     LOWER(TRIM(COALESCE({$categoryJson}, ''))) IN ('shg', 'cbo')
                     OR LOWER(TRIM(COALESCE({$appCategoryJson}, ''))) IN ('shg', 'cbo')
-                    OR LOWER(TRIM(COALESCE({$lakhpatiJson}, ''))) = 'yes'
-                    OR LOWER(TRIM(COALESCE({$isMemberJson}, ''))) = 'yes'
-                    OR LOWER(TRIM(COALESCE({$isShgMemberJson}, ''))) = 'yes'
+                    OR (
+                        (
+                            LOWER(TRIM(COALESCE({$categoryJson}, ''))) = 'individual'
+                            OR LOWER(TRIM(COALESCE({$appCategoryJson}, ''))) = 'individual'
+                        )
+                        AND (
+                            LOWER(TRIM(COALESCE({$isMemberJson}, ''))) = 'yes'
+                            OR LOWER(TRIM(COALESCE({$isShgMemberJson}, ''))) = 'yes'
+                        )
+                    )
                 )
             THEN 1 ELSE 0
         END)";
@@ -1145,7 +1151,7 @@ class OnboardedApplicantController extends Controller
 
         if ((int) ($overview['potential_lakhpati_count'] ?? 0) > 0 && ! is_null($overview['potential_lakhpati_pct'] ?? null)) {
             $insights[] = number_format((int) $overview['potential_lakhpati_count'])
-                .' potential Lakhpati Didis (SHG/CBO, member Yes, or Lakhpati Yes — '
+                .' potential Lakhpati Didis (SHG/CBO category, or Individual with SHG/CBO member Yes — '
                 .(int) $overview['potential_lakhpati_pct'].'% of onboarded).';
         }
 

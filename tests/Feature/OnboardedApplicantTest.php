@@ -37,8 +37,7 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSee('District-wise onboarding');
         $response->assertSee('Total onboarded');
         $response->assertSee('Potential Lakhpati Didi');
-        $response->assertSee('67%');
-        $response->assertSeeText('1 Potential Lakhpati (50%)');
+        $response->assertSee('33%');
         $response->assertSeeText('1 Potential Lakhpati (100%)');
         $response->assertDontSee('Lakhpati Didi (Yes)');
         $response->assertSee('Almora');
@@ -47,7 +46,7 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSee('Applicant records');
     }
 
-    public function test_lakhpati_count_excludes_legacy_phase2_source(): void
+    public function test_potential_lakhpati_excludes_legacy_and_lakhpati_only_individual(): void
     {
         $admin = User::factory()->create([
             'role' => 'state_admin',
@@ -56,13 +55,13 @@ class OnboardedApplicantTest extends TestCase
 
         $district = $this->createDistrict('chamoli', 'Chamoli');
 
-        $this->seedOnboardedApplicant($district, '40804001', 'Phase3 Lakhpati', 'female', 'Yes');
-        $this->seedOnboardedApplicant($district, '40804002', 'Legacy Lakhpati', 'female', 'Yes', 'legacy_phase2');
+        $this->seedOnboardedApplicant($district, '40804001', 'Phase3 Lakhpati Only', 'female', 'Yes');
+        $this->seedOnboardedApplicant($district, '40804002', 'Legacy SHG', 'female', null, 'legacy_phase2', null, 'SHG');
 
         $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
 
         $response->assertOk();
-        $response->assertSeeText('1 Potential Lakhpati (50%)');
+        $response->assertSeeText('0 Potential Lakhpati (0%)');
     }
 
     public function test_onboarded_page_shows_target_progress_insights_and_sector_breakdown(): void
@@ -92,7 +91,7 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSee('Almora leads with');
     }
 
-    public function test_potential_lakhpati_counts_shg_cbo_and_lakhpati_yes(): void
+    public function test_potential_lakhpati_counts_shg_and_cbo_category(): void
     {
         $admin = User::factory()->create([
             'role' => 'state_admin',
@@ -109,7 +108,7 @@ class OnboardedApplicantTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
 
         $response->assertOk();
-        $response->assertSeeText('3 Potential Lakhpati (75%)');
+        $response->assertSeeText('2 Potential Lakhpati (50%)');
     }
 
     public function test_potential_lakhpati_counts_individual_shg_member_yes(): void
