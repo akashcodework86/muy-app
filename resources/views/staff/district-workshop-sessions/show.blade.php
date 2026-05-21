@@ -41,6 +41,26 @@
     }
     .ees-ws-pill--virtual { background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; }
     .ees-ws-pill--physical { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
+    .tp-attendance-pill {
+        display:inline-flex;
+        align-items:center;
+        padding:0.22rem 0.6rem;
+        border-radius:999px;
+        font-size:0.78rem;
+        font-weight:800;
+    }
+    .tp-attendance-pill--pending { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+    .tp-attendance-pill--uploaded { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
+    .tp-show-pending-note {
+        margin:0 0 0.85rem;
+        padding:0.75rem 0.9rem;
+        border-radius:10px;
+        background:#fffbeb;
+        border:1px solid #fde68a;
+        color:#92400e;
+        font-size:0.84rem;
+        font-weight:600;
+    }
 </style>
 @endpush
 
@@ -107,6 +127,10 @@
                 <span class="tp-show-field__value">{{ $row->notes ?: '—' }}</span>
             </div>
             <div class="tp-show-field">
+                <span class="tp-show-field__label">Attendance sheet</span>
+                <span class="tp-show-field__value">@include('staff.district-workshop-sessions.partials.attendance-status-pill', ['row' => $row])</span>
+            </div>
+            <div class="tp-show-field">
                 <span class="tp-show-field__label">Submitted At</span>
                 <span class="tp-show-field__value">{{ $row->created_at?->format('d M Y h:i A') ?: 'NA' }}</span>
             </div>
@@ -140,10 +164,14 @@
 
     <div class="tp-show-card">
         <h3 class="tp-show-card__title">Uploaded Attendance Files</h3>
+        @if ($row->isAttendancePending())
+            <p class="tp-show-pending-note">Attendance sheet is pending. @if ($canEdit)Use <strong>Edit Entry</strong> to upload when ready.@else Upload is pending from district staff.@endif</p>
+        @endif
         @include('staff.technical-trainings.partials.attendance-media-preview', [
             'mediaItems' => (array) $row->attendance_media_json,
             'attachmentRoute' => $attachmentRoute,
             'record' => $row,
+            'showEmptyMessage' => $row->isAttendancePending(),
         ])
     </div>
 </div>

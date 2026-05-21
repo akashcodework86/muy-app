@@ -102,9 +102,9 @@
 
             <div class="tp-section">
                 <div class="tp-field">
-                    <label>Upload attendance sheet *</label>
-                    <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.xls,.xlsx" multiple required>
-                    <p class="tp-field-hint">Upload PDF, image (JPG/PNG), or Excel file. You can select multiple files (up to 25, 50 MB each).</p>
+                    <label>Upload attendance sheet (optional)</label>
+                    <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.xls,.xlsx" multiple>
+                    <p class="tp-field-hint">PDF, image (JPG/PNG), or Excel. You can skip now and upload later from Edit. Up to 25 files, 50 MB each.</p>
                     <div id="tpMediaPreview" class="tp-media-preview"></div>
                 </div>
             </div>

@@ -106,8 +106,37 @@ class DistrictWorkshopSessionAttendanceTest extends TestCase
             'female_participants' => 0,
         ]);
 
-        $response->assertSessionHasErrors(['male_participants', 'attendance_media', 'workshop_photos']);
+        $response->assertSessionHasErrors(['male_participants', 'workshop_photos']);
         $this->assertDatabaseCount('district_workshop_sessions', 0);
+    }
+
+    public function test_district_staff_can_submit_without_attendance_sheet_and_upload_later(): void
+    {
+        Storage::fake('local');
+
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($staff)->post(route('staff.district-workshop-sessions.store'), [
+            'session_date' => '2026-05-18',
+            'workshop_mode' => 'physical',
+            'male_participants' => 3,
+            'female_participants' => 2,
+            'workshop_photos' => [
+                UploadedFile::fake()->create('workshop-1.jpg', 100, 'image/jpeg'),
+            ],
+        ]);
+
+        $response->assertRedirect(route('staff.district-workshop-sessions.dashboard'));
+
+        $session = DistrictWorkshopSession::query()->first();
+        $this->assertNotNull($session);
+        $this->assertTrue($session->isAttendancePending());
+        $this->assertSame([], (array) $session->attendance_media_json);
     }
 
     private function createDistrict(string $slug = 'dehradun', string $name = 'Dehradun'): District

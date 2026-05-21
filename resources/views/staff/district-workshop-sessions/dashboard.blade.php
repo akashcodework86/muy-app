@@ -71,6 +71,17 @@
     }
     .ees-ws-pill--virtual { background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; }
     .ees-ws-pill--physical { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
+    .tp-attendance-pill {
+        display:inline-flex;
+        align-items:center;
+        padding:0.2rem 0.55rem;
+        border-radius:999px;
+        font-size:0.74rem;
+        font-weight:800;
+        white-space:nowrap;
+    }
+    .tp-attendance-pill--pending { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+    .tp-attendance-pill--uploaded { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
 </style>
 @endpush
 
@@ -154,6 +165,7 @@
                 <th>Male</th>
                 <th>Female</th>
                 <th>Total</th>
+                <th>Attendance</th>
                 <th>Notes</th>
                 <th>Actions</th>
             </tr>
@@ -178,6 +190,7 @@
                     <td>{{ number_format((int) ($row->male_participants ?? 0)) }}</td>
                     <td>{{ number_format((int) ($row->female_participants ?? 0)) }}</td>
                     <td>{{ number_format($row->totalParticipantCount()) }}</td>
+                    <td>@include('staff.district-workshop-sessions.partials.attendance-status-pill', ['row' => $row])</td>
                     <td>
                         @if ($row->notes)
                             <div class="tp-brief">{{ \Illuminate\Support\Str::limit($row->notes, 120) }}</div>
@@ -200,7 +213,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="11" class="tp-empty">No entries found.</td>
+                    <td colspan="12" class="tp-empty">No entries found.</td>
                 </tr>
             @endforelse
             </tbody>

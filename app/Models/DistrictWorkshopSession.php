@@ -52,6 +52,16 @@ class DistrictWorkshopSession extends Model
         return count((array) $this->selected_incubatees_snapshot);
     }
 
+    public function hasAttendanceSheet(): bool
+    {
+        return count((array) $this->attendance_media_json) > 0;
+    }
+
+    public function isAttendancePending(): bool
+    {
+        return ! $this->hasAttendanceSheet();
+    }
+
     protected function formattedProgramType(): Attribute
     {
         return Attribute::get(fn (): string => 'District level workshop');

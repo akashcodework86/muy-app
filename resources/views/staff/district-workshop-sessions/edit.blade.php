@@ -29,6 +29,22 @@
     .tp-actions { margin-top:1.25rem; display:flex; flex-wrap:wrap; gap:0.65rem; align-items:center; }
     .tp-submit { border:none; border-radius:8px; background:#4f46e5; color:#fff; padding:0.62rem 1rem; font-weight:700; cursor:pointer; font-size:0.88rem; }
     .tp-link { color:#4f46e5; font-weight:700; text-decoration:none; font-size:0.88rem; }
+    .tp-attendance-pill {
+        display:inline-flex;
+        align-items:center;
+        padding:0.2rem 0.55rem;
+        border-radius:999px;
+        font-size:0.74rem;
+        font-weight:800;
+    }
+    .tp-attendance-pill--pending { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+    .tp-attendance-pill--uploaded { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
+    .tp-alert--pending {
+        margin-bottom:1rem;
+        background:#fffbeb;
+        border:1px solid #fde68a;
+        color:#92400e;
+    }
 </style>
 @endpush
 
@@ -98,9 +114,13 @@
 
             <div class="tp-section">
                 <div class="tp-field">
-                    <label>Upload attendance sheet @if (!is_array($row->attendance_media_json) || count($row->attendance_media_json) === 0)*@endif</label>
+                    <label>Upload attendance sheet (optional)</label>
+                    @if ($row->isAttendancePending())
+                        <p class="tp-field-hint"><span class="tp-attendance-pill tp-attendance-pill--pending">Attendance pending</span> — upload PDF, image, or Excel when ready (up to 25 files).</p>
+                    @else
+                        <p class="tp-field-hint">PDF, image (JPG/PNG), or Excel. Choose files again to add more uploads (up to 25 total).</p>
+                    @endif
                     <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.xls,.xlsx" multiple>
-                    <p class="tp-field-hint">PDF, image (JPG/PNG), or Excel. Choose files again to add more uploads (up to 25 total).</p>
                     @if (is_array($row->attendance_media_json) && count($row->attendance_media_json))
                         <p class="tp-field-hint">Current uploads:</p>
                         @include('staff.technical-trainings.partials.attendance-media-preview', [

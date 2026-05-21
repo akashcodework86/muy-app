@@ -49,7 +49,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $validated = $this->validateDistrictWorkshopSubmission($request, requiresAttendanceUpload: true, requiresPhotosUpload: true);
+        $validated = $this->validateDistrictWorkshopSubmission($request, requiresPhotosUpload: true);
 
         $districtId = (int) ($user->district_id ?: 0);
         abort_unless($districtId > 0, 422, 'District assignment is required to submit attendance.');
@@ -231,11 +231,9 @@ class DistrictWorkshopSessionAttendanceController extends Controller
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $existingMediaCount = count((array) $districtWorkshopSession->attendance_media_json);
         $existingPhotosCount = count((array) $districtWorkshopSession->workshop_photos_json);
         $validated = $this->validateDistrictWorkshopSubmission(
             $request,
-            requiresAttendanceUpload: $existingMediaCount === 0,
             requiresPhotosUpload: $existingPhotosCount === 0,
         );
 
@@ -251,10 +249,6 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                 ->merge($this->storeUploadedMedia($newUploads))
                 ->values()
                 ->all();
-        } elseif ($existingMediaCount === 0) {
-            return back()
-                ->withInput()
-                ->withErrors(['attendance_media' => 'Please upload at least one attendance file (PDF, image, or Excel).']);
         }
 
         $newPhotos = array_values(array_filter((array) $request->file('workshop_photos', [])));
@@ -327,7 +321,6 @@ class DistrictWorkshopSessionAttendanceController extends Controller
      */
     private function validateDistrictWorkshopSubmission(
         Request $request,
-        bool $requiresAttendanceUpload,
         bool $requiresPhotosUpload,
     ): array {
         $validator = Validator::make($request->all(), [
@@ -336,10 +329,8 @@ class DistrictWorkshopSessionAttendanceController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
             'male_participants' => ['required', 'integer', 'min:0'],
             'female_participants' => ['required', 'integer', 'min:0'],
-            'attendance_media' => $requiresAttendanceUpload
-                ? ['required', 'array', 'min:1', 'max:25']
-                : ['nullable', 'array', 'max:25'],
-            'attendance_media.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,xls,xlsx', 'max:51200'],
+            'attendance_media' => ['nullable', 'array', 'max:25'],
+            'attendance_media.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp,xls,xlsx', 'max:51200'],
             'workshop_photos' => $requiresPhotosUpload
                 ? ['required', 'array', 'min:1', 'max:5']
                 : ['nullable', 'array', 'max:5'],
@@ -500,6 +491,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
             'Total Participants',
             'Attendance Files Count',
             'Workshop Photos Count',
+            'Attendance Status',
             'Created At',
             'Updated At',
         ];
@@ -532,6 +524,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                     (string) $entry->totalParticipantCount(),
                     (string) count((array) $entry->attendance_media_json),
                     (string) count((array) $entry->workshop_photos_json),
+                    $entry->hasAttendanceSheet() ? 'Uploaded' : 'Pending',
                     (string) ($entry->created_at?->format('Y-m-d H:i:s') ?? ''),
                     (string) ($entry->updated_at?->format('Y-m-d H:i:s') ?? ''),
                 ]);
