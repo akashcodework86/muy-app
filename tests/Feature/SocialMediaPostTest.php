@@ -66,6 +66,38 @@ class SocialMediaPostTest extends TestCase
         $this->assertSame(['instagram', 'facebook'], $post->posted_platforms);
     }
 
+    public function test_create_post_truncates_long_instagram_preview_title(): void
+    {
+        $longCaption = str_repeat('A', 400)."\n\n".str_repeat('B', 400);
+
+        Http::fake([
+            'https://www.instagram.com/api/v1/oembed/*' => Http::response([
+                'thumbnail_url' => 'https://cdn.example.com/thumb.jpg',
+                'title' => $longCaption,
+                'author_name' => 'muy_uk',
+            ]),
+            'https://api.instagram.com/oembed*' => Http::response([], 404),
+        ]);
+
+        $sanjna = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($sanjna)->post(route('spoc.social-media-posts.store'), [
+            'posted_on' => '2026-05-20',
+            'post_url' => 'https://www.instagram.com/p/long-caption/',
+            'posted_platforms' => ['instagram'],
+            'description' => 'Caption stored separately',
+        ])->assertRedirect(route('spoc.social-media-posts.dashboard', ['view' => 'posts']));
+
+        $post = SocialMediaPost::query()->where('post_url', 'https://www.instagram.com/p/long-caption/')->first();
+        $this->assertNotNull($post);
+        $this->assertSame(str_repeat('A', 400), $post->preview_title);
+        $this->assertLessThanOrEqual(SocialMediaPost::PREVIEW_TITLE_MAX_LENGTH, mb_strlen((string) $post->preview_title));
+    }
+
     public function test_create_post_requires_at_least_one_platform(): void
     {
         $sanjna = User::factory()->create([

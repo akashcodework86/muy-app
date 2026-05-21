@@ -367,12 +367,16 @@ class SocialMediaPostController extends Controller
 
         return [
             'platform' => ($resolved['platform'] ?? '') !== '' ? (string) $resolved['platform'] : null,
-            'thumbnail_url' => is_string($resolved['thumbnail_url'] ?? null) && $resolved['thumbnail_url'] !== ''
-                ? (string) $resolved['thumbnail_url']
-                : null,
-            'preview_title' => is_string($resolved['title'] ?? null) && $resolved['title'] !== ''
-                ? (string) $resolved['title']
-                : null,
+            'thumbnail_url' => SocialMediaPost::clampThumbnailUrl(
+                is_string($resolved['thumbnail_url'] ?? null) && $resolved['thumbnail_url'] !== ''
+                    ? (string) $resolved['thumbnail_url']
+                    : null
+            ),
+            'preview_title' => SocialMediaPost::clampPreviewTitle(
+                is_string($resolved['title'] ?? null) && $resolved['title'] !== ''
+                    ? (string) $resolved['title']
+                    : null
+            ),
         ];
     }
 
