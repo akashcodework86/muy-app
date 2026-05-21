@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\FiscalYear;
 use App\Models\User;
+use App\Services\Deliverables\DeliverablesBreakdownPdfExport;
+use App\Services\Deliverables\DeliverablesBreakdownSpreadsheetExport;
 use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
@@ -23,6 +25,8 @@ class DeliverablesReportController extends Controller
     public function __construct(
         private readonly ProgramDeliverablesReportService $reportService,
         private readonly ProgramDeliverablesAchievementBreakdownService $breakdownService,
+        private readonly DeliverablesBreakdownSpreadsheetExport $breakdownSpreadsheetExport,
+        private readonly DeliverablesBreakdownPdfExport $breakdownPdfExport,
     ) {}
 
     public function index(Request $request): View
@@ -103,14 +107,50 @@ class DeliverablesReportController extends Controller
 
         return response()->json([
             ...$breakdown,
-            'target' => $row['target'] ?? null,
-            'achievement_pct' => $row['achievement_pct'] ?? null,
+            'target' => is_array($row) ? ($row['target'] ?? null) : null,
+            'achievement_pct' => is_array($row) ? ($row['achievement_pct'] ?? null) : null,
             'period_label' => $payload['periodLabel'],
             'scope_label' => $payload['scopeLabel'],
         ]);
     }
 
-    public function breakdownExport(Request $request): StreamedResponse
+    public function breakdownExport(Request $request): StreamedResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $context = $this->resolveBreakdownExportContext($request);
+
+        return $this->breakdownSpreadsheetExport->download(
+            $context['breakdown'],
+            $context['row'],
+            [
+                'scope_label' => $context['payload']['scopeLabel'],
+                'period_label' => $context['payload']['periodLabel'],
+            ],
+            $context['serial'],
+        );
+    }
+
+    public function breakdownExportPdf(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $context = $this->resolveBreakdownExportContext($request);
+
+        return $this->breakdownPdfExport->download(
+            $context['breakdown'],
+            $context['row'],
+            $context['serial'],
+            $context['payload']['scopeLabel'],
+            $context['payload']['periodLabel'],
+        );
+    }
+
+    /**
+     * @return array{
+     *     serial: string,
+     *     breakdown: array<string, mixed>,
+     *     row: array<string, mixed>|null,
+     *     payload: array<string, mixed>
+     * }
+     */
+    private function resolveBreakdownExportContext(Request $request): array
     {
         $serial = trim((string) $request->query('serial', ''));
         abort_if($serial === '', 422, 'Indicator serial is required.');
@@ -120,77 +160,46 @@ class DeliverablesReportController extends Controller
         $breakdown = $this->breakdownService->build($context['safeFilter'], $context['scope'], $serial);
         $row = collect($payload['rows'])->firstWhere('serial', $serial);
 
-        $spreadsheet = new Spreadsheet;
-        $summary = $spreadsheet->getActiveSheet();
-        $summary->setTitle('Summary');
-        $summary->fromArray([
-            ['Indicator', $breakdown['name'] ?? ''],
-            ['S.N.', $serial],
-            ['Scope', $payload['scopeLabel']],
-            ['Period', $payload['periodLabel']],
-            ['Target', $row['target'] ?? '—'],
-            ['Achievement', $breakdown['total'] ?? 0],
-            ['Achievement %', $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '—'],
-            ['Source', $breakdown['source_type_label'] ?? ''],
-        ], null, 'A1');
-
-        $this->writeBreakdownSheet($spreadsheet, 'By District', ['District', 'Hub', 'Count', 'Share %'], collect($breakdown['by_district'] ?? [])->map(fn ($item) => [
-            $item['district'] ?? '',
-            $item['hub'] ?? '',
-            $item['count'] ?? 0,
-            ($item['share_pct'] ?? 0).'%',
-        ])->all());
-
-        $this->writeBreakdownSheet($spreadsheet, 'By Month', ['Month', 'Count', 'Share %'], collect($breakdown['by_month'] ?? [])->map(fn ($item) => [
-            $item['month'] ?? '',
-            $item['count'] ?? 0,
-            ($item['share_pct'] ?? 0).'%',
-        ])->all());
-
-        if (($breakdown['by_service'] ?? []) !== []) {
-            $this->writeBreakdownSheet($spreadsheet, 'By Service', ['Service', 'Count', 'Share %'], collect($breakdown['by_service'])->map(fn ($item) => [
-                $item['service'] ?? '',
-                $item['count'] ?? 0,
-                ($item['share_pct'] ?? 0).'%',
-            ])->all());
-        }
-
-        $this->writeBreakdownSheet($spreadsheet, 'Records', ['Reference', 'Applicant', 'District', 'Hub', 'Service', 'Status', 'Date'], collect($breakdown['records'] ?? [])->map(fn ($item) => [
-            $item['reference'] ?? '',
-            $item['applicant'] ?? '',
-            $item['district'] ?? '',
-            $item['hub'] ?? '',
-            $item['service'] ?? '',
-            $item['status'] ?? '',
-            $item['date'] ?? '',
-        ])->all());
-
-        $slug = str_replace('.', '-', $serial);
-        $fileName = 'deliverables-breakdown-'.$slug.'-'.now()->format('Ymd').'.xlsx';
-
-        return response()->streamDownload(function () use ($spreadsheet): void {
-            (new Xlsx($spreadsheet))->save('php://output');
-        }, $fileName, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ]);
+        return [
+            'serial' => $serial,
+            'breakdown' => $breakdown,
+            'row' => is_array($row) ? $row : null,
+            'payload' => $payload,
+        ];
     }
 
-    /**
-     * @param  list<list<mixed>>  $rows
+  /**
+     * @param  array{user: User, scope: ProgramDeliverablesScope, safeFilter: ProgramDeliverablesFilter}  $context
+     * @return array<string, mixed>
      */
-    private function writeBreakdownSheet(Spreadsheet $spreadsheet, string $title, array $headers, array $rows): void
+    private function buildReportPayload(array $context): array
     {
-        $sheet = $spreadsheet->createSheet();
-        $sheet->setTitle(substr($title, 0, 31));
-        $sheet->fromArray($headers, null, 'A1');
-        if ($rows !== []) {
-            $sheet->fromArray($rows, null, 'A2');
-        }
-        $lastCol = chr(ord('A') + max(count($headers) - 1, 0));
-        $sheet->getStyle('A1:'.$lastCol.'1')->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '9A3412']],
-        ]);
+        $user = $context['user'];
+        $scope = $context['scope'];
+        $safeFilter = $context['safeFilter'];
+
+        $report = $this->reportService->build($safeFilter, $scope);
+        [$periodFrom, $periodTo] = $safeFilter->resolvePeriod($report['fiscalYear']);
+
+        return [
+            'report' => $report,
+            'filter' => $safeFilter,
+            'scope' => $scope,
+            'fiscalYears' => FiscalYear::forUiDropdown(),
+            'fiscalYearId' => $report['fiscalYear']?->id,
+            'fiscalYear' => $report['fiscalYear'],
+            'rows' => $report['rows'],
+            'districts' => $scope->districtsForDropdown(),
+            'canPickDistrict' => $scope->canPickDistrict(),
+            'scopeLabel' => $scope->scopeLabel($safeFilter->districtId),
+            'periodLabel' => $this->periodLabel($periodFrom, $periodTo, $safeFilter),
+            'indexRoute' => $this->routeNameFor($user, 'index'),
+            'exportRoute' => $this->routeNameFor($user, 'export'),
+            'breakdownRoute' => $this->routeNameFor($user, 'breakdown'),
+            'breakdownExportRoute' => $this->routeNameFor($user, 'breakdown.export'),
+            'breakdownExportPdfRoute' => $this->routeNameFor($user, 'breakdown.export.pdf'),
+            'showStateTargetsLink' => $user->role === 'state_admin',
+        ];
     }
 
     /**
@@ -224,39 +233,6 @@ class DeliverablesReportController extends Controller
             'user' => $user,
             'scope' => $scope,
             'safeFilter' => $safeFilter,
-        ];
-    }
-
-  /**
-     * @param  array{user: User, scope: ProgramDeliverablesScope, safeFilter: ProgramDeliverablesFilter}  $context
-     * @return array<string, mixed>
-     */
-    private function buildReportPayload(array $context): array
-    {
-        $user = $context['user'];
-        $scope = $context['scope'];
-        $safeFilter = $context['safeFilter'];
-
-        $report = $this->reportService->build($safeFilter, $scope);
-        [$periodFrom, $periodTo] = $safeFilter->resolvePeriod($report['fiscalYear']);
-
-        return [
-            'report' => $report,
-            'filter' => $safeFilter,
-            'scope' => $scope,
-            'fiscalYears' => FiscalYear::forUiDropdown(),
-            'fiscalYearId' => $report['fiscalYear']?->id,
-            'fiscalYear' => $report['fiscalYear'],
-            'rows' => $report['rows'],
-            'districts' => $scope->districtsForDropdown(),
-            'canPickDistrict' => $scope->canPickDistrict(),
-            'scopeLabel' => $scope->scopeLabel($safeFilter->districtId),
-            'periodLabel' => $this->periodLabel($periodFrom, $periodTo, $safeFilter),
-            'indexRoute' => $this->routeNameFor($user, 'index'),
-            'exportRoute' => $this->routeNameFor($user, 'export'),
-            'breakdownRoute' => $this->routeNameFor($user, 'breakdown'),
-            'breakdownExportRoute' => $this->routeNameFor($user, 'breakdown.export'),
-            'showStateTargetsLink' => $user->role === 'state_admin',
         ];
     }
 

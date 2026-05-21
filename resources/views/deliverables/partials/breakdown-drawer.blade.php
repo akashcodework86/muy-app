@@ -263,6 +263,11 @@
         background: #f1f5f9;
         color: #334155;
     }
+    .dlv-action-btn--pdf {
+        background: #fff7ed;
+        color: #c2410c;
+        border: 1px solid #fed7aa;
+    }
     .dlv-loading {
         display: flex;
         flex-direction: column;
@@ -312,6 +317,7 @@
         </div>
         <div class="dlv-drawer__actions">
             <a href="#" class="dlv-action-btn dlv-action-btn--primary" id="dlv-export-xlsx">⬇ Download Excel</a>
+            <a href="#" class="dlv-action-btn dlv-action-btn--pdf" id="dlv-export-pdf">⬇ Download PDF</a>
             <button type="button" class="dlv-action-btn dlv-action-btn--ghost" id="dlv-export-csv">⬇ Download CSV</button>
         </div>
     </aside>
@@ -323,9 +329,11 @@
     const overlay = document.getElementById('dlv-drawer-overlay');
     const body = document.getElementById('dlv-drawer-body');
     const exportXlsx = document.getElementById('dlv-export-xlsx');
+    const exportPdf = document.getElementById('dlv-export-pdf');
     const exportCsv = document.getElementById('dlv-export-csv');
     const breakdownUrl = @json(route($breakdownRoute));
     const breakdownExportUrl = @json(route($breakdownExportRoute));
+    const breakdownExportPdfUrl = @json(route($breakdownExportPdfRoute));
     const filterParams = @json($queryParams);
     let activeSerial = null;
 
@@ -345,6 +353,7 @@
 
         const params = new URLSearchParams({ ...filterParams, serial });
         exportXlsx.href = breakdownExportUrl + '?' + params.toString();
+        exportPdf.href = breakdownExportPdfUrl + '?' + params.toString();
 
         fetch(breakdownUrl + '?' + params.toString(), {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },

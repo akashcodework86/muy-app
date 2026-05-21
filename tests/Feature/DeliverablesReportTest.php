@@ -1022,4 +1022,92 @@ class DeliverablesReportTest extends TestCase
             ->assertJsonPath('total', 1)
             ->assertJsonPath('source_type_label', 'Field work visits');
     }
+
+    public function test_deliverables_breakdown_export_returns_xlsx_for_cfa(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'cfa-export-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'cfa-export-district',
+            'name' => 'CFA Export District',
+            'sort_order' => 1,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            'district_id' => $district->id,
+            'fiscal_year_id' => $fy->id,
+            'application_no' => 'CFA-001',
+            'applicant_name' => 'CFA Export Applicant',
+            'phone' => '9999999910',
+            'payload' => json_encode([]),
+            'created_at' => '2026-05-01',
+            'updated_at' => now(),
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '1.1',
+            ]))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
+    public function test_deliverables_breakdown_export_pdf_for_cfa(): void
+    {
+        if (! class_exists(\Dompdf\Dompdf::class)) {
+            $this->markTestSkipped('Dompdf is not installed.');
+        }
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'cfa-pdf-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'cfa-pdf-district',
+            'name' => 'CFA PDF District',
+            'sort_order' => 1,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            'district_id' => $district->id,
+            'fiscal_year_id' => $fy->id,
+            'application_no' => 'CFA-PDF-1',
+            'applicant_name' => 'CFA PDF Applicant',
+            'phone' => '9999999911',
+            'payload' => json_encode([]),
+            'created_at' => '2026-05-01',
+            'updated_at' => now(),
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export.pdf', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '1.1',
+            ]))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    }
 }
