@@ -33,14 +33,18 @@ class OnboardedApplicantController extends Controller
             ->get(['id', 'name', 'hub_id']);
 
         $commonColumns = $this->commonColumnMap();
-        $mergedRows = $this->buildRows($hubId, $districtId, $q);
+        $mergedRows = $this->buildRows($hubId, $districtId, $q, $scope);
         $rows = $this->paginateMergedRows($mergedRows, $request, 30);
+        $overview = $this->overviewStats($hubId, $districtId, $q, $scope);
+        $districtSummaries = $this->districtSummaries($hubId, $q, $scope);
 
         return view('admin.onboarded.index', [
             'rows' => $rows,
             'hubs' => $hubs,
             'districts' => $districts,
             'commonColumns' => $commonColumns,
+            'overview' => $overview,
+            'districtSummaries' => $districtSummaries,
             'filters' => [
                 'hub' => $hubId,
                 'district' => $districtId,
@@ -56,7 +60,7 @@ class OnboardedApplicantController extends Controller
         $scope = $this->resolveScope($request);
         [$hubId, $districtId, $q] = $this->extractFilters($request, $scope);
         $commonColumns = $this->commonColumnMap();
-        $rows = $this->buildRows($hubId, $districtId, $q);
+        $rows = $this->buildRows($hubId, $districtId, $q, $scope);
 
         $headers = ['Sr No', 'Application No', 'Source', 'District', 'Hub', 'Batch', 'Onboarded At'];
         foreach ($commonColumns as $key => $meta) {
@@ -167,9 +171,9 @@ class OnboardedApplicantController extends Controller
         };
     }
 
-    private function buildRows(?int $hubId, ?int $districtId, string $q): Collection
+    private function buildRows(?int $hubId, ?int $districtId, string $q, array $scope = []): Collection
     {
-        $phase3Rows = $this->phase3Rows($hubId, $districtId, $q);
+        $phase3Rows = $this->phase3Rows($hubId, $districtId, $q, $scope);
         $commonColumns = $this->commonColumnMap();
 
         return $phase3Rows
@@ -178,7 +182,46 @@ class OnboardedApplicantController extends Controller
             ->values();
     }
 
-    private function phase3Rows(?int $hubId, ?int $districtId, string $q): Collection
+    private function phase3Rows(?int $hubId, ?int $districtId, string $q, array $scope = []): Collection
+    {
+        $query = $this->phase3BaseQuery($scope);
+        $this->applyPhase3Filters($query, $hubId, $districtId, $q);
+
+        $guardianJson = $this->payloadJson('$.guardian_name');
+        $genderJson = $this->payloadJson('$.gender');
+        $dobJson = $this->payloadJson('$.dob');
+        $districtJson = $this->payloadJson('$.district');
+        $blockJson = $this->payloadJson('$.block');
+
+        return $query
+            ->orderByDesc('obc.created_at')
+            ->selectRaw("
+                'phase3' as data_source,
+                obc.id as onboarded_row_id,
+                obc.created_at as onboarded_at,
+                cs.id as application_id,
+                cs.application_no as application_no,
+                cs.source as source,
+                cs.applicant_name as applicant_name,
+                cs.phone as phone,
+                cs.district_id as district_id,
+                {$guardianJson} as guardian_name,
+                {$genderJson} as gender,
+                {$dobJson} as dob,
+                COALESCE({$districtJson}, d.name) as district,
+                {$blockJson} as block_name,
+                h.name as hub_name,
+                h.id as hub_id,
+                ob.id as onboarding_batch_id,
+                ob.name as onboarding_batch_name,
+                cs.payload as full_details_json
+            ")
+            ->get()
+            ->map(fn ($row) => (array) $row)
+            ->pipe(fn (Collection $rows) => $this->replacePhase3LegacySourceDetails($rows));
+    }
+
+    private function phase3BaseQuery(array $scope = [])
     {
         $query = DB::table('onboarding_batch_cfa as obc')
             ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
@@ -190,6 +233,29 @@ class OnboardedApplicantController extends Controller
             ->whereNotNull('ob.locked_at')
             ->whereNotNull('obc.cfa_submission_id');
 
+        $this->applyScopeDistrictFilter($query, $scope);
+
+        return $query;
+    }
+
+    private function applyScopeDistrictFilter($query, array $scope): void
+    {
+        $allowedDistrictIds = $scope['district_ids'] ?? null;
+        if (! is_array($allowedDistrictIds)) {
+            return;
+        }
+
+        if ($allowedDistrictIds === []) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->whereIn('cs.district_id', $allowedDistrictIds);
+    }
+
+    private function applyPhase3Filters($query, ?int $hubId, ?int $districtId, string $q): void
+    {
         if ($hubId) {
             $query->where('ob.hub_id', $hubId);
         }
@@ -211,31 +277,102 @@ class OnboardedApplicantController extends Controller
                 }
             });
         }
+    }
 
-        return $query
-            ->orderByDesc('obc.created_at')
+    private function overviewStats(?int $hubId, ?int $districtId, string $q, array $scope): array
+    {
+        $sevenDaysAgo = now()->subDays(7)->toDateTimeString();
+        $monthStart = now()->startOfMonth()->toDateTimeString();
+
+        $query = $this->phase3BaseQuery($scope);
+        $this->applyPhase3Filters($query, $hubId, $districtId, $q);
+
+        $genderJson = $this->payloadJson('$.gender');
+
+        $row = (array) $query
             ->selectRaw("
-                'phase3' as data_source,
-                obc.id as onboarded_row_id,
-                obc.created_at as onboarded_at,
-                cs.id as application_id,
-                cs.application_no as application_no,
-                cs.source as source,
-                cs.applicant_name as applicant_name,
-                cs.phone as phone,
-                JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.guardian_name')) as guardian_name,
-                JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.gender')) as gender,
-                JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) as dob,
-                COALESCE(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.district')), d.name) as district,
-                JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.block')) as block_name,
-                h.name as hub_name,
-                ob.id as onboarding_batch_id,
-                ob.name as onboarding_batch_name,
-                cs.payload as full_details_json
-            ")
-            ->get()
-            ->map(fn ($row) => (array) $row)
-            ->pipe(fn (Collection $rows) => $this->replacePhase3LegacySourceDetails($rows));
+                COUNT(*) as total,
+                COUNT(DISTINCT cs.district_id) as districts_covered,
+                COUNT(DISTINCT ob.hub_id) as hubs_covered,
+                SUM(CASE
+                    WHEN LOWER(TRIM(COALESCE({$genderJson}, ''))) IN ('female', 'f', 'woman')
+                    THEN 1 ELSE 0
+                END) as female_count,
+                SUM(CASE
+                    WHEN LOWER(TRIM(COALESCE({$genderJson}, ''))) IN ('male', 'm', 'man')
+                    THEN 1 ELSE 0
+                END) as male_count,
+                SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
+                SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as this_month
+            ", [$sevenDaysAgo, $monthStart])
+            ->first();
+
+        $total = (int) ($row['total'] ?? 0);
+        $female = (int) ($row['female_count'] ?? 0);
+        $male = (int) ($row['male_count'] ?? 0);
+        $knownGender = $female + $male;
+
+        return [
+            'total' => $total,
+            'districts_covered' => (int) ($row['districts_covered'] ?? 0),
+            'hubs_covered' => (int) ($row['hubs_covered'] ?? 0),
+            'female_count' => $female,
+            'male_count' => $male,
+            'female_pct' => $knownGender > 0 ? (int) round(($female / $knownGender) * 100) : null,
+            'recent_7_days' => (int) ($row['recent_7_days'] ?? 0),
+            'this_month' => (int) ($row['this_month'] ?? 0),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function districtSummaries(?int $hubId, string $q, array $scope): array
+    {
+        $sevenDaysAgo = now()->subDays(7)->toDateTimeString();
+
+        $query = $this->phase3BaseQuery($scope);
+        $this->applyPhase3Filters($query, $hubId, null, $q);
+
+        $genderJson = $this->payloadJson('$.gender');
+        $districtJson = $this->payloadJson('$.district');
+
+        $rows = $query
+            ->selectRaw("
+                cs.district_id as district_id,
+                MAX(COALESCE(d.name, {$districtJson}, 'Unassigned')) as district_name,
+                MAX(h.name) as hub_name,
+                COUNT(*) as total,
+                SUM(CASE
+                    WHEN LOWER(TRIM(COALESCE({$genderJson}, ''))) IN ('female', 'f', 'woman')
+                    THEN 1 ELSE 0
+                END) as female_count,
+                SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
+                MAX(obc.created_at) as last_onboarded_at
+            ", [$sevenDaysAgo])
+            ->groupBy('cs.district_id')
+            ->orderByDesc('total')
+            ->get();
+
+        $grandTotal = max(1, (int) $rows->sum('total'));
+
+        return $rows
+            ->map(function ($row) use ($grandTotal): array {
+                $total = (int) $row->total;
+                $female = (int) $row->female_count;
+
+                return [
+                    'district_id' => (int) ($row->district_id ?? 0),
+                    'district_name' => (string) $row->district_name,
+                    'hub_name' => (string) ($row->hub_name ?? ''),
+                    'total' => $total,
+                    'female_count' => $female,
+                    'female_pct' => $total > 0 ? (int) round(($female / $total) * 100) : 0,
+                    'recent_7_days' => (int) ($row->recent_7_days ?? 0),
+                    'share_pct' => (int) round(($total / $grandTotal) * 100),
+                    'last_onboarded_at' => $row->last_onboarded_at,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private function legacyRows(?int $hubId, ?int $districtId, string $q): Collection
@@ -698,5 +835,14 @@ class OnboardedApplicantController extends Controller
 
             return $row;
         });
+    }
+
+    private function payloadJson(string $path): string
+    {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return "json_extract(cs.payload, '{$path}')";
+        }
+
+        return "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '{$path}'))";
     }
 }
