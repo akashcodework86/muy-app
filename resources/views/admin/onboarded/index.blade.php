@@ -476,6 +476,7 @@
     $targetProgress = $targetProgress ?? [];
     $sectorBreakdown = $sectorBreakdown ?? [];
     $insights = $insights ?? [];
+    $potentialLakhpatiLabel = 'Potential Lakhpati Didi/ SHG Members/ CBOs';
     $activeDistrict = (int) ($filters['district'] ?? 0);
     $routeIndex = $routeIndex ?? 'admin.onboarded.index';
     $filterQuery = array_filter([
@@ -516,7 +517,7 @@
             </div>
         </div>
         <div class="onb-kpi onb-kpi--lakhpati">
-            <div class="onb-kpi__label">Potential Lakhpati Didi</div>
+            <div class="onb-kpi__label">{{ $potentialLakhpatiLabel }}</div>
             <div class="onb-kpi__value">{{ number_format((int) ($overview['potential_lakhpati_count'] ?? 0)) }}</div>
             <div class="onb-kpi__sub">
                 @if (! is_null($overview['potential_lakhpati_pct'] ?? null))
@@ -652,7 +653,7 @@
                         <div class="onb-district-card__meta">
                             <span><strong>{{ $districtRow['share_pct'] }}%</strong> share</span>
                             <span><strong>{{ $districtRow['female_pct'] }}%</strong> women</span>
-                            <span><strong>{{ number_format((int) ($districtRow['potential_lakhpati_count'] ?? 0)) }}</strong> Potential Lakhpati ({{ $districtRow['potential_lakhpati_pct'] ?? 0 }}%)</span>
+                            <span><strong>{{ number_format((int) ($districtRow['potential_lakhpati_count'] ?? 0)) }}</strong> {{ $potentialLakhpatiLabel }} ({{ $districtRow['potential_lakhpati_pct'] ?? 0 }}%)</span>
                             @if ((int) ($districtRow['target'] ?? 0) > 0)
                                 <span><strong>{{ (int) ($districtRow['target_progress_pct'] ?? 0) }}%</strong> of target</span>
                             @endif

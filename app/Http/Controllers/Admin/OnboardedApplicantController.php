@@ -20,6 +20,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OnboardedApplicantController extends Controller
 {
+    private const POTENTIAL_LAKHPATI_LABEL = 'Potential Lakhpati Didi/ SHG Members/ CBOs';
+
     public function index(Request $request): View
     {
         $scope = $this->resolveScope($request);
@@ -1151,7 +1153,7 @@ class OnboardedApplicantController extends Controller
 
         if ((int) ($overview['potential_lakhpati_count'] ?? 0) > 0 && ! is_null($overview['potential_lakhpati_pct'] ?? null)) {
             $insights[] = number_format((int) $overview['potential_lakhpati_count'])
-                .' potential Lakhpati Didis (SHG/CBO category, or Individual with SHG/CBO member Yes — '
+                .' '.self::POTENTIAL_LAKHPATI_LABEL.' (SHG/CBO category, or Individual with SHG/CBO member Yes — '
                 .(int) $overview['potential_lakhpati_pct'].'% of onboarded).';
         }
 
@@ -1161,7 +1163,7 @@ class OnboardedApplicantController extends Controller
                 ->sortByDesc(fn (array $row) => (int) ($row['potential_lakhpati_pct'] ?? 0))
                 ->first();
             if ($bestLakhpati && (int) ($bestLakhpati['potential_lakhpati_pct'] ?? 0) > 0) {
-                $insights[] = 'Highest potential Lakhpati Didi share: '.($bestLakhpati['district_name'] ?? 'District')
+                $insights[] = 'Highest '.self::POTENTIAL_LAKHPATI_LABEL.' share: '.($bestLakhpati['district_name'] ?? 'District')
                     .' at '.(int) $bestLakhpati['potential_lakhpati_pct'].'%.';
             }
 
