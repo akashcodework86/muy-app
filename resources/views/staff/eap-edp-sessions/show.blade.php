@@ -103,8 +103,8 @@
                 </span>
             </div>
             <div class="tp-show-field tp-show-field--full">
-                <span class="tp-show-field__label">Topic</span>
-                <span class="tp-show-field__value">{{ $row->topic }}</span>
+                <span class="tp-show-field__label">Venue address</span>
+                <span class="tp-show-field__value">{{ $row->display_venue ?: '—' }}</span>
             </div>
             <div class="tp-show-field tp-show-field--full">
                 <span class="tp-show-field__label">Notes</span>

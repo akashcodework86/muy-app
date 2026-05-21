@@ -84,8 +84,8 @@
                 </div>
                 @include('staff.eap-edp-sessions.partials.workshop-mode-field', ['selected' => null])
                 <div class="tp-field tp-field--full">
-                    <label>Session topic *</label>
-                    <input type="text" name="topic" value="{{ old('topic') }}" maxlength="191" required placeholder="Topic covered in this combined EAP/EDP session">
+                    <label>Venue address *</label>
+                    <textarea name="venue_name_address" maxlength="5000" required placeholder="Enter venue name and full address">{{ old('venue_name_address') }}</textarea>
                 </div>
                 <div class="tp-field tp-field--full">
                     <label>Notes (optional)</label>
@@ -114,18 +114,18 @@
 
             <div class="tp-section">
                 <div class="tp-field tp-field--full">
-                    <label>Session photos (optional)</label>
-                    <input id="eesSessionPhotosInput" type="file" name="session_photos[]" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple>
-                    <p class="tp-field-hint">Upload multiple photos from the session. JPG, PNG, or WebP, up to 25 photos (10 MB each). Click × on a thumbnail to remove before submitting.</p>
+                    <label>Session photos (mandatory) *</label>
+                    <input id="eesSessionPhotosInput" type="file" name="session_photos[]" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple required>
+                    <p class="tp-field-hint">Upload at least one photo from the session. JPG, PNG, or WebP, up to 25 photos (10 MB each). Click × on a thumbnail to remove before submitting.</p>
                     <div id="eesSessionPhotosPreview"></div>
                 </div>
             </div>
 
             <div class="tp-section">
                 <div class="tp-field tp-field--full">
-                    <label>Upload attendance sheet *</label>
+                    <label>Upload attendance sheet (can be upload later)</label>
                     <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.mkv,.doc,.docx,.xls,.xlsx" multiple>
-                    <p class="tp-field-hint">At least one file is required (signed attendance sheet, register scan, etc.). Up to 25 files, 50 MB each. PDF, images, Word, Excel, and short video clips are accepted.</p>
+                    <p class="tp-field-hint">Optional for now — you can upload later from Edit. PDF, images, Word, Excel, or short video clips — up to 25 files, 50 MB each.</p>
                     <div id="tpMediaPreview" class="tp-media-preview"></div>
                 </div>
             </div>

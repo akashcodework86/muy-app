@@ -40,7 +40,7 @@ class EapEdpSessionAttendanceController extends Controller
         if (! Schema::hasTable('eap_edp_sessions')) {
             return redirect()
                 ->route('staff.eap-edp-sessions.create')
-                ->withErrors(['topic' => 'EAP/EDP sessions table is missing. Please run migrations first.']);
+                ->withErrors(['venue_name_address' => 'EAP/EDP sessions table is missing. Please run migrations first.']);
         }
 
         if ($uploadErrors = array_merge(
@@ -52,14 +52,13 @@ class EapEdpSessionAttendanceController extends Controller
 
         $validated = $request->validate(array_merge([
             'session_date' => ['required', 'date'],
-            'topic' => ['required', 'string', 'max:191'],
+            'venue_name_address' => ['required', 'string', 'max:5000'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'attendance_male_count' => ['required', 'integer', 'min:0'],
             'attendance_female_count' => ['required', 'integer', 'min:0'],
-        ], $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(), [
-            'attendance_media' => ['required', 'array', 'min:1', 'max:25'],
-            'session_photos' => ['nullable', 'array', 'max:25'],
+        ], $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(requirePhotos: true), [
+            'attendance_media' => ['nullable', 'array', 'max:25'],
         ]));
 
         $districtId = (int) ($user->district_id ?: 0);
@@ -70,13 +69,12 @@ class EapEdpSessionAttendanceController extends Controller
         $total = $male + $female;
 
         $mediaItems = $this->storeUploadedMedia((array) $request->file('attendance_media', []));
-        if ($mediaItems === []) {
+        $photoItems = $this->storeUploadedPhotos($this->sessionPhotoUploads($request));
+        if ($photoItems === []) {
             return back()
                 ->withInput()
-                ->withErrors(['attendance_media' => 'Upload at least one attendance sheet file.']);
+                ->withErrors(['session_photos' => 'Upload at least one session photo.']);
         }
-
-        $photoItems = $this->storeUploadedPhotos($this->sessionPhotoUploads($request));
 
         $sessionPayload = [
             'submitted_by_user_id' => (int) $user->id,
@@ -85,7 +83,6 @@ class EapEdpSessionAttendanceController extends Controller
             'district_id' => $districtId,
             'district_name' => (string) ($user->district?->name ?? ''),
             'program_type' => self::PROGRAM_TYPE,
-            'topic' => trim((string) $validated['topic']),
             'workshop_mode' => (string) $validated['workshop_mode'],
             'attendance_male_count' => $male,
             'attendance_female_count' => $female,
@@ -95,6 +92,8 @@ class EapEdpSessionAttendanceController extends Controller
             'selected_incubatee_ids' => [],
             'selected_incubatees_snapshot' => [],
         ];
+
+        $this->applyVenueToPayload($sessionPayload, trim((string) $validated['venue_name_address']));
 
         if (Schema::hasColumn('eap_edp_sessions', 'session_photos_json')) {
             $sessionPayload['session_photos_json'] = $photoItems;
@@ -135,6 +134,9 @@ class EapEdpSessionAttendanceController extends Controller
                     ->orWhere('topic', 'like', $like)
                     ->orWhere('notes', 'like', $like)
                     ->orWhere('workshop_mode', 'like', $like);
+                if (Schema::hasColumn('eap_edp_sessions', 'venue_name_address')) {
+                    $q->orWhere('venue_name_address', 'like', $like);
+                }
                 if (ctype_digit($search)) {
                     $n = (int) $search;
                     $q->orWhere('attendance_male_count', $n)
@@ -213,6 +215,9 @@ class EapEdpSessionAttendanceController extends Controller
                     ->orWhere('topic', 'like', $like)
                     ->orWhere('notes', 'like', $like)
                     ->orWhere('workshop_mode', 'like', $like);
+                if (Schema::hasColumn('eap_edp_sessions', 'venue_name_address')) {
+                    $q->orWhere('venue_name_address', 'like', $like);
+                }
                 if (ctype_digit($search)) {
                     $n = (int) $search;
                     $q->orWhere('attendance_male_count', $n)
@@ -276,7 +281,7 @@ class EapEdpSessionAttendanceController extends Controller
 
         $validated = $request->validate(array_merge([
             'session_date' => ['required', 'date'],
-            'topic' => ['required', 'string', 'max:191'],
+            'venue_name_address' => ['required', 'string', 'max:5000'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'attendance_male_count' => ['required', 'integer', 'min:0'],
@@ -285,7 +290,7 @@ class EapEdpSessionAttendanceController extends Controller
             'remove_media_indices.*' => ['integer', 'min:0'],
             'remove_photo_indices' => ['nullable', 'array'],
             'remove_photo_indices.*' => ['integer', 'min:0'],
-        ], $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(), [
+        ], $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(requirePhotos: false), [
             'attendance_media' => ['nullable', 'array', 'max:25'],
             'session_photos' => ['nullable', 'array', 'max:25'],
         ]));
@@ -312,12 +317,6 @@ class EapEdpSessionAttendanceController extends Controller
 
         $newUploads = array_values(array_filter((array) $request->file('attendance_media', [])));
 
-        if ($keptMedia->isEmpty() && $newUploads === []) {
-            return back()
-                ->withInput()
-                ->withErrors(['attendance_media' => 'At least one attendance sheet file is required. Keep an existing file or upload a new one.']);
-        }
-
         $combinedCount = $keptMedia->count() + count($newUploads);
         abort_if($combinedCount > 25, 422, 'You can upload up to 25 files per session.');
 
@@ -343,6 +342,11 @@ class EapEdpSessionAttendanceController extends Controller
             ->values();
         $newPhotos = $this->sessionPhotoUploads($request);
         $photoCount = $keptPhotos->count() + count($newPhotos);
+        if ($photoCount < 1) {
+            return back()
+                ->withInput()
+                ->withErrors(['session_photos' => 'At least one session photo is required. Keep an existing photo or upload a new one.']);
+        }
         abort_if($photoCount > 25, 422, 'You can upload up to 25 session photos per entry.');
         $this->deleteMediaFiles($removedPhotos->all());
         if (Schema::hasColumn('eap_edp_sessions', 'session_photos_json')) {
@@ -354,7 +358,7 @@ class EapEdpSessionAttendanceController extends Controller
 
         $eapEdpSession->event_date = $validated['session_date'];
         $eapEdpSession->program_type = self::PROGRAM_TYPE;
-        $eapEdpSession->topic = trim((string) $validated['topic']);
+        $this->applyVenueToModel($eapEdpSession, trim((string) $validated['venue_name_address']));
         $eapEdpSession->workshop_mode = (string) $validated['workshop_mode'];
         $eapEdpSession->attendance_male_count = $male;
         $eapEdpSession->attendance_female_count = $female;
@@ -435,12 +439,37 @@ class EapEdpSessionAttendanceController extends Controller
     /**
      * @return array<string, list<string>>
      */
-    private function sessionPhotosValidationRules(): array
+    private function sessionPhotosValidationRules(bool $requirePhotos): array
     {
         return [
-            'session_photos' => ['nullable', 'array', 'max:25'],
-            'session_photos.*' => ['nullable', 'file', 'max:10240'],
+            'session_photos' => $requirePhotos
+                ? ['required', 'array', 'min:1', 'max:25']
+                : ['nullable', 'array', 'max:25'],
+            'session_photos.*' => ['file', 'mimes:jpg,jpeg,png,webp,gif,heic,heif', 'max:10240'],
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function applyVenueToPayload(array &$payload, string $venue): void
+    {
+        if (Schema::hasColumn('eap_edp_sessions', 'venue_name_address')) {
+            $payload['venue_name_address'] = $venue;
+            $payload['topic'] = null;
+        } else {
+            $payload['topic'] = Str::limit($venue, 191, '');
+        }
+    }
+
+    private function applyVenueToModel(EapEdpSession $session, string $venue): void
+    {
+        if (Schema::hasColumn('eap_edp_sessions', 'venue_name_address')) {
+            $session->venue_name_address = $venue;
+            $session->topic = null;
+        } else {
+            $session->topic = Str::limit($venue, 191, '');
+        }
     }
 
     /**
@@ -628,7 +657,7 @@ class EapEdpSessionAttendanceController extends Controller
             'Session Taken By',
             'District',
             'Session type',
-            'Topic',
+            'Venue name and address',
             'Workshop mode',
             'Notes',
             'Attendance sheet files',
@@ -661,7 +690,7 @@ class EapEdpSessionAttendanceController extends Controller
                     (string) $entry->submitted_by_name,
                     (string) ($entry->district_name ?: ($entry->district?->name ?? '')),
                     (string) $entry->formatted_program_type,
-                    (string) $entry->topic,
+                    (string) $entry->display_venue,
                     (string) $entry->formatted_workshop_mode,
                     (string) ($entry->notes ?? ''),
                     (string) count((array) $entry->attendance_media_json),

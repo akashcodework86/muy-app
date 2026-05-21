@@ -16,6 +16,7 @@ class EapEdpSession extends Model
         'district_name',
         'program_type',
         'topic',
+        'venue_name_address',
         'workshop_mode',
         'attendance_male_count',
         'attendance_female_count',
@@ -46,6 +47,28 @@ class EapEdpSession extends Model
         static::saving(function (EapEdpSession $session): void {
             $session->attendance_total_count = (int) ($session->attendance_male_count ?? 0) + (int) ($session->attendance_female_count ?? 0);
         });
+    }
+
+    protected function displayVenue(): Attribute
+    {
+        return Attribute::get(function (): string {
+            $venue = trim((string) ($this->venue_name_address ?? ''));
+            if ($venue !== '') {
+                return $venue;
+            }
+
+            return trim((string) ($this->topic ?? ''));
+        });
+    }
+
+    public function hasAttendanceSheet(): bool
+    {
+        return count((array) $this->attendance_media_json) > 0;
+    }
+
+    public function hasSessionPhotos(): bool
+    {
+        return count((array) $this->session_photos_json) > 0;
     }
 
     protected function formattedProgramType(): Attribute

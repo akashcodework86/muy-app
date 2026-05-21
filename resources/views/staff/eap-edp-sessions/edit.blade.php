@@ -84,8 +84,8 @@
                 </div>
                 @include('staff.eap-edp-sessions.partials.workshop-mode-field', ['selected' => $row->workshop_mode ?? 'physical'])
                 <div class="tp-field tp-field--full">
-                    <label>Session topic *</label>
-                    <input type="text" name="topic" value="{{ old('topic', $row->topic) }}" maxlength="191" required>
+                    <label>Venue address *</label>
+                    <textarea name="venue_name_address" maxlength="5000" required>{{ old('venue_name_address', $row->display_venue) }}</textarea>
                 </div>
                 <div class="tp-field tp-field--full">
                     <label>Notes (optional)</label>
@@ -113,11 +113,11 @@
             </div>
 
             <div class="tp-section">
-                <h4 class="tp-section__title">Session photos (optional)</h4>
+                <h4 class="tp-section__title">Session photos (mandatory) *</h4>
                 <div class="tp-field tp-field--full">
                     <label>Add more photos</label>
                     <input id="eesSessionPhotosInput" type="file" name="session_photos[]" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple>
-                    <p class="tp-field-hint">JPG, PNG, or WebP, up to 25 photos total. Click × to remove existing or new photos before saving.</p>
+                    <p class="tp-field-hint">At least one session photo required. JPG, PNG, or WebP, up to 25 photos total. Click × to remove existing or new photos before saving.</p>
                     @include('staff.eap-edp-sessions.partials.edit-existing-photos', [
                         'photoItems' => (array) ($row->session_photos_json ?? []),
                         'photoRoute' => 'staff.eap-edp-sessions.photo',
@@ -129,9 +129,9 @@
 
             <div class="tp-section">
                 <div class="tp-field tp-field--full">
-                    <label>Upload attendance sheet *</label>
+                    <label>Upload attendance sheet (can be upload later)</label>
                     <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.mkv,.doc,.docx,.xls,.xlsx" multiple>
-                    <p class="tp-field-hint">Mark files to remove, or add new uploads below (up to 25 total including kept files).</p>
+                    <p class="tp-field-hint">Mark files to remove, or add new uploads below (up to 25 total). You can save without a sheet and upload later.</p>
                     @include('staff.eap-edp-sessions.partials.edit-existing-media', [
                         'mediaItems' => (array) $row->attendance_media_json,
                         'attachmentRoute' => 'staff.eap-edp-sessions.attachment',

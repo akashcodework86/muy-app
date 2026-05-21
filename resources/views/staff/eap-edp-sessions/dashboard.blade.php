@@ -198,7 +198,7 @@
                 <th>Session Taken By</th>
                 <th>District</th>
                 <th>Workshop</th>
-                <th>Topic</th>
+                <th>Venue</th>
                 <th>Notes</th>
                 <th>Attendance</th>
                 <th>Images</th>
@@ -222,7 +222,7 @@
                             {{ $row->formatted_workshop_mode }}
                         </span>
                     </td>
-                    <td>{{ $row->topic }}</td>
+                    <td>{{ \Illuminate\Support\Str::limit($row->display_venue, 80) ?: '—' }}</td>
                     <td>
                         @if ($row->notes)
                             <div class="tp-brief">{{ \Illuminate\Support\Str::limit($row->notes, 120) }}</div>

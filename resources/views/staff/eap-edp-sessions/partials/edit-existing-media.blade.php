@@ -40,9 +40,9 @@
 @endphp
 
 @if ($mediaItems === [])
-    <p class="ees-edit-media-empty">No files on record — upload at least one attendance sheet before saving.</p>
+    <p class="ees-edit-media-empty">No attendance sheet on record — you can upload later from this form.</p>
 @else
-    <p class="ees-edit-media-hint">Check files to remove, or add new uploads below. At least one sheet must remain on file.</p>
+    <p class="ees-edit-media-hint">Check files to remove, or add new uploads below.</p>
     <div class="ees-edit-media-grid" id="eesExistingMediaGrid">
         @foreach ($mediaItems as $idx => $media)
             @if (! is_array($media))

@@ -91,6 +91,6 @@
             View sheet
         </button>
     @else
-        <span class="ees-dash-att__no-doc">No sheet</span>
+        <span class="ees-dash-att__no-doc">Pending</span>
     @endif
 </div>
