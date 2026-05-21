@@ -318,7 +318,7 @@
         <div class="dlv-drawer__actions">
             <a href="#" class="dlv-action-btn dlv-action-btn--primary" id="dlv-export-xlsx">⬇ Download Excel</a>
             <a href="#" class="dlv-action-btn dlv-action-btn--pdf" id="dlv-export-pdf">⬇ Download PDF</a>
-            <button type="button" class="dlv-action-btn dlv-action-btn--ghost" id="dlv-export-csv">⬇ Download CSV</button>
+            <a href="#" class="dlv-action-btn dlv-action-btn--ghost" id="dlv-export-csv">⬇ Download CSV</a>
         </div>
     </aside>
 </div>
@@ -333,6 +333,7 @@
     const exportCsv = document.getElementById('dlv-export-csv');
     const breakdownUrl = @json(route($breakdownRoute));
     const breakdownExportUrl = @json(route($breakdownExportRoute));
+    const breakdownExportCsvUrl = @json(route($breakdownExportCsvRoute));
     const breakdownExportPdfUrl = @json(route($breakdownExportPdfRoute));
     const filterParams = @json($queryParams);
     let activeSerial = null;
@@ -354,6 +355,7 @@
         const params = new URLSearchParams({ ...filterParams, serial });
         exportXlsx.href = breakdownExportUrl + '?' + params.toString();
         exportPdf.href = breakdownExportPdfUrl + '?' + params.toString();
+        exportCsv.href = breakdownExportCsvUrl + '?' + params.toString();
 
         fetch(breakdownUrl + '?' + params.toString(), {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -464,34 +466,6 @@
         `;
     }
 
-    function downloadCsv() {
-        if (!activeSerial) return;
-        const params = new URLSearchParams({ ...filterParams, serial: activeSerial });
-        fetch(breakdownUrl + '?' + params.toString(), {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                const lines = [
-                    ['Indicator', data.name || ''],
-                    ['Achievement', data.total || 0],
-                    [],
-                    ['District', 'Hub', 'Count', 'Share %'],
-                    ...(data.by_district || []).map((r) => [r.district, r.hub, r.count, r.share_pct]),
-                    [],
-                    ['Reference', 'Applicant', 'District', 'Service', 'Date'],
-                    ...(data.records || []).map((r) => [r.reference, r.applicant, r.district, r.service, r.date]),
-                ];
-                const csv = lines.map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'deliverables-breakdown-' + activeSerial.replace(/\./g, '-') + '.csv';
-                link.click();
-                URL.revokeObjectURL(link.href);
-            });
-    }
-
     document.querySelectorAll('[data-dlv-breakdown]').forEach((btn) => {
         btn.addEventListener('click', () => openDrawer(btn.dataset.serial, btn.dataset.name));
     });
@@ -499,7 +473,6 @@
     document.getElementById('dlv-drawer-close').addEventListener('click', closeDrawer);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDrawer(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
-    exportCsv.addEventListener('click', downloadCsv);
 })();
 </script>
 @endpush

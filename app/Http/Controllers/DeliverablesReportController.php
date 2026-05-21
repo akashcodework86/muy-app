@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FiscalYear;
 use App\Models\User;
+use App\Services\Deliverables\DeliverablesBreakdownCsvExport;
 use App\Services\Deliverables\DeliverablesBreakdownPdfExport;
 use App\Services\Deliverables\DeliverablesBreakdownSpreadsheetExport;
 use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
@@ -18,6 +19,9 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DeliverablesReportController extends Controller
@@ -27,6 +31,7 @@ class DeliverablesReportController extends Controller
         private readonly ProgramDeliverablesAchievementBreakdownService $breakdownService,
         private readonly DeliverablesBreakdownSpreadsheetExport $breakdownSpreadsheetExport,
         private readonly DeliverablesBreakdownPdfExport $breakdownPdfExport,
+        private readonly DeliverablesBreakdownCsvExport $breakdownCsvExport,
     ) {}
 
     public function index(Request $request): View
@@ -114,11 +119,50 @@ class DeliverablesReportController extends Controller
         ]);
     }
 
-    public function breakdownExport(Request $request): StreamedResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function breakdownExport(Request $request): BinaryFileResponse|StreamedResponse
+    {
+        try {
+            $context = $this->resolveBreakdownExportContext($request);
+            $meta = [
+                'scope_label' => $context['payload']['scopeLabel'],
+                'period_label' => $context['payload']['periodLabel'],
+            ];
+
+            try {
+                return $this->breakdownSpreadsheetExport->download(
+                    $context['breakdown'],
+                    $context['row'],
+                    $meta,
+                    $context['serial'],
+                );
+            } catch (\Throwable $e) {
+                Log::error('Deliverables breakdown Excel export failed', [
+                    'serial' => $context['serial'],
+                    'message' => $e->getMessage(),
+                ]);
+
+                return $this->breakdownCsvExport->download(
+                    $context['breakdown'],
+                    $context['row'],
+                    $meta,
+                    $context['serial'],
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::error('Deliverables breakdown export failed', [
+                'serial' => $request->query('serial'),
+                'message' => $e->getMessage(),
+            ]);
+
+            abort(500, 'Could not export breakdown. Try Download CSV or contact support.');
+        }
+    }
+
+    public function breakdownExportCsv(Request $request): StreamedResponse
     {
         $context = $this->resolveBreakdownExportContext($request);
 
-        return $this->breakdownSpreadsheetExport->download(
+        return $this->breakdownCsvExport->download(
             $context['breakdown'],
             $context['row'],
             [
@@ -129,7 +173,7 @@ class DeliverablesReportController extends Controller
         );
     }
 
-    public function breakdownExportPdf(Request $request): \Symfony\Component\HttpFoundation\Response
+    public function breakdownExportPdf(Request $request): Response
     {
         $context = $this->resolveBreakdownExportContext($request);
 
@@ -156,16 +200,55 @@ class DeliverablesReportController extends Controller
         abort_if($serial === '', 422, 'Indicator serial is required.');
 
         $context = $this->resolveRequestContext($request);
-        $payload = $this->buildReportPayload($context);
         $breakdown = $this->breakdownService->build($context['safeFilter'], $context['scope'], $serial);
-        $row = collect($payload['rows'])->firstWhere('serial', $serial);
+
+        $payload = $this->buildExportMetaPayload($context, $serial);
 
         return [
             'serial' => $serial,
             'breakdown' => $breakdown,
-            'row' => is_array($row) ? $row : null,
+            'row' => $payload['row'],
             'payload' => $payload,
         ];
+    }
+
+    /**
+     * @param  array{user: User, scope: ProgramDeliverablesScope, safeFilter: ProgramDeliverablesFilter}  $context
+     * @return array{scopeLabel: string, periodLabel: string, row: array<string, mixed>|null}
+     */
+    private function buildExportMetaPayload(array $context, string $serial): array
+    {
+        $scope = $context['scope'];
+        $safeFilter = $context['safeFilter'];
+        $scopeLabel = $scope->scopeLabel($safeFilter->districtId);
+
+        try {
+            $report = $this->reportService->build($safeFilter, $scope);
+            [$periodFrom, $periodTo] = $safeFilter->resolvePeriod($report['fiscalYear']);
+            $row = collect($report['rows'] ?? [])->firstWhere('serial', $serial);
+
+            return [
+                'scopeLabel' => $scopeLabel,
+                'periodLabel' => $this->periodLabel($periodFrom, $periodTo, $safeFilter),
+                'row' => is_array($row) ? $row : null,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Deliverables export meta build failed; continuing with breakdown only', [
+                'serial' => $serial,
+                'message' => $e->getMessage(),
+            ]);
+
+            $fiscalYears = FiscalYear::forUiDropdown();
+            [$resolvedFyId] = FiscalYear::resolveIdForUi($safeFilter->fiscalYearId);
+            $fiscalYear = $fiscalYears->firstWhere('id', $resolvedFyId);
+            [$periodFrom, $periodTo] = $safeFilter->resolvePeriod($fiscalYear);
+
+            return [
+                'scopeLabel' => $scopeLabel,
+                'periodLabel' => $this->periodLabel($periodFrom, $periodTo, $safeFilter),
+                'row' => null,
+            ];
+        }
     }
 
   /**
@@ -197,6 +280,7 @@ class DeliverablesReportController extends Controller
             'exportRoute' => $this->routeNameFor($user, 'export'),
             'breakdownRoute' => $this->routeNameFor($user, 'breakdown'),
             'breakdownExportRoute' => $this->routeNameFor($user, 'breakdown.export'),
+            'breakdownExportCsvRoute' => $this->routeNameFor($user, 'breakdown.export.csv'),
             'breakdownExportPdfRoute' => $this->routeNameFor($user, 'breakdown.export.pdf'),
             'showStateTargetsLink' => $user->role === 'state_admin',
         ];

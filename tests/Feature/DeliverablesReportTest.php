@@ -1023,6 +1023,61 @@ class DeliverablesReportTest extends TestCase
             ->assertJsonPath('source_type_label', 'Field work visits');
     }
 
+    public function test_deliverables_breakdown_export_returns_xlsx_for_field_work(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'fw-export-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'fw-export-district',
+            'name' => 'Field Export District',
+            'sort_order' => 1,
+        ]);
+
+        $coordinator = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'hub_id' => $hub->id,
+        ]);
+
+        FieldCoordinatorAttendanceReport::query()->create([
+            'field_coordinator_user_id' => $coordinator->id,
+            'field_coordinator_name' => 'FC Export',
+            'district_id' => $district->id,
+            'visit_date' => '2026-06-10',
+            'entry_date' => '2026-06-10',
+            'area' => 'Block A',
+            'participants_total' => 10,
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '1.3',
+            ]))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export.csv', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '1.3',
+            ]))
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+    }
+
     public function test_deliverables_breakdown_export_returns_xlsx_for_cfa(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
