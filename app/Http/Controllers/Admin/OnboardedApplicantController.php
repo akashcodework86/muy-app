@@ -300,6 +300,7 @@ class OnboardedApplicantController extends Controller
 
         $genderJson = $this->payloadJson('$.gender');
         $lakhpatiYesSql = $this->lakhpatiYesCountSql();
+        $potentialLakhpatiSql = $this->potentialLakhpatiCountSql();
 
         $row = (array) $query
             ->selectRaw("
@@ -315,6 +316,7 @@ class OnboardedApplicantController extends Controller
                     THEN 1 ELSE 0
                 END) as male_count,
                 {$lakhpatiYesSql} as lakhpati_yes_count,
+                {$potentialLakhpatiSql} as potential_lakhpati_count,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as this_month
             ", [$sevenDaysAgo, $monthStart])
@@ -325,6 +327,7 @@ class OnboardedApplicantController extends Controller
         $male = (int) ($row['male_count'] ?? 0);
         $knownGender = $female + $male;
         $lakhpatiYes = (int) ($row['lakhpati_yes_count'] ?? 0);
+        $potentialLakhpati = (int) ($row['potential_lakhpati_count'] ?? 0);
 
         return [
             'total' => $total,
@@ -335,6 +338,8 @@ class OnboardedApplicantController extends Controller
             'female_pct' => $knownGender > 0 ? (int) round(($female / $knownGender) * 100) : null,
             'lakhpati_yes_count' => $lakhpatiYes,
             'lakhpati_yes_pct' => $total > 0 ? (int) round(($lakhpatiYes / $total) * 100) : null,
+            'potential_lakhpati_count' => $potentialLakhpati,
+            'potential_lakhpati_pct' => $total > 0 ? (int) round(($potentialLakhpati / $total) * 100) : null,
             'recent_7_days' => (int) ($row['recent_7_days'] ?? 0),
             'this_month' => (int) ($row['this_month'] ?? 0),
         ];
@@ -351,6 +356,7 @@ class OnboardedApplicantController extends Controller
         $genderJson = $this->payloadJson('$.gender');
         $districtJson = $this->payloadJson('$.district');
         $lakhpatiYesSql = $this->lakhpatiYesCountSql();
+        $potentialLakhpatiSql = $this->potentialLakhpatiCountSql();
 
         $rows = $query
             ->selectRaw("
@@ -363,6 +369,7 @@ class OnboardedApplicantController extends Controller
                     THEN 1 ELSE 0
                 END) as female_count,
                 {$lakhpatiYesSql} as lakhpati_yes_count,
+                {$potentialLakhpatiSql} as potential_lakhpati_count,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
                 MAX(obc.created_at) as last_onboarded_at
             ", [$sevenDaysAgo])
@@ -384,6 +391,7 @@ class OnboardedApplicantController extends Controller
                 $total = (int) $row->total;
                 $female = (int) $row->female_count;
                 $lakhpatiYes = (int) ($row->lakhpati_yes_count ?? 0);
+                $potentialLakhpati = (int) ($row->potential_lakhpati_count ?? 0);
                 $districtId = (int) ($row->district_id ?? 0);
                 $target = (int) ($targetsByDistrict[$districtId] ?? 0);
 
@@ -396,6 +404,8 @@ class OnboardedApplicantController extends Controller
                     'female_pct' => $total > 0 ? (int) round(($female / $total) * 100) : 0,
                     'lakhpati_yes_count' => $lakhpatiYes,
                     'lakhpati_yes_pct' => $total > 0 ? (int) round(($lakhpatiYes / $total) * 100) : 0,
+                    'potential_lakhpati_count' => $potentialLakhpati,
+                    'potential_lakhpati_pct' => $total > 0 ? (int) round(($potentialLakhpati / $total) * 100) : 0,
                     'target' => $target,
                     'target_progress_pct' => $target > 0 ? (int) round(($total / $target) * 100) : null,
                     'target_gap' => $target > 0 ? max(0, $target - $total) : null,
@@ -884,8 +894,23 @@ class OnboardedApplicantController extends Controller
         $lakhpatiJson = $this->payloadJson('$.lakhpati');
 
         return "SUM(CASE
-            WHEN LOWER(TRIM(COALESCE(cs.source, ''))) NOT IN ('legacy_phase2', 'rbiphase2')
+            WHEN {$this->phase3CfaSourceSql()}
                 AND LOWER(TRIM(COALESCE({$lakhpatiJson}, ''))) = 'yes'
+            THEN 1 ELSE 0
+        END)";
+    }
+
+    private function potentialLakhpatiCountSql(): string
+    {
+        $categoryJson = $this->payloadJson('$.category');
+        $appCategoryJson = $this->payloadJson('$.app_category');
+
+        return "SUM(CASE
+            WHEN {$this->phase3CfaSourceSql()}
+                AND (
+                    LOWER(TRIM(COALESCE({$categoryJson}, ''))) IN ('shg', 'cbo')
+                    OR LOWER(TRIM(COALESCE({$appCategoryJson}, ''))) IN ('shg', 'cbo')
+                )
             THEN 1 ELSE 0
         END)";
     }
@@ -1136,6 +1161,12 @@ class OnboardedApplicantController extends Controller
         if ((int) ($overview['lakhpati_yes_count'] ?? 0) > 0 && ! is_null($overview['lakhpati_yes_pct'] ?? null)) {
             $insights[] = number_format((int) $overview['lakhpati_yes_count']).' Lakhpati Didis marked Yes ('
                 .(int) $overview['lakhpati_yes_pct'].'% of onboarded).';
+        }
+
+        if ((int) ($overview['potential_lakhpati_count'] ?? 0) > 0 && ! is_null($overview['potential_lakhpati_pct'] ?? null)) {
+            $insights[] = number_format((int) $overview['potential_lakhpati_count'])
+                .' potential Lakhpati Didis via SHG/CBO category ('
+                .(int) $overview['potential_lakhpati_pct'].'% of onboarded).';
         }
 
         if (count($districtSummaries) > 1) {

@@ -27,9 +27,9 @@ class OnboardedApplicantTest extends TestCase
         $districtA = $this->createDistrict('almora', 'Almora');
         $districtB = $this->createDistrict('nainital', 'Nainital');
 
-        $this->seedOnboardedApplicant($districtA, '40801001', 'Female Applicant', 'female', 'Yes');
-        $this->seedOnboardedApplicant($districtA, '40801002', 'Male Applicant', 'male', 'No');
-        $this->seedOnboardedApplicant($districtB, '40802001', 'Other Applicant', 'female', 'yes');
+        $this->seedOnboardedApplicant($districtA, '40801001', 'Female Applicant', 'female', 'Yes', 'phase3', null, 'Individual');
+        $this->seedOnboardedApplicant($districtA, '40801002', 'Male Applicant', 'male', 'No', 'phase3', null, 'Individual');
+        $this->seedOnboardedApplicant($districtB, '40802001', 'Other Applicant', 'female', 'yes', 'phase3', null, 'SHG');
 
         $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
 
@@ -37,9 +37,11 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSee('District-wise onboarding');
         $response->assertSee('Total onboarded');
         $response->assertSee('Lakhpati Didi (Yes)');
+        $response->assertSee('Potential Lakhpati Didi');
         $response->assertSee('67%');
         $response->assertSeeText('1 Lakhpati (50%)');
         $response->assertSeeText('1 Lakhpati (100%)');
+        $response->assertSeeText('1 Potential (100%)');
         $response->assertSee('Almora');
         $response->assertSee('Nainital');
         $response->assertSee('Female Applicant');
@@ -91,6 +93,25 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSee('Almora leads with');
     }
 
+    public function test_potential_lakhpati_counts_shg_and_cbo_category(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('rudraprayag', 'Rudraprayag');
+
+        $this->seedOnboardedApplicant($district, '40806001', 'SHG Group', 'female', null, 'phase3', null, 'SHG');
+        $this->seedOnboardedApplicant($district, '40806002', 'CBO Group', 'female', null, 'phase3', null, 'CBO');
+        $this->seedOnboardedApplicant($district, '40806003', 'Individual', 'female', 'No', 'phase3', null, 'Individual');
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('2 Potential (67%)');
+    }
+
     public function test_district_filter_limits_applicant_list(): void
     {
         $admin = User::factory()->create([
@@ -121,11 +142,13 @@ class OnboardedApplicantTest extends TestCase
         ?string $lakhpati = null,
         string $source = 'phase3',
         ?string $businessCategory = null,
+        string $category = 'Individual',
     ): int {
         $payload = [
             'gender' => $gender,
             'block' => 'Test Block',
             'guardian_name' => 'Guardian',
+            'category' => $category,
         ];
         if ($lakhpati !== null) {
             $payload['lakhpati'] = $lakhpati;
