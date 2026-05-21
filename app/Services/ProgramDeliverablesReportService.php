@@ -1043,8 +1043,8 @@ class ProgramDeliverablesReportService
         }
 
         $rows = $query
-            ->selectRaw('s.code as service_code, d.code as deliverable_code, sc.service_id, COUNT(*) as total')
-            ->groupBy('s.code', 'd.code', 'sc.service_id')
+            ->selectRaw('s.code as service_code, s.name as service_name, d.code as deliverable_code, d.name as deliverable_name, d.mis_entry_label as deliverable_label, sc.service_id, COUNT(*) as total')
+            ->groupBy('s.code', 's.name', 'd.code', 'd.name', 'd.mis_entry_label', 'sc.service_id')
             ->get();
 
         foreach ($rows as $row) {
@@ -1055,6 +1055,9 @@ class ProgramDeliverablesReportService
             foreach ($this->misCodesForAchievementKeys(
                 (string) ($row->service_code ?? ''),
                 (string) ($row->deliverable_code ?? ''),
+                (string) ($row->service_name ?? ''),
+                (string) ($row->deliverable_name ?? ''),
+                (string) ($row->deliverable_label ?? ''),
             ) as $misCode) {
                 $this->achievementByMisCode[$misCode] = ($this->achievementByMisCode[$misCode] ?? 0) + $total;
             }
@@ -1063,26 +1066,30 @@ class ProgramDeliverablesReportService
 
     private function serviceCaseAchievementDateExpression(): string
     {
-        if (Schema::hasColumn('service_cases', 'approved_at')) {
-            if (Schema::hasColumn('service_cases', 'completed_at')) {
-                return 'COALESCE(sc.approved_at, sc.completed_at, sc.created_at)';
+        $parts = [];
+        foreach (['approved_at', 'completed_at', 'delivered_on', 'submitted_at', 'created_at'] as $column) {
+            if (Schema::hasColumn('service_cases', $column)) {
+                $parts[] = 'sc.'.$column;
             }
-
-            return 'COALESCE(sc.approved_at, sc.created_at)';
         }
 
-        if (Schema::hasColumn('service_cases', 'completed_at')) {
-            return 'COALESCE(sc.completed_at, sc.created_at)';
+        if ($parts === []) {
+            return 'sc.created_at';
         }
 
-        return 'sc.created_at';
+        return count($parts) === 1 ? $parts[0] : 'COALESCE('.implode(', ', $parts).')';
     }
 
     /**
      * @return list<string>
      */
-    private function misCodesForAchievementKeys(string $serviceCode, string $deliverableCode): array
-    {
+    private function misCodesForAchievementKeys(
+        string $serviceCode,
+        string $deliverableCode,
+        string $serviceName = '',
+        string $deliverableName = '',
+        string $deliverableLabel = '',
+    ): array {
         $codes = [];
         $serviceCode = strtolower(trim($serviceCode));
         $deliverableCode = strtolower(trim($deliverableCode));
@@ -1105,6 +1112,40 @@ class ProgramDeliverablesReportService
             $misCode = strtolower(trim((string) $misCode));
             if ($serviceCode === $misCode || in_array($serviceCode, $aliases, true)) {
                 $codes[] = $misCode;
+            }
+            if ($serviceCode !== '' && str_contains($serviceCode, $misCode)) {
+                $codes[] = $misCode;
+            }
+            foreach ($aliases as $alias) {
+                $alias = strtolower(trim((string) $alias));
+                if ($alias === '') {
+                    continue;
+                }
+                if ($serviceCode === $alias || ($serviceCode !== '' && str_contains($serviceCode, $alias))) {
+                    $codes[] = $misCode;
+                }
+            }
+        }
+
+        $labelHaystack = $this->normalizeLabel(implode(' ', array_filter([
+            $serviceName,
+            $deliverableName,
+            $deliverableLabel,
+            $serviceCode,
+            $deliverableCode,
+        ])));
+
+        foreach (config('program_deliverables.achievement_deliverable_keywords', []) as $misCode => $keywords) {
+            if (! is_array($keywords)) {
+                continue;
+            }
+            $misCode = strtolower(trim((string) $misCode));
+            foreach ($keywords as $keyword) {
+                $keyword = $this->normalizeLabel((string) $keyword);
+                if ($keyword !== '' && str_contains($labelHaystack, $keyword)) {
+                    $codes[] = $misCode;
+                    break;
+                }
             }
         }
 

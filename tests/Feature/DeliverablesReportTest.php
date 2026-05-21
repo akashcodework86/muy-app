@@ -674,4 +674,82 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(750, $row['target']);
         $this->assertSame(2, $row['achievement']);
     }
+
+    public function test_fssai_achievement_matches_registration_renewal_service_name_without_deliverable_link(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'fssai-renewal-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'fssai-renewal-district',
+            'name' => 'FSSAI Renewal District',
+            'sort_order' => 1,
+        ]);
+
+        $child = ServiceCategory::query()->create(['slug' => 'legal-renewal', 'name' => 'Legal', 'sort_order' => 1]);
+        Deliverable::query()->create([
+            'sort_order' => 7,
+            'code' => 'fssai',
+            'name' => 'FSSAI registration / renewal',
+            'mis_entry_label' => 'FSSAI',
+            'is_active' => true,
+        ]);
+        $svcFssai = Deliverable::query()->create([
+            'sort_order' => 57,
+            'code' => 'svc_fssai',
+            'name' => 'FSSAI Service',
+            'mis_entry_label' => 'FSSAI',
+            'is_active' => true,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => null,
+            'code' => 'fssai_registration_renewal',
+            'name' => 'FSSAI Registration/Renewal',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $svcFssai->id,
+            'target_total' => 750,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'FSSAI Renewal Applicant',
+            'phone' => '9999999902',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-FSSAI-RENEW-1',
+            'submitted_at' => '2026-05-21 11:02:00',
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '4.2.2');
+
+        $this->assertNotNull($row);
+        $this->assertSame(750, $row['target']);
+        $this->assertSame(1, $row['achievement']);
+    }
 }

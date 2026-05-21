@@ -470,12 +470,25 @@ return [
             'udyam_registration', 'shop_establishment', 'company_registration',
             'uk_firm_registration', 'cooperative', 'already_registered',
         ],
-        'fssai' => ['fssai_registration', 'fssai_renewal'],
+        'fssai' => ['fssai_registration', 'fssai_renewal', 'fssai_registration_renewal'],
         'gst' => ['gst_registration'],
         'artisan_card' => ['artisan_card_registration'],
         'utdb_registration' => ['utdb_registration_bf', 'utdb_registration'],
         'trademark' => ['trademark_registration'],
         'gi_seller' => ['gi_seller_registration'],
+    ],
+
+    /*
+    | Match approved service cases to MIS rows when catalog code differs (name / label fallback).
+    */
+    'achievement_deliverable_keywords' => [
+        'fssai' => ['fssai'],
+        'gst' => ['gst'],
+        'artisan_card' => ['artisan card', 'artisan_card'],
+        'utdb_registration' => ['utdb'],
+        'trademark' => ['trademark'],
+        'gi_seller' => ['gi seller'],
+        'business_registration' => ['udyam', 'shop & establishment', 'company registration', 'cooperative'],
     ],
 
 ];
