@@ -465,7 +465,7 @@ return [
         'pitch_deck_prep' => ['pitch_deck'],
         'pitchathon_demo' => ['demo_days'],
         'market_link' => ['market_link', 'offline_connect'],
-        'bmc' => ['bmc_canvas'],
+        'bmc' => ['bmc_canvas', 'business_model_canvas', 'bmc'],
         'business_registration' => [
             'udyam_registration', 'shop_establishment', 'company_registration',
             'uk_firm_registration', 'cooperative', 'already_registered',
@@ -484,6 +484,7 @@ return [
     'achievement_deliverable_keywords' => [
         'fssai' => ['fssai'],
         'gst' => ['gst'],
+        'bmc' => ['business model canvas', 'bmc'],
         'artisan_card' => ['artisan card', 'artisan_card'],
         'utdb_registration' => ['utdb'],
         'trademark' => ['trademark'],

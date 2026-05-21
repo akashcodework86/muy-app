@@ -752,4 +752,90 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(750, $row['target']);
         $this->assertSame(1, $row['achievement']);
     }
+
+    public function test_bmc_achievement_counts_via_svc_deliverable_and_service_name(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'bmc-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bmc-district',
+            'name' => 'BMC District',
+            'sort_order' => 1,
+        ]);
+
+        $child = ServiceCategory::query()->create(['slug' => 'business_model_canvas_services', 'name' => 'Services', 'sort_order' => 1]);
+        Deliverable::query()->create([
+            'sort_order' => 5,
+            'code' => 'bmc',
+            'name' => 'Business Model Canvas',
+            'mis_entry_label' => 'Business Model Canvas',
+            'is_active' => true,
+        ]);
+        $svcBmc = Deliverable::query()->create([
+            'sort_order' => 55,
+            'code' => 'svc_bmc_canvas',
+            'name' => 'Business Model Canvas',
+            'mis_entry_label' => 'Business Model Canvas',
+            'is_active' => true,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcBmc->id,
+            'code' => 'business_model_canvas',
+            'name' => 'Business Model Canvas',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $svcBmc->id,
+            'target_total' => 6000,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'BMC Applicant',
+            'phone' => '9999999903',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-BMC-1',
+            'submitted_at' => '2026-05-10 09:00:00',
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-BMC-2',
+            'submitted_at' => '2026-05-12 14:30:00',
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '9.1');
+
+        $this->assertNotNull($row);
+        $this->assertSame(6000, $row['target']);
+        $this->assertSame(2, $row['achievement']);
+    }
 }
