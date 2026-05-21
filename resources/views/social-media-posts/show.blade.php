@@ -74,10 +74,11 @@
         </div>
         <div>
             <span class="smp-show-preview-label">Preview</span>
-            <div class="smp-preview-box smp-show-preview-box">
+            <div class="smp-preview-box smp-show-preview-box @if(($preview['mode'] ?? '') === 'instagram_embed') smp-preview-box--embed @endif">
                 @include('social-media-posts.partials.preview-panel', ['preview' => $preview])
             </div>
         </div>
     </div>
 </div>
+@include('social-media-posts.partials.preview-script')
 @endsection

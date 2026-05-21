@@ -211,11 +211,38 @@ class SocialMediaPostTest extends TestCase
         $this->assertDatabaseHas('social_media_posts', ['id' => $post->id]);
     }
 
+    public function test_preview_returns_instagram_embed_for_instagram_url(): void
+    {
+        Http::fake([
+            'https://www.instagram.com/api/v1/oembed/*' => Http::response([
+                'thumbnail_url' => 'https://cdninstagram.com/thumb.jpg',
+                'title' => 'Reel preview',
+                'author_name' => 'muy_uk',
+            ]),
+            'https://api.instagram.com/oembed*' => Http::response([], 404),
+        ]);
+
+        $sanjna = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        $url = 'https://www.instagram.com/p/DYFlvO0kQg9/';
+
+        $this->actingAs($sanjna)
+            ->getJson(route('spoc.social-media-posts.preview', ['url' => $url]))
+            ->assertOk()
+            ->assertJsonPath('mode', 'instagram_embed')
+            ->assertJsonPath('platform', 'Instagram')
+            ->assertJsonPath('url', $url);
+    }
+
     public function test_preview_returns_thumbnail_for_instagram_when_oembed_available(): void
     {
         Http::fake([
             'https://www.instagram.com/api/v1/oembed/*' => Http::response([
-                'thumbnail_url' => 'https://cdn.example.com/thumb.jpg',
+                'thumbnail_url' => 'https://cdninstagram.com/thumb.jpg',
                 'title' => 'Reel preview',
                 'author_name' => 'muy_uk',
             ]),
@@ -233,9 +260,9 @@ class SocialMediaPostTest extends TestCase
         $this->actingAs($sanjna)
             ->getJson(route('spoc.social-media-posts.preview', ['url' => $url]))
             ->assertOk()
-            ->assertJsonPath('mode', 'thumbnail')
+            ->assertJsonPath('mode', 'instagram_embed')
             ->assertJsonPath('platform', 'Instagram')
-            ->assertJsonPath('thumbnail_url', 'https://cdn.example.com/thumb.jpg');
+            ->assertJsonPath('url', $url);
     }
 
     public function test_preview_service_maps_youtube_to_embed(): void

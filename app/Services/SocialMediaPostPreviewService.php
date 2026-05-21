@@ -39,6 +39,10 @@ class SocialMediaPostPreviewService
 
         $host = $this->hostKey($url);
 
+        if ($this->hostMatchesSuffixes($host, ['instagram.com', 'www.instagram.com'])) {
+            return $this->instagramEmbedPreview($url);
+        }
+
         if ($youtubeEmbed = $this->youtubeEmbedSrc($url, $host)) {
             return [
                 'mode' => 'iframe',
@@ -225,7 +229,34 @@ class SocialMediaPostPreviewService
                     'thumbnail_url' => $thumbnail,
                     'title' => is_string($title) ? $title : null,
                     'author' => is_string($author) ? $author : null,
-                    'message' => $platform.' does not allow live embed here. Thumbnail preview shown.',
+                    'message' => $platform.' preview image.',
+                ];
+            }
+
+            $html = $data['html'] ?? null;
+            if (is_string($html) && trim($html) !== '' && str_contains(strtolower($html), 'instagram-media')) {
+                return [
+                    'mode' => 'instagram_embed',
+                    'platform' => $platform,
+                    'url' => $url,
+                    'iframe_src' => null,
+                    'thumbnail_url' => is_string($thumbnail) && $thumbnail !== '' ? $thumbnail : null,
+                    'title' => is_string($title) ? $title : null,
+                    'author' => is_string($author) ? $author : null,
+                    'message' => 'Instagram post embed.',
+                ];
+            }
+
+            if ((is_string($title) && $title !== '') || (is_string($author) && $author !== '')) {
+                return [
+                    'mode' => 'thumbnail',
+                    'platform' => $platform,
+                    'url' => $url,
+                    'iframe_src' => null,
+                    'thumbnail_url' => null,
+                    'title' => is_string($title) ? $title : null,
+                    'author' => is_string($author) ? $author : null,
+                    'message' => $platform.' does not allow a full in-page embed. Open the post link.',
                 ];
             }
         }
@@ -241,7 +272,7 @@ class SocialMediaPostPreviewService
         try {
             $response = Http::timeout(8)
                 ->withHeaders([
-                    'User-Agent' => 'Mozilla/5.0 (compatible; MUY-MIS/1.0; +preview)',
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
                     'Accept' => 'text/html,application/xhtml+xml',
                 ])
                 ->get($url);
@@ -336,7 +367,10 @@ class SocialMediaPostPreviewService
     {
         try {
             $response = Http::timeout(8)
-                ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; MUY-MIS/1.0; +preview)'])
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+                    'Accept' => 'application/json,text/html,application/xhtml+xml',
+                ])
                 ->get($url);
         } catch (\Throwable) {
             return null;
@@ -349,6 +383,75 @@ class SocialMediaPostPreviewService
         $data = $response->json();
 
         return is_array($data) ? $data : null;
+    }
+
+    public function shouldProxyThumbnail(string $rawUrl): bool
+    {
+        $url = $this->normalizeUrl($rawUrl);
+        if ($url === null) {
+            return false;
+        }
+
+        $host = $this->hostKey($url);
+
+        return $this->hostMatchesSuffixes($host, [
+            'cdninstagram.com',
+            'fbcdn.net',
+            'instagram.com',
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function instagramEmbedPreview(string $url): array
+    {
+        $meta = $this->fetchInstagramOembedMeta($url);
+
+        return [
+            'mode' => 'instagram_embed',
+            'platform' => 'Instagram',
+            'url' => $url,
+            'iframe_src' => null,
+            'thumbnail_url' => $meta['thumbnail_url'],
+            'title' => $meta['title'],
+            'author' => $meta['author'],
+            'message' => 'Instagram post preview loads below (Meta does not allow iframe embed).',
+        ];
+    }
+
+    /**
+     * @return array{thumbnail_url: ?string, title: ?string, author: ?string}
+     */
+    private function fetchInstagramOembedMeta(string $url): array
+    {
+        $endpoints = [
+            'https://www.instagram.com/api/v1/oembed/?url='.rawurlencode($url),
+            'https://api.instagram.com/oembed?url='.rawurlencode($url),
+        ];
+
+        foreach ($endpoints as $endpoint) {
+            $data = $this->httpJson($endpoint);
+            if ($data === null) {
+                continue;
+            }
+
+            $thumbnail = $data['thumbnail_url'] ?? null;
+            $title = $data['title'] ?? null;
+            $author = $data['author_name'] ?? null;
+
+            return [
+                'thumbnail_url' => is_string($thumbnail) && $thumbnail !== '' ? $thumbnail : null,
+                'title' => is_string($title) && $title !== '' ? $title : null,
+                'author' => is_string($author) && $author !== '' ? $author : null,
+            ];
+        }
+
+        return [
+            'thumbnail_url' => null,
+            'title' => null,
+            'author' => null,
+        ];
     }
 
     /**

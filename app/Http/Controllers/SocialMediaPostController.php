@@ -9,7 +9,9 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -43,8 +45,43 @@ class SocialMediaPostController extends Controller
         ]);
 
         return response()->json(
-            $this->previewService->resolve((string) $validated['url'])
+            $this->withProxiedThumbnail($request, $this->previewService->resolve((string) $validated['url']))
         );
+    }
+
+    public function thumbnail(Request $request): Response
+    {
+        $user = $request->user();
+        abort_unless(SocialMediaPostAccess::canSubmit($user) || $user->role === 'state_admin', 403);
+
+        $encoded = (string) $request->query('src', '');
+        $rawUrl = base64_decode(strtr($encoded, '-_', '+/'), true);
+        if (! is_string($rawUrl) || $rawUrl === '' || ! $this->previewService->shouldProxyThumbnail($rawUrl)) {
+            abort(400, 'Invalid thumbnail URL.');
+        }
+
+        try {
+            $response = Http::timeout(12)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+                    'Accept' => 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Referer' => 'https://www.instagram.com/',
+                ])
+                ->get($rawUrl);
+        } catch (\Throwable) {
+            abort(502, 'Could not fetch thumbnail.');
+        }
+
+        if (! $response->successful()) {
+            abort(502, 'Could not fetch thumbnail.');
+        }
+
+        $contentType = $response->header('Content-Type') ?: 'image/jpeg';
+
+        return response($response->body(), 200, [
+            'Content-Type' => $contentType,
+            'Cache-Control' => 'private, max-age=86400',
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -133,7 +170,7 @@ class SocialMediaPostController extends Controller
 
         $socialMediaPost->loadMissing(['submitter:id,name']);
 
-        $preview = $this->previewForPost($socialMediaPost);
+        $preview = $this->previewForPost($socialMediaPost, $request);
 
         return view('social-media-posts.show', [
             'row' => $socialMediaPost,
@@ -237,6 +274,43 @@ class SocialMediaPostController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $resolved
+     * @return array<string, mixed>
+     */
+    private function withProxiedThumbnail(Request $request, array $resolved): array
+    {
+        $thumb = $resolved['thumbnail_url'] ?? null;
+        if (! is_string($thumb) || $thumb === '' || ! $this->previewService->shouldProxyThumbnail($thumb)) {
+            return $resolved;
+        }
+
+        $routeName = $request->user()?->role === 'state_admin'
+            ? 'admin.social-media-posts.thumbnail'
+            : 'spoc.social-media-posts.thumbnail';
+
+        $resolved['thumbnail_url'] = route($routeName, [
+            'src' => rtrim(strtr(base64_encode($thumb), '+/', '-_'), '='),
+        ]);
+
+        return $resolved;
+    }
+
+    private function proxiedThumbnailUrl(Request $request, ?string $thumb): ?string
+    {
+        if (! is_string($thumb) || $thumb === '' || ! $this->previewService->shouldProxyThumbnail($thumb)) {
+            return $thumb;
+        }
+
+        $routeName = $request->user()?->role === 'state_admin'
+            ? 'admin.social-media-posts.thumbnail'
+            : 'spoc.social-media-posts.thumbnail';
+
+        return route($routeName, [
+            'src' => rtrim(strtr(base64_encode($thumb), '+/', '-_'), '='),
+        ]);
+    }
+
+    /**
      * @return array{platform: string|null, thumbnail_url: string|null, preview_title: string|null}
      */
     private function previewMetaForUrl(string $url): array
@@ -257,22 +331,31 @@ class SocialMediaPostController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function previewForPost(SocialMediaPost $post): array
+    private function previewForPost(SocialMediaPost $post, ?Request $request = null): array
     {
         if (is_string($post->thumbnail_url) && $post->thumbnail_url !== '') {
+            $thumb = $post->thumbnail_url;
+            if ($request !== null) {
+                $thumb = $this->proxiedThumbnailUrl($request, $thumb) ?? $thumb;
+            }
+
             return [
-                'mode' => 'thumbnail',
+                'mode' => str_contains(strtolower((string) $post->post_url), 'instagram.com')
+                    ? 'instagram_embed'
+                    : 'thumbnail',
                 'platform' => $post->platform ?: $this->previewService->platformLabel((string) $post->post_url),
                 'url' => (string) $post->post_url,
                 'iframe_src' => null,
-                'thumbnail_url' => $post->thumbnail_url,
+                'thumbnail_url' => $thumb,
                 'title' => $post->preview_title,
                 'author' => null,
-                'message' => ($post->platform ?: 'This platform').' thumbnail saved with entry.',
+                'message' => ($post->platform ?: 'This platform').' preview.',
             ];
         }
 
-        return $this->previewService->resolve((string) $post->post_url);
+        $resolved = $this->previewService->resolve((string) $post->post_url);
+
+        return $request !== null ? $this->withProxiedThumbnail($request, $resolved) : $resolved;
     }
 
     private function streamExportCsv(Collection $rows, string $filename): StreamedResponse

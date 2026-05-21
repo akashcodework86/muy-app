@@ -368,6 +368,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('district-workshop-sessions.attachment');
 
         Route::get('social-media-posts/preview', [SocialMediaPostController::class, 'preview'])->name('social-media-posts.preview');
+        Route::get('social-media-posts/thumbnail', [SocialMediaPostController::class, 'thumbnail'])->name('social-media-posts.thumbnail');
         Route::get('social-media-posts/create', [SocialMediaPostController::class, 'create'])->name('social-media-posts.create');
         Route::post('social-media-posts', [SocialMediaPostController::class, 'store'])
             ->middleware('throttle:30,1')
@@ -562,6 +563,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('district-workshop-sessions/{districtWorkshopSession}/attachment', [DistrictWorkshopSessionAttendanceController::class, 'downloadAttachment'])
             ->name('district-workshop-sessions.attachment');
         Route::get('social-media-posts/dashboard', [SocialMediaPostController::class, 'dashboard'])->name('social-media-posts.dashboard');
+        Route::get('social-media-posts/thumbnail', [SocialMediaPostController::class, 'thumbnail'])->name('social-media-posts.thumbnail');
         Route::get('social-media-posts/export', [SocialMediaPostController::class, 'export'])->name('social-media-posts.export');
         Route::get('social-media-posts/{socialMediaPost}', [SocialMediaPostController::class, 'show'])->name('social-media-posts.show');
         Route::delete('social-media-posts/{socialMediaPost}', [SocialMediaPostController::class, 'destroy'])

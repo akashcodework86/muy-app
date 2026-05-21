@@ -1,4 +1,5 @@
 <style>
+    .is-hidden { display: none !important; }
     .smp-preview-box {
         aspect-ratio: 1 / 1;
         width: 100%;
@@ -9,6 +10,11 @@
         background: #f8fafc;
         display: flex;
         flex-direction: column;
+    }
+    .smp-preview-box--embed {
+        aspect-ratio: auto;
+        min-height: 360px;
+        max-height: 560px;
     }
     .smp-preview-panel {
         flex: 1;
@@ -36,6 +42,28 @@
         height: 100%;
         object-fit: cover;
         display: block;
+    }
+    .smp-preview-panel__embed {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 0.35rem;
+        background: #fff;
+    }
+    .smp-preview-panel__embed .instagram-media,
+    .smp-preview-panel__embed iframe {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 auto !important;
+    }
+    .smp-preview-panel__embed--failed {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        font-size: 0.78rem;
+        color: #64748b;
+        text-align: center;
     }
     .smp-preview-panel__meta {
         padding: 0.5rem 0.65rem;

@@ -127,16 +127,35 @@
 
         if (mode === 'iframe' && iframeSrc) {
             inner = `<iframe class="smp-preview-panel__iframe" src="${iframeSrc}" title="Post preview" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        } else if (mode === 'instagram_embed' && url) {
+            inner = `
+                <div class="smp-preview-panel__embed" data-instagram-url="${url}">
+                    <blockquote class="instagram-media" data-instgrm-captioned data-instgrm-permalink="${url}" data-instgrm-version="14"
+                        style="background:#FFF;border:0;border-radius:12px;box-shadow:0 0 1px rgba(0,0,0,.12);margin:0 auto;max-width:100%;min-width:280px;padding:0;width:100%;">
+                        <a href="${url}" target="_blank" rel="noopener noreferrer">View this post on Instagram</a>
+                    </blockquote>
+                </div>
+                ${(title || author) ? `<div class="smp-preview-panel__meta">
+                    ${platform ? `<span class="smp-preview-panel__platform">${platform}</span>` : ''}
+                    ${title ? `<p class="smp-preview-panel__title">${title}</p>` : ''}
+                    ${author ? `<p class="smp-preview-panel__author">${author}</p>` : ''}
+                </div>` : ''}`;
         } else if (mode === 'thumbnail' && thumb) {
             inner = `
                 <a class="smp-preview-panel__thumb-link" href="${url}" target="_blank" rel="noopener noreferrer">
-                    <img class="smp-preview-panel__thumb" src="${thumb}" alt="${title || 'Post preview'}" loading="lazy" referrerpolicy="no-referrer">
+                    <img class="smp-preview-panel__thumb" src="${thumb}" alt="${title || 'Post preview'}" loading="lazy">
                 </a>
                 <div class="smp-preview-panel__meta">
                     ${platform ? `<span class="smp-preview-panel__platform">${platform}</span>` : ''}
                     ${title ? `<p class="smp-preview-panel__title">${title}</p>` : ''}
                     ${author ? `<p class="smp-preview-panel__author">${author}</p>` : ''}
                 </div>`;
+        } else if (mode === 'thumbnail' && (title || author)) {
+            inner = `<div class="smp-preview-panel__meta" style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:1rem;">
+                ${platform ? `<span class="smp-preview-panel__platform">${platform}</span>` : ''}
+                ${title ? `<p class="smp-preview-panel__title">${title}</p>` : ''}
+                ${author ? `<p class="smp-preview-panel__author">${author}</p>` : ''}
+            </div>`;
         } else if (mode === 'card' && url) {
             inner = `
                 <div class="smp-preview-panel__card">
@@ -155,6 +174,10 @@
             : '';
 
         box.innerHTML = `<div class="smp-preview-panel" data-mode="${mode}">${inner}${footer}</div>`;
+        box.classList.toggle('smp-preview-box--embed', mode === 'instagram_embed');
+        if (mode === 'instagram_embed' && window.smpMountInstagramEmbeds) {
+            window.smpMountInstagramEmbeds(box);
+        }
     }
 
     async function updatePreview() {
@@ -204,5 +227,6 @@
     }
 })();
 </script>
+@include('social-media-posts.partials.preview-script')
 @endpush
 @endsection
