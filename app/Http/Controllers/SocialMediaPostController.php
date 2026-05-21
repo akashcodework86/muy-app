@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -33,10 +34,18 @@ class SocialMediaPostController extends Controller
             : 'spoc.social-media-posts.dashboard';
 
         if ($user->role === 'state_staff' && SocialMediaPostAccess::canSubmit($user)) {
-            return redirect()->route('spoc.social-media-posts.create');
+            if (Route::has('spoc.social-media-posts.create')) {
+                return redirect()->route('spoc.social-media-posts.create');
+            }
+
+            return redirect()->to(url('/spoc/social-media-posts/create'));
         }
 
-        return redirect()->route($dashboardRoute);
+        if (Route::has($dashboardRoute)) {
+            return redirect()->route($dashboardRoute);
+        }
+
+        return redirect()->to(url('/spoc/social-media-posts/dashboard'));
     }
 
     public function create(Request $request): View
@@ -49,7 +58,9 @@ class SocialMediaPostController extends Controller
             'migrationMissing' => ! $this->socialMediaPostsReady(),
             'storeRoute' => 'spoc.social-media-posts.store',
             'dashboardRoute' => 'spoc.social-media-posts.dashboard',
-            'previewRoute' => 'spoc.social-media-posts.preview',
+            'previewUrl' => Route::has('spoc.social-media-posts.preview')
+                ? route('spoc.social-media-posts.preview')
+                : null,
             'platformOptions' => SocialMediaPostPlatforms::options(),
         ]);
     }

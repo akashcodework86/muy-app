@@ -419,6 +419,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('ops/migrations', [MigrationOpsController::class, 'index'])->name('ops.migrations');
         Route::post('ops/migrations/run', [MigrationOpsController::class, 'run'])->name('ops.migrations.run');
+        Route::post('ops/migrations/clear-cache', [MigrationOpsController::class, 'clearCache'])->name('ops.migrations.clear-cache');
         Route::get('ops/migrations/sql/{bundle}', [MigrationOpsController::class, 'downloadSql'])
             ->where('bundle', '[A-Za-z0-9_-]+')
             ->name('ops.migrations.sql');

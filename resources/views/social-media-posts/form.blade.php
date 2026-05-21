@@ -141,7 +141,7 @@
     const urlInput = document.getElementById('post_url');
     const box = document.getElementById('smpPreviewBox');
     const loading = document.getElementById('smpPreviewLoading');
-    const previewUrl = @json(route($previewRoute));
+    const previewUrl = @json($previewUrl ?? null);
     const csrf = @json(csrf_token());
     let debounceTimer = null;
     let fetchController = null;
@@ -250,6 +250,11 @@
         if (!raw) {
             loading?.classList.add('is-hidden');
             renderPreview({ mode: 'empty', message: 'Enter a valid URL to preview the post here.' });
+            return;
+        }
+
+        if (!previewUrl) {
+            renderPreview({ mode: 'card', platform: 'Link', url: raw, message: 'Live preview unavailable. Save the URL and open the post to verify.' });
             return;
         }
 

@@ -40,6 +40,16 @@ class MigrationOpsTest extends TestCase
             ->assertHeader('content-disposition');
     }
 
+    public function test_state_admin_can_clear_cache_from_migration_ops_page(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.ops.migrations.clear-cache'))
+            ->assertOk()
+            ->assertSee('Cache cleared');
+    }
+
     public function test_state_admin_can_run_pending_migrations(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);

@@ -53,4 +53,19 @@ class MigrationOpsController extends Controller
             'Content-Type' => 'application/sql; charset=UTF-8',
         ]);
     }
+
+    public function clearCache(): View
+    {
+        $result = $this->migrationOps->clearApplicationCaches();
+
+        return view('admin.ops.migrations', [
+            'pending' => $this->migrationOps->pendingMigrationNames(),
+            'ranCount' => count($this->migrationOps->ranMigrationNames()),
+            'moduleChecks' => $this->migrationOps->moduleHealthChecks(),
+            'sqlBundles' => $this->migrationOps->downloadableSqlBundles(),
+            'hasMigrationsTable' => \Illuminate\Support\Facades\Schema::hasTable('migrations'),
+            'cacheResult' => $result,
+            'cacheRanAt' => now(),
+        ]);
+    }
 }

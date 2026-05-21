@@ -35,7 +35,16 @@
         .mig-confirm { display:flex; align-items:center; gap:0.45rem; font-size:0.84rem; color:#334155; margin-top:0.55rem; }
     </style>
 
-    <div class="mig-shell">
+        @if (!empty($cacheResult))
+            <div class="mig-alert {{ ($cacheResult['exit_code'] ?? 1) === 0 ? 'mig-alert--ok' : 'mig-alert--err' }}">
+                <strong>{{ ($cacheResult['exit_code'] ?? 1) === 0 ? 'Cache cleared.' : 'Some cache commands failed.' }}</strong>
+                @if (!empty($cacheRanAt))
+                    Ran at {{ $cacheRanAt->format('d M Y H:i:s') }}
+                @endif
+            </div>
+        @endif
+
+        <div class="mig-shell">
         @if (!empty($runResult))
             <div class="mig-alert {{ $runOk ? 'mig-alert--ok' : 'mig-alert--err' }}">
                 <strong>{{ $runOk ? 'Migrations completed.' : 'Migration run failed.' }}</strong>
@@ -59,6 +68,15 @@
                 <li><code>app/</code>, <code>routes/</code>, <code>resources/views/</code> — jo feature ke files hain</li>
                 <li>Upload ke baad is page par wapas aayein</li>
             </ol>
+        </div>
+
+        <div class="mig-card">
+            <h3>Step 2b — Clear cache (after upload)</h3>
+            <p>Naye routes/views upload karne ke baad cache clear karna zaroori hai. Warna purana route cache 500 error de sakta hai.</p>
+            <form method="post" action="{{ route('admin.ops.migrations.clear-cache') }}" class="mig-actions">
+                @csrf
+                <button type="submit" class="mig-btn mig-btn--ghost">Clear route / view / config cache</button>
+            </form>
         </div>
 
         <div class="mig-card">
@@ -114,7 +132,8 @@
         </div>
 
         <div class="mig-card">
-            <h3>Module health check</h3>
+            <h3>Deploy + database health check</h3>
+            <p>Social media 500 error ke liye sab <strong>OK</strong> hona chahiye. Jo <strong>Fix needed</strong> dikhe, woh file cPanel se upload karein.</p>
             <div class="mig-checks">
                 @foreach ($moduleChecks as $check)
                     <div class="mig-check">
