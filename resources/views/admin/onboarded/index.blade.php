@@ -351,6 +351,121 @@
         vertical-align: top;
     }
     .muted { color: #64748b; font-size: 0.79rem; }
+
+    /* ── Target progress ── */
+    .onb-target {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 1rem 1.1rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .onb-target__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+    }
+    .onb-target__title {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+    .onb-target__sub {
+        margin: 0.2rem 0 0;
+        font-size: 0.78rem;
+        color: #64748b;
+    }
+    .onb-target__stats {
+        text-align: right;
+        font-size: 0.78rem;
+        color: #475569;
+        line-height: 1.45;
+    }
+    .onb-target__stats strong {
+        display: block;
+        font-size: 1.25rem;
+        color: #4338ca;
+        line-height: 1.1;
+    }
+    .onb-target__bar {
+        height: 10px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+    }
+    .onb-target__bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #4f46e5, #14b8a6);
+    }
+    .onb-target__meta {
+        margin-top: 0.55rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem 0.85rem;
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+    .onb-target__meta strong { color: #334155; }
+
+    /* ── Insights + sector ── */
+    .onb-analysis-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+        gap: 0.75rem;
+    }
+    @media (max-width: 900px) { .onb-analysis-grid { grid-template-columns: 1fr; } }
+
+    .onb-panel {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 0.95rem 1.05rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .onb-panel__title {
+        margin: 0 0 0.65rem;
+        font-size: 0.88rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+    .onb-insights {
+        margin: 0;
+        padding-left: 1.1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+        font-size: 0.82rem;
+        color: #334155;
+        line-height: 1.45;
+    }
+    .onb-sector-list { display: flex; flex-direction: column; gap: 0.55rem; }
+    .onb-sector-row__top {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-size: 0.78rem;
+        color: #475569;
+        margin-bottom: 0.25rem;
+    }
+    .onb-sector-row__top strong { color: #0f172a; font-size: 0.8rem; }
+    .onb-sector-row__bar {
+        height: 7px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        overflow: hidden;
+    }
+    .onb-sector-row__bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    }
 </style>
 @endpush
 
@@ -358,6 +473,9 @@
 @php
     $overview = $overview ?? [];
     $districtSummaries = $districtSummaries ?? [];
+    $targetProgress = $targetProgress ?? [];
+    $sectorBreakdown = $sectorBreakdown ?? [];
+    $insights = $insights ?? [];
     $activeDistrict = (int) ($filters['district'] ?? 0);
     $routeIndex = $routeIndex ?? 'admin.onboarded.index';
     $filterQuery = array_filter([
@@ -415,6 +533,80 @@
         </div>
     </div>
 
+    @if (($targetProgress['configured'] ?? false) && (int) ($targetProgress['target'] ?? 0) > 0)
+        @php
+            $targetPct = min(100, max(0, (int) ($targetProgress['progress_pct'] ?? 0)));
+        @endphp
+        <div class="onb-target">
+            <div class="onb-target__head">
+                <div>
+                    <h3 class="onb-target__title">{{ $targetProgress['label'] ?? 'Onboarding target' }}</h3>
+                    <p class="onb-target__sub">
+                        FY {{ $targetProgress['fiscal_year'] ?? '—' }} · locked batch onboarding (search filter excluded from progress count)
+                    </p>
+                </div>
+                <div class="onb-target__stats">
+                    <strong>{{ number_format((int) ($targetProgress['achieved'] ?? 0)) }} / {{ number_format((int) ($targetProgress['target'] ?? 0)) }}</strong>
+                    {{ $targetPct }}% achieved
+                </div>
+            </div>
+            <div class="onb-target__bar" aria-hidden="true">
+                <span style="width: {{ max(3, $targetPct) }}%;"></span>
+            </div>
+            <div class="onb-target__meta">
+                @if ((int) ($targetProgress['gap'] ?? 0) > 0)
+                    <span><strong>{{ number_format((int) $targetProgress['gap']) }}</strong> remaining</span>
+                @else
+                    <span><strong>Target met</strong></span>
+                @endif
+                @if (! is_null($targetProgress['expected_pct_by_now'] ?? null))
+                    <span>Expected by now: <strong>{{ (int) $targetProgress['expected_pct_by_now'] }}%</strong> of FY timeline</span>
+                @endif
+                @if (! is_null($targetProgress['pace_delta'] ?? null))
+                    @php $paceDelta = (int) $targetProgress['pace_delta']; @endphp
+                    <span>
+                        FY pace:
+                        <strong>@if ($paceDelta >= 0)+@endif{{ number_format($paceDelta) }}</strong>
+                        vs expected
+                    </span>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    @if ($insights !== [] || (($sectorBreakdown['rows'] ?? []) !== []))
+        <div class="onb-analysis-grid">
+            @if ($insights !== [])
+                <div class="onb-panel">
+                    <h3 class="onb-panel__title">Key insights</h3>
+                    <ul class="onb-insights">
+                        @foreach ($insights as $insight)
+                            <li>{{ $insight }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+            @if (($sectorBreakdown['rows'] ?? []) !== [])
+                <div class="onb-panel">
+                    <h3 class="onb-panel__title">Sector mix (Phase 3)</h3>
+                    <div class="onb-sector-list">
+                        @foreach ($sectorBreakdown['rows'] as $sectorRow)
+                            <div class="onb-sector-row">
+                                <div class="onb-sector-row__top">
+                                    <strong>{{ $sectorRow['sector'] }}</strong>
+                                    <span>{{ number_format((int) $sectorRow['count']) }} · {{ (int) $sectorRow['pct'] }}%</span>
+                                </div>
+                                <div class="onb-sector-row__bar" aria-hidden="true">
+                                    <span style="width: {{ max(4, (int) $sectorRow['pct']) }}%;"></span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </div>
+    @endif
+
     {{-- District-wise cards --}}
     @if ($districtSummaries !== [])
         <div>
@@ -461,6 +653,9 @@
                             <span><strong>{{ $districtRow['share_pct'] }}%</strong> share</span>
                             <span><strong>{{ $districtRow['female_pct'] }}%</strong> women</span>
                             <span><strong>{{ number_format((int) ($districtRow['lakhpati_yes_count'] ?? 0)) }}</strong> Lakhpati ({{ $districtRow['lakhpati_yes_pct'] ?? 0 }}%)</span>
+                            @if ((int) ($districtRow['target'] ?? 0) > 0)
+                                <span><strong>{{ (int) ($districtRow['target_progress_pct'] ?? 0) }}%</strong> of target</span>
+                            @endif
                             @if ((int) $districtRow['recent_7_days'] > 0)
                                 <span><strong>+{{ number_format((int) $districtRow['recent_7_days']) }}</strong> this week</span>
                             @endif

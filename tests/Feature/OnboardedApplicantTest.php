@@ -3,7 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\District;
+use App\Models\DistrictDeliverableTarget;
+use App\Models\Deliverable;
+use App\Models\FiscalYear;
 use App\Models\Hub;
+use App\Models\StateDeliverableTarget;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -60,6 +64,33 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSeeText('1 Lakhpati (50%)');
     }
 
+    public function test_onboarded_page_shows_target_progress_insights_and_sector_breakdown(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $districtA = $this->createDistrict('almora', 'Almora');
+        $districtB = $this->createDistrict('nainital', 'Nainital');
+        $this->seedOnboardingTargets($districtA, $districtB, stateTarget: 10);
+
+        $this->seedOnboardedApplicant($districtA, '40805001', 'Homestay Applicant', 'female', null, 'phase3', 'Homestay');
+        $this->seedOnboardedApplicant($districtA, '40805002', 'Agri Applicant', 'male', null, 'phase3', 'Agri Allied');
+        $this->seedOnboardedApplicant($districtB, '40805003', 'Another Homestay', 'female', null, 'phase3', 'Homestay');
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
+
+        $response->assertOk();
+        $response->assertSee('State onboarding target');
+        $response->assertSee('3 / 10');
+        $response->assertSee('Key insights');
+        $response->assertSee('Sector mix (Phase 3)');
+        $response->assertSee('Homestay');
+        $response->assertSee('Top sector: Homestay');
+        $response->assertSee('Almora leads with');
+    }
+
     public function test_district_filter_limits_applicant_list(): void
     {
         $admin = User::factory()->create([
@@ -89,6 +120,7 @@ class OnboardedApplicantTest extends TestCase
         string $gender,
         ?string $lakhpati = null,
         string $source = 'phase3',
+        ?string $businessCategory = null,
     ): int {
         $payload = [
             'gender' => $gender,
@@ -97,6 +129,9 @@ class OnboardedApplicantTest extends TestCase
         ];
         if ($lakhpati !== null) {
             $payload['lakhpati'] = $lakhpati;
+        }
+        if ($businessCategory !== null) {
+            $payload['business_category'] = $businessCategory;
         }
 
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
@@ -129,6 +164,45 @@ class OnboardedApplicantTest extends TestCase
         ]);
 
         return $cfaId;
+    }
+
+    private function seedOnboardingTargets(District $districtA, District $districtB, int $stateTarget): void
+    {
+        $fiscalYear = FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => '2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+
+        $deliverable = Deliverable::query()->create([
+            'sort_order' => 4,
+            'code' => 'onboarding',
+            'name' => 'Number of Incubatees Onboarded',
+            'mis_entry_label' => 'Onboarded Incubatees',
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fiscalYear->id,
+            'deliverable_id' => $deliverable->id,
+            'target_total' => $stateTarget,
+        ]);
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fiscalYear->id,
+            'district_id' => $districtA->id,
+            'deliverable_id' => $deliverable->id,
+            'target_total' => 5,
+        ]);
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fiscalYear->id,
+            'district_id' => $districtB->id,
+            'deliverable_id' => $deliverable->id,
+            'target_total' => 5,
+        ]);
     }
 
     private function createDistrict(string $slug, string $name): District

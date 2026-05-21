@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Deliverable;
 use App\Models\District;
+use App\Models\DistrictDeliverableTarget;
 use App\Models\DistrictServiceSpoc;
+use App\Models\FiscalYear;
 use App\Models\Hub;
+use App\Models\StateDeliverableTarget;
+use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +42,9 @@ class OnboardedApplicantController extends Controller
         $rows = $this->paginateMergedRows($mergedRows, $request, 30);
         $overview = $this->overviewStats($hubId, $districtId, $q, $scope);
         $districtSummaries = $this->districtSummaries($hubId, $q, $scope);
+        $targetProgress = $this->targetProgress($hubId, $districtId, $scope);
+        $sectorBreakdown = $this->sectorBreakdown($hubId, $districtId, $q, $scope);
+        $insights = $this->buildInsights($overview, $districtSummaries, $targetProgress, $sectorBreakdown, $districtId);
 
         return view('admin.onboarded.index', [
             'rows' => $rows,
@@ -45,6 +53,9 @@ class OnboardedApplicantController extends Controller
             'commonColumns' => $commonColumns,
             'overview' => $overview,
             'districtSummaries' => $districtSummaries,
+            'targetProgress' => $targetProgress,
+            'sectorBreakdown' => $sectorBreakdown,
+            'insights' => $insights,
             'filters' => [
                 'hub' => $hubId,
                 'district' => $districtId,
@@ -360,15 +371,24 @@ class OnboardedApplicantController extends Controller
             ->get();
 
         $grandTotal = max(1, (int) $rows->sum('total'));
+        $districtIds = $rows
+            ->pluck('district_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
+        $targetsByDistrict = $this->onboardingTargetsByDistrictIds($districtIds);
 
         return $rows
-            ->map(function ($row) use ($grandTotal): array {
+            ->map(function ($row) use ($grandTotal, $targetsByDistrict): array {
                 $total = (int) $row->total;
                 $female = (int) $row->female_count;
                 $lakhpatiYes = (int) ($row->lakhpati_yes_count ?? 0);
+                $districtId = (int) ($row->district_id ?? 0);
+                $target = (int) ($targetsByDistrict[$districtId] ?? 0);
 
                 return [
-                    'district_id' => (int) ($row->district_id ?? 0),
+                    'district_id' => $districtId,
                     'district_name' => (string) $row->district_name,
                     'hub_name' => (string) ($row->hub_name ?? ''),
                     'total' => $total,
@@ -376,6 +396,9 @@ class OnboardedApplicantController extends Controller
                     'female_pct' => $total > 0 ? (int) round(($female / $total) * 100) : 0,
                     'lakhpati_yes_count' => $lakhpatiYes,
                     'lakhpati_yes_pct' => $total > 0 ? (int) round(($lakhpatiYes / $total) * 100) : 0,
+                    'target' => $target,
+                    'target_progress_pct' => $target > 0 ? (int) round(($total / $target) * 100) : null,
+                    'target_gap' => $target > 0 ? max(0, $target - $total) : null,
                     'recent_7_days' => (int) ($row->recent_7_days ?? 0),
                     'share_pct' => (int) round(($total / $grandTotal) * 100),
                     'last_onboarded_at' => $row->last_onboarded_at,
@@ -865,5 +888,304 @@ class OnboardedApplicantController extends Controller
                 AND LOWER(TRIM(COALESCE({$lakhpatiJson}, ''))) = 'yes'
             THEN 1 ELSE 0
         END)";
+    }
+
+    private function phase3CfaSourceSql(): string
+    {
+        return "LOWER(TRIM(COALESCE(cs.source, ''))) NOT IN ('legacy_phase2', 'rbiphase2')";
+    }
+
+    private function sectorLabelSql(): string
+    {
+        $category = $this->payloadJson('$.business_category');
+        $appCategory = $this->payloadJson('$.app_business_category');
+
+        return "COALESCE(NULLIF(TRIM({$category}), ''), NULLIF(TRIM({$appCategory}), ''), 'Not recorded')";
+    }
+
+    private function onboardingAchievedCount(?int $hubId, ?int $districtId, array $scope): int
+    {
+        $query = $this->phase3BaseQuery($scope);
+        $this->applyPhase3Filters($query, $hubId, $districtId, '');
+
+        return (int) $query->count();
+    }
+
+    /** @return list<int> */
+    private function resolveTargetDistrictIds(?int $hubId, ?int $districtId, array $scope): array
+    {
+        if ($districtId) {
+            return [$districtId];
+        }
+
+        $query = District::query()->orderBy('id');
+        if ($hubId) {
+            $query->where('hub_id', $hubId);
+        }
+        $allowedDistrictIds = $scope['district_ids'] ?? null;
+        if (is_array($allowedDistrictIds)) {
+            $query->whereIn('id', $allowedDistrictIds);
+        }
+
+        return $query
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
+    }
+
+    /** @return array<string, mixed> */
+    private function targetProgress(?int $hubId, ?int $districtId, array $scope): array
+    {
+        $achieved = $this->onboardingAchievedCount($hubId, $districtId, $scope);
+        $districtIds = $this->resolveTargetDistrictIds($hubId, $districtId, $scope);
+        $onboardingDeliverableId = Deliverable::onboardingTargetDeliverableId();
+        $activeFy = FiscalYear::phase3Default();
+
+        $empty = [
+            'configured' => false,
+            'achieved' => $achieved,
+            'target' => null,
+            'progress_pct' => null,
+            'gap' => null,
+            'label' => 'Onboarding target',
+            'fiscal_year' => null,
+            'expected_pct_by_now' => null,
+            'pace_delta' => null,
+        ];
+
+        if ($onboardingDeliverableId === null || ! $activeFy || $districtIds === []) {
+            return $empty;
+        }
+
+        $target = 0;
+        $label = 'Onboarding target';
+
+        if ($districtId && count($districtIds) === 1) {
+            $target = (int) ($this->onboardingTargetsByDistrictIds($districtIds)[$districtId] ?? 0);
+            $districtName = District::query()->whereKey($districtId)->value('name');
+            $label = ($districtName ? $districtName.' — ' : '').'district onboarding target';
+        } elseif ($hubId) {
+            $target = (int) $this->onboardingTargetsByDistrictIds($districtIds)->sum();
+            $hubName = Hub::query()->whereKey($hubId)->value('name');
+            $label = ($hubName ? $hubName.' — ' : '').'hub onboarding target';
+        } elseif (is_array($scope['district_ids'] ?? null)) {
+            $target = (int) $this->onboardingTargetsByDistrictIds($districtIds)->sum();
+            $label = 'Scoped districts onboarding target';
+        } else {
+            $stateTarget = (int) StateDeliverableTarget::query()
+                ->where('fiscal_year_id', (int) $activeFy->id)
+                ->where('deliverable_id', $onboardingDeliverableId)
+                ->value('target_total');
+            $districtSum = (int) $this->onboardingTargetsByDistrictIds(
+                District::query()->pluck('id')->map(fn ($id) => (int) $id)->all()
+            )->sum();
+            $target = $stateTarget > 0 ? $stateTarget : $districtSum;
+            $label = 'State onboarding target';
+        }
+
+        if ($target <= 0) {
+            return array_merge($empty, [
+                'label' => $label,
+                'fiscal_year' => (string) ($activeFy->code ?? $activeFy->name),
+            ]);
+        }
+
+        $expectedPctByNow = $this->expectedFyProgressPctByNow($activeFy);
+        $expectedAchievedByNow = $expectedPctByNow !== null
+            ? (int) round(($target * $expectedPctByNow) / 100)
+            : null;
+        $paceDelta = $expectedAchievedByNow !== null ? ($achieved - $expectedAchievedByNow) : null;
+
+        return [
+            'configured' => true,
+            'achieved' => $achieved,
+            'target' => $target,
+            'progress_pct' => (int) round(($achieved / $target) * 100),
+            'gap' => max(0, $target - $achieved),
+            'label' => $label,
+            'fiscal_year' => (string) ($activeFy->code ?? $activeFy->name),
+            'expected_pct_by_now' => $expectedPctByNow,
+            'pace_delta' => $paceDelta,
+        ];
+    }
+
+    /** @return \Illuminate\Support\Collection<int|string, int> */
+    private function onboardingTargetsByDistrictIds(array $districtIds): Collection
+    {
+        if ($districtIds === []) {
+            return collect();
+        }
+
+        $onboardingDeliverableId = Deliverable::onboardingTargetDeliverableId();
+        $activeFy = FiscalYear::phase3Default();
+        if ($onboardingDeliverableId === null || ! $activeFy) {
+            return collect();
+        }
+
+        return DistrictDeliverableTarget::query()
+            ->where('fiscal_year_id', (int) $activeFy->id)
+            ->where('deliverable_id', $onboardingDeliverableId)
+            ->whereIn('district_id', $districtIds)
+            ->selectRaw('district_id, SUM(target_total) as target_total')
+            ->groupBy('district_id')
+            ->pluck('target_total', 'district_id')
+            ->map(fn ($total) => (int) $total);
+    }
+
+    /** @return array<string, mixed> */
+    private function sectorBreakdown(?int $hubId, ?int $districtId, string $q, array $scope): array
+    {
+        $query = $this->phase3BaseQuery($scope);
+        $this->applyPhase3Filters($query, $hubId, $districtId, $q);
+        $query->whereRaw($this->phase3CfaSourceSql());
+
+        $sectorExpr = $this->sectorLabelSql();
+        $rows = $query
+            ->selectRaw("{$sectorExpr} as sector_label, COUNT(*) as total")
+            ->groupByRaw($sectorExpr)
+            ->orderByDesc('total')
+            ->get();
+
+        $grandTotal = max(1, (int) $rows->sum('total'));
+        $topLimit = 6;
+        $topRows = $rows->take($topLimit);
+        $otherTotal = (int) $rows->slice($topLimit)->sum('total');
+
+        $mapped = $topRows
+            ->map(fn ($row) => [
+                'sector' => (string) $row->sector_label,
+                'count' => (int) $row->total,
+                'pct' => (int) round(((int) $row->total / $grandTotal) * 100),
+            ])
+            ->values()
+            ->all();
+
+        if ($otherTotal > 0) {
+            $mapped[] = [
+                'sector' => 'Other sectors',
+                'count' => $otherTotal,
+                'pct' => (int) round(($otherTotal / $grandTotal) * 100),
+            ];
+        }
+
+        return [
+            'total' => (int) $rows->sum('total'),
+            'rows' => $mapped,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $districtSummaries
+     * @param  array<string, mixed>  $targetProgress
+     * @param  array<string, mixed>  $sectorBreakdown
+     * @return list<string>
+     */
+    private function buildInsights(
+        array $overview,
+        array $districtSummaries,
+        array $targetProgress,
+        array $sectorBreakdown,
+        ?int $districtId,
+    ): array {
+        $insights = [];
+
+        if (($targetProgress['configured'] ?? false) && (int) ($targetProgress['target'] ?? 0) > 0) {
+            $achieved = (int) ($targetProgress['achieved'] ?? 0);
+            $target = (int) $targetProgress['target'];
+            $progressPct = (int) ($targetProgress['progress_pct'] ?? 0);
+            $gap = (int) ($targetProgress['gap'] ?? 0);
+            $paceDelta = $targetProgress['pace_delta'] ?? null;
+
+            if ($progressPct >= 100) {
+                $insights[] = "FY onboarding target achieved ({$achieved} of {$target}).";
+            } elseif ($gap > 0) {
+                $insights[] = "{$gap} more onboardings needed to reach the FY target ({$progressPct}% complete).";
+            }
+
+            if ($paceDelta !== null) {
+                if ($paceDelta >= 0 && $progressPct < 100) {
+                    $insights[] = 'On track for FY timeline — achieved count meets expected pace for this point in the year.';
+                } elseif ($paceDelta < 0) {
+                    $behind = abs((int) $paceDelta);
+                    $insights[] = "Behind FY pace by about {$behind} onboardings compared with expected progress today.";
+                }
+            }
+        } elseif (! ($targetProgress['configured'] ?? false)) {
+            $insights[] = 'Onboarding target is not configured for this view — set state/district targets to track progress.';
+        }
+
+        if ($districtId === null && $districtSummaries !== []) {
+            $top = $districtSummaries[0];
+            if ((int) ($top['total'] ?? 0) > 0) {
+                $insights[] = ($top['district_name'] ?? 'Top district').' leads with '
+                    .number_format((int) $top['total']).' onboarded ('.(int) ($top['share_pct'] ?? 0).'% share).';
+            }
+        }
+
+        if (! is_null($overview['female_pct'] ?? null) && (int) ($overview['total'] ?? 0) > 0) {
+            $insights[] = 'Women represent '.(int) $overview['female_pct'].'% of recorded gender in the current scope.';
+        }
+
+        if ((int) ($overview['lakhpati_yes_count'] ?? 0) > 0 && ! is_null($overview['lakhpati_yes_pct'] ?? null)) {
+            $insights[] = number_format((int) $overview['lakhpati_yes_count']).' Lakhpati Didis marked Yes ('
+                .(int) $overview['lakhpati_yes_pct'].'% of onboarded).';
+        }
+
+        if (count($districtSummaries) > 1) {
+            $bestLakhpati = collect($districtSummaries)
+                ->filter(fn (array $row) => (int) ($row['total'] ?? 0) > 0)
+                ->sortByDesc(fn (array $row) => (int) ($row['lakhpati_yes_pct'] ?? 0))
+                ->first();
+            if ($bestLakhpati && (int) ($bestLakhpati['lakhpati_yes_pct'] ?? 0) > 0) {
+                $insights[] = 'Highest Lakhpati rate: '.($bestLakhpati['district_name'] ?? 'District')
+                    .' at '.(int) $bestLakhpati['lakhpati_yes_pct'].'%.';
+            }
+
+            $inactive = collect($districtSummaries)
+                ->filter(fn (array $row) => (int) ($row['total'] ?? 0) > 0 && (int) ($row['recent_7_days'] ?? 0) === 0)
+                ->count();
+            if ($inactive > 0) {
+                $insights[] = "{$inactive} district(s) had no onboarding in the last 7 days.";
+            }
+        }
+
+        $sectorRows = (array) ($sectorBreakdown['rows'] ?? []);
+        if ($sectorRows !== [] && (int) ($sectorBreakdown['total'] ?? 0) > 0) {
+            $topSector = $sectorRows[0];
+            if (($topSector['sector'] ?? '') !== 'Not recorded') {
+                $insights[] = 'Top sector: '.($topSector['sector'] ?? 'Unknown')
+                    .' ('.(int) ($topSector['pct'] ?? 0).'% of Phase 3 onboarded).';
+            }
+        }
+
+        if ((int) ($overview['this_month'] ?? 0) > 0) {
+            $insights[] = number_format((int) $overview['this_month']).' onboarded this month in the current filter scope.';
+        }
+
+        return array_values(array_slice($insights, 0, 6));
+    }
+
+    private function expectedFyProgressPctByNow(FiscalYear $activeFy): ?int
+    {
+        $fyStart = $activeFy->starts_on ? Carbon::parse($activeFy->starts_on)->startOfDay() : null;
+        $fyEnd = $activeFy->ends_on ? Carbon::parse($activeFy->ends_on)->endOfDay() : null;
+        if (! $fyStart || ! $fyEnd || ! $fyEnd->greaterThan($fyStart)) {
+            return null;
+        }
+
+        $today = now()->startOfDay();
+        if ($today->lt($fyStart)) {
+            return 0;
+        }
+        if ($today->gt($fyEnd)) {
+            return 100;
+        }
+
+        $totalDays = max(1, $fyStart->diffInDays($fyEnd));
+        $elapsedDays = max(0, $fyStart->diffInDays($today));
+
+        return (int) round(min(100, max(0, ($elapsedDays / $totalDays) * 100)));
     }
 }
