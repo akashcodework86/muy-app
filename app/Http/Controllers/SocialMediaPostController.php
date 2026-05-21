@@ -122,7 +122,7 @@ class SocialMediaPostController extends Controller
         ]);
 
         return redirect()
-            ->route('spoc.social-media-posts.dashboard')
+            ->route('spoc.social-media-posts.dashboard', ['view' => 'posts'])
             ->with('status', 'Social media post logged successfully.');
     }
 
@@ -131,8 +131,18 @@ class SocialMediaPostController extends Controller
         $user = $request->user();
         abort_unless(SocialMediaPostAccess::canViewDashboard($user), 403);
 
+        $viewMode = (string) $request->query('view', 'posts');
+        if (! in_array($viewMode, ['list', 'posts'], true)) {
+            $viewMode = 'posts';
+        }
+
         if (! $this->socialMediaPostsReady()) {
-            return $this->dashboardView($request, collect(), true, null);
+            return $this->dashboardView($request, collect(), true, [
+                'q' => '',
+                'from' => '',
+                'to' => '',
+                'view' => $viewMode,
+            ]);
         }
 
         try {
@@ -164,13 +174,19 @@ class SocialMediaPostController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            return $this->dashboardView($request, collect(), true, null);
+            return $this->dashboardView($request, collect(), true, [
+                'q' => $search ?? '',
+                'from' => (string) $request->query('from', ''),
+                'to' => (string) $request->query('to', ''),
+                'view' => $viewMode,
+            ]);
         }
 
         return $this->dashboardView($request, $rows, false, [
             'q' => $search,
             'from' => (string) $request->query('from', ''),
             'to' => (string) $request->query('to', ''),
+            'view' => $viewMode,
         ]);
     }
 
@@ -263,6 +279,10 @@ class SocialMediaPostController extends Controller
     {
         $user = $request->user();
         $isAdmin = $user->role === 'state_admin';
+        $viewMode = $filters['view'] ?? (string) $request->query('view', 'posts');
+        if (! in_array($viewMode, ['list', 'posts'], true)) {
+            $viewMode = 'posts';
+        }
 
         return view('social-media-posts.dashboard', [
             'rows' => $rows,
@@ -270,7 +290,8 @@ class SocialMediaPostController extends Controller
             'isPaginated' => ! $migrationMissing,
             'currentRole' => (string) $user->role,
             'isAdminView' => $isAdmin,
-            'filters' => $filters ?? ['q' => '', 'from' => '', 'to' => ''],
+            'viewMode' => $viewMode,
+            'filters' => array_merge(['q' => '', 'from' => '', 'to' => '', 'view' => $viewMode], $filters ?? []),
             'dashboardRoute' => $isAdmin ? 'admin.social-media-posts.dashboard' : 'spoc.social-media-posts.dashboard',
             'exportRoute' => $isAdmin ? 'admin.social-media-posts.export' : 'spoc.social-media-posts.export',
             'showRoute' => $isAdmin ? 'admin.social-media-posts.show' : 'spoc.social-media-posts.show',
@@ -367,9 +388,7 @@ class SocialMediaPostController extends Controller
             }
 
             return [
-                'mode' => str_contains(strtolower((string) $post->post_url), 'instagram.com')
-                    ? 'instagram_embed'
-                    : 'thumbnail',
+                'mode' => 'thumbnail',
                 'platform' => $post->platform ?: $this->previewService()->platformLabel((string) $post->post_url),
                 'url' => (string) $post->post_url,
                 'iframe_src' => null,

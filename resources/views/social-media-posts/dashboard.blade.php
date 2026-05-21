@@ -11,10 +11,11 @@
     .smp-alert--warning { background:#fffbeb; border:1px solid #fde68a; color:#92400e; }
     .smp-alert--success { background:#f0fdf4; border:1px solid #86efac; color:#166534; }
     .smp-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.25rem 1.35rem; }
-    .smp-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom:1rem; }
+    .smp-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:0.75rem; margin-bottom:1rem; }
     .smp-head__title { margin:0; font-size:1rem; font-weight:700; color:#0f172a; }
     .smp-head__meta { margin:0.2rem 0 0; font-size:0.82rem; color:#64748b; font-weight:600; }
     .smp-head__count { display:inline-flex; align-items:center; padding:0.2rem 0.55rem; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; font-size:0.78rem; font-weight:800; margin-left:0.35rem; }
+    .smp-head__actions { display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; }
     .smp-table__num { width:3rem; text-align:center; color:#64748b; font-weight:700; font-variant-numeric: tabular-nums; }
     .smp-table__num-head { text-align:center; }
     .smp-table-foot { padding:0.65rem 0.75rem; font-size:0.8rem; color:#64748b; border-top:1px solid #e2e8f0; background:#f8fafc; }
@@ -42,17 +43,22 @@
     }
     .smp-btn--delete:hover { background:#fef2f2; }
     .smp-delete-inline { display:inline; margin:0; }
-    .smp-platforms { display:flex; flex-wrap:wrap; gap:0.35rem; max-width:14rem; }
-    .smp-platforms__chip {
-        display:inline-flex; align-items:center;
-        padding:0.18rem 0.45rem; border-radius:999px;
-        background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3;
-        font-size:0.72rem; font-weight:700; white-space:nowrap;
-    }
 </style>
 @endpush
 
 @section('content')
+@php
+    $viewMode = $viewMode ?? 'posts';
+    $filterQuery = array_filter([
+        'q' => $filters['q'] ?? '',
+        'from' => $filters['from'] ?? '',
+        'to' => $filters['to'] ?? '',
+        'view' => $viewMode,
+    ], fn ($v) => $v !== null && $v !== '');
+    $totalCount = (!empty($isPaginated) && is_object($rows) && method_exists($rows, 'total'))
+        ? (int) $rows->total()
+        : (int) (is_countable($rows) ? count($rows) : 0);
+@endphp
 <div class="smp-shell">
     @if (!empty($migrationMissing))
         <div class="smp-alert smp-alert--warning">
@@ -64,12 +70,6 @@
     @if (session('status'))
         <div class="smp-alert smp-alert--success">{{ session('status') }}</div>
     @endif
-
-    @php
-        $totalCount = (!empty($isPaginated) && is_object($rows) && method_exists($rows, 'total'))
-            ? (int) $rows->total()
-            : (int) (is_countable($rows) ? count($rows) : 0);
-    @endphp
 
     <div class="smp-card">
         <div class="smp-head">
@@ -90,7 +90,11 @@
                     <p class="smp-head__meta">No entries match the current filters.</p>
                 @endif
             </div>
-            <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+            <div class="smp-head__actions">
+                <div class="smp-view-toggle" role="group" aria-label="View mode">
+                    <a href="{{ route($dashboardRoute, array_merge($filterQuery, ['view' => 'posts'])) }}" class="smp-view-toggle__btn @if ($viewMode === 'posts') is-active @endif">Posts</a>
+                    <a href="{{ route($dashboardRoute, array_merge($filterQuery, ['view' => 'list'])) }}" class="smp-view-toggle__btn @if ($viewMode === 'list') is-active @endif">List</a>
+                </div>
                 @if ($createRoute)
                     <a href="{{ route($createRoute) }}" class="smp-btn">+ Log new post</a>
                 @endif
@@ -102,6 +106,7 @@
 
         @if (!empty($isPaginated))
         <form method="get" action="{{ route($dashboardRoute) }}" class="smp-filters" style="margin-bottom:1rem;">
+            <input type="hidden" name="view" value="{{ $viewMode }}">
             <div class="smp-filter-field">
                 <label>Search</label>
                 <input type="text" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="URL, description, name">
@@ -116,88 +121,25 @@
             </div>
             <div class="smp-filter-actions">
                 <button type="submit" class="smp-btn">Filter</button>
-                <a href="{{ route($dashboardRoute) }}" class="smp-btn smp-btn--secondary">Clear</a>
+                <a href="{{ route($dashboardRoute, ['view' => $viewMode]) }}" class="smp-btn smp-btn--secondary">Clear</a>
             </div>
         </form>
         @endif
     </div>
 
-    <div class="smp-table-wrap">
-        <table class="smp-table">
-            <thead>
-                <tr>
-                    <th class="smp-table__num-head">#</th>
-                    <th>Preview</th>
-                    <th>Date</th>
-                    <th>URL</th>
-                    <th>Platforms</th>
-                    <th>Description</th>
-                    @if (!empty($isAdminView))
-                        <th>Submitted by</th>
-                    @endif
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($rows as $row)
-                    @php
-                        $rowNumber = (!empty($isPaginated) && is_object($rows) && method_exists($rows, 'firstItem') && $rows->firstItem() !== null)
-                            ? (int) $rows->firstItem() + $loop->index
-                            : $loop->iteration;
-                    @endphp
-                    <tr>
-                        <td class="smp-table__num">{{ $rowNumber }}</td>
-                        <td>
-                            @include('social-media-posts.partials.list-thumbnail', ['row' => $row])
-                        </td>
-                        <td>{{ $row->posted_on?->format('d M Y') }}</td>
-                        <td>
-                            <a class="smp-url" href="{{ $row->post_url }}" target="_blank" rel="noopener noreferrer">{{ $row->post_url }}</a>
-                        </td>
-                        <td>@include('social-media-posts.partials.platform-badges', ['row' => $row])</td>
-                        <td><span class="smp-desc">{{ $row->description ?: '—' }}</span></td>
-                        @if (!empty($isAdminView))
-                            <td>{{ $row->submitted_by_name }}</td>
-                        @endif
-                        <td>
-                            <div class="smp-row-actions">
-                                <a href="{{ route($showRoute, $row) }}" class="smp-btn smp-btn--secondary" style="padding:0.4rem 0.7rem; font-size:0.8rem;">View</a>
-                                @if (\App\Support\SocialMediaPostAccess::canDelete(auth()->user(), $row))
-                                    @php
-                                        $destroyRoute = auth()->user()->role === 'state_admin'
-                                            ? 'admin.social-media-posts.destroy'
-                                            : 'spoc.social-media-posts.destroy';
-                                    @endphp
-                                    <form
-                                        class="smp-delete-inline"
-                                        method="post"
-                                        action="{{ route($destroyRoute, $row) }}"
-                                        onsubmit="return confirm('Delete this social media post permanently?');"
-                                    >
-                                        @csrf
-                                        @method('delete')
-                                        <button type="submit" class="smp-btn--delete">Delete</button>
-                                    </form>
-                                @endif
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="{{ !empty($isAdminView) ? 8 : 7 }}" class="smp-empty">No entries yet.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+    @if ($viewMode === 'posts')
+        @include('social-media-posts.partials.posts-grid')
         @if ($totalCount > 0)
-            <div class="smp-table-foot">
+            <div class="smp-posts-foot">
                 Total entries: <strong>{{ number_format($totalCount) }}</strong>
                 @if (!empty($isPaginated) && is_object($rows) && method_exists($rows, 'lastPage') && $rows->lastPage() > 1)
                     · Page {{ $rows->currentPage() }} of {{ $rows->lastPage() }}
                 @endif
             </div>
         @endif
-    </div>
+    @else
+        @include('social-media-posts.partials.dashboard-list')
+    @endif
 
     @if (!empty($isPaginated) && method_exists($rows, 'links'))
         <div style="margin-top:0.75rem;">{{ $rows->links() }}</div>

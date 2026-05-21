@@ -50,7 +50,7 @@ class SocialMediaPostTest extends TestCase
             'description' => 'Launch post',
         ]);
 
-        $response->assertRedirect(route('spoc.social-media-posts.dashboard'));
+        $response->assertRedirect(route('spoc.social-media-posts.dashboard', ['view' => 'posts']));
 
         $this->assertDatabaseHas('social_media_posts', [
             'submitted_by_user_id' => $sanjna->id,
@@ -246,33 +246,6 @@ class SocialMediaPostTest extends TestCase
         $this->assertDatabaseHas('social_media_posts', ['id' => $post->id]);
     }
 
-    public function test_preview_returns_instagram_embed_for_instagram_url(): void
-    {
-        Http::fake([
-            'https://www.instagram.com/api/v1/oembed/*' => Http::response([
-                'thumbnail_url' => 'https://cdninstagram.com/thumb.jpg',
-                'title' => 'Reel preview',
-                'author_name' => 'muy_uk',
-            ]),
-            'https://api.instagram.com/oembed*' => Http::response([], 404),
-        ]);
-
-        $sanjna = User::factory()->create([
-            'role' => 'state_staff',
-            'name' => 'Sanjna Mishra',
-            'is_active' => true,
-        ]);
-
-        $url = 'https://www.instagram.com/p/DYFlvO0kQg9/';
-
-        $this->actingAs($sanjna)
-            ->getJson(route('spoc.social-media-posts.preview', ['url' => $url]))
-            ->assertOk()
-            ->assertJsonPath('mode', 'instagram_embed')
-            ->assertJsonPath('platform', 'Instagram')
-            ->assertJsonPath('url', $url);
-    }
-
     public function test_preview_returns_thumbnail_for_instagram_when_oembed_available(): void
     {
         Http::fake([
@@ -295,9 +268,60 @@ class SocialMediaPostTest extends TestCase
         $this->actingAs($sanjna)
             ->getJson(route('spoc.social-media-posts.preview', ['url' => $url]))
             ->assertOk()
-            ->assertJsonPath('mode', 'instagram_embed')
+            ->assertJsonPath('mode', 'thumbnail')
             ->assertJsonPath('platform', 'Instagram')
             ->assertJsonPath('url', $url);
+    }
+
+    public function test_dashboard_defaults_to_posts_grid_view(): void
+    {
+        $sanjna = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        SocialMediaPost::query()->create([
+            'submitted_by_user_id' => $sanjna->id,
+            'submitted_by_name' => $sanjna->name,
+            'posted_on' => '2026-05-20',
+            'post_url' => 'https://www.instagram.com/reel/test/',
+            'posted_platforms' => ['instagram'],
+            'platform' => 'Instagram',
+            'thumbnail_url' => 'https://cdninstagram.com/grid.jpg',
+            'preview_title' => 'Grid post',
+            'description' => 'Hello',
+        ]);
+
+        $this->actingAs($sanjna)
+            ->get(route('spoc.social-media-posts.dashboard'))
+            ->assertOk()
+            ->assertSee('smp-posts-grid', false)
+            ->assertSee('Grid post');
+    }
+
+    public function test_dashboard_list_view_mode(): void
+    {
+        $sanjna = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        SocialMediaPost::query()->create([
+            'submitted_by_user_id' => $sanjna->id,
+            'submitted_by_name' => $sanjna->name,
+            'posted_on' => '2026-05-20',
+            'post_url' => 'https://example.com/list/',
+            'posted_platforms' => ['facebook'],
+            'description' => 'List row',
+        ]);
+
+        $this->actingAs($sanjna)
+            ->get(route('spoc.social-media-posts.dashboard', ['view' => 'list']))
+            ->assertOk()
+            ->assertSee('smp-table', false)
+            ->assertSee('List row');
     }
 
     public function test_preview_service_maps_youtube_to_embed(): void

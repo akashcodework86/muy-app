@@ -233,20 +233,6 @@ class SocialMediaPostPreviewService
                 ];
             }
 
-            $html = $data['html'] ?? null;
-            if (is_string($html) && trim($html) !== '' && str_contains(strtolower($html), 'instagram-media')) {
-                return [
-                    'mode' => 'instagram_embed',
-                    'platform' => $platform,
-                    'url' => $url,
-                    'iframe_src' => null,
-                    'thumbnail_url' => is_string($thumbnail) && $thumbnail !== '' ? $thumbnail : null,
-                    'title' => is_string($title) ? $title : null,
-                    'author' => is_string($author) ? $author : null,
-                    'message' => 'Instagram post embed.',
-                ];
-            }
-
             if ((is_string($title) && $title !== '') || (is_string($author) && $author !== '')) {
                 return [
                     'mode' => 'thumbnail',
@@ -408,15 +394,42 @@ class SocialMediaPostPreviewService
     {
         $meta = $this->fetchInstagramOembedMeta($url);
 
+        if (is_string($meta['thumbnail_url'] ?? null) && $meta['thumbnail_url'] !== '') {
+            return [
+                'mode' => 'thumbnail',
+                'platform' => 'Instagram',
+                'url' => $url,
+                'iframe_src' => null,
+                'thumbnail_url' => $meta['thumbnail_url'],
+                'title' => $meta['title'],
+                'author' => $meta['author'],
+                'message' => 'Instagram preview image.',
+            ];
+        }
+
+        if ((is_string($meta['title'] ?? null) && $meta['title'] !== '')
+            || (is_string($meta['author'] ?? null) && $meta['author'] !== '')) {
+            return [
+                'mode' => 'thumbnail',
+                'platform' => 'Instagram',
+                'url' => $url,
+                'iframe_src' => null,
+                'thumbnail_url' => null,
+                'title' => $meta['title'],
+                'author' => $meta['author'],
+                'message' => 'Open the post link to view on Instagram.',
+            ];
+        }
+
         return [
-            'mode' => 'instagram_embed',
+            'mode' => 'card',
             'platform' => 'Instagram',
             'url' => $url,
             'iframe_src' => null,
-            'thumbnail_url' => $meta['thumbnail_url'],
-            'title' => $meta['title'],
-            'author' => $meta['author'],
-            'message' => 'Instagram post preview loads below (Meta does not allow iframe embed).',
+            'thumbnail_url' => null,
+            'title' => null,
+            'author' => null,
+            'message' => 'Preview unavailable — open the post on Instagram.',
         ];
     }
 

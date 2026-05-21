@@ -155,7 +155,11 @@
     }
 
     function renderPreview(data) {
-        const mode = data.mode || 'empty';
+        let mode = data.mode || 'empty';
+        const thumbRaw = data.thumbnail_url || '';
+        if (mode === 'instagram_embed' && thumbRaw) {
+            mode = 'thumbnail';
+        }
         const platform = escapeHtml(data.platform || '');
         const url = escapeHtml(data.url || '');
         const iframeSrc = escapeHtml(data.iframe_src || '');
