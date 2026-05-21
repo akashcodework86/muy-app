@@ -81,7 +81,20 @@
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $isHeading ? '' : ($row['indicator_type'] ?: '—') }}</td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $isHeading ? '' : ($row['level'] ?: '—') }}</td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ ! $isHeading && $row['target'] !== null ? number_format($row['target']) : '' }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ ! $isHeading && $row['achievement'] !== null ? number_format($row['achievement']) : '' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">
+                            @if (! $isHeading && ($row['drilldown'] ?? false))
+                                <button
+                                    type="button"
+                                    class="dlv-ach-btn"
+                                    data-dlv-breakdown
+                                    data-serial="{{ $row['serial'] }}"
+                                    data-name="{{ $row['name'] }}"
+                                    title="View achievement breakdown"
+                                >{{ number_format((int) ($row['achievement'] ?? 0)) }}</button>
+                            @elseif (! $isHeading && $row['achievement'] !== null)
+                                <span class="dlv-ach-static">{{ number_format($row['achievement']) }}</span>
+                            @endif
+                        </td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ ! $isHeading && $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '' }}</td>
                     </tr>
                 @empty
@@ -92,4 +105,6 @@
             </tbody>
         </table>
     </div>
+
+    @include('deliverables.partials.breakdown-drawer')
 @endsection

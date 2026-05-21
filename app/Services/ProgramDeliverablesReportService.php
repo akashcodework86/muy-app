@@ -997,6 +997,8 @@ class ProgramDeliverablesReportService
             'target' => $target,
             'achievement' => $achievement,
             'achievement_pct' => $this->percent($target, $achievement),
+            'source_type' => (string) (($node['source'] ?? [])['type'] ?? 'none'),
+            'drilldown' => (($node['source'] ?? [])['type'] ?? 'none') !== 'none',
         ];
     }
 

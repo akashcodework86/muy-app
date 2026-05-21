@@ -838,4 +838,80 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(6000, $row['target']);
         $this->assertSame(2, $row['achievement']);
     }
+
+    public function test_deliverables_breakdown_returns_json_for_bmc(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'bmc-breakdown-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bmc-breakdown-district',
+            'name' => 'BMC Breakdown District',
+            'sort_order' => 1,
+        ]);
+
+        $child = ServiceCategory::query()->create(['slug' => 'bmc_breakdown_services', 'name' => 'Services', 'sort_order' => 1]);
+        $svcBmc = Deliverable::query()->create([
+            'sort_order' => 55,
+            'code' => 'svc_bmc_canvas',
+            'name' => 'Business Model Canvas',
+            'mis_entry_label' => 'Business Model Canvas',
+            'is_active' => true,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcBmc->id,
+            'code' => 'bmc_canvas',
+            'name' => 'Business Model Canvas',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'BMC Breakdown Applicant',
+            'phone' => '9999999904',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-BMC-BD-1',
+            'submitted_at' => '2026-05-10 09:00:00',
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.deliverables.breakdown', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '9.1',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('serial', '9.1')
+            ->assertJsonPath('name', 'Business Model Canvas')
+            ->assertJsonPath('total', 1)
+            ->assertJsonStructure([
+                'by_district',
+                'by_month',
+                'insights',
+                'records',
+                'period_label',
+                'scope_label',
+            ]);
+    }
 }

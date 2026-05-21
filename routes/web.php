@@ -158,6 +158,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::middleware('district_staff')->prefix('my')->name('staff.')->group(function () {
         Route::get('monthly-targets', [StaffPortalController::class, 'monthlyTargets'])->name('monthly-targets');
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
+        Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
+        Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('cfa-targets', function (Request $request) {
             return redirect()->route('staff.monthly-targets', $request->query(), 301);
@@ -327,6 +329,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
+        Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
+        Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('service-cases/{service_case}', [SpocServiceCaseController::class, 'show'])->name('service-cases.show');
         Route::post('service-cases/{service_case}/approve', [SpocServiceCaseController::class, 'approve'])
@@ -423,6 +427,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('audit-log', [AuditLogController::class, 'index'])->name('audit.index');
 
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
+        Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
+        Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('targets/state', [TargetController::class, 'stateForm'])->name('targets.state');
         Route::post('targets/state', [TargetController::class, 'stateUpdate'])->name('targets.state.update');
@@ -588,6 +594,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
+        Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
+        Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('applications', [HubApplicationsController::class, 'index'])->name('applications.index');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
