@@ -575,6 +575,10 @@ class ProgramDeliverablesReportService
             return 0;
         }
 
+        if ($code === 'social_media') {
+            return $this->socialMediaPostsCount();
+        }
+
         foreach ($this->candidateCodesForLookup($code) as $candidate) {
             $keys = [$candidate];
             if (str_starts_with($candidate, 'svc_')) {
@@ -654,6 +658,40 @@ class ProgramDeliverablesReportService
         $this->applyCfaAchievementScope($query);
 
         return (int) $query->count();
+    }
+
+    private function socialMediaPostsCount(): int
+    {
+        if (! Schema::hasTable('social_media_posts')) {
+            return 0;
+        }
+
+        $query = DB::table('social_media_posts');
+        $this->applySocialMediaPostsAchievementScope($query);
+
+        return (int) $query->count();
+    }
+
+    /**
+     * State-level log: count posts by `posted_on` within the active fiscal / filter window.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applySocialMediaPostsAchievementScope($query): void
+    {
+        $floor = $this->phase3FloorDate();
+
+        if ($this->periodFrom && $this->periodTo) {
+            $from = $this->periodFrom->copy();
+            if ($from->lt($floor)) {
+                $from = $floor->copy();
+            }
+            $query->whereBetween('posted_on', [$from->toDateString(), $this->periodTo->toDateString()]);
+
+            return;
+        }
+
+        $query->where('posted_on', '>=', $floor->toDateString());
     }
 
     private function onboardingCount(): int

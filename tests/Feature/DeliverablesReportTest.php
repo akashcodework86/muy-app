@@ -1183,4 +1183,61 @@ class DeliverablesReportTest extends TestCase
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf');
     }
+
+    public function test_social_media_post_achievement_counts_logged_posts(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $user = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        DB::table('social_media_posts')->insert([
+            [
+                'submitted_by_user_id' => $user->id,
+                'submitted_by_name' => $user->name,
+                'posted_on' => '2026-05-10',
+                'post_url' => 'https://www.instagram.com/p/in-fy-1/',
+                'description' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'submitted_by_user_id' => $user->id,
+                'submitted_by_name' => $user->name,
+                'posted_on' => '2026-06-01',
+                'post_url' => 'https://www.instagram.com/p/in-fy-2/',
+                'description' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'submitted_by_user_id' => $user->id,
+                'submitted_by_name' => $user->name,
+                'posted_on' => '2025-12-01',
+                'post_url' => 'https://www.instagram.com/p/outside-fy/',
+                'description' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_staff']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $row = collect($report['rows'])->firstWhere('name', 'Social Media Post');
+        $this->assertNotNull($row);
+        $this->assertSame(2, $row['achievement']);
+    }
 }
