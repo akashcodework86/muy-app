@@ -93,7 +93,7 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSee('Almora leads with');
     }
 
-    public function test_potential_lakhpati_counts_shg_and_cbo_category(): void
+    public function test_potential_lakhpati_counts_shg_cbo_and_lakhpati_yes(): void
     {
         $admin = User::factory()->create([
             'role' => 'state_admin',
@@ -104,12 +104,31 @@ class OnboardedApplicantTest extends TestCase
 
         $this->seedOnboardedApplicant($district, '40806001', 'SHG Group', 'female', null, 'phase3', null, 'SHG');
         $this->seedOnboardedApplicant($district, '40806002', 'CBO Group', 'female', null, 'phase3', null, 'CBO');
-        $this->seedOnboardedApplicant($district, '40806003', 'Individual', 'female', 'No', 'phase3', null, 'Individual');
+        $this->seedOnboardedApplicant($district, '40806003', 'Lakhpati Individual', 'female', 'Yes', 'phase3', null, 'Individual');
+        $this->seedOnboardedApplicant($district, '40806004', 'Other Individual', 'male', 'No', 'phase3', null, 'Individual');
 
         $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
 
         $response->assertOk();
-        $response->assertSeeText('2 Potential (67%)');
+        $response->assertSeeText('3 Potential (75%)');
+    }
+
+    public function test_potential_lakhpati_counts_individual_shg_member_yes(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('bageshwar', 'Bageshwar');
+
+        $this->seedOnboardedApplicant($district, '40807001', 'SHG Member Individual', 'female', 'No', 'phase3', null, 'Individual', 'Yes');
+        $this->seedOnboardedApplicant($district, '40807002', 'Not Member', 'male', 'No', 'phase3', null, 'Individual', 'No');
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('1 Potential (50%)');
     }
 
     public function test_district_filter_limits_applicant_list(): void
@@ -143,6 +162,7 @@ class OnboardedApplicantTest extends TestCase
         string $source = 'phase3',
         ?string $businessCategory = null,
         string $category = 'Individual',
+        ?string $isMember = null,
     ): int {
         $payload = [
             'gender' => $gender,
@@ -155,6 +175,9 @@ class OnboardedApplicantTest extends TestCase
         }
         if ($businessCategory !== null) {
             $payload['business_category'] = $businessCategory;
+        }
+        if ($isMember !== null) {
+            $payload['is_member'] = $isMember;
         }
 
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
