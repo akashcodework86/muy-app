@@ -93,6 +93,15 @@
 
             <div class="tp-section">
                 <div class="tp-field">
+                    <label>Upload workshop photos *</label>
+                    <input id="tpPhotosInput" type="file" name="workshop_photos[]" accept=".jpg,.jpeg,.png,.webp,image/*" multiple required>
+                    <p class="tp-field-hint">Upload workshop photos (JPG/PNG). Minimum 1, maximum 5 photos (50 MB each).</p>
+                    <div id="tpPhotosPreview" class="tp-media-preview"></div>
+                </div>
+            </div>
+
+            <div class="tp-section">
+                <div class="tp-field">
                     <label>Upload attendance sheet *</label>
                     <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.xls,.xlsx" multiple required>
                     <p class="tp-field-hint">Upload PDF, image (JPG/PNG), or Excel file. You can select multiple files (up to 25, 50 MB each).</p>
@@ -116,3 +125,4 @@
 @endsection
 
 @include('staff.district-workshop-sessions.partials.attendance-upload-script')
+@include('staff.district-workshop-sessions.partials.workshop-photos-upload-script')

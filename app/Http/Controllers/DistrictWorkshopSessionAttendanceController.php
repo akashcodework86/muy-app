@@ -42,16 +42,20 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                 ->withErrors(['session_date' => 'District workshop sessions table is missing. Please run migrations first.']);
         }
 
-        if ($uploadErrors = $this->attendanceMediaUploadErrors($request)) {
+        if ($uploadErrors = array_merge(
+            $this->attendanceMediaUploadErrors($request),
+            $this->workshopPhotosUploadErrors($request),
+        )) {
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $validated = $this->validateDistrictWorkshopSubmission($request, requiresAttendanceUpload: true);
+        $validated = $this->validateDistrictWorkshopSubmission($request, requiresAttendanceUpload: true, requiresPhotosUpload: true);
 
         $districtId = (int) ($user->district_id ?: 0);
         abort_unless($districtId > 0, 422, 'District assignment is required to submit attendance.');
 
         $mediaItems = $this->storeUploadedMedia((array) $request->file('attendance_media', []));
+        $photoItems = $this->storeUploadedPhotos((array) $request->file('workshop_photos', []));
 
         DistrictWorkshopSession::query()->create([
             'submitted_by_user_id' => (int) $user->id,
@@ -64,6 +68,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
             'male_participants' => (int) $validated['male_participants'],
             'female_participants' => (int) $validated['female_participants'],
             'attendance_media_json' => $mediaItems,
+            'workshop_photos_json' => $photoItems,
             'selected_incubatee_ids' => [],
             'selected_incubatees_snapshot' => [],
         ]);
@@ -219,14 +224,19 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         $user = $request->user();
         $this->assertCanEdit($districtWorkshopSession, (int) $user->id);
 
-        if ($uploadErrors = $this->attendanceMediaUploadErrors($request)) {
+        if ($uploadErrors = array_merge(
+            $this->attendanceMediaUploadErrors($request),
+            $this->workshopPhotosUploadErrors($request),
+        )) {
             return back()->withInput()->withErrors($uploadErrors);
         }
 
         $existingMediaCount = count((array) $districtWorkshopSession->attendance_media_json);
+        $existingPhotosCount = count((array) $districtWorkshopSession->workshop_photos_json);
         $validated = $this->validateDistrictWorkshopSubmission(
             $request,
             requiresAttendanceUpload: $existingMediaCount === 0,
+            requiresPhotosUpload: $existingPhotosCount === 0,
         );
 
         $newUploads = array_values(array_filter((array) $request->file('attendance_media', [])));
@@ -235,7 +245,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                 ->filter(fn ($item): bool => is_array($item))
                 ->values();
             $combinedCount = $existingMedia->count() + count($newUploads);
-            abort_if($combinedCount > 25, 422, 'You can upload up to 25 files per session.');
+            abort_if($combinedCount > 25, 422, 'You can upload up to 25 attendance files per session.');
 
             $districtWorkshopSession->attendance_media_json = $existingMedia
                 ->merge($this->storeUploadedMedia($newUploads))
@@ -245,6 +255,28 @@ class DistrictWorkshopSessionAttendanceController extends Controller
             return back()
                 ->withInput()
                 ->withErrors(['attendance_media' => 'Please upload at least one attendance file (PDF, image, or Excel).']);
+        }
+
+        $newPhotos = array_values(array_filter((array) $request->file('workshop_photos', [])));
+        if ($newPhotos !== []) {
+            $existingPhotos = collect((array) $districtWorkshopSession->workshop_photos_json)
+                ->filter(fn ($item): bool => is_array($item))
+                ->values();
+            $combinedPhotoCount = $existingPhotos->count() + count($newPhotos);
+            if ($combinedPhotoCount > 5) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['workshop_photos' => 'You can upload up to 5 workshop photos per session.']);
+            }
+
+            $districtWorkshopSession->workshop_photos_json = $existingPhotos
+                ->merge($this->storeUploadedPhotos($newPhotos))
+                ->values()
+                ->all();
+        } elseif ($existingPhotosCount === 0) {
+            return back()
+                ->withInput()
+                ->withErrors(['workshop_photos' => 'Please upload at least one workshop photo (minimum 1, maximum 5).']);
         }
 
         $districtWorkshopSession->event_date = $validated['session_date'];
@@ -264,7 +296,12 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         $this->assertCanAccessRecord($request->user()->role, (int) ($request->user()->district_id ?: 0), $districtWorkshopSession);
 
         $index = max(0, (int) $request->query('index', 0));
-        $media = collect((array) $districtWorkshopSession->attendance_media_json)->get($index);
+        $collection = (string) $request->query('collection', 'attendance');
+        $items = match ($collection) {
+            'photos' => (array) $districtWorkshopSession->workshop_photos_json,
+            default => (array) $districtWorkshopSession->attendance_media_json,
+        };
+        $media = collect($items)->get($index);
         abort_if(! is_array($media), 404);
 
         $path = (string) ($media['path'] ?? '');
@@ -288,8 +325,11 @@ class DistrictWorkshopSessionAttendanceController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateDistrictWorkshopSubmission(Request $request, bool $requiresAttendanceUpload): array
-    {
+    private function validateDistrictWorkshopSubmission(
+        Request $request,
+        bool $requiresAttendanceUpload,
+        bool $requiresPhotosUpload,
+    ): array {
         $validator = Validator::make($request->all(), [
             'session_date' => ['required', 'date'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
@@ -300,6 +340,10 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                 ? ['required', 'array', 'min:1', 'max:25']
                 : ['nullable', 'array', 'max:25'],
             'attendance_media.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,xls,xlsx', 'max:51200'],
+            'workshop_photos' => $requiresPhotosUpload
+                ? ['required', 'array', 'min:1', 'max:5']
+                : ['nullable', 'array', 'max:5'],
+            'workshop_photos.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:51200'],
         ]);
 
         $validator->after(function ($validator) use ($request): void {
@@ -357,6 +401,51 @@ class DistrictWorkshopSessionAttendanceController extends Controller
     }
 
     /**
+     * @return array<string, string>
+     */
+    private function workshopPhotosUploadErrors(Request $request): array
+    {
+        $errors = [];
+
+        foreach ((array) $request->file('workshop_photos', []) as $index => $file) {
+            if (! $file instanceof UploadedFile || $file->isValid()) {
+                continue;
+            }
+
+            $errors['workshop_photos.'.$index] = $this->describeFailedUpload($file);
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param  list<UploadedFile|null>  $files
+     * @return list<array<string, mixed>>
+     */
+    private function storeUploadedPhotos(array $files): array
+    {
+        $photoItems = [];
+
+        foreach ($files as $photo) {
+            if (! $photo) {
+                continue;
+            }
+
+            $photoPath = $photo->store('district-workshop-session-photos');
+            $mime = (string) ($photo->getClientMimeType() ?? '');
+            $photoItems[] = [
+                'path' => $photoPath,
+                'original_name' => (string) $photo->getClientOriginalName(),
+                'mime' => $mime,
+                'size_bytes' => (int) ($photo->getSize() ?? 0),
+                'type' => 'image',
+            ];
+        }
+
+        return $photoItems;
+    }
+
+    /**
      * @return array{event_year: string, event_month: string}
      */
     private function applyEventPeriodFilter($query, Request $request): array
@@ -409,7 +498,8 @@ class DistrictWorkshopSessionAttendanceController extends Controller
             'Male Participants',
             'Female Participants',
             'Total Participants',
-            'Uploaded Media Count',
+            'Attendance Files Count',
+            'Workshop Photos Count',
             'Created At',
             'Updated At',
         ];
@@ -441,6 +531,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                     (string) (int) ($entry->female_participants ?? 0),
                     (string) $entry->totalParticipantCount(),
                     (string) count((array) $entry->attendance_media_json),
+                    (string) count((array) $entry->workshop_photos_json),
                     (string) ($entry->created_at?->format('Y-m-d H:i:s') ?? ''),
                     (string) ($entry->updated_at?->format('Y-m-d H:i:s') ?? ''),
                 ]);

@@ -129,6 +129,16 @@
     </div>
 
     <div class="tp-show-card">
+        <h3 class="tp-show-card__title">Workshop Photos</h3>
+        @include('staff.technical-trainings.partials.attendance-media-preview', [
+            'mediaItems' => (array) $row->workshop_photos_json,
+            'attachmentRoute' => $attachmentRoute,
+            'attachmentQuery' => ['collection' => 'photos'],
+            'record' => $row,
+        ])
+    </div>
+
+    <div class="tp-show-card">
         <h3 class="tp-show-card__title">Uploaded Attendance Files</h3>
         @include('staff.technical-trainings.partials.attendance-media-preview', [
             'mediaItems' => (array) $row->attendance_media_json,

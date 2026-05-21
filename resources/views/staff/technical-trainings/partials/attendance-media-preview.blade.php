@@ -1,11 +1,12 @@
 @php
     $mediaItems = is_array($mediaItems ?? null) ? $mediaItems : [];
     $attachmentRoute = (string) ($attachmentRoute ?? 'staff.technical-trainings.attachment');
-    $attachmentUrl = static function (int $index, bool $inline = false) use ($attachmentRoute, $record): string {
-        $query = array_filter([
+    $extraQuery = (array) ($attachmentQuery ?? []);
+    $attachmentUrl = static function (int $index, bool $inline = false) use ($attachmentRoute, $record, $extraQuery): string {
+        $query = array_filter(array_merge($extraQuery, [
             'index' => $index > 0 ? $index : null,
             'inline' => $inline ? 1 : null,
-        ]);
+        ]));
 
         return route($attachmentRoute, $record).($query !== [] ? '?'.http_build_query($query) : '');
     };

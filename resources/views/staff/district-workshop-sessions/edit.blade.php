@@ -80,6 +80,24 @@
 
             <div class="tp-section">
                 <div class="tp-field">
+                    <label>Upload workshop photos @if (!is_array($row->workshop_photos_json) || count($row->workshop_photos_json) === 0)*@endif</label>
+                    <input id="tpPhotosInput" type="file" name="workshop_photos[]" accept=".jpg,.jpeg,.png,.webp,image/*" multiple>
+                    <p class="tp-field-hint">Workshop photos (JPG/PNG). Minimum 1, maximum 5 total (50 MB each).</p>
+                    @if (is_array($row->workshop_photos_json) && count($row->workshop_photos_json))
+                        <p class="tp-field-hint">Current photos:</p>
+                        @include('staff.technical-trainings.partials.attendance-media-preview', [
+                            'mediaItems' => (array) $row->workshop_photos_json,
+                            'attachmentRoute' => 'staff.district-workshop-sessions.attachment',
+                            'attachmentQuery' => ['collection' => 'photos'],
+                            'record' => $row,
+                        ])
+                    @endif
+                    <div id="tpPhotosPreview" class="tp-media-preview"></div>
+                </div>
+            </div>
+
+            <div class="tp-section">
+                <div class="tp-field">
                     <label>Upload attendance sheet @if (!is_array($row->attendance_media_json) || count($row->attendance_media_json) === 0)*@endif</label>
                     <input id="tpMediaInput" type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.xls,.xlsx" multiple>
                     <p class="tp-field-hint">PDF, image (JPG/PNG), or Excel. Choose files again to add more uploads (up to 25 total).</p>
@@ -112,3 +130,4 @@
 @endsection
 
 @include('staff.district-workshop-sessions.partials.attendance-upload-script')
+@include('staff.district-workshop-sessions.partials.workshop-photos-upload-script')

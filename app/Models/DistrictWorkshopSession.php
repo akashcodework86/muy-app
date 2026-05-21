@@ -20,6 +20,7 @@ class DistrictWorkshopSession extends Model
         'male_participants',
         'female_participants',
         'attendance_media_json',
+        'workshop_photos_json',
         'selected_incubatee_ids',
         'selected_incubatees_snapshot',
     ];
@@ -31,6 +32,7 @@ class DistrictWorkshopSession extends Model
             'male_participants' => 'integer',
             'female_participants' => 'integer',
             'attendance_media_json' => 'array',
+            'workshop_photos_json' => 'array',
             'selected_incubatee_ids' => 'array',
             'selected_incubatees_snapshot' => 'array',
         ];
