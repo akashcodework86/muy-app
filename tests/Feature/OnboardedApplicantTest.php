@@ -23,19 +23,41 @@ class OnboardedApplicantTest extends TestCase
         $districtA = $this->createDistrict('almora', 'Almora');
         $districtB = $this->createDistrict('nainital', 'Nainital');
 
-        $this->seedOnboardedApplicant($districtA, '40801001', 'Female Applicant', 'female');
-        $this->seedOnboardedApplicant($districtA, '40801002', 'Male Applicant', 'male');
-        $this->seedOnboardedApplicant($districtB, '40802001', 'Other Applicant', 'female');
+        $this->seedOnboardedApplicant($districtA, '40801001', 'Female Applicant', 'female', 'Yes');
+        $this->seedOnboardedApplicant($districtA, '40801002', 'Male Applicant', 'male', 'No');
+        $this->seedOnboardedApplicant($districtB, '40802001', 'Other Applicant', 'female', 'yes');
 
         $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
 
         $response->assertOk();
         $response->assertSee('District-wise onboarding');
         $response->assertSee('Total onboarded');
+        $response->assertSee('Lakhpati Didi (Yes)');
+        $response->assertSee('67%');
+        $response->assertSeeText('1 Lakhpati (50%)');
+        $response->assertSeeText('1 Lakhpati (100%)');
         $response->assertSee('Almora');
         $response->assertSee('Nainital');
         $response->assertSee('Female Applicant');
         $response->assertSee('Applicant records');
+    }
+
+    public function test_lakhpati_count_excludes_legacy_phase2_source(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('chamoli', 'Chamoli');
+
+        $this->seedOnboardedApplicant($district, '40804001', 'Phase3 Lakhpati', 'female', 'Yes');
+        $this->seedOnboardedApplicant($district, '40804002', 'Legacy Lakhpati', 'female', 'Yes', 'legacy_phase2');
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('1 Lakhpati (50%)');
     }
 
     public function test_district_filter_limits_applicant_list(): void
@@ -60,19 +82,30 @@ class OnboardedApplicantTest extends TestCase
         $response->assertDontSee('Tehri Applicant');
     }
 
-    private function seedOnboardedApplicant(District $district, string $applicationNo, string $name, string $gender): int
-    {
+    private function seedOnboardedApplicant(
+        District $district,
+        string $applicationNo,
+        string $name,
+        string $gender,
+        ?string $lakhpati = null,
+        string $source = 'phase3',
+    ): int {
+        $payload = [
+            'gender' => $gender,
+            'block' => 'Test Block',
+            'guardian_name' => 'Guardian',
+        ];
+        if ($lakhpati !== null) {
+            $payload['lakhpati'] = $lakhpati;
+        }
+
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
             'district_id' => $district->id,
             'application_no' => $applicationNo,
             'applicant_name' => $name,
             'phone' => '9876543210',
-            'source' => 'phase3',
-            'payload' => json_encode([
-                'gender' => $gender,
-                'block' => 'Test Block',
-                'guardian_name' => 'Guardian',
-            ]),
+            'source' => $source,
+            'payload' => json_encode($payload),
             'created_at' => now(),
             'updated_at' => now(),
         ]);

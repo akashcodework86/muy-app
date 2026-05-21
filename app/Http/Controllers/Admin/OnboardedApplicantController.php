@@ -288,6 +288,7 @@ class OnboardedApplicantController extends Controller
         $this->applyPhase3Filters($query, $hubId, $districtId, $q);
 
         $genderJson = $this->payloadJson('$.gender');
+        $lakhpatiYesSql = $this->lakhpatiYesCountSql();
 
         $row = (array) $query
             ->selectRaw("
@@ -302,6 +303,7 @@ class OnboardedApplicantController extends Controller
                     WHEN LOWER(TRIM(COALESCE({$genderJson}, ''))) IN ('male', 'm', 'man')
                     THEN 1 ELSE 0
                 END) as male_count,
+                {$lakhpatiYesSql} as lakhpati_yes_count,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as this_month
             ", [$sevenDaysAgo, $monthStart])
@@ -311,6 +313,7 @@ class OnboardedApplicantController extends Controller
         $female = (int) ($row['female_count'] ?? 0);
         $male = (int) ($row['male_count'] ?? 0);
         $knownGender = $female + $male;
+        $lakhpatiYes = (int) ($row['lakhpati_yes_count'] ?? 0);
 
         return [
             'total' => $total,
@@ -319,6 +322,8 @@ class OnboardedApplicantController extends Controller
             'female_count' => $female,
             'male_count' => $male,
             'female_pct' => $knownGender > 0 ? (int) round(($female / $knownGender) * 100) : null,
+            'lakhpati_yes_count' => $lakhpatiYes,
+            'lakhpati_yes_pct' => $total > 0 ? (int) round(($lakhpatiYes / $total) * 100) : null,
             'recent_7_days' => (int) ($row['recent_7_days'] ?? 0),
             'this_month' => (int) ($row['this_month'] ?? 0),
         ];
@@ -334,6 +339,7 @@ class OnboardedApplicantController extends Controller
 
         $genderJson = $this->payloadJson('$.gender');
         $districtJson = $this->payloadJson('$.district');
+        $lakhpatiYesSql = $this->lakhpatiYesCountSql();
 
         $rows = $query
             ->selectRaw("
@@ -345,6 +351,7 @@ class OnboardedApplicantController extends Controller
                     WHEN LOWER(TRIM(COALESCE({$genderJson}, ''))) IN ('female', 'f', 'woman')
                     THEN 1 ELSE 0
                 END) as female_count,
+                {$lakhpatiYesSql} as lakhpati_yes_count,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
                 MAX(obc.created_at) as last_onboarded_at
             ", [$sevenDaysAgo])
@@ -358,6 +365,7 @@ class OnboardedApplicantController extends Controller
             ->map(function ($row) use ($grandTotal): array {
                 $total = (int) $row->total;
                 $female = (int) $row->female_count;
+                $lakhpatiYes = (int) ($row->lakhpati_yes_count ?? 0);
 
                 return [
                     'district_id' => (int) ($row->district_id ?? 0),
@@ -366,6 +374,8 @@ class OnboardedApplicantController extends Controller
                     'total' => $total,
                     'female_count' => $female,
                     'female_pct' => $total > 0 ? (int) round(($female / $total) * 100) : 0,
+                    'lakhpati_yes_count' => $lakhpatiYes,
+                    'lakhpati_yes_pct' => $total > 0 ? (int) round(($lakhpatiYes / $total) * 100) : 0,
                     'recent_7_days' => (int) ($row->recent_7_days ?? 0),
                     'share_pct' => (int) round(($total / $grandTotal) * 100),
                     'last_onboarded_at' => $row->last_onboarded_at,
@@ -844,5 +854,16 @@ class OnboardedApplicantController extends Controller
         }
 
         return "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '{$path}'))";
+    }
+
+    private function lakhpatiYesCountSql(): string
+    {
+        $lakhpatiJson = $this->payloadJson('$.lakhpati');
+
+        return "SUM(CASE
+            WHEN LOWER(TRIM(COALESCE(cs.source, ''))) NOT IN ('legacy_phase2', 'rbiphase2')
+                AND LOWER(TRIM(COALESCE({$lakhpatiJson}, ''))) = 'yes'
+            THEN 1 ELSE 0
+        END)";
     }
 }
