@@ -209,7 +209,11 @@ class OnboardedApplicantController extends Controller
         return $query
             ->orderByDesc('obc.created_at')
             ->selectRaw("
-                'phase3' as data_source,
+                CASE
+                    WHEN LOWER(TRIM(COALESCE(cs.source, ''))) IN ('legacy_phase2', 'rbiphase2')
+                    THEN 'legacy_phase2'
+                    ELSE 'phase3'
+                END as data_source,
                 obc.id as onboarded_row_id,
                 obc.created_at as onboarded_at,
                 cs.id as application_id,
@@ -302,6 +306,8 @@ class OnboardedApplicantController extends Controller
 
         $genderJson = $this->payloadJson('$.gender');
         $potentialLakhpatiSql = $this->potentialLakhpatiCountSql();
+        $phase3OnboardedSql = $this->phase3OnboardedCountSql();
+        $legacyOnboardedSql = $this->legacyOnboardedCountSql();
 
         $row = (array) $query
             ->selectRaw("
@@ -316,6 +322,8 @@ class OnboardedApplicantController extends Controller
                     WHEN LOWER(TRIM(COALESCE({$genderJson}, ''))) IN ('male', 'm', 'man')
                     THEN 1 ELSE 0
                 END) as male_count,
+                {$phase3OnboardedSql} as phase3_onboarded_count,
+                {$legacyOnboardedSql} as legacy_onboarded_count,
                 {$potentialLakhpatiSql} as potential_lakhpati_count,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as this_month
@@ -327,9 +335,13 @@ class OnboardedApplicantController extends Controller
         $male = (int) ($row['male_count'] ?? 0);
         $knownGender = $female + $male;
         $potentialLakhpati = (int) ($row['potential_lakhpati_count'] ?? 0);
+        $phase3Onboarded = (int) ($row['phase3_onboarded_count'] ?? 0);
+        $legacyOnboarded = (int) ($row['legacy_onboarded_count'] ?? 0);
 
         return [
             'total' => $total,
+            'phase3_onboarded_count' => $phase3Onboarded,
+            'legacy_onboarded_count' => $legacyOnboarded,
             'districts_covered' => (int) ($row['districts_covered'] ?? 0),
             'hubs_covered' => (int) ($row['hubs_covered'] ?? 0),
             'female_count' => $female,
@@ -353,6 +365,8 @@ class OnboardedApplicantController extends Controller
         $genderJson = $this->payloadJson('$.gender');
         $districtJson = $this->payloadJson('$.district');
         $potentialLakhpatiSql = $this->potentialLakhpatiCountSql();
+        $phase3OnboardedSql = $this->phase3OnboardedCountSql();
+        $legacyOnboardedSql = $this->legacyOnboardedCountSql();
 
         $rows = $query
             ->selectRaw("
@@ -364,6 +378,8 @@ class OnboardedApplicantController extends Controller
                     WHEN LOWER(TRIM(COALESCE({$genderJson}, ''))) IN ('female', 'f', 'woman')
                     THEN 1 ELSE 0
                 END) as female_count,
+                {$phase3OnboardedSql} as phase3_onboarded_count,
+                {$legacyOnboardedSql} as legacy_onboarded_count,
                 {$potentialLakhpatiSql} as potential_lakhpati_count,
                 SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
                 MAX(obc.created_at) as last_onboarded_at
@@ -394,6 +410,8 @@ class OnboardedApplicantController extends Controller
                     'district_name' => (string) $row->district_name,
                     'hub_name' => (string) ($row->hub_name ?? ''),
                     'total' => $total,
+                    'phase3_onboarded_count' => (int) ($row->phase3_onboarded_count ?? 0),
+                    'legacy_onboarded_count' => (int) ($row->legacy_onboarded_count ?? 0),
                     'female_count' => $female,
                     'female_pct' => $total > 0 ? (int) round(($female / $total) * 100) : 0,
                     'potential_lakhpati_count' => $potentialLakhpati,
@@ -913,6 +931,19 @@ class OnboardedApplicantController extends Controller
         return "LOWER(TRIM(COALESCE(cs.source, ''))) NOT IN ('legacy_phase2', 'rbiphase2')";
     }
 
+    private function phase3OnboardedCountSql(): string
+    {
+        return "SUM(CASE WHEN {$this->phase3CfaSourceSql()} THEN 1 ELSE 0 END)";
+    }
+
+    private function legacyOnboardedCountSql(): string
+    {
+        return "SUM(CASE
+            WHEN LOWER(TRIM(COALESCE(cs.source, ''))) IN ('legacy_phase2', 'rbiphase2')
+            THEN 1 ELSE 0
+        END)";
+    }
+
     private function onboardingAchievedCount(?int $hubId, ?int $districtId, array $scope): int
     {
         $query = $this->phase3BaseQuery($scope);
@@ -1049,7 +1080,6 @@ class OnboardedApplicantController extends Controller
     {
         $query = $this->phase3BaseQuery($scope);
         $this->applyPhase3Filters($query, $hubId, $districtId, $q);
-        $query->whereRaw($this->phase3CfaSourceSql());
 
         $category = $this->payloadJson('$.business_category');
         $appCategory = $this->payloadJson('$.app_business_category');
@@ -1180,7 +1210,7 @@ class OnboardedApplicantController extends Controller
             $topSector = $sectorRows[0];
             if (($topSector['sector'] ?? '') !== 'Not recorded') {
                 $insights[] = 'Top sector: '.($topSector['sector'] ?? 'Unknown')
-                    .' ('.(int) ($topSector['pct'] ?? 0).'% of Phase 3 onboarded).';
+                    .' ('.(int) ($topSector['pct'] ?? 0).'% of all onboarded).';
             }
         }
 

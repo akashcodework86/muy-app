@@ -85,7 +85,7 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSee('State onboarding target');
         $response->assertSee('3 / 10');
         $response->assertSee('Key insights');
-        $response->assertSee('Sector mix (Phase 3)');
+        $response->assertSee('Sector mix (all onboarded)');
         $response->assertSee('Homestay');
         $response->assertSee('Top sector: Homestay');
         $response->assertSee('Almora leads with');
@@ -127,6 +127,26 @@ class OnboardedApplicantTest extends TestCase
 
         $response->assertOk();
         $response->assertSeeText('1 Potential Lakhpati Didi/ SHG Members/ CBOs (50%)');
+    }
+
+    public function test_onboarded_totals_bifurcate_phase3_and_legacy(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('uttarkashi', 'Uttarkashi');
+
+        $this->seedOnboardedApplicant($district, '40808001', 'Phase3 Applicant', 'female', null, 'phase3', 'Homestay');
+        $this->seedOnboardedApplicant($district, '40808002', 'Legacy Applicant', 'female', null, 'legacy_phase2', 'Food Processing');
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
+
+        $response->assertOk();
+        $response->assertSee('1 Phase 3 · 1 Legacy');
+        $response->assertSee('Homestay');
+        $response->assertSee('Food Processing');
     }
 
     public function test_district_filter_limits_applicant_list(): void

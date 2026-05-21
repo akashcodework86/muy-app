@@ -494,9 +494,9 @@
             <div class="onb-kpi__value">{{ number_format((int) ($overview['total'] ?? 0)) }}</div>
             <div class="onb-kpi__sub">
                 @if ($activeDistrict)
-                    Filtered district view
+                    {{ number_format((int) ($overview['phase3_onboarded_count'] ?? 0)) }} Phase 3 · {{ number_format((int) ($overview['legacy_onboarded_count'] ?? 0)) }} Legacy
                 @else
-                    {{ number_format((int) ($overview['hubs_covered'] ?? 0)) }} hubs · {{ number_format((int) ($overview['this_month'] ?? 0)) }} this month
+                    {{ number_format((int) ($overview['phase3_onboarded_count'] ?? 0)) }} Phase 3 · {{ number_format((int) ($overview['legacy_onboarded_count'] ?? 0)) }} Legacy · {{ number_format((int) ($overview['this_month'] ?? 0)) }} this month
                 @endif
             </div>
         </div>
@@ -543,7 +543,7 @@
                 <div>
                     <h3 class="onb-target__title">{{ $targetProgress['label'] ?? 'Onboarding target' }}</h3>
                     <p class="onb-target__sub">
-                        FY {{ $targetProgress['fiscal_year'] ?? '—' }} · locked batch onboarding (search filter excluded from progress count)
+                        FY {{ $targetProgress['fiscal_year'] ?? '—' }} · {{ number_format((int) ($overview['phase3_onboarded_count'] ?? 0)) }} Phase 3 + {{ number_format((int) ($overview['legacy_onboarded_count'] ?? 0)) }} Legacy = {{ number_format((int) ($targetProgress['achieved'] ?? 0)) }} achieved
                     </p>
                 </div>
                 <div class="onb-target__stats">
@@ -589,7 +589,7 @@
             @endif
             @if (($sectorBreakdown['rows'] ?? []) !== [])
                 <div class="onb-panel">
-                    <h3 class="onb-panel__title">Sector mix (Phase 3)</h3>
+                    <h3 class="onb-panel__title">Sector mix (all onboarded)</h3>
                     <div class="onb-sector-list">
                         @foreach ($sectorBreakdown['rows'] as $sectorRow)
                             <div class="onb-sector-row">
