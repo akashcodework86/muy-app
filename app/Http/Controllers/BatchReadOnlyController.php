@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\AppSettingsService;
 use App\Services\HubBatchService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -148,6 +149,19 @@ class BatchReadOnlyController extends Controller
             'legacyDbConfigured' => $legacyDbConfigured,
             'legacyRequestedButUnavailable' => $legacyRequestedButUnavailable,
         ]);
+    }
+
+    public function destroy(Request $request, OnboardingBatch $batch): RedirectResponse
+    {
+        if ($request->user()->role !== 'state_admin') {
+            abort(403);
+        }
+
+        $this->batches->deleteBatchForStateAdmin($batch, $request->user(), $request);
+
+        return redirect()
+            ->route('admin.batches.index', $request->only(['hub', 'district', 'status', 'q', 'source', 'page']))
+            ->with('status', 'Batch "'.$batch->name.'" (#'.$batch->id.') was deleted.');
     }
 
     /**

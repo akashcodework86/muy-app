@@ -612,6 +612,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('batches.legacy.show');
         Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
         Route::get('batches/{batch}/onboarding-letter', [BatchReadOnlyController::class, 'downloadOnboardingLetter'])->name('batches.onboarding-letter');
+        Route::delete('batches/{batch}', [BatchReadOnlyController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('batches.destroy');
 
         Route::get('hub-batch-compliance', [HubBatchComplianceController::class, 'index'])->name('hub-batch-compliance.index');
         Route::get('hub-batch-compliance/requests', [HubBatchComplianceController::class, 'requests'])->name('hub-batch-compliance.requests');

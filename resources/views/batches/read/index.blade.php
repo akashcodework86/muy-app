@@ -138,6 +138,45 @@
     }
     .pager { padding: 0.75rem 0.9rem; border-top: 1px solid #f1f5f9; background: #f8fafc; }
 
+    .batch-delete-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: rgba(15, 23, 42, 0.45);
+    }
+    .batch-delete-modal.is-open { display: flex; }
+    .batch-delete-modal__panel {
+        width: min(440px, 100%);
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.25);
+        padding: 1.25rem 1.35rem;
+    }
+    .batch-delete-modal__title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 0.5rem;
+    }
+    .batch-delete-modal__text {
+        font-size: 0.9rem;
+        color: #475569;
+        line-height: 1.5;
+        margin: 0 0 1rem;
+    }
+    .batch-delete-modal__name { font-weight: 700; color: #0f172a; }
+    .batch-delete-modal__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
     @media (max-width: 720px) {
         .batches-table thead { display: none; }
         .batches-table, .batches-table tbody, .batches-table tr, .batches-table td { display: block; width: 100%; }
@@ -164,6 +203,17 @@
     $routeLegacyShowName = $routeLegacyShowName ?? 'staff.batches.legacy.show';
 @endphp
 <div class="batches-shell">
+
+    @if (session('status'))
+        <div class="batches-banner" style="border-color:#86efac;background:#ecfdf5;color:#166534;" role="status">
+            {{ session('status') }}
+        </div>
+    @endif
+    @if (session('error'))
+        <div class="batches-banner" style="border-color:#fecaca;background:#fef2f2;color:#991b1b;" role="alert">
+            {{ session('error') }}
+        </div>
+    @endif
 
     @if (! empty($legacyRequestedButUnavailable))
         <div class="batches-banner" role="status">
@@ -370,6 +420,14 @@
                             <td data-label="Actions">
                                 <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;">
                                     <a href="{{ route($routeShowName, $b->id) }}" class="btn-sm">View</a>
+                                    @if (($scope['type'] ?? '') === 'state')
+                                        <button type="button" class="btn-sm batch-delete-open"
+                                            style="color:#dc2626;border-color:#fecaca;"
+                                            data-action="{{ route('admin.batches.destroy', $b) }}"
+                                            data-name="{{ $b->name }}"
+                                            data-id="{{ $b->id }}"
+                                            data-status="{{ $b->status }}">Delete</button>
+                                    @endif
                                     @if (($scope['type'] ?? '') === 'state' && $b->status === 'locked' && ! $b->has_cdo_pdf)
                                         <form method="post" action="{{ route('admin.hub-batch-compliance.extend') }}" style="display:flex;gap:0.35rem;align-items:center;">
                                             @csrf
@@ -400,4 +458,67 @@
         @endif
     </div>
 </div>
+
+@if (($scope['type'] ?? '') === 'state')
+    <div id="batchDeleteModal" class="batch-delete-modal" role="dialog" aria-modal="true" aria-labelledby="batchDeleteModalTitle" hidden>
+        <div class="batch-delete-modal__panel">
+            <h2 id="batchDeleteModalTitle" class="batch-delete-modal__title">Delete this batch?</h2>
+            <p class="batch-delete-modal__text">
+                You are about to delete <span class="batch-delete-modal__name" id="batchDeleteModalName"></span>
+                (<span id="batchDeleteModalId"></span>, <span id="batchDeleteModalStatus"></span>).
+                All members will be removed from this batch. This cannot be undone.
+            </p>
+            <form id="batchDeleteForm" method="post" action="">
+                @csrf
+                @method('DELETE')
+                <div class="batch-delete-modal__actions">
+                    <button type="button" class="btn-sm" id="batchDeleteCancel">Cancel</button>
+                    <button type="submit" class="btn-sm" style="color:#fff;background:#dc2626;border-color:#dc2626;">Yes, delete batch</button>
+                </div>
+            </form>
+        </div>
+    </div>
+@endif
 @endsection
+
+@if (($scope['type'] ?? '') === 'state')
+    @push('scripts')
+    <script>
+        (function () {
+            const modal = document.getElementById('batchDeleteModal');
+            const form = document.getElementById('batchDeleteForm');
+            const nameEl = document.getElementById('batchDeleteModalName');
+            const idEl = document.getElementById('batchDeleteModalId');
+            const statusEl = document.getElementById('batchDeleteModalStatus');
+            const cancelBtn = document.getElementById('batchDeleteCancel');
+            if (!modal || !form) return;
+
+            function closeModal() {
+                modal.classList.remove('is-open');
+                modal.setAttribute('hidden', 'hidden');
+            }
+
+            function openModal(btn) {
+                form.action = btn.dataset.action || '';
+                nameEl.textContent = btn.dataset.name || 'this batch';
+                idEl.textContent = '#' + (btn.dataset.id || '');
+                statusEl.textContent = btn.dataset.status || '';
+                modal.classList.add('is-open');
+                modal.removeAttribute('hidden');
+            }
+
+            document.querySelectorAll('.batch-delete-open').forEach(function (btn) {
+                btn.addEventListener('click', function () { openModal(btn); });
+            });
+
+            cancelBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) closeModal();
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+            });
+        })();
+    </script>
+    @endpush
+@endif

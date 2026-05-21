@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -1019,6 +1020,27 @@ class HubBatchService
         return ['ok' => true, 'data' => ['batch_id' => $batch->id]];
     }
 
+    /**
+     * State admin may delete any Phase 3 batch (draft or locked).
+     */
+    public function deleteBatchForStateAdmin(OnboardingBatch $batch, User $user, Request $request): void
+    {
+        $batchId = (int) $batch->id;
+        $before = $this->batchDeletionSnapshot($batch);
+
+        $this->purgeBatchRecords($batch);
+
+        $this->auditLogger->record(
+            $request,
+            'state_admin_batch.deleted',
+            OnboardingBatch::class,
+            $batchId,
+            $before,
+            null,
+            'State admin deleted onboarding batch'
+        );
+    }
+
     private function deleteBatch(int $hubId, User $user, array $input, ?Request $request): array
     {
         $batchId = (int) ($input['batch_id'] ?? 0);
@@ -1027,25 +1049,8 @@ class HubBatchService
             return ['ok' => false, 'error' => 'Batch is not editable'];
         }
 
-        $memberCount = $batch->isDraft() ? $this->draftMemberCount($batch->id) : $batch->batchCfas()->count();
-        $before = [
-            'name' => (string) $batch->name,
-            'district_id' => (int) $batch->district_id,
-            'target_size' => (int) $batch->target_size,
-            'onboarding_date' => optional($batch->onboarding_date)->toDateString(),
-            'member_count' => $memberCount,
-            'status' => (string) $batch->status,
-        ];
-
-        DB::transaction(function () use ($batch, $user): void {
-            if ($batch->isDraft()) {
-                $batch->draftCfas()->delete();
-            } else {
-                $batch->batchCfas()->delete();
-            }
-            $batch->update(['updated_by' => $user->id]);
-            $batch->delete();
-        });
+        $before = $this->batchDeletionSnapshot($batch);
+        $this->purgeBatchRecords($batch);
 
         if ($request) {
             $this->auditLogger->record(
@@ -1060,6 +1065,49 @@ class HubBatchService
         }
 
         return ['ok' => true, 'data' => ['batch_id' => $batchId]];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function batchDeletionSnapshot(OnboardingBatch $batch): array
+    {
+        $memberCount = $batch->isDraft()
+            ? $this->draftMemberCount($batch->id)
+            : $batch->batchCfas()->count();
+
+        return [
+            'name' => (string) $batch->name,
+            'hub_id' => (int) $batch->hub_id,
+            'district_id' => (int) $batch->district_id,
+            'target_size' => (int) $batch->target_size,
+            'onboarding_date' => optional($batch->onboarding_date)->toDateString(),
+            'member_count' => $memberCount,
+            'status' => (string) $batch->status,
+        ];
+    }
+
+    private function purgeBatchRecords(OnboardingBatch $batch): void
+    {
+        DB::transaction(function () use ($batch): void {
+            $batch->editRequests()->delete();
+
+            foreach ($batch->documents()->get() as $doc) {
+                $path = trim((string) $doc->path);
+                if ($path !== '' && Storage::disk('local')->exists($path)) {
+                    Storage::disk('local')->delete($path);
+                }
+            }
+            $batch->documents()->delete();
+
+            if ($batch->isDraft()) {
+                $batch->draftCfas()->delete();
+            } else {
+                $batch->batchCfas()->delete();
+            }
+
+            $batch->delete();
+        });
     }
 
     private function lockBatch(int $hubId, User $user, array $input): array
