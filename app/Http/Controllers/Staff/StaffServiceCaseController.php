@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\CfaSubmission;
+use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\User;
@@ -15,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -239,6 +241,8 @@ class StaffServiceCaseController extends Controller
             ];
         })->values();
 
+        $priorMarketLinkageJson = $this->priorMarketLinkageJson($submissionIds, $legacyIds);
+
         return view('staff.services.create', [
             'submissions' => $eligible->get(),
             'legacyRows' => $legacyRows,
@@ -249,6 +253,8 @@ class StaffServiceCaseController extends Controller
             'servicesJson' => $servicesJson,
             'existingNonMultiplePairs' => $existingPairs,
             'priorCasesJson' => $priorCasesJson,
+            'priorMarketLinkageJson' => $priorMarketLinkageJson,
+            'marketLinkageCreateUrl' => route('staff.market-linkages.create'),
         ]);
     }
 
@@ -634,5 +640,59 @@ class StaffServiceCaseController extends Controller
             ->get()
             ->filter(fn (Service $s) => $s->category !== null)
             ->values();
+    }
+
+    /**
+     * @param  list<int>  $submissionIds
+     * @param  list<int>  $legacyIds
+     * @return array{cfa: array<int, list<array<string, mixed>>>, legacy: array<int, list<array<string, mixed>>>}
+     */
+    private function priorMarketLinkageJson(array $submissionIds, array $legacyIds): array
+    {
+        $empty = ['cfa' => [], 'legacy' => []];
+
+        if (! Schema::hasTable('market_linkage_submissions')) {
+            return $empty;
+        }
+
+        $format = function (MarketLinkageSubmission $submission): array {
+            return [
+                'id' => (int) $submission->id,
+                'staff_name' => (string) $submission->submitted_by_name,
+                'created_at' => optional($submission->created_at)->timezone(config('app.timezone'))->format('d M Y H:i') ?? '',
+                'show_url' => route('staff.market-linkages.show', $submission),
+                'partners' => $submission->partners->map(fn ($partner) => [
+                    'partner_name' => (string) $partner->partner_name,
+                    'linkage_mode' => MarketLinkageSubmission::linkageModeLabel((string) $partner->linkage_mode),
+                    'linkage_date' => $partner->linkage_date?->format('d M Y') ?? '',
+                    'has_document' => $partner->hasDocument(),
+                ])->values()->all(),
+            ];
+        };
+
+        $cfaRows = MarketLinkageSubmission::query()
+            ->with('partners')
+            ->when($submissionIds !== [], fn ($q) => $q->whereIn('cfa_submission_id', $submissionIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->whereNotNull('cfa_submission_id')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $legacyRows = MarketLinkageSubmission::query()
+            ->with('partners')
+            ->when($legacyIds !== [], fn ($q) => $q->whereIn('legacy_application_id', $legacyIds), fn ($q) => $q->whereRaw('1 = 0'))
+            ->whereNotNull('legacy_application_id')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return [
+            'cfa' => $cfaRows
+                ->groupBy(fn (MarketLinkageSubmission $row) => (int) $row->cfa_submission_id)
+                ->map(fn (Collection $rows) => $rows->map($format)->values()->all())
+                ->all(),
+            'legacy' => $legacyRows
+                ->groupBy(fn (MarketLinkageSubmission $row) => (int) $row->legacy_application_id)
+                ->map(fn (Collection $rows) => $rows->map($format)->values()->all())
+                ->all(),
+        ];
     }
 }

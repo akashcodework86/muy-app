@@ -51,6 +51,36 @@
             font-size: 0.81rem;
             color: #475569;
         }
+        .svc-create-side__divider {
+            margin: 0.85rem 0;
+            border: none;
+            border-top: 1px solid #c7d2fe;
+        }
+        .svc-create-side .ml-prior-block {
+            list-style: none;
+            padding-left: 0;
+        }
+        .svc-create-side .ml-prior-entry {
+            background: #fff;
+            border: 1px solid #ddd6fe;
+            border-radius: 8px;
+            padding: 0.5rem 0.55rem;
+            margin-bottom: 0.45rem;
+        }
+        .svc-create-side .ml-prior-partners {
+            margin: 0.35rem 0 0;
+            padding-left: 1rem;
+            font-size: 0.76rem;
+            color: #475569;
+        }
+        .svc-create-side .ml-prior-add {
+            display: inline-block;
+            margin-top: 0.35rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #4f46e5;
+            text-decoration: none;
+        }
         @media (max-width: 1040px) {
             .svc-create-grid {
                 grid-template-columns: 1fr;
@@ -123,14 +153,24 @@
 
             <div style="margin-bottom:0.85rem;">
                 <label for="service_id" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Service</label>
-                <select id="service_id" name="service_id" required style="width:100%;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
-                    <option value="">— Select —</option>
-                    @foreach ($services as $svc)
-                        <option value="{{ $svc->id }}" @selected((int) old('service_id') === (int) $svc->id)>
-                            {{ $svc->category?->name ?? '?' }} — {{ $svc->name }}
-                        </option>
-                    @endforeach
-                </select>
+                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+                    <select id="service_id" name="service_id" required style="flex:1;min-width:14rem;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                        <option value="">— Select —</option>
+                        @foreach ($services as $svc)
+                            <option value="{{ $svc->id }}" @selected((int) old('service_id') === (int) $svc->id)>
+                                {{ $svc->category?->name ?? '?' }} — {{ $svc->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <a id="svc_inline_market_linkage_btn"
+                       href="{{ route('staff.market-linkages.create', array_filter([
+                        'cfa_submission_id' => (int) old('cfa_submission_id', (int) ($defaultCfaSubmissionId ?? 0)) ?: null,
+                        'legacy_application_id' => (int) old('legacy_application_id', (int) ($defaultLegacyApplicationId ?? 0)) ?: null,
+                    ])) }}"
+                       style="text-decoration:none;white-space:nowrap;background:#4f46e5;color:#fff;padding:0.48rem 0.85rem;border-radius:8px;font-size:0.82rem;font-weight:700;">
+                        + Add market linkage
+                    </a>
+                </div>
             </div>
 
             <p id="svc_meta" style="font-size:0.8rem;color:#52525b;margin:0 0 0.75rem;"></p>
@@ -165,6 +205,13 @@
                 <h4>Already given services</h4>
                 <p id="prior_services_empty" class="empty">Select an incubatee to see service history and staff details.</p>
                 <ul id="prior_services_list" style="display:none;"></ul>
+
+                <hr class="svc-create-side__divider">
+
+                <h4>Market linkage</h4>
+                <p id="prior_market_linkage_empty" class="empty">Select an incubatee to see previous market linkage entries.</p>
+                <div id="prior_market_linkage_list" style="display:none;"></div>
+                <a id="prior_market_linkage_add" class="ml-prior-add" href="{{ $marketLinkageCreateUrl ?? route('staff.market-linkages.create') }}" style="display:none;">+ Add market linkage for this incubatee</a>
             </aside>
         </div>
 
@@ -185,6 +232,8 @@
                 const EXISTING_NON_MULTIPLE = new Set(@json($existingNonMultiplePairs ?? []));
                 const LEGACY_PRIOR = @json($legacyPriorJson ?? []);
                 const PRIOR_CASES = @json($priorCasesJson ?? ['cfa' => [], 'legacy' => []]);
+                const PRIOR_MARKET_LINKAGE = @json($priorMarketLinkageJson ?? ['cfa' => [], 'legacy' => []]);
+                const ML_CREATE_BASE = @json($marketLinkageCreateUrl ?? route('staff.market-linkages.create'));
 
                 const selSvc = document.getElementById('service_id');
                 const selSub = document.getElementById('cfa_submission_id');
@@ -193,6 +242,10 @@
                 const legacyPriorList = document.getElementById('legacy_prior_list');
                 const priorServicesList = document.getElementById('prior_services_list');
                 const priorServicesEmpty = document.getElementById('prior_services_empty');
+                const priorMarketLinkageList = document.getElementById('prior_market_linkage_list');
+                const priorMarketLinkageEmpty = document.getElementById('prior_market_linkage_empty');
+                const priorMarketLinkageAdd = document.getElementById('prior_market_linkage_add');
+                const inlineMarketLinkageBtn = document.getElementById('svc_inline_market_linkage_btn');
                 const meta = document.getElementById('svc_meta');
                 const wrapDel = document.getElementById('wrap_delivered');
                 const wrapAtt = document.getElementById('wrap_attach');
@@ -257,6 +310,68 @@
 
                     priorServicesEmpty.style.display = 'none';
                     priorServicesList.style.display = 'flex';
+                }
+
+                function marketLinkageCreateUrl(cfaId, legacyId) {
+                    const params = new URLSearchParams();
+                    if (cfaId > 0) params.set('cfa_submission_id', String(cfaId));
+                    if (legacyId > 0) params.set('legacy_application_id', String(legacyId));
+                    const qs = params.toString();
+                    return ML_CREATE_BASE + (qs ? ('?' + qs) : '');
+                }
+
+                function renderPriorMarketLinkage() {
+                    if (!priorMarketLinkageList || !priorMarketLinkageEmpty) return;
+                    const leg = selLegacy ? parseInt(selLegacy.value || '0', 10) : 0;
+                    const cfa = selSub ? parseInt(selSub.value || '0', 10) : 0;
+                    let entries = [];
+                    if (leg > 0) entries = (PRIOR_MARKET_LINKAGE.legacy && PRIOR_MARKET_LINKAGE.legacy[leg]) ? PRIOR_MARKET_LINKAGE.legacy[leg] : [];
+                    else if (cfa > 0) entries = (PRIOR_MARKET_LINKAGE.cfa && PRIOR_MARKET_LINKAGE.cfa[cfa]) ? PRIOR_MARKET_LINKAGE.cfa[cfa] : [];
+
+                    priorMarketLinkageList.innerHTML = '';
+                    const mlUrl = marketLinkageCreateUrl(cfa, leg);
+                    if (priorMarketLinkageAdd) {
+                        priorMarketLinkageAdd.style.display = (leg > 0 || cfa > 0) ? 'inline-block' : 'none';
+                        priorMarketLinkageAdd.href = mlUrl;
+                    }
+                    if (inlineMarketLinkageBtn) {
+                        inlineMarketLinkageBtn.href = mlUrl;
+                    }
+
+                    if (!Array.isArray(entries) || entries.length === 0) {
+                        priorMarketLinkageEmpty.textContent = (leg > 0 || cfa > 0)
+                            ? 'No market linkage recorded for this incubatee yet.'
+                            : 'Select an incubatee to see previous market linkage entries.';
+                        priorMarketLinkageEmpty.style.display = 'block';
+                        priorMarketLinkageList.style.display = 'none';
+                        return;
+                    }
+
+                    priorMarketLinkageEmpty.style.display = 'none';
+                    priorMarketLinkageList.style.display = 'block';
+
+                    entries.forEach(function (entry) {
+                        const block = document.createElement('div');
+                        block.className = 'ml-prior-entry';
+                        const partners = Array.isArray(entry.partners) ? entry.partners : [];
+                        let partnersHtml = '<ul class="ml-prior-partners">';
+                        partners.forEach(function (p) {
+                            const doc = p.has_document ? ' · bill attached' : '';
+                            partnersHtml += '<li>' + esc(p.partner_name || '—') +
+                                ' · ' + esc(p.linkage_mode || '') +
+                                ' · ' + esc(p.linkage_date || '') + doc + '</li>';
+                        });
+                        partnersHtml += '</ul>';
+                        const viewLink = entry.show_url
+                            ? ' <a href="' + esc(entry.show_url) + '" style="font-size:0.76rem;font-weight:600;">View</a>'
+                            : '';
+                        block.innerHTML =
+                            '<strong>Submission · ' + esc(entry.created_at || '') + '</strong>' + viewLink +
+                            '<span class="meta">By ' + esc(entry.staff_name || 'Unknown') +
+                            ' · ' + partners.length + ' partner' + (partners.length === 1 ? '' : 's') + '</span>' +
+                            partnersHtml;
+                        priorMarketLinkageList.appendChild(block);
+                    });
                 }
 
                 function esc(s) {
@@ -500,6 +615,7 @@
                         if (parseInt(selSub.value || '0', 10) > 0 && selLegacy) selLegacy.value = '';
                         updateLegacyPrior();
                         renderPriorServices();
+                        renderPriorMarketLinkage();
                         refreshServiceOptionLocks();
                         render();
                     });
@@ -509,12 +625,14 @@
                         if (parseInt(selLegacy.value || '0', 10) > 0 && selSub && selSub.tagName === 'SELECT') selSub.value = '';
                         updateLegacyPrior();
                         renderPriorServices();
+                        renderPriorMarketLinkage();
                         refreshServiceOptionLocks();
                         render();
                     });
                 }
                 updateLegacyPrior();
                 renderPriorServices();
+                renderPriorMarketLinkage();
                 refreshServiceOptionLocks();
                 render();
             })();

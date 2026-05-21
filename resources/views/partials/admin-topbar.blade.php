@@ -124,6 +124,12 @@
         str_starts_with($r, 'spoc.social-media-posts.show') => 'social-media-posts-dashboard',
         str_starts_with($r, 'admin.social-media-posts.dashboard') => 'social-media-posts-dashboard',
         str_starts_with($r, 'admin.social-media-posts.show') => 'social-media-posts-dashboard',
+        str_starts_with($r, 'staff.market-linkages.create') => 'market-linkages-submit',
+        str_starts_with($r, 'staff.market-linkages.store') => 'market-linkages-submit',
+        str_starts_with($r, 'staff.market-linkages.dashboard') => 'market-linkages-dashboard',
+        str_starts_with($r, 'staff.market-linkages.show') => 'market-linkages-dashboard',
+        str_starts_with($r, 'admin.market-linkages.dashboard') => 'market-linkage-dashboard',
+        str_starts_with($r, 'admin.market-linkages.show') => 'market-linkage-dashboard',
         str_starts_with($r, 'account.') => 'account',
         str_starts_with($r, 'incubatee.documents') => 'documents',
         str_starts_with($r, 'incubatee.') => 'incubatee',
@@ -132,7 +138,7 @@
     };
     $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'social-media-posts-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -304,6 +310,16 @@
                             </a>
                         </div>
                     </div>
+                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'market-linkage-dashboard') is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('pin') !!}<span>Forward Linkages</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('admin.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Market Linkage</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </details>
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['documents', 'admin-documents'], true)) is-active @endif">
@@ -425,6 +441,9 @@
                 {!! $i('doc') !!}<span class="admin-topbar__link-text">Services</span>
             </a>
             @endif
+            <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__link @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif">
+                {!! $i('pin') !!}<span class="admin-topbar__link-text">Market linkage</span>
+            </a>
             <a href="{{ route('staff.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-batches') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
             </a>

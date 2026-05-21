@@ -49,6 +49,7 @@ use App\Http\Controllers\Staff\FieldCoordinatorAttendanceController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\LegacyPhase2IncubateeProfileController;
 use App\Http\Controllers\Staff\StaffPortalController;
+use App\Http\Controllers\MarketLinkageController;
 use App\Http\Controllers\SocialMediaPostLandingController;
 use App\Http\Controllers\SocialMediaPostController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
@@ -331,6 +332,16 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('services/{service_case}', [StaffServiceCaseController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('services.destroy');
+
+        Route::get('market-linkages/create', [MarketLinkageController::class, 'create'])->name('market-linkages.create');
+        Route::post('market-linkages', [MarketLinkageController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('market-linkages.store');
+        Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
+        Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
+        Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
+        Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
+            ->name('market-linkages.document');
     });
 
     /** State Staff (SPOC) — maker-checker approval queue */
@@ -604,6 +615,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('social-media-posts/{socialMediaPost}', [SocialMediaPostController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('social-media-posts.destroy');
+
+        Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
+        Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
+        Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
+        Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
+            ->name('market-linkages.document');
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');

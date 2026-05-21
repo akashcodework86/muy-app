@@ -1240,4 +1240,139 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame(2, $row['achievement']);
     }
+
+    public function test_market_linkage_deliverable_achievements_are_scoped_by_district(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ml-del-hub', 'name' => 'ML Hub', 'sort_order' => 1]);
+        $districtA = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-dist-a', 'name' => 'ML District A', 'sort_order' => 1]);
+        $districtB = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-dist-b', 'name' => 'ML District B', 'sort_order' => 2]);
+
+        $staffA = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $districtA->id,
+            'is_active' => true,
+        ]);
+        $staffB = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $districtB->id,
+            'is_active' => true,
+        ]);
+
+        $cfaA = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $districtA->id,
+            'application_no' => 'ML-A-001',
+            'applicant_name' => 'Incubatee A',
+            'phone' => '9000000001',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $cfaB = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $districtB->id,
+            'application_no' => 'ML-B-001',
+            'applicant_name' => 'Incubatee B',
+            'phone' => '9000000002',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $subA = (int) DB::table('market_linkage_submissions')->insertGetId([
+            'submitted_by_user_id' => $staffA->id,
+            'submitted_by_name' => $staffA->name,
+            'district_id' => $districtA->id,
+            'district_name' => $districtA->name,
+            'cfa_submission_id' => $cfaA,
+            'incubatee_name' => 'Incubatee A',
+            'application_no' => 'ML-A-001',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $subB = (int) DB::table('market_linkage_submissions')->insertGetId([
+            'submitted_by_user_id' => $staffB->id,
+            'submitted_by_name' => $staffB->name,
+            'district_id' => $districtB->id,
+            'district_name' => $districtB->name,
+            'cfa_submission_id' => $cfaB,
+            'incubatee_name' => 'Incubatee B',
+            'application_no' => 'ML-B-001',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('market_linkage_partners')->insert([
+            [
+                'market_linkage_submission_id' => $subA,
+                'partner_name' => 'Amazon India',
+                'linkage_mode' => 'online',
+                'linkage_date' => '2026-05-10',
+                'sort_order' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'market_linkage_submission_id' => $subA,
+                'partner_name' => 'Local Mandi',
+                'linkage_mode' => 'offline',
+                'linkage_date' => '2026-05-12',
+                'sort_order' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'market_linkage_submission_id' => $subB,
+                'partner_name' => 'amazon india',
+                'linkage_mode' => 'online',
+                'linkage_date' => '2026-05-15',
+                'sort_order' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'market_linkage_submission_id' => $subB,
+                'partner_name' => 'Flipkart',
+                'linkage_mode' => 'offline',
+                'linkage_date' => '2026-05-16',
+                'sort_order' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+
+        $stateReport = app(ProgramDeliverablesReportService::class)->build(
+            $filter,
+            ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']))
+        );
+        $partnersState = collect($stateReport['rows'])->firstWhere('name', 'No of Partners outreach');
+        $incubateesState = collect($stateReport['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
+        $this->assertNotNull($partnersState);
+        $this->assertNotNull($incubateesState);
+        $this->assertSame(3, $partnersState['achievement']);
+        $this->assertSame(2, $incubateesState['achievement']);
+
+        $districtReport = app(ProgramDeliverablesReportService::class)->build(
+            $filter,
+            ProgramDeliverablesScope::forUser($staffA)
+        );
+        $partnersDistrict = collect($districtReport['rows'])->firstWhere('name', 'No of Partners outreach');
+        $incubateesDistrict = collect($districtReport['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
+        $this->assertNotNull($partnersDistrict);
+        $this->assertNotNull($incubateesDistrict);
+        $this->assertSame(2, $partnersDistrict['achievement']);
+        $this->assertSame(1, $incubateesDistrict['achievement']);
+    }
 }

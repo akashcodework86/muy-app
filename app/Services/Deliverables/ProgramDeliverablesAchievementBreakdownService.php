@@ -63,6 +63,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'bst_sessions' => $this->bstSessionsBreakdown(),
             'bst_participants' => $this->bstParticipantsBreakdown(),
             'technical_training_sessions' => $this->technicalTrainingBreakdown(),
+            'market_linkage_unique_partners' => $this->marketLinkagePartnersBreakdown(),
+            'market_linkage_incubatees' => $this->marketLinkageIncubateesBreakdown(),
             default => ['total' => 0, 'by_district' => [], 'by_hub' => [], 'by_month' => [], 'by_service' => [], 'records' => []],
         };
 
@@ -835,8 +837,163 @@ class ProgramDeliverablesAchievementBreakdownService
             'bst_sessions' => 'Business skills training sessions',
             'bst_participants' => 'BST participants',
             'technical_training_sessions' => 'Technical training sessions',
+            'market_linkage_unique_partners' => 'Market linkage partners',
+            'market_linkage_incubatees' => 'Market linkage incubatees',
             default => 'Achievement records',
         };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function marketLinkagePartnersBreakdown(): array
+    {
+        if (! Schema::hasTable('market_linkage_submissions') || ! Schema::hasTable('market_linkage_partners')) {
+            return $this->emptyBreakdown();
+        }
+
+        if ($this->districtIds === []) {
+            return $this->emptyBreakdown();
+        }
+
+        $query = DB::table('market_linkage_partners as mlp')
+            ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id')
+            ->join('districts as d', 'd.id', '=', 'mls.district_id')
+            ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
+            ->selectRaw('d.name as district_name, h.name as hub_name, mlp.partner_name, mlp.linkage_mode, mlp.linkage_date, mls.incubatee_name, mls.application_no');
+
+        $this->applyDistrictScope($query, 'mls.district_id');
+        $this->applyMarketLinkagePartnerDateScope($query);
+
+        $records = $query
+            ->orderByDesc('mlp.linkage_date')
+            ->orderBy('mlp.partner_name')
+            ->limit(500)
+            ->get()
+            ->map(fn ($row) => [
+                'district' => (string) $row->district_name,
+                'hub' => (string) ($row->hub_name ?? ''),
+                'partner_name' => (string) $row->partner_name,
+                'linkage_mode' => (string) $row->linkage_mode,
+                'linkage_date' => (string) $row->linkage_date,
+                'incubatee_name' => (string) $row->incubatee_name,
+                'application_no' => (string) ($row->application_no ?? ''),
+            ])
+            ->all();
+
+        $byDistrict = DB::table('market_linkage_partners as mlp')
+            ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id')
+            ->join('districts as d', 'd.id', '=', 'mls.district_id')
+            ->selectRaw('d.name as label, COUNT(DISTINCT LOWER(TRIM(mlp.partner_name))) as total');
+        $this->applyDistrictScope($byDistrict, 'mls.district_id');
+        $this->applyMarketLinkagePartnerDateScope($byDistrict);
+        $byDistrictRows = $byDistrict->groupBy('d.name')->orderByDesc('total')->get()
+            ->map(fn ($r) => ['label' => (string) $r->label, 'total' => (int) $r->total])->all();
+
+        $totalQuery = DB::table('market_linkage_partners as mlp')
+            ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id');
+        $this->applyDistrictScope($totalQuery, 'mls.district_id');
+        $this->applyMarketLinkagePartnerDateScope($totalQuery);
+        $total = (int) $totalQuery->selectRaw('COUNT(DISTINCT LOWER(TRIM(mlp.partner_name))) as aggregate')->value('aggregate');
+
+        return [
+            'total' => $total,
+            'by_district' => $byDistrictRows,
+            'by_hub' => [],
+            'by_month' => [],
+            'by_service' => [],
+            'records' => $records,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function marketLinkageIncubateesBreakdown(): array
+    {
+        if (! Schema::hasTable('market_linkage_submissions') || ! Schema::hasTable('market_linkage_partners')) {
+            return $this->emptyBreakdown();
+        }
+
+        if ($this->districtIds === []) {
+            return $this->emptyBreakdown();
+        }
+
+        $incubateeKeySql = <<<'SQL'
+CASE
+    WHEN mls.cfa_submission_id IS NOT NULL THEN CONCAT('c:', mls.cfa_submission_id)
+    WHEN mls.legacy_application_id IS NOT NULL THEN CONCAT('l:', mls.legacy_application_id)
+    ELSE CONCAT('s:', mls.id)
+END
+SQL;
+
+        $query = DB::table('market_linkage_submissions as mls')
+            ->join('districts as d', 'd.id', '=', 'mls.district_id')
+            ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
+            ->whereExists(function ($sub): void {
+                $sub->select(DB::raw('1'))
+                    ->from('market_linkage_partners as mlp')
+                    ->whereColumn('mlp.market_linkage_submission_id', 'mls.id');
+                $this->applyMarketLinkagePartnerDateScope($sub);
+            })
+            ->selectRaw("{$incubateeKeySql} as incubatee_key, mls.incubatee_name, mls.application_no, d.name as district_name, h.name as hub_name, COUNT(mlp.id) as partner_count")
+            ->join('market_linkage_partners as mlp', 'mlp.market_linkage_submission_id', '=', 'mls.id');
+
+        $this->applyDistrictScope($query, 'mls.district_id');
+        $this->applyMarketLinkagePartnerDateScope($query, 'mlp.linkage_date');
+
+        $records = $query
+            ->groupBy('incubatee_key', 'mls.incubatee_name', 'mls.application_no', 'd.name', 'h.name')
+            ->orderBy('mls.incubatee_name')
+            ->limit(500)
+            ->get()
+            ->map(fn ($row) => [
+                'district' => (string) $row->district_name,
+                'hub' => (string) ($row->hub_name ?? ''),
+                'incubatee_name' => (string) $row->incubatee_name,
+                'application_no' => (string) ($row->application_no ?? ''),
+                'partner_count' => (int) $row->partner_count,
+            ])
+            ->all();
+
+        $totalQuery = DB::table('market_linkage_submissions as mls')
+            ->whereExists(function ($sub): void {
+                $sub->select(DB::raw('1'))
+                    ->from('market_linkage_partners as mlp')
+                    ->whereColumn('mlp.market_linkage_submission_id', 'mls.id');
+                $this->applyMarketLinkagePartnerDateScope($sub);
+            });
+        $this->applyDistrictScope($totalQuery, 'mls.district_id');
+        $total = (int) $totalQuery->selectRaw("COUNT(DISTINCT {$incubateeKeySql}) as aggregate")->value('aggregate');
+
+        return [
+            'total' => $total,
+            'by_district' => [],
+            'by_hub' => [],
+            'by_month' => [],
+            'by_service' => [],
+            'records' => $records,
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyMarketLinkagePartnerDateScope($query, string $column = 'mlp.linkage_date'): void
+    {
+        $floor = $this->phase3FloorDate();
+
+        if ($this->periodFrom && $this->periodTo) {
+            $from = $this->periodFrom->copy();
+            if ($from->lt($floor)) {
+                $from = $floor->copy();
+            }
+            $query->whereBetween($column, [$from->toDateString(), $this->periodTo->toDateString()]);
+
+            return;
+        }
+
+        $query->where($column, '>=', $floor->toDateString());
     }
 
     private function phase3FloorDate(): Carbon
