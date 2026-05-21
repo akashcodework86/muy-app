@@ -36,6 +36,7 @@
     $r = request()->route()?->getName() ?? '';
     $activeNav = match (true) {
         $r === 'dashboard' => 'dashboard',
+        str_starts_with($r, 'admin.data-centre') => 'data-centre',
         str_starts_with($r, 'admin.cfa') => 'cfa',
         str_starts_with($r, 'admin.phase1-cfa') => 'phase1-cfa',
         str_starts_with($r, 'admin.phase2-cfa') => 'phase2-cfa',
@@ -139,7 +140,7 @@
     $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard'], true);
-    $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents'], true);
+    $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
         'staff-training-packages-submit', 'staff-training-packages-dashboard',
@@ -331,6 +332,10 @@
                     {!! $i('more') !!}<span class="admin-topbar__link-text">More</span>
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Analytics &amp; Reports</p>
+                    <a href="{{ route('admin.data-centre.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'data-centre') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>Program Data Centre</span>
+                    </a>
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Operations</p>
                     <a href="{{ route('admin.batches.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'admin-batches') is-active @endif" role="menuitem">
                         {!! $i('batches') !!}<span>Batches</span>

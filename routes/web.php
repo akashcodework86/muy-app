@@ -4,6 +4,7 @@ use App\Http\Controllers\Account\ProfileController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CatalogServiceController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
+use App\Http\Controllers\Admin\DataCentreController;
 use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\DocumentRepositoryController;
@@ -444,6 +445,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('ops/migrations/sql/{bundle}', [MigrationOpsController::class, 'downloadSql'])
             ->where('bundle', '[A-Za-z0-9_-]+')
             ->name('ops.migrations.sql');
+
+        Route::get('data-centre', [DataCentreController::class, 'index'])->name('data-centre.index');
+        Route::post('data-centre/refresh', [DataCentreController::class, 'refresh'])->name('data-centre.refresh');
+        Route::get('data-centre/export-all', [DataCentreController::class, 'exportAll'])->name('data-centre.export-all');
+        Route::get('data-centre/export/{section}', [DataCentreController::class, 'export'])
+            ->where('section', '[a-z\-]+')
+            ->name('data-centre.export');
 
         Route::get('cfa-applications', [CfaSubmissionController::class, 'index'])->name('cfa.index');
         Route::get('cfa-applications/export', [CfaSubmissionController::class, 'export'])->name('cfa.export');
