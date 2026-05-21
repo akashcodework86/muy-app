@@ -79,8 +79,8 @@ class ProgramDeliverablesReportService
         $this->filter = $filter;
         $this->activeFiscalYear = $fiscalYear;
         $this->districtIds = $scope->effectiveDistrictIds($filter->districtId);
-        // State admin: always read State targets page values (even when a district filter is applied).
-        $this->useStateTargets = $scope->usesStateTargets;
+        // State-wide targets for state admin; when a district is selected, use that district's targets.
+        $this->useStateTargets = $scope->usesStateTargets && ($filter->districtId === null || $filter->districtId <= 0);
         [$this->periodFrom, $this->periodTo] = $filter->resolvePeriod($fiscalYear);
 
         $this->targetsByDeliverableId = $this->loadTargets($fiscalYear);

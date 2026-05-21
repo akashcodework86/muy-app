@@ -351,7 +351,7 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(350, $row['target']);
     }
 
-    public function test_state_target_shows_when_district_filter_applied_for_state_admin(): void
+    public function test_state_admin_sees_district_target_when_district_filter_applied(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
             ['code' => '2026-27'],
@@ -385,13 +385,31 @@ class DeliverablesReportTest extends TestCase
             'target_total' => 350,
         ]);
 
-        $filter = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
-        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
-        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
-        $row = collect($report['rows'])->firstWhere('serial', '4.2.4');
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $svcGst->id,
+            'target_total' => 42,
+        ]);
 
-        $this->assertNotNull($row);
-        $this->assertSame(350, $row['target']);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+
+        $statewideReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, null, null, null, null),
+            $scope,
+        );
+        $statewideRow = collect($statewideReport['rows'])->firstWhere('serial', '4.2.4');
+        $this->assertNotNull($statewideRow);
+        $this->assertSame(350, $statewideRow['target']);
+
+        $districtReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null),
+            $scope,
+        );
+        $districtRow = collect($districtReport['rows'])->firstWhere('serial', '4.2.4');
+
+        $this->assertNotNull($districtRow);
+        $this->assertSame(42, $districtRow['target']);
     }
 
     public function test_state_target_resolves_via_service_catalog_for_pitch_deck(): void
