@@ -79,11 +79,15 @@
                 @include('staff.district-workshop-sessions.partials.workshop-mode-field', ['selected' => null])
                 <div class="tp-field">
                     <label>Male participants *</label>
-                    <input type="number" name="male_participants" value="{{ old('male_participants', 0) }}" min="0" step="1" required>
+                    <input id="tpMaleParticipants" type="number" name="male_participants" value="{{ old('male_participants', 0) }}" min="0" step="1" required>
                 </div>
                 <div class="tp-field">
                     <label>Female participants *</label>
-                    <input type="number" name="female_participants" value="{{ old('female_participants', 0) }}" min="0" step="1" required>
+                    <input id="tpFemaleParticipants" type="number" name="female_participants" value="{{ old('female_participants', 0) }}" min="0" step="1" required>
+                </div>
+                <div class="tp-field">
+                    <label>Total participants</label>
+                    <input id="tpTotalParticipants" type="text" class="tp-readonly" value="{{ (int) old('male_participants', 0) + (int) old('female_participants', 0) }}" readonly>
                 </div>
                 <div class="tp-field tp-field--full">
                     <label>Notes (optional)</label>
@@ -126,3 +130,4 @@
 
 @include('staff.district-workshop-sessions.partials.attendance-upload-script')
 @include('staff.district-workshop-sessions.partials.workshop-photos-upload-script')
+@include('staff.district-workshop-sessions.partials.participant-total-script')

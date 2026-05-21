@@ -143,6 +143,16 @@
             } }}">Excel Export</a>
             @if ($canEdit)
                 <a class="tp-show-btn tp-show-btn--secondary" href="{{ route('staff.district-workshop-sessions.edit', $row) }}">Edit Entry</a>
+                <form
+                    method="post"
+                    action="{{ route('staff.district-workshop-sessions.destroy', $row) }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Delete this district workshop entry permanently?');"
+                >
+                    @csrf
+                    @method('delete')
+                    <button type="submit" class="tp-show-btn tp-show-btn--secondary" style="color:#b91c1c;border-color:#fecaca;">Delete</button>
+                </form>
             @endif
             <a class="tp-show-btn tp-show-btn--secondary" href="{{ match ($currentRole) {
                 'state_admin' => route('admin.district-workshop-sessions.dashboard'),

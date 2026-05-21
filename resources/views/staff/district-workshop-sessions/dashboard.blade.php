@@ -58,6 +58,22 @@
         font-weight:700;
     }
     .tp-btn--edit:hover { background:#f8fafc; }
+    .tp-btn--delete {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:0.42rem 0.8rem;
+        border-radius:8px;
+        border:1px solid #fecaca;
+        background:#fff;
+        color:#b91c1c;
+        font-size:0.8rem;
+        font-weight:700;
+        cursor:pointer;
+        font-family:inherit;
+    }
+    .tp-btn--delete:hover { background:#fef2f2; }
+    .tp-delete-inline { display:inline; margin:0; }
     .tp-empty { padding:1rem; color:#64748b; }
     .tp-brief { color:#64748b; font-size:0.8rem; line-height:1.4; margin-top:0.2rem; max-width:24rem; }
     .ees-ws-pill {
@@ -82,6 +98,8 @@
     }
     .tp-attendance-pill--pending { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
     .tp-attendance-pill--uploaded { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
+    .tp-table tfoot tr { background:#f8fafc; }
+    .tp-table tfoot td { font-weight:800; color:#0f172a; border-top:2px solid #cbd5e1; }
 </style>
 @endpush
 
@@ -109,6 +127,18 @@
         <div class="tp-stat-card">
             <div class="tp-stat-card__label">Total Sessions</div>
             <div class="tp-stat-card__value">{{ number_format($totalBatches) }}</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Male</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['male'] ?? 0)) }}</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Female</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['female'] ?? 0)) }}</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Participants</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['participants'] ?? 0)) }}</div>
         </div>
     </div>
 
@@ -207,6 +237,16 @@
                             } }}">View</a>
                             @if (auth()->user()->role === 'district_staff' && (int) $row->submitted_by_user_id === (int) auth()->id())
                                 <a class="tp-btn--edit" href="{{ route('staff.district-workshop-sessions.edit', $row) }}">Edit</a>
+                                <form
+                                    class="tp-delete-inline"
+                                    method="post"
+                                    action="{{ route('staff.district-workshop-sessions.destroy', $row) }}"
+                                    onsubmit="return confirm('Delete this district workshop entry permanently?');"
+                                >
+                                    @csrf
+                                    @method('delete')
+                                    <button type="submit" class="tp-btn--delete">Delete</button>
+                                </form>
                             @endif
                         </div>
                     </td>
@@ -217,6 +257,17 @@
                 </tr>
             @endforelse
             </tbody>
+            @if (($rows instanceof \Countable ? count($rows) : 0) > 0)
+            <tfoot>
+            <tr>
+                <td colspan="5"><strong>Total (all filtered entries)</strong></td>
+                <td>{{ number_format((int) ($totals['male'] ?? 0)) }}</td>
+                <td>{{ number_format((int) ($totals['female'] ?? 0)) }}</td>
+                <td>{{ number_format((int) ($totals['participants'] ?? 0)) }}</td>
+                <td colspan="3"></td>
+            </tr>
+            </tfoot>
+            @endif
         </table>
     </div>
 

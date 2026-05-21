@@ -88,6 +88,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                 'rows' => collect(),
                 'migrationMissing' => true,
                 'isPaginated' => false,
+                'totals' => ['male' => 0, 'female' => 0, 'participants' => 0],
             ]);
         }
 
@@ -117,6 +118,12 @@ class DistrictWorkshopSessionAttendanceController extends Controller
 
         $eventPeriod = $this->applyEventPeriodFilter($query, $request);
 
+        $totals = [
+            'male' => (int) (clone $query)->sum('male_participants'),
+            'female' => (int) (clone $query)->sum('female_participants'),
+        ];
+        $totals['participants'] = $totals['male'] + $totals['female'];
+
         $rows = $query
             ->orderByDesc('event_date')
             ->orderByDesc('id')
@@ -139,7 +146,22 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                 'event_year' => $eventPeriod['event_year'],
                 'event_month' => $eventPeriod['event_month'],
             ],
+            'totals' => $totals,
         ]);
+    }
+
+    public function destroy(Request $request, DistrictWorkshopSession $districtWorkshopSession): RedirectResponse
+    {
+        $user = $request->user();
+        $this->assertCanEdit($districtWorkshopSession, (int) $user->id);
+
+        $this->deleteMediaFiles((array) $districtWorkshopSession->attendance_media_json);
+        $this->deleteMediaFiles((array) $districtWorkshopSession->workshop_photos_json);
+        $districtWorkshopSession->delete();
+
+        return redirect()
+            ->route('staff.district-workshop-sessions.dashboard')
+            ->with('status', 'District level workshop entry deleted.');
     }
 
     public function show(Request $request, DistrictWorkshopSession $districtWorkshopSession): View
@@ -434,6 +456,23 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         }
 
         return $photoItems;
+    }
+
+    /**
+     * @param  list<array<string, mixed>|mixed>  $mediaItems
+     */
+    private function deleteMediaFiles(array $mediaItems): void
+    {
+        foreach ($mediaItems as $media) {
+            if (! is_array($media)) {
+                continue;
+            }
+
+            $path = (string) ($media['path'] ?? '');
+            if ($path !== '' && Storage::exists($path)) {
+                Storage::delete($path);
+            }
+        }
     }
 
     /**

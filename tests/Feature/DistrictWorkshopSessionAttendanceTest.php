@@ -139,6 +139,36 @@ class DistrictWorkshopSessionAttendanceTest extends TestCase
         $this->assertSame([], (array) $session->attendance_media_json);
     }
 
+    public function test_district_staff_can_delete_own_district_workshop_entry(): void
+    {
+        Storage::fake('local');
+
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)->post(route('staff.district-workshop-sessions.store'), [
+            'session_date' => '2026-05-18',
+            'workshop_mode' => 'physical',
+            'male_participants' => 2,
+            'female_participants' => 3,
+            'workshop_photos' => [
+                UploadedFile::fake()->create('workshop-1.jpg', 100, 'image/jpeg'),
+            ],
+        ]);
+
+        $session = DistrictWorkshopSession::query()->first();
+        $this->assertNotNull($session);
+
+        $response = $this->actingAs($staff)->delete(route('staff.district-workshop-sessions.destroy', $session));
+
+        $response->assertRedirect(route('staff.district-workshop-sessions.dashboard'));
+        $this->assertDatabaseMissing('district_workshop_sessions', ['id' => $session->id]);
+    }
+
     private function createDistrict(string $slug = 'dehradun', string $name = 'Dehradun'): District
     {
         $hub = Hub::query()->create([

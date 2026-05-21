@@ -297,6 +297,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::put('district-workshop-sessions/{districtWorkshopSession}', [DistrictWorkshopSessionAttendanceController::class, 'update'])
                 ->middleware('throttle:30,1')
                 ->name('district-workshop-sessions.update');
+            Route::delete('district-workshop-sessions/{districtWorkshopSession}', [DistrictWorkshopSessionAttendanceController::class, 'destroy'])
+                ->middleware('throttle:30,1')
+                ->name('district-workshop-sessions.destroy');
             Route::get('district-workshop-sessions/{districtWorkshopSession}/attachment', [DistrictWorkshopSessionAttendanceController::class, 'downloadAttachment'])
                 ->name('district-workshop-sessions.attachment');
         });
