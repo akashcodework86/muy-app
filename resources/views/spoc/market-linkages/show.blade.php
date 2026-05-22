@@ -1,36 +1,27 @@
 @extends('layouts.admin')
 
-@section('title', 'Market linkage details')
-@section('heading', 'Market linkage details')
+@section('title', 'Review market linkage')
+@section('heading', 'Review market linkage')
 
 @section('content')
+    @php
+        use App\Models\ServiceCase;
+        $isPending = $submission->status === ServiceCase::STATUS_PENDING_APPROVAL;
+    @endphp
+
     <p style="margin:0 0 1rem;">
-        @if ($staffListRoute ?? null)
-            <a href="{{ route($staffListRoute) }}">← My services</a>
-            ·
-        @endif
-        <a href="{{ route($dashboardRoute) }}">Market linkage records</a>
-        @if ($editRoute ?? null)
-            · <a href="{{ route($editRoute, $submission) }}">Edit & resubmit</a>
-        @endif
-        @if ($canDelete ?? false)
-            ·
-            <form method="post" action="{{ route($deleteRoute ?? 'staff.market-linkages.destroy', $submission) }}" style="display:inline;" onsubmit="return confirm('Delete this market linkage submission?');">
-                @csrf
-                @method('DELETE')
-                <button type="submit" style="background:none;border:none;padding:0;color:#b91c1c;font-weight:600;cursor:pointer;font-size:inherit;">Delete</button>
-            </form>
-        @endif
-        @if ($createRoute)
-            · <a href="{{ route($createRoute, array_filter([
-                'cfa_submission_id' => $submission->cfa_submission_id,
-                'legacy_application_id' => $submission->legacy_application_id,
-            ])) }}">Add another for this incubatee</a>
-        @endif
+        <a href="{{ route('spoc.service-cases.index', array_filter(['status' => $isPending ? ServiceCase::STATUS_PENDING_APPROVAL : null])) }}">← Back to approval queue</a>
     </p>
 
     @if (session('status'))
         <p style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:0.75rem 1rem;border-radius:8px;font-size:0.88rem;margin-bottom:1rem;">{{ session('status') }}</p>
+    @endif
+    @if ($errors->any())
+        <ul style="color:#b91c1c;margin:0 0 1rem;padding-left:1.2rem;font-size:0.88rem;">
+            @foreach ($errors->all() as $e)
+                <li>{{ $e }}</li>
+            @endforeach
+        </ul>
     @endif
 
     <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.85rem 1rem;margin-bottom:1rem;">
@@ -39,21 +30,18 @@
             <div><span style="color:#64748b;">Application no</span><br><strong>{{ $submission->application_no ?: '—' }}</strong></div>
             <div><span style="color:#64748b;">District</span><br><strong>{{ $submission->district_name ?? $submission->district?->name ?? '—' }}</strong></div>
             <div><span style="color:#64748b;">Submitted by</span><br><strong>{{ $submission->submitted_by_name }}</strong></div>
-            <div><span style="color:#64748b;">Recorded on</span><br><strong>{{ $submission->created_at?->timezone(config('app.timezone'))->format('d M Y H:i') ?? '—' }}</strong></div>
-            @if (\App\Models\MarketLinkageSubmission::supportsWorkflow())
-                <div><span style="color:#64748b;">Status</span><br><strong>{{ str_replace('_', ' ', (string) ($submission->status ?? 'approved')) }}</strong></div>
-                <div><span style="color:#64748b;">Assigned SPOC</span><br><strong>{{ $submission->spoc?->name ?? 'Not assigned' }}</strong></div>
-            @endif
+            <div><span style="color:#64748b;">Status</span><br><strong>{{ str_replace('_', ' ', (string) $submission->status) }}</strong></div>
+            <div><span style="color:#64748b;">Submitted at</span><br><strong>{{ $submission->submitted_at?->timezone(config('app.timezone'))->format('d M Y H:i') ?? '—' }}</strong></div>
         </div>
-        @if (($submission->sent_back_note ?? '') !== '')
-            <p style="margin:0.75rem 0 0;font-size:0.85rem;color:#9a3412;"><strong>SPOC note:</strong> {{ $submission->sent_back_note }}</p>
+        @if ($submission->status === ServiceCase::STATUS_SENT_BACK && $submission->sent_back_note)
+            <p style="margin:0.75rem 0 0;font-size:0.85rem;color:#9a3412;"><strong>Sent back note:</strong> {{ $submission->sent_back_note }}</p>
         @endif
-        @if (($submission->rejected_note ?? '') !== '')
+        @if ($submission->status === ServiceCase::STATUS_REJECTED && $submission->rejected_note)
             <p style="margin:0.75rem 0 0;font-size:0.85rem;color:#991b1b;"><strong>Rejection reason:</strong> {{ $submission->rejected_note }}</p>
         @endif
     </div>
 
-    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:auto;">
+    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:auto;margin-bottom:1rem;">
         <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
             <thead>
                 <tr style="background:#f8fafc;">
@@ -95,4 +83,28 @@
             </tbody>
         </table>
     </div>
+
+    @if ($isPending)
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0.75rem;max-width:52rem;">
+            <form method="post" action="{{ route('spoc.market-linkages.approve', $submission) }}" onsubmit="return confirm('Approve this market linkage?');" style="background:#fff;border:1px solid #dcfce7;border-radius:10px;padding:0.8rem;">
+                @csrf
+                <button type="submit" style="background:#166534;color:#fff;border:none;padding:0.45rem 0.85rem;border-radius:8px;font-weight:600;cursor:pointer;">Approve</button>
+                <p style="margin:0.5rem 0 0;font-size:0.78rem;color:#52525b;">Counts toward district deliverables after approval.</p>
+            </form>
+
+            <form method="post" action="{{ route('spoc.market-linkages.send-back', $submission) }}" style="background:#fff;border:1px solid #fed7aa;border-radius:10px;padding:0.8rem;">
+                @csrf
+                <label for="send_back_note" style="display:block;font-size:0.8rem;font-weight:600;margin-bottom:0.3rem;">Send back note</label>
+                <textarea id="send_back_note" name="note" rows="3" required style="width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;font-size:0.82rem;"></textarea>
+                <button type="submit" style="margin-top:0.45rem;background:#9a3412;color:#fff;border:none;padding:0.45rem 0.85rem;border-radius:8px;font-weight:600;cursor:pointer;">Send back</button>
+            </form>
+
+            <form method="post" action="{{ route('spoc.market-linkages.reject', $submission) }}" style="background:#fff;border:1px solid #fecaca;border-radius:10px;padding:0.8rem;">
+                @csrf
+                <label for="reject_note" style="display:block;font-size:0.8rem;font-weight:600;margin-bottom:0.3rem;">Rejection reason</label>
+                <textarea id="reject_note" name="note" rows="3" required style="width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;font-size:0.82rem;"></textarea>
+                <button type="submit" style="margin-top:0.45rem;background:#991b1b;color:#fff;border:none;padding:0.45rem 0.85rem;border-radius:8px;font-weight:600;cursor:pointer;">Reject</button>
+            </form>
+        </div>
+    @endif
 @endsection

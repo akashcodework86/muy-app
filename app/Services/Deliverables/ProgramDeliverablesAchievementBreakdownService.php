@@ -5,6 +5,7 @@ namespace App\Services\Deliverables;
 use App\Models\Deliverable;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\FiscalYear;
+use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Services\ServiceTargetDeliverableSyncService;
@@ -925,8 +926,9 @@ class ProgramDeliverablesAchievementBreakdownService
             ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id')
             ->join('districts as d', 'd.id', '=', 'mls.district_id')
             ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
-            ->selectRaw('d.name as district_name, h.name as hub_name, mlp.partner_name, mlp.linkage_mode, mlp.linkage_date, mls.incubatee_name, mls.application_no');
+            ->selectRaw('d.name as district_name, h.name as hub_name, mlp.partner_name, mlp.linkage_mode, mlp.linkage_date, mlp.link_url, mls.incubatee_name, mls.application_no');
 
+        $this->applyMarketLinkageApprovedScope($query);
         $this->applyDistrictScope($query, 'mls.district_id');
         $this->applyMarketLinkagePartnerDateScope($query);
 
@@ -941,6 +943,7 @@ class ProgramDeliverablesAchievementBreakdownService
                 'partner_name' => (string) $row->partner_name,
                 'linkage_mode' => (string) $row->linkage_mode,
                 'linkage_date' => (string) $row->linkage_date,
+                'link_url' => (string) ($row->link_url ?? ''),
                 'incubatee_name' => (string) $row->incubatee_name,
                 'application_no' => (string) ($row->application_no ?? ''),
             ])
@@ -950,6 +953,7 @@ class ProgramDeliverablesAchievementBreakdownService
             ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id')
             ->join('districts as d', 'd.id', '=', 'mls.district_id')
             ->selectRaw('d.name as label, COUNT(DISTINCT LOWER(TRIM(mlp.partner_name))) as total');
+        $this->applyMarketLinkageApprovedScope($byDistrict);
         $this->applyDistrictScope($byDistrict, 'mls.district_id');
         $this->applyMarketLinkagePartnerDateScope($byDistrict);
         $byDistrictRows = $byDistrict->groupBy('d.name')->orderByDesc('total')->get()
@@ -957,6 +961,7 @@ class ProgramDeliverablesAchievementBreakdownService
 
         $totalQuery = DB::table('market_linkage_partners as mlp')
             ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id');
+        $this->applyMarketLinkageApprovedScope($totalQuery);
         $this->applyDistrictScope($totalQuery, 'mls.district_id');
         $this->applyMarketLinkagePartnerDateScope($totalQuery);
         $total = (int) $totalQuery->selectRaw('COUNT(DISTINCT LOWER(TRIM(mlp.partner_name))) as aggregate')->value('aggregate');
@@ -1004,6 +1009,7 @@ SQL;
             ->selectRaw("{$incubateeKeySql} as incubatee_key, mls.incubatee_name, mls.application_no, d.name as district_name, h.name as hub_name, COUNT(mlp.id) as partner_count")
             ->join('market_linkage_partners as mlp', 'mlp.market_linkage_submission_id', '=', 'mls.id');
 
+        $this->applyMarketLinkageApprovedScope($query);
         $this->applyDistrictScope($query, 'mls.district_id');
         $this->applyMarketLinkagePartnerDateScope($query, 'mlp.linkage_date');
 
@@ -1028,6 +1034,7 @@ SQL;
                     ->whereColumn('mlp.market_linkage_submission_id', 'mls.id');
                 $this->applyMarketLinkagePartnerDateScope($sub);
             });
+        $this->applyMarketLinkageApprovedScope($totalQuery);
         $this->applyDistrictScope($totalQuery, 'mls.district_id');
         $total = (int) $totalQuery->selectRaw("COUNT(DISTINCT {$incubateeKeySql}) as aggregate")->value('aggregate');
 
@@ -1039,6 +1046,16 @@ SQL;
             'by_service' => [],
             'records' => $records,
         ];
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyMarketLinkageApprovedScope($query): void
+    {
+        if (MarketLinkageSubmission::supportsWorkflow()) {
+            $query->where('mls.status', ServiceCase::STATUS_APPROVED);
+        }
     }
 
     /**

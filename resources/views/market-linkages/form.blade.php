@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Add market linkage')
-@section('heading', 'Add market linkage')
+@section('title', ($isEdit ?? false) ? 'Edit market linkage' : 'Add market linkage')
+@section('heading', ($isEdit ?? false) ? 'Edit market linkage' : 'Add market linkage')
 
 @section('content')
     <style>
@@ -74,6 +74,70 @@
             flex-direction: column;
             gap: 0.85rem;
         }
+        .ml-link-wrap .ml-link-req { color: #b91c1c; }
+        .ml-link-wrap.is-optional .ml-link-req { display: none; }
+        .ml-partner-combo {
+            position: relative;
+        }
+        .ml-partner-combo input[data-field="partner_name"] {
+            width: 100%;
+            padding: 0.45rem 0.5rem;
+            border: 1px solid #d4d4d8;
+            border-radius: 6px;
+        }
+        .ml-partner-suggest {
+            display: none;
+            position: absolute;
+            z-index: 40;
+            left: 0;
+            right: 0;
+            top: calc(100% + 2px);
+            max-height: 220px;
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid #c7d2fe;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+        }
+        .ml-partner-suggest.is-open {
+            display: block;
+        }
+        .ml-partner-suggest__item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            border: none;
+            background: #fff;
+            padding: 0.45rem 0.55rem;
+            font-size: 0.84rem;
+            cursor: pointer;
+            font-family: inherit;
+            color: #0f172a;
+        }
+        .ml-partner-suggest__item:hover,
+        .ml-partner-suggest__item.is-active {
+            background: #eef2ff;
+        }
+        .ml-partner-suggest__item--new {
+            font-weight: 700;
+            color: #4f46e5;
+            border-top: 1px solid #e2e8f0;
+        }
+        .ml-partner-suggest__item--new small {
+            font-weight: 600;
+            color: #6366f1;
+            margin-right: 0.35rem;
+        }
+        .ml-partner-suggest__empty {
+            padding: 0.5rem 0.55rem;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        .ml-partner-combo__hint {
+            margin: 0.25rem 0 0;
+            font-size: 0.74rem;
+            color: #71717a;
+        }
     </style>
     <p style="margin:0 0 1rem;">
         <a href="{{ route($dashboardRoute) }}">← Market linkage records</a>
@@ -93,9 +157,23 @@
             </ul>
         @endif
 
-        <form method="post" action="{{ route($storeRoute) }}" enctype="multipart/form-data" style="max-width:46rem;">
+        <form method="post" action="{{ route($storeRoute, ($isEdit ?? false) ? ($editingSubmission ?? null) : []) }}" enctype="multipart/form-data" style="max-width:46rem;">
             @csrf
+            @if ($isEdit ?? false)
+                @method('PUT')
+            @endif
 
+            @if ($isEdit ?? false)
+                <p style="margin:0 0 0.65rem;font-size:0.82rem;color:#52525b;">
+                    Update partner details and resubmit for SPOC approval.
+                </p>
+                <div style="margin-bottom:0.85rem;padding:0.65rem 0.75rem;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:0.88rem;">
+                    <strong>{{ $editingSubmission->incubatee_name ?? '—' }}</strong>
+                    @if ($editingSubmission->application_no ?? '')
+                        <span style="color:#64748b;"> · {{ $editingSubmission->application_no }}</span>
+                    @endif
+                </div>
+            @else
             <p style="margin:0 0 0.65rem;font-size:0.82rem;color:#52525b;">
                 Choose <strong>one</strong> incubatee (Phase 3 CFA or Phase 2 legacy). Earlier partners appear below as form fields (read-only). Use <strong>+ Add partner</strong> for new entries in this submission.
             </p>
@@ -131,6 +209,7 @@
             @else
                 <input type="hidden" name="legacy_application_id" id="legacy_application_id" value="">
             @endif
+            @endif
 
             <fieldset class="ml-partners-fieldset">
                 <legend>Partner details</legend>
@@ -149,7 +228,9 @@
                 </button>
             </fieldset>
 
-            <button type="submit" style="margin-top:0.25rem;background:#18181b;color:#fff;border:none;padding:0.55rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;">Save market linkage</button>
+            <button type="submit" style="margin-top:0.25rem;background:#18181b;color:#fff;border:none;padding:0.55rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;">
+                {{ ($isEdit ?? false) ? 'Resubmit for approval' : 'Save market linkage' }}
+            </button>
         </form>
 
         <template id="partner_row_template">
@@ -159,9 +240,11 @@
                     <button type="button" class="ml-remove-partner" style="display:none;background:#fff;border:1px solid #fecaca;color:#b91c1c;padding:0.25rem 0.55rem;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer;">Remove</button>
                 </div>
                 <div class="ml-partner-fields" style="display:flex;flex-direction:column;gap:0.55rem;">
-                    <div>
+                    <div class="ml-partner-combo">
                         <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Partner name <span class="ml-req" style="color:#b91c1c;">*</span></label>
-                        <input type="text" data-field="partner_name" maxlength="191" required style="width:100%;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                        <input type="text" data-field="partner_name" maxlength="191" required autocomplete="off" placeholder="Search or type partner name">
+                        <div class="ml-partner-suggest" role="listbox" aria-label="Partner suggestions"></div>
+                        <p class="ml-partner-combo__hint">Search existing partners (Phase 2 + MIS) or type a new name.</p>
                     </div>
                     <div>
                         <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Online or offline <span class="ml-req" style="color:#b91c1c;">*</span></label>
@@ -170,6 +253,11 @@
                             <option value="online">Online</option>
                             <option value="offline">Offline</option>
                         </select>
+                    </div>
+                    <div class="ml-link-wrap">
+                        <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Link / URL <span class="ml-link-req">*</span></label>
+                        <input type="text" data-field="link_url" placeholder="https://example.com or marketplace link" maxlength="2048" style="width:100%;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                        <p class="ml-link-hint" style="margin:0.25rem 0 0;font-size:0.76rem;color:#71717a;">Online: required (full URL or link). Offline: optional.</p>
                     </div>
                     <div>
                         <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Linkage date <span class="ml-req" style="color:#b91c1c;">*</span></label>
@@ -185,8 +273,16 @@
 
         @php
             $oldPartnersForForm = old('partners');
+            if ((! is_array($oldPartnersForForm) || $oldPartnersForForm === []) && ($isEdit ?? false) && isset($editingSubmission)) {
+                $oldPartnersForForm = $editingSubmission->partners->map(fn ($p) => [
+                    'partner_name' => $p->partner_name,
+                    'linkage_mode' => $p->linkage_mode,
+                    'linkage_date' => $p->linkage_date?->format('Y-m-d') ?? '',
+                    'link_url' => $p->link_url ?? '',
+                ])->values()->all();
+            }
             if (! is_array($oldPartnersForForm) || $oldPartnersForForm === []) {
-                $oldPartnersForForm = [['partner_name' => '', 'linkage_mode' => '', 'linkage_date' => '']];
+                $oldPartnersForForm = [['partner_name' => '', 'linkage_mode' => '', 'linkage_date' => '', 'link_url' => '']];
             }
         @endphp
         <script>
@@ -195,6 +291,7 @@
                 const template = document.getElementById('partner_row_template');
                 const addBtn = document.getElementById('add_partner_btn');
                 const oldPartners = @json($oldPartnersForForm);
+                const PARTNER_NAME_OPTIONS = @json($partnerNameOptions ?? []).slice();
                 const PRIOR_MARKET_LINKAGE = @json($priorMarketLinkageJson ?? ['cfa' => [], 'legacy' => []]);
                 const selCfa = document.getElementById('cfa_submission_id');
                 const selLegacy = document.getElementById('legacy_application_id');
@@ -209,6 +306,147 @@
                     return d.innerHTML;
                 }
 
+                function partnerNameExists(name) {
+                    const t = (name || '').trim().toLowerCase();
+                    if (!t) return true;
+                    return PARTNER_NAME_OPTIONS.some(function (n) {
+                        return String(n).trim().toLowerCase() === t;
+                    });
+                }
+
+                function addLocalPartnerOption(name) {
+                    const trimmed = (name || '').trim();
+                    if (!trimmed || partnerNameExists(trimmed)) {
+                        return;
+                    }
+                    PARTNER_NAME_OPTIONS.push(trimmed);
+                    PARTNER_NAME_OPTIONS.sort(function (a, b) {
+                        return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
+                    });
+                }
+
+                function initPartnerNameCombo(row) {
+                    const combo = row.querySelector('.ml-partner-combo');
+                    const input = row.querySelector('[data-field="partner_name"]');
+                    const list = row.querySelector('.ml-partner-suggest');
+                    if (!combo || !input || !list || combo.dataset.comboReady === '1') {
+                        return;
+                    }
+                    combo.dataset.comboReady = '1';
+
+                    let activeIndex = -1;
+
+                    function closeList() {
+                        list.classList.remove('is-open');
+                        activeIndex = -1;
+                        list.querySelectorAll('.ml-partner-suggest__item').forEach(function (el) {
+                            el.classList.remove('is-active');
+                        });
+                    }
+
+                    function renderList() {
+                        const raw = (input.value || '').trim();
+                        const q = raw.toLowerCase();
+                        const maxExisting = 40;
+
+                        let existing = q === ''
+                            ? PARTNER_NAME_OPTIONS.slice()
+                            : PARTNER_NAME_OPTIONS.filter(function (name) {
+                                return String(name).toLowerCase().includes(q);
+                            });
+
+                        existing = existing.filter(function (name) {
+                            return String(name).trim().toLowerCase() !== q;
+                        });
+                        existing = existing.slice(0, maxExisting);
+
+                        const showNew = raw !== '' && !partnerNameExists(raw);
+                        const entries = existing.map(function (name) {
+                            return { name: name, isNew: false };
+                        });
+                        if (showNew) {
+                            entries.push({ name: raw, isNew: true });
+                        }
+
+                        list.innerHTML = '';
+                        activeIndex = -1;
+
+                        if (entries.length === 0) {
+                            list.innerHTML = '<div class="ml-partner-suggest__empty">Type a partner name to add a new entry.</div>';
+                            list.classList.add('is-open');
+                            return;
+                        }
+
+                        entries.forEach(function (entry, idx) {
+                            const name = entry.name;
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'ml-partner-suggest__item' + (entry.isNew ? ' ml-partner-suggest__item--new' : '');
+                            btn.setAttribute('role', 'option');
+                            btn.dataset.value = name;
+                            if (entry.isNew) {
+                                btn.innerHTML = esc(name) + ' <small>(New)</small>';
+                            } else {
+                                btn.textContent = name;
+                            }
+                            btn.addEventListener('mousedown', function (e) {
+                                e.preventDefault();
+                                input.value = name;
+                                addLocalPartnerOption(name);
+                                closeList();
+                            });
+                            btn.addEventListener('mouseenter', function () {
+                                activeIndex = idx;
+                                list.querySelectorAll('.ml-partner-suggest__item').forEach(function (el, i) {
+                                    el.classList.toggle('is-active', i === activeIndex);
+                                });
+                            });
+                            list.appendChild(btn);
+                        });
+                        list.classList.add('is-open');
+                    }
+
+                    input.addEventListener('focus', renderList);
+                    input.addEventListener('input', renderList);
+                    input.addEventListener('keydown', function (e) {
+                        const items = list.querySelectorAll('.ml-partner-suggest__item');
+                        if (!list.classList.contains('is-open') || items.length === 0) {
+                            if (e.key === 'ArrowDown') renderList();
+                            return;
+                        }
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                        } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            activeIndex = Math.max(activeIndex - 1, 0);
+                        } else if (e.key === 'Enter' && activeIndex >= 0) {
+                            e.preventDefault();
+                            const picked = items[activeIndex].dataset.value || items[activeIndex].textContent || '';
+                            input.value = picked.trim();
+                            addLocalPartnerOption(input.value);
+                            closeList();
+                            return;
+                        } else if (e.key === 'Escape') {
+                            closeList();
+                            return;
+                        } else {
+                            return;
+                        }
+                        items.forEach(function (el, i) {
+                            el.classList.toggle('is-active', i === activeIndex);
+                            if (i === activeIndex) el.scrollIntoView({ block: 'nearest' });
+                        });
+                    });
+                    input.addEventListener('blur', function () {
+                        const typed = (input.value || '').trim();
+                        if (typed) {
+                            addLocalPartnerOption(typed);
+                        }
+                        setTimeout(closeList, 150);
+                    });
+                }
+
                 function buildPartnerRow(data, options) {
                     const opts = options || {};
                     const clone = template.content.cloneNode(true);
@@ -219,16 +457,35 @@
 
                     const nameIn = row.querySelector('[data-field="partner_name"]');
                     const modeSel = row.querySelector('[data-field="linkage_mode"]');
+                    const linkWrap = row.querySelector('.ml-link-wrap');
+                    const linkIn = row.querySelector('[data-field="link_url"]');
                     const dateIn = row.querySelector('[data-field="linkage_date"]');
                     const billWrap = row.querySelector('.ml-bill-wrap');
                     const removeBtn = row.querySelector('.ml-remove-partner');
+
+                    function syncLinkUrlRequired() {
+                        if (!linkWrap || !linkIn || opts.prior) return;
+                        const isOnline = modeSel.value === 'online';
+                        linkWrap.classList.toggle('is-optional', !isOnline);
+                        if (isOnline) {
+                            linkIn.setAttribute('required', 'required');
+                        } else {
+                            linkIn.removeAttribute('required');
+                        }
+                    }
 
                     if (data) {
                         nameIn.value = data.partner_name || '';
                         modeSel.value = data.linkage_mode_raw || data.linkage_mode || '';
                         dateIn.value = data.linkage_date || '';
+                        if (linkIn) linkIn.value = data.link_url || '';
                     } else if (!opts.prior) {
                         dateIn.value = new Date().toISOString().slice(0, 10);
+                    }
+
+                    if (!opts.prior) {
+                        modeSel.addEventListener('change', syncLinkUrlRequired);
+                        syncLinkUrlRequired();
                     }
 
                     if (opts.prior) {
@@ -236,11 +493,27 @@
                             '<span class="ml-prior-badge">Recorded earlier</span> ' + esc(data.partner_name || 'Partner');
                         removeBtn.remove();
                         row.querySelectorAll('.ml-req').forEach(function (el) { el.remove(); });
-                        [nameIn, modeSel, dateIn].forEach(function (el) {
+                        [nameIn, modeSel, dateIn, linkIn].forEach(function (el) {
+                            if (!el) return;
                             el.disabled = true;
                             el.removeAttribute('name');
                             el.removeAttribute('required');
                         });
+                        if (linkWrap) {
+                            const url = data && data.link_url ? String(data.link_url) : '';
+                            const href = data && data.link_href ? String(data.link_href) : '';
+                            if (url) {
+                                const body = href
+                                    ? '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer" style="font-size:0.85rem;font-weight:600;word-break:break-all;">' + esc(url) + '</a>'
+                                    : '<span style="font-size:0.85rem;word-break:break-all;">' + esc(url) + '</span>';
+                                linkWrap.innerHTML =
+                                    '<label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Link / URL</label>' + body;
+                            } else {
+                                linkWrap.innerHTML =
+                                    '<label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Link / URL</label>' +
+                                    '<span style="font-size:0.82rem;color:#94a3b8;">—</span>';
+                            }
+                        }
                         if (data && data.has_document && data.document_url) {
                             billWrap.innerHTML =
                                 '<label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Bill / document</label>' +
@@ -255,6 +528,7 @@
                             row.remove();
                             reindexRows();
                         });
+                        initPartnerNameCombo(row);
                     }
 
                     return row;

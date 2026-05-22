@@ -357,9 +357,12 @@
                         let partnersHtml = '<ul class="ml-prior-partners">';
                         partners.forEach(function (p) {
                             const doc = p.has_document ? ' · bill attached' : '';
+                            const link = p.link_url
+                                ? ' · <a href="' + esc(p.link_url) + '" target="_blank" rel="noopener noreferrer">link</a>'
+                                : '';
                             partnersHtml += '<li>' + esc(p.partner_name || '—') +
                                 ' · ' + esc(p.linkage_mode || '') +
-                                ' · ' + esc(p.linkage_date || '') + doc + '</li>';
+                                ' · ' + esc(p.linkage_date || p.linkage_date_display || '') + link + doc + '</li>';
                         });
                         partnersHtml += '</ul>';
                         const viewLink = entry.show_url

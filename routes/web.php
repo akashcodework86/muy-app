@@ -54,6 +54,7 @@ use App\Http\Controllers\MarketLinkageController;
 use App\Http\Controllers\SocialMediaPostLandingController;
 use App\Http\Controllers\SocialMediaPostController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
+use App\Http\Controllers\StateStaff\SpocMarketLinkageController;
 use App\Http\Controllers\StateStaff\SpocServiceCaseController;
 use App\Http\Controllers\TechnicalTrainingAttendanceController;
 use App\Http\Controllers\TrainingPackageAttendanceController;
@@ -338,6 +339,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('market-linkages', [MarketLinkageController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('market-linkages.store');
+        Route::get('market-linkages/{market_linkage}/edit', [MarketLinkageController::class, 'edit'])->name('market-linkages.edit');
+        Route::put('market-linkages/{market_linkage}', [MarketLinkageController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('market-linkages.update');
+        Route::delete('market-linkages/{market_linkage}', [MarketLinkageController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('market-linkages.destroy');
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
         Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
@@ -371,6 +379,18 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('service-cases.reject');
         Route::get('service-cases/{service_case}/attachments/{attachment}/download', [SpocServiceCaseController::class, 'downloadAttachment'])
             ->name('service-cases.attachments.download');
+        Route::get('market-linkages/{market_linkage}', [SpocMarketLinkageController::class, 'show'])->name('market-linkages.show');
+        Route::post('market-linkages/{market_linkage}/approve', [SpocMarketLinkageController::class, 'approve'])
+            ->middleware('throttle:60,1')
+            ->name('market-linkages.approve');
+        Route::post('market-linkages/{market_linkage}/send-back', [SpocMarketLinkageController::class, 'sendBack'])
+            ->middleware('throttle:60,1')
+            ->name('market-linkages.send-back');
+        Route::post('market-linkages/{market_linkage}/reject', [SpocMarketLinkageController::class, 'reject'])
+            ->middleware('throttle:60,1')
+            ->name('market-linkages.reject');
+        Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [SpocMarketLinkageController::class, 'downloadDocument'])
+            ->name('market-linkages.document');
         Route::get('training-packages/dashboard', [TrainingPackageAttendanceController::class, 'dashboard'])->name('training-packages.dashboard');
         Route::get('training-packages/export', [TrainingPackageAttendanceController::class, 'export'])->name('training-packages.export');
         Route::get('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'show'])->name('training-packages.show');

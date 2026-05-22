@@ -389,9 +389,10 @@
             autocomplete="off"
         >
         <select name="service_id" class="svc-select" onchange="this.form.submit()">
-            <option value="">All services</option>
+            <option value="" @selected(($filterRecordType ?? '') === '' && (int) ($filterServiceId ?? 0) === 0)>All services</option>
+            <option value="market_linkage" @selected(($filterRecordType ?? '') === 'market_linkage')>{{ \App\Models\MarketLinkageSubmission::SERVICE_LIST_LABEL }}</option>
             @foreach (($services ?? collect()) as $service)
-                <option value="{{ $service->id }}" @selected((int) ($filterServiceId ?? 0) === (int) $service->id)>
+                <option value="{{ $service->id }}" @selected(($filterRecordType ?? '') === '' && (int) ($filterServiceId ?? 0) === (int) $service->id)>
                     {{ $service->name }}
                 </option>
             @endforeach
@@ -399,7 +400,7 @@
     </form>
 
     @if ($cases->isEmpty())
-        <p class="svc-empty">No cases in this view.</p>
+        <p class="svc-empty">No service or market linkage records in this view.</p>
     @else
         <div class="svc-card">
             <div class="svc-table-wrap">
@@ -418,7 +419,98 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($cases as $case)
+                        @foreach ($cases as $row)
+                            @php
+                                $rowType = is_array($row) ? (string) ($row['type'] ?? '') : 'service_case';
+                                $case = is_array($row) ? ($row['service_case'] ?? null) : $row;
+                                $ml = is_array($row) ? ($row['market_linkage'] ?? null) : null;
+                            @endphp
+                            @if ($rowType === 'market_linkage' && $ml)
+                            @php
+                                $statusSlug = strtolower(str_replace(' ', '_', (string) $ml->status));
+                                $pendingDays = null;
+                                if ($ml->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL) {
+                                    $pendingSince = $ml->submitted_at ?? $ml->updated_at;
+                                    $pendingDays = $pendingSince
+                                        ? $pendingSince->copy()->startOfDay()->diffInDays(now()->startOfDay())
+                                        : 0;
+                                }
+                                $responderName = $ml->approver?->name ?? $ml->rejector?->name ?? null;
+                                $assignedByName = $ml->submitted_by_name ?? $ml->submitter?->name ?? '—';
+                                $responseText = '—';
+                                $responseClass = 'svc-response--none';
+                                if ($ml->status === \App\Models\ServiceCase::STATUS_APPROVED) {
+                                    $responseText = 'Checked';
+                                    $responseClass = 'svc-response--approved';
+                                } elseif ($ml->status === \App\Models\ServiceCase::STATUS_SENT_BACK) {
+                                    $responseText = $ml->sent_back_note ?: 'Sent back for changes.';
+                                    $responseClass = 'svc-response--sent-back';
+                                } elseif ($ml->status === \App\Models\ServiceCase::STATUS_REJECTED) {
+                                    $responseText = $ml->rejected_note ?: 'Rejected.';
+                                    $responseClass = 'svc-response--rejected';
+                                }
+                                $searchText = strtolower(trim(
+                                    ($ml->incubatee_name ?? '').' '.
+                                    ($ml->application_no ?? '').' '.
+                                    'market linkage '.
+                                    ($assignedByName ?? '').' '.
+                                    str_replace('_', ' ', (string) $ml->status).' '.
+                                    ($ml->spoc?->name ?? '').' '.
+                                    ($responderName ?? '').' '.
+                                    $responseText
+                                ));
+                            @endphp
+                            <tr class="svc-row" data-search="{{ $searchText }}">
+                                <td>
+                                    <strong>{{ $ml->incubatee_name }}</strong>
+                                    @if ($ml->application_no)
+                                        <div class="svc-muted">{{ $ml->application_no }}</div>
+                                    @endif
+                                </td>
+                                <td>{{ \App\Models\MarketLinkageSubmission::SERVICE_LIST_LABEL }} <span class="svc-muted">({{ $ml->partners->count() }} partner{{ $ml->partners->count() === 1 ? '' : 's' }})</span></td>
+                                <td>{{ $assignedByName }}</td>
+                                <td>
+                                    <span class="svc-spoc-pill {{ $ml->spoc?->name ? '' : 'svc-spoc-pill--empty' }}">
+                                        {{ $ml->spoc?->name ?? 'Not assigned' }}
+                                    </span>
+                                </td>
+                                <td>{{ $responderName ?? '—' }}</td>
+                                <td>
+                                    <span class="svc-response {{ $responseClass }}">
+                                        @if ($ml->status === \App\Models\ServiceCase::STATUS_APPROVED)
+                                            <span aria-hidden="true">&#10003;</span>
+                                        @endif
+                                        {{ $responseText }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="svc-status-pill svc-status-pill--{{ $statusSlug }}">
+                                        {{ str_replace('_', ' ', (string) $ml->status) }}
+                                    </span>
+                                    @if (!is_null($pendingDays))
+                                        <div class="svc-muted">
+                                            Pending from {{ $pendingDays }} day{{ $pendingDays === 1 ? '' : 's' }}
+                                        </div>
+                                    @endif
+                                </td>
+                                <td style="white-space:nowrap;">{{ $ml->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
+                                <td>
+                                    <div class="svc-action-group">
+                                        <a href="{{ route('staff.market-linkages.show', $ml) }}" class="svc-btn-xs svc-btn-xs--view">View</a>
+                                        @if (($filterScope ?? 'my') === 'my' && $ml->canBeEditedByStaff())
+                                            <a href="{{ route('staff.market-linkages.edit', $ml) }}" class="svc-btn-xs svc-btn-xs--edit">Edit</a>
+                                        @endif
+                                        @if (($filterScope ?? 'my') === 'my' && $ml->canBeDeletedByStaff() && (int) $ml->submitted_by_user_id === (int) auth()->id())
+                                            <form method="post" action="{{ route('staff.market-linkages.destroy', $ml) }}" style="display:inline;" onsubmit="return confirm('Delete this market linkage submission?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="svc-btn-xs svc-btn-xs--delete">Delete</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                            @elseif ($case)
                             @php
                                 $lip = $case->legacyIncubateePreview ?? null;
                                 $statusSlug = strtolower(str_replace(' ', '_', (string) $case->status));
@@ -524,6 +616,7 @@
                                     </div>
                                 </td>
                             </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>

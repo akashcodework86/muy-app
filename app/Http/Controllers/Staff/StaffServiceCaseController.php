@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\CfaSubmission;
+use App\Models\MarketLinkagePartner;
 use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
@@ -15,6 +16,7 @@ use App\Support\ServiceFieldTypes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -40,7 +42,17 @@ class StaffServiceCaseController extends Controller
             $scope = 'my';
         }
         $status = (string) $request->query('status', '');
-        $serviceId = (int) $request->query('service_id', 0);
+        $serviceIdRaw = $request->query('service_id', '');
+        $recordType = (string) $request->query('record_type', '');
+        $serviceId = 0;
+        if ((string) $serviceIdRaw === 'market_linkage') {
+            $recordType = 'market_linkage';
+        } else {
+            $serviceId = (int) $serviceIdRaw;
+        }
+        if ($recordType !== 'market_linkage') {
+            $recordType = '';
+        }
         $allowed = ['', ServiceCase::STATUS_DRAFT, ServiceCase::STATUS_PENDING_APPROVAL, ServiceCase::STATUS_SENT_BACK, ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_REJECTED];
         if (! in_array($status, $allowed, true)) {
             $status = '';
@@ -49,51 +61,138 @@ class StaffServiceCaseController extends Controller
         $districtId = (int) $staff->district_id;
         $legacyIds = $this->legacyApplications->legacyApplicationIdsInLaravelDistrict($districtId);
 
-        $q = ServiceCase::query()
-            ->where(function ($outer) use ($districtId, $legacyIds): void {
-                $outer->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
-                if (ServiceCase::supportsLegacyApplicationLink() && $legacyIds !== []) {
-                    $outer->orWhere(function ($qq) use ($legacyIds): void {
-                        $qq->whereNotNull('legacy_application_id')
-                            ->whereNull('cfa_submission_id')
-                            ->whereIn('legacy_application_id', $legacyIds);
-                    });
-                }
-            })
-            ->with([
-                'cfaSubmission:id,applicant_name,application_no,district_id',
-                'service.category',
-                'submitter:id,name',
-                'creator:id,name',
-                'spoc:id,name',
-                'approver:id,name',
-                'rejector:id,name',
-                'attachments:id,service_case_id,original_name,size_bytes,disk,path',
-            ]);
+        $listItems = collect();
 
-        if ($scope === 'my') {
-            $q->where(function ($qq) use ($staff): void {
-                $qq->where('created_by', (int) $staff->id)
-                    ->orWhere('submitted_by', (int) $staff->id);
-            });
-        }
+        if ($recordType !== 'market_linkage' && $serviceId <= 0) {
+            $q = ServiceCase::query()
+                ->where(function ($outer) use ($districtId, $legacyIds): void {
+                    $outer->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
+                    if (ServiceCase::supportsLegacyApplicationLink() && $legacyIds !== []) {
+                        $outer->orWhere(function ($qq) use ($legacyIds): void {
+                            $qq->whereNotNull('legacy_application_id')
+                                ->whereNull('cfa_submission_id')
+                                ->whereIn('legacy_application_id', $legacyIds);
+                        });
+                    }
+                })
+                ->with([
+                    'cfaSubmission:id,applicant_name,application_no,district_id',
+                    'service.category',
+                    'submitter:id,name',
+                    'creator:id,name',
+                    'spoc:id,name',
+                    'approver:id,name',
+                    'rejector:id,name',
+                    'attachments:id,service_case_id,original_name,size_bytes,disk,path',
+                ]);
 
-        if ($status !== '') {
-            $q->where('status', $status);
-        }
-
-        if ($serviceId > 0) {
-            $q->where('service_id', $serviceId);
-        }
-
-        $cases = $q->orderByDesc('updated_at')->paginate(20)->withQueryString();
-        $cases->getCollection()->transform(function (ServiceCase $case) {
-            if (ServiceCase::supportsLegacyApplicationLink() && $case->legacy_application_id && ! $case->cfa_submission_id) {
-                $case->legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $case->legacy_application_id);
+            if ($scope === 'my') {
+                $q->where(function ($qq) use ($staff): void {
+                    $qq->where('created_by', (int) $staff->id)
+                        ->orWhere('submitted_by', (int) $staff->id);
+                });
             }
 
-            return $case;
-        });
+            if ($status !== '') {
+                $q->where('status', $status);
+            }
+
+            if ($serviceId > 0) {
+                $q->where('service_id', $serviceId);
+            }
+
+            foreach ($q->orderByDesc('updated_at')->get() as $case) {
+                if (ServiceCase::supportsLegacyApplicationLink() && $case->legacy_application_id && ! $case->cfa_submission_id) {
+                    $case->legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $case->legacy_application_id);
+                }
+                $listItems->push([
+                    'type' => 'service_case',
+                    'service_case' => $case,
+                    'market_linkage' => null,
+                    'updated_at' => $case->updated_at,
+                ]);
+            }
+        } elseif ($recordType !== 'market_linkage' && $serviceId > 0) {
+            $q = ServiceCase::query()
+                ->where(function ($outer) use ($districtId, $legacyIds): void {
+                    $outer->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
+                    if (ServiceCase::supportsLegacyApplicationLink() && $legacyIds !== []) {
+                        $outer->orWhere(function ($qq) use ($legacyIds): void {
+                            $qq->whereNotNull('legacy_application_id')
+                                ->whereNull('cfa_submission_id')
+                                ->whereIn('legacy_application_id', $legacyIds);
+                        });
+                    }
+                })
+                ->with([
+                    'cfaSubmission:id,applicant_name,application_no,district_id',
+                    'service.category',
+                    'submitter:id,name',
+                    'creator:id,name',
+                    'spoc:id,name',
+                    'approver:id,name',
+                    'rejector:id,name',
+                    'attachments:id,service_case_id,original_name,size_bytes,disk,path',
+                ])
+                ->where('service_id', $serviceId);
+
+            if ($scope === 'my') {
+                $q->where(function ($qq) use ($staff): void {
+                    $qq->where('created_by', (int) $staff->id)
+                        ->orWhere('submitted_by', (int) $staff->id);
+                });
+            }
+            if ($status !== '') {
+                $q->where('status', $status);
+            }
+
+            foreach ($q->orderByDesc('updated_at')->get() as $case) {
+                $listItems->push([
+                    'type' => 'service_case',
+                    'service_case' => $case,
+                    'market_linkage' => null,
+                    'updated_at' => $case->updated_at,
+                ]);
+            }
+        }
+
+        if (($recordType === 'market_linkage' || $serviceId <= 0) && Schema::hasTable('market_linkage_submissions') && MarketLinkageSubmission::supportsWorkflow()) {
+            $mlq = MarketLinkageSubmission::query()
+                ->where('district_id', $districtId)
+                ->with(['spoc:id,name', 'approver:id,name', 'rejector:id,name', 'submitter:id,name', 'partners']);
+
+            if ($scope === 'my') {
+                $mlq->where('submitted_by_user_id', (int) $staff->id);
+            }
+            if ($status !== '') {
+                $mlq->where('status', $status);
+            }
+            if ($recordType === 'market_linkage') {
+                // only market linkage rows
+            }
+
+            foreach ($mlq->orderByDesc('updated_at')->get() as $ml) {
+                $listItems->push([
+                    'type' => 'market_linkage',
+                    'service_case' => null,
+                    'market_linkage' => $ml,
+                    'updated_at' => $ml->updated_at,
+                ]);
+            }
+        }
+
+        $sorted = $listItems->sortByDesc(fn (array $row) => $row['updated_at']?->timestamp ?? 0)->values();
+        $perPage = 20;
+        $page = max(1, (int) $request->query('page', 1));
+        $total = $sorted->count();
+        $pageItems = $sorted->forPage($page, $perPage)->values();
+        $cases = new LengthAwarePaginator(
+            $pageItems,
+            $total,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         $services = Service::query()
             ->where('is_active', true)
@@ -104,6 +203,7 @@ class StaffServiceCaseController extends Controller
             'cases' => $cases,
             'filterStatus' => $status,
             'filterServiceId' => $serviceId,
+            'filterRecordType' => $recordType,
             'filterScope' => $scope,
             'services' => $services,
         ]);
@@ -664,13 +764,18 @@ class StaffServiceCaseController extends Controller
                 'partners' => $submission->partners->map(fn ($partner) => [
                     'partner_name' => (string) $partner->partner_name,
                     'linkage_mode' => MarketLinkageSubmission::linkageModeLabel((string) $partner->linkage_mode),
-                    'linkage_date' => $partner->linkage_date?->format('d M Y') ?? '',
+                    'linkage_mode_raw' => (string) $partner->linkage_mode,
+                    'linkage_date' => $partner->linkage_date?->format('Y-m-d') ?? '',
+                    'linkage_date_display' => $partner->linkage_date?->format('d M Y') ?? '',
+                    'link_url' => is_string($partner->link_url) && $partner->link_url !== '' ? (string) $partner->link_url : null,
+                    'link_href' => MarketLinkagePartner::clickableHref($partner->link_url),
                     'has_document' => $partner->hasDocument(),
                 ])->values()->all(),
             ];
         };
 
         $cfaRows = MarketLinkageSubmission::query()
+            ->approved()
             ->with('partners')
             ->when($submissionIds !== [], fn ($q) => $q->whereIn('cfa_submission_id', $submissionIds), fn ($q) => $q->whereRaw('1 = 0'))
             ->whereNotNull('cfa_submission_id')
@@ -678,6 +783,7 @@ class StaffServiceCaseController extends Controller
             ->get();
 
         $legacyRows = MarketLinkageSubmission::query()
+            ->approved()
             ->with('partners')
             ->when($legacyIds !== [], fn ($q) => $q->whereIn('legacy_application_id', $legacyIds), fn ($q) => $q->whereRaw('1 = 0'))
             ->whereNotNull('legacy_application_id')

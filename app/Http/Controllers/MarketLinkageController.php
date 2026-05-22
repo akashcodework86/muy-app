@@ -7,8 +7,11 @@ use App\Models\District;
 use App\Models\MarketLinkagePartner;
 use App\Models\MarketLinkageSubmission;
 use App\Models\User;
+use App\Models\ServiceCase;
 use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Services\MarketLinkagePartnerCatalogService;
+use App\Services\MarketLinkageWorkflowService;
 use App\Support\MarketLinkageAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +31,8 @@ class MarketLinkageController extends Controller
     public function __construct(
         private LegacyApplicationServiceCaseSupport $legacyApplications,
         private AppSettingsService $settings,
+        private MarketLinkagePartnerCatalogService $partnerCatalog,
+        private MarketLinkageWorkflowService $workflow,
     ) {}
 
     public function create(Request $request): View
@@ -48,6 +53,7 @@ class MarketLinkageController extends Controller
             'dashboardRoute' => 'staff.market-linkages.dashboard',
             'showRoute' => 'staff.market-linkages.show',
             'priorMarketLinkageJson' => $this->priorMarketLinkageJson($submissionIds, $legacyIds),
+            'partnerNameOptions' => $this->partnerCatalog->options(),
         ]);
     }
 
@@ -71,8 +77,12 @@ class MarketLinkageController extends Controller
                 MarketLinkageSubmission::LINKAGE_OFFLINE,
             ])],
             'partners.*.linkage_date' => ['required', 'date'],
+            'partners.*.link_url' => ['nullable', 'string', 'max:2048'],
+            'partners.*.link' => ['nullable', 'string', 'max:2048'],
             'partners.*.bill_document' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
         ]);
+
+        $validated['partners'] = $this->normalizeAndValidatePartnerLinkUrls($validated['partners']);
 
         $cfaId = (int) ($validated['cfa_submission_id'] ?? 0);
         $legacyId = (int) ($validated['legacy_application_id'] ?? 0);
@@ -104,6 +114,7 @@ class MarketLinkageController extends Controller
                     'partner_name' => trim((string) $row['partner_name']),
                     'linkage_mode' => (string) $row['linkage_mode'],
                     'linkage_date' => (string) $row['linkage_date'],
+                    'link_url' => $row['link_url'] ?? null,
                     'sort_order' => $index,
                 ]);
 
@@ -118,9 +129,106 @@ class MarketLinkageController extends Controller
             return $submission->load('partners');
         });
 
+        $this->workflow->submitForApproval($submission, (int) $staff->id);
+
+        $this->partnerCatalog->registerNames(
+            array_map(fn (array $row) => trim((string) ($row['partner_name'] ?? '')), $validated['partners']),
+            (int) $staff->id,
+        );
+
         return redirect()
-            ->route('staff.market-linkages.show', $submission)
-            ->with('status', 'Market linkage recorded with '.count($validated['partners']).' partner(s).');
+            ->route('staff.services.index', ['status' => ServiceCase::STATUS_PENDING_APPROVAL])
+            ->with('status', 'Market linkage submitted for SPOC approval ('.count($validated['partners']).' partner(s)).');
+    }
+
+    public function edit(Request $request, MarketLinkageSubmission $marketLinkage): View|RedirectResponse
+    {
+        $staff = $this->staffOrAbort($request);
+        MarketLinkageAccess::canAccessSubmission($staff, $marketLinkage);
+        abort_unless($marketLinkage->canBeEditedByStaff(), 403, 'This submission cannot be edited now.');
+        abort_unless((int) $marketLinkage->submitted_by_user_id === (int) $staff->id, 403);
+
+        $marketLinkage->load('partners');
+
+        return view('market-linkages.form', [
+            'submissions' => collect(),
+            'legacyRows' => collect(),
+            'defaultCfaSubmissionId' => (int) ($marketLinkage->cfa_submission_id ?? 0),
+            'defaultLegacyApplicationId' => (int) ($marketLinkage->legacy_application_id ?? 0),
+            'migrationMissing' => false,
+            'storeRoute' => 'staff.market-linkages.update',
+            'dashboardRoute' => 'staff.services.index',
+            'showRoute' => 'staff.market-linkages.show',
+            'priorMarketLinkageJson' => ['cfa' => [], 'legacy' => []],
+            'partnerNameOptions' => $this->partnerCatalog->options(),
+            'editingSubmission' => $marketLinkage,
+            'isEdit' => true,
+        ]);
+    }
+
+    public function update(Request $request, MarketLinkageSubmission $marketLinkage): RedirectResponse
+    {
+        $staff = $this->staffOrAbort($request);
+        MarketLinkageAccess::canAccessSubmission($staff, $marketLinkage);
+        abort_unless($marketLinkage->canBeEditedByStaff(), 403, 'This submission cannot be edited now.');
+        abort_unless((int) $marketLinkage->submitted_by_user_id === (int) $staff->id, 403);
+
+        $validated = $request->validate([
+            'partners' => ['required', 'array', 'min:1', 'max:20'],
+            'partners.*.partner_name' => ['required', 'string', 'max:191'],
+            'partners.*.linkage_mode' => ['required', 'string', Rule::in([
+                MarketLinkageSubmission::LINKAGE_ONLINE,
+                MarketLinkageSubmission::LINKAGE_OFFLINE,
+            ])],
+            'partners.*.linkage_date' => ['required', 'date'],
+            'partners.*.link_url' => ['nullable', 'string', 'max:2048'],
+            'partners.*.link' => ['nullable', 'string', 'max:2048'],
+            'partners.*.bill_document' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
+        ]);
+
+        $validated['partners'] = $this->normalizeAndValidatePartnerLinkUrls($validated['partners']);
+
+        DB::transaction(function () use ($marketLinkage, $validated, $request): void {
+            foreach ($marketLinkage->partners as $partner) {
+                if ($partner->hasDocument()) {
+                    $disk = Storage::disk((string) ($partner->document_disk ?: 'local'));
+                    if ($disk->exists((string) $partner->document_path)) {
+                        $disk->delete((string) $partner->document_path);
+                    }
+                }
+            }
+            $marketLinkage->partners()->delete();
+
+            foreach (array_values($validated['partners']) as $index => $row) {
+                $partner = MarketLinkagePartner::query()->create([
+                    'market_linkage_submission_id' => (int) $marketLinkage->id,
+                    'partner_name' => trim((string) $row['partner_name']),
+                    'linkage_mode' => (string) $row['linkage_mode'],
+                    'linkage_date' => (string) $row['linkage_date'],
+                    'link_url' => $row['link_url'] ?? null,
+                    'sort_order' => $index,
+                ]);
+
+                /** @var UploadedFile|null $file */
+                $file = $request->file('partners.'.$index.'.bill_document');
+                if ($file instanceof UploadedFile) {
+                    $stored = $this->storePartnerDocument($file, $marketLinkage, $partner);
+                    $partner->update($stored);
+                }
+            }
+        });
+
+        $marketLinkage->refresh()->load('partners');
+        $this->workflow->submitForApproval($marketLinkage, (int) $staff->id);
+
+        $this->partnerCatalog->registerNames(
+            array_map(fn (array $row) => trim((string) ($row['partner_name'] ?? '')), $validated['partners']),
+            (int) $staff->id,
+        );
+
+        return redirect()
+            ->route('staff.services.index', ['status' => ServiceCase::STATUS_PENDING_APPROVAL])
+            ->with('status', 'Market linkage resubmitted for SPOC approval.');
     }
 
     public function dashboard(Request $request): View
@@ -134,6 +242,7 @@ class MarketLinkageController extends Controller
 
         $filters = $this->validatedFilters($request);
         $query = MarketLinkageSubmission::query()
+            ->approved()
             ->with(['partners', 'submitter:id,name', 'district:id,name']);
 
         $this->scopeDashboardQuery($query, $user);
@@ -180,9 +289,10 @@ class MarketLinkageController extends Controller
         abort_unless(MarketLinkageAccess::canViewDashboard($user), 403);
         MarketLinkageAccess::canAccessSubmission($user, $marketLinkage);
 
-        $marketLinkage->load(['partners', 'submitter:id,name', 'district:id,name']);
+        $marketLinkage->load(['partners', 'submitter:id,name', 'district:id,name', 'spoc:id,name', 'approver:id,name', 'rejector:id,name']);
 
         $isAdmin = $user->role === 'state_admin';
+        $staffListRoute = $user->role === 'district_staff' ? 'staff.services.index' : null;
 
         return view('market-linkages.show', [
             'submission' => $marketLinkage,
@@ -190,7 +300,44 @@ class MarketLinkageController extends Controller
             'dashboardRoute' => $isAdmin ? 'admin.market-linkages.dashboard' : 'staff.market-linkages.dashboard',
             'createRoute' => MarketLinkageAccess::canSubmit($user) ? 'staff.market-linkages.create' : null,
             'documentRoutePrefix' => $isAdmin ? 'admin.market-linkages.document' : 'staff.market-linkages.document',
+            'staffListRoute' => $staffListRoute,
+            'editRoute' => MarketLinkageAccess::canSubmit($user) && $marketLinkage->canBeEditedByStaff()
+                && (int) $marketLinkage->submitted_by_user_id === (int) $user->id
+                ? 'staff.market-linkages.edit'
+                : null,
+            'canDelete' => MarketLinkageAccess::canSubmit($user)
+                && (int) $marketLinkage->submitted_by_user_id === (int) $user->id
+                && $marketLinkage->canBeDeletedByStaff(),
+            'deleteRoute' => 'staff.market-linkages.destroy',
         ]);
+    }
+
+    public function destroy(Request $request, MarketLinkageSubmission $marketLinkage): RedirectResponse
+    {
+        $staff = $this->staffOrAbort($request);
+        MarketLinkageAccess::canAccessSubmission($staff, $marketLinkage);
+        abort_unless((int) $marketLinkage->submitted_by_user_id === (int) $staff->id, 403);
+        abort_unless($marketLinkage->canBeDeletedByStaff(), 403, 'This market linkage cannot be deleted in its current state.');
+
+        $marketLinkage->load('partners');
+
+        DB::transaction(function () use ($marketLinkage): void {
+            foreach ($marketLinkage->partners as $partner) {
+                if ($partner->hasDocument()) {
+                    $disk = Storage::disk((string) ($partner->document_disk ?: 'local'));
+                    $path = (string) $partner->document_path;
+                    if ($path !== '' && $disk->exists($path)) {
+                        $disk->delete($path);
+                    }
+                }
+            }
+
+            $marketLinkage->delete();
+        });
+
+        return redirect()
+            ->route('staff.services.index')
+            ->with('status', 'Market linkage deleted.');
     }
 
     public function export(Request $request): StreamedResponse
@@ -199,7 +346,7 @@ class MarketLinkageController extends Controller
         abort_unless(MarketLinkageAccess::canViewDashboard($user), 403);
 
         $filters = $this->validatedFilters($request);
-        $query = MarketLinkageSubmission::query()->with(['partners', 'district:id,name']);
+        $query = MarketLinkageSubmission::query()->approved()->with(['partners', 'district:id,name']);
         $this->scopeDashboardQuery($query, $user);
 
         if ($filters['district_id'] > 0) {
@@ -233,6 +380,7 @@ class MarketLinkageController extends Controller
                 'Partner name',
                 'Linkage mode',
                 'Linkage date',
+                'Link URL',
                 'Has document',
             ]);
 
@@ -248,6 +396,7 @@ class MarketLinkageController extends Controller
                         $partner->partner_name,
                         MarketLinkageSubmission::linkageModeLabel($partner->linkage_mode),
                         $partner->linkage_date?->format('Y-m-d') ?? '',
+                        $partner->link_url ?? '',
                         $partner->hasDocument() ? 'yes' : 'no',
                     ]);
                 }
@@ -369,11 +518,54 @@ class MarketLinkageController extends Controller
         ];
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $partners
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeAndValidatePartnerLinkUrls(array $partners): array
+    {
+        $errors = [];
+        $normalized = [];
+
+        foreach (array_values($partners) as $index => $row) {
+            $mode = (string) ($row['linkage_mode'] ?? '');
+            $linkInput = MarketLinkagePartner::linkInputFromRow($row);
+
+            if ($mode === MarketLinkageSubmission::LINKAGE_ONLINE && $linkInput === '') {
+                $errors["partners.{$index}.link_url"] = 'Link or URL is required for online market linkage.';
+
+                continue;
+            }
+
+            $row['link_url'] = MarketLinkagePartner::normalizeLinkForStorage($linkInput);
+            unset($row['link']);
+            $normalized[] = $row;
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $normalized;
+    }
+
     private function scopeDashboardQuery($query, User $user): void
     {
         if ($user->role === 'district_staff') {
             $query->where('district_id', (int) ($user->district_id ?: 0));
         }
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<MarketLinkageSubmission>  $query
+     */
+    public static function applyApprovedScopeIfSupported($query)
+    {
+        if (MarketLinkageSubmission::supportsWorkflow()) {
+            return $query->where('status', ServiceCase::STATUS_APPROVED);
+        }
+
+        return $query;
     }
 
     private function incubateeKey(MarketLinkageSubmission $submission): string
@@ -448,6 +640,8 @@ class MarketLinkageController extends Controller
                     'linkage_mode_label' => MarketLinkageSubmission::linkageModeLabel((string) $partner->linkage_mode),
                     'linkage_date' => $partner->linkage_date?->format('Y-m-d') ?? '',
                     'linkage_date_display' => $partner->linkage_date?->format('d M Y') ?? '',
+                    'link_url' => is_string($partner->link_url) && $partner->link_url !== '' ? (string) $partner->link_url : null,
+                    'link_href' => MarketLinkagePartner::clickableHref($partner->link_url),
                     'has_document' => $partner->hasDocument(),
                     'document_url' => $partner->hasDocument()
                         ? route($documentRoute, [$submission, $partner])
@@ -632,7 +826,7 @@ class MarketLinkageController extends Controller
             return [];
         }
 
-        $query = MarketLinkageSubmission::query();
+        $query = MarketLinkageSubmission::query()->approved();
         if ($filters['q'] !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']).'%';
             $query->where(function ($q) use ($like): void {
@@ -682,6 +876,8 @@ class MarketLinkageController extends Controller
                     'linkage_mode_raw' => (string) $partner->linkage_mode,
                     'linkage_date' => $partner->linkage_date?->format('Y-m-d') ?? '',
                     'linkage_date_display' => $partner->linkage_date?->format('d M Y') ?? '',
+                    'link_url' => is_string($partner->link_url) && $partner->link_url !== '' ? (string) $partner->link_url : null,
+                    'link_href' => MarketLinkagePartner::clickableHref($partner->link_url),
                     'has_document' => $partner->hasDocument(),
                     'document_url' => $partner->hasDocument()
                         ? route('staff.market-linkages.document', [$submission, $partner])
@@ -691,6 +887,7 @@ class MarketLinkageController extends Controller
         };
 
         $cfaRows = MarketLinkageSubmission::query()
+            ->approved()
             ->with('partners')
             ->when($submissionIds !== [], fn ($q) => $q->whereIn('cfa_submission_id', $submissionIds), fn ($q) => $q->whereRaw('1 = 0'))
             ->whereNotNull('cfa_submission_id')
@@ -698,6 +895,7 @@ class MarketLinkageController extends Controller
             ->get();
 
         $legacyRows = MarketLinkageSubmission::query()
+            ->approved()
             ->with('partners')
             ->when($legacyIds !== [], fn ($q) => $q->whereIn('legacy_application_id', $legacyIds), fn ($q) => $q->whereRaw('1 = 0'))
             ->whereNotNull('legacy_application_id')

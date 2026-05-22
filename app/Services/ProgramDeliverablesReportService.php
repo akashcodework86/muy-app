@@ -6,6 +6,7 @@ use App\Models\Deliverable;
 use App\Models\DistrictDeliverableTarget;
 use App\Models\FiscalYear;
 use App\Models\FieldCoordinatorAttendanceReport;
+use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\StaffMonthlyTarget;
@@ -688,6 +689,7 @@ class ProgramDeliverablesReportService
         $query = DB::table('market_linkage_partners as mlp')
             ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id');
 
+        $this->applyMarketLinkageApprovedScope($query);
         $this->applyDistrictScope($query, 'mls.district_id');
         $this->applyMarketLinkagePartnerDateScope($query);
 
@@ -716,9 +718,20 @@ SQL;
                 $this->applyMarketLinkagePartnerDateScope($sub);
             });
 
+        $this->applyMarketLinkageApprovedScope($query);
         $this->applyDistrictScope($query, 'mls.district_id');
 
         return (int) $query->selectRaw("COUNT(DISTINCT {$incubateeKeySql}) as aggregate")->value('aggregate');
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyMarketLinkageApprovedScope($query): void
+    {
+        if (MarketLinkageSubmission::supportsWorkflow()) {
+            $query->where('mls.status', ServiceCase::STATUS_APPROVED);
+        }
     }
 
     /**

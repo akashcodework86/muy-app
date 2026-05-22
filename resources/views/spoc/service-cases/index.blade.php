@@ -135,8 +135,18 @@
         </div>
     </div>
 
+    @if (($spocDistrictIds ?? []) === [])
+        <p style="color:#b45309;font-size:0.9rem;background:#fffbeb;border:1px solid #fcd34d;padding:0.65rem 0.85rem;border-radius:8px;">
+            No districts are assigned to you yet. Ask the state admin to assign you on <strong>Service SPOCs</strong> before you can review submissions.
+        </p>
+    @elseif (!($marketLinkageWorkflowReady ?? true))
+        <p style="color:#b45309;font-size:0.9rem;background:#fffbeb;border:1px solid #fcd34d;padding:0.65rem 0.85rem;border-radius:8px;margin-bottom:0.75rem;">
+            Market linkage approval workflow is not active. Run <code>php artisan migrate</code> to enable market linkage in this queue.
+        </p>
+    @endif
+
     @if ($cases->isEmpty())
-        <p style="color:#71717a;font-size:0.9rem;">No service cases in your SPOC queue.</p>
+        <p style="color:#71717a;font-size:0.9rem;">No service cases or market linkage submissions in this view.</p>
     @else
         <div class="sq-table-card">
             <div class="sq-toolbar">
@@ -180,7 +190,47 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($cases as $case)
+                    @foreach ($cases as $row)
+                        @php
+                            $rowKind = is_array($row) ? (string) ($row['kind'] ?? '') : '';
+                            $case = is_array($row) ? ($row['service_case'] ?? null) : null;
+                            $ml = is_array($row) ? ($row['market_linkage'] ?? null) : null;
+                        @endphp
+                        @if ($rowKind === 'market_linkage' && $ml)
+                        @php
+                            $statusClass = strtolower((string) $ml->status);
+                            $search = strtolower(trim(
+                                ($ml->incubatee_name ?? '').' '.
+                                ($ml->application_no ?? '').' '.
+                                'market linkage '.
+                                ($ml->district_name ?? $ml->district?->name ?? '').' '.
+                                ($ml->submitted_by_name ?? $ml->submitter?->name ?? '').' '.
+                                str_replace('_', ' ', (string) $ml->status)
+                            ));
+                            $isPending = $ml->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL;
+                        @endphp
+                        <tr data-search="{{ $search }}" style="background:#faf5ff;">
+                            <td>
+                                <strong>{{ $ml->incubatee_name }}</strong>
+                                @if ($ml->application_no)
+                                    <div class="sq-muted">{{ $ml->application_no }}</div>
+                                @endif
+                            </td>
+                            <td>{{ \App\Models\MarketLinkageSubmission::SERVICE_LIST_LABEL }} <span class="sq-muted">({{ $ml->partners->count() }})</span></td>
+                            <td>{{ $ml->district_name ?? $ml->district?->name ?? '—' }}</td>
+                            <td>—</td>
+                            <td>{{ $ml->submitted_by_name ?? $ml->submitter?->name ?? '—' }}</td>
+                            <td>
+                                <span class="sq-status sq-status--{{ $statusClass }}">{{ str_replace('_', ' ', (string) $ml->status) }}</span>
+                            </td>
+                            <td style="white-space:nowrap;">{{ $ml->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
+                            <td>
+                                <div class="sq-actions">
+                                    <a href="{{ route('spoc.market-linkages.show', $ml) }}" class="sq-btn sq-btn--primary">Review</a>
+                                </div>
+                            </td>
+                        </tr>
+                        @elseif ($case)
                         @php
                             $lip = $case->legacyIncubateePreview ?? null;
                             $statusClass = strtolower((string) $case->status);
@@ -242,6 +292,7 @@
                                 </div>
                             </td>
                         </tr>
+                        @endif
                     @endforeach
                 </tbody>
             </table>

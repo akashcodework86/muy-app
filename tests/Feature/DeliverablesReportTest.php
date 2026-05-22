@@ -1350,6 +1350,10 @@ class DeliverablesReportTest extends TestCase
             'cfa_submission_id' => $cfaA,
             'incubatee_name' => 'Incubatee A',
             'application_no' => 'ML-A-001',
+            'status' => 'approved',
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $staffA->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -1361,6 +1365,10 @@ class DeliverablesReportTest extends TestCase
             'cfa_submission_id' => $cfaB,
             'incubatee_name' => 'Incubatee B',
             'application_no' => 'ML-B-001',
+            'status' => 'approved',
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $staffB->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

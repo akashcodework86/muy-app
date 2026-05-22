@@ -217,7 +217,7 @@
         }
         .ml-dash-partner {
             display: grid;
-            grid-template-columns: minmax(0, 1.2fr) auto auto auto;
+            grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto auto auto;
             gap: 0.35rem 0.65rem;
             align-items: center;
             padding: 0.45rem 0.55rem;
@@ -421,6 +421,17 @@
                                     @foreach ($row->partners as $p)
                                         <div class="ml-dash-partner">
                                             <span class="ml-dash-partner__name">{{ $p['partner_name'] }}</span>
+                                            <span class="ml-dash-partner__meta" style="word-break:break-all;">
+                                                @if (!empty($p['link_url']))
+                                                    @if (!empty($p['link_href']))
+                                                        <a href="{{ $p['link_href'] }}" target="_blank" rel="noopener noreferrer" style="font-weight:600;color:#4f46e5;">{{ $p['link_url'] }}</a>
+                                                    @else
+                                                        <span style="word-break:break-all;">{{ $p['link_url'] }}</span>
+                                                    @endif
+                                                @else
+                                                    <span style="color:#94a3b8;">No link</span>
+                                                @endif
+                                            </span>
                                             <span class="ml-dash-mode @if (($p['linkage_mode'] ?? '') === 'offline') ml-dash-mode--offline @endif">{{ $p['linkage_mode_label'] }}</span>
                                             <span>{{ $p['linkage_date_display'] }}</span>
                                             <span>

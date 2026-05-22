@@ -5,8 +5,10 @@ namespace App\Http\Controllers\StateStaff;
 use App\Http\Controllers\Controller;
 use App\Models\District;
 use App\Models\DistrictServiceSpoc;
+use App\Models\MarketLinkageSubmission;
 use App\Models\OnboardingBatch;
 use App\Models\ServiceCase;
+use Illuminate\Support\Facades\Schema;
 use App\Models\ServiceCaseEvent;
 use App\Models\User;
 use App\Notifications\ServiceCaseWorkflowNotification;
@@ -14,6 +16,8 @@ use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -110,9 +114,8 @@ class SpocServiceCaseController extends Controller
             ]);
         }
 
-        $cases = $q->orderByDesc('updated_at')->paginate(20)->withQueryString();
-
-        $cases->getCollection()->transform(function (ServiceCase $case) {
+        $casesCollection = $q->orderByDesc('updated_at')->get();
+        $casesCollection->transform(function (ServiceCase $case) {
             if ($case->legacy_application_id && ! $case->cfa_submission_id) {
                 $case->legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $case->legacy_application_id);
             }
@@ -137,8 +140,54 @@ class SpocServiceCaseController extends Controller
             $batchId = 0;
         }
 
+        $marketLinkages = collect();
+        $marketLinkageWorkflowReady = Schema::hasTable('market_linkage_submissions')
+            && Schema::hasColumn('market_linkage_submissions', 'status');
+
+        if ($marketLinkageWorkflowReady && $districtIds !== []) {
+            $mlBase = MarketLinkageSubmission::query()->whereIn('district_id', $districtIds);
+            if ($districtId > 0) {
+                $mlBase->where('district_id', $districtId);
+            }
+
+            foreach ([
+                '' => [
+                    ServiceCase::STATUS_PENDING_APPROVAL,
+                    ServiceCase::STATUS_SENT_BACK,
+                    ServiceCase::STATUS_APPROVED,
+                    ServiceCase::STATUS_REJECTED,
+                ],
+                ServiceCase::STATUS_PENDING_APPROVAL => [ServiceCase::STATUS_PENDING_APPROVAL],
+                ServiceCase::STATUS_SENT_BACK => [ServiceCase::STATUS_SENT_BACK],
+                ServiceCase::STATUS_APPROVED => [ServiceCase::STATUS_APPROVED],
+                ServiceCase::STATUS_REJECTED => [ServiceCase::STATUS_REJECTED],
+            ] as $tabKey => $statuses) {
+                $tabCounts[$tabKey] = (int) ($tabCounts[$tabKey] ?? 0)
+                    + (clone $mlBase)->whereIn('status', $statuses)->count();
+            }
+
+            $mlq = (clone $mlBase)
+                ->with(['submitter:id,name', 'district:id,name', 'partners']);
+            if ($status !== '') {
+                $mlq->where('status', $status);
+            } else {
+                $mlq->whereIn('status', [
+                    ServiceCase::STATUS_PENDING_APPROVAL,
+                    ServiceCase::STATUS_SENT_BACK,
+                    ServiceCase::STATUS_APPROVED,
+                    ServiceCase::STATUS_REJECTED,
+                ]);
+            }
+            $marketLinkages = $mlq->orderByDesc('updated_at')->get();
+        }
+
+        $cases = $this->buildMergedSpocQueue($casesCollection, $marketLinkages, $request);
+
         return view('spoc.service-cases.index', [
             'cases' => $cases,
+            'marketLinkages' => collect(),
+            'marketLinkageWorkflowReady' => $marketLinkageWorkflowReady,
+            'spocDistrictIds' => $districtIds,
             'filterStatus' => $status,
             'filterDistrictId' => $districtId,
             'filterBatchId' => $batchId,
@@ -146,6 +195,69 @@ class SpocServiceCaseController extends Controller
             'batchOptions' => $batchOptions,
             'tabCounts' => $tabCounts,
         ]);
+    }
+
+    /**
+     * @param  Collection<int, ServiceCase>  $cases
+     * @param  Collection<int, MarketLinkageSubmission>  $marketLinkages
+     * @return LengthAwarePaginator<int, array{kind: string, service_case: ?ServiceCase, market_linkage: ?MarketLinkageSubmission, updated_at: ?\Illuminate\Support\Carbon}>
+     */
+    private function buildMergedSpocQueue(Collection $cases, Collection $marketLinkages, Request $request): LengthAwarePaginator
+    {
+        $items = collect();
+
+        foreach ($marketLinkages as $ml) {
+            $items->push([
+                'kind' => 'market_linkage',
+                'service_case' => null,
+                'market_linkage' => $ml,
+                'updated_at' => $ml->updated_at,
+            ]);
+        }
+
+        foreach ($cases as $case) {
+            $items->push([
+                'kind' => 'service_case',
+                'service_case' => $case,
+                'market_linkage' => null,
+                'updated_at' => $case->updated_at,
+            ]);
+        }
+
+        $statusPriority = [
+            ServiceCase::STATUS_PENDING_APPROVAL => 0,
+            ServiceCase::STATUS_SENT_BACK => 1,
+            ServiceCase::STATUS_APPROVED => 2,
+            ServiceCase::STATUS_REJECTED => 3,
+        ];
+
+        $sorted = $items->sort(function (array $a, array $b) use ($statusPriority): int {
+            $statusA = $a['kind'] === 'market_linkage'
+                ? (string) ($a['market_linkage']?->status ?? '')
+                : (string) ($a['service_case']?->status ?? '');
+            $statusB = $b['kind'] === 'market_linkage'
+                ? (string) ($b['market_linkage']?->status ?? '')
+                : (string) ($b['service_case']?->status ?? '');
+            $priorityA = $statusPriority[$statusA] ?? 9;
+            $priorityB = $statusPriority[$statusB] ?? 9;
+            if ($priorityA !== $priorityB) {
+                return $priorityA <=> $priorityB;
+            }
+
+            return ($b['updated_at']?->timestamp ?? 0) <=> ($a['updated_at']?->timestamp ?? 0);
+        })->values();
+
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 20;
+        $total = $sorted->count();
+
+        return new LengthAwarePaginator(
+            $sorted->forPage($page, $perPage)->values(),
+            $total,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
     }
 
     public function show(Request $request, ServiceCase $service_case): View
