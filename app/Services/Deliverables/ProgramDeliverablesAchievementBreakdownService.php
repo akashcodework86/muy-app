@@ -53,7 +53,8 @@ class ProgramDeliverablesAchievementBreakdownService
         [$this->periodFrom, $this->periodTo] = $filter->resolvePeriod($this->activeFiscalYear);
 
         $breakdown = match ($sourceType) {
-            'deliverable', 'service', 'services' => $this->serviceCaseBreakdown($source),
+            'deliverable' => $this->deliverableBreakdown($source),
+            'service', 'services' => $this->serviceCaseBreakdown($source),
             'cfa_count' => $this->cfaBreakdown(),
             'onboarding_count' => $this->onboardingBreakdown(),
             'field_work_workshops', 'field_visit_sessions' => $this->fieldWorkBreakdown(false),
@@ -72,13 +73,15 @@ class ProgramDeliverablesAchievementBreakdownService
         $byDistrict = $breakdown['by_district'] ?? [];
         $byMonth = $breakdown['by_month'] ?? [];
 
+        $sourceTypeLabel = $this->sourceTypeLabel($sourceType, $source);
+
         return [
             'serial' => $serial,
             'name' => (string) ($leaf['name'] ?? ''),
             'indicator_type' => (string) ($leaf['indicator_type'] ?? ''),
             'level' => (string) ($leaf['level'] ?? ''),
             'source_type' => $sourceType,
-            'source_type_label' => $this->sourceTypeLabel($sourceType),
+            'source_type_label' => $sourceTypeLabel,
             'total' => $total,
             'by_district' => $byDistrict,
             'by_hub' => $breakdown['by_hub'] ?? [],
@@ -87,6 +90,64 @@ class ProgramDeliverablesAchievementBreakdownService
             'records' => $breakdown['records'] ?? [],
             'insights' => $this->buildInsights($total, $byDistrict, $byMonth, $breakdown['by_service'] ?? []),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     * @return array<string, mixed>
+     */
+    private function deliverableBreakdown(array $source): array
+    {
+        if (strtolower(trim((string) ($source['code'] ?? ''))) === 'social_media') {
+            return $this->socialMediaPostsBreakdown();
+        }
+
+        return $this->serviceCaseBreakdown($source);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function socialMediaPostsBreakdown(): array
+    {
+        if (! Schema::hasTable('social_media_posts')) {
+            return $this->emptyBreakdown();
+        }
+
+        $query = DB::table('social_media_posts as smp');
+        $this->applySocialMediaPostsAchievementScope($query, 'smp.posted_on');
+        $monthExpr = $this->monthKeySql('smp.posted_on');
+
+        $rows = (clone $query)
+            ->selectRaw("
+                0 as district_id,
+                'Statewide' as district_name,
+                '—' as hub_name,
+                {$monthExpr} as month_key,
+                COUNT(*) as total
+            ")
+            ->groupBy(DB::raw($monthExpr))
+            ->get();
+
+        $records = (clone $query)
+            ->select(['smp.id', 'smp.posted_on', 'smp.post_url', 'smp.submitted_by_name'])
+            ->orderByDesc('smp.posted_on')
+            ->limit(100)
+            ->get()
+            ->map(fn ($row) => [
+                'id' => (int) $row->id,
+                'reference' => 'Post #'.$row->id,
+                'applicant' => (string) ($row->submitted_by_name ?: '—'),
+                'district' => 'State',
+                'hub' => '—',
+                'service' => (string) ($row->post_url ?: '—'),
+                'spoc' => '—',
+                'status' => 'Logged',
+                'date' => $row->posted_on ? Carbon::parse($row->posted_on)->format('d M Y') : '—',
+            ])
+            ->all();
+
+        return $this->aggregateGroupedRows($rows, includeService: false, records: $records);
     }
 
     /**
@@ -824,8 +885,12 @@ class ProgramDeliverablesAchievementBreakdownService
         ];
     }
 
-    private function sourceTypeLabel(string $type): string
+    private function sourceTypeLabel(string $type, array $source = []): string
     {
+        if ($type === 'deliverable' && strtolower(trim((string) ($source['code'] ?? ''))) === 'social_media') {
+            return 'Logged social media posts';
+        }
+
         return match ($type) {
             'deliverable', 'service', 'services' => 'Approved service cases',
             'cfa_count' => 'CFA submissions',
@@ -1063,6 +1128,26 @@ SQL;
         }
 
         $query->whereIn($column, $this->districtIds);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applySocialMediaPostsAchievementScope($query, string $postedOnColumn = 'posted_on'): void
+    {
+        $floor = $this->phase3FloorDate();
+
+        if ($this->periodFrom && $this->periodTo) {
+            $from = $this->periodFrom->copy();
+            if ($from->lt($floor)) {
+                $from = $floor->copy();
+            }
+            $query->whereBetween($postedOnColumn, [$from->toDateString(), $this->periodTo->toDateString()]);
+
+            return;
+        }
+
+        $query->where($postedOnColumn, '>=', $floor->toDateString());
     }
 
     /**

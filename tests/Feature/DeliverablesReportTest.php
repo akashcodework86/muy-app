@@ -1241,6 +1241,59 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(2, $row['achievement']);
     }
 
+    public function test_social_media_post_breakdown_returns_logged_posts(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $user = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        DB::table('social_media_posts')->insert([
+            [
+                'submitted_by_user_id' => $user->id,
+                'submitted_by_name' => $user->name,
+                'posted_on' => '2026-05-10',
+                'post_url' => 'https://www.instagram.com/p/in-fy-1/',
+                'description' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'submitted_by_user_id' => $user->id,
+                'submitted_by_name' => $user->name,
+                'posted_on' => '2026-06-01',
+                'post_url' => 'https://www.instagram.com/p/in-fy-2/',
+                'description' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.deliverables.breakdown', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '10.1',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('serial', '10.1')
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('source_type_label', 'Logged social media posts')
+            ->assertJsonCount(2, 'records');
+    }
+
     public function test_market_linkage_deliverable_achievements_are_scoped_by_district(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

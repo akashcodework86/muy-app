@@ -109,11 +109,17 @@ class DeliverablesReportController extends Controller
         $payload = $this->buildReportPayload($context);
         $breakdown = $this->breakdownService->build($context['safeFilter'], $context['scope'], $serial);
         $row = collect($payload['rows'])->firstWhere('serial', $serial);
+        $breakdownTotal = (int) ($breakdown['total'] ?? 0);
+        $target = is_array($row) ? ($row['target'] ?? null) : null;
+        $achievementPct = is_array($row) ? ($row['achievement_pct'] ?? null) : null;
+        if ($breakdownTotal > 0 && is_numeric($target) && (int) $target > 0) {
+            $achievementPct = (int) round(($breakdownTotal / (int) $target) * 100);
+        }
 
         return response()->json([
             ...$breakdown,
-            'target' => is_array($row) ? ($row['target'] ?? null) : null,
-            'achievement_pct' => is_array($row) ? ($row['achievement_pct'] ?? null) : null,
+            'target' => $target,
+            'achievement_pct' => $achievementPct,
             'period_label' => $payload['periodLabel'],
             'scope_label' => $payload['scopeLabel'],
         ]);
