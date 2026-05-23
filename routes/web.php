@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DataCentreController;
 use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\DocumentRepositoryController;
+use App\Http\Controllers\Admin\BlockWorkshopAdminController;
 use App\Http\Controllers\Admin\FieldCoordinatorAttendanceAdminController;
 use App\Http\Controllers\Admin\GramPanchayatImportController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
@@ -48,6 +49,7 @@ use App\Http\Controllers\LiveOpsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
+use App\Http\Controllers\Staff\BlockWorkshopController;
 use App\Http\Controllers\Staff\FieldCoordinatorAttendanceController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\LegacyPhase2IncubateeProfileController;
@@ -259,6 +261,50 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('attendance', [FieldCoordinatorAttendanceController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('attendance.store');
+
+        // ── Block level workshops (separate table) ────────────────────────────
+        Route::get('workshops', [BlockWorkshopController::class, 'index'])->name('workshops.index');
+        Route::get('workshops/view', [BlockWorkshopController::class, 'view'])->name('workshops.view');
+        Route::get('workshops/gram-panchayats', [BlockWorkshopController::class, 'gramPanchayats'])->name('workshops.gram-panchayats');
+        Route::get('workshops/attendance-sheet-template', [BlockWorkshopController::class, 'downloadAttendanceSheetTemplate'])->name('workshops.sheet-template');
+        Route::post('workshops/draft', [BlockWorkshopController::class, 'createDraft'])
+            ->middleware('throttle:30,1')
+            ->name('workshops.draft.create');
+        Route::patch('workshops/{blockWorkshop}/draft-meta', [BlockWorkshopController::class, 'updateDraftMeta'])
+            ->middleware('throttle:60,1')
+            ->name('workshops.draft.meta');
+        Route::patch('workshops/{blockWorkshop}/participants', [BlockWorkshopController::class, 'saveParticipants'])
+            ->middleware('throttle:60,1')
+            ->name('workshops.participants.save');
+        Route::get('workshops/{blockWorkshop}/submit', [BlockWorkshopController::class, 'redirectSubmitPage'])
+            ->name('workshops.draft.submit.redirect');
+        Route::post('workshops/{blockWorkshop}/submit', [BlockWorkshopController::class, 'submitDraft'])
+            ->middleware('throttle:30,1')
+            ->name('workshops.draft.submit');
+        Route::post('workshops/{blockWorkshop}/photos', [BlockWorkshopController::class, 'uploadPhotos'])
+            ->middleware('throttle:30,1')
+            ->name('workshops.photos.upload');
+        Route::delete('workshops/{blockWorkshop}/photos/{photoIndex}', [BlockWorkshopController::class, 'deletePhoto'])
+            ->middleware('throttle:30,1')
+            ->whereNumber('photoIndex')
+            ->name('workshops.photos.delete');
+        Route::get('workshops/{blockWorkshop}/attachment', [BlockWorkshopController::class, 'downloadAttachment'])
+            ->name('workshops.attachment');
+        Route::get('workshops/{blockWorkshop}/show', [BlockWorkshopController::class, 'show'])
+            ->name('workshops.show');
+        Route::get('workshops/{blockWorkshop}/participants-export', [BlockWorkshopController::class, 'exportParticipants'])
+            ->name('workshops.participants.export');
+        Route::get('workshops/{blockWorkshop}/attendance-sheet', [BlockWorkshopController::class, 'downloadAttendanceSheet'])
+            ->name('workshops.sheet.download');
+        Route::post('workshops/{blockWorkshop}/attendance-sheet', [BlockWorkshopController::class, 'uploadAttendanceSheet'])
+            ->middleware('throttle:30,1')
+            ->name('workshops.sheet.upload');
+        Route::get('workshops/{blockWorkshop}/attendance-sheet-template', [BlockWorkshopController::class, 'downloadAttendanceSheetTemplateForReport'])
+            ->name('workshops.sheet-template.report');
+        Route::delete('workshops/{blockWorkshop}', [BlockWorkshopController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('workshops.destroy');
+
         Route::middleware('staff_phase3_attendance_nav:training_package')->group(function (): void {
             Route::get('training-packages', [TrainingPackageAttendanceController::class, 'create'])->name('training-packages.create');
             Route::post('training-packages', [TrainingPackageAttendanceController::class, 'store'])
@@ -662,6 +708,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('district-workshop-sessions/{districtWorkshopSession}/export', [DistrictWorkshopSessionAttendanceController::class, 'exportSingle'])->name('district-workshop-sessions.export-single');
         Route::get('district-workshop-sessions/{districtWorkshopSession}/attachment', [DistrictWorkshopSessionAttendanceController::class, 'downloadAttachment'])
             ->name('district-workshop-sessions.attachment');
+        Route::get('block-workshops', [BlockWorkshopAdminController::class, 'index'])->name('block-workshops.index');
+        Route::get('block-workshops/{blockWorkshop}', [BlockWorkshopAdminController::class, 'show'])->name('block-workshops.show');
+        Route::get('block-workshops/{blockWorkshop}/attachment', [BlockWorkshopAdminController::class, 'downloadAttachment'])->name('block-workshops.attachment');
+        Route::get('block-workshops/{blockWorkshop}/participants-export', [BlockWorkshopAdminController::class, 'exportParticipants'])->name('block-workshops.participants-export');
         Route::get('social-media-posts/dashboard', [SocialMediaPostController::class, 'dashboard'])->name('social-media-posts.dashboard');
         Route::get('social-media-posts', SocialMediaPostLandingController::class)->name('social-media-posts.index');
         Route::get('social-media-posts/thumbnail', [SocialMediaPostController::class, 'thumbnail'])->name('social-media-posts.thumbnail');

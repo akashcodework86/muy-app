@@ -1,11 +1,13 @@
 @php
+    $rp = $routePrefix ?? 'staff.attendance';
+    $mp = $modelParam ?? 'attendanceReport';
     $initialPhotoItems = [];
     if (! empty($activeDraft)) {
         foreach ($activeDraft->visitMediaItems() as $photoIndex => $photoItem) {
             $initialPhotoItems[] = [
                 'index' => $photoIndex,
-                'url' => route('staff.attendance.attachment', [
-                    'attendanceReport' => $activeDraft,
+                'url' => route($rp.'.attachment', [
+                    $mp => $activeDraft,
                     'index' => $photoIndex,
                     'inline' => 1,
                 ]),
@@ -34,9 +36,9 @@
     let uploading = false;
 
     const routes = {
-        createDraft: @json(route('staff.attendance.draft.create')),
-        uploadPhotos: @json(route('staff.attendance.photos.upload', ['attendanceReport' => '__ID__'])),
-        deletePhoto: @json(route('staff.attendance.photos.delete', ['attendanceReport' => '__ID__', 'photoIndex' => '__INDEX__'])),
+        createDraft: @json(route($rp.'.draft.create')),
+        uploadPhotos: @json(route($rp.'.photos.upload', [$mp => '__ID__'])),
+        deletePhoto: @json(route($rp.'.photos.delete', [$mp => '__ID__', 'photoIndex' => '__INDEX__'])),
     };
 
     function routeFor(template, id, index) {
@@ -99,7 +101,7 @@
         if (!res.ok) throw new Error(data.message || 'Could not start draft');
         draftId = Number(data.id);
         if (workshopForm) {
-            workshopForm.action = routeFor(@json(route('staff.attendance.draft.submit', ['attendanceReport' => '__ID__'])), draftId);
+            workshopForm.action = routeFor(@json(route($rp.'.draft.submit', [$mp => '__ID__'])), draftId);
         }
         return draftId;
     }

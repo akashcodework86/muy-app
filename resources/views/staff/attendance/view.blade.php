@@ -1,4 +1,5 @@
 @extends('layouts.admin')
+@php $rp = $routePrefix ?? 'staff.attendance'; $mp = $modelParam ?? 'attendanceReport'; @endphp
 
 @section('title', 'Block Level Workshops — District View')
 @section('heading', 'Block Level Workshop Dashboard')
@@ -123,7 +124,7 @@
             </div>
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-            <a href="{{ route('staff.attendance.index') }}" class="bw-banner__btn">
+            <a href="{{ route($rp.'.index') }}" class="bw-banner__btn">
                 <i class="fa-solid fa-plus"></i> New workshop
             </a>
         </div>
@@ -166,7 +167,7 @@
     {{-- Filter bar --}}
     @if (empty($migrationMissing))
     <div class="bw-filter">
-        <form method="get" action="{{ route('staff.attendance.view') }}">
+        <form method="get" action="{{ route($rp.'.view') }}">
             <div class="bw-filter__row">
                 <div class="bw-filter__field" style="max-width:150px;">
                     <label class="bw-filter__label">From date</label>
@@ -200,7 +201,7 @@
                 @endif
                 <div style="display:flex;gap:0.4rem;align-items:flex-end;">
                     <button type="submit" class="bw-btn"><i class="fa-solid fa-filter"></i> Filter</button>
-                    <a href="{{ route('staff.attendance.view') }}" class="bw-btn bw-btn--ghost">Reset</a>
+                    <a href="{{ route($rp.'.view') }}" class="bw-btn bw-btn--ghost">Reset</a>
                 </div>
             </div>
         </form>
@@ -330,12 +331,12 @@
                                 @if (count($media) > 0)
                                     <div class="bw-photo-row">
                                         @foreach (array_slice($media, 0, 4) as $idx => $item)
-                                            <a href="{{ route('staff.attendance.attachment', ['attendanceReport' => $row, 'index' => $idx, 'inline' => 1]) }}"
+                                            <a href="{{ route($rp.'.attachment', [$mp => $row, 'index' => $idx, 'inline' => 1]) }}"
                                                target="_blank" rel="noopener"
                                                class="bw-photo-thumb-link"
                                                title="Photo {{ $idx + 1 }}">
                                                 <img class="bw-photo-thumb"
-                                                     src="{{ route('staff.attendance.attachment', ['attendanceReport' => $row, 'index' => $idx, 'inline' => 1]) }}"
+                                                     src="{{ route($rp.'.attachment', [$mp => $row, 'index' => $idx, 'inline' => 1]) }}"
                                                      alt="Photo {{ $idx + 1 }}"
                                                      loading="lazy">
                                             </a>
@@ -345,7 +346,7 @@
                                         @endif
                                     </div>
                                 @elseif ($row->attachment_path)
-                                    <a href="{{ route('staff.attendance.attachment', $row) }}" class="bw-btn bw-btn--sm bw-btn--ghost" style="padding:0.3rem 0.55rem;font-size:0.72rem;">
+                                    <a href="{{ route($rp.'.attachment', $row) }}" class="bw-btn bw-btn--sm bw-btn--ghost" style="padding:0.3rem 0.55rem;font-size:0.72rem;">
                                         <i class="fa-solid fa-image"></i> 1 file
                                     </a>
                                 @else
@@ -355,7 +356,7 @@
 
                             <td>
                                 @if ($row->hasAttendanceSheet())
-                                    <a href="{{ route('staff.attendance.sheet.download', $row) }}" class="bw-pill bw-pill--teal" style="text-decoration:none;">
+                                    <a href="{{ route($rp.'.sheet.download', $row) }}" class="bw-pill bw-pill--teal" style="text-decoration:none;">
                                         <i class="fa-solid fa-file-excel"></i> Sheet
                                     </a>
                                 @else
@@ -364,7 +365,7 @@
                             </td>
 
                             <td style="white-space:nowrap;">
-                                <a href="{{ route('staff.attendance.show', $row) }}" class="bw-btn bw-btn--sm bw-btn--teal" style="text-decoration:none;">
+                                <a href="{{ route($rp.'.show', $row) }}" class="bw-btn bw-btn--sm bw-btn--teal" style="text-decoration:none;">
                                     <i class="fa-solid fa-eye"></i> View
                                 </a>
                             </td>
@@ -376,7 +377,7 @@
                                     <i class="fa-regular fa-folder-open"></i>
                                     No workshops found for this district.
                                     <br>
-                                    <a href="{{ route('staff.attendance.index') }}">
+                                    <a href="{{ route($rp.'.index') }}">
                                         <i class="fa-solid fa-plus"></i> Submit first workshop
                                     </a>
                                 </div>

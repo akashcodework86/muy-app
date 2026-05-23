@@ -1,8 +1,7 @@
 @extends('layouts.admin')
-@php $rp = $routePrefix ?? 'staff.attendance'; $mp = $modelParam ?? 'attendanceReport'; @endphp
 
 @section('title', 'Workshop details — ' . ($report->visit_date?->format('d M Y') ?? ''))
-@section('heading', 'Workshop details')
+@section('heading', 'Block Level Workshop — Details')
 
 @push('styles')
 <style>
@@ -111,7 +110,7 @@
 
     {{-- Breadcrumb --}}
     <div class="ws-breadcrumb">
-        <a href="{{ route($rp.'.view') }}"><i class="fa-solid fa-table-list"></i> Workshop records</a>
+        <a href="{{ route('admin.block-workshops.index') }}"><i class="fa-solid fa-table-list"></i> Block level workshops</a>
         <span class="ws-breadcrumb__sep">/</span>
         <span>{{ $report->visit_date?->format('d M Y') }} — {{ $report->block ?: 'Workshop' }}</span>
     </div>
@@ -126,21 +125,15 @@
                     {{ $report->visit_date?->format('d M Y') }}
                     @if ($report->district?->name) &middot; {{ $report->district->name }} @endif
                     &middot;
-                    <span class="ws-status-badge {{ $report->isDraft() ? 'ws-status-badge--draft' : 'ws-status-badge--submitted' }}" style="vertical-align:middle;">
-                        <i class="fa-solid {{ $report->isDraft() ? 'fa-pen-to-square' : 'fa-circle-check' }}"></i>
-                        {{ $report->isDraft() ? 'Draft' : 'Submitted' }}
+                    <span class="ws-status-badge ws-status-badge--submitted" style="vertical-align:middle;">
+                        <i class="fa-solid fa-circle-check"></i> Submitted
                     </span>
                 </p>
             </div>
         </div>
         <div class="ws-banner__actions">
-            @if ($rp === 'staff.attendance' && $report->isSubmitted() && (int) $report->field_coordinator_user_id === (int) auth()->id())
-                <a href="{{ route('staff.attendance.edit', $report) }}" class="ws-btn ws-btn--ghost ws-btn--sm">
-                    <i class="fa-solid fa-pen"></i> Edit
-                </a>
-            @endif
-            <a href="{{ route($rp.'.view') }}" class="ws-btn ws-btn--ghost ws-btn--sm">
-                <i class="fa-solid fa-arrow-left"></i> Back
+            <a href="{{ route('admin.block-workshops.index') }}" class="ws-btn ws-btn--ghost ws-btn--sm">
+                <i class="fa-solid fa-arrow-left"></i> Back to list
             </a>
         </div>
     </div>
@@ -159,7 +152,7 @@
                 </div>
                 <div class="ws-detail-item">
                     <span class="ws-detail-label">Submitted by</span>
-                    <span class="ws-detail-value">{{ $report->field_coordinator_name ?: '—' }}</span>
+                    <span class="ws-detail-value">{{ $report->field_coordinator_name ?: ($report->coordinator?->name ?? '—') }}</span>
                 </div>
                 <div class="ws-detail-item">
                     <span class="ws-detail-label">District</span>
@@ -228,9 +221,9 @@
             @if (count($mediaItems) > 0)
                 <div class="ws-photo-grid">
                     @foreach ($mediaItems as $idx => $item)
-                        <a href="{{ route($rp.'.attachment', [$mp => $report, 'index' => $idx, 'inline' => 1]) }}"
+                        <a href="{{ route('admin.block-workshops.attachment', ['blockWorkshop' => $report, 'index' => $idx, 'inline' => 1]) }}"
                            target="_blank" rel="noopener" class="ws-photo-item">
-                            <img src="{{ route($rp.'.attachment', [$mp => $report, 'index' => $idx, 'inline' => 1]) }}"
+                            <img src="{{ route('admin.block-workshops.attachment', ['blockWorkshop' => $report, 'index' => $idx, 'inline' => 1]) }}"
                                  alt="Photo {{ $idx + 1 }}" loading="lazy">
                             <div class="ws-photo-item__overlay"><i class="fa-solid fa-magnifying-glass-plus"></i></div>
                         </a>
@@ -238,7 +231,7 @@
                 </div>
             @elseif ($report->attachment_path)
                 <div class="ws-photo-empty">
-                    <a href="{{ route($rp.'.attachment', $report) }}" class="ws-btn ws-btn--teal ws-btn--sm">
+                    <a href="{{ route('admin.block-workshops.attachment', $report) }}" class="ws-btn ws-btn--teal ws-btn--sm">
                         <i class="fa-solid fa-download"></i> Download legacy attachment
                     </a>
                 </div>
@@ -248,51 +241,33 @@
         </div>
     </div>
 
-    {{-- Attendance sheet --}}
+    {{-- Attendance sheet (read-only for admin) --}}
+    @if ($report->hasAttendanceSheet())
     <div class="ws-card">
         <div class="ws-card__head">
             <div class="ws-card__head-icon ws-card__head-icon--amber"><i class="fa-solid fa-file-excel"></i></div>
             <h3>Attendance sheet (Excel)</h3>
         </div>
         <div class="ws-card__body">
-            @if ($report->hasAttendanceSheet())
-                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-                    <div>
-                        <div style="font-weight:700;color:var(--ws-text);font-size:0.9rem;">
-                            <i class="fa-solid fa-file-excel" style="color:#15803d;margin-right:0.35rem;"></i>
-                            {{ $report->attendance_sheet_original_name ?? 'attendance-sheet.xlsx' }}
-                        </div>
-                        @if ($report->attendance_sheet_size_bytes)
-                            <div style="font-size:0.75rem;color:var(--ws-muted);margin-top:0.15rem;">
-                                {{ number_format(round($report->attendance_sheet_size_bytes / 1024, 1)) }} KB
-                            </div>
-                        @endif
+            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                <div>
+                    <div style="font-weight:700;color:var(--ws-text);font-size:0.9rem;">
+                        <i class="fa-solid fa-file-excel" style="color:#15803d;margin-right:0.35rem;"></i>
+                        {{ $report->attendance_sheet_original_name ?? 'attendance-sheet.xlsx' }}
                     </div>
-                    <a href="{{ route($rp.'.sheet.download', $report) }}" class="ws-btn ws-btn--teal ws-btn--sm">
-                        <i class="fa-solid fa-download"></i> Download sheet
-                    </a>
-                </div>
-            @else
-                <p style="color:var(--ws-muted);font-size:0.88rem;margin:0;">
-                    No attendance sheet uploaded yet.
-                    @if ((int) $report->participants_total > 0 && (int) $report->field_coordinator_user_id === (int) auth()->id())
-                        <a href="{{ route($rp.'.sheet-template.report', $report) }}" class="ws-btn ws-btn--ghost ws-btn--sm" style="margin-left:0.75rem;">
-                            <i class="fa-solid fa-download"></i> Download template
-                        </a>
+                    @if ($report->attendance_sheet_size_bytes)
+                        <div style="font-size:0.75rem;color:var(--ws-muted);margin-top:0.15rem;">
+                            {{ number_format(round($report->attendance_sheet_size_bytes / 1024, 1)) }} KB
+                        </div>
                     @endif
-                </p>
-                @if ((int) $report->participants_total > 0 && (int) $report->field_coordinator_user_id === (int) auth()->id())
-                    <form method="post" action="{{ route($rp.'.sheet.upload', $report) }}" enctype="multipart/form-data" style="display:flex;gap:0.5rem;align-items:center;margin-top:0.75rem;flex-wrap:wrap;">
-                        @csrf
-                        <input type="file" name="attendance_sheet" accept=".xlsx,.xls,.csv" required style="font-size:0.82rem;">
-                        <button type="submit" class="ws-btn ws-btn--teal ws-btn--sm">
-                            <i class="fa-solid fa-cloud-arrow-up"></i> Upload filled sheet
-                        </button>
-                    </form>
-                @endif
-            @endif
+                </div>
+                <a href="{{ route('admin.attendance.attendance-sheet', $report) }}" class="ws-btn ws-btn--teal ws-btn--sm">
+                    <i class="fa-solid fa-download"></i> Download sheet
+                </a>
+            </div>
         </div>
     </div>
+    @endif
 
     {{-- Participant register --}}
     <div class="ws-card">
@@ -302,9 +277,7 @@
                 Participant register
                 <span style="font-weight:400;color:var(--ws-muted);font-size:0.82rem;">
                     ({{ count($participantRows) }} rows
-                    @php
-                        $filledCount = collect($participantRows)->filter(fn($p) => !empty($p['name']))->count();
-                    @endphp
+                    @php $filledCount = collect($participantRows)->filter(fn($p) => !empty($p['name']))->count(); @endphp
                     @if ($filledCount > 0), {{ $filledCount }} named)
                     @else )
                     @endif
@@ -312,7 +285,7 @@
             </h3>
             <div class="ws-card__head-actions">
                 @if (count($participantRows) > 0)
-                    <a href="{{ route($rp.'.participants.export', $report) }}" class="ws-btn ws-btn--teal ws-btn--sm">
+                    <a href="{{ route('admin.block-workshops.participants-export', $report) }}" class="ws-btn ws-btn--teal ws-btn--sm">
                         <i class="fa-solid fa-file-excel"></i> Export to Excel
                     </a>
                 @endif
@@ -391,23 +364,11 @@
             @else
                 <div class="ws-empty-row" style="padding:2.5rem 1.4rem;">
                     <i class="fa-regular fa-rectangle-list" style="font-size:1.8rem;display:block;margin-bottom:0.5rem;color:#c7d2fe;"></i>
-                    No participant rows for this workshop.
-                    @if ($report->isDraft() && (int) $report->field_coordinator_user_id === (int) auth()->id())
-                        <br>
-                        <a href="{{ route($rp.'.index', ['draft' => $report->id]) }}" class="ws-btn ws-btn--indigo ws-btn--sm" style="margin-top:0.65rem;">
-                            <i class="fa-solid fa-pen-to-square"></i> Continue editing draft
-                        </a>
-                    @endif
+                    No participant rows recorded for this workshop.
                 </div>
             @endif
         </div>
     </div>
 
 </div>
-
-@if (session('status'))
-    <div style="position:fixed;bottom:1.25rem;right:1.25rem;z-index:9999;background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:12px;padding:0.75rem 1.1rem;font-size:0.88rem;font-weight:600;box-shadow:0 4px 18px rgba(0,0,0,0.1);">
-        <i class="fa-solid fa-circle-check"></i> {{ session('status') }}
-    </div>
-@endif
 @endsection

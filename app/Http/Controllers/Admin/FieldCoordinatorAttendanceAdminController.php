@@ -35,6 +35,11 @@ class FieldCoordinatorAttendanceAdminController extends Controller
             $query->submitted();
         }
 
+        // Exclude block-workshop records — they have their own dedicated admin page.
+        if (FieldCoordinatorAttendanceReport::supportsRecordType()) {
+            $query->fieldVisits();
+        }
+
         $search = trim((string) $request->query('q', ''));
         if ($search !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';

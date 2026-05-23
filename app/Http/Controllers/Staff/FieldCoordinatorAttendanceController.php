@@ -89,6 +89,10 @@ class FieldCoordinatorAttendanceController extends Controller
             $reportsQuery->submitted();
         }
 
+        if (FieldCoordinatorAttendanceReport::supportsRecordType()) {
+            $reportsQuery->fieldVisits();
+        }
+
         $reports = $reportsQuery
             ->orderByDesc('visit_date')
             ->orderByDesc('id')
@@ -134,6 +138,7 @@ class FieldCoordinatorAttendanceController extends Controller
             'entry_date' => now()->toDateString(),
             'district_id' => $districtId > 0 ? $districtId : null,
             'status' => FieldCoordinatorAttendanceReport::STATUS_DRAFT,
+            'record_type' => FieldCoordinatorAttendanceReport::TYPE_BLOCK_WORKSHOP,
             'participants_male_count' => 0,
             'participants_female_count' => 0,
             'participants_total' => 0,
@@ -648,6 +653,10 @@ class FieldCoordinatorAttendanceController extends Controller
 
             if (FieldCoordinatorAttendanceReport::supportsDraftWorkflow()) {
                 $q->submitted();
+            }
+
+            if (FieldCoordinatorAttendanceReport::supportsRecordType()) {
+                $q->fieldVisits();
             }
 
             return $q;

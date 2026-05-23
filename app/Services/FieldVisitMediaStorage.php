@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\FieldCoordinatorAttendanceReport;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -45,7 +45,7 @@ class FieldVisitMediaStorage
     /**
      * @return array<string, mixed>|null
      */
-    public function itemAt(FieldCoordinatorAttendanceReport $report, int $index): ?array
+    public function itemAt(Model $report, int $index): ?array
     {
         $items = collect((array) $report->visit_media_json)
             ->filter(fn ($item) => is_array($item) && (string) ($item['path'] ?? '') !== '')
@@ -57,7 +57,7 @@ class FieldVisitMediaStorage
     }
 
     public function download(
-        FieldCoordinatorAttendanceReport $report,
+        Model $report,
         int $index,
         bool $inline = false,
     ): StreamedResponse {
@@ -80,7 +80,7 @@ class FieldVisitMediaStorage
         return Storage::download($path, $name);
     }
 
-    public function legacyDownload(FieldCoordinatorAttendanceReport $report): StreamedResponse
+    public function legacyDownload(Model $report): StreamedResponse
     {
         abort_if(! $report->attachment_path, 404);
         abort_unless(Storage::exists($report->attachment_path), 404);
@@ -95,14 +95,14 @@ class FieldVisitMediaStorage
      * @param  list<array<string, mixed>>  $newItems
      * @return list<array<string, mixed>>
      */
-    public function mergeOntoReport(FieldCoordinatorAttendanceReport $report, array $newItems): array
+    public function mergeOntoReport(Model $report, array $newItems): array
     {
         $merged = array_merge($report->visitMediaItems(), $newItems);
 
         return array_values(array_slice($merged, 0, self::MAX_PHOTOS_PER_REPORT));
     }
 
-    public function removeAt(FieldCoordinatorAttendanceReport $report, int $index): array
+    public function removeAt(Model $report, int $index): array
     {
         $items = $report->visitMediaItems();
         abort_if($index < 0 || $index >= count($items), 404);
@@ -118,7 +118,7 @@ class FieldVisitMediaStorage
         return array_values($items);
     }
 
-    public function deleteAllForReport(FieldCoordinatorAttendanceReport $report): void
+    public function deleteAllForReport(Model $report): void
     {
         foreach ($report->visitMediaItems() as $item) {
             $path = (string) ($item['path'] ?? '');

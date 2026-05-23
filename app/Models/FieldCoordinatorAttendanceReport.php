@@ -12,6 +12,10 @@ class FieldCoordinatorAttendanceReport extends Model
 
     public const STATUS_SUBMITTED = 'submitted';
 
+    public const TYPE_FIELD_VISIT = 'field_visit';
+
+    public const TYPE_BLOCK_WORKSHOP = 'block_workshop';
+
     protected $fillable = [
         'field_coordinator_user_id',
         'field_coordinator_name',
@@ -40,6 +44,7 @@ class FieldCoordinatorAttendanceReport extends Model
         'attendance_sheet_mime',
         'attendance_sheet_size_bytes',
         'status',
+        'record_type',
         'participants_json',
     ];
 
@@ -69,6 +74,32 @@ class FieldCoordinatorAttendanceReport extends Model
     public function scopeDraft(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_DRAFT);
+    }
+
+    public function scopeBlockWorkshops(Builder $query): Builder
+    {
+        if (! self::supportsRecordType()) {
+            return $query;
+        }
+
+        return $query->where('record_type', self::TYPE_BLOCK_WORKSHOP);
+    }
+
+    public function scopeFieldVisits(Builder $query): Builder
+    {
+        if (! self::supportsRecordType()) {
+            return $query;
+        }
+
+        return $query->where('record_type', self::TYPE_FIELD_VISIT);
+    }
+
+    public static function supportsRecordType(): bool
+    {
+        return \Illuminate\Support\Facades\Schema::hasColumn(
+            (new self)->getTable(),
+            'record_type',
+        );
     }
 
     public static function supportsDraftWorkflow(): bool

@@ -1,4 +1,6 @@
 @php
+    $rp = $routePrefix ?? 'staff.attendance';
+    $mp = $modelParam ?? 'attendanceReport';
     $scriptDistrictLabel = (string) ($user->district?->name ?? '—');
     $scriptInitialRows = $activeDraft?->participantRows() ?? [];
 @endphp
@@ -10,13 +12,13 @@
     const csrf = @json(csrf_token());
     const districtLabel = @json($scriptDistrictLabel);
     const routes = {
-        createDraft: @json(route('staff.attendance.draft.create')),
-        draftMeta: @json(route('staff.attendance.draft.meta', ['attendanceReport' => '__ID__'])),
-        participants: @json(route('staff.attendance.participants.save', ['attendanceReport' => '__ID__'])),
+        createDraft: @json(route($rp.'.draft.create')),
+        draftMeta: @json(route($rp.'.draft.meta', [$mp => '__ID__'])),
+        participants: @json(route($rp.'.participants.save', [$mp => '__ID__'])),
     };
     const initialDraftId = @json($activeDraft?->id);
     const initialRows = @json($scriptInitialRows);
-    const gramPanchayatsUrl = @json(route('staff.attendance.gram-panchayats'));
+    const gramPanchayatsUrl = @json(route($rp.'.gram-panchayats'));
 
     const blockSelect = document.getElementById('attBlockSelect');
     const gpSelect = document.getElementById('attGpSelect');
@@ -204,7 +206,7 @@
             if (!res.ok) throw new Error('Could not start draft');
             draftId = Number(data.id);
             if (workshopForm) {
-                workshopForm.action = routeFor(@json(route('staff.attendance.draft.submit', ['attendanceReport' => '__ID__'])), draftId);
+                workshopForm.action = routeFor(@json(route($rp.'.draft.submit', [$mp => '__ID__'])), draftId);
             }
             return draftId;
         }).finally(function () {
@@ -359,7 +361,7 @@
     });
 
     if (workshopForm && draftId) {
-        workshopForm.action = routeFor(@json(route('staff.attendance.draft.submit', ['attendanceReport' => '__ID__'])), draftId);
+        workshopForm.action = routeFor(@json(route($rp.'.draft.submit', [$mp => '__ID__'])), draftId);
     }
 
     if (blockSelect?.value) {

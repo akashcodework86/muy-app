@@ -119,6 +119,7 @@
         str_starts_with($r, 'spoc.district-workshop-sessions.show') => 'staff-district-workshop-sessions-dashboard',
         str_starts_with($r, 'admin.district-workshop-sessions.dashboard') => 'staff-district-workshop-sessions-dashboard',
         str_starts_with($r, 'admin.district-workshop-sessions.show') => 'staff-district-workshop-sessions-dashboard',
+        str_starts_with($r, 'admin.block-workshops.') => 'block-workshops-dashboard',
         str_starts_with($r, 'spoc.social-media-posts.create') => 'social-media-posts-submit',
         str_starts_with($r, 'spoc.social-media-posts.index') => 'social-media-posts-submit',
         str_starts_with($r, 'spoc.social-media-posts.store') => 'social-media-posts-submit',
@@ -140,7 +141,7 @@
     };
     $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -286,7 +287,7 @@
                     <a href="{{ route('admin.phase3-services.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase3-services') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>All services</span>
                     </a>
-                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard'], true)) is-active @endif">
+                        <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('calendar') !!}<span>Training and Capacity Building</span>
                         </span>
@@ -302,6 +303,9 @@
                             </a>
                             <a href="{{ route('admin.district-workshop-sessions.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-district-workshop-sessions-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>District level workshop</span>
+                            </a>
+                            <a href="{{ route('admin.block-workshops.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'block-workshops-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('users') !!}<span>Block level workshop</span>
                             </a>
                         </div>
                     </div>

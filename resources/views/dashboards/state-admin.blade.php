@@ -1053,6 +1053,11 @@
                         <strong>Field attendance</strong>
                         <span>Field coordinator visit records</span>
                     </a>
+                    <a href="{{ route('admin.block-workshops.index') }}">
+                        <div class="qi"><i class="fa-solid fa-people-group" aria-hidden="true"></i></div>
+                        <strong>Block level workshops</strong>
+                        <span>Participant records, photos &amp; exports</span>
+                    </a>
                     <a href="{{ route('team.index') }}">
                         <div class="qi"><i class="fa-solid fa-people-group" aria-hidden="true"></i></div>
                         <strong>Team directory</strong>

@@ -16,12 +16,21 @@
                 {!! $i('doc') !!}<span>{{ $fieldWorkReportGroupLabel }}</span>
             </span>
             <div class="admin-topbar__dropdown-subpanel" role="menu">
+                @if ($isFieldCoordinator ?? false)
                 <a href="{{ route('staff.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance') is-active @endif" role="menuitem">
                     {!! $i('doc') !!}<span>{{ $fieldWorkReportSubmitLabel }}</span>
                 </a>
                 <a href="{{ route('staff.attendance.view') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance-view') is-active @endif" role="menuitem">
                     {!! $i('bars') !!}<span>{{ $fieldWorkReportViewLabel }}</span>
                 </a>
+                @else
+                <a href="{{ route('staff.workshops.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance') is-active @endif" role="menuitem">
+                    {!! $i('doc') !!}<span>{{ $fieldWorkReportSubmitLabel }}</span>
+                </a>
+                <a href="{{ route('staff.workshops.view') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance-view') is-active @endif" role="menuitem">
+                    {!! $i('bars') !!}<span>{{ $fieldWorkReportViewLabel }}</span>
+                </a>
+                @endif
             </div>
         </div>
 

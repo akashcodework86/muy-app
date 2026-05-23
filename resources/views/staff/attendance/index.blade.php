@@ -1,4 +1,5 @@
 @extends('layouts.admin')
+@php $rp = $routePrefix ?? 'staff.attendance'; $mp = $modelParam ?? 'attendanceReport'; @endphp
 
 @section('title', 'Block level workshop')
 @section('heading', 'Block level workshop')
@@ -98,7 +99,7 @@
                     · {{ number_format((int) $activeDraft->participants_total) }} participant row(s)
                 </span>
             </div>
-            <form method="post" action="{{ route('staff.attendance.destroy', $activeDraft) }}" onsubmit="return confirm('Discard this draft?');">
+            <form method="post" action="{{ route($rp.'.destroy', $activeDraft) }}" onsubmit="return confirm('Discard this draft?');">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="att-btn att-btn--ghost" style="padding:0.45rem 0.85rem;font-size:0.8rem;">
@@ -123,7 +124,7 @@
             <form
                 id="attWorkshopForm"
                 method="post"
-                action="{{ !empty($draftWorkflow) && $activeDraft ? route('staff.attendance.draft.submit', $activeDraft) : route('staff.attendance.store') }}"
+                action="{{ !empty($draftWorkflow) && $activeDraft ? route($rp.'.draft.submit', $activeDraft) : ($draftWorkflow ? '#' : route($rp.'.store')) }}"
                 enctype="multipart/form-data"
             >
                 @csrf
@@ -286,15 +287,15 @@
                             <td style="font-size:0.82rem;">
                                 @if ((int) $row->participants_total > 0)
                                     @if ($row->hasAttendanceSheet())
-                                        <a href="{{ route('staff.attendance.sheet.download', $row) }}" style="color:var(--att-teal);font-weight:700;">
+                                        <a href="{{ route($rp.'.sheet.download', $row) }}" style="color:var(--att-teal);font-weight:700;">
                                             <i class="fa-solid fa-file-excel"></i> View sheet
                                         </a>
                                     @else
                                         <span style="display:inline-block;padding:0.15rem 0.45rem;border-radius:999px;background:#fffbeb;color:#b45309;font-size:0.68rem;font-weight:700;margin-bottom:0.35rem;">Sheet pending</span><br>
-                                        <a href="{{ route('staff.attendance.sheet-template.report', $row) }}" class="att-btn" style="padding:0.35rem 0.65rem;font-size:0.75rem;text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);margin-bottom:0.35rem;">
+                                        <a href="{{ route($rp.'.sheet-template.report', $row) }}" class="att-btn" style="padding:0.35rem 0.65rem;font-size:0.75rem;text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);margin-bottom:0.35rem;">
                                             <i class="fa-solid fa-download"></i> Download template ({{ number_format((int) $row->participants_total) }} rows)
                                         </a>
-                                        <form method="post" action="{{ route('staff.attendance.sheet.upload', $row) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.35rem;min-width:11rem;">
+                                        <form method="post" action="{{ route($rp.'.sheet.upload', $row) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.35rem;min-width:11rem;">
                                             @csrf
                                             <input type="file" name="attendance_sheet" accept=".xlsx,.xls,.csv" required style="font-size:0.75rem;">
                                             <button type="submit" class="att-btn" style="padding:0.35rem 0.6rem;font-size:0.75rem;">Upload filled sheet</button>
@@ -309,23 +310,25 @@
                                     <span class="att-photo-count">{{ count($media) }} photo(s)</span>
                                     <div style="display:flex;gap:0.25rem;margin-top:0.35rem;flex-wrap:wrap;">
                                         @foreach (array_slice($media, 0, 4) as $idx => $item)
-                                            <a href="{{ route('staff.attendance.attachment', ['attendanceReport' => $row, 'index' => $idx, 'inline' => 1]) }}" target="_blank" rel="noopener">
-                                                <img class="att-thumb" src="{{ route('staff.attendance.attachment', ['attendanceReport' => $row, 'index' => $idx, 'inline' => 1]) }}" alt="">
+                                            <a href="{{ route($rp.'.attachment', [$mp => $row, 'index' => $idx, 'inline' => 1]) }}" target="_blank" rel="noopener">
+                                                <img class="att-thumb" src="{{ route($rp.'.attachment', [$mp => $row, 'index' => $idx, 'inline' => 1]) }}" alt="">
                                             </a>
                                         @endforeach
                                     </div>
                                 @elseif ($row->attachment_path)
-                                    <a href="{{ route('staff.attendance.attachment', $row) }}">Legacy file</a>
+                                    <a href="{{ route($rp.'.attachment', $row) }}">Legacy file</a>
                                 @else
                                     —
                                 @endif
                             </td>
                             <td><span class="att-remark">{{ $row->remark ?: '—' }}</span></td>
                             <td style="white-space:nowrap;">
+                                @if ($rp === 'staff.attendance')
                                 <a href="{{ route('staff.attendance.edit', $row) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:#4f46e5;text-decoration:none;margin-right:0.5rem;">
                                     <i class="fa-solid fa-pen"></i> Edit
                                 </a>
-                                <form method="post" action="{{ route('staff.attendance.destroy', $row) }}" style="display:inline;" onsubmit="return confirm('Delete this visit submission?');">
+                                @endif
+                                <form method="post" action="{{ route($rp.'.destroy', $row) }}" style="display:inline;" onsubmit="return confirm('Delete this submission?');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" style="background:none;border:none;padding:0;font-size:0.78rem;font-weight:700;color:#dc2626;cursor:pointer;display:inline-flex;align-items:center;gap:0.25rem;">
@@ -359,7 +362,7 @@
     const gpSelect = document.getElementById('attGpSelect');
     const gpSearch = document.getElementById('attGpSearch');
     const gpHint = document.getElementById('attGpHint');
-    const gpUrl = @json(route('staff.attendance.gram-panchayats'));
+    const gpUrl = @json(route($rp.'.gram-panchayats'));
     const oldGpId = @json((int) old('gram_panchayat_id', $activeDraft?->gram_panchayat_id ?? 0));
     let allItems = [];
 
@@ -415,7 +418,7 @@
     const sheetInput = document.getElementById('attSheetInput');
     const downloadBtn = document.getElementById('attDownloadTemplate');
     const downloadLabel = document.getElementById('attDownloadTemplateLabel');
-    const templateBaseUrl = @json(route('staff.attendance.sheet-template'));
+    const templateBaseUrl = @json(route($rp.'.sheet-template'));
 
     function updateParticipantTotal() {
         if (!totalInput) return;
