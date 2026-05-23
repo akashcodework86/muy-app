@@ -6,16 +6,21 @@
     <div class="admin-topbar__dropdown-panel admin-topbar__dropdown-panel--wide" role="menu">
         <p class="admin-topbar__dropdown-kicker" role="presentation">Field work</p>
 
+        @php
+            $fieldWorkReportGroupLabel = ($isFieldCoordinator ?? false) ? 'Field report' : 'Block level workshop';
+            $fieldWorkReportSubmitLabel = ($isFieldCoordinator ?? false) ? 'Submit field report' : 'Submit block level workshop';
+            $fieldWorkReportViewLabel = ($isFieldCoordinator ?? false) ? 'View field reports' : 'View block level workshops';
+        @endphp
         <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-attendance', 'staff-attendance-view'], true)) is-active @endif">
             <span class="admin-topbar__dropdown-subtrigger">
-                {!! $i('doc') !!}<span>Field report</span>
+                {!! $i('doc') !!}<span>{{ $fieldWorkReportGroupLabel }}</span>
             </span>
             <div class="admin-topbar__dropdown-subpanel" role="menu">
                 <a href="{{ route('staff.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance') is-active @endif" role="menuitem">
-                    {!! $i('doc') !!}<span>Submit field report</span>
+                    {!! $i('doc') !!}<span>{{ $fieldWorkReportSubmitLabel }}</span>
                 </a>
                 <a href="{{ route('staff.attendance.view') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance-view') is-active @endif" role="menuitem">
-                    {!! $i('bars') !!}<span>View field reports</span>
+                    {!! $i('bars') !!}<span>{{ $fieldWorkReportViewLabel }}</span>
                 </a>
             </div>
         </div>
