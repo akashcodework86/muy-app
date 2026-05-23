@@ -31,7 +31,7 @@ class FieldCoordinatorAttendanceController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user()->load(['district', 'designationRecord']);
-        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless($this->canSubmitFieldVisit($user), 403);
 
         $districtId = (int) ($user->district_id ?: 0);
         $blockRows = $districtId > 0
@@ -72,7 +72,7 @@ class FieldCoordinatorAttendanceController extends Controller
     public function downloadAttendanceSheetTemplate(Request $request): StreamedResponse
     {
         $user = $request->user()->load('district');
-        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless($this->canSubmitFieldVisit($user), 403);
 
         $validated = $request->validate([
             'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
@@ -105,7 +105,7 @@ class FieldCoordinatorAttendanceController extends Controller
         Request $request,
     ): StreamedResponse {
         $user = $request->user();
-        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless($this->canSubmitFieldVisit($user), 403);
         abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
 
         $attendanceReport->load(['district', 'gramPanchayat']);
@@ -129,7 +129,7 @@ class FieldCoordinatorAttendanceController extends Controller
     public function gramPanchayats(Request $request): JsonResponse
     {
         $user = $request->user();
-        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless($this->canSubmitFieldVisit($user), 403);
         abort_unless(Schema::hasTable('gram_panchayats'), 404);
 
         $blockId = (int) $request->query('district_block_id', 0);
@@ -173,12 +173,8 @@ class FieldCoordinatorAttendanceController extends Controller
         }
 
         $query = FieldCoordinatorAttendanceReport::query()
-            ->with(['district', 'gramPanchayat']);
-        if ($this->isFieldCoordinator($user)) {
-            $query->where('field_coordinator_user_id', (int) $user->id);
-        } else {
-            $query->where('district_id', (int) ($user->district_id ?: 0));
-        }
+            ->with(['district', 'gramPanchayat'])
+            ->where('district_id', (int) ($user->district_id ?: 0));
 
         if ($request->filled('from')) {
             $query->whereDate('visit_date', '>=', $request->query('from'));
@@ -196,12 +192,8 @@ class FieldCoordinatorAttendanceController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        $blockOptionsQuery = FieldCoordinatorAttendanceReport::query();
-        if ($this->isFieldCoordinator($user)) {
-            $blockOptionsQuery->where('field_coordinator_user_id', (int) $user->id);
-        } else {
-            $blockOptionsQuery->where('district_id', (int) ($user->district_id ?: 0));
-        }
+        $blockOptionsQuery = FieldCoordinatorAttendanceReport::query()
+            ->where('district_id', (int) ($user->district_id ?: 0));
         $blockOptions = $blockOptionsQuery
             ->whereNotNull('block')
             ->where('block', '!=', '')
@@ -221,7 +213,7 @@ class FieldCoordinatorAttendanceController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user()->load(['district', 'designationRecord']);
-        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless($this->canSubmitFieldVisit($user), 403);
 
         if (! Schema::hasTable('field_coordinator_attendance_reports')) {
             return redirect()
@@ -338,7 +330,7 @@ class FieldCoordinatorAttendanceController extends Controller
         Request $request,
     ): RedirectResponse {
         $user = $request->user()->load(['district', 'designationRecord']);
-        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless($this->canSubmitFieldVisit($user), 403);
         abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
 
         $participantsTotal = (int) $attendanceReport->participants_total;
@@ -377,7 +369,7 @@ class FieldCoordinatorAttendanceController extends Controller
     public function edit(FieldCoordinatorAttendanceReport $attendanceReport, Request $request): View
     {
         $user = $request->user()->load(['district', 'designationRecord']);
-        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless($this->canSubmitFieldVisit($user), 403);
         abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
 
         $districtId = (int) ($user->district_id ?: 0);
@@ -404,7 +396,7 @@ class FieldCoordinatorAttendanceController extends Controller
         Request $request,
     ): RedirectResponse {
         $user = $request->user()->load(['district', 'designationRecord']);
-        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless($this->canSubmitFieldVisit($user), 403);
         abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
 
         $rules = [
@@ -487,7 +479,7 @@ class FieldCoordinatorAttendanceController extends Controller
         Request $request,
     ): RedirectResponse {
         $user = $request->user();
-        abort_unless($this->isFieldCoordinator($user), 403);
+        abort_unless($this->canSubmitFieldVisit($user), 403);
         abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
 
         $sheetPath = (string) ($attendanceReport->attendance_sheet_path ?? '');
@@ -507,12 +499,8 @@ class FieldCoordinatorAttendanceController extends Controller
         FieldCoordinatorAttendanceReport $attendanceReport,
         Request $request,
     ): StreamedResponse {
-        $user = $request->user()->load('designationRecord');
-        $isOwn = (int) $attendanceReport->field_coordinator_user_id === (int) $user->id;
-        $isDistrictViewer = ! $this->isFieldCoordinator($user)
-            && (int) ($attendanceReport->district_id ?: 0) > 0
-            && (int) ($attendanceReport->district_id ?: 0) === (int) ($user->district_id ?: 0);
-        abort_unless($isOwn || $isDistrictViewer, 403);
+        $user = $request->user()->load('district');
+        abort_unless($this->canViewFieldVisit($user, $attendanceReport), 403);
         abort_unless($attendanceReport->hasAttendanceSheet(), 404);
 
         return $this->attendanceSheetService->downloadStored(
@@ -525,12 +513,8 @@ class FieldCoordinatorAttendanceController extends Controller
         FieldCoordinatorAttendanceReport $attendanceReport,
         Request $request,
     ): StreamedResponse {
-        $user = $request->user()->load('designationRecord');
-        $isOwn = (int) $attendanceReport->field_coordinator_user_id === (int) $user->id;
-        $isDistrictViewer = ! $this->isFieldCoordinator($user)
-            && (int) ($attendanceReport->district_id ?: 0) > 0
-            && (int) ($attendanceReport->district_id ?: 0) === (int) ($user->district_id ?: 0);
-        abort_unless($isOwn || $isDistrictViewer, 403);
+        $user = $request->user()->load('district');
+        abort_unless($this->canViewFieldVisit($user, $attendanceReport), 403);
 
         $index = $request->query('index');
         if ($index !== null && $index !== '') {
@@ -544,11 +528,23 @@ class FieldCoordinatorAttendanceController extends Controller
         return $this->mediaStorage->legacyDownload($attendanceReport);
     }
 
-    private function isFieldCoordinator(User $user): bool
+    private function canSubmitFieldVisit(User $user): bool
     {
-        $designation = strtolower(trim((string) ($user->designationRecord?->name ?? '')));
+        return $user->role === 'district_staff'
+            && (int) ($user->district_id ?: 0) > 0;
+    }
 
-        return str_contains($designation, 'field coordinator')
-            || str_contains($designation, 'field co-ordinator');
+    private function canViewFieldVisit(User $user, FieldCoordinatorAttendanceReport $report): bool
+    {
+        if ($user->role !== 'district_staff') {
+            return false;
+        }
+
+        $isOwn = (int) $report->field_coordinator_user_id === (int) $user->id;
+        $districtId = (int) ($user->district_id ?: 0);
+        $isSameDistrict = $districtId > 0
+            && (int) ($report->district_id ?: 0) === $districtId;
+
+        return $isOwn || $isSameDistrict;
     }
 }

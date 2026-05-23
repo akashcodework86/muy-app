@@ -98,7 +98,7 @@
                 <p class="att-section-label">Visit details</p>
                 <div class="att-grid">
                     <div class="att-field">
-                        <label>Field coordinator</label>
+                        <label>Submitted by</label>
                         <input type="text" value="{{ auth()->user()->name }}" readonly class="att-input att-input--readonly">
                     </div>
                     <div class="att-field">

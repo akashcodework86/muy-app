@@ -149,7 +149,7 @@
         'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard',
     ];
     $staffFieldWorkActive = in_array($activeNav, $staffFieldWorkNavKeys, true);
-    $showStaffFieldWorkNav = $isFieldCoordinator
+    $showStaffFieldWorkNav = $showStaffNav
         || $staffNavTrainingPackage
         || $staffNavTechnicalTraining
         || $staffNavEapEdp

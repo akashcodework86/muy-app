@@ -18,6 +18,52 @@ class FieldCoordinatorFieldVisitTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_district_staff_can_submit_visit_photos_without_field_coordinator_designation(): void
+    {
+        Storage::fake();
+
+        $district = $this->createDistrict('pithoragarh', 'Pithoragarh');
+        $designation = Designation::query()->create(['name' => 'District Coordinator', 'sort_order' => 1]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'designation_id' => $designation->id,
+            'is_active' => true,
+        ]);
+        $block = DistrictBlock::query()->create([
+            'district_id' => $district->id,
+            'name' => 'Dharchula',
+            'sort_order' => 0,
+        ]);
+        $gp = GramPanchayat::query()->create([
+            'district_id' => $district->id,
+            'district_block_id' => $block->id,
+            'name' => 'Gangolihat',
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.attendance.index'))
+            ->assertOk()
+            ->assertSee('Upload visit photos');
+
+        $this->actingAs($staff)->post(route('staff.attendance.store'), [
+            'visit_date' => '2026-05-16',
+            'district_block_id' => $block->id,
+            'gram_panchayat_id' => $gp->id,
+            'area' => 'Market area',
+            'participants_male_count' => 5,
+            'participants_female_count' => 7,
+            'visit_media' => [
+                UploadedFile::fake()->create('visit-1.jpg', 100, 'image/jpeg'),
+            ],
+        ])->assertRedirect(route('staff.attendance.index'));
+
+        $this->assertDatabaseHas('field_coordinator_attendance_reports', [
+            'field_coordinator_user_id' => $staff->id,
+            'participants_total' => 12,
+        ]);
+    }
+
     public function test_field_coordinator_can_submit_visit_photos(): void
     {
         Storage::fake();

@@ -11,11 +11,9 @@
                 {!! $i('doc') !!}<span>Field report</span>
             </span>
             <div class="admin-topbar__dropdown-subpanel" role="menu">
-                @if ($isFieldCoordinator)
-                    <a href="{{ route('staff.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance') is-active @endif" role="menuitem">
-                        {!! $i('doc') !!}<span>Submit field report</span>
-                    </a>
-                @endif
+                <a href="{{ route('staff.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance') is-active @endif" role="menuitem">
+                    {!! $i('doc') !!}<span>Submit field report</span>
+                </a>
                 <a href="{{ route('staff.attendance.view') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-attendance-view') is-active @endif" role="menuitem">
                     {!! $i('bars') !!}<span>View field reports</span>
                 </a>
