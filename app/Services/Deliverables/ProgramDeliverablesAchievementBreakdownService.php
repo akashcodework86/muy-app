@@ -1110,6 +1110,13 @@ SQL;
     {
         $this->applyDistrictScopeOnModel($query, 'field_coordinator_attendance_reports.district_id');
 
+        if (FieldCoordinatorAttendanceReport::supportsDraftWorkflow()) {
+            $query->where(function ($q): void {
+                $q->where('field_coordinator_attendance_reports.status', FieldCoordinatorAttendanceReport::STATUS_SUBMITTED)
+                    ->orWhereNull('field_coordinator_attendance_reports.status');
+            });
+        }
+
         $floor = $this->phase3FloorDate();
 
         if ($this->filter?->hasExplicitDateFilter() && $this->periodFrom && $this->periodTo) {

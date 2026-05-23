@@ -31,6 +31,10 @@ class FieldCoordinatorAttendanceAdminController extends Controller
         $query = FieldCoordinatorAttendanceReport::query()
             ->with(['coordinator:id,name', 'district:id,name', 'gramPanchayat:id,name']);
 
+        if (FieldCoordinatorAttendanceReport::supportsDraftWorkflow()) {
+            $query->submitted();
+        }
+
         $search = trim((string) $request->query('q', ''));
         if ($search !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';

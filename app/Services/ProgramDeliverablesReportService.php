@@ -889,6 +889,10 @@ SQL;
     {
         $this->applyDistrictScopeOnModel($query, 'district_id');
 
+        if (FieldCoordinatorAttendanceReport::supportsDraftWorkflow()) {
+            $query->submitted();
+        }
+
         $floor = $this->phase3FloorDate();
 
         if ($this->filter?->hasExplicitDateFilter() && $this->periodFrom && $this->periodTo) {

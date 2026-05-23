@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Field visits')
-@section('heading', 'Field visit photos')
+@section('title', 'Block level workshop')
+@section('heading', 'Block level workshop')
 
 @push('styles')
 <style>
@@ -49,6 +49,13 @@
     .att-remark { font-size:0.8rem;color:var(--att-muted);max-width:16rem; }
     .att-thumb { width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--att-border); }
     .att-empty { padding:2.5rem 1rem;text-align:center;color:var(--att-muted); }
+    .att-photo-preview { display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem;min-height:0; }
+    .att-photo-preview__item { position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;border:1px solid var(--att-border); }
+    .att-photo-preview__item img { width:100%;height:100%;object-fit:cover;display:block; }
+    .att-photo-preview__remove { position:absolute;top:2px;right:2px;width:1.35rem;height:1.35rem;border:none;border-radius:999px;background:rgba(220,38,38,0.92);color:#fff;font-size:0.65rem;cursor:pointer;display:flex;align-items:center;justify-content:center; }
+    .att-photo-status { font-size:0.78rem;color:var(--att-muted);margin-top:0.35rem; }
+    .att-photo-status--ok { color:#15803d;font-weight:600; }
+    .att-photo-status--err { color:#b91c1c;font-weight:600; }
     @media (max-width:640px) { .att-grid { grid-template-columns:1fr; } }
 </style>
 @endpush
@@ -74,12 +81,32 @@
     @endif
 
     <div class="att-banner">
-        <div class="att-banner__icon"><i class="fa-solid fa-camera"></i></div>
+        <div class="att-banner__icon"><i class="fa-solid fa-people-group"></i></div>
         <div class="att-banner__body">
-            <h2>Field visit photos</h2>
-            <p>Visit details, photos, and a filled attendance Excel sheet when participants are reported.</p>
+            <h2>Block level workshop</h2>
+            <p>Workshop details, participant list (autosaved), photos, and optional attendance Excel sheet.</p>
         </div>
     </div>
+
+    @if (!empty($draftWorkflow) && $activeDraft)
+        <div class="att-draft-banner">
+            <div>
+                <strong><i class="fa-solid fa-pen-to-square"></i> Draft in progress</strong>
+                <span style="display:block;font-size:0.8rem;color:#78350f;margin-top:0.2rem;">
+                    {{ $activeDraft->visit_date?->format('d M Y') ?? '—' }}
+                    @if ($activeDraft->block) · {{ $activeDraft->block }} @endif
+                    · {{ number_format((int) $activeDraft->participants_total) }} participant row(s)
+                </span>
+            </div>
+            <form method="post" action="{{ route('staff.attendance.destroy', $activeDraft) }}" onsubmit="return confirm('Discard this draft?');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="att-btn att-btn--ghost" style="padding:0.45rem 0.85rem;font-size:0.8rem;">
+                    <i class="fa-solid fa-trash"></i> Discard draft
+                </button>
+            </form>
+        </div>
+    @endif
 
     @if (empty($gramPanchayatsEnabled))
         <div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:12px;padding:0.85rem 1rem;font-size:0.88rem;">
@@ -90,10 +117,15 @@
     <div class="att-card">
         <div class="att-card__head">
             <div class="att-card__head-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-            <h3>Upload visit photos</h3>
+            <h3>{{ !empty($draftWorkflow) ? 'New block level workshop' : 'Upload visit photos' }}</h3>
         </div>
         <div class="att-card__body">
-            <form method="post" action="{{ route('staff.attendance.store') }}" enctype="multipart/form-data">
+            <form
+                id="attWorkshopForm"
+                method="post"
+                action="{{ !empty($draftWorkflow) && $activeDraft ? route('staff.attendance.draft.submit', $activeDraft) : route('staff.attendance.store') }}"
+                enctype="multipart/form-data"
+            >
                 @csrf
                 <p class="att-section-label">Visit details</p>
                 <div class="att-grid">
@@ -107,7 +139,7 @@
                     </div>
                     <div class="att-field">
                         <label>Visit date <span class="att-req">*</span></label>
-                        <input type="date" name="visit_date" value="{{ old('visit_date', now()->toDateString()) }}" required class="att-input" max="{{ now()->toDateString() }}">
+                        <input type="date" name="visit_date" value="{{ old('visit_date', $activeDraft?->visit_date?->toDateString() ?? now()->toDateString()) }}" required class="att-input" max="{{ now()->toDateString() }}">
                     </div>
                 </div>
 
@@ -118,7 +150,7 @@
                         <select name="district_block_id" id="attBlockSelect" class="att-input" required @if($blockRows->isEmpty()) disabled @endif>
                             <option value="">— Select block —</option>
                             @foreach ($blockRows as $block)
-                                <option value="{{ $block->id }}" @selected((int) old('district_block_id') === (int) $block->id)>{{ $block->name }}</option>
+                                <option value="{{ $block->id }}" @selected((int) old('district_block_id', $activeDraft?->district_block_id) === (int) $block->id)>{{ $block->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -132,7 +164,7 @@
                     </div>
                     <div class="att-field">
                         <label>Area / village <span class="att-req">*</span></label>
-                        <input type="text" name="area" value="{{ old('area') }}" required class="att-input" placeholder="Village or area name visited">
+                        <input type="text" name="area" value="{{ old('area', $activeDraft?->area) }}" required class="att-input" placeholder="Village or area name visited">
                     </div>
                 </div>
 
@@ -140,30 +172,42 @@
                 <div class="att-grid">
                     <div class="att-field">
                         <label>Male <span class="att-req">*</span></label>
-                        <input type="number" name="participants_male_count" id="attMaleCount" value="{{ old('participants_male_count', 0) }}" min="0" required class="att-input">
+                        <input type="number" name="participants_male_count" id="attMaleCount" value="{{ old('participants_male_count', $activeDraft?->participants_male_count ?? 0) }}" min="0" required class="att-input">
                     </div>
                     <div class="att-field">
                         <label>Female <span class="att-req">*</span></label>
-                        <input type="number" name="participants_female_count" id="attFemaleCount" value="{{ old('participants_female_count', 0) }}" min="0" required class="att-input">
+                        <input type="number" name="participants_female_count" id="attFemaleCount" value="{{ old('participants_female_count', $activeDraft?->participants_female_count ?? 0) }}" min="0" required class="att-input">
                     </div>
                     <div class="att-field">
                         <label>Total participants</label>
-                        <input type="number" id="attTotalParticipants" value="{{ (int) old('participants_male_count', 0) + (int) old('participants_female_count', 0) }}" readonly class="att-input att-input--readonly">
+                        <input type="number" id="attTotalParticipants" value="{{ (int) old('participants_male_count', $activeDraft?->participants_male_count ?? 0) + (int) old('participants_female_count', $activeDraft?->participants_female_count ?? 0) }}" readonly class="att-input att-input--readonly">
                     </div>
                 </div>
+
+                @if (!empty($draftWorkflow))
+                    @include('staff.attendance.partials.participant-registry')
+                @endif
 
                 <div class="att-field" style="margin-top:1.2rem;">
                     <label>Remark</label>
-                    <textarea name="remark" class="att-textarea" rows="3" placeholder="Optional note about this visit">{{ old('remark') }}</textarea>
+                    <textarea name="remark" class="att-textarea" rows="3" placeholder="Optional note about this workshop">{{ old('remark', $activeDraft?->remark) }}</textarea>
                 </div>
 
-                <div style="margin-top:1.2rem;">
-                    <label style="font-size:0.78rem;font-weight:600;">Photos <span class="att-req">*</span> <span style="font-weight:400;color:var(--att-muted);">(up to 15, 5 MB each)</span></label>
+                <div style="margin-top:1.2rem;" id="attPhotoSection">
+                    <label style="font-size:0.78rem;font-weight:600;">Photos <span class="att-req">*</span>
+                        <span style="font-weight:400;color:var(--att-muted);">(up to 15, 5 MB each — uploads immediately)</span>
+                    </label>
                     <div class="att-file-wrap" style="margin-top:0.4rem;">
                         <i class="fa-solid fa-images"></i>
-                        <span>Choose photos from this gram panchayat visit</span>
-                        <input type="file" name="visit_media[]" accept=".jpg,.jpeg,.png,.webp,image/*" multiple required>
+                        <span id="attPhotoPickerHint">Choose workshop photos (saved to draft as you select)</span>
+                        <input type="file" id="attPhotoInput" accept=".jpg,.jpeg,.png,.webp,image/*" multiple
+                            @if(empty($draftWorkflow)) name="visit_media[]" required @endif>
                     </div>
+                    <p id="attPhotoStatus" class="att-photo-status" aria-live="polite"></p>
+                    <div id="attPhotoPreview" class="att-photo-preview"></div>
+                    @if (!empty($draftWorkflow))
+                        <input type="hidden" name="photos_uploaded" id="attPhotosUploadedFlag" value="{{ ($activeDraft && count($activeDraft->visitMediaItems()) > 0) ? '1' : '0' }}">
+                    @endif
                 </div>
 
                 <div id="attSheetSection" style="margin-top:1.2rem;display:none;">
@@ -185,8 +229,13 @@
                 </div>
 
                 <div class="att-submit-row">
+                    @if (!empty($draftWorkflow))
+                        <p style="font-size:0.8rem;color:var(--att-muted);margin:0;flex:1;min-width:12rem;">
+                            Participant rows save automatically. Submit when photos are ready, or leave and resume from this page later.
+                        </p>
+                    @endif
                     <button type="submit" class="att-btn" @if(empty($gramPanchayatsEnabled) || $blockRows->isEmpty()) disabled @endif>
-                        <i class="fa-solid fa-cloud-arrow-up"></i> Submit
+                        <i class="fa-solid fa-cloud-arrow-up"></i> {{ !empty($draftWorkflow) ? 'Submit workshop' : 'Submit' }}
                     </button>
                 </div>
             </form>
@@ -300,6 +349,10 @@
 @endsection
 
 @push('scripts')
+@if (!empty($draftWorkflow))
+    @include('staff.attendance.partials.participant-registry-script')
+    @include('staff.attendance.partials.photo-upload-script')
+@endif
 <script>
 (function () {
     const blockSelect = document.getElementById('attBlockSelect');
@@ -307,7 +360,7 @@
     const gpSearch = document.getElementById('attGpSearch');
     const gpHint = document.getElementById('attGpHint');
     const gpUrl = @json(route('staff.attendance.gram-panchayats'));
-    const oldGpId = @json((int) old('gram_panchayat_id'));
+    const oldGpId = @json((int) old('gram_panchayat_id', $activeDraft?->gram_panchayat_id ?? 0));
     let allItems = [];
 
     if (!blockSelect || !gpSelect) return;

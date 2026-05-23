@@ -179,6 +179,11 @@ class FieldCoordinatorReportController extends Controller
     private function scopedQuery(FieldCoordinatorReportScope $scope): Builder
     {
         $query = FieldCoordinatorAttendanceReport::query();
+
+        if (FieldCoordinatorAttendanceReport::supportsDraftWorkflow()) {
+            $query->submitted();
+        }
+
         $scope->applyToQuery($query);
 
         return $query;

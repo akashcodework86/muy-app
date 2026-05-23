@@ -34,6 +34,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DistrictWorkshopSessionAttendanceController;
+use App\Http\Controllers\EapEdpSessionAttendanceController;
 use App\Http\Controllers\DocumentLibraryController;
 use App\Http\Controllers\FieldCoordinatorReportController;
 use App\Http\Controllers\Hub\HubApplicationsController;
@@ -215,9 +216,32 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:15,1')
             ->name('phase2-profile.photo.upload');
         Route::get('attendance', [FieldCoordinatorAttendanceController::class, 'index'])->name('attendance.index');
+        Route::post('attendance/draft', [FieldCoordinatorAttendanceController::class, 'createDraft'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.draft.create');
+        Route::patch('attendance/{attendanceReport}/draft-meta', [FieldCoordinatorAttendanceController::class, 'updateDraftMeta'])
+            ->middleware('throttle:60,1')
+            ->name('attendance.draft.meta');
+        Route::patch('attendance/{attendanceReport}/participants', [FieldCoordinatorAttendanceController::class, 'saveParticipants'])
+            ->middleware('throttle:60,1')
+            ->name('attendance.participants.save');
+        Route::get('attendance/{attendanceReport}/submit', [FieldCoordinatorAttendanceController::class, 'redirectSubmitPage'])
+            ->name('attendance.draft.submit.redirect');
+        Route::post('attendance/{attendanceReport}/submit', [FieldCoordinatorAttendanceController::class, 'submitDraft'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.draft.submit');
+        Route::post('attendance/{attendanceReport}/photos', [FieldCoordinatorAttendanceController::class, 'uploadPhotos'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.photos.upload');
+        Route::delete('attendance/{attendanceReport}/photos/{photoIndex}', [FieldCoordinatorAttendanceController::class, 'deletePhoto'])
+            ->middleware('throttle:30,1')
+            ->whereNumber('photoIndex')
+            ->name('attendance.photos.delete');
         Route::get('attendance/attendance-sheet-template', [FieldCoordinatorAttendanceController::class, 'downloadAttendanceSheetTemplate'])->name('attendance.sheet-template');
         Route::get('attendance/gram-panchayats', [FieldCoordinatorAttendanceController::class, 'gramPanchayats'])->name('attendance.gram-panchayats');
         Route::get('attendance/view', [FieldCoordinatorAttendanceController::class, 'view'])->name('attendance.view');
+        Route::get('attendance/{attendanceReport}/show', [FieldCoordinatorAttendanceController::class, 'show'])->name('attendance.show');
+        Route::get('attendance/{attendanceReport}/participants-export', [FieldCoordinatorAttendanceController::class, 'exportParticipants'])->name('attendance.participants.export');
         Route::get('attendance/{attendanceReport}/attachment', [FieldCoordinatorAttendanceController::class, 'downloadAttachment'])->name('attendance.attachment');
         Route::get('attendance/{attendanceReport}/edit', [FieldCoordinatorAttendanceController::class, 'edit'])->name('attendance.edit');
         Route::put('attendance/{attendanceReport}', [FieldCoordinatorAttendanceController::class, 'update'])

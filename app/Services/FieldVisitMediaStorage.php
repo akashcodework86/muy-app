@@ -10,6 +10,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FieldVisitMediaStorage
 {
+    public const MAX_PHOTOS_PER_REPORT = 15;
+
     private const DISK_FOLDER = 'field-visit-media';
 
     /**
@@ -87,6 +89,33 @@ class FieldVisitMediaStorage
             $report->attachment_path,
             $report->attachment_original_name ?: basename($report->attachment_path)
         );
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $newItems
+     * @return list<array<string, mixed>>
+     */
+    public function mergeOntoReport(FieldCoordinatorAttendanceReport $report, array $newItems): array
+    {
+        $merged = array_merge($report->visitMediaItems(), $newItems);
+
+        return array_values(array_slice($merged, 0, self::MAX_PHOTOS_PER_REPORT));
+    }
+
+    public function removeAt(FieldCoordinatorAttendanceReport $report, int $index): array
+    {
+        $items = $report->visitMediaItems();
+        abort_if($index < 0 || $index >= count($items), 404);
+
+        $removed = $items[$index];
+        $path = (string) ($removed['path'] ?? '');
+        if ($path !== '' && Storage::exists($path)) {
+            Storage::delete($path);
+        }
+
+        unset($items[$index]);
+
+        return array_values($items);
     }
 
     public function deleteAllForReport(FieldCoordinatorAttendanceReport $report): void

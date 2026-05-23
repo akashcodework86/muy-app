@@ -44,7 +44,7 @@ class FieldCoordinatorFieldVisitTest extends TestCase
         $this->actingAs($staff)
             ->get(route('staff.attendance.index'))
             ->assertOk()
-            ->assertSee('Upload visit photos');
+            ->assertSee('New block level workshop');
 
         $this->actingAs($staff)->post(route('staff.attendance.store'), [
             'visit_date' => '2026-05-16',
