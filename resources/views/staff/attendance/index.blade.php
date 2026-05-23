@@ -152,24 +152,6 @@
                     </div>
                 </div>
 
-                <div id="attSheetSection" style="margin-top:1.2rem;display:none;">
-                    <p class="att-section-label">Attendance sheet (Excel)</p>
-                    <p style="font-size:0.8rem;color:var(--att-muted);margin:0 0 0.75rem;">
-                        Download the template anytime (one row per participant). Upload is optional — submit photos first, then upload the filled sheet from <strong>My submissions</strong>.
-                    </p>
-                    <div style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:center;margin-bottom:0.75rem;">
-                        <a href="#" id="attDownloadTemplate" class="att-btn" style="text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);">
-                            <i class="fa-solid fa-file-excel"></i> <span id="attDownloadTemplateLabel">Download template</span>
-                        </a>
-                    </div>
-                    <label style="font-size:0.78rem;font-weight:600;">Upload filled sheet <span style="font-weight:400;color:var(--att-muted);">(optional — can do later)</span></label>
-                    <div class="att-file-wrap" style="margin-top:0.4rem;">
-                        <i class="fa-solid fa-file-excel"></i>
-                        <span>If uploading now: .xlsx must match total participants exactly</span>
-                        <input type="file" name="attendance_sheet" id="attSheetInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
-                    </div>
-                </div>
-
                 <div class="att-field" style="margin-top:1.2rem;">
                     <label>Remark</label>
                     <textarea name="remark" class="att-textarea" rows="3" placeholder="Optional note about this visit">{{ old('remark') }}</textarea>
@@ -181,6 +163,24 @@
                         <i class="fa-solid fa-images"></i>
                         <span>Choose photos from this gram panchayat visit</span>
                         <input type="file" name="visit_media[]" accept=".jpg,.jpeg,.png,.webp,image/*" multiple required>
+                    </div>
+                </div>
+
+                <div id="attSheetSection" style="margin-top:1.2rem;display:none;">
+                    <p class="att-section-label">Attendance sheet (Excel) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--att-muted);">— optional</span></p>
+                    <p style="font-size:0.8rem;color:var(--att-muted);margin:0 0 0.75rem;">
+                        Not required now — submit the visit with photos first. Download the template (one row per participant) and upload the filled sheet anytime from <strong>My submissions</strong> below.
+                    </p>
+                    <div style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:center;margin-bottom:0.75rem;">
+                        <a href="#" id="attDownloadTemplate" class="att-btn" style="text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);">
+                            <i class="fa-solid fa-file-excel"></i> <span id="attDownloadTemplateLabel">Download template</span>
+                        </a>
+                    </div>
+                    <label style="font-size:0.78rem;font-weight:600;">Upload filled sheet now <span style="font-weight:400;color:var(--att-muted);">(optional)</span></label>
+                    <div class="att-file-wrap" style="margin-top:0.4rem;">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>If uploading now: .xlsx must match total participants exactly</span>
+                        <input type="file" name="attendance_sheet" id="attSheetInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
                     </div>
                 </div>
 
