@@ -239,7 +239,7 @@
         </div>
         @if (auth()->user()->role === 'district_staff' && ! ($serviceModuleOn ?? false))
             <p style="font-size:0.82rem; color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:0.5rem 0.75rem; margin:0 0 0.65rem;">
-                Service module is off — <strong>Add intervention</strong> is hidden. Ask state admin to enable it under <strong>More → Service module settings</strong>.
+                Service module is off — <strong>Add intervention</strong> is hidden. Use <strong>View</strong> to check applicant details. Ask state admin to enable services under <strong>More → Service module settings</strong>.
             </p>
         @endif
         <table class="m-table">
@@ -272,10 +272,14 @@
                         </td>
                         <td data-label="Business">{{ $m['business_category'] }}</td>
                         <td data-label="Actions" style="white-space:nowrap;">
-                            @if (auth()->user()->role === 'district_staff' && ($serviceModuleOn ?? false) && (int) ($m['id'] ?? 0) > 0)
-                                <a href="{{ route('staff.services.create', ['cfa_submission_id' => $m['id']]) }}" style="display:inline-block;padding:0.35rem 0.6rem;background:#0f766e;color:#fff;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;">Add intervention</a>
-                            @elseif (auth()->user()->role === 'state_admin' && (int) ($m['id'] ?? 0) > 0)
-                                <a href="{{ route('admin.cfa.show', $m['id']) }}" style="font-size:0.82rem;color:#0d9488;font-weight:600;">View CFA</a>
+                            @php $memberCfaId = (int) ($m['id'] ?? 0); @endphp
+                            @if (auth()->user()->role === 'district_staff' && $memberCfaId > 0)
+                                <a href="{{ route('staff.applications.show', $memberCfaId) }}" style="display:inline-block;padding:0.35rem 0.6rem;margin-right:0.35rem;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;">View</a>
+                                @if ($serviceModuleOn ?? false)
+                                    <a href="{{ route('staff.services.create', ['cfa_submission_id' => $memberCfaId]) }}" style="display:inline-block;padding:0.35rem 0.6rem;background:#0f766e;color:#fff;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;">Add intervention</a>
+                                @endif
+                            @elseif (auth()->user()->role === 'state_admin' && $memberCfaId > 0)
+                                <a href="{{ route('admin.cfa.show', $memberCfaId) }}" style="font-size:0.82rem;color:#0d9488;font-weight:600;">View CFA</a>
                             @else
                                 <span style="color:#a1a1aa;font-size:0.8rem;">—</span>
                             @endif
