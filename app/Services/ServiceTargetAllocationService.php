@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Designation;
+use App\Models\DistrictDeliverableAllocationSetting;
 use App\Models\StaffMonthlyTarget;
 use App\Models\User;
 
@@ -243,5 +244,81 @@ class ServiceTargetAllocationService
     public function percentSum(array $percents): float
     {
         return (float) array_sum($percents);
+    }
+
+    /**
+     * @return array<string, float>|null
+     */
+    public function savedDesignationPercents(int $fiscalYearId, int $districtId, int $deliverableId): ?array
+    {
+        $row = DistrictDeliverableAllocationSetting::query()
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->where('district_id', $districtId)
+            ->where('deliverable_id', $deliverableId)
+            ->first();
+
+        if (! $row || ! is_array($row->designation_percents) || $row->designation_percents === []) {
+            return null;
+        }
+
+        $percents = [];
+        foreach ($row->designation_percents as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $percents[(string) $key] = (float) $value;
+        }
+
+        return $percents === [] ? null : $percents;
+    }
+
+    /**
+     * @param  array<int, array{key: string, designation_id: ?int, designation_name: string, staff: list<array{id: int, name: string}>, staff_count: int}>  $designationGroups
+     * @param  array<string, float>  $defaultPercents
+     * @param  array<string, float>|null  $savedPercents
+     * @return array<string, float>
+     */
+    public function resolvePercentValues(array $designationGroups, array $defaultPercents, ?array $savedPercents): array
+    {
+        if ($savedPercents === null) {
+            $values = [];
+            foreach ($designationGroups as $group) {
+                $key = $group['key'];
+                $values[$key] = (float) ($defaultPercents[$key] ?? 0);
+            }
+
+            return $values;
+        }
+
+        $values = [];
+        foreach ($designationGroups as $group) {
+            $key = $group['key'];
+            $values[$key] = array_key_exists($key, $savedPercents)
+                ? (float) $savedPercents[$key]
+                : 0.0;
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param  array<string, float>  $percents
+     */
+    public function saveDesignationPercents(
+        int $fiscalYearId,
+        int $districtId,
+        int $deliverableId,
+        array $percents,
+    ): void {
+        DistrictDeliverableAllocationSetting::query()->updateOrCreate(
+            [
+                'fiscal_year_id' => $fiscalYearId,
+                'district_id' => $districtId,
+                'deliverable_id' => $deliverableId,
+            ],
+            [
+                'designation_percents' => $percents,
+            ]
+        );
     }
 }

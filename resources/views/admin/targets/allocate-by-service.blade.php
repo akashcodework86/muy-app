@@ -118,41 +118,37 @@
                     </table>
                 </div>
 
-                <p style="font-size:0.85rem; margin:0 0 1rem;">
+                <p style="font-size:0.85rem; margin:0 0 0.35rem;">
                     <strong>Total %:</strong> <span id="pct-sum">0</span>
                     <span style="color:#64748b;"> (must equal 100%)</span>
                 </p>
+                <p style="font-size:0.85rem; margin:0 0 1rem;">
+                    <strong>Remaining:</strong> <span id="pct-remainder">—</span>
+                </p>
 
-                @if ($previewRows !== [])
-                    <div style="background:#fff; border:1px solid #e4e4e7; border-radius:10px; overflow:hidden; margin-bottom:1rem;">
-                        <div style="padding:0.65rem 0.85rem; background:#f8fafc; border-bottom:1px solid #e4e4e7; font-weight:700; font-size:0.9rem;">
-                            Preview — per staff (equal split within designation)
-                        </div>
-                        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                <div style="background:#fff; border:1px solid #e4e4e7; border-radius:10px; overflow:hidden; margin-bottom:1rem;">
+                    <div style="padding:0.65rem 0.85rem; background:#f8fafc; border-bottom:1px solid #e4e4e7; font-weight:700; font-size:0.9rem;">
+                        Preview — per staff (equal split within designation)
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:48rem;">
                             <thead>
                                 <tr style="text-align:left; background:#fff;">
-                                    <th style="padding:0.5rem 0.75rem; border-bottom:1px solid #e4e4e7;">Staff</th>
-                                    <th style="padding:0.5rem 0.75rem; border-bottom:1px solid #e4e4e7;">Designation</th>
-                                    <th style="padding:0.5rem 0.75rem; border-bottom:1px solid #e4e4e7;">Annual target</th>
-                                    <th style="padding:0.5rem 0.75rem; border-bottom:1px solid #e4e4e7;">M1–M12 (sample)</th>
+                                    <th style="padding:0.5rem 0.75rem; border-bottom:1px solid #e4e4e7; white-space:nowrap;">Staff</th>
+                                    <th style="padding:0.5rem 0.75rem; border-bottom:1px solid #e4e4e7; white-space:nowrap;">Designation</th>
+                                    <th style="padding:0.5rem 0.75rem; border-bottom:1px solid #e4e4e7; white-space:nowrap;">Annual target</th>
+                                    @for ($m = 1; $m <= 12; $m++)
+                                        <th style="padding:0.5rem 0.55rem; border-bottom:1px solid #e4e4e7; text-align:right; white-space:nowrap; font-size:0.78rem;">M{{ $m }}</th>
+                                    @endfor
                                 </tr>
                             </thead>
-                            <tbody>
-                                @foreach ($previewRows as $row)
-                                    <tr>
-                                        <td style="padding:0.45rem 0.75rem; border-bottom:1px solid #f4f4f5;">{{ $row['user_name'] }}</td>
-                                        <td style="padding:0.45rem 0.75rem; border-bottom:1px solid #f4f4f5; color:#64748b;">{{ $row['designation_name'] }}</td>
-                                        <td style="padding:0.45rem 0.75rem; border-bottom:1px solid #f4f4f5; font-weight:600;">{{ number_format($row['annual_total']) }}</td>
-                                        <td style="padding:0.45rem 0.75rem; border-bottom:1px solid #f4f4f5; color:#64748b; font-size:0.78rem;">
-                                            @php $months = $row['months']; @endphp
-                                            M1 {{ $months[1] ?? 0 }}, M2 {{ $months[2] ?? 0 }}, … M12 {{ $months[12] ?? 0 }}
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
+                            <tbody id="preview-tbody"></tbody>
                         </table>
                     </div>
-                @endif
+                    <p id="preview-empty" style="display:none; margin:0; padding:0.65rem 0.85rem; font-size:0.85rem; color:#64748b;">
+                        Enter designation shares above to see per-staff targets.
+                    </p>
+                </div>
 
                 <button type="submit" style="background:#0f766e; color:#fff; border:none; padding:0.6rem 1.1rem; border-radius:8px; font-weight:700; cursor:pointer;">
                     Apply targets to staff (M1–M12)
@@ -166,24 +162,162 @@
         <script>
             (function () {
                 const districtTarget = {{ (int) ($districtTarget ?? 0) }};
+                const designationGroups = @json($designationGroups ?? []);
                 const inputs = document.querySelectorAll('.js-designation-pct');
                 const sumEl = document.getElementById('pct-sum');
-                if (!inputs.length || !sumEl) return;
+                const remEl = document.getElementById('pct-remainder');
+                const previewTbody = document.getElementById('preview-tbody');
+                const previewEmpty = document.getElementById('preview-empty');
+                if (!inputs.length || !sumEl || !remEl) return;
+
+                const cellStyle = 'padding:0.45rem 0.55rem; border-bottom:1px solid #f4f4f5;';
+                const monthCellStyle = cellStyle + ' text-align:right; color:#64748b; font-size:0.78rem;';
+
+                function splitInteger(total, parts) {
+                    if (parts <= 0) return [];
+                    const base = Math.floor(total / parts);
+                    const remainder = total % parts;
+                    const amounts = Array(parts).fill(base);
+                    for (let i = 0; i < remainder; i++) amounts[i]++;
+                    return amounts;
+                }
+
+                function splitByPercentages(total, percentByKey) {
+                    const keys = Object.keys(percentByKey);
+                    if (total <= 0 || keys.length === 0) {
+                        const empty = {};
+                        keys.forEach(function (k) { empty[k] = 0; });
+                        return empty;
+                    }
+                    const amounts = {};
+                    let allocated = 0;
+                    const lastKey = keys[keys.length - 1];
+                    keys.forEach(function (key) {
+                        if (key === lastKey) {
+                            amounts[key] = Math.max(0, total - allocated);
+                            return;
+                        }
+                        const share = Math.round(total * (percentByKey[key] / 100));
+                        amounts[key] = share;
+                        allocated += share;
+                    });
+                    return amounts;
+                }
+
+                function splitAnnualToMonths(annualTotal) {
+                    const monthly = splitInteger(Math.max(0, annualTotal), 12);
+                    const months = {};
+                    for (let m = 1; m <= 12; m++) months[m] = monthly[m - 1] ?? 0;
+                    return months;
+                }
+
+                function buildStaffAllocations(target, groups, percentByKey) {
+                    if (target <= 0) return [];
+                    const amountByKey = splitByPercentages(target, percentByKey);
+                    const rows = [];
+                    groups.forEach(function (group) {
+                        const key = group.key;
+                        const pct = percentByKey[key] ?? 0;
+                        if (pct <= 0) return;
+                        const staff = group.staff || [];
+                        if (staff.length === 0) return;
+                        const designationTotal = amountByKey[key] ?? 0;
+                        const perStaffTotals = splitInteger(designationTotal, staff.length);
+                        staff.forEach(function (member, index) {
+                            const annual = perStaffTotals[index] ?? 0;
+                            rows.push({
+                                user_name: member.name,
+                                designation_name: group.designation_name,
+                                annual_total: annual,
+                                months: splitAnnualToMonths(annual),
+                            });
+                        });
+                    });
+                    return rows;
+                }
+
+                function readPercentByKey() {
+                    const percentByKey = {};
+                    designationGroups.forEach(function (group) {
+                        percentByKey[group.key] = 0;
+                    });
+                    inputs.forEach(function (el) {
+                        const key = el.getAttribute('data-key');
+                        const v = parseFloat(el.value);
+                        percentByKey[key] = Number.isFinite(v) ? v : 0;
+                    });
+                    return percentByKey;
+                }
+
+                function formatNum(n) {
+                    return Number(n).toLocaleString('en-IN');
+                }
+
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+
+                function renderPreview(percentByKey, amountByKey) {
+                    if (!previewTbody) return;
+                    const rows = buildStaffAllocations(districtTarget, designationGroups, percentByKey);
+                    previewTbody.innerHTML = '';
+                    if (rows.length === 0) {
+                        if (previewEmpty) previewEmpty.style.display = 'block';
+                        return;
+                    }
+                    if (previewEmpty) previewEmpty.style.display = 'none';
+                    rows.forEach(function (row) {
+                        const tr = document.createElement('tr');
+                        let html = '<td style="' + cellStyle + '">' + escapeHtml(row.user_name) + '</td>';
+                        html += '<td style="' + cellStyle + ' color:#64748b;">' + escapeHtml(row.designation_name) + '</td>';
+                        html += '<td style="' + cellStyle + ' font-weight:600;">' + formatNum(row.annual_total) + '</td>';
+                        for (let m = 1; m <= 12; m++) {
+                            html += '<td style="' + monthCellStyle + '">' + formatNum(row.months[m] ?? 0) + '</td>';
+                        }
+                        tr.innerHTML = html;
+                        previewTbody.appendChild(tr);
+                    });
+                }
+
+                function updateRemainder(sum) {
+                    const remainder = 100 - sum;
+                    if (Math.abs(remainder) < 0.05) {
+                        remEl.textContent = '0% — shares total 100%';
+                        remEl.style.color = '#047857';
+                    } else if (remainder > 0) {
+                        remEl.textContent = '+' + remainder.toFixed(1) + '% left to allocate';
+                        remEl.style.color = '#b45309';
+                    } else {
+                        remEl.textContent = remainder.toFixed(1) + '% over (reduce shares)';
+                        remEl.style.color = '#b91c1c';
+                    }
+                }
 
                 function upd() {
+                    const percentByKey = readPercentByKey();
                     let sum = 0;
+                    Object.keys(percentByKey).forEach(function (key) {
+                        sum += percentByKey[key];
+                    });
+
+                    const amountByKey = districtTarget > 0
+                        ? splitByPercentages(districtTarget, percentByKey)
+                        : {};
+
                     inputs.forEach(function (el) {
-                        const v = parseFloat(el.value);
-                        const pct = Number.isFinite(v) ? v : 0;
-                        sum += pct;
                         const key = el.getAttribute('data-key');
                         const totalCell = document.querySelector('.js-group-total[data-key="' + key + '"]');
                         if (totalCell && districtTarget > 0) {
-                            totalCell.textContent = Math.round(districtTarget * pct / 100).toLocaleString('en-IN');
+                            totalCell.textContent = formatNum(amountByKey[key] ?? 0);
                         }
                     });
+
                     sumEl.textContent = sum.toFixed(1);
                     sumEl.style.color = Math.abs(sum - 100) < 0.05 ? '#047857' : '#b45309';
+                    updateRemainder(sum);
+                    renderPreview(percentByKey, amountByKey);
                 }
 
                 inputs.forEach(function (el) {

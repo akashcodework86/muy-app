@@ -64,13 +64,31 @@ class ServiceTargetAllocationController extends Controller
                 $districtTarget = $this->monthlyTargets->districtTargetTotal($fiscalYearId, $districtId, $deliverable->id);
                 $designationGroups = $this->allocation->designationGroupsForDistrict($districtId);
                 $defaultPercents = $this->allocation->defaultEqualPercents($designationGroups);
+                $savedPercents = $this->allocation->savedDesignationPercents(
+                    $fiscalYearId,
+                    $districtId,
+                    $deliverable->id
+                );
+                $hasOldInput = collect($designationGroups)->contains(function (array $group): bool {
+                    $old = old('percent.'.$group['key']);
 
-                foreach ($designationGroups as $group) {
-                    $key = $group['key'];
-                    $old = old('percent.'.$key);
-                    $percentValues[$key] = $old !== null && $old !== ''
-                        ? (float) $old
-                        : (float) ($defaultPercents[$key] ?? 0);
+                    return $old !== null && $old !== '';
+                });
+
+                if ($hasOldInput) {
+                    foreach ($designationGroups as $group) {
+                        $key = $group['key'];
+                        $old = old('percent.'.$key);
+                        $percentValues[$key] = $old !== null && $old !== ''
+                            ? (float) $old
+                            : (float) ($defaultPercents[$key] ?? 0);
+                    }
+                } else {
+                    $percentValues = $this->allocation->resolvePercentValues(
+                        $designationGroups,
+                        $defaultPercents,
+                        $savedPercents
+                    );
                 }
 
                 if ($districtTarget !== null && $districtTarget > 0 && $this->allocation->percentSum($percentValues) > 0) {
@@ -184,8 +202,9 @@ class ServiceTargetAllocationController extends Controller
                 ->withErrors(['percent' => 'Assign at least one designation a share above 0%.']);
         }
 
-        DB::transaction(function () use ($fyId, $deliverableId, $allocations): void {
+        DB::transaction(function () use ($fyId, $districtId, $deliverableId, $allocations, $percents): void {
             $this->allocation->applyAllocations($fyId, $deliverableId, $allocations);
+            $this->allocation->saveDesignationPercents($fyId, $districtId, $deliverableId, $percents);
         });
 
         $district = District::query()->find($districtId);

@@ -177,6 +177,86 @@ class ServiceTargetAllocationTest extends TestCase
             ->assertSessionHasErrors('percent');
     }
 
+    public function test_saved_designation_percents_restore_on_page_reload(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'save-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'save-district',
+            'name' => 'Save District',
+            'sort_order' => 1,
+        ]);
+
+        $deliverable = Deliverable::query()->create([
+            'sort_order' => 3,
+            'code' => 'svc_save',
+            'name' => 'Save Test Service',
+            'mis_entry_label' => 'SAVE',
+            'is_active' => true,
+        ]);
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $deliverable->id,
+            'target_total' => 1000,
+        ]);
+
+        $designationA = Designation::query()->create(['name' => 'Role A', 'sort_order' => 1]);
+        $designationB = Designation::query()->create(['name' => 'Role B', 'sort_order' => 2]);
+        User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'designation_id' => $designationA->id,
+            'is_active' => true,
+        ]);
+        User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'designation_id' => $designationB->id,
+            'is_active' => true,
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $service = app(ServiceTargetAllocationService::class);
+        $keyA = $service->designationKey($designationA->id);
+        $keyB = $service->designationKey($designationB->id);
+
+        $this->actingAs($admin)
+            ->post(route('admin.targets.allocate-by-service.apply'), [
+                'fiscal_year_id' => $fy->id,
+                'district_id' => $district->id,
+                'deliverable_id' => $deliverable->id,
+                'percent' => [$keyA => 70, $keyB => 30],
+            ])
+            ->assertRedirect();
+
+        $url = route('admin.targets.allocate-by-service', [
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $deliverable->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->get($url)
+            ->assertOk()
+            ->assertSee('name="percent['.$keyA.']"', false)
+            ->assertSee('value="70"', false)
+            ->assertSee('value="30"', false);
+    }
+
     public function test_service_split_helpers_preserve_totals(): void
     {
         $service = app(ServiceTargetAllocationService::class);
