@@ -51,6 +51,7 @@
         str_starts_with($r, 'spoc.deliverables') => 'deliverables',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
+        str_starts_with($r, 'admin.targets.allocate-by-service') => 'targets-allocate',
         str_starts_with($r, 'admin.training-package-month-plans') => 'training-package-month-plans',
         str_starts_with($r, 'admin.staff') => 'staff',
         str_starts_with($r, 'admin.state-staff') => 'state-staff',
@@ -137,7 +138,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance', 'field-coordinator-report'], true);
+    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
@@ -239,6 +240,9 @@
                     </a>
                     <a href="{{ route('admin.targets.district') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'district') is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>District targets</span>
+                    </a>
+                    <a href="{{ route('admin.targets.allocate-by-service') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'targets-allocate') is-active @endif" role="menuitem">
+                        {!! $i('users') !!}<span>Allocate by service</span>
                     </a>
                     <a href="{{ route('admin.training-package-month-plans.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'training-package-month-plans') is-active @endif" role="menuitem">
                         {!! $i('calendar') !!}<span>Training package session targets</span>

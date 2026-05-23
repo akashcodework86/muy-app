@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceModuleSettingsController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\ServiceTargetAllocationController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\StaffPhase3AttendanceNavController;
 use App\Http\Controllers\Admin\StateStaffController;
@@ -498,6 +499,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('targets/state', [TargetController::class, 'stateUpdate'])->name('targets.state.update');
         Route::get('targets/district', [TargetController::class, 'districtForm'])->name('targets.district');
         Route::post('targets/district', [TargetController::class, 'districtUpdate'])->name('targets.district.update');
+        Route::get('targets/allocate-by-service', [ServiceTargetAllocationController::class, 'index'])->name('targets.allocate-by-service');
+        Route::post('targets/allocate-by-service', [ServiceTargetAllocationController::class, 'apply'])->name('targets.allocate-by-service.apply');
         Route::get('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'index'])->name('training-package-month-plans.index');
         Route::post('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'store'])
             ->middleware('throttle:30,1')
