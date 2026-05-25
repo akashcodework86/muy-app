@@ -6,8 +6,8 @@
 @section('content')
     <p style="font-size:0.88rem; color:#52525b; margin:0 0 1rem; max-width:52rem; line-height:1.55;">
         Split a district’s target for one service/deliverable across staff by <strong>designation %</strong>.
-        Staff within the same designation share equally. M1–M12 are filled with an equal monthly split.
-        The existing per-staff <strong>M1–M12 (all MIS)</strong> screens remain for manual edits.
+        Staff within the same designation share equally. M1–M12 are pre-filled with an equal monthly split — you can <strong>edit any month cell</strong> below before applying.
+        The existing per-staff <strong>M1–M12 (all MIS)</strong> screens remain for later fine-tuning.
     </p>
 
     @if (session('status'))
@@ -128,7 +128,7 @@
 
                 <div style="background:#fff; border:1px solid #e4e4e7; border-radius:10px; overflow:hidden; margin-bottom:1rem;">
                     <div style="padding:0.65rem 0.85rem; background:#f8fafc; border-bottom:1px solid #e4e4e7; font-weight:700; font-size:0.9rem;">
-                        Preview — per staff (equal split within designation)
+                        Preview — per staff (edit M1–M12 before apply)
                     </div>
                     <div style="overflow-x:auto;">
                         <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:48rem;">
@@ -148,6 +148,11 @@
                     <p id="preview-empty" style="display:none; margin:0; padding:0.65rem 0.85rem; font-size:0.85rem; color:#64748b;">
                         Enter designation shares above to see per-staff targets.
                     </p>
+                    <p style="margin:0; padding:0.65rem 0.85rem; font-size:0.85rem; border-top:1px solid #f4f4f5;">
+                        <strong>Staff total:</strong> <span id="staff-total">0</span>
+                        <span style="color:#64748b;"> / District target: {{ number_format((int) ($districtTarget ?? 0)) }}</span>
+                        <span id="staff-total-status" style="margin-left:0.5rem;"></span>
+                    </p>
                 </div>
 
                 <button type="submit" style="background:#0f766e; color:#fff; border:none; padding:0.6rem 1.1rem; border-radius:8px; font-weight:700; cursor:pointer;">
@@ -163,15 +168,20 @@
             (function () {
                 const districtTarget = {{ (int) ($districtTarget ?? 0) }};
                 const designationGroups = @json($designationGroups ?? []);
+                const oldMonths = @json(old('months', []));
+                let useOldMonths = Object.keys(oldMonths).length > 0;
                 const inputs = document.querySelectorAll('.js-designation-pct');
                 const sumEl = document.getElementById('pct-sum');
                 const remEl = document.getElementById('pct-remainder');
                 const previewTbody = document.getElementById('preview-tbody');
                 const previewEmpty = document.getElementById('preview-empty');
+                const staffTotalEl = document.getElementById('staff-total');
+                const staffTotalStatusEl = document.getElementById('staff-total-status');
                 if (!inputs.length || !sumEl || !remEl) return;
 
                 const cellStyle = 'padding:0.45rem 0.55rem; border-bottom:1px solid #f4f4f5;';
-                const monthCellStyle = cellStyle + ' text-align:right; color:#64748b; font-size:0.78rem;';
+                const monthCellStyle = cellStyle + ' text-align:right;';
+                const inputStyle = 'width:2.75rem; padding:0.25rem 0.2rem; border:1px solid #d4d4d8; border-radius:6px; text-align:right; font-size:0.78rem;';
 
                 function splitInteger(total, parts) {
                     if (parts <= 0) return [];
@@ -226,6 +236,7 @@
                         staff.forEach(function (member, index) {
                             const annual = perStaffTotals[index] ?? 0;
                             rows.push({
+                                user_id: member.id,
                                 user_name: member.name,
                                 designation_name: group.designation_name,
                                 annual_total: annual,
@@ -234,6 +245,16 @@
                         });
                     });
                     return rows;
+                }
+
+                function monthValueForUser(userId, month, fallback) {
+                    if (!useOldMonths) return fallback;
+                    const userMonths = oldMonths[userId] ?? oldMonths[String(userId)];
+                    if (!userMonths) return fallback;
+                    const value = userMonths[month] ?? userMonths[String(month)];
+                    if (value === null || value === undefined || value === '') return fallback;
+                    const parsed = parseInt(value, 10);
+                    return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
                 }
 
                 function readPercentByKey() {
@@ -259,26 +280,74 @@
                     return div.innerHTML;
                 }
 
-                function renderPreview(percentByKey, amountByKey) {
+                function updateRowAnnual(tr) {
+                    const monthInputs = tr.querySelectorAll('.js-month-input');
+                    let sum = 0;
+                    monthInputs.forEach(function (input) {
+                        const v = parseInt(input.value, 10);
+                        sum += Number.isFinite(v) ? Math.max(0, v) : 0;
+                    });
+                    const annualEl = tr.querySelector('.js-annual-total');
+                    if (annualEl) annualEl.textContent = formatNum(sum);
+                    return sum;
+                }
+
+                function updateStaffTotal() {
+                    if (!staffTotalEl) return 0;
+                    let total = 0;
+                    if (previewTbody) {
+                        previewTbody.querySelectorAll('tr').forEach(function (tr) {
+                            total += updateRowAnnual(tr);
+                        });
+                    }
+                    staffTotalEl.textContent = formatNum(total);
+                    if (staffTotalStatusEl && districtTarget > 0) {
+                        if (total === districtTarget) {
+                            staffTotalStatusEl.textContent = 'Matches district target';
+                            staffTotalStatusEl.style.color = '#047857';
+                        } else if (total < districtTarget) {
+                            staffTotalStatusEl.textContent = '(' + formatNum(districtTarget - total) + ' short)';
+                            staffTotalStatusEl.style.color = '#b45309';
+                        } else {
+                            staffTotalStatusEl.textContent = '(' + formatNum(total - districtTarget) + ' over)';
+                            staffTotalStatusEl.style.color = '#b91c1c';
+                        }
+                    }
+                    return total;
+                }
+
+                function renderPreview(percentByKey) {
                     if (!previewTbody) return;
                     const rows = buildStaffAllocations(districtTarget, designationGroups, percentByKey);
                     previewTbody.innerHTML = '';
                     if (rows.length === 0) {
                         if (previewEmpty) previewEmpty.style.display = 'block';
+                        updateStaffTotal();
                         return;
                     }
                     if (previewEmpty) previewEmpty.style.display = 'none';
+
                     rows.forEach(function (row) {
                         const tr = document.createElement('tr');
+                        tr.setAttribute('data-user-id', String(row.user_id));
                         let html = '<td style="' + cellStyle + '">' + escapeHtml(row.user_name) + '</td>';
                         html += '<td style="' + cellStyle + ' color:#64748b;">' + escapeHtml(row.designation_name) + '</td>';
-                        html += '<td style="' + cellStyle + ' font-weight:600;">' + formatNum(row.annual_total) + '</td>';
+                        html += '<td style="' + cellStyle + ' font-weight:600;" class="js-annual-total">' + formatNum(row.annual_total) + '</td>';
                         for (let m = 1; m <= 12; m++) {
-                            html += '<td style="' + monthCellStyle + '">' + formatNum(row.months[m] ?? 0) + '</td>';
+                            const value = monthValueForUser(row.user_id, m, row.months[m] ?? 0);
+                            html += '<td style="' + monthCellStyle + '">';
+                            html += '<input type="number" min="0" step="1" class="js-month-input" name="months[' + row.user_id + '][' + m + ']" value="' + value + '" style="' + inputStyle + '">';
+                            html += '</td>';
                         }
                         tr.innerHTML = html;
                         previewTbody.appendChild(tr);
                     });
+
+                    previewTbody.querySelectorAll('.js-month-input').forEach(function (input) {
+                        input.addEventListener('input', updateStaffTotal);
+                    });
+                    updateStaffTotal();
+                    useOldMonths = false;
                 }
 
                 function updateRemainder(sum) {
@@ -317,11 +386,14 @@
                     sumEl.textContent = sum.toFixed(1);
                     sumEl.style.color = Math.abs(sum - 100) < 0.05 ? '#047857' : '#b45309';
                     updateRemainder(sum);
-                    renderPreview(percentByKey, amountByKey);
+                    renderPreview(percentByKey);
                 }
 
                 inputs.forEach(function (el) {
-                    el.addEventListener('input', upd);
+                    el.addEventListener('input', function () {
+                        useOldMonths = false;
+                        upd();
+                    });
                 });
                 upd();
             })();

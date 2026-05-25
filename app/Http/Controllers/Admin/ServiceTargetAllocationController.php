@@ -133,6 +133,9 @@ class ServiceTargetAllocationController extends Controller
             'deliverable_id' => ['required', 'integer', Rule::in($deliverableIds->all())],
             'percent' => ['required', 'array'],
             'percent.*' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'months' => ['nullable', 'array'],
+            'months.*' => ['nullable', 'array'],
+            'months.*.*' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $fyId = (int) $validated['fiscal_year_id'];
@@ -202,6 +205,37 @@ class ServiceTargetAllocationController extends Controller
                 ->withErrors(['percent' => 'Assign at least one designation a share above 0%.']);
         }
 
+        $manualMonths = $this->allocation->normalizeMonthInput($validated['months'] ?? []);
+        if ($manualMonths !== []) {
+            $allowedUserIds = collect($allocations)->pluck('user_id')->map(fn ($id) => (int) $id)->all();
+            foreach (array_keys($manualMonths) as $userId) {
+                if (! in_array((int) $userId, $allowedUserIds, true)) {
+                    return redirect()
+                        ->route('admin.targets.allocate-by-service', [
+                            'fiscal_year_id' => $fyId,
+                            'district_id' => $districtId,
+                            'deliverable_id' => $deliverableId,
+                        ])
+                        ->withInput()
+                        ->withErrors(['months' => 'Invalid staff row in monthly targets. Reload the page and try again.']);
+                }
+            }
+
+            $allocations = $this->allocation->applyManualMonths($allocations, $manualMonths);
+        }
+
+        $totalMismatch = $this->allocation->districtTotalMismatchMessage($allocations, $districtTarget);
+        if ($totalMismatch !== null) {
+            return redirect()
+                ->route('admin.targets.allocate-by-service', [
+                    'fiscal_year_id' => $fyId,
+                    'district_id' => $districtId,
+                    'deliverable_id' => $deliverableId,
+                ])
+                ->withInput()
+                ->withErrors(['months' => $totalMismatch]);
+        }
+
         DB::transaction(function () use ($fyId, $districtId, $deliverableId, $allocations, $percents): void {
             $this->allocation->applyAllocations($fyId, $deliverableId, $allocations);
             $this->allocation->saveDesignationPercents($fyId, $districtId, $deliverableId, $percents);
@@ -239,6 +273,6 @@ class ServiceTargetAllocationController extends Controller
                 'district_id' => $districtId,
                 'deliverable_id' => $deliverableId,
             ])
-            ->with('status', 'Applied '.$deliverable->name.' targets for '.number_format($districtTarget).' across '.$staffCount.' staff (M1–M12 equal split). Manual edits remain available per staff.');
+            ->with('status', 'Applied '.$deliverable->name.' targets for '.number_format($districtTarget).' across '.$staffCount.' staff. Per-staff M1–M12 edits remain available from the staff list.');
     }
 }

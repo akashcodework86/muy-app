@@ -321,4 +321,87 @@ class ServiceTargetAllocationService
             ]
         );
     }
+
+    /**
+     * @param  array<string|int, array<string|int, mixed>>  $monthInput
+     * @return array<int, array<int, int>>
+     */
+    public function normalizeMonthInput(array $monthInput): array
+    {
+        $normalized = [];
+
+        foreach ($monthInput as $userId => $months) {
+            if (! is_array($months)) {
+                continue;
+            }
+
+            $uid = (int) $userId;
+            $normalized[$uid] = [];
+
+            foreach (range(1, 12) as $month) {
+                $value = $months[$month] ?? $months[(string) $month] ?? 0;
+                $normalized[$uid][$month] = max(0, (int) $value);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  list<array{user_id: int, user_name: string, designation_name: string, annual_total: int, months: array<int, int>}>  $allocations
+     * @param  array<int, array<int, int>>  $manualMonths
+     * @return list<array{user_id: int, user_name: string, designation_name: string, annual_total: int, months: array<int, int>}>
+     */
+    public function applyManualMonths(array $allocations, array $manualMonths): array
+    {
+        if ($manualMonths === []) {
+            return $allocations;
+        }
+
+        return array_map(function (array $row) use ($manualMonths): array {
+            $userId = (int) $row['user_id'];
+            if (! isset($manualMonths[$userId])) {
+                return $row;
+            }
+
+            $months = $manualMonths[$userId];
+            $row['months'] = $months;
+            $row['annual_total'] = array_sum($months);
+
+            return $row;
+        }, $allocations);
+    }
+
+    /**
+     * @param  list<array{user_id: int, user_name: string, designation_name: string, annual_total: int, months: array<int, int>}>  $allocations
+     */
+    public function allocationsDistrictTotal(array $allocations): int
+    {
+        $total = 0;
+        foreach ($allocations as $row) {
+            $total += array_sum($row['months']);
+        }
+
+        return $total;
+    }
+
+    /**
+     * @param  list<array{user_id: int, user_name: string, designation_name: string, annual_total: int, months: array<int, int>}>  $allocations
+     */
+    public function districtTotalMismatchMessage(array $allocations, int $districtTarget): ?string
+    {
+        $actual = $this->allocationsDistrictTotal($allocations);
+        if ($actual === $districtTarget) {
+            return null;
+        }
+
+        $diff = abs($districtTarget - $actual);
+        if ($actual < $districtTarget) {
+            return 'Staff monthly totals add up to '.number_format($actual).' but district target is '
+                .number_format($districtTarget).' ('.number_format($diff).' short). Adjust M1–M12 below.';
+        }
+
+        return 'Staff monthly totals add up to '.number_format($actual).' but district target is '
+            .number_format($districtTarget).' ('.number_format($diff).' over). Adjust M1–M12 below.';
+    }
 }

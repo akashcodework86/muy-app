@@ -257,6 +257,153 @@ class ServiceTargetAllocationTest extends TestCase
             ->assertSee('value="30"', false);
     }
 
+    public function test_apply_accepts_manual_month_overrides(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'manual-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'manual-district',
+            'name' => 'Manual District',
+            'sort_order' => 1,
+        ]);
+
+        $deliverable = Deliverable::query()->create([
+            'sort_order' => 4,
+            'code' => 'svc_manual',
+            'name' => 'Manual Service',
+            'mis_entry_label' => 'MAN',
+            'is_active' => true,
+        ]);
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $deliverable->id,
+            'target_total' => 18,
+        ]);
+
+        $designation = Designation::query()->create(['name' => 'Field Coordinator', 'sort_order' => 1]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'designation_id' => $designation->id,
+            'is_active' => true,
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $key = app(ServiceTargetAllocationService::class)->designationKey($designation->id);
+
+        $months = [];
+        foreach (range(1, 12) as $month) {
+            $months[$month] = $month <= 6 ? 3 : 0;
+        }
+
+        $this->actingAs($admin)
+            ->post(route('admin.targets.allocate-by-service.apply'), [
+                'fiscal_year_id' => $fy->id,
+                'district_id' => $district->id,
+                'deliverable_id' => $deliverable->id,
+                'percent' => [$key => 100],
+                'months' => [
+                    $staff->id => $months,
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertSame(18, (int) StaffMonthlyTarget::query()
+            ->where('fiscal_year_id', $fy->id)
+            ->where('user_id', $staff->id)
+            ->where('deliverable_id', $deliverable->id)
+            ->sum('target_count'));
+
+        $this->assertSame(3, (int) StaffMonthlyTarget::query()
+            ->where('fiscal_year_id', $fy->id)
+            ->where('user_id', $staff->id)
+            ->where('deliverable_id', $deliverable->id)
+            ->where('month_number', 1)
+            ->value('target_count'));
+    }
+
+    public function test_apply_rejects_manual_months_not_matching_district_target(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'bad-manual-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bad-manual-district',
+            'name' => 'Bad Manual District',
+            'sort_order' => 1,
+        ]);
+
+        $deliverable = Deliverable::query()->create([
+            'sort_order' => 5,
+            'code' => 'svc_bad_manual',
+            'name' => 'Bad Manual Service',
+            'mis_entry_label' => 'BAD',
+            'is_active' => true,
+        ]);
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $deliverable->id,
+            'target_total' => 18,
+        ]);
+
+        $designation = Designation::query()->create(['name' => 'Field Coordinator', 'sort_order' => 1]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'designation_id' => $designation->id,
+            'is_active' => true,
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $key = app(ServiceTargetAllocationService::class)->designationKey($designation->id);
+
+        $months = array_fill(1, 12, 1);
+
+        $this->actingAs($admin)
+            ->from(route('admin.targets.allocate-by-service'))
+            ->post(route('admin.targets.allocate-by-service.apply'), [
+                'fiscal_year_id' => $fy->id,
+                'district_id' => $district->id,
+                'deliverable_id' => $deliverable->id,
+                'percent' => [$key => 100],
+                'months' => [
+                    $staff->id => $months,
+                ],
+            ])
+            ->assertRedirect(route('admin.targets.allocate-by-service', [
+                'fiscal_year_id' => $fy->id,
+                'district_id' => $district->id,
+                'deliverable_id' => $deliverable->id,
+            ]))
+            ->assertSessionHasErrors('months');
+    }
+
     public function test_service_split_helpers_preserve_totals(): void
     {
         $service = app(ServiceTargetAllocationService::class);
