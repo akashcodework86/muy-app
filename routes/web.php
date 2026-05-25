@@ -292,6 +292,10 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('workshops.attachment');
         Route::get('workshops/{blockWorkshop}/show', [BlockWorkshopController::class, 'show'])
             ->name('workshops.show');
+        Route::get('workshops/{blockWorkshop}/edit', [BlockWorkshopController::class, 'edit'])
+            ->name('workshops.edit');
+        Route::put('workshops/{blockWorkshop}', [BlockWorkshopController::class, 'update'])
+            ->name('workshops.update');
         Route::get('workshops/{blockWorkshop}/participants-export', [BlockWorkshopController::class, 'exportParticipants'])
             ->name('workshops.participants.export');
         Route::get('workshops/{blockWorkshop}/attendance-sheet', [BlockWorkshopController::class, 'downloadAttendanceSheet'])

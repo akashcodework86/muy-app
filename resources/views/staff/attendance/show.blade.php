@@ -134,10 +134,18 @@
             </div>
         </div>
         <div class="ws-banner__actions">
-            @if ($rp === 'staff.attendance' && $report->isSubmitted() && (int) $report->field_coordinator_user_id === (int) auth()->id())
-                <a href="{{ route('staff.attendance.edit', $report) }}" class="ws-btn ws-btn--ghost ws-btn--sm">
+            @if ($report->isSubmitted() && (int) $report->field_coordinator_user_id === (int) auth()->id())
+                <a href="{{ route($rp.'.edit', [$mp => $report]) }}" class="ws-btn ws-btn--ghost ws-btn--sm">
                     <i class="fa-solid fa-pen"></i> Edit
                 </a>
+                <form method="post" action="{{ route($rp.'.destroy', [$mp => $report]) }}" style="display:inline;" onsubmit="return confirm('Delete this workshop submission?');">
+                    @csrf
+                    @method('DELETE')
+                    <input type="hidden" name="from_view" value="1">
+                    <button type="submit" class="ws-btn ws-btn--ghost ws-btn--sm" style="color:#dc2626;border-color:#fecaca;">
+                        <i class="fa-solid fa-trash"></i> Delete
+                    </button>
+                </form>
             @endif
             <a href="{{ route($rp.'.view') }}" class="ws-btn ws-btn--ghost ws-btn--sm">
                 <i class="fa-solid fa-arrow-left"></i> Back

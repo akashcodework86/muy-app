@@ -101,6 +101,9 @@
     /* empty */
     .bw-empty { padding:3rem 1rem;text-align:center;color:var(--bw-muted);font-size:0.88rem; }
     .bw-empty i { display:block;font-size:2.4rem;color:#c7d2fe;margin-bottom:0.55rem; }
+    .bw-btn--danger { background:#dc2626;color:#fff; }
+    .bw-btn--danger:hover { opacity:0.88; }
+    .bw-actions { display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center; }
     .bw-empty a { display:inline-flex;align-items:center;gap:0.35rem;margin-top:0.65rem;padding:0.48rem 0.85rem;background:var(--bw-indigo);color:#fff;border-radius:9px;font-size:0.83rem;font-weight:700;text-decoration:none; }
 </style>
 @endpush
@@ -111,6 +114,12 @@
     @if (!empty($migrationMissing))
         <div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:12px;padding:0.85rem 1rem;font-size:0.88rem;">
             <strong>Attendance table not found.</strong> Run <code>php artisan migrate</code> to activate this module.
+        </div>
+    @endif
+
+    @if (session('status'))
+        <div style="background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:12px;padding:0.85rem 1rem;font-size:0.88rem;">
+            {{ session('status') }}
         </div>
     @endif
 
@@ -365,9 +374,24 @@
                             </td>
 
                             <td style="white-space:nowrap;">
-                                <a href="{{ route($rp.'.show', $row) }}" class="bw-btn bw-btn--sm bw-btn--teal" style="text-decoration:none;">
-                                    <i class="fa-solid fa-eye"></i> View
-                                </a>
+                                <div class="bw-actions">
+                                    <a href="{{ route($rp.'.show', $row) }}" class="bw-btn bw-btn--sm bw-btn--teal" style="text-decoration:none;">
+                                        <i class="fa-solid fa-eye"></i> View
+                                    </a>
+                                    @if ((int) $row->field_coordinator_user_id === (int) auth()->id())
+                                        <a href="{{ route($rp.'.edit', $row) }}" class="bw-btn bw-btn--sm bw-btn--ghost" style="text-decoration:none;">
+                                            <i class="fa-solid fa-pen"></i> Edit
+                                        </a>
+                                        <form method="post" action="{{ route($rp.'.destroy', $row) }}" style="display:inline;" onsubmit="return confirm('Delete this workshop submission?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <input type="hidden" name="from_view" value="1">
+                                            <button type="submit" class="bw-btn bw-btn--sm bw-btn--danger" style="border:none;cursor:pointer;">
+                                                <i class="fa-solid fa-trash"></i> Delete
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty

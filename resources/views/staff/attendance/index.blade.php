@@ -327,6 +327,10 @@
                                 <a href="{{ route('staff.attendance.edit', $row) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:#4f46e5;text-decoration:none;margin-right:0.5rem;">
                                     <i class="fa-solid fa-pen"></i> Edit
                                 </a>
+                                @elseif ($rp === 'staff.workshops')
+                                <a href="{{ route($rp.'.edit', $row) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:#4f46e5;text-decoration:none;margin-right:0.5rem;">
+                                    <i class="fa-solid fa-pen"></i> Edit
+                                </a>
                                 @endif
                                 <form method="post" action="{{ route($rp.'.destroy', $row) }}" style="display:inline;" onsubmit="return confirm('Delete this submission?');">
                                     @csrf

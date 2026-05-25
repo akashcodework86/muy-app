@@ -583,6 +583,133 @@ class BlockWorkshopController extends Controller
         ]);
     }
 
+    public function edit(BlockWorkshop $blockWorkshop, Request $request): View|RedirectResponse
+    {
+        $user = $request->user()->load(['district', 'designationRecord']);
+        abort_unless($this->canSubmit($user), 403);
+        abort_unless($this->canModify($user, $blockWorkshop), 403);
+
+        if ($blockWorkshop->isDraft()) {
+            return redirect()->route('staff.workshops.index', ['draft' => $blockWorkshop->id]);
+        }
+
+        $districtId = (int) ($user->district_id ?: 0);
+        $blockRows = $districtId > 0
+            ? DistrictBlock::query()
+                ->where('district_id', $districtId)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name'])
+            : collect();
+
+        $blockWorkshop->load(['district', 'gramPanchayat']);
+
+        return view('staff.attendance.edit', [
+            'report' => $blockWorkshop,
+            'user' => $user,
+            'blockRows' => $blockRows,
+            'gramPanchayatsEnabled' => Schema::hasTable('gram_panchayats'),
+            'routePrefix' => 'staff.workshops',
+            'modelParam' => 'blockWorkshop',
+            'cancelUrl' => route('staff.workshops.view'),
+            'pageTitle' => 'Edit block level workshop',
+        ]);
+    }
+
+    public function update(BlockWorkshop $blockWorkshop, Request $request): RedirectResponse
+    {
+        $user = $request->user()->load(['district', 'designationRecord']);
+        abort_unless($this->canSubmit($user), 403);
+        abort_unless($this->canModify($user, $blockWorkshop), 403);
+
+        $rules = [
+            'visit_date' => ['required', 'date'],
+            'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
+            'gram_panchayat_id' => ['required', 'integer', 'exists:gram_panchayats,id'],
+            'area' => ['required', 'string', 'max:191'],
+            'participants_male_count' => ['required', 'integer', 'min:0'],
+            'participants_female_count' => ['required', 'integer', 'min:0'],
+            'remark' => ['nullable', 'string', 'max:2000'],
+        ];
+
+        if (! Schema::hasTable('gram_panchayats')) {
+            unset($rules['gram_panchayat_id']);
+            $rules['gram_panchayat_id'] = ['nullable'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $districtId = (int) ($user->district_id ?: 0);
+        $block = DistrictBlock::query()->findOrFail((int) $validated['district_block_id']);
+        abort_unless((int) $block->district_id === $districtId, 403);
+
+        $gramPanchayat = null;
+        if (Schema::hasTable('gram_panchayats')) {
+            $gramPanchayat = GramPanchayat::query()->findOrFail((int) $validated['gram_panchayat_id']);
+            abort_unless((int) $gramPanchayat->district_block_id === (int) $block->id, 422);
+        }
+
+        $male = (int) $validated['participants_male_count'];
+        $female = (int) $validated['participants_female_count'];
+        $participantsTotal = $male + $female;
+
+        $blockWorkshop->load(['district', 'gramPanchayat']);
+
+        $locationOrCountsChanged = (int) $blockWorkshop->participants_male_count !== $male
+            || (int) $blockWorkshop->participants_female_count !== $female
+            || (int) $blockWorkshop->participants_total !== $participantsTotal
+            || (int) $blockWorkshop->district_block_id !== (int) $block->id
+            || (int) $blockWorkshop->gram_panchayat_id !== (int) ($gramPanchayat?->id ?: 0)
+            || (string) $blockWorkshop->area !== (string) $validated['area']
+            || (string) $blockWorkshop->block !== (string) $block->name;
+
+        if ($locationOrCountsChanged && $blockWorkshop->hasAttendanceSheet()) {
+            $sheetPath = (string) $blockWorkshop->attendance_sheet_path;
+            if ($sheetPath !== '' && Storage::exists($sheetPath)) {
+                Storage::delete($sheetPath);
+            }
+            $blockWorkshop->attendance_sheet_path = null;
+            $blockWorkshop->attendance_sheet_original_name = null;
+            $blockWorkshop->attendance_sheet_mime = null;
+            $blockWorkshop->attendance_sheet_size_bytes = null;
+        }
+
+        $districtName = (string) ($user->district?->name ?? $blockWorkshop->district?->name ?? '');
+        $gpName = (string) ($gramPanchayat?->name ?? '');
+        $rows = $this->participantRowsService->syncRowCount(
+            $blockWorkshop->participantRows(),
+            $male,
+            $female,
+            $districtName,
+            (string) $block->name,
+            $gramPanchayat?->id,
+            $gpName !== '' ? $gpName : null,
+        );
+
+        $blockWorkshop->update([
+            'visit_date' => $validated['visit_date'],
+            'block' => (string) $block->name,
+            'district_block_id' => (int) $block->id,
+            'gram_panchayat_id' => $gramPanchayat?->id,
+            'area' => $validated['area'],
+            'remark' => $validated['remark'] ?? null,
+            'participants_male_count' => $male,
+            'participants_female_count' => $female,
+            'participants_total' => $participantsTotal,
+            'participants_json' => $rows,
+            'district_id' => $districtId > 0 ? $districtId : null,
+        ]);
+
+        $status = 'Workshop updated.';
+        if ($locationOrCountsChanged && $participantsTotal > 0) {
+            $status .= ' Download a new attendance template and upload the sheet again.';
+        }
+
+        return redirect()
+            ->route('staff.workshops.view')
+            ->with('status', $status);
+    }
+
     // ── Export participants ───────────────────────────────────────────────────
 
     public function exportParticipants(BlockWorkshop $blockWorkshop, Request $request): StreamedResponse
@@ -752,8 +879,12 @@ class BlockWorkshopController extends Controller
         $this->mediaStorage->deleteAllForReport($blockWorkshop);
         $blockWorkshop->delete();
 
+        $redirectRoute = $request->boolean('from_view')
+            ? 'staff.workshops.view'
+            : 'staff.workshops.index';
+
         return redirect()
-            ->route('staff.workshops.index')
+            ->route($redirectRoute)
             ->with('status', 'Workshop deleted.');
     }
 
@@ -780,6 +911,13 @@ class BlockWorkshopController extends Controller
 
         return (int) $workshop->field_coordinator_user_id === (int) $user->id
             || ($districtId > 0 && (int) ($workshop->district_id ?: 0) === $districtId);
+    }
+
+    private function canModify(\App\Models\User $user, BlockWorkshop $workshop): bool
+    {
+        return $this->canSubmit($user)
+            && $workshop->isSubmitted()
+            && (int) $workshop->field_coordinator_user_id === (int) $user->id;
     }
 
     /** @return list<array{index: int, url: string, name: string}> */

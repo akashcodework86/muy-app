@@ -1,7 +1,13 @@
 @extends('layouts.admin')
+@php
+    $rp = $routePrefix ?? 'staff.attendance';
+    $mp = $modelParam ?? 'attendanceReport';
+    $pageTitle = $pageTitle ?? 'Edit field visit';
+    $cancelUrl = $cancelUrl ?? route('staff.attendance.index');
+@endphp
 
-@section('title', 'Edit field visit')
-@section('heading', 'Edit field visit')
+@section('title', $pageTitle)
+@section('heading', $pageTitle)
 
 @push('styles')
 <style>
@@ -34,7 +40,7 @@
 
     <div class="att-card">
         <div class="att-card__body">
-            <form method="post" action="{{ route('staff.attendance.update', $report) }}">
+            <form method="post" action="{{ route($rp.'.update', [$mp => $report]) }}">
                 @csrf
                 @method('PUT')
 
@@ -84,7 +90,7 @@
 
                 <div style="margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:0.65rem;">
                     <button type="submit" class="att-btn"><i class="fa-solid fa-check"></i> Save changes</button>
-                    <a href="{{ route('staff.attendance.index') }}" class="att-btn att-btn--ghost">Cancel</a>
+                    <a href="{{ $cancelUrl }}" class="att-btn att-btn--ghost">Cancel</a>
                 </div>
             </form>
         </div>
@@ -98,7 +104,7 @@
     const blockSelect = document.getElementById('attBlockSelect');
     const gpSelect = document.getElementById('attGpSelect');
     const gpSearch = document.getElementById('attGpSearch');
-    const gpUrl = @json(route('staff.attendance.gram-panchayats'));
+    const gpUrl = @json(route($rp.'.gram-panchayats'));
     const selectedGpId = @json((int) old('gram_panchayat_id', $report->gram_panchayat_id));
     let allItems = [];
 
