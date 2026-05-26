@@ -86,6 +86,39 @@
     }
     .members-head h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f172a; }
     .members-head .muted { color: #64748b; font-size: 0.82rem; }
+
+    .member-search {
+        position: relative;
+        display: flex;
+        align-items: center;
+        flex: 0 1 22rem;
+        min-width: 16rem;
+    }
+    .member-search__icon {
+        position: absolute;
+        left: 0.7rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #0d9488;
+        pointer-events: none;
+    }
+    .member-search input[type="search"] {
+        width: 100%;
+        padding: 0.5rem 0.75rem 0.5rem 2.15rem;
+        font-size: 0.88rem;
+        color: #0f172a;
+        background: #ffffff;
+        border: 2px solid #14b8a6;
+        border-radius: 10px;
+        box-shadow: 0 6px 18px -10px rgba(20, 184, 166, 0.55), 0 0 0 4px rgba(20, 184, 166, 0.12);
+        outline: none;
+        transition: box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+    .member-search input[type="search"]::placeholder { color: #94a3b8; }
+    .member-search input[type="search"]:focus {
+        border-color: #0d9488;
+        box-shadow: 0 8px 22px -12px rgba(13, 148, 136, 0.6), 0 0 0 4px rgba(13, 148, 136, 0.2);
+    }
     .m-table { width: 100%; border-collapse: collapse; }
     .m-table thead th {
         text-align: left; padding: 0.65rem 0.9rem;
@@ -233,9 +266,23 @@
 
     {{-- Members list --}}
     <div class="members-wrap">
-        <div class="members-head">
-            <h3>Members</h3>
-            <span class="muted">{{ $totalMembers }} {{ Str::plural('member', $totalMembers) }}</span>
+        <div class="members-head" style="gap:0.75rem; flex-wrap:wrap;">
+            <div class="member-search">
+                <svg class="member-search__icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="20" y1="20" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                    type="search"
+                    id="memberSearch"
+                    placeholder="Search members by name or phone…"
+                    autocomplete="off"
+                    aria-label="Search members by name or phone">
+            </div>
+            <div style="display:flex; align-items:center; gap:0.6rem; margin-left:auto;">
+                <h3 style="margin:0;">Members</h3>
+                <span class="muted" id="memberCount">{{ $totalMembers }} {{ Str::plural('member', $totalMembers) }}</span>
+            </div>
         </div>
         @if (auth()->user()->role === 'district_staff' && ! ($serviceModuleOn ?? false))
             <p style="font-size:0.82rem; color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:0.5rem 0.75rem; margin:0 0 0.65rem;">
@@ -256,7 +303,7 @@
             </thead>
             <tbody>
                 @forelse ($members as $i => $m)
-                    <tr>
+                    <tr data-search="{{ Str::lower(($m['applicant_name'] ?? '').' '.($m['phone'] ?? '').' '.($m['application_no'] ?? '')) }}">
                         <td data-label="#">{{ $i + 1 }}</td>
                         <td data-label="Application no">{{ $m['application_no'] }}</td>
                         <td data-label="Applicant"><strong>{{ $m['applicant_name'] }}</strong></td>
@@ -294,4 +341,46 @@
         </table>
     </div>
 </div>
+
+@push('scripts')
+<script>
+(function () {
+    const input = document.getElementById('memberSearch');
+    const countEl = document.getElementById('memberCount');
+    const tbody = document.querySelector('.members-wrap .m-table tbody');
+    if (!input || !tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr[data-search]'));
+    const total = rows.length;
+    const plural = (n) => n === 1 ? 'member' : 'members';
+
+    let emptyRow = tbody.querySelector('tr.js-no-results');
+    if (!emptyRow) {
+        emptyRow = document.createElement('tr');
+        emptyRow.className = 'js-no-results';
+        emptyRow.style.display = 'none';
+        emptyRow.innerHTML = '<td colspan="7" style="padding:1rem; text-align:center; color:#64748b;">No members match your search.</td>';
+        tbody.appendChild(emptyRow);
+    }
+
+    function apply() {
+        const q = input.value.trim().toLowerCase();
+        let shown = 0;
+        rows.forEach(r => {
+            const hit = q === '' || (r.dataset.search || '').includes(q);
+            r.style.display = hit ? '' : 'none';
+            if (hit) shown++;
+        });
+        emptyRow.style.display = (shown === 0 && q !== '' && total > 0) ? '' : 'none';
+        if (countEl) {
+            countEl.textContent = q === ''
+                ? total + ' ' + plural(total)
+                : shown + ' of ' + total + ' ' + plural(total);
+        }
+    }
+
+    input.addEventListener('input', apply);
+})();
+</script>
+@endpush
 @endsection

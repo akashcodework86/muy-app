@@ -110,7 +110,7 @@
         @endif
 
         <div class="svc-create-grid">
-            <form id="serviceSubmitForm" method="post" action="{{ route('staff.services.store') }}" enctype="multipart/form-data" style="max-width:42rem;">
+            <form id="serviceSubmitForm" method="post" action="{{ route('staff.services.store') }}" enctype="multipart/form-data" style="max-width:56rem;">
                 @csrf
 
             <p style="margin:0 0 0.65rem;font-size:0.82rem;color:#52525b;">Choose <strong>one</strong> incubatee source: Phase 3 CFA (this MIS) <em>or</em> Phase 2 legacy application (rbiphase2, onboarded).</p>
@@ -154,7 +154,7 @@
             <div style="margin-bottom:0.85rem;">
                 <label for="service_id" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Service</label>
                 <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
-                    <select id="service_id" name="service_id" required style="flex:1;min-width:14rem;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                    <select id="service_id" name="service_id" required style="flex:1 1 32rem;min-width:28rem;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
                         <option value="">— Select —</option>
                         @foreach ($services as $svc)
                             <option value="{{ $svc->id }}" @selected((int) old('service_id') === (int) $svc->id)>
@@ -808,4 +808,49 @@
             })();
         </script>
     @endif
+
+    @push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+    <style>
+        .ts-wrapper.single .ts-control,
+        .ts-wrapper.multi .ts-control {
+            padding: 0.4rem 0.55rem;
+            border: 1px solid #d4d4d8;
+            border-radius: 6px;
+            min-height: 38px;
+            background: #fff;
+        }
+        .ts-wrapper.focus .ts-control { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+        .ts-dropdown { border-radius: 8px; border: 1px solid #c7d2fe; box-shadow: 0 10px 24px rgba(79, 70, 229, 0.12); font-size: 0.88rem; }
+        .ts-dropdown .active { background: #eef2ff; color: #1e1b4b; }
+        /* Make the Service picker visually longer */
+        #service_id + .ts-wrapper { flex: 1 1 32rem; min-width: 28rem; }
+        #service_id + .ts-wrapper .ts-control { min-height: 42px; }
+        #service_id + .ts-wrapper .ts-dropdown { min-width: 32rem; }
+    </style>
+    @endpush
+
+    @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof TomSelect === 'undefined') return;
+            ['cfa_submission_id', 'legacy_application_id', 'service_id'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (!el || el.tagName !== 'SELECT' || el.tomselect) return;
+                const placeholder = (el.options[0] && !el.options[0].value)
+                    ? el.options[0].text
+                    : 'Search…';
+                try {
+                    new TomSelect(el, {
+                        create: false,
+                        allowEmptyOption: true,
+                        maxOptions: 1000,
+                        placeholder: placeholder,
+                    });
+                } catch (e) { /* leave native select as-is on failure */ }
+            });
+        });
+    </script>
+    @endpush
 @endsection
