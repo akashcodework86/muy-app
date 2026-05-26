@@ -62,6 +62,12 @@
     .fcr-loc-sub { font-size:0.74rem; color:#64748b; }
     .fcr-num { font-weight:700; }
     .fcr-dl { display:inline-flex; align-items:center; gap:0.25rem; padding:0.25rem 0.5rem; background:#0f766e; color:#fff; border-radius:6px; font-size:0.72rem; font-weight:700; text-decoration:none; margin-right:0.25rem; margin-bottom:0.2rem; }
+    .fcr-files { display:flex; flex-wrap:wrap; gap:0.3rem; align-items:center; }
+    .fcr-thumb { display:inline-block; width:44px; height:44px; border-radius:8px; overflow:hidden; border:1px solid #e2e8f0; background:#f8fafc; flex-shrink:0; transition:transform 0.15s, box-shadow 0.15s; }
+    .fcr-thumb:hover { transform:scale(1.05); box-shadow:0 4px 12px rgba(15,23,42,0.15); border-color:#818cf8; }
+    .fcr-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .fcr-view { display:inline-flex; align-items:center; gap:0.25rem; padding:0.3rem 0.55rem; background:#4338ca; color:#fff; border-radius:6px; font-size:0.72rem; font-weight:700; text-decoration:none; }
+    .fcr-view:hover { background:#3730a3; }
     .fcr-empty { padding:2.5rem 1rem; text-align:center; color:#64748b; }
     .fcr-pill { display:inline-block; padding:0.15rem 0.45rem; border-radius:999px; font-size:0.68rem; font-weight:700; background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
     .cfa-match,.cfa-mismatch,.cfa-neutral { display:inline-flex; padding:0.22rem 0.55rem; border-radius:999px; font-size:0.72rem; font-weight:800; color:#fff; }
@@ -285,20 +291,36 @@
                                 @endif
                             </td>
                             <td>
-                                @foreach ($mediaItems as $mi => $media)
-                                    <a href="{{ route($routeAttachment, ['attendanceReport' => $row, 'index' => $mi, 'inline' => 1]) }}" class="fcr-dl" target="_blank" rel="noopener">
-                                        <i class="fa-solid fa-image"></i> Photo {{ $mi + 1 }}
-                                    </a>
-                                @endforeach
-                                @if ($row->attachment_path && $mediaItems === [])
-                                    <a href="{{ route($routeAttachment, $row) }}" class="fcr-dl"><i class="fa-solid fa-download"></i> Doc</a>
-                                @endif
-                                @if ($row->hasAttendanceSheet())
-                                    <a href="{{ route($routeSheet, $row) }}" class="fcr-dl" style="background:#4338ca;"><i class="fa-solid fa-file-excel"></i> Sheet</a>
-                                @endif
-                                @if ($mediaItems === [] && ! $row->attachment_path && ! $row->hasAttendanceSheet())
-                                    <span style="color:#cbd5e1;">—</span>
-                                @endif
+                                <div class="fcr-files">
+                                    @foreach ($mediaItems as $mi => $media)
+                                        @php
+                                            $mediaMime = (string) ($media['mime'] ?? '');
+                                            $mediaName = (string) ($media['original_name'] ?? ('Photo '.($mi + 1)));
+                                            $mediaUrl = route($routeAttachment, ['attendanceReport' => $row, 'index' => $mi, 'inline' => 1]);
+                                            $isImage = str_starts_with($mediaMime, 'image/') || (($media['type'] ?? '') === 'image');
+                                        @endphp
+                                        @if ($isImage)
+                                            <a href="{{ $mediaUrl }}" class="fcr-thumb" target="_blank" rel="noopener" title="{{ $mediaName }}">
+                                                <img src="{{ $mediaUrl }}" alt="{{ $mediaName }}" loading="lazy">
+                                            </a>
+                                        @else
+                                            <a href="{{ $mediaUrl }}" class="fcr-view" target="_blank" rel="noopener" title="{{ $mediaName }}">
+                                                <i class="fa-solid fa-eye"></i> View document
+                                            </a>
+                                        @endif
+                                    @endforeach
+                                    @if ($row->attachment_path && $mediaItems === [])
+                                        <a href="{{ route($routeAttachment, ['attendanceReport' => $row, 'inline' => 1]) }}" class="fcr-view" target="_blank" rel="noopener">
+                                            <i class="fa-solid fa-eye"></i> View document
+                                        </a>
+                                    @endif
+                                    @if ($row->hasAttendanceSheet())
+                                        <a href="{{ route($routeSheet, $row) }}" class="fcr-dl" style="background:#4338ca;"><i class="fa-solid fa-file-excel"></i> Sheet</a>
+                                    @endif
+                                    @if ($mediaItems === [] && ! $row->attachment_path && ! $row->hasAttendanceSheet())
+                                        <span style="color:#cbd5e1;">—</span>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty

@@ -256,6 +256,26 @@
     }
     .adatt-dl-btn:hover { background: #0d9488; }
 
+    /* media thumbnails + view buttons */
+    .adatt-files { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+    .adatt-thumb {
+        display: inline-block; width: 44px; height: 44px;
+        border-radius: 8px; overflow: hidden;
+        border: 1px solid var(--adatt-border); background: var(--adatt-bg);
+        flex-shrink: 0; transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .adatt-thumb:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(15,23,42,0.15); border-color: #818cf8; }
+    .adatt-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .adatt-view-btn {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        padding: 0.3rem 0.55rem;
+        background: #4338ca; color: #fff;
+        border-radius: 6px; font-size: 0.74rem; font-weight: 700;
+        text-decoration: none;
+    }
+    .adatt-view-btn:hover { background: #3730a3; }
+    .adatt-files-count { font-size: 0.72rem; color: var(--adatt-muted); margin-bottom: 0.25rem; display: block; }
+
     .adatt-empty {
         padding: 3rem 1rem;
         text-align: center;
@@ -382,12 +402,30 @@
                             </td>
                             <td>
                                 @if ($media !== [])
-                                    {{ count($media) }} photo(s)
-                                    @foreach ($media as $idx => $item)
-                                        <a href="{{ route('admin.attendance.attachment', ['attendanceReport' => $row, 'index' => $idx]) }}" class="adatt-dl-btn" style="margin:0.15rem 0.15rem 0 0;display:inline-flex;"><i class="fa-solid fa-image"></i> {{ $idx + 1 }}</a>
-                                    @endforeach
+                                    <span class="adatt-files-count">{{ count($media) }} file(s)</span>
+                                    <div class="adatt-files">
+                                        @foreach ($media as $idx => $item)
+                                            @php
+                                                $mediaMime = (string) ($item['mime'] ?? '');
+                                                $mediaName = (string) ($item['original_name'] ?? ('File '.($idx + 1)));
+                                                $mediaUrl = route('admin.attendance.attachment', ['attendanceReport' => $row, 'index' => $idx, 'inline' => 1]);
+                                                $isImage = str_starts_with($mediaMime, 'image/') || (($item['type'] ?? '') === 'image');
+                                            @endphp
+                                            @if ($isImage)
+                                                <a href="{{ $mediaUrl }}" class="adatt-thumb" target="_blank" rel="noopener" title="{{ $mediaName }}">
+                                                    <img src="{{ $mediaUrl }}" alt="{{ $mediaName }}" loading="lazy">
+                                                </a>
+                                            @else
+                                                <a href="{{ $mediaUrl }}" class="adatt-view-btn" target="_blank" rel="noopener" title="{{ $mediaName }}">
+                                                    <i class="fa-solid fa-eye"></i> View document
+                                                </a>
+                                            @endif
+                                        @endforeach
+                                    </div>
                                 @elseif ($row->attachment_path)
-                                    <a href="{{ route('admin.attendance.attachment', $row) }}" class="adatt-dl-btn">Legacy</a>
+                                    <a href="{{ route('admin.attendance.attachment', ['attendanceReport' => $row, 'inline' => 1]) }}" class="adatt-view-btn" target="_blank" rel="noopener">
+                                        <i class="fa-solid fa-eye"></i> View document
+                                    </a>
                                 @else
                                     —
                                 @endif
