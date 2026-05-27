@@ -21,6 +21,7 @@
             <div class="banner">{{ session('status') }}</div>
         @endif
         @include('partials.flash-profile-photo-reminder')
+        @include('partials.staff-daily-check-in-reminder')
         @if ($errors->any())
             <div class="error-banner">{{ $errors->first() }}</div>
         @endif

@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\DocumentRepositoryController;
 use App\Http\Controllers\Admin\BlockWorkshopAdminController;
 use App\Http\Controllers\Admin\FieldCoordinatorAttendanceAdminController;
+use App\Http\Controllers\Admin\StaffCheckInAdminController;
 use App\Http\Controllers\Admin\GramPanchayatImportController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
@@ -54,6 +55,7 @@ use App\Http\Controllers\Staff\FieldCoordinatorAttendanceController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\LegacyPhase2IncubateeProfileController;
 use App\Http\Controllers\Staff\StaffPortalController;
+use App\Http\Controllers\StaffCheckInController;
 use App\Http\Controllers\MarketLinkageController;
 use App\Http\Controllers\SocialMediaPostLandingController;
 use App\Http\Controllers\SocialMediaPostController;
@@ -130,6 +132,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::get('documents', [DocumentLibraryController::class, 'internalIndex'])->name('library.documents.index');
     Route::get('documents/{document}/download', [DocumentLibraryController::class, 'download'])->name('library.documents.download');
+
+    Route::middleware('staff_daily_check_in')->prefix('check-in')->name('staff-daily-check-in.')->group(function (): void {
+        Route::get('/', [StaffCheckInController::class, 'index'])->name('index');
+        Route::post('/', [StaffCheckInController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('store');
+    });
 
     Route::prefix('api/live-ops')->name('live-ops.')->middleware('throttle:120,1')->group(function (): void {
         Route::get('presence', [LiveOpsController::class, 'presence'])->name('presence');
@@ -675,6 +684,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('documents/{document}/versions', [DocumentRepositoryController::class, 'uploadVersion'])->name('documents.upload-version');
         Route::delete('documents/{document}', [DocumentRepositoryController::class, 'destroy'])->name('documents.destroy');
         Route::get('attendance', [FieldCoordinatorAttendanceAdminController::class, 'index'])->name('attendance.index');
+        Route::get('staff-check-ins', [StaffCheckInAdminController::class, 'index'])->name('staff-check-ins.index');
+        Route::get('staff-check-ins/export', [StaffCheckInAdminController::class, 'export'])
+            ->middleware('throttle:15,1')
+            ->name('staff-check-ins.export');
         Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
         Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
         Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');

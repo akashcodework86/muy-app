@@ -2286,6 +2286,7 @@
     @include('partials.admin-topbar')
     <main class="admin-main">
     @include('partials.flash-profile-photo-reminder')
+    @include('partials.staff-daily-check-in-reminder')
 
     @unless (isset($cfaTotal))
         <div class="admin-page-head">

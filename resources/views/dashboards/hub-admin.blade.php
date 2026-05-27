@@ -54,6 +54,7 @@
 <body class="admin-app-body admin-app-body--dashboard">
     @include('partials.admin-topbar')
     <main class="admin-main">
+        @include('partials.staff-daily-check-in-reminder')
         <div class="hub-dashboard-shell">
             <div class="hub-hero-three-col">
                 <div class="hub-hero-col hub-hero-col--welcome glass-surface">

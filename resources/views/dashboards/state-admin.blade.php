@@ -1054,6 +1054,11 @@
                         <strong>Field attendance</strong>
                         <span>Field coordinator visit records</span>
                     </a>
+                    <a href="{{ route('admin.staff-check-ins.index') }}">
+                        <div class="qi"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></div>
+                        <strong>Staff daily attendance</strong>
+                        <span>GPS check-in by hub, district &amp; state staff</span>
+                    </a>
                     <a href="{{ route('admin.block-workshops.index') }}">
                         <div class="qi"><i class="fa-solid fa-people-group" aria-hidden="true"></i></div>
                         <strong>Block level workshops</strong>

@@ -5,6 +5,7 @@
     $showStateStaffNav = $u && $u->role === 'state_staff';
     $showHubNav = $u && $u->role === 'hub_admin';
     $showStaffNav = $u && $u->role === 'district_staff';
+    $showStaffDailyCheckInNav = $u && \App\Support\StaffDailyCheckInAccess::isRequired($u);
     $isFieldCoordinator = $showStaffNav && (
         str_contains(strtolower((string) ($u->designationRecord?->name ?? '')), 'field coordinator')
         || str_contains(strtolower((string) ($u->designationRecord?->name ?? '')), 'field co-ordinator')
@@ -61,6 +62,8 @@
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
         str_starts_with($r, 'team.') => 'team-directory',
         str_starts_with($r, 'admin.attendance') => 'attendance',
+        str_starts_with($r, 'admin.staff-check-ins') => 'staff-daily-check-ins',
+        str_starts_with($r, 'staff-daily-check-in') => 'staff-daily-check-in',
         str_starts_with($r, 'admin.field-coordinator-reports') => 'field-coordinator-report',
         str_starts_with($r, 'hub.field-coordinator-reports') => 'field-coordinator-report',
         str_starts_with($r, 'staff.field-coordinator-reports') => 'field-coordinator-report',
@@ -139,7 +142,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance', 'field-coordinator-report'], true);
+    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
@@ -269,6 +272,9 @@
                     <a href="{{ route('admin.attendance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'attendance') is-active @endif" role="menuitem">
                         {!! $i('calendar') !!}<span>Field reports</span>
                     </a>
+                    <a href="{{ route('admin.staff-check-ins.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-daily-check-ins') is-active @endif" role="menuitem">
+                        {!! $i('pin') !!}<span>Staff daily attendance</span>
+                    </a>
                     <a href="{{ route('admin.field-coordinator-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-coordinator-report') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Field coordinator report</span>
                     </a>
@@ -377,6 +383,11 @@
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>
+            @if ($showStaffDailyCheckInNav)
+            <a href="{{ route('staff-daily-check-in.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-daily-check-in') is-active @endif">
+                {!! $i('pin') !!}<span class="admin-topbar__link-text">Daily attendance</span>
+            </a>
+            @endif
             <a href="{{ route('spoc.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
             </a>
@@ -405,6 +416,11 @@
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>
+            @if ($showStaffDailyCheckInNav)
+            <a href="{{ route('staff-daily-check-in.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-daily-check-in') is-active @endif">
+                {!! $i('pin') !!}<span class="admin-topbar__link-text">Daily attendance</span>
+            </a>
+            @endif
             <a href="{{ route('hub.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
             </a>
@@ -434,6 +450,11 @@
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>
+            @if ($showStaffDailyCheckInNav)
+            <a href="{{ route('staff-daily-check-in.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-daily-check-in') is-active @endif">
+                {!! $i('pin') !!}<span class="admin-topbar__link-text">Daily attendance</span>
+            </a>
+            @endif
             <a href="{{ route('staff.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
             </a>

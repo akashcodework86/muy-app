@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Services\NotificationReminderService;
+use App\Services\StaffCheckInService;
+use App\Support\StaffDailyCheckInAccess;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,6 +23,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        View::composer('partials.staff-daily-check-in-reminder', function ($view): void {
+            $user = auth()->user();
+            $show = $user && app(StaffCheckInService::class)->shouldShowReminder($user);
+
+            $view->with('showStaffDailyCheckInReminder', $show);
+        });
+
         View::composer('partials.admin-topbar', function ($view): void {
             $user = auth()->user();
             if (! $user || ! in_array($user->role, ['state_admin', 'hub_admin', 'district_staff', 'state_staff'], true)) {
