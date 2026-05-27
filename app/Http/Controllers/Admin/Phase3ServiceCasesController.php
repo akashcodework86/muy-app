@@ -143,6 +143,7 @@ class Phase3ServiceCasesController extends Controller
 
         $rows = $query->orderByDesc('service_cases.created_at')->get();
         $legacyPreviews = $this->buildLegacyPreviewMap($rows);
+        $legacyDetails = $this->buildLegacyPhase2ExportMap($rows);
 
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
@@ -160,18 +161,24 @@ class Phase3ServiceCasesController extends Controller
             'C' => ['label' => 'Application Number',   'width' => 22],
             'D' => ['label' => 'Applicant Name',       'width' => 26],
             'E' => ['label' => 'District',             'width' => 18],
-            'F' => ['label' => 'Service Category',     'width' => 22],
-            'G' => ['label' => 'Service Name',         'width' => 28],
-            'H' => ['label' => 'Reporting Tier',       'width' => 16],
-            'I' => ['label' => 'Status',               'width' => 18],
-            'J' => ['label' => 'SLA Deadline',         'width' => 18],
-            'K' => ['label' => 'Submitted At',         'width' => 18],
-            'L' => ['label' => 'Submitted By',         'width' => 22],
-            'M' => ['label' => 'SPOC',                 'width' => 22],
-            'N' => ['label' => 'Approved By',          'width' => 22],
-            'O' => ['label' => 'Created At',           'width' => 18],
-            'P' => ['label' => 'Documents Count',      'width' => 16],
-            'Q' => ['label' => 'Document Links',       'width' => 50],
+            'F' => ['label' => 'Applicant Phone',      'width' => 16],
+            'G' => ['label' => 'Block',                'width' => 18],
+            'H' => ['label' => 'Sector',               'width' => 22],
+            'I' => ['label' => 'Product',              'width' => 22],
+            'J' => ['label' => 'Village',              'width' => 18],
+            'K' => ['label' => 'Pincode',              'width' => 12],
+            'L' => ['label' => 'Service Category',     'width' => 22],
+            'M' => ['label' => 'Service Name',         'width' => 28],
+            'N' => ['label' => 'Reporting Tier',       'width' => 12],
+            'O' => ['label' => 'Status',               'width' => 14],
+            'P' => ['label' => 'SLA Deadline',         'width' => 14],
+            'Q' => ['label' => 'Submitted At',         'width' => 18],
+            'R' => ['label' => 'Submitted By',         'width' => 20],
+            'S' => ['label' => 'SPOC',                 'width' => 20],
+            'T' => ['label' => 'Approved By',          'width' => 20],
+            'U' => ['label' => 'Created At',           'width' => 18],
+            'V' => ['label' => 'Documents Count',      'width' => 12],
+            'W' => ['label' => 'SPOC remark',          'width' => 40],
         ];
 
         foreach ($headers as $col => $meta) {
@@ -189,6 +196,8 @@ class Phase3ServiceCasesController extends Controller
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
         ]);
         $sheet->getRowDimension(1)->setRowHeight(22);
+        $sheet->setAutoFilter('A1:'.$lastCol.'1');
+        $sheet->freezePane('A2');
 
         $statusColors = [
             'approved' => 'D1FAE5',
@@ -200,24 +209,94 @@ class Phase3ServiceCasesController extends Controller
         ];
 
         $rowNum = 2;
+        $rawSheet = $spreadsheet->createSheet();
+        $rawSheet->setTitle('Raw payload');
+        $rawSheet->setCellValue('A1', 'Reference Number');
+        $rawSheet->setCellValue('B1', 'Application Number');
+        $rawSheet->setCellValue('C1', 'Applicant payload (JSON)');
+        $rawSheet->getStyle('A1:C1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
+        ]);
+        $rawSheet->getRowDimension(1)->setRowHeight(22);
+        $rawSheet->getColumnDimension('A')->setWidth(22);
+        $rawSheet->getColumnDimension('B')->setWidth(22);
+        $rawSheet->getColumnDimension('C')->setWidth(80);
+        $rawRowNum = 2;
         foreach ($rows as $case) {
             $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
+            $legacyId = (int) ($case->legacy_application_id ?? 0);
+            $legacyRow = ($legacyId > 0 && ! $case->cfa_submission_id)
+                ? ($legacyDetails[$legacyId] ?? null)
+                : null;
+
+            $payload = is_array($case->cfaSubmission?->payload) ? $case->cfaSubmission->payload : [];
+            $product = '';
+            $sector = '';
+            $block = '';
+            $village = '';
+            $pincode = '';
+            $phone = '';
+            $district = '';
+            $applicationNo = '';
+            $applicantName = '';
+
+            if (is_array($legacyRow)) {
+                // Phase 2 (rbiphase2) — pull from rbi_applicant_details + rbi_applications
+                $applicationNo = (string) ($legacyRow['application_no'] ?? '');
+                $applicantName = (string) ($legacyRow['applicant_name'] ?? '');
+                $district = (string) ($legacyRow['district'] ?? '');
+                $phone = (string) ($legacyRow['phone'] ?? '');
+                $block = (string) ($legacyRow['block'] ?? '');
+                $village = (string) ($legacyRow['village'] ?? '');
+                $sector = (string) ($legacyRow['business_category'] ?? '');
+                $product = (string) ($legacyRow['product'] ?? '');
+            } else {
+                // Phase 3 (current) — pull from cfa_submissions + payload
+                $applicationNo = (string) ($case->cfaSubmission?->application_no ?? ($lp['application_no'] ?? ''));
+                $applicantName = (string) ($case->cfaSubmission?->applicant_name ?? ($lp['applicant_name'] ?? ''));
+                $district = (string) ($case->cfaSubmission?->district?->name ?? ($lp['district'] ?? ''));
+                $phone = (string) ($case->cfaSubmission?->phone ?? '');
+
+                $block = (string) ($payload['block'] ?? '');
+                $sector = (string) ($payload['business_category'] ?? '');
+                $product = trim((string) ($payload['product'] ?? ''));
+                if ($product === 'Others') {
+                    $product = trim((string) ($payload['other_product'] ?? ''));
+                }
+                $village = (string) ($payload['village'] ?? '');
+                $pincode = (string) ($payload['pincode'] ?? '');
+            }
+
+            // Preserve leading zeros / avoid scientific notation in Excel
+            if ($phone !== '' && preg_match('/^[\\d\\s+\\-]{10,}$/', $phone)) {
+                $phone = "\t".$phone;
+            }
+
             $sheet->setCellValue('A'.$rowNum, $rowNum - 1);
             $sheet->setCellValue('B'.$rowNum, (string) ($case->reference_number ?: ''));
-            $sheet->setCellValue('C'.$rowNum, (string) ($case->cfaSubmission?->application_no ?? ($lp['application_no'] ?? '')));
-            $sheet->setCellValue('D'.$rowNum, (string) ($case->cfaSubmission?->applicant_name ?? ($lp['applicant_name'] ?? '')));
-            $sheet->setCellValue('E'.$rowNum, (string) ($case->cfaSubmission?->district?->name ?? ($lp['district'] ?? '')));
-            $sheet->setCellValue('F'.$rowNum, (string) ($case->service?->category?->name ?? ''));
-            $sheet->setCellValue('G'.$rowNum, (string) ($case->service?->name ?? ''));
-            $sheet->setCellValue('H'.$rowNum, strtoupper((string) ($case->service?->reporting_tier ?? 'UNSET')));
-            $sheet->setCellValue('I'.$rowNum, ucfirst(str_replace('_', ' ', (string) $case->status)));
-            $sheet->setCellValue('J'.$rowNum, $this->fmtDate($case->sla_deadline_at));
-            $sheet->setCellValue('K'.$rowNum, $this->fmtDate($case->submitted_at));
-            $sheet->setCellValue('L'.$rowNum, (string) ($case->submitter?->name ?? ''));
-            $sheet->setCellValue('M'.$rowNum, (string) ($case->spoc?->name ?? 'Unassigned'));
-            $sheet->setCellValue('N'.$rowNum, (string) ($case->approver?->name ?? ''));
-            $sheet->setCellValue('O'.$rowNum, $this->fmtDate($case->created_at));
-            $sheet->setCellValue('P'.$rowNum, (int) $case->attachments->count());
+            $sheet->setCellValue('C'.$rowNum, $applicationNo);
+            $sheet->setCellValue('D'.$rowNum, $applicantName);
+            $sheet->setCellValue('E'.$rowNum, $district);
+            $sheet->setCellValue('F'.$rowNum, $phone);
+            $sheet->setCellValue('G'.$rowNum, $block);
+            $sheet->setCellValue('H'.$rowNum, $sector);
+            $sheet->setCellValue('I'.$rowNum, $product);
+            $sheet->setCellValue('J'.$rowNum, $village);
+            $sheet->setCellValue('K'.$rowNum, $pincode);
+            $sheet->setCellValue('L'.$rowNum, (string) ($case->service?->category?->name ?? ''));
+            $sheet->setCellValue('M'.$rowNum, (string) ($case->service?->name ?? ''));
+            $sheet->setCellValue('N'.$rowNum, strtoupper((string) ($case->service?->reporting_tier ?? 'UNSET')));
+            $sheet->setCellValue('O'.$rowNum, ucfirst(str_replace('_', ' ', (string) $case->status)));
+            $sheet->setCellValue('P'.$rowNum, $this->fmtDate($case->sla_deadline_at));
+            $sheet->setCellValue('Q'.$rowNum, $this->fmtDate($case->submitted_at));
+            $sheet->setCellValue('R'.$rowNum, (string) ($case->submitter?->name ?? ''));
+            $sheet->setCellValue('S'.$rowNum, (string) ($case->spoc?->name ?? 'Unassigned'));
+            $sheet->setCellValue('T'.$rowNum, (string) ($case->approver?->name ?? ''));
+            $sheet->setCellValue('U'.$rowNum, $this->fmtDate($case->created_at));
+            $sheet->setCellValue('V'.$rowNum, (int) $case->attachments->count());
 
             $docParts = [];
             foreach ($case->attachments as $idx => $attachment) {
@@ -228,10 +307,36 @@ class Phase3ServiceCasesController extends Controller
                 $label = ($attachment->original_name ?: 'Doc '.($idx + 1));
                 $docParts[] = $url.' ('.$label.')';
             }
-            $sheet->setCellValue('Q'.$rowNum, implode("\n", $docParts));
-            if (! empty($docParts)) {
-                $sheet->getStyle('Q'.$rowNum)->getAlignment()->setWrapText(true);
+            // Keep the main sheet clean: links can be long; store them in Raw payload sheet instead.
+
+            $spocRemark = match ($case->status) {
+                ServiceCase::STATUS_SENT_BACK => (string) ($case->sent_back_note ?? ''),
+                ServiceCase::STATUS_REJECTED => (string) ($case->rejected_note ?? ''),
+                default => '',
+            };
+            $sheet->setCellValue('W'.$rowNum, $spocRemark);
+            if ($spocRemark !== '') {
+                $sheet->getStyle('W'.$rowNum)->getAlignment()->setWrapText(true);
             }
+
+            $jsonPayload = '';
+            if (is_array($legacyRow)) {
+                $jsonPayload = json_encode($legacyRow, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            } elseif ($payload !== []) {
+                $jsonPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+            $rawSheet->setCellValue('A'.$rawRowNum, (string) ($case->reference_number ?: ''));
+            $rawSheet->setCellValue('B'.$rawRowNum, $applicationNo);
+            $rawSheet->setCellValue('C'.$rawRowNum, $jsonPayload);
+            if ($jsonPayload !== '') {
+                $rawSheet->getStyle('C'.$rawRowNum)->getAlignment()->setWrapText(true);
+            }
+            // Also store document links in the raw sheet (below JSON for readability).
+            if (! empty($docParts)) {
+                $rawSheet->setCellValue('C'.$rawRowNum, $jsonPayload."\n\nDocument links:\n".implode("\n", $docParts));
+                $rawSheet->getStyle('C'.$rawRowNum)->getAlignment()->setWrapText(true);
+            }
+            $rawRowNum++;
 
             $bgColor = $statusColors[$case->status] ?? 'FFFFFF';
             $sheet->getStyle('A'.$rowNum.':'.$lastCol.$rowNum)->applyFromArray([
@@ -241,16 +346,13 @@ class Phase3ServiceCasesController extends Controller
             ]);
 
             $sheet->getStyle('A'.$rowNum)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('P'.$rowNum)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('V'.$rowNum)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $rowNum++;
         }
 
-        if ($rowNum > 2) {
-            $sheet->setAutoFilter('A1:'.$lastCol.'1');
-        }
-
-        $sheet->freezePane('A2');
+        $rawSheet->setAutoFilter('A1:C1');
+        $rawSheet->freezePane('A2');
 
         $fileName = 'phase3-service-cases-'.now()->format('Ymd_His').'.xlsx';
 
@@ -261,6 +363,66 @@ class Phase3ServiceCasesController extends Controller
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Cache-Control' => 'max-age=0',
         ]);
+    }
+
+    /**
+     * @param  Collection<int, ServiceCase>|\Illuminate\Database\Eloquent\Collection<int, ServiceCase>  $rows
+     * @return array<int, array<string, string>>
+     */
+    private function buildLegacyPhase2ExportMap($rows): array
+    {
+        $support = app(LegacyApplicationServiceCaseSupport::class);
+        if (! $support->legacyDbAvailable() || ! ServiceCase::supportsLegacyApplicationLink()) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($rows as $case) {
+            $legacyId = (int) ($case->legacy_application_id ?? 0);
+            if ($legacyId > 0 && ! $case->cfa_submission_id) {
+                $ids[] = $legacyId;
+            }
+        }
+        $ids = array_values(array_unique($ids));
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::connection('legacy')
+            ->table('rbi_applicant_details as d')
+            ->leftJoin('rbi_applications as a', 'a.id', '=', 'd.application_id')
+            ->whereIn('d.application_id', $ids)
+            ->orderByDesc('d.id')
+            ->get([
+                'd.application_id',
+                'd.applicant_name',
+                'd.phone',
+                'd.district',
+                'd.block',
+                'd.village',
+                'a.application_no',
+                'a.product',
+                'a.business_category',
+            ])
+            ->mapWithKeys(function ($row): array {
+                $id = (int) ($row->application_id ?? 0);
+                if ($id < 1) {
+                    return [];
+                }
+                return [
+                    $id => [
+                        'application_no' => (string) ($row->application_no ?? ''),
+                        'applicant_name' => (string) ($row->applicant_name ?? ''),
+                        'phone' => (string) ($row->phone ?? ''),
+                        'district' => (string) ($row->district ?? ''),
+                        'block' => (string) ($row->block ?? ''),
+                        'village' => (string) ($row->village ?? ''),
+                        'business_category' => (string) ($row->business_category ?? ''),
+                        'product' => (string) ($row->product ?? ''),
+                    ],
+                ];
+            })
+            ->all();
     }
 
     public function viewAttachment(Request $request, ServiceCase $service_case, ServiceCaseAttachment $attachment): StreamedResponse
@@ -371,7 +533,7 @@ class Phase3ServiceCasesController extends Controller
         return $query
             ->with([
                 'service.category:id,name',
-                'cfaSubmission:id,application_no,applicant_name,district_id',
+                'cfaSubmission:id,application_no,applicant_name,district_id,phone,payload',
                 'cfaSubmission.district:id,name',
                 'submitter:id,name',
                 'creator:id,name',

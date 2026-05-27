@@ -65,7 +65,10 @@
                     <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:left;min-width:16rem;">Indicator</th>
                     <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:8rem;">Type of Indicator</th>
                     <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:8rem;">Spoke/ Hub/ State</th>
-                    <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Targets</th>
+                    <th
+                        style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;"
+                        @if ($filter->hasExplicitDateFilter()) title="Targets are narrowed to the selected period. Real monthly staff allocations are used where they exist; otherwise FY totals are pro-rated by the fraction of the year selected." @endif
+                    >Targets{!! $filter->hasExplicitDateFilter() ? '<span style="font-weight:400;font-size:0.7rem;opacity:0.85;display:block;line-height:1;margin-top:0.15rem;">(period)</span>' : '' !!}</th>
                     <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement</th>
                     <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement (%)</th>
                 </tr>

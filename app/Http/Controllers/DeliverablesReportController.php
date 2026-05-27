@@ -50,6 +50,10 @@ class DeliverablesReportController extends Controller
         $fyLabel = $report['fiscalYear']?->name ?? 'all';
         $filter = $payload['filter'];
 
+        if (! class_exists(Spreadsheet::class)) {
+            abort(500, 'Excel export is not available (PhpSpreadsheet not installed). Run composer install on the server and retry.');
+        }
+
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Deliverables');

@@ -550,7 +550,7 @@
                                     $onbAchieved = (int) ($stateOnboardingAchieved ?? 0);
                                     $onbPct = $stateOnboardingProgressPct !== null ? (int) $stateOnboardingProgressPct : 0;
                                     $onbGap = max(0, $onbTarget - $onbAchieved);
-                                    $onbDistrictRows = collect($stateOnboardingByDistrict ?? [])->take(8);
+                                    $onbDistrictRows = collect($stateOnboardingByDistrict ?? []);
                                 @endphp
                                 <div class="insight-grid">
                                     <div class="insight-card insight-progress">
@@ -614,14 +614,15 @@
                                                 Achievement is based on locked hub batch members (Phase 3 window).
                                             </div>
                                             <div class="insight-split-title">District-wise bifurcation ({{ number_format($onbAchieved) }})</div>
-                                            <div class="insight-split-list">
+                                            <div class="insight-split-list" style="max-height:14rem;overflow-y:auto;padding-right:0.25rem;">
                                                 @forelse ($onbDistrictRows as $row)
-                                                    <div class="insight-split-row">
+                                                    @php $rowCount = (int) ($row['count'] ?? 0); @endphp
+                                                    <div class="insight-split-row" @if ($rowCount === 0) style="opacity:0.55;" @endif>
                                                         <span>{{ $row['district'] }}</span>
-                                                        <strong>{{ number_format((int) ($row['count'] ?? 0)) }}</strong>
+                                                        <strong>{{ number_format($rowCount) }}</strong>
                                                     </div>
                                                 @empty
-                                                    <div class="insight-progress__foot" style="margin-top:0;">No onboarding district split yet.</div>
+                                                    <div class="insight-progress__foot" style="margin-top:0;">No districts configured yet.</div>
                                                 @endforelse
                                             </div>
                                         @else

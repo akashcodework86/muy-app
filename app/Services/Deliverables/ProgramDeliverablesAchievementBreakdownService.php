@@ -294,7 +294,7 @@ class ProgramDeliverablesAchievementBreakdownService
 
         $this->applyDistrictScope($query, 'cs.district_id');
         $this->applyOnboardingAchievementScope($query);
-        $monthExpr = $this->monthKeySql('ob.locked_at');
+        $monthExpr = $this->monthKeySql('ob.onboarding_date');
 
         $rows = (clone $query)
             ->selectRaw("
@@ -314,10 +314,10 @@ class ProgramDeliverablesAchievementBreakdownService
                 'cs.applicant_name',
                 'd.name as district_name',
                 'h.name as hub_name',
-                'ob.locked_at',
+                'ob.onboarding_date',
                 'ob.name as batch_name',
             ])
-            ->orderByDesc('ob.locked_at')
+            ->orderByDesc('ob.onboarding_date')
             ->limit(100)
             ->get()
             ->map(fn ($row) => [
@@ -329,7 +329,7 @@ class ProgramDeliverablesAchievementBreakdownService
                 'service' => 'Onboarding',
                 'spoc' => '—',
                 'status' => 'Locked',
-                'date' => $row->locked_at ? Carbon::parse($row->locked_at)->format('d M Y') : '—',
+                'date' => $row->onboarding_date ? Carbon::parse($row->onboarding_date)->format('d M Y') : '—',
             ])
             ->all();
 
@@ -1240,15 +1240,17 @@ SQL;
      */
     private function applyOnboardingAchievementScope($query): void
     {
+        // Bucket onboardings by ob.onboarding_date (the real onboarded day), not by
+        // ob.locked_at — keeps the breakdown drawer aligned with the matrix totals.
         $floor = $this->phase3FloorDate();
-        $query->where('ob.locked_at', '>=', $floor->toDateTimeString());
+        $query->where('ob.onboarding_date', '>=', $floor->toDateString());
 
         if ($this->filter?->hasExplicitDateFilter() && $this->periodFrom && $this->periodTo) {
             $from = $this->periodFrom->copy();
             if ($from->lt($floor)) {
                 $from = $floor->copy();
             }
-            $query->whereBetween('ob.locked_at', [$from->toDateTimeString(), $this->periodTo->toDateTimeString()]);
+            $query->whereBetween('ob.onboarding_date', [$from->toDateString(), $this->periodTo->toDateString()]);
         }
     }
 

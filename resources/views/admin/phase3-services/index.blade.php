@@ -148,6 +148,7 @@
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Service</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Tier</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Status</th>
+                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;max-width:16rem;">SPOC remark</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">SLA</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Submitted</th>
                     <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Assigned by</th>
@@ -215,6 +216,20 @@
                                 {{ $statusLabel[$case->status] ?? ucfirst((string) $case->status) }}
                             </span>
                         </td>
+                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;max-width:16rem;color:#475569;white-space:normal;word-break:break-word;font-size:0.82rem;">
+                            @php
+                                $spocRemark = match ($case->status) {
+                                    'sent_back' => $case->sent_back_note,
+                                    'rejected' => $case->rejected_note,
+                                    default => null,
+                                };
+                            @endphp
+                            @if ($spocRemark)
+                                {{ $spocRemark }}
+                            @else
+                                <span style="color:#94a3b8;">—</span>
+                            @endif
+                        </td>
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;{{ $isSlaBreached ? 'color:#b91c1c;font-weight:700;' : 'color:#475569;' }}">
                             {{ $case->sla_deadline_at ? \Illuminate\Support\Carbon::parse($case->sla_deadline_at)->format('d M Y') : '—' }}
                             @if ($isSlaBreached)
@@ -252,7 +267,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="14" style="padding:1rem;color:#64748b;">No Phase 3 service cases found for selected filters.</td>
+                        <td colspan="15" style="padding:1rem;color:#64748b;">No Phase 3 service cases found for selected filters.</td>
                     </tr>
                 @endforelse
             </tbody>

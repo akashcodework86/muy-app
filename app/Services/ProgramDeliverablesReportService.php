@@ -121,6 +121,10 @@ class ProgramDeliverablesReportService
             return [];
         }
 
+        // When the user narrows by month / date range, scale or replace FY targets
+        // so the Targets column matches the same window the Achievement column uses.
+        $periodInfo = $this->periodMonthWeights($fiscalYear);
+
         if ($this->useStateTargets) {
             $targets = [];
             $rows = StateDeliverableTarget::query()
@@ -128,7 +132,13 @@ class ProgramDeliverablesReportService
                 ->pluck('target_total', 'deliverable_id');
 
             foreach ($rows as $deliverableId => $total) {
-                $targets[(int) $deliverableId] = (int) $total;
+                $value = (int) $total;
+                if ($periodInfo['has_narrowing']) {
+                    // No monthly data exists at state level: pro-rate the FY total
+                    // by the fraction of the year covered by the filter window.
+                    $value = (int) round($value * $periodInfo['year_fraction']);
+                }
+                $targets[(int) $deliverableId] = $value;
             }
 
             $this->buildTargetIndexesFromTotals($targets);
@@ -136,22 +146,27 @@ class ProgramDeliverablesReportService
             return $targets;
         }
 
-        return $this->loadDistrictScopedTargets($fiscalYear);
+        return $this->loadDistrictScopedTargets($fiscalYear, $periodInfo);
     }
 
     /**
      * District / hub / SPOC: sum district_deliverable_targets for scope, with svc_* code mapping
      * (same resolution as state admin). Falls back to staff monthly allocations when no district row.
      *
+     * When the filter narrows to a month / date range, prefer the weighted sum of
+     * staff_monthly_targets for the selected fiscal months (real plan data), and only
+     * pro-rate the district FY total for deliverables that have no monthly rows yet.
+     *
+     * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
      * @return array<int, int>
      */
-    private function loadDistrictScopedTargets(FiscalYear $fiscalYear): array
+    private function loadDistrictScopedTargets(FiscalYear $fiscalYear, array $periodInfo): array
     {
         if ($this->districtIds === []) {
             return [];
         }
 
-        $targets = [];
+        $districtFy = [];
 
         $districtQuery = DistrictDeliverableTarget::query()
             ->where('fiscal_year_id', $fiscalYear->id);
@@ -162,37 +177,199 @@ class ProgramDeliverablesReportService
 
         foreach ($districtQuery->get(['deliverable_id', 'target_total']) as $row) {
             $id = (int) $row->deliverable_id;
-            $targets[$id] = ($targets[$id] ?? 0) + (int) $row->target_total;
+            $districtFy[$id] = ($districtFy[$id] ?? 0) + (int) $row->target_total;
         }
 
-        if ($this->districtIds !== null && Schema::hasTable('staff_monthly_targets')) {
+        $staffUserIds = [];
+        $hasStaffMonthly = $this->districtIds !== null && Schema::hasTable('staff_monthly_targets');
+        if ($hasStaffMonthly) {
             $staffUserIds = User::query()
                 ->whereIn('district_id', $this->districtIds)
                 ->whereIn('role', ['district_staff', 'state_staff'])
-                ->pluck('id');
+                ->pluck('id')
+                ->all();
+            $hasStaffMonthly = count($staffUserIds) > 0;
+        }
 
-            if ($staffUserIds->isNotEmpty()) {
-                $monthlyTotals = StaffMonthlyTarget::query()
-                    ->where('fiscal_year_id', $fiscalYear->id)
-                    ->whereIn('user_id', $staffUserIds)
-                    ->selectRaw('deliverable_id, SUM(target_count) as total')
-                    ->groupBy('deliverable_id')
-                    ->pluck('total', 'deliverable_id');
+        if ($periodInfo['has_narrowing']) {
+            return $this->buildNarrowedDistrictTargets(
+                $fiscalYear,
+                $districtFy,
+                $staffUserIds,
+                $hasStaffMonthly,
+                $periodInfo,
+            );
+        }
 
-                foreach ($monthlyTotals as $deliverableId => $total) {
-                    $deliverableId = (int) $deliverableId;
-                    $total = (int) $total;
-                    if ($total <= 0 || array_key_exists($deliverableId, $targets)) {
-                        continue;
-                    }
-                    $targets[$deliverableId] = $total;
+        $targets = $districtFy;
+
+        if ($hasStaffMonthly) {
+            $monthlyTotals = StaffMonthlyTarget::query()
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->whereIn('user_id', $staffUserIds)
+                ->selectRaw('deliverable_id, SUM(target_count) as total')
+                ->groupBy('deliverable_id')
+                ->pluck('total', 'deliverable_id');
+
+            foreach ($monthlyTotals as $deliverableId => $total) {
+                $deliverableId = (int) $deliverableId;
+                $total = (int) $total;
+                if ($total <= 0 || array_key_exists($deliverableId, $targets)) {
+                    continue;
                 }
+                $targets[$deliverableId] = $total;
             }
         }
 
         $this->buildTargetIndexesFromTotals($targets);
 
         return $targets;
+    }
+
+    /**
+     * Per-deliverable target narrowed to the selected month / date window:
+     *  - if staff_monthly_targets has any non-zero row for the FY → use weighted month sum
+     *    (real plan; may legitimately be 0 if nothing is planned for the selected months)
+     *  - else → pro-rate the district FY total by the fraction of year selected.
+     *
+     * @param  array<int, int>  $districtFy
+     * @param  list<int>  $staffUserIds
+     * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
+     * @return array<int, int>
+     */
+    private function buildNarrowedDistrictTargets(
+        FiscalYear $fiscalYear,
+        array $districtFy,
+        array $staffUserIds,
+        bool $hasStaffMonthly,
+        array $periodInfo,
+    ): array {
+        $weightedMonthly = [];
+        $deliverablesWithMonthlyData = [];
+
+        if ($hasStaffMonthly && $periodInfo['weights'] !== []) {
+            $rows = StaffMonthlyTarget::query()
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->whereIn('user_id', $staffUserIds)
+                ->whereIn('month_number', array_keys($periodInfo['weights']))
+                ->selectRaw('deliverable_id, month_number, SUM(target_count) as total')
+                ->groupBy('deliverable_id', 'month_number')
+                ->get();
+
+            foreach ($rows as $row) {
+                $deliverableId = (int) $row->deliverable_id;
+                $weight = $periodInfo['weights'][(int) $row->month_number] ?? 0.0;
+                $weightedMonthly[$deliverableId] = ($weightedMonthly[$deliverableId] ?? 0.0)
+                    + ((int) $row->total) * $weight;
+            }
+
+            $deliverablesWithMonthlyData = StaffMonthlyTarget::query()
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->whereIn('user_id', $staffUserIds)
+                ->where('target_count', '>', 0)
+                ->distinct()
+                ->pluck('deliverable_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        $monthlyDataSet = array_flip($deliverablesWithMonthlyData);
+
+        $targets = [];
+        $allIds = array_values(array_unique(array_merge(
+            array_keys($districtFy),
+            $deliverablesWithMonthlyData,
+        )));
+
+        foreach ($allIds as $deliverableId) {
+            $deliverableId = (int) $deliverableId;
+
+            if (isset($monthlyDataSet[$deliverableId])) {
+                $value = (int) round($weightedMonthly[$deliverableId] ?? 0);
+                if ($value > 0) {
+                    $targets[$deliverableId] = $value;
+                }
+
+                continue;
+            }
+
+            $fyTotal = (int) ($districtFy[$deliverableId] ?? 0);
+            if ($fyTotal > 0) {
+                $targets[$deliverableId] = (int) round($fyTotal * $periodInfo['year_fraction']);
+            }
+        }
+
+        $this->buildTargetIndexesFromTotals($targets);
+
+        return $targets;
+    }
+
+    /**
+     * Translate the active filter window into per-FY-month weights and an overall year fraction.
+     *
+     * - Keys in `weights` are fiscal-month indexes (M1..M12), matching staff_monthly_targets.month_number.
+     * - Each weight = (days of that calendar month covered by the window) / (days in that calendar month).
+     * - `year_fraction` = (total days covered) / (days in fiscal year), used to pro-rate FY totals
+     *   where no monthly breakdown exists (state targets, or district deliverables without monthly rows).
+     *
+     * @return array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}
+     */
+    private function periodMonthWeights(?FiscalYear $fiscalYear): array
+    {
+        $hasNarrowing = $this->filter?->hasExplicitDateFilter() ?? false;
+
+        if (! $hasNarrowing
+            || ! $this->periodFrom
+            || ! $this->periodTo
+            || ! $fiscalYear?->starts_on
+            || ! $fiscalYear?->ends_on
+        ) {
+            return ['weights' => [], 'year_fraction' => 1.0, 'has_narrowing' => false];
+        }
+
+        $fromDate = $this->periodFrom->copy()->startOfDay();
+        $toDate = $this->periodTo->copy()->startOfDay();
+
+        $weights = [];
+        $totalOverlapDays = 0;
+
+        $cursor = $fromDate->copy()->startOfMonth();
+        $endMonthCursor = $toDate->copy()->startOfMonth();
+
+        while ($cursor->lte($endMonthCursor)) {
+            $monthFirst = $cursor->copy()->startOfMonth();
+            $monthLast = $cursor->copy()->endOfMonth()->startOfDay();
+
+            $overlapStart = $monthFirst->gt($fromDate) ? $monthFirst : $fromDate;
+            $overlapEnd = $monthLast->lt($toDate) ? $monthLast : $toDate;
+
+            if ($overlapEnd->gte($overlapStart)) {
+                $overlapDays = (int) $overlapStart->diffInDays($overlapEnd) + 1;
+                $daysInMonth = $cursor->daysInMonth;
+                $weight = $daysInMonth > 0 ? $overlapDays / $daysInMonth : 0.0;
+
+                $fyMonthIdx = $fiscalYear->fiscalMonthIndex($monthFirst->copy()->startOfDay());
+                if ($fyMonthIdx !== null) {
+                    $weights[$fyMonthIdx] = ($weights[$fyMonthIdx] ?? 0.0) + $weight;
+                }
+
+                $totalOverlapDays += $overlapDays;
+            }
+
+            $cursor->addMonth();
+        }
+
+        $fyStart = $fiscalYear->starts_on->copy()->startOfDay();
+        $fyEnd = $fiscalYear->ends_on->copy()->startOfDay();
+        $daysInFy = (int) $fyStart->diffInDays($fyEnd) + 1;
+
+        $yearFraction = $daysInFy > 0 ? min(1.0, $totalOverlapDays / $daysInFy) : 0.0;
+
+        return [
+            'weights' => $weights,
+            'year_fraction' => $yearFraction,
+            'has_narrowing' => true,
+        ];
     }
 
     /**
@@ -831,15 +1008,18 @@ SQL;
      */
     private function applyOnboardingAchievementScope($query): void
     {
+        // Count onboardings by the real day the people were onboarded (ob.onboarding_date),
+        // not by ob.locked_at — admin can lock a batch days/weeks after the actual onboarding,
+        // which previously misattributed members to the wrong month.
         $floor = $this->phase3FloorDate();
-        $query->where('ob.locked_at', '>=', $floor->toDateTimeString());
+        $query->where('ob.onboarding_date', '>=', $floor->toDateString());
 
         if ($this->filter?->hasExplicitDateFilter() && $this->periodFrom && $this->periodTo) {
             $from = $this->periodFrom->copy();
             if ($from->lt($floor)) {
                 $from = $floor->copy();
             }
-            $query->whereBetween('ob.locked_at', [$from->toDateTimeString(), $this->periodTo->toDateTimeString()]);
+            $query->whereBetween('ob.onboarding_date', [$from->toDateString(), $this->periodTo->toDateString()]);
         }
     }
 

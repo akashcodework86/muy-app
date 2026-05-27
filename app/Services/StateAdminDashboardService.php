@@ -132,12 +132,16 @@ class StateAdminDashboardService
                 ->count();
 
             if (Schema::hasTable('districts')) {
-                $stateOnboardingByDistrict = DB::table('onboarding_batch_cfa as obc')
-                    ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
-                    ->join('districts as d', 'd.id', '=', 'ob.district_id')
-                    ->where('ob.status', 'locked')
-                    ->whereNotNull('ob.locked_at')
-                    ->where('ob.locked_at', '>=', $phase3FloorDate)
+                // Start from districts so every district is included (zeros for those
+                // without locked hub batches in the Phase 3 window).
+                $stateOnboardingByDistrict = DB::table('districts as d')
+                    ->leftJoin('onboarding_batches as ob', function ($join) use ($phase3FloorDate): void {
+                        $join->on('ob.district_id', '=', 'd.id')
+                            ->where('ob.status', '=', 'locked')
+                            ->whereNotNull('ob.locked_at')
+                            ->where('ob.locked_at', '>=', $phase3FloorDate);
+                    })
+                    ->leftJoin('onboarding_batch_cfa as obc', 'obc.onboarding_batch_id', '=', 'ob.id')
                     ->groupBy('d.id', 'd.name')
                     ->orderByDesc(DB::raw('COUNT(obc.id)'))
                     ->orderBy('d.name')
