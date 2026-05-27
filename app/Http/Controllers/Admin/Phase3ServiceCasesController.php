@@ -16,11 +16,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Phase3ServiceCasesController extends Controller
@@ -145,7 +140,11 @@ class Phase3ServiceCasesController extends Controller
         $legacyPreviews = $this->buildLegacyPreviewMap($rows);
         $legacyDetails = $this->buildLegacyPhase2ExportMap($rows);
 
-        $spreadsheet = new Spreadsheet;
+        if (! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            return $this->exportAsCsv($rows, $legacyPreviews, $legacyDetails);
+        }
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator('MUY Admin')
             ->setTitle('Phase 3 Service Cases')
@@ -191,9 +190,9 @@ class Phase3ServiceCasesController extends Controller
 
         $sheet->getStyle($headerRange)->applyFromArray([
             'font' => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
         ]);
         $sheet->getRowDimension(1)->setRowHeight(22);
         $sheet->setAutoFilter('A1:'.$lastCol.'1');
@@ -216,9 +215,9 @@ class Phase3ServiceCasesController extends Controller
         $rawSheet->setCellValue('C1', 'Applicant payload (JSON)');
         $rawSheet->getStyle('A1:C1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
         ]);
         $rawSheet->getRowDimension(1)->setRowHeight(22);
         $rawSheet->getColumnDimension('A')->setWidth(22);
@@ -340,13 +339,13 @@ class Phase3ServiceCasesController extends Controller
 
             $bgColor = $statusColors[$case->status] ?? 'FFFFFF';
             $sheet->getStyle('A'.$rowNum.':'.$lastCol.$rowNum)->applyFromArray([
-                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $bgColor]],
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
-                'alignment' => ['vertical' => Alignment::VERTICAL_TOP],
+                'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => $bgColor]],
+                'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+                'alignment' => ['vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP],
             ]);
 
-            $sheet->getStyle('A'.$rowNum)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('V'.$rowNum)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('A'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('V'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
             $rowNum++;
         }
@@ -357,12 +356,154 @@ class Phase3ServiceCasesController extends Controller
         $fileName = 'phase3-service-cases-'.now()->format('Ymd_His').'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet): void {
-            $writer = new Xlsx($spreadsheet);
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
             $writer->save('php://output');
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Cache-Control' => 'max-age=0',
         ]);
+    }
+
+    /**
+     * CSV fallback when PhpSpreadsheet is not installed on the server (opens in Excel).
+     *
+     * @param  Collection<int, ServiceCase>|\Illuminate\Database\Eloquent\Collection<int, ServiceCase>  $rows
+     * @param  array<int, array{applicant_name: string, application_no: string, district: string}|null>  $legacyPreviews
+     * @param  array<int, array<string, string>>  $legacyDetails
+     */
+    private function exportAsCsv($rows, array $legacyPreviews, array $legacyDetails): StreamedResponse
+    {
+        $headers = $this->exportColumnLabels();
+        $fileName = 'phase3-service-cases-'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () use ($rows, $legacyPreviews, $legacyDetails, $headers): void {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, $headers);
+
+            $sn = 0;
+            foreach ($rows as $case) {
+                $sn++;
+                $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
+                $legacyId = (int) ($case->legacy_application_id ?? 0);
+                $legacyRow = ($legacyId > 0 && ! $case->cfa_submission_id)
+                    ? ($legacyDetails[$legacyId] ?? null)
+                    : null;
+
+                fputcsv($out, $this->exportRowValues($case, $sn, $lp, $legacyRow));
+            }
+
+            fclose($out);
+        }, $fileName, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function exportColumnLabels(): array
+    {
+        return [
+            '#',
+            'Reference Number',
+            'Application Number',
+            'Applicant Name',
+            'District',
+            'Applicant Phone',
+            'Block',
+            'Sector',
+            'Product',
+            'Village',
+            'Pincode',
+            'Service Category',
+            'Service Name',
+            'Reporting Tier',
+            'Status',
+            'SLA Deadline',
+            'Submitted At',
+            'Submitted By',
+            'SPOC',
+            'Approved By',
+            'Created At',
+            'Documents Count',
+            'SPOC remark',
+        ];
+    }
+
+    /**
+     * @param  array{applicant_name: string, application_no: string, district: string}|null  $legacyPreview
+     * @param  array<string, string>|null  $legacyRow
+     * @return list<string|int>
+     */
+    private function exportRowValues(ServiceCase $case, int $sn, ?array $legacyPreview, ?array $legacyRow): array
+    {
+        $payload = is_array($case->cfaSubmission?->payload) ? $case->cfaSubmission->payload : [];
+
+        if (is_array($legacyRow)) {
+            $applicationNo = (string) ($legacyRow['application_no'] ?? '');
+            $applicantName = (string) ($legacyRow['applicant_name'] ?? '');
+            $district = (string) ($legacyRow['district'] ?? '');
+            $phone = (string) ($legacyRow['phone'] ?? '');
+            $block = (string) ($legacyRow['block'] ?? '');
+            $village = (string) ($legacyRow['village'] ?? '');
+            $sector = (string) ($legacyRow['business_category'] ?? '');
+            $product = (string) ($legacyRow['product'] ?? '');
+            $pincode = '';
+        } else {
+            $applicationNo = (string) ($case->cfaSubmission?->application_no ?? ($legacyPreview['application_no'] ?? ''));
+            $applicantName = (string) ($case->cfaSubmission?->applicant_name ?? ($legacyPreview['applicant_name'] ?? ''));
+            $district = (string) ($case->cfaSubmission?->district?->name ?? ($legacyPreview['district'] ?? ''));
+            $phone = (string) ($case->cfaSubmission?->phone ?? '');
+            $block = (string) ($payload['block'] ?? '');
+            $sector = (string) ($payload['business_category'] ?? '');
+            $product = trim((string) ($payload['product'] ?? ''));
+            if ($product === 'Others') {
+                $product = trim((string) ($payload['other_product'] ?? ''));
+            }
+            $village = (string) ($payload['village'] ?? '');
+            $pincode = (string) ($payload['pincode'] ?? '');
+        }
+
+        if ($phone !== '' && preg_match('/^[\d\s+\-]{10,}$/', $phone)) {
+            $phone = "\t".$phone;
+        }
+
+        $spocRemark = match ($case->status) {
+            ServiceCase::STATUS_SENT_BACK => (string) ($case->sent_back_note ?? ''),
+            ServiceCase::STATUS_REJECTED => (string) ($case->rejected_note ?? ''),
+            default => '',
+        };
+
+        return [
+            $sn,
+            (string) ($case->reference_number ?: ''),
+            $applicationNo,
+            $applicantName,
+            $district,
+            $phone,
+            $block,
+            $sector,
+            $product,
+            $village,
+            $pincode,
+            (string) ($case->service?->category?->name ?? ''),
+            (string) ($case->service?->name ?? ''),
+            strtoupper((string) ($case->service?->reporting_tier ?? 'UNSET')),
+            ucfirst(str_replace('_', ' ', (string) $case->status)),
+            $this->fmtDate($case->sla_deadline_at),
+            $this->fmtDate($case->submitted_at),
+            (string) ($case->submitter?->name ?? ''),
+            (string) ($case->spoc?->name ?? 'Unassigned'),
+            (string) ($case->approver?->name ?? ''),
+            $this->fmtDate($case->created_at),
+            (int) $case->attachments->count(),
+            $spocRemark,
+        ];
     }
 
     /**

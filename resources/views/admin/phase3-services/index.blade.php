@@ -76,7 +76,7 @@
             <strong>Filters</strong>
             <div style="display:flex;gap:0.5rem;align-items:center;">
                 <span style="font-size:0.8rem;color:#475569;">{{ $activeFilterCount }} active</span>
-                <a href="{{ route('admin.phase3-services.export', request()->query()) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.38rem 0.7rem;border-radius:8px;font-size:0.82rem;font-weight:600;">⬇ Export .xlsx</a>
+                <a href="{{ route('admin.phase3-services.export', request()->query()) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.38rem 0.7rem;border-radius:8px;font-size:0.82rem;font-weight:600;">⬇ Export</a>
             </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.55rem;">
