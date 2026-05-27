@@ -29,7 +29,7 @@ class StaffCheckInExcelExportService
         string $statusFilter,
     ): StreamedResponse {
         if (! class_exists(Spreadsheet::class)) {
-            abort(500, 'Excel export is not available (PhpSpreadsheet not installed).');
+            return $this->downloadCsv($summary, $date, $roleOptions);
         }
 
         $spreadsheet = new Spreadsheet;
@@ -154,6 +154,59 @@ class StaffCheckInExcelExportService
             (new Xlsx($spreadsheet))->save('php://output');
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * CSV fallback when PhpSpreadsheet is not installed on server.
+     *
+     * @param  array{total: int, present: int, absent: int, rows: \Illuminate\Support\Collection}  $summary
+     */
+    private function downloadCsv(array $summary, Carbon $date, array $roleOptions): StreamedResponse
+    {
+        $tz = config('app.timezone');
+        $fileName = 'staff-daily-attendance-'.$date->format('Y-m-d').'-'.now()->format('His').'.csv';
+
+        return response()->streamDownload(function () use ($summary, $roleOptions, $tz): void {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+
+            // UTF-8 BOM so Excel opens Hindi/UTF-8 text correctly.
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, ['S.N.', 'Staff name', 'Email', 'Role', 'Designation', 'Hub', 'District', 'Status', 'Check-in date', 'Check-in time', 'Latitude', 'Longitude', 'Accuracy (m)', 'Google Maps']);
+
+            $sn = 1;
+            foreach ($summary['rows'] as $item) {
+                $user = $item['user'];
+                $checkIn = $item['check_in'];
+                $present = (bool) $item['present'];
+
+                fputcsv($out, [
+                    $sn,
+                    (string) $user->name,
+                    (string) $user->email,
+                    (string) ($roleOptions[$user->role] ?? $user->role),
+                    (string) ($user->designationRecord?->name ?? '—'),
+                    (string) ($user->hub?->name ?? '—'),
+                    (string) ($user->district?->name ?? '—'),
+                    $present ? 'Present' : 'Absent',
+                    $present && $checkIn ? (string) $checkIn->check_in_date->format('Y-m-d') : '—',
+                    $present && $checkIn ? (string) $checkIn->marked_at->timezone($tz)->format('H:i:s') : '—',
+                    $present && $checkIn ? (string) $checkIn->latitude : '',
+                    $present && $checkIn ? (string) $checkIn->longitude : '',
+                    $present && $checkIn && $checkIn->accuracy_m ? (string) $checkIn->accuracy_m : '',
+                    $present && $checkIn ? (string) $checkIn->googleMapsUrl() : '',
+                ]);
+
+                $sn++;
+            }
+
+            fclose($out);
+        }, $fileName, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 }
