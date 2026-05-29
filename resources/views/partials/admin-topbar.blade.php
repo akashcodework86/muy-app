@@ -159,6 +159,10 @@
         || $staffNavTechnicalTraining
         || $staffNavEapEdp
         || $staffNavDistrictWorkshop;
+    $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'staff-batches'], true);
+    $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'deliverables', 'field-coordinator-report'], true);
+    $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard'], true)
+        || $staffFieldWorkActive;
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -446,7 +450,7 @@
         @endif
 
         @if ($showStaffNav)
-        <nav class="admin-topbar__nav" aria-label="Staff">
+        <nav class="admin-topbar__nav admin-topbar__nav--state-admin" aria-label="Staff">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>
@@ -455,40 +459,67 @@
                 {!! $i('pin') !!}<span class="admin-topbar__link-text">Daily attendance</span>
             </a>
             @endif
-            <a href="{{ route('staff.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
-                {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
-            </a>
-            <a href="{{ route('staff.monthly-targets') }}" class="admin-topbar__link @if ($activeNav === 'staff-targets') is-active @endif">
-                {!! $i('calendar') !!}<span class="admin-topbar__link-text">Monthly targets</span>
-            </a>
-            <a href="{{ route('staff.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
-                {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
-            </a>
-            <a href="{{ route('staff.field-coordinator-reports.index') }}" class="admin-topbar__link @if ($activeNav === 'field-coordinator-report') is-active @endif">
-                {!! $i('calendar') !!}<span class="admin-topbar__link-text">Field coordinator report</span>
-            </a>
-            <a href="{{ route('staff.applications') }}" class="admin-topbar__link @if ($activeNav === 'staff-apps') is-active @endif">
-                {!! $i('inbox') !!}<span class="admin-topbar__link-text">Applications</span>
-            </a>
-            @if ($staffServiceModuleOn)
-            <a href="{{ route('staff.services.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-services') is-active @endif">
-                {!! $i('doc') !!}<span class="admin-topbar__link-text">Services</span>
-            </a>
-            @endif
-            <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__link @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif">
-                {!! $i('pin') !!}<span class="admin-topbar__link-text">Market linkage</span>
-            </a>
-            <a href="{{ route('staff.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-batches') is-active @endif">
-                {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
-            </a>
-            @include('partials.staff-field-work-nav')
 
-            <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase2-data') is-active @endif">
-                {!! $i('pie') !!}<span class="admin-topbar__link-text">FY 2025-26 Data</span>
-            </a>
-            <a href="{{ route('staff.phase1-data') }}" class="admin-topbar__link @if ($activeNav === 'staff-phase1-data') is-active @endif">
-                {!! $i('database') !!}<span class="admin-topbar__link-text">CFA (FY 2024-25 Data)</span>
-            </a>
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffCfaGroupActive) is-active @endif">
+                    {!! $i('cfa') !!}<span class="admin-topbar__link-text">CFA</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Applications &amp; data</p>
+                    <a href="{{ route('staff.applications') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-apps') is-active @endif" role="menuitem">
+                        {!! $i('inbox') !!}<span>Applications</span>
+                    </a>
+                    <a href="{{ route('staff.phase1-data') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-phase1-data') is-active @endif" role="menuitem">
+                        {!! $i('database') !!}<span>CFA (FY 2024-25 Data)</span>
+                    </a>
+                    <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-phase2-data') is-active @endif" role="menuitem">
+                        {!! $i('pie') !!}<span>FY 2025-26 Data</span>
+                    </a>
+                    <a href="{{ route('staff.onboarded.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarded') is-active @endif" role="menuitem">
+                        {!! $i('batches') !!}<span>Onboarded</span>
+                    </a>
+                    <a href="{{ route('staff.batches.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-batches') is-active @endif" role="menuitem">
+                        {!! $i('batches') !!}<span>Batches</span>
+                    </a>
+                </div>
+            </details>
+
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffTargetsGroupActive) is-active @endif">
+                    {!! $i('targets') !!}<span class="admin-topbar__link-text">Targets &amp; progress</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Planning &amp; reporting</p>
+                    <a href="{{ route('staff.monthly-targets') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-targets') is-active @endif" role="menuitem">
+                        {!! $i('calendar') !!}<span>Monthly targets</span>
+                    </a>
+                    <a href="{{ route('staff.deliverables.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'deliverables') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>Deliverables</span>
+                    </a>
+                    <a href="{{ route('staff.field-coordinator-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-coordinator-report') is-active @endif" role="menuitem">
+                        {!! $i('calendar') !!}<span>Field coordinator report</span>
+                    </a>
+                </div>
+            </details>
+
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffServiceGroupActive) is-active @endif">
+                    {!! $i('catalog') !!}<span class="admin-topbar__link-text">Service</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel admin-topbar__dropdown-panel--wide" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Service module</p>
+                    @if ($staffServiceModuleOn)
+                    <a href="{{ route('staff.services.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-services') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Services</span>
+                    </a>
+                    @endif
+                    <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif" role="menuitem">
+                        {!! $i('pin') !!}<span>Market linkage</span>
+                    </a>
+                    @include('partials.staff-field-work-nav', ['staffFieldWorkNavEmbedded' => true])
+                </div>
+            </details>
+
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>
