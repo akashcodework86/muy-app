@@ -207,7 +207,7 @@
     .admin-topbar__dropdown-panel {
         position: absolute;
         left: 0;
-        top: calc(100% + 0.35rem);
+        top: calc(100% + 0.15rem);
         min-width: 13.5rem;
         padding: 0.4rem;
         background: rgba(255, 255, 255, 0.98);
@@ -226,10 +226,16 @@
         font-weight: 500;
         color: #334155;
         text-decoration: none;
-        transition: background 0.15s, color 0.15s;
+        transition: background-color 0.18s ease, color 0.18s ease;
     }
     .admin-topbar__dropdown-item:hover {
-        background: rgba(99, 102, 241, 0.12);
+        background: rgba(99, 102, 241, 0.16);
+        color: #1e1b4b;
+    }
+    .admin-topbar__dropdown-item:focus-visible {
+        outline: 2px solid rgba(99, 102, 241, 0.45);
+        outline-offset: 2px;
+        background: rgba(99, 102, 241, 0.16);
         color: #1e1b4b;
     }
     .admin-topbar__dropdown-item.is-active {
@@ -314,11 +320,18 @@
         padding: 0.45rem 0.75rem;
         border-radius: 8px;
         white-space: nowrap;
-        transition: background 0.15s, color 0.15s;
+        transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
     }
     .admin-topbar__link:hover {
         color: #1e1b4b;
-        background: rgba(99, 102, 241, 0.12);
+        background: rgba(99, 102, 241, 0.16);
+        box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.2);
+    }
+    .admin-topbar__link:focus-visible {
+        outline: 2px solid rgba(99, 102, 241, 0.45);
+        outline-offset: 2px;
+        color: #1e1b4b;
+        background: rgba(99, 102, 241, 0.16);
     }
     .admin-topbar__link.is-active {
         color: #fff;
@@ -1173,6 +1186,15 @@
     .admin-topbar__dropdown-subgroup {
         position: relative;
     }
+    /* Keep submenu hover path connected so it does not collapse while crossing over */
+    .admin-topbar__dropdown-subgroup::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: -0.45rem;
+        width: 0.45rem;
+        height: 100%;
+    }
     .admin-topbar__dropdown-subtrigger {
         display: flex;
         align-items: center;
@@ -1209,8 +1231,8 @@
     .admin-topbar__dropdown-subpanel {
         display: none;
         position: absolute;
-        left: calc(100% + 0.35rem);
-        top: 0.15rem;
+        left: calc(100% - 0.08rem);
+        top: 0;
         min-width: 15rem;
         padding: 0.4rem;
         background: rgba(255, 255, 255, 0.98);

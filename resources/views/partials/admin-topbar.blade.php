@@ -516,9 +516,9 @@
                     <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Market linkage</span>
                     </a>
-                    @include('partials.staff-field-work-nav', ['staffFieldWorkNavEmbedded' => true])
                 </div>
             </details>
+            @include('partials.staff-field-work-nav')
 
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
