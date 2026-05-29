@@ -379,7 +379,7 @@
                                         <i class="fa-solid fa-eye"></i> View
                                     </a>
                                     @if ((int) $row->field_coordinator_user_id === (int) auth()->id())
-                                        <a href="{{ route($rp.'.edit', $row) }}" class="bw-btn bw-btn--sm bw-btn--ghost" style="text-decoration:none;">
+                                        <a href="{{ route($rp.'.index', ['edit' => $row->id]) }}" class="bw-btn bw-btn--sm bw-btn--ghost" style="text-decoration:none;">
                                             <i class="fa-solid fa-pen"></i> Edit
                                         </a>
                                         <form method="post" action="{{ route($rp.'.destroy', $row) }}" style="display:inline;" onsubmit="return confirm('Delete this workshop submission?');">

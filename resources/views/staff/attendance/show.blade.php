@@ -135,9 +135,15 @@
         </div>
         <div class="ws-banner__actions">
             @if ($report->isSubmitted() && (int) $report->field_coordinator_user_id === (int) auth()->id())
-                <a href="{{ route($rp.'.edit', [$mp => $report]) }}" class="ws-btn ws-btn--ghost ws-btn--sm">
-                    <i class="fa-solid fa-pen"></i> Edit
-                </a>
+                @if ($rp === 'staff.workshops')
+                    <a href="{{ route($rp.'.index', ['edit' => $report->id]) }}" class="ws-btn ws-btn--ghost ws-btn--sm">
+                        <i class="fa-solid fa-pen"></i> Edit
+                    </a>
+                @else
+                    <a href="{{ route($rp.'.edit', [$mp => $report]) }}" class="ws-btn ws-btn--ghost ws-btn--sm">
+                        <i class="fa-solid fa-pen"></i> Edit
+                    </a>
+                @endif
                 <form method="post" action="{{ route($rp.'.destroy', [$mp => $report]) }}" style="display:inline;" onsubmit="return confirm('Delete this workshop submission?');">
                     @csrf
                     @method('DELETE')

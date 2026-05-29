@@ -305,6 +305,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('workshops.edit');
         Route::put('workshops/{blockWorkshop}', [BlockWorkshopController::class, 'update'])
             ->name('workshops.update');
+        Route::post('workshops/{blockWorkshop}/save', [BlockWorkshopController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('workshops.save');
         Route::get('workshops/{blockWorkshop}/participants-export', [BlockWorkshopController::class, 'exportParticipants'])
             ->name('workshops.participants.export');
         Route::get('workshops/{blockWorkshop}/attendance-sheet', [BlockWorkshopController::class, 'downloadAttendanceSheet'])

@@ -61,25 +61,40 @@ class BlockWorkshopController extends Controller
         ]);
         }
 
-        $draftId = (int) $request->query('draft', 0);
+        $editId = (int) $request->query('edit', 0);
+        $editingSubmitted = false;
         $activeDraft = null;
 
-        if ($draftId > 0) {
+        if ($editId > 0) {
             $activeDraft = BlockWorkshop::query()
-                ->draft()
+                ->submitted()
                 ->where('field_coordinator_user_id', (int) $user->id)
-                ->whereKey($draftId)
+                ->whereKey($editId)
                 ->with(['district', 'gramPanchayat', 'districtBlock'])
-                ->first();
+                ->firstOrFail();
+            $editingSubmitted = true;
         }
 
         if ($activeDraft === null) {
-            $activeDraft = BlockWorkshop::query()
-                ->draft()
-                ->where('field_coordinator_user_id', (int) $user->id)
-                ->with(['district', 'gramPanchayat', 'districtBlock'])
-                ->orderByDesc('updated_at')
-                ->first();
+            $draftId = (int) $request->query('draft', 0);
+
+            if ($draftId > 0) {
+                $activeDraft = BlockWorkshop::query()
+                    ->draft()
+                    ->where('field_coordinator_user_id', (int) $user->id)
+                    ->whereKey($draftId)
+                    ->with(['district', 'gramPanchayat', 'districtBlock'])
+                    ->first();
+            }
+
+            if ($activeDraft === null) {
+                $activeDraft = BlockWorkshop::query()
+                    ->draft()
+                    ->where('field_coordinator_user_id', (int) $user->id)
+                    ->with(['district', 'gramPanchayat', 'districtBlock'])
+                    ->orderByDesc('updated_at')
+                    ->first();
+            }
         }
 
         $reports = BlockWorkshop::query()
@@ -99,6 +114,7 @@ class BlockWorkshopController extends Controller
             'migrationMissing' => false,
             'draftWorkflow' => true,
             'activeDraft' => $activeDraft,
+            'editingSubmitted' => $editingSubmitted,
             'routePrefix' => 'staff.workshops',
             'modelParam' => 'blockWorkshop',
         ]);
@@ -155,7 +171,7 @@ class BlockWorkshopController extends Controller
     {
         $user = $request->user()->load('district');
         abort_unless($this->canSubmit($user), 403);
-        $this->assertOwnDraft($user, $blockWorkshop);
+        $this->assertOwnEditable($user, $blockWorkshop);
 
         $rules = [
             'visit_date' => ['nullable', 'date'],
@@ -243,7 +259,7 @@ class BlockWorkshopController extends Controller
     {
         $user = $request->user();
         abort_unless($this->canSubmit($user), 403);
-        $this->assertOwnDraft($user, $blockWorkshop);
+        $this->assertOwnEditable($user, $blockWorkshop);
 
         $incoming = $request->input('participants');
         abort_if(! is_array($incoming), 422, 'participants must be an array');
@@ -261,7 +277,7 @@ class BlockWorkshopController extends Controller
     {
         $user = $request->user();
         abort_unless($this->canSubmit($user), 403);
-        $this->assertOwnDraft($user, $blockWorkshop);
+        $this->assertOwnEditable($user, $blockWorkshop);
 
         $current = count($blockWorkshop->visitMediaItems());
         $remaining = FieldVisitMediaStorage::MAX_PHOTOS_PER_REPORT - $current;
@@ -301,7 +317,7 @@ class BlockWorkshopController extends Controller
     {
         $user = $request->user();
         abort_unless($this->canSubmit($user), 403);
-        $this->assertOwnDraft($user, $blockWorkshop);
+        $this->assertOwnEditable($user, $blockWorkshop);
 
         $items = $this->mediaStorage->removeAt($blockWorkshop, $photoIndex);
         $blockWorkshop->update(['visit_media_json' => $items]);
@@ -453,9 +469,6 @@ class BlockWorkshopController extends Controller
         ]);
 
         $status = 'Block level workshop submitted.';
-        if ($participantsTotal > 0 && $sheetPayload === []) {
-            $status .= ' You can upload the attendance Excel sheet later from My submissions.';
-        }
 
         return redirect()
             ->route('staff.workshops.index')
@@ -583,7 +596,7 @@ class BlockWorkshopController extends Controller
         ]);
     }
 
-    public function edit(BlockWorkshop $blockWorkshop, Request $request): View|RedirectResponse
+    public function edit(BlockWorkshop $blockWorkshop, Request $request): RedirectResponse
     {
         $user = $request->user()->load(['district', 'designationRecord']);
         abort_unless($this->canSubmit($user), 403);
@@ -593,27 +606,7 @@ class BlockWorkshopController extends Controller
             return redirect()->route('staff.workshops.index', ['draft' => $blockWorkshop->id]);
         }
 
-        $districtId = (int) ($user->district_id ?: 0);
-        $blockRows = $districtId > 0
-            ? DistrictBlock::query()
-                ->where('district_id', $districtId)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'name'])
-            : collect();
-
-        $blockWorkshop->load(['district', 'gramPanchayat']);
-
-        return view('staff.attendance.edit', [
-            'report' => $blockWorkshop,
-            'user' => $user,
-            'blockRows' => $blockRows,
-            'gramPanchayatsEnabled' => Schema::hasTable('gram_panchayats'),
-            'routePrefix' => 'staff.workshops',
-            'modelParam' => 'blockWorkshop',
-            'cancelUrl' => route('staff.workshops.view'),
-            'pageTitle' => 'Edit block level workshop',
-        ]);
+        return redirect()->route('staff.workshops.index', ['edit' => $blockWorkshop->id]);
     }
 
     public function update(BlockWorkshop $blockWorkshop, Request $request): RedirectResponse
@@ -621,6 +614,8 @@ class BlockWorkshopController extends Controller
         $user = $request->user()->load(['district', 'designationRecord']);
         abort_unless($this->canSubmit($user), 403);
         abort_unless($this->canModify($user, $blockWorkshop), 403);
+
+        $districtId = (int) ($user->district_id ?: 0);
 
         $rules = [
             'visit_date' => ['required', 'date'],
@@ -630,23 +625,35 @@ class BlockWorkshopController extends Controller
             'participants_male_count' => ['required', 'integer', 'min:0'],
             'participants_female_count' => ['required', 'integer', 'min:0'],
             'remark' => ['nullable', 'string', 'max:2000'],
+            'attendance_sheet' => ['nullable', 'file', 'mimes:xlsx,xls,csv,txt', 'max:10240'],
         ];
 
         if (! Schema::hasTable('gram_panchayats')) {
-            unset($rules['gram_panchayat_id']);
             $rules['gram_panchayat_id'] = ['nullable'];
         }
 
         $validated = $request->validate($rules);
 
-        $districtId = (int) ($user->district_id ?: 0);
         $block = DistrictBlock::query()->findOrFail((int) $validated['district_block_id']);
         abort_unless((int) $block->district_id === $districtId, 403);
 
         $gramPanchayat = null;
-        if (Schema::hasTable('gram_panchayats')) {
+        if (Schema::hasTable('gram_panchayats') && ! empty($validated['gram_panchayat_id'])) {
             $gramPanchayat = GramPanchayat::query()->findOrFail((int) $validated['gram_panchayat_id']);
             abort_unless((int) $gramPanchayat->district_block_id === (int) $block->id, 422);
+        }
+
+        $mediaItems = $blockWorkshop->visitMediaItems();
+
+        if (! $request->has('skip_media_check') && count($mediaItems) === 0) {
+            $newMedia = $this->mediaStorage->storeMany((array) $request->file('visit_media', []));
+            $mediaItems = $this->mediaStorage->mergeOntoReport($blockWorkshop, $newMedia);
+        }
+
+        if (count($mediaItems) === 0) {
+            return back()
+                ->withErrors(['visit_media' => 'Upload at least one workshop photo.'])
+                ->withInput();
         }
 
         $male = (int) $validated['participants_male_count'];
@@ -663,6 +670,9 @@ class BlockWorkshopController extends Controller
             || (string) $blockWorkshop->area !== (string) $validated['area']
             || (string) $blockWorkshop->block !== (string) $block->name;
 
+        $sheetPayload = [];
+        $sheetFile = $request->file('attendance_sheet');
+
         if ($locationOrCountsChanged && $blockWorkshop->hasAttendanceSheet()) {
             $sheetPath = (string) $blockWorkshop->attendance_sheet_path;
             if ($sheetPath !== '' && Storage::exists($sheetPath)) {
@@ -672,6 +682,33 @@ class BlockWorkshopController extends Controller
             $blockWorkshop->attendance_sheet_original_name = null;
             $blockWorkshop->attendance_sheet_mime = null;
             $blockWorkshop->attendance_sheet_size_bytes = null;
+        }
+
+        if ($sheetFile instanceof UploadedFile) {
+            if ($participantsTotal <= 0) {
+                return back()
+                    ->withErrors(['attendance_sheet' => 'Set participant counts before uploading an attendance sheet.'])
+                    ->withInput();
+            }
+
+            $districtName = (string) ($user->district?->name ?? '');
+            $gpName = (string) ($gramPanchayat?->name ?? '');
+
+            $this->attendanceSheetService->assertValidUpload(
+                $sheetFile,
+                $participantsTotal,
+                $male,
+                $female,
+                $districtName,
+                (string) $block->name,
+                $gpName,
+            );
+
+            if ($blockWorkshop->attendance_sheet_path) {
+                Storage::delete($blockWorkshop->attendance_sheet_path);
+            }
+
+            $sheetPayload = $this->attendanceSheetService->storeUploadedFile($sheetFile);
         }
 
         $districtName = (string) ($user->district?->name ?? $blockWorkshop->district?->name ?? '');
@@ -686,6 +723,13 @@ class BlockWorkshopController extends Controller
             $gpName !== '' ? $gpName : null,
         );
 
+        if ($request->has('participants') && is_array($request->input('participants'))) {
+            $rows = $this->participantRowsService->sanitizeIncoming(
+                $request->input('participants'),
+                $participantsTotal,
+            );
+        }
+
         $blockWorkshop->update([
             'visit_date' => $validated['visit_date'],
             'block' => (string) $block->name,
@@ -693,21 +737,21 @@ class BlockWorkshopController extends Controller
             'gram_panchayat_id' => $gramPanchayat?->id,
             'area' => $validated['area'],
             'remark' => $validated['remark'] ?? null,
+            'visit_media_json' => $mediaItems,
             'participants_male_count' => $male,
             'participants_female_count' => $female,
             'participants_total' => $participantsTotal,
             'participants_json' => $rows,
             'district_id' => $districtId > 0 ? $districtId : null,
+            ...$sheetPayload,
         ]);
 
         $status = 'Workshop updated.';
-        if ($locationOrCountsChanged && $participantsTotal > 0) {
-            $status .= ' Download a new attendance template and upload the sheet again.';
-        }
 
         return redirect()
             ->route('staff.workshops.view')
-            ->with('status', $status);
+            ->with('status', $status)
+            ->setStatusCode(303);
     }
 
     // ── Export participants ───────────────────────────────────────────────────
@@ -894,6 +938,12 @@ class BlockWorkshopController extends Controller
     {
         abort_unless((int) $workshop->field_coordinator_user_id === (int) $user->id, 403);
         abort_unless($workshop->isDraft(), 422, 'This workshop is not a draft.');
+    }
+
+    private function assertOwnEditable(\App\Models\User $user, BlockWorkshop $workshop): void
+    {
+        abort_unless((int) $workshop->field_coordinator_user_id === (int) $user->id, 403);
+        abort_unless($workshop->isDraft() || $workshop->isSubmitted(), 422);
     }
 
     private function canSubmit(\App\Models\User $user): bool

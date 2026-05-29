@@ -18,6 +18,26 @@ class BlockWorkshopEditDeleteTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_edit_route_opens_full_submit_page_for_submitted_workshop(): void
+    {
+        if (! Schema::hasTable('block_workshops')) {
+            $this->markTestSkipped('block_workshops table not migrated.');
+        }
+
+        [$staff, , , , $workshop] = $this->createSubmittedWorkshop();
+
+        $this->actingAs($staff)
+            ->get(route('staff.workshops.edit', $workshop))
+            ->assertRedirect(route('staff.workshops.index', ['edit' => $workshop->id]));
+
+        $this->actingAs($staff)
+            ->get(route('staff.workshops.index', ['edit' => $workshop->id]))
+            ->assertOk()
+            ->assertSee('Editing submitted workshop', false)
+            ->assertSee('Save changes', false)
+            ->assertSee('Edit workshop details', false);
+    }
+
     public function test_submitter_can_edit_workshop_from_district_view_flow(): void
     {
         if (! Schema::hasTable('block_workshops')) {
@@ -35,6 +55,7 @@ class BlockWorkshopEditDeleteTest extends TestCase
                 'participants_male_count' => 10,
                 'participants_female_count' => 8,
                 'remark' => 'Corrected counts',
+                'skip_media_check' => '1',
             ])
             ->assertRedirect(route('staff.workshops.view'));
 
@@ -146,6 +167,7 @@ class BlockWorkshopEditDeleteTest extends TestCase
             'participants_female_count' => 9,
             'participants_total' => 18,
             'participants_json' => [],
+            'visit_media_json' => [['path' => 'workshops/test-photo.jpg', 'original_name' => 'workshop.jpg', 'mime' => 'image/jpeg']],
         ]);
 
         return [$staff, $block, $gp, $district, $workshop];

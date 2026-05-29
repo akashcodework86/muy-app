@@ -29,6 +29,20 @@
     const participantEmpty = document.getElementById('attParticipantEmpty');
     const autosaveStatus = document.getElementById('attAutosaveStatus');
     const workshopForm = document.getElementById('attWorkshopForm');
+    const editingSubmitted = workshopForm?.dataset.editingSubmitted === '1';
+
+    const submitActionTemplate = @json(route($rp.'.draft.submit', [$mp => '__ID__']));
+
+    function lockWorkshopFormAction() {
+        if (!workshopForm) return;
+        if (editingSubmitted && workshopForm.dataset.updateAction) {
+            workshopForm.action = workshopForm.dataset.updateAction;
+            return;
+        }
+        if (!editingSubmitted && draftId) {
+            workshopForm.action = routeFor(submitActionTemplate, draftId);
+        }
+    }
 
     let draftId = initialDraftId ? Number(initialDraftId) : null;
     let gpOptions = [];
@@ -191,6 +205,9 @@
 
     async function ensureDraft() {
         if (draftId) return draftId;
+        if (editingSubmitted) {
+            throw new Error('Workshop not loaded for editing.');
+        }
         if (ensuringDraft) return ensuringDraft;
         ensuringDraft = fetch(routes.createDraft, {
             method: 'POST',
@@ -205,9 +222,7 @@
             const data = await res.json();
             if (!res.ok) throw new Error('Could not start draft');
             draftId = Number(data.id);
-            if (workshopForm) {
-                workshopForm.action = routeFor(@json(route($rp.'.draft.submit', [$mp => '__ID__'])), draftId);
-            }
+            lockWorkshopFormAction();
             return draftId;
         }).finally(function () {
             ensuringDraft = null;
@@ -360,9 +375,11 @@
         }
     });
 
-    if (workshopForm && draftId) {
-        workshopForm.action = routeFor(@json(route($rp.'.draft.submit', [$mp => '__ID__'])), draftId);
-    }
+    lockWorkshopFormAction();
+
+    workshopForm?.addEventListener('submit', function () {
+        lockWorkshopFormAction();
+    }, true);
 
     if (blockSelect?.value) {
         loadGpOptionsForBlock(blockSelect.value).then(function () {

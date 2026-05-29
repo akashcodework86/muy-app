@@ -29,7 +29,21 @@
     const pickerHint = document.getElementById('attPhotoPickerHint');
     const photosFlag = document.getElementById('attPhotosUploadedFlag');
     const workshopForm = document.getElementById('attWorkshopForm');
+    const editingSubmitted = workshopForm?.dataset.editingSubmitted === '1';
     const initialItems = @json($initialPhotoItems);
+
+    const submitActionTemplate = @json(route($rp.'.draft.submit', [$mp => '__ID__']));
+
+    function lockWorkshopFormAction() {
+        if (!workshopForm) return;
+        if (editingSubmitted && workshopForm.dataset.updateAction) {
+            workshopForm.action = workshopForm.dataset.updateAction;
+            return;
+        }
+        if (!editingSubmitted && draftId) {
+            workshopForm.action = routeFor(submitActionTemplate, draftId);
+        }
+    }
 
     let draftId = @json($activeDraft?->id);
     let photoItems = Array.isArray(initialItems) ? initialItems.slice() : [];
@@ -87,6 +101,9 @@
 
     async function ensureDraft() {
         if (draftId) return draftId;
+        if (editingSubmitted) {
+            throw new Error('Workshop not loaded for editing.');
+        }
         const res = await fetch(routes.createDraft, {
             method: 'POST',
             headers: {
@@ -100,9 +117,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Could not start draft');
         draftId = Number(data.id);
-        if (workshopForm) {
-            workshopForm.action = routeFor(@json(route($rp.'.draft.submit', [$mp => '__ID__'])), draftId);
-        }
+        lockWorkshopFormAction();
         return draftId;
     }
 
@@ -190,6 +205,12 @@
             photoInput.removeAttribute('name');
         }
     });
+
+    lockWorkshopFormAction();
+
+    workshopForm?.addEventListener('submit', function () {
+        lockWorkshopFormAction();
+    }, true);
 
     renderPreview();
     if (photoItems.length > 0) {

@@ -1,8 +1,12 @@
 @extends('layouts.admin')
 @php $rp = $routePrefix ?? 'staff.attendance'; $mp = $modelParam ?? 'attendanceReport'; @endphp
 
-@section('title', 'Block level workshop')
-@section('heading', 'Block level workshop')
+@php
+    $editingSubmitted = ! empty($editingSubmitted) && ! empty($activeDraft);
+    $isWorkshops = ($rp === 'staff.workshops');
+@endphp
+@section('title', $editingSubmitted ? 'Edit block level workshop' : 'Block level workshop')
+@section('heading', $editingSubmitted ? 'Edit block level workshop' : 'Block level workshop')
 
 @push('styles')
 <style>
@@ -85,27 +89,37 @@
         <div class="att-banner__icon"><i class="fa-solid fa-people-group"></i></div>
         <div class="att-banner__body">
             <h2>Block level workshop</h2>
-            <p>Workshop details, participant list (autosaved), photos, and optional attendance Excel sheet.</p>
+            <p>{{ $isWorkshops ? 'Workshop details, participant list (autosaved), and photos.' : 'Visit details, participant list (autosaved), photos, and optional attendance Excel sheet.' }}</p>
         </div>
     </div>
 
     @if (!empty($draftWorkflow) && $activeDraft)
         <div class="att-draft-banner">
             <div>
-                <strong><i class="fa-solid fa-pen-to-square"></i> Draft in progress</strong>
+                @if ($editingSubmitted)
+                    <strong><i class="fa-solid fa-pen-to-square"></i> Editing submitted workshop</strong>
+                @else
+                    <strong><i class="fa-solid fa-pen-to-square"></i> Draft in progress</strong>
+                @endif
                 <span style="display:block;font-size:0.8rem;color:#78350f;margin-top:0.2rem;">
                     {{ $activeDraft->visit_date?->format('d M Y') ?? '—' }}
                     @if ($activeDraft->block) · {{ $activeDraft->block }} @endif
                     · {{ number_format((int) $activeDraft->participants_total) }} participant row(s)
                 </span>
             </div>
-            <form method="post" action="{{ route($rp.'.destroy', $activeDraft) }}" onsubmit="return confirm('Discard this draft?');">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="att-btn att-btn--ghost" style="padding:0.45rem 0.85rem;font-size:0.8rem;">
-                    <i class="fa-solid fa-trash"></i> Discard draft
-                </button>
-            </form>
+            @if ($editingSubmitted)
+                <a href="{{ route($rp.'.view') }}" class="att-btn att-btn--ghost" style="padding:0.45rem 0.85rem;font-size:0.8rem;text-decoration:none;">
+                    <i class="fa-solid fa-arrow-left"></i> Cancel
+                </a>
+            @else
+                <form method="post" action="{{ route($rp.'.destroy', $activeDraft) }}" onsubmit="return confirm('Discard this draft?');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="att-btn att-btn--ghost" style="padding:0.45rem 0.85rem;font-size:0.8rem;">
+                        <i class="fa-solid fa-trash"></i> Discard draft
+                    </button>
+                </form>
+            @endif
         </div>
     @endif
 
@@ -118,16 +132,26 @@
     <div class="att-card">
         <div class="att-card__head">
             <div class="att-card__head-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-            <h3>{{ !empty($draftWorkflow) ? 'New block level workshop' : 'Upload visit photos' }}</h3>
+            <h3>{{ $editingSubmitted ? 'Edit workshop details' : (!empty($draftWorkflow) ? 'New block level workshop' : 'Upload visit photos') }}</h3>
         </div>
         <div class="att-card__body">
             <form
                 id="attWorkshopForm"
                 method="post"
-                action="{{ !empty($draftWorkflow) && $activeDraft ? route($rp.'.draft.submit', $activeDraft) : ($draftWorkflow ? '#' : route($rp.'.store')) }}"
+                action="{{ $editingSubmitted && $activeDraft ? route($rp.'.save', $activeDraft) : (!empty($draftWorkflow) && $activeDraft ? route($rp.'.draft.submit', $activeDraft) : ($draftWorkflow ? '#' : route($rp.'.store'))) }}"
                 enctype="multipart/form-data"
+                data-editing-submitted="{{ $editingSubmitted ? '1' : '0' }}"
+                @if ($editingSubmitted && $activeDraft)
+                    data-update-action="{{ route($rp.'.save', $activeDraft) }}"
+                @endif
+                @if (! $editingSubmitted && ! empty($draftWorkflow) && $activeDraft)
+                    data-submit-action="{{ route($rp.'.draft.submit', $activeDraft) }}"
+                @endif
             >
                 @csrf
+                @if ($editingSubmitted)
+                    <input type="hidden" name="skip_media_check" value="1">
+                @endif
                 <p class="att-section-label">Visit details</p>
                 <div class="att-grid">
                     <div class="att-field">
@@ -211,32 +235,53 @@
                     @endif
                 </div>
 
-                <div id="attSheetSection" style="margin-top:1.2rem;display:none;">
-                    <p class="att-section-label">Attendance sheet (Excel) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--att-muted);">— optional</span></p>
-                    <p style="font-size:0.8rem;color:var(--att-muted);margin:0 0 0.75rem;">
-                        Not required now — submit the visit with photos first. Download the template (one row per participant) and upload the filled sheet anytime from <strong>My submissions</strong> below.
-                    </p>
-                    <div style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:center;margin-bottom:0.75rem;">
-                        <a href="#" id="attDownloadTemplate" class="att-btn" style="text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);">
-                            <i class="fa-solid fa-file-excel"></i> <span id="attDownloadTemplateLabel">Download template</span>
-                        </a>
+                @if (! $isWorkshops)
+                    <div id="attSheetSection" style="margin-top:1.2rem;display:none;">
+                        <p class="att-section-label">Attendance sheet (Excel) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--att-muted);">— optional</span></p>
+                        @if ($editingSubmitted && $activeDraft?->hasAttendanceSheet())
+                            <p style="font-size:0.8rem;color:var(--att-muted);margin:0 0 0.75rem;">
+                                Current sheet:
+                                <a href="{{ route($rp.'.sheet.download', $activeDraft) }}" style="color:var(--att-teal);font-weight:700;">
+                                    <i class="fa-solid fa-file-excel"></i> Download uploaded sheet
+                                </a>
+                                — upload a new file below to replace it.
+                            </p>
+                        @else
+                            <p style="font-size:0.8rem;color:var(--att-muted);margin:0 0 0.75rem;">
+                                @if ($editingSubmitted)
+                                    Download the template (one row per participant) and upload a filled sheet, or leave unchanged.
+                                @else
+                                    Not required now — submit the visit with photos first. Download the template (one row per participant) and upload the filled sheet anytime from <strong>My submissions</strong> below.
+                                @endif
+                            </p>
+                        @endif
+                        <div style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:center;margin-bottom:0.75rem;">
+                            <a href="#" id="attDownloadTemplate" class="att-btn" style="text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);">
+                                <i class="fa-solid fa-file-excel"></i> <span id="attDownloadTemplateLabel">Download template</span>
+                            </a>
+                        </div>
+                        <label style="font-size:0.78rem;font-weight:600;">Upload filled sheet now <span style="font-weight:400;color:var(--att-muted);">(optional)</span></label>
+                        <div class="att-file-wrap" style="margin-top:0.4rem;">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>If uploading now: .xlsx must match total participants exactly</span>
+                            <input type="file" name="attendance_sheet" id="attSheetInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
+                        </div>
                     </div>
-                    <label style="font-size:0.78rem;font-weight:600;">Upload filled sheet now <span style="font-weight:400;color:var(--att-muted);">(optional)</span></label>
-                    <div class="att-file-wrap" style="margin-top:0.4rem;">
-                        <i class="fa-solid fa-file-excel"></i>
-                        <span>If uploading now: .xlsx must match total participants exactly</span>
-                        <input type="file" name="attendance_sheet" id="attSheetInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
-                    </div>
-                </div>
+                @endif
 
                 <div class="att-submit-row">
                     @if (!empty($draftWorkflow))
                         <p style="font-size:0.8rem;color:var(--att-muted);margin:0;flex:1;min-width:12rem;">
-                            Participant rows save automatically. Submit when photos are ready, or leave and resume from this page later.
+                            @if ($editingSubmitted)
+                                Participant rows and photos save automatically. Click Save when finished.
+                            @else
+                                Participant rows save automatically. Submit when photos are ready, or leave and resume from this page later.
+                            @endif
                         </p>
                     @endif
                     <button type="submit" class="att-btn" @if(empty($gramPanchayatsEnabled) || $blockRows->isEmpty()) disabled @endif>
-                        <i class="fa-solid fa-cloud-arrow-up"></i> {{ !empty($draftWorkflow) ? 'Submit workshop' : 'Submit' }}
+                        <i class="fa-solid {{ $editingSubmitted ? 'fa-check' : 'fa-cloud-arrow-up' }}"></i>
+                        {{ $editingSubmitted ? 'Save changes' : (!empty($draftWorkflow) ? 'Submit workshop' : 'Submit') }}
                     </button>
                 </div>
             </form>
@@ -244,9 +289,11 @@
     </div>
 
     <div class="att-table-wrap">
-        <p style="font-size:0.82rem;color:var(--att-muted);margin:0 0 0.5rem 1.4rem;">
-            <strong>New visit?</strong> Download the template in the form above. For past visits, use <strong>Download template</strong> in the table.
-        </p>
+        @if (! $isWorkshops)
+            <p style="font-size:0.82rem;color:var(--att-muted);margin:0 0 0.5rem 1.4rem;">
+                <strong>New visit?</strong> Download the template in the form above. For past visits, use <strong>Download template</strong> in the table.
+            </p>
+        @endif
         <div class="att-table-head">
             <div class="att-card__head-icon" style="background:linear-gradient(135deg,#ccfbf1,#a7f3d0);color:var(--att-teal);"><i class="fa-solid fa-clock-rotate-left"></i></div>
             <h3 style="margin:0;font-size:0.95rem;font-weight:700;">My submissions</h3>
@@ -261,7 +308,9 @@
                         <th>Gram panchayat</th>
                         <th>Area / village</th>
                         <th>Participants</th>
-                        <th>Attendance sheet</th>
+                        @if (! $isWorkshops)
+                            <th>Attendance sheet</th>
+                        @endif
                         <th>Photos</th>
                         <th>Remark</th>
                         <th>Actions</th>
@@ -284,27 +333,29 @@
                                     —
                                 @endif
                             </td>
-                            <td style="font-size:0.82rem;">
-                                @if ((int) $row->participants_total > 0)
-                                    @if ($row->hasAttendanceSheet())
-                                        <a href="{{ route($rp.'.sheet.download', $row) }}" style="color:var(--att-teal);font-weight:700;">
-                                            <i class="fa-solid fa-file-excel"></i> View sheet
-                                        </a>
+                            @if (! $isWorkshops)
+                                <td style="font-size:0.82rem;">
+                                    @if ((int) $row->participants_total > 0)
+                                        @if ($row->hasAttendanceSheet())
+                                            <a href="{{ route($rp.'.sheet.download', $row) }}" style="color:var(--att-teal);font-weight:700;">
+                                                <i class="fa-solid fa-file-excel"></i> View sheet
+                                            </a>
+                                        @else
+                                            <span style="display:inline-block;padding:0.15rem 0.45rem;border-radius:999px;background:#fffbeb;color:#b45309;font-size:0.68rem;font-weight:700;margin-bottom:0.35rem;">Sheet pending</span><br>
+                                            <a href="{{ route($rp.'.sheet-template.report', $row) }}" class="att-btn" style="padding:0.35rem 0.65rem;font-size:0.75rem;text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);margin-bottom:0.35rem;">
+                                                <i class="fa-solid fa-download"></i> Download template ({{ number_format((int) $row->participants_total) }} rows)
+                                            </a>
+                                            <form method="post" action="{{ route($rp.'.sheet.upload', $row) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.35rem;min-width:11rem;">
+                                                @csrf
+                                                <input type="file" name="attendance_sheet" accept=".xlsx,.xls,.csv" required style="font-size:0.75rem;">
+                                                <button type="submit" class="att-btn" style="padding:0.35rem 0.6rem;font-size:0.75rem;">Upload filled sheet</button>
+                                            </form>
+                                        @endif
                                     @else
-                                        <span style="display:inline-block;padding:0.15rem 0.45rem;border-radius:999px;background:#fffbeb;color:#b45309;font-size:0.68rem;font-weight:700;margin-bottom:0.35rem;">Sheet pending</span><br>
-                                        <a href="{{ route($rp.'.sheet-template.report', $row) }}" class="att-btn" style="padding:0.35rem 0.65rem;font-size:0.75rem;text-decoration:none;background:linear-gradient(135deg,var(--att-teal),#0f766e);margin-bottom:0.35rem;">
-                                            <i class="fa-solid fa-download"></i> Download template ({{ number_format((int) $row->participants_total) }} rows)
-                                        </a>
-                                        <form method="post" action="{{ route($rp.'.sheet.upload', $row) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.35rem;min-width:11rem;">
-                                            @csrf
-                                            <input type="file" name="attendance_sheet" accept=".xlsx,.xls,.csv" required style="font-size:0.75rem;">
-                                            <button type="submit" class="att-btn" style="padding:0.35rem 0.6rem;font-size:0.75rem;">Upload filled sheet</button>
-                                        </form>
+                                        <span style="color:var(--att-muted);">N/A</span>
                                     @endif
-                                @else
-                                    <span style="color:var(--att-muted);">N/A</span>
-                                @endif
-                            </td>
+                                </td>
+                            @endif
                             <td>
                                 @if ($media !== [])
                                     <span class="att-photo-count">{{ count($media) }} photo(s)</span>
@@ -328,7 +379,7 @@
                                     <i class="fa-solid fa-pen"></i> Edit
                                 </a>
                                 @elseif ($rp === 'staff.workshops')
-                                <a href="{{ route($rp.'.edit', $row) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:#4f46e5;text-decoration:none;margin-right:0.5rem;">
+                                <a href="{{ route($rp.'.index', ['edit' => $row->id]) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:#4f46e5;text-decoration:none;margin-right:0.5rem;">
                                     <i class="fa-solid fa-pen"></i> Edit
                                 </a>
                                 @endif
@@ -342,7 +393,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="10"><div class="att-empty">No submissions yet.</div></td></tr>
+                        <tr><td colspan="{{ $isWorkshops ? 9 : 10 }}"><div class="att-empty">No submissions yet.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -362,6 +413,7 @@
 @endif
 <script>
 (function () {
+    const isWorkshops = @json($isWorkshops);
     const blockSelect = document.getElementById('attBlockSelect');
     const gpSelect = document.getElementById('attGpSelect');
     const gpSearch = document.getElementById('attGpSearch');
@@ -418,12 +470,6 @@
     const maleInput = document.getElementById('attMaleCount');
     const femaleInput = document.getElementById('attFemaleCount');
     const totalInput = document.getElementById('attTotalParticipants');
-    const sheetSection = document.getElementById('attSheetSection');
-    const sheetInput = document.getElementById('attSheetInput');
-    const downloadBtn = document.getElementById('attDownloadTemplate');
-    const downloadLabel = document.getElementById('attDownloadTemplateLabel');
-    const templateBaseUrl = @json(route($rp.'.sheet-template'));
-
     function updateParticipantTotal() {
         if (!totalInput) return;
         const male = parseInt(maleInput?.value || '0', 10) || 0;
@@ -431,40 +477,49 @@
         const total = male + female;
         totalInput.value = String(total);
 
-        if (sheetSection) {
-            sheetSection.style.display = total > 0 ? 'block' : 'none';
-        }
-        if (downloadLabel) {
-            downloadLabel.textContent = total > 0
-                ? 'Download template (' + total + ' rows)'
-                : 'Download template';
+        if (!isWorkshops) {
+            const sheetSection = document.getElementById('attSheetSection');
+            const downloadLabel = document.getElementById('attDownloadTemplateLabel');
+            if (sheetSection) {
+                sheetSection.style.display = total > 0 ? 'block' : 'none';
+            }
+            if (downloadLabel) {
+                downloadLabel.textContent = total > 0
+                    ? 'Download template (' + total + ' rows)'
+                    : 'Download template';
+            }
         }
     }
 
-    function buildTemplateUrl() {
-        const blockId = blockSelect?.value || '';
-        const gpId = gpSelect?.value || '';
-        const male = parseInt(maleInput?.value || '0', 10) || 0;
-        const female = parseInt(femaleInput?.value || '0', 10) || 0;
-        if (!blockId || !gpId || (male + female) <= 0) return null;
-        const params = new URLSearchParams({
-            district_block_id: blockId,
-            gram_panchayat_id: gpId,
-            participants_male_count: String(male),
-            participants_female_count: String(female),
+    if (!isWorkshops) {
+        const downloadBtn = document.getElementById('attDownloadTemplate');
+        const templateBaseUrl = @json(route($rp.'.sheet-template'));
+
+        function buildTemplateUrl() {
+            const blockId = blockSelect?.value || '';
+            const gpId = gpSelect?.value || '';
+            const male = parseInt(maleInput?.value || '0', 10) || 0;
+            const female = parseInt(femaleInput?.value || '0', 10) || 0;
+            if (!blockId || !gpId || (male + female) <= 0) return null;
+            const params = new URLSearchParams({
+                district_block_id: blockId,
+                gram_panchayat_id: gpId,
+                participants_male_count: String(male),
+                participants_female_count: String(female),
+            });
+            return templateBaseUrl + '?' + params.toString();
+        }
+
+        downloadBtn?.addEventListener('click', (e) => {
+            e.preventDefault();
+            const url = buildTemplateUrl();
+            if (!url) {
+                alert('Select block, gram panchayat, and enter participant counts first.');
+                return;
+            }
+            window.location.href = url;
         });
-        return templateBaseUrl + '?' + params.toString();
     }
-
-    downloadBtn?.addEventListener('click', (e) => {
-        e.preventDefault();
-        const url = buildTemplateUrl();
-        if (!url) {
-            alert('Select block, gram panchayat, and enter participant counts first.');
-            return;
-        }
-        window.location.href = url;
-    });
 
     maleInput?.addEventListener('input', updateParticipantTotal);
     femaleInput?.addEventListener('input', updateParticipantTotal);
