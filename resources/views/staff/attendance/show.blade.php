@@ -1,5 +1,9 @@
 @extends('layouts.admin')
-@php $rp = $routePrefix ?? 'staff.attendance'; $mp = $modelParam ?? 'attendanceReport'; @endphp
+@php
+    $rp = $routePrefix ?? 'staff.attendance';
+    $mp = $modelParam ?? 'attendanceReport';
+    $showAttendanceSheet = ! in_array($rp, ['staff.workshops', 'staff.attendance'], true);
+@endphp
 
 @section('title', 'Workshop details — ' . ($report->visit_date?->format('d M Y') ?? ''))
 @section('heading', 'Workshop details')
@@ -135,7 +139,7 @@
         </div>
         <div class="ws-banner__actions">
             @if ($report->isSubmitted() && (int) $report->field_coordinator_user_id === (int) auth()->id())
-                @if ($rp === 'staff.workshops')
+                @if (in_array($rp, ['staff.workshops', 'staff.attendance'], true))
                     <a href="{{ route($rp.'.index', ['edit' => $report->id]) }}" class="ws-btn ws-btn--ghost ws-btn--sm">
                         <i class="fa-solid fa-pen"></i> Edit
                     </a>
@@ -262,6 +266,7 @@
         </div>
     </div>
 
+    @if ($showAttendanceSheet)
     {{-- Attendance sheet --}}
     <div class="ws-card">
         <div class="ws-card__head">
@@ -307,6 +312,7 @@
             @endif
         </div>
     </div>
+    @endif
 
     {{-- Participant register --}}
     <div class="ws-card">

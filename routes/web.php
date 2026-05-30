@@ -259,6 +259,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('attendance/{attendanceReport}', [FieldCoordinatorAttendanceController::class, 'update'])
             ->middleware('throttle:30,1')
             ->name('attendance.update');
+        Route::post('attendance/{attendanceReport}/save', [FieldCoordinatorAttendanceController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.save');
         Route::delete('attendance/{attendanceReport}', [FieldCoordinatorAttendanceController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('attendance.destroy');

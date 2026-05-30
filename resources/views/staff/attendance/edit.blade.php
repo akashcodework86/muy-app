@@ -29,7 +29,6 @@
 <div class="att-shell">
     <p class="att-hint">
         Fix participant counts (e.g. Male / Female), block, gram panchayat, or village.
-        If counts or location change, you must upload the attendance sheet again.
     </p>
 
     @if ($errors->any())

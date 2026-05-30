@@ -3,7 +3,7 @@
 
 @php
     $editingSubmitted = ! empty($editingSubmitted) && ! empty($activeDraft);
-    $isWorkshops = ($rp === 'staff.workshops');
+    $showAttendanceSheet = ! in_array($rp, ['staff.workshops', 'staff.attendance'], true);
 @endphp
 @section('title', $editingSubmitted ? 'Edit block level workshop' : 'Block level workshop')
 @section('heading', $editingSubmitted ? 'Edit block level workshop' : 'Block level workshop')
@@ -89,7 +89,7 @@
         <div class="att-banner__icon"><i class="fa-solid fa-people-group"></i></div>
         <div class="att-banner__body">
             <h2>Block level workshop</h2>
-            <p>{{ $isWorkshops ? 'Workshop details, participant list (autosaved), and photos.' : 'Visit details, participant list (autosaved), photos, and optional attendance Excel sheet.' }}</p>
+            <p>{{ $showAttendanceSheet ? 'Visit details, participant list (autosaved), photos, and optional attendance Excel sheet.' : 'Workshop details, participant list (autosaved), and photos.' }}</p>
         </div>
     </div>
 
@@ -235,7 +235,7 @@
                     @endif
                 </div>
 
-                @if (! $isWorkshops)
+                @if ($showAttendanceSheet)
                     <div id="attSheetSection" style="margin-top:1.2rem;display:none;">
                         <p class="att-section-label">Attendance sheet (Excel) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--att-muted);">— optional</span></p>
                         @if ($editingSubmitted && $activeDraft?->hasAttendanceSheet())
@@ -289,7 +289,7 @@
     </div>
 
     <div class="att-table-wrap">
-        @if (! $isWorkshops)
+        @if ($showAttendanceSheet)
             <p style="font-size:0.82rem;color:var(--att-muted);margin:0 0 0.5rem 1.4rem;">
                 <strong>New visit?</strong> Download the template in the form above. For past visits, use <strong>Download template</strong> in the table.
             </p>
@@ -308,7 +308,7 @@
                         <th>Gram panchayat</th>
                         <th>Area / village</th>
                         <th>Participants</th>
-                        @if (! $isWorkshops)
+                        @if ($showAttendanceSheet)
                             <th>Attendance sheet</th>
                         @endif
                         <th>Photos</th>
@@ -333,7 +333,7 @@
                                     —
                                 @endif
                             </td>
-                            @if (! $isWorkshops)
+                            @if ($showAttendanceSheet)
                                 <td style="font-size:0.82rem;">
                                     @if ((int) $row->participants_total > 0)
                                         @if ($row->hasAttendanceSheet())
@@ -374,11 +374,7 @@
                             </td>
                             <td><span class="att-remark">{{ $row->remark ?: '—' }}</span></td>
                             <td style="white-space:nowrap;">
-                                @if ($rp === 'staff.attendance')
-                                <a href="{{ route('staff.attendance.edit', $row) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:#4f46e5;text-decoration:none;margin-right:0.5rem;">
-                                    <i class="fa-solid fa-pen"></i> Edit
-                                </a>
-                                @elseif ($rp === 'staff.workshops')
+                                @if (in_array($rp, ['staff.attendance', 'staff.workshops'], true))
                                 <a href="{{ route($rp.'.index', ['edit' => $row->id]) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:#4f46e5;text-decoration:none;margin-right:0.5rem;">
                                     <i class="fa-solid fa-pen"></i> Edit
                                 </a>
@@ -393,7 +389,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="{{ $isWorkshops ? 9 : 10 }}"><div class="att-empty">No submissions yet.</div></td></tr>
+                        <tr><td colspan="{{ $showAttendanceSheet ? 10 : 9 }}"><div class="att-empty">No submissions yet.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -413,7 +409,7 @@
 @endif
 <script>
 (function () {
-    const isWorkshops = @json($isWorkshops);
+    const showAttendanceSheet = @json($showAttendanceSheet);
     const blockSelect = document.getElementById('attBlockSelect');
     const gpSelect = document.getElementById('attGpSelect');
     const gpSearch = document.getElementById('attGpSearch');
@@ -477,7 +473,7 @@
         const total = male + female;
         totalInput.value = String(total);
 
-        if (!isWorkshops) {
+        if (showAttendanceSheet) {
             const sheetSection = document.getElementById('attSheetSection');
             const downloadLabel = document.getElementById('attDownloadTemplateLabel');
             if (sheetSection) {
@@ -491,7 +487,7 @@
         }
     }
 
-    if (!isWorkshops) {
+    if (showAttendanceSheet) {
         const downloadBtn = document.getElementById('attDownloadTemplate');
         const templateBaseUrl = @json(route($rp.'.sheet-template'));
 
