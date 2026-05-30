@@ -96,14 +96,10 @@ class FieldCoordinatorAttendanceController extends Controller
 
         $reportsQuery = FieldCoordinatorAttendanceReport::query()
             ->where('field_coordinator_user_id', (int) $user->id)
-            ->with(['district', 'gramPanchayat']);
+            ->with(['district', 'gramPanchayat', 'coordinator.designationRecord']);
 
         if ($draftWorkflow) {
             $reportsQuery->submitted();
-        }
-
-        if (FieldCoordinatorAttendanceReport::supportsRecordType()) {
-            $reportsQuery->fieldVisits();
         }
 
         $reports = $reportsQuery
@@ -152,7 +148,7 @@ class FieldCoordinatorAttendanceController extends Controller
             'entry_date' => now()->toDateString(),
             'district_id' => $districtId > 0 ? $districtId : null,
             'status' => FieldCoordinatorAttendanceReport::STATUS_DRAFT,
-            'record_type' => FieldCoordinatorAttendanceReport::TYPE_BLOCK_WORKSHOP,
+            ...$this->staffAttendanceRecordTypePayload(),
             'participants_male_count' => 0,
             'participants_female_count' => 0,
             'participants_total' => 0,
@@ -228,6 +224,7 @@ class FieldCoordinatorAttendanceController extends Controller
             'participants_female_count' => $female,
             'participants_total' => $total,
             'participants_json' => $rows,
+            ...$this->staffAttendanceRecordTypePayload(),
         ];
 
         if (array_key_exists('visit_date', $validated) && $validated['visit_date'] !== null) {
@@ -458,6 +455,7 @@ class FieldCoordinatorAttendanceController extends Controller
             'participants_total' => $participantsTotal,
             'participants_json' => $rows,
             'status' => FieldCoordinatorAttendanceReport::STATUS_SUBMITTED,
+            ...$this->staffAttendanceRecordTypePayload(),
             ...$sheetPayload,
         ]);
 
@@ -666,15 +664,11 @@ class FieldCoordinatorAttendanceController extends Controller
                 $q->submitted();
             }
 
-            if (FieldCoordinatorAttendanceReport::supportsRecordType()) {
-                $q->fieldVisits();
-            }
-
             return $q;
         };
 
         $query = $baseQuery()
-            ->with(['district', 'gramPanchayat', 'coordinator:id,name']);
+            ->with(['district', 'gramPanchayat', 'coordinator.designationRecord']);
 
         if ($request->filled('from')) {
             $query->whereDate('visit_date', '>=', $request->query('from'));
@@ -984,7 +978,10 @@ class FieldCoordinatorAttendanceController extends Controller
             );
         }
 
-        FieldCoordinatorAttendanceReport::query()->create($createPayload);
+        FieldCoordinatorAttendanceReport::query()->create([
+            ...$createPayload,
+            ...$this->staffAttendanceRecordTypePayload(),
+        ]);
 
         $status = 'Block level workshop submitted.';
 
@@ -1183,6 +1180,7 @@ class FieldCoordinatorAttendanceController extends Controller
             'participants_total' => $participantsTotal,
             'participants_json' => $rows,
             'district_id' => $districtId > 0 ? $districtId : null,
+            ...$this->staffAttendanceRecordTypePayload(),
             ...$sheetPayload,
         ]);
 
@@ -1243,6 +1241,18 @@ class FieldCoordinatorAttendanceController extends Controller
         }
 
         return $this->mediaStorage->legacyDownload($attendanceReport);
+    }
+
+    /**
+     * @return array{record_type?: string}
+     */
+    private function staffAttendanceRecordTypePayload(): array
+    {
+        if (! FieldCoordinatorAttendanceReport::supportsRecordType()) {
+            return [];
+        }
+
+        return ['record_type' => FieldCoordinatorAttendanceReport::TYPE_FIELD_VISIT];
     }
 
     private function assertOwnDraft(User $user, FieldCoordinatorAttendanceReport $report): void

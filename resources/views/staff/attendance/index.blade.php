@@ -302,6 +302,8 @@
             <table class="att-table">
                 <thead>
                     <tr>
+                        <th>#</th>
+                        <th>Submitted by</th>
                         <th>Date</th>
                         <th>District</th>
                         <th>Block</th>
@@ -317,9 +319,18 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($reports as $row)
-                        @php $media = $row->visitMediaItems(); @endphp
+                    @forelse ($reports as $i => $row)
+                        @php
+                            $media = $row->visitMediaItems();
+                            $rowNum = $reports instanceof \Illuminate\Contracts\Pagination\Paginator
+                                ? ($reports->currentPage() - 1) * $reports->perPage() + $i + 1
+                                : $i + 1;
+                        @endphp
                         <tr>
+                            <td style="color:var(--att-muted);font-size:0.77rem;font-weight:600;">{{ $rowNum }}</td>
+                            <td>
+                                @include('staff.attendance.partials.submitter-cell', ['row' => $row, 'fallbackUser' => $user])
+                            </td>
                             <td><span class="att-badge">{{ $row->visit_date?->format('d M Y') }}</span></td>
                             <td>{{ $row->district?->name ?? '—' }}</td>
                             <td>{{ $row->block ?: '—' }}</td>
@@ -375,6 +386,9 @@
                             <td><span class="att-remark">{{ $row->remark ?: '—' }}</span></td>
                             <td style="white-space:nowrap;">
                                 @if (in_array($rp, ['staff.attendance', 'staff.workshops'], true))
+                                <a href="{{ route($rp.'.show', [$mp => $row]) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:var(--att-teal);text-decoration:none;margin-right:0.5rem;">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </a>
                                 <a href="{{ route($rp.'.index', ['edit' => $row->id]) }}" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.78rem;font-weight:700;color:#4f46e5;text-decoration:none;margin-right:0.5rem;">
                                     <i class="fa-solid fa-pen"></i> Edit
                                 </a>
@@ -389,7 +403,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="{{ $showAttendanceSheet ? 10 : 9 }}"><div class="att-empty">No submissions yet.</div></td></tr>
+                        <tr><td colspan="{{ $showAttendanceSheet ? 12 : 11 }}"><div class="att-empty">No submissions yet.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
