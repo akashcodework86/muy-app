@@ -486,11 +486,7 @@
             </div>
         ` : '';
 
-        const namedCount = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants'
-            ? _allRecords.filter((r) => r.applicant && r.applicant !== '—').length
-            : null;
-
-        const recordsSectionTitle = buildRecordsSectionTitle(namedCount, data.total);
+        const recordsSectionTitle = buildRecordsSectionTitle(data.total);
 
         body.innerHTML = `
             <div class="dlv-stat-grid">
@@ -530,12 +526,11 @@
         renderRecordsPage();
     }
 
-    function buildRecordsSectionTitle(namedCount, total) {
+    function buildRecordsSectionTitle(total) {
         const isFP = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
         if (isFP) {
-            const nc = namedCount ?? 0;
-            return `Female Participants <span style="font-weight:400;font-size:0.78rem;color:#be185d;margin-left:0.4rem;">${fmt(nc)} named of ${fmt(total)} total</span>`;
+            return `Female Participants <span style="font-weight:400;font-size:0.78rem;color:#be185d;margin-left:0.4rem;">${fmt(total)} entries</span>`;
         }
         if (isWS) return 'Activities';
         return 'Records';

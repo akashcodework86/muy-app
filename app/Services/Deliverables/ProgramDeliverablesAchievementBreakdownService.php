@@ -351,7 +351,7 @@ class ProgramDeliverablesAchievementBreakdownService
         // ── field_coordinator_attendance_reports ─────────────────────────────
         if (Schema::hasTable('field_coordinator_attendance_reports')) {
             $fcQuery = FieldCoordinatorAttendanceReport::query()
-                ->join('districts as d', 'd.id', '=', 'field_coordinator_attendance_reports.district_id')
+                ->leftJoin('districts as d', 'd.id', '=', 'field_coordinator_attendance_reports.district_id')
                 ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id');
 
             $this->applyFieldWorkAchievementScope($fcQuery);
@@ -380,6 +380,7 @@ class ProgramDeliverablesAchievementBreakdownService
                         'field_coordinator_attendance_reports.id',
                         'field_coordinator_attendance_reports.visit_date',
                         'field_coordinator_attendance_reports.participants_json',
+                        'field_coordinator_attendance_reports.participants_male_count',
                         'field_coordinator_attendance_reports.participants_female_count',
                         'd.name as district_name',
                         'h.name as hub_name',
@@ -389,7 +390,7 @@ class ProgramDeliverablesAchievementBreakdownService
                     ->get();
 
                 foreach ($fcWithJson as $row) {
-                    $this->extractFemaleParticipantRecords($row, $allRecords, 5000);
+                    $this->extractFemaleParticipantRecords($row, $allRecords, 'field_visit');
                 }
             } else {
                 $fcRecords = (clone $fcQuery)
@@ -423,7 +424,7 @@ class ProgramDeliverablesAchievementBreakdownService
         // ── block_workshops ──────────────────────────────────────────────────
         if (Schema::hasTable('block_workshops')) {
             $bwQuery = DB::table('block_workshops as bw')
-                ->join('districts as d', 'd.id', '=', 'bw.district_id')
+                ->leftJoin('districts as d', 'd.id', '=', 'bw.district_id')
                 ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id');
 
             $this->applyBlockWorkshopBreakdownScope($bwQuery);
@@ -452,6 +453,7 @@ class ProgramDeliverablesAchievementBreakdownService
                         'bw.id',
                         'bw.visit_date',
                         'bw.participants_json',
+                        'bw.participants_male_count',
                         'bw.participants_female_count',
                         'd.name as district_name',
                         'h.name as hub_name',
@@ -461,7 +463,7 @@ class ProgramDeliverablesAchievementBreakdownService
                     ->get();
 
                 foreach ($bwWithJson as $row) {
-                    $this->extractFemaleParticipantRecords($row, $allRecords, 5000);
+                    $this->extractFemaleParticipantRecords($row, $allRecords, 'block_workshop');
                 }
             } else {
                 $bwRecords = (clone $bwQuery)
@@ -503,54 +505,84 @@ class ProgramDeliverablesAchievementBreakdownService
     }
 
     /**
-     * Extract individual female rows from a workshop's participants_json into $records.
+     * One breakdown row per female participant (`participants_female_count`).
+     * Details come from participants_json when available; remaining slots are placeholders.
      *
-     * @param  object  $row            DB row with id, visit_date, participants_json, district_name, hub_name
+     * @param  object  $row  id, visit_date, participants_json, participants_male_count, participants_female_count, district_name, hub_name
      * @param  list<array<string, mixed>>  $records
      */
-    private function extractFemaleParticipantRecords(object $row, array &$records, int $limit = 200): void
+    private function extractFemaleParticipantRecords(object $row, array &$records, string $sourceKind): void
     {
-        if (count($records) >= $limit) {
+        $femaleTarget = (int) ($row->participants_female_count ?? 0);
+        if ($femaleTarget <= 0) {
             return;
         }
 
         $json = $row->participants_json ?? null;
         $participants = is_string($json) ? json_decode($json, true) : (is_array($json) ? $json : null);
+        $participants = is_array($participants) ? array_values($participants) : [];
 
-        if (! is_array($participants)) {
-            return;
+        $maleCount = (int) ($row->participants_male_count ?? 0);
+
+        $femaleDetails = [];
+        foreach ($participants as $i => $p) {
+            if (! is_array($p)) {
+                continue;
+            }
+            if ($this->participantRowIsFemale($p, $i, $maleCount, $femaleTarget)) {
+                $femaleDetails[] = $p;
+            }
         }
+        $femaleDetails = array_slice($femaleDetails, 0, $femaleTarget);
 
+        $refLabel = $sourceKind === 'block_workshop' ? 'Workshop' : 'Visit';
         $visitDate = $row->visit_date ? Carbon::parse($row->visit_date)->format('d M Y') : '—';
         $districtName = (string) ($row->district_name ?: '—');
         $hubName = (string) ($row->hub_name ?: '—');
 
-        foreach ($participants as $p) {
-            if (! is_array($p)) {
-                continue;
-            }
-            if (strtoupper(trim((string) ($p['gender'] ?? ''))) !== 'F') {
-                continue;
-            }
-            $gpAndMobile = trim(implode(', ', array_filter([
-                (string) ($p['gram_panchayat_name'] ?? ''),
-                (string) ($p['mobile'] ?? ''),
-            ])));
+        for ($i = 0; $i < $femaleTarget; $i++) {
+            $p = $femaleDetails[$i] ?? null;
+            $name = is_array($p) ? trim((string) ($p['name'] ?? '')) : '';
+            $gpAndMobile = is_array($p)
+                ? trim(implode(', ', array_filter([
+                    (string) ($p['gram_panchayat_name'] ?? ''),
+                    (string) ($p['mobile'] ?? ''),
+                ])))
+                : '';
+            $mobile = is_array($p) ? trim((string) ($p['mobile'] ?? '')) : '';
+            $pDistrict = is_array($p) ? trim((string) ($p['district_name'] ?? '')) : '';
+
             $records[] = [
                 'id' => (int) $row->id,
-                'reference' => 'Workshop #'.$row->id,
-                'applicant' => (string) ($p['name'] ?? '') ?: '—',
-                'district' => (string) ($p['district_name'] ?? '') ?: $districtName,
+                'reference' => $refLabel.' #'.$row->id,
+                'applicant' => $name !== '' ? $name : '—',
+                'district' => $pDistrict !== '' ? $pDistrict : $districtName,
                 'hub' => $hubName,
-                'service' => $gpAndMobile ?: '—',
-                'spoc' => (string) ($p['mobile'] ?? '') ?: '—',
+                'service' => $gpAndMobile !== '' ? $gpAndMobile : '—',
+                'spoc' => $mobile !== '' ? $mobile : '—',
                 'status' => 'Female',
+                'gender' => 'F',
                 'date' => $visitDate,
             ];
-            if (count($records) >= $limit) {
-                return;
-            }
         }
+    }
+
+    /**
+     * Match staff participant registry: explicit gender, else default slot by male/female counts.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function participantRowIsFemale(array $row, int $index, int $maleCount, int $femaleCount): bool
+    {
+        $gender = strtoupper(trim((string) ($row['gender'] ?? '')));
+        if ($gender === 'F') {
+            return true;
+        }
+        if ($gender === 'M') {
+            return false;
+        }
+
+        return $index >= $maleCount && $index < $maleCount + $femaleCount;
     }
 
     /**
