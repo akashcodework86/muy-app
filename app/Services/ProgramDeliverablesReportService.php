@@ -1031,35 +1031,78 @@ SQL;
     }
 
     /**
-     * MIS 1.3 — each Field work visit submission (staff /my/attendance).
+     * MIS 1.3 — Field work visits (field_coordinator_attendance_reports) +
+     *           Block workshops (block_workshops).
      */
     private function fieldWorkWorkshopsCount(): int
     {
-        if (! Schema::hasTable('field_coordinator_attendance_reports')) {
-            return 0;
+        $total = 0;
+
+        if (Schema::hasTable('field_coordinator_attendance_reports')) {
+            $query = FieldCoordinatorAttendanceReport::query();
+            $this->applyFieldWorkAchievementScope($query);
+            $total += (int) $query->count();
         }
 
-        $query = FieldCoordinatorAttendanceReport::query();
-        $this->applyFieldWorkAchievementScope($query);
+        if (Schema::hasTable('block_workshops')) {
+            $query = DB::table('block_workshops');
+            $this->applyBlockWorkshopCountScope($query);
+            $total += (int) $query->count();
+        }
 
-        return (int) $query->count();
+        return $total;
     }
 
     /**
-     * MIS 1.3.1 — sum of participants (M+F) on those Field work visits.
+     * MIS 1.3.1 — female participants only, across both tables.
      */
     private function fieldWorkParticipantsCount(): int
     {
-        if (! Schema::hasTable('field_coordinator_attendance_reports')) {
-            return 0;
+        $total = 0;
+
+        if (Schema::hasTable('field_coordinator_attendance_reports')) {
+            $query = FieldCoordinatorAttendanceReport::query();
+            $this->applyFieldWorkAchievementScope($query);
+            $total += (int) $query->sum(DB::raw('COALESCE(participants_female_count, 0)'));
         }
 
-        $query = FieldCoordinatorAttendanceReport::query();
-        $this->applyFieldWorkAchievementScope($query);
+        if (Schema::hasTable('block_workshops')) {
+            $query = DB::table('block_workshops');
+            $this->applyBlockWorkshopCountScope($query);
+            $total += (int) $query->sum(DB::raw('COALESCE(participants_female_count, 0)'));
+        }
 
-        return (int) $query->sum(DB::raw(
-            'COALESCE(NULLIF(participants_total, 0), COALESCE(participants_male_count, 0) + COALESCE(participants_female_count, 0), 0)'
-        ));
+        return $total;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyBlockWorkshopCountScope($query): void
+    {
+        $this->applyDistrictScope($query, 'district_id');
+
+        $query->where(function ($q): void {
+            $q->where('status', 'submitted')->orWhereNull('status');
+        });
+
+        $floor = $this->phase3FloorDate();
+
+        if ($this->filter?->hasExplicitDateFilter() && $this->periodFrom && $this->periodTo) {
+            $from = $this->periodFrom->copy();
+            if ($from->lt($floor)) {
+                $from = $floor->copy();
+            }
+            $query->whereBetween('visit_date', [$from->toDateString(), $this->periodTo->toDateString()]);
+
+            return;
+        }
+
+        $query->where('visit_date', '>=', $floor->toDateString());
+
+        if ($this->periodTo) {
+            $query->where('visit_date', '<=', $this->periodTo->toDateString());
+        }
     }
 
     /**

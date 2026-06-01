@@ -233,6 +233,62 @@
         letter-spacing: 0.03em;
         color: #64748b;
     }
+    .dlv-gender-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0.15rem 0.45rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        flex-shrink: 0;
+    }
+    .dlv-gender-badge--f { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; }
+    .dlv-gender-badge--m { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .dlv-participant-name { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; }
+    .dlv-type-chip {
+        display: inline-block;
+        padding: 0.12rem 0.4rem;
+        border-radius: 6px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        vertical-align: middle;
+    }
+    .dlv-type-chip--visit    { background: #ecfdf5; color: #065f46; }
+    .dlv-type-chip--workshop { background: #eff6ff; color: #1e40af; }
+    /* Pagination */
+    .dlv-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.65rem 0.1rem 0.1rem;
+        flex-wrap: wrap;
+    }
+    .dlv-pagination__info {
+        font-size: 0.75rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .dlv-pagination__controls { display: flex; gap: 0.35rem; align-items: center; }
+    .dlv-page-btn {
+        appearance: none;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #334155;
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 0.3rem 0.65rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s;
+    }
+    .dlv-page-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; }
+    .dlv-page-btn:disabled { opacity: 0.38; cursor: default; }
+    .dlv-page-btn--active { background: #0f172a; color: #fff; border-color: #0f172a; }
     .dlv-drawer__actions {
         display: flex;
         flex-wrap: wrap;
@@ -339,6 +395,13 @@
     let activeSerial = null;
 
     const fmt = (n) => new Intl.NumberFormat('en-IN').format(Number(n || 0));
+    const PAGE_SIZE_DEFAULT = 25;
+    const PAGE_SIZE_PARTICIPANTS = 100;
+
+    // Pagination state (reset per drawer open)
+    let _allRecords = [];
+    let _currentPage = 1;
+    let _sourceType = '';
 
     function openDrawer(serial, name) {
         activeSerial = serial;
@@ -388,6 +451,11 @@
         document.getElementById('dlv-drawer-period').textContent = data.period_label || '—';
         document.getElementById('dlv-drawer-source').textContent = data.source_type_label || '—';
 
+        // Store pagination state
+        _allRecords = data.records || [];
+        _currentPage = 1;
+        _sourceType = data.source_type || '';
+
         const maxDistrict = Math.max(...(data.by_district || []).map((r) => r.count), 1);
         const districtBars = (data.by_district || []).slice(0, 8).map((row) => `
             <div class="dlv-bar-row">
@@ -418,15 +486,11 @@
             </div>
         ` : '';
 
-        const recordRows = (data.records || []).slice(0, 25).map((row) => `
-            <tr>
-                <td>${row.reference}</td>
-                <td>${row.applicant}</td>
-                <td>${row.district}</td>
-                <td>${row.service}</td>
-                <td>${row.date}</td>
-            </tr>
-        `).join('');
+        const namedCount = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants'
+            ? _allRecords.filter((r) => r.applicant && r.applicant !== '—').length
+            : null;
+
+        const recordsSectionTitle = buildRecordsSectionTitle(namedCount, data.total);
 
         body.innerHTML = `
             <div class="dlv-stat-grid">
@@ -456,14 +520,154 @@
                 </table>
             </div>
             ${serviceSection}
-            <div class="dlv-section">
-                <h3 class="dlv-section__title">Recent records</h3>
-                <table class="dlv-table">
-                    <thead><tr><th>Reference</th><th>Applicant</th><th>District</th><th>Service</th><th>Date</th></tr></thead>
-                    <tbody>${recordRows || '<tr><td colspan="5">No records found.</td></tr>'}</tbody>
-                </table>
+            <div class="dlv-section" id="dlv-records-section">
+                <h3 class="dlv-section__title">${recordsSectionTitle}</h3>
+                <div id="dlv-records-table-wrap"></div>
+                <div id="dlv-pagination-wrap"></div>
             </div>
         `;
+
+        renderRecordsPage();
+    }
+
+    function buildRecordsSectionTitle(namedCount, total) {
+        const isFP = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
+        const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
+        if (isFP) {
+            const nc = namedCount ?? 0;
+            return `Female Participants <span style="font-weight:400;font-size:0.78rem;color:#be185d;margin-left:0.4rem;">${fmt(nc)} named of ${fmt(total)} total</span>`;
+        }
+        if (isWS) return 'Activities';
+        return 'Records';
+    }
+
+    function renderRecordsPage() {
+        const isFP = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
+        const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
+
+        const isFPPage = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
+        const pageSize = isFPPage ? PAGE_SIZE_PARTICIPANTS : PAGE_SIZE_DEFAULT;
+
+        const total = _allRecords.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        _currentPage = Math.min(Math.max(1, _currentPage), totalPages);
+
+        const start = (_currentPage - 1) * pageSize;
+        const pageRecords = _allRecords.slice(start, start + pageSize);
+        const globalOffset = start; // for continuous numbering across pages
+
+        let tableHtml = '';
+
+        if (isFP) {
+            const rowsHtml = pageRecords.map((row, i) => {
+                const sr = globalOffset + i + 1;
+                const namePart = (row.applicant && row.applicant !== '—')
+                    ? `<div class="dlv-participant-name"><span class="dlv-gender-badge dlv-gender-badge--f">♀ F</span><span>${row.applicant}</span></div>`
+                    : `<span style="color:#94a3b8;font-style:italic;">Not recorded</span>`;
+                return `<tr>
+                    <td style="text-align:center;color:#94a3b8;font-weight:700;font-size:0.75rem;">${sr}</td>
+                    <td>${namePart}</td>
+                    <td>${row.district}</td>
+                    <td style="font-size:0.78rem;color:#475569;">${row.service && row.service !== '—' ? row.service : '—'}</td>
+                    <td style="color:#64748b;font-size:0.75rem;">${row.reference}</td>
+                    <td>${row.date}</td>
+                </tr>`;
+            }).join('');
+            tableHtml = `<table class="dlv-table">
+                <thead><tr>
+                    <th style="width:2rem;text-align:center;">#</th>
+                    <th>Name &amp; Gender</th>
+                    <th>District</th>
+                    <th>Gram Panchayat / Mobile</th>
+                    <th>Workshop Ref</th>
+                    <th>Visit Date</th>
+                </tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="6" style="color:#94a3b8;font-style:italic;padding:0.75rem 0.35rem;">No named participant records — only aggregate counts are available for this period.</td></tr>'}</tbody>
+            </table>`;
+        } else if (isWS) {
+            const rowsHtml = pageRecords.map((row, i) => {
+                const sr = globalOffset + i + 1;
+                const isWkshp = row.service === 'Block workshop';
+                const chip = isWkshp
+                    ? `<span class="dlv-type-chip dlv-type-chip--workshop">Workshop</span>`
+                    : `<span class="dlv-type-chip dlv-type-chip--visit">Field Visit</span>`;
+                return `<tr>
+                    <td style="text-align:center;color:#94a3b8;font-weight:700;font-size:0.75rem;">${sr}</td>
+                    <td>${chip} <span style="font-size:0.78rem;color:#475569;">${row.reference}</span></td>
+                    <td>${row.applicant}</td>
+                    <td>${row.district}</td>
+                    <td>${row.date}</td>
+                </tr>`;
+            }).join('');
+            tableHtml = `<table class="dlv-table">
+                <thead><tr>
+                    <th style="width:2rem;text-align:center;">#</th>
+                    <th>Type &amp; Ref</th>
+                    <th>Area / Block</th>
+                    <th>District</th>
+                    <th>Date</th>
+                </tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="5">No records found.</td></tr>'}</tbody>
+            </table>`;
+        } else {
+            const rowsHtml = pageRecords.map((row, i) => {
+                const sr = globalOffset + i + 1;
+                return `<tr>
+                    <td style="text-align:center;color:#94a3b8;font-weight:700;font-size:0.75rem;">${sr}</td>
+                    <td>${row.reference}</td>
+                    <td>${row.applicant}</td>
+                    <td>${row.district}</td>
+                    <td>${row.service}</td>
+                    <td>${row.date}</td>
+                </tr>`;
+            }).join('');
+            tableHtml = `<table class="dlv-table">
+                <thead><tr>
+                    <th style="width:2rem;text-align:center;">#</th>
+                    <th>Reference</th><th>Applicant</th><th>District</th><th>Service</th><th>Date</th>
+                </tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="6">No records found.</td></tr>'}</tbody>
+            </table>`;
+        }
+
+        // ── Pagination controls ──────────────────────────────────────────────
+        let paginationHtml = '';
+        if (totalPages > 1) {
+            const from = start + 1;
+            const to = Math.min(start + pageSize, total);
+
+            // Show up to 5 page number buttons around current page
+            const pageButtons = [];
+            const rangeStart = Math.max(1, _currentPage - 2);
+            const rangeEnd = Math.min(totalPages, _currentPage + 2);
+            if (rangeStart > 1) pageButtons.push(`<button class="dlv-page-btn" data-pg="1">1</button>`);
+            if (rangeStart > 2) pageButtons.push(`<span style="color:#94a3b8;font-size:0.75rem;padding:0 0.1rem;">…</span>`);
+            for (let p = rangeStart; p <= rangeEnd; p++) {
+                pageButtons.push(`<button class="dlv-page-btn${p === _currentPage ? ' dlv-page-btn--active' : ''}" data-pg="${p}">${p}</button>`);
+            }
+            if (rangeEnd < totalPages - 1) pageButtons.push(`<span style="color:#94a3b8;font-size:0.75rem;padding:0 0.1rem;">…</span>`);
+            if (rangeEnd < totalPages) pageButtons.push(`<button class="dlv-page-btn" data-pg="${totalPages}">${totalPages}</button>`);
+
+            paginationHtml = `
+                <div class="dlv-pagination">
+                    <div class="dlv-pagination__info">${from}–${to} of ${fmt(total)}</div>
+                    <div class="dlv-pagination__controls">
+                        <button class="dlv-page-btn" id="dlv-prev-page" ${_currentPage <= 1 ? 'disabled' : ''}>&#8592; Prev</button>
+                        ${pageButtons.join('')}
+                        <button class="dlv-page-btn" id="dlv-next-page" ${_currentPage >= totalPages ? 'disabled' : ''}>Next &#8594;</button>
+                    </div>
+                </div>`;
+        }
+
+        document.getElementById('dlv-records-table-wrap').innerHTML = tableHtml;
+        document.getElementById('dlv-pagination-wrap').innerHTML = paginationHtml;
+
+        // Attach pagination handlers
+        document.getElementById('dlv-prev-page')?.addEventListener('click', () => { _currentPage--; renderRecordsPage(); });
+        document.getElementById('dlv-next-page')?.addEventListener('click', () => { _currentPage++; renderRecordsPage(); });
+        document.querySelectorAll('#dlv-pagination-wrap .dlv-page-btn[data-pg]').forEach((btn) => {
+            btn.addEventListener('click', () => { _currentPage = parseInt(btn.dataset.pg, 10); renderRecordsPage(); });
+        });
     }
 
     document.querySelectorAll('[data-dlv-breakdown]').forEach((btn) => {

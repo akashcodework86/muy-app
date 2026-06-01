@@ -337,63 +337,250 @@ class ProgramDeliverablesAchievementBreakdownService
     }
 
     /**
+     * MIS 1.3 / 1.3.1 — field_coordinator_attendance_reports + block_workshops combined.
+     * When $participants = true  → sum female counts + individual female participant records.
+     * When $participants = false → count workshop submissions + workshop-level records.
+     *
      * @return array<string, mixed>
      */
     private function fieldWorkBreakdown(bool $participants): array
     {
-        if (! Schema::hasTable('field_coordinator_attendance_reports')) {
+        $allGroupedRows = collect();
+        $allRecords = [];
+
+        // ── field_coordinator_attendance_reports ─────────────────────────────
+        if (Schema::hasTable('field_coordinator_attendance_reports')) {
+            $fcQuery = FieldCoordinatorAttendanceReport::query()
+                ->join('districts as d', 'd.id', '=', 'field_coordinator_attendance_reports.district_id')
+                ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id');
+
+            $this->applyFieldWorkAchievementScope($fcQuery);
+            $monthExpr = $this->monthKeySql('field_coordinator_attendance_reports.visit_date');
+
+            $countExpr = $participants
+                ? 'COALESCE(field_coordinator_attendance_reports.participants_female_count, 0)'
+                : '1';
+
+            $fcRows = (clone $fcQuery)
+                ->selectRaw("
+                    d.id as district_id,
+                    d.name as district_name,
+                    h.name as hub_name,
+                    {$monthExpr} as month_key,
+                    SUM({$countExpr}) as total
+                ")
+                ->groupBy('d.id', 'd.name', 'h.name', DB::raw($monthExpr))
+                ->get();
+
+            $allGroupedRows = $allGroupedRows->concat($fcRows);
+
+            if ($participants) {
+                $fcWithJson = (clone $fcQuery)
+                    ->select([
+                        'field_coordinator_attendance_reports.id',
+                        'field_coordinator_attendance_reports.visit_date',
+                        'field_coordinator_attendance_reports.participants_json',
+                        'field_coordinator_attendance_reports.participants_female_count',
+                        'd.name as district_name',
+                        'h.name as hub_name',
+                    ])
+                    ->where('field_coordinator_attendance_reports.participants_female_count', '>', 0)
+                    ->orderByDesc('field_coordinator_attendance_reports.visit_date')
+                    ->get();
+
+                foreach ($fcWithJson as $row) {
+                    $this->extractFemaleParticipantRecords($row, $allRecords, 5000);
+                }
+            } else {
+                $fcRecords = (clone $fcQuery)
+                    ->select([
+                        'field_coordinator_attendance_reports.id',
+                        'field_coordinator_attendance_reports.visit_date',
+                        'field_coordinator_attendance_reports.area',
+                        'field_coordinator_attendance_reports.block',
+                        'd.name as district_name',
+                        'h.name as hub_name',
+                    ])
+                    ->orderByDesc('field_coordinator_attendance_reports.visit_date')
+                    ->get()
+                    ->map(fn ($row) => [
+                        'id' => (int) $row->id,
+                        'reference' => 'Visit #'.$row->id,
+                        'applicant' => (string) (trim(($row->area ?? '').($row->block ? ', '.$row->block : '')) ?: 'Field visit'),
+                        'district' => (string) ($row->district_name ?: '—'),
+                        'hub' => (string) ($row->hub_name ?: '—'),
+                        'service' => 'Field work visit',
+                        'spoc' => '—',
+                        'status' => 'Recorded',
+                        'date' => $row->visit_date ? Carbon::parse($row->visit_date)->format('d M Y') : '—',
+                    ])
+                    ->all();
+
+                $allRecords = array_merge($allRecords, $fcRecords);
+            }
+        }
+
+        // ── block_workshops ──────────────────────────────────────────────────
+        if (Schema::hasTable('block_workshops')) {
+            $bwQuery = DB::table('block_workshops as bw')
+                ->join('districts as d', 'd.id', '=', 'bw.district_id')
+                ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id');
+
+            $this->applyBlockWorkshopBreakdownScope($bwQuery);
+            $monthExpr = $this->monthKeySql('bw.visit_date');
+
+            $countExpr = $participants
+                ? 'COALESCE(bw.participants_female_count, 0)'
+                : '1';
+
+            $bwRows = (clone $bwQuery)
+                ->selectRaw("
+                    d.id as district_id,
+                    d.name as district_name,
+                    h.name as hub_name,
+                    {$monthExpr} as month_key,
+                    SUM({$countExpr}) as total
+                ")
+                ->groupBy('d.id', 'd.name', 'h.name', DB::raw($monthExpr))
+                ->get();
+
+            $allGroupedRows = $allGroupedRows->concat($bwRows);
+
+            if ($participants) {
+                $bwWithJson = (clone $bwQuery)
+                    ->select([
+                        'bw.id',
+                        'bw.visit_date',
+                        'bw.participants_json',
+                        'bw.participants_female_count',
+                        'd.name as district_name',
+                        'h.name as hub_name',
+                    ])
+                    ->where('bw.participants_female_count', '>', 0)
+                    ->orderByDesc('bw.visit_date')
+                    ->get();
+
+                foreach ($bwWithJson as $row) {
+                    $this->extractFemaleParticipantRecords($row, $allRecords, 5000);
+                }
+            } else {
+                $bwRecords = (clone $bwQuery)
+                    ->select([
+                        'bw.id',
+                        'bw.visit_date',
+                        'bw.area',
+                        'bw.block',
+                        'd.name as district_name',
+                        'h.name as hub_name',
+                    ])
+                    ->orderByDesc('bw.visit_date')
+                    ->get()
+                    ->map(fn ($row) => [
+                        'id' => (int) $row->id,
+                        'reference' => 'Workshop #'.$row->id,
+                        'applicant' => (string) (trim(($row->area ?? '').($row->block ? ', '.$row->block : '')) ?: 'Block workshop'),
+                        'district' => (string) ($row->district_name ?: '—'),
+                        'hub' => (string) ($row->hub_name ?: '—'),
+                        'service' => 'Block workshop',
+                        'spoc' => '—',
+                        'status' => 'Recorded',
+                        'date' => $row->visit_date ? Carbon::parse($row->visit_date)->format('d M Y') : '—',
+                    ])
+                    ->all();
+
+                $allRecords = array_merge($allRecords, $bwRecords);
+            }
+        }
+
+        if ($allGroupedRows->isEmpty()) {
             return $this->emptyBreakdown();
         }
 
-        $query = FieldCoordinatorAttendanceReport::query()
-            ->join('districts as d', 'd.id', '=', 'field_coordinator_attendance_reports.district_id')
-            ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id');
+        // Sort records newest-first (no hard cap — exports receive all, drawer paginates client-side)
+        usort($allRecords, fn ($a, $b) => strcmp((string) ($b['date'] ?? ''), (string) ($a['date'] ?? '')));
 
-        $this->applyFieldWorkAchievementScope($query);
-        $monthExpr = $this->monthKeySql('field_coordinator_attendance_reports.visit_date');
+        return $this->aggregateGroupedRows($allGroupedRows, includeService: false, records: $allRecords);
+    }
 
-        $countExpr = $participants
-            ? $this->fieldWorkParticipantCountExpression()
-            : '1';
+    /**
+     * Extract individual female rows from a workshop's participants_json into $records.
+     *
+     * @param  object  $row            DB row with id, visit_date, participants_json, district_name, hub_name
+     * @param  list<array<string, mixed>>  $records
+     */
+    private function extractFemaleParticipantRecords(object $row, array &$records, int $limit = 200): void
+    {
+        if (count($records) >= $limit) {
+            return;
+        }
 
-        $rows = (clone $query)
-            ->selectRaw("
-                d.id as district_id,
-                d.name as district_name,
-                h.name as hub_name,
-                {$monthExpr} as month_key,
-                SUM({$countExpr}) as total
-            ")
-            ->groupBy('d.id', 'd.name', 'h.name', DB::raw($monthExpr))
-            ->get();
+        $json = $row->participants_json ?? null;
+        $participants = is_string($json) ? json_decode($json, true) : (is_array($json) ? $json : null);
 
-        $records = (clone $query)
-            ->select([
-                'field_coordinator_attendance_reports.id',
-                'field_coordinator_attendance_reports.visit_date',
-                'field_coordinator_attendance_reports.area',
-                'field_coordinator_attendance_reports.block',
-                'field_coordinator_attendance_reports.participants_total',
-                'd.name as district_name',
-                'h.name as hub_name',
-            ])
-            ->orderByDesc('field_coordinator_attendance_reports.visit_date')
-            ->limit(100)
-            ->get()
-            ->map(fn ($row) => [
+        if (! is_array($participants)) {
+            return;
+        }
+
+        $visitDate = $row->visit_date ? Carbon::parse($row->visit_date)->format('d M Y') : '—';
+        $districtName = (string) ($row->district_name ?: '—');
+        $hubName = (string) ($row->hub_name ?: '—');
+
+        foreach ($participants as $p) {
+            if (! is_array($p)) {
+                continue;
+            }
+            if (strtoupper(trim((string) ($p['gender'] ?? ''))) !== 'F') {
+                continue;
+            }
+            $gpAndMobile = trim(implode(', ', array_filter([
+                (string) ($p['gram_panchayat_name'] ?? ''),
+                (string) ($p['mobile'] ?? ''),
+            ])));
+            $records[] = [
                 'id' => (int) $row->id,
-                'reference' => 'Visit #'.$row->id,
-                'applicant' => (string) (trim(($row->area ?? '').($row->block ? ', '.$row->block : '')) ?: 'Field visit'),
-                'district' => (string) ($row->district_name ?: '—'),
-                'hub' => (string) ($row->hub_name ?: '—'),
-                'service' => $participants ? 'Participants' : 'Field work visit',
-                'spoc' => '—',
-                'status' => 'Recorded',
-                'date' => $row->visit_date ? Carbon::parse($row->visit_date)->format('d M Y') : '—',
-            ])
-            ->all();
+                'reference' => 'Workshop #'.$row->id,
+                'applicant' => (string) ($p['name'] ?? '') ?: '—',
+                'district' => (string) ($p['district_name'] ?? '') ?: $districtName,
+                'hub' => $hubName,
+                'service' => $gpAndMobile ?: '—',
+                'spoc' => (string) ($p['mobile'] ?? '') ?: '—',
+                'status' => 'Female',
+                'date' => $visitDate,
+            ];
+            if (count($records) >= $limit) {
+                return;
+            }
+        }
+    }
 
-        return $this->aggregateGroupedRows($rows, includeService: false, records: $records);
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applyBlockWorkshopBreakdownScope($query): void
+    {
+        $this->applyDistrictScope($query, 'bw.district_id');
+
+        $query->where(function ($q): void {
+            $q->where('bw.status', 'submitted')->orWhereNull('bw.status');
+        });
+
+        $floor = $this->phase3FloorDate();
+
+        if ($this->filter?->hasExplicitDateFilter() && $this->periodFrom && $this->periodTo) {
+            $from = $this->periodFrom->copy();
+            if ($from->lt($floor)) {
+                $from = $floor->copy();
+            }
+            $query->whereBetween('bw.visit_date', [$from->toDateString(), $this->periodTo->toDateString()]);
+
+            return;
+        }
+
+        $query->where('bw.visit_date', '>=', $floor->toDateString());
+
+        if ($this->periodTo) {
+            $query->where('bw.visit_date', '<=', $this->periodTo->toDateString());
+        }
     }
 
     /**
@@ -896,8 +1083,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'deliverable', 'service', 'services' => 'Approved service cases',
             'cfa_count' => 'CFA submissions',
             'onboarding_count' => 'Onboarded incubatees',
-            'field_work_workshops', 'field_visit_sessions' => 'Field work visits',
-            'field_work_participants', 'field_visit_participants' => 'Outreach participants',
+            'field_work_workshops', 'field_visit_sessions' => 'Field work visits & block workshops',
+            'field_work_participants', 'field_visit_participants' => 'Female outreach participants',
             'district_workshop_sessions' => 'District workshops',
             'edp_sessions' => 'EAP/EDP sessions',
             'bst_sessions' => 'Business skills training sessions',
@@ -1301,14 +1488,4 @@ SQL;
         };
     }
 
-    private function fieldWorkParticipantCountExpression(): string
-    {
-        $table = 'field_coordinator_attendance_reports';
-
-        if (Schema::hasColumn($table, 'participants_male_count') && Schema::hasColumn($table, 'participants_female_count')) {
-            return 'COALESCE(NULLIF('.$table.'.participants_total, 0), COALESCE('.$table.'.participants_male_count, 0) + COALESCE('.$table.'.participants_female_count, 0), 0)';
-        }
-
-        return 'COALESCE('.$table.'.participants_total, 0)';
-    }
 }

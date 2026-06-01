@@ -68,17 +68,54 @@ class DeliverablesBreakdownCsvExport
                 fputcsv($out, []);
             }
 
-            fputcsv($out, ['Reference', 'Applicant', 'District', 'Hub', 'Service', 'Status', 'Date']);
-            foreach ($breakdown['records'] ?? [] as $item) {
-                fputcsv($out, [
-                    $item['reference'] ?? '',
-                    $item['applicant'] ?? '',
-                    $item['district'] ?? '',
-                    $item['hub'] ?? '',
-                    $item['service'] ?? '',
-                    $item['status'] ?? '',
-                    $item['date'] ?? '',
-                ]);
+            $sourceType = (string) ($breakdown['source_type'] ?? '');
+            $isFemaleParticipants = in_array($sourceType, ['field_work_participants', 'field_visit_participants'], true);
+            $isFieldWorkshops = in_array($sourceType, ['field_work_workshops', 'field_visit_sessions'], true);
+
+            if ($isFemaleParticipants) {
+                fputcsv($out, ['#', 'Participant Name', 'Gender', 'District', 'Hub', 'Gram Panchayat / Mobile', 'Workshop Ref', 'Visit Date']);
+                $idx = 1;
+                foreach ($breakdown['records'] ?? [] as $item) {
+                    fputcsv($out, [
+                        $idx++,
+                        $item['applicant'] ?? '',
+                        'Female',
+                        $item['district'] ?? '',
+                        $item['hub'] ?? '',
+                        $item['service'] ?? '',
+                        $item['reference'] ?? '',
+                        $item['date'] ?? '',
+                    ]);
+                }
+            } elseif ($isFieldWorkshops) {
+                fputcsv($out, ['#', 'Reference', 'Type', 'Area / Block', 'District', 'Hub', 'Date']);
+                $idx = 1;
+                foreach ($breakdown['records'] ?? [] as $item) {
+                    fputcsv($out, [
+                        $idx++,
+                        $item['reference'] ?? '',
+                        $item['service'] ?? '',
+                        $item['applicant'] ?? '',
+                        $item['district'] ?? '',
+                        $item['hub'] ?? '',
+                        $item['date'] ?? '',
+                    ]);
+                }
+            } else {
+                fputcsv($out, ['#', 'Reference', 'Applicant', 'District', 'Hub', 'Service', 'Status', 'Date']);
+                $idx = 1;
+                foreach ($breakdown['records'] ?? [] as $item) {
+                    fputcsv($out, [
+                        $idx++,
+                        $item['reference'] ?? '',
+                        $item['applicant'] ?? '',
+                        $item['district'] ?? '',
+                        $item['hub'] ?? '',
+                        $item['service'] ?? '',
+                        $item['status'] ?? '',
+                        $item['date'] ?? '',
+                    ]);
+                }
             }
 
             fclose($out);

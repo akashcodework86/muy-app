@@ -67,15 +67,48 @@ class DeliverablesBreakdownSpreadsheetExport
             ])->all());
         }
 
-        $this->writeSheet($spreadsheet, 'Records', ['Reference', 'Applicant', 'District', 'Hub', 'Service', 'Status', 'Date'], collect($breakdown['records'] ?? [])->map(fn ($item) => [
-            $this->cell($item['reference'] ?? ''),
-            $this->cell($item['applicant'] ?? ''),
-            $this->cell($item['district'] ?? ''),
-            $this->cell($item['hub'] ?? ''),
-            $this->cell($item['service'] ?? ''),
-            $this->cell($item['status'] ?? ''),
-            $this->cell($item['date'] ?? ''),
-        ])->all());
+        $sourceType = (string) ($breakdown['source_type'] ?? '');
+        $isFemaleParticipants = in_array($sourceType, ['field_work_participants', 'field_visit_participants'], true);
+        $isFieldWorkshops = in_array($sourceType, ['field_work_workshops', 'field_visit_sessions'], true);
+
+        if ($isFemaleParticipants) {
+            $recordHeaders = ['#', 'Participant Name', 'Gender', 'District', 'Hub', 'Gram Panchayat / Mobile', 'Workshop Ref', 'Visit Date'];
+            $recordRows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
+                $idx + 1,
+                $this->cell($item['applicant'] ?? ''),
+                'Female',
+                $this->cell($item['district'] ?? ''),
+                $this->cell($item['hub'] ?? ''),
+                $this->cell($item['service'] ?? ''),
+                $this->cell($item['reference'] ?? ''),
+                $this->cell($item['date'] ?? ''),
+            ])->all();
+        } elseif ($isFieldWorkshops) {
+            $recordHeaders = ['#', 'Reference', 'Type', 'Area / Block', 'District', 'Hub', 'Date'];
+            $recordRows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
+                $idx + 1,
+                $this->cell($item['reference'] ?? ''),
+                $this->cell($item['service'] ?? ''),
+                $this->cell($item['applicant'] ?? ''),
+                $this->cell($item['district'] ?? ''),
+                $this->cell($item['hub'] ?? ''),
+                $this->cell($item['date'] ?? ''),
+            ])->all();
+        } else {
+            $recordHeaders = ['#', 'Reference', 'Applicant', 'District', 'Hub', 'Service', 'Status', 'Date'];
+            $recordRows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
+                $idx + 1,
+                $this->cell($item['reference'] ?? ''),
+                $this->cell($item['applicant'] ?? ''),
+                $this->cell($item['district'] ?? ''),
+                $this->cell($item['hub'] ?? ''),
+                $this->cell($item['service'] ?? ''),
+                $this->cell($item['status'] ?? ''),
+                $this->cell($item['date'] ?? ''),
+            ])->all();
+        }
+
+        $this->writeSheet($spreadsheet, 'Records', $recordHeaders, $recordRows);
 
         $slug = str_replace('.', '-', $serial);
         $fileName = 'deliverables-breakdown-'.$slug.'-'.now()->format('Ymd').'.xlsx';
