@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
+use App\Services\LegacyPhase1\LegacyPhase1ListQuery;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -16,78 +17,60 @@ class LegacyPhase1CfaApplicationController extends Controller
      */
     public function index(Request $request): View
     {
+        $districts = LegacyPhase1DistrictResolver::canonicalDistricts();
+
         if ((string) config('database.connections.legacy_phase1.database', '') === '') {
-            return view('admin.phase1-cfa.index', [
-                'rows'                => $this->emptyPaginator(),
-                'phase1Unavailable'   => true,
-                'phase1MissingTables' => false,
-            ]);
+            return view('admin.phase1-cfa.index', $this->emptyViewData($districts, phase1Unavailable: true));
         }
 
         try {
             $hasTable = Schema::connection('legacy_phase1')->hasTable('tblapplication');
         } catch (\Exception $e) {
-            return view('admin.phase1-cfa.index', [
-                'rows'                => $this->emptyPaginator(),
-                'phase1Unavailable'   => true,
-                'phase1MissingTables' => false,
-            ]);
+            return view('admin.phase1-cfa.index', $this->emptyViewData($districts, phase1Unavailable: true));
         }
 
         if (! $hasTable) {
-            return view('admin.phase1-cfa.index', [
-                'rows'                => $this->emptyPaginator(),
-                'phase1Unavailable'   => false,
-                'phase1MissingTables' => true,
-            ]);
+            return view('admin.phase1-cfa.index', $this->emptyViewData($districts, phase1MissingTables: true));
         }
 
-        $query = DB::connection('legacy_phase1')
-            ->table('tblapplication')
-            ->select([
-                'ID as legacy_id',
-                'ApplicationNumber as application_no',
-                'FullName as full_name',
-                'MobileNumber as mobile_number',
-                'hub as hub_name',
-                'City as city_name',
-                'status as application_status',
-                'ApplicationDate as application_date',
-            ]);
+        $scopeCounts = LegacyPhase1ListQuery::scopeCounts($request);
 
-        if ($request->filled('search')) {
-            $search = '%'.$request->input('search').'%';
-            $query->where(function ($q) use ($search) {
-                $q->where('FullName', 'like', $search)
-                    ->orWhere('MobileNumber', 'like', $search)
-                    ->orWhere('ApplicationNumber', 'like', $search);
-            });
-        }
-
-        if ($request->filled('hub')) {
-            $query->where('hub', $request->input('hub'));
-        }
-
+        $query = LegacyPhase1ListQuery::listQuery();
+        LegacyPhase1ListQuery::applyFilters($query, $request);
         $query->orderByDesc('ApplicationDate')->orderByDesc('ID');
 
-        $rows = $query->paginate(100)->withQueryString();
-
-        $hubs = DB::connection('legacy_phase1')
-            ->table('tblapplication')
-            ->whereNotNull('hub')
-            ->where('hub', '!=', '')
-            ->distinct()
-            ->orderBy('hub')
-            ->pluck('hub')
-            ->values()
-            ->all();
+        $rows = $query
+            ->paginate(100)
+            ->withQueryString()
+            ->through(fn ($row) => LegacyPhase1DistrictResolver::enrichRow($row));
 
         return view('admin.phase1-cfa.index', [
-            'rows'                => $rows,
-            'hubs'                => $hubs,
-            'phase1Unavailable'   => false,
+            'rows' => $rows,
+            'districts' => $districts,
+            'filterOptions' => LegacyPhase1ListQuery::filterOptions(),
+            'scopeCounts' => $scopeCounts,
+            'phase1Unavailable' => false,
             'phase1MissingTables' => false,
         ]);
+    }
+
+    /**
+     * @param  list<string>  $districts
+     * @return array<string, mixed>
+     */
+    private function emptyViewData(
+        array $districts,
+        bool $phase1Unavailable = false,
+        bool $phase1MissingTables = false,
+    ): array {
+        return [
+            'rows' => $this->emptyPaginator(),
+            'districts' => $districts,
+            'filterOptions' => LegacyPhase1ListQuery::filterOptions(),
+            'scopeCounts' => ['total' => 0, 'onboarded' => 0, 'non_onboarded' => 0],
+            'phase1Unavailable' => $phase1Unavailable,
+            'phase1MissingTables' => $phase1MissingTables,
+        ];
     }
 
     private function emptyPaginator(): LengthAwarePaginator

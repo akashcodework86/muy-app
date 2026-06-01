@@ -2,6 +2,7 @@
 
 namespace App\Services\DataCentre;
 
+use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -10,59 +11,50 @@ class ProgramDataCentreService
 {
     // ─── Phase 2 FY window ────────────────────────────────────────────────
     private const P2_START = '2025-04-02';
-    private const P2_END   = '2026-04-01';
+
+    private const P2_END = '2026-04-01';
 
     /** Cache TTL in seconds (5 minutes). */
     private const CACHE_TTL = 300;
 
-    // ─── Phase 1 FatherName → canonical district ──────────────────────────
-    private const P1_ALIASES = [
-        'Almora'             => ['almora'],
-        'Bageshwar'          => ['bageshwar'],
-        'Chamoli'            => ['chamoli'],
-        'Champawat'          => ['champawat'],
-        'Dehradun'           => ['dehradun', 'doon'],
-        'Haridwar'           => ['haridwar', 'hardwar'],
-        'Nainital'           => ['nainital'],
-        'Pauri Garhwal'      => ['pauri', 'pauri_garhwal'],
-        'Pithoragarh'        => ['pithoragarh'],
-        'Rudraprayag'        => ['rudraprayag'],
-        'Tehri Garhwal'      => ['tehri', 'tehri_garhwal'],
-        'Udham Singh Nagar'  => ['us_nagar'],
-        'Uttarkashi'         => ['uttarkashi'],
-    ];
-
     // ─── Phase 2 district aliases (legacy spelling variants) ─────────────
     private const P2_ALIASES = [
         'Udham Singh Nagar' => ['udham singh nagar', 'udham singh nagr', 'us nagar', 'u s nagar', 'u.s. nagar', 'u s n'],
-        'Pauri Garhwal'     => ['pauri garhwal', 'pauri'],
-        'Tehri Garhwal'     => ['tehri garhwal', 'tehri'],
-        'Haridwar'          => ['haridwar', 'hardwar'],
-        'Dehradun'          => ['dehradun', 'doon'],
+        'Pauri Garhwal' => ['pauri garhwal', 'pauri'],
+        'Tehri Garhwal' => ['tehri garhwal', 'tehri'],
+        'Haridwar' => ['haridwar', 'hardwar'],
+        'Dehradun' => ['dehradun', 'doon'],
     ];
 
     private bool $legacyPhase1Ok = false;
+
     private bool $legacyPhase2Ok = false;
 
     // ─── Per-request data caches (each loaded by ONE batch query) ─────────
     /** @var array<string,int>|null */
     private ?array $p1Counts = null;
+
     /** @var array<string,array<string,int>>|null */
     private ?array $p1Gender = null;
+
     /** @var array<string,array<string,int>>|null */
     private ?array $p1Education = null;
 
     /** @var array<string,int>|null */
     private ?array $p2Counts = null;
+
     /** @var array<string,array<string,int>>|null */
     private ?array $p2Gender = null;
+
     /** @var array<string,array<string,int>>|null */
     private ?array $p2Education = null;
 
     /** @var array<string,int>|null */
     private ?array $p3Counts = null;
+
     /** @var array<string,array<string,int>>|null */
     private ?array $p3Gender = null;
+
     /** @var array<string,array<string,int>>|null */
     private ?array $p3Education = null;
 
@@ -82,17 +74,17 @@ class ProgramDataCentreService
 
             return [
                 'meta' => [
-                    'generated_at'     => now()->timezone('Asia/Kolkata')->format('d M Y, g:i A \I\S\T'),
+                    'generated_at' => now()->timezone('Asia/Kolkata')->format('d M Y, g:i A \I\S\T'),
                     'phase1_available' => $this->legacyPhase1Ok,
                     'phase2_available' => $this->legacyPhase2Ok,
-                    'phase3_total'     => $this->phase3Count(),
-                    'cache_ttl'        => self::CACHE_TTL,
+                    'phase3_total' => $this->phase3Count(),
+                    'cache_ttl' => self::CACHE_TTL,
                 ],
-                'summary'            => $this->stateSummary($districts),
-                'cfa_by_district'    => $this->cfaByDistrict($districts),
-                'gender_state'       => $this->genderState($districts),
-                'gender_district'    => $this->genderByDistrict($districts),
-                'education_state'    => $this->educationState($districts),
+                'summary' => $this->stateSummary($districts),
+                'cfa_by_district' => $this->cfaByDistrict($districts),
+                'gender_state' => $this->genderState($districts),
+                'gender_district' => $this->genderByDistrict($districts),
+                'education_state' => $this->educationState($districts),
                 'education_district' => $this->educationByDistrict($districts),
             ];
         });
@@ -133,13 +125,13 @@ class ProgramDataCentreService
             $p1 = $this->p1DistrictCount($name);
             $p2 = $this->p2DistrictCount($name);
             $p3 = $this->p3DistrictCount($name);
-            $c  = $p1 + $p2 + $p3;
+            $c = $p1 + $p2 + $p3;
 
             $rows[] = compact('name', 'p1', 'p2', 'p3', 'c');
             $totP1 += $p1;
             $totP2 += $p2;
             $totP3 += $p3;
-            $totC  += $c;
+            $totC += $c;
         }
 
         $rows[] = ['name' => 'Total', 'p1' => $totP1, 'p2' => $totP2, 'p3' => $totP3, 'c' => $totC, '_is_total' => true];
@@ -169,16 +161,16 @@ class ProgramDataCentreService
                 $row[$g] = $b[$g] ?? 0;
             }
             $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
-            $rows[]       = $row;
+            $rows[] = $row;
         }
 
         $combined = ['phase' => 'Combined'];
         foreach ($cats as $g) {
             $combined[$g] = ($s1[$g] ?? 0) + ($s2[$g] ?? 0) + ($s3[$g] ?? 0);
         }
-        $combined['total']     = array_sum(array_intersect_key($combined, array_flip($cats)));
+        $combined['total'] = array_sum(array_intersect_key($combined, array_flip($cats)));
         $combined['_is_total'] = true;
-        $rows[]                = $combined;
+        $rows[] = $combined;
 
         return $rows;
     }
@@ -188,25 +180,25 @@ class ProgramDataCentreService
     // ────────────────────────────────────────────────────────────────────────
     public function genderByDistrict(array $districts): array
     {
-        $cats  = ['Male', 'Female', 'NA', 'NA/Blank', 'Other'];
-        $rows  = [];
+        $cats = ['Male', 'Female', 'NA', 'NA/Blank', 'Other'];
+        $rows = [];
         $total = array_fill_keys($cats, 0);
 
         foreach ($districts as $name) {
-            $b   = $this->genderBucketsForDistrict($name);
+            $b = $this->genderBucketsForDistrict($name);
             $row = ['name' => $name];
             foreach ($cats as $g) {
-                $v         = $b[$g] ?? 0;
-                $row[$g]   = $v;
+                $v = $b[$g] ?? 0;
+                $row[$g] = $v;
                 $total[$g] += $v;
             }
             $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
-            $rows[]       = $row;
+            $rows[] = $row;
         }
 
-        $totRow          = ['name' => 'Total', '_is_total' => true] + $total;
+        $totRow = ['name' => 'Total', '_is_total' => true] + $total;
         $totRow['total'] = array_sum(array_intersect_key($total, array_flip($cats)));
-        $rows[]          = $totRow;
+        $rows[] = $totRow;
 
         return $rows;
     }
@@ -233,16 +225,16 @@ class ProgramDataCentreService
                 $row[$k] = $b[$k] ?? 0;
             }
             $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
-            $rows[]       = $row;
+            $rows[] = $row;
         }
 
         $combined = ['phase' => 'Combined'];
         foreach ($cats as $k) {
             $combined[$k] = ($s1[$k] ?? 0) + ($s2[$k] ?? 0) + ($s3[$k] ?? 0);
         }
-        $combined['total']     = array_sum(array_intersect_key($combined, array_flip($cats)));
+        $combined['total'] = array_sum(array_intersect_key($combined, array_flip($cats)));
         $combined['_is_total'] = true;
-        $rows[]                = $combined;
+        $rows[] = $combined;
 
         return $rows;
     }
@@ -252,25 +244,25 @@ class ProgramDataCentreService
     // ────────────────────────────────────────────────────────────────────────
     public function educationByDistrict(array $districts): array
     {
-        $cats  = ['10th pass', 'Below 10th', 'Above 10th / Other', 'NA', 'NA/Blank'];
-        $rows  = [];
+        $cats = ['10th pass', 'Below 10th', 'Above 10th / Other', 'NA', 'NA/Blank'];
+        $rows = [];
         $total = array_fill_keys($cats, 0);
 
         foreach ($districts as $name) {
-            $b   = $this->educationBucketsForDistrict($name);
+            $b = $this->educationBucketsForDistrict($name);
             $row = ['name' => $name];
             foreach ($cats as $k) {
-                $v         = $b[$k] ?? 0;
-                $row[$k]   = $v;
+                $v = $b[$k] ?? 0;
+                $row[$k] = $v;
                 $total[$k] += $v;
             }
             $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
-            $rows[]       = $row;
+            $rows[] = $row;
         }
 
-        $totRow          = ['name' => 'Total', '_is_total' => true] + $total;
+        $totRow = ['name' => 'Total', '_is_total' => true] + $total;
         $totRow['total'] = array_sum(array_intersect_key($total, array_flip($cats)));
-        $rows[]          = $totRow;
+        $rows[] = $totRow;
 
         return $rows;
     }
@@ -284,13 +276,13 @@ class ProgramDataCentreService
         $districts = $this->canonicalDistricts();
 
         return match ($section) {
-            'summary'            => $this->toCsv($this->stateSummary($districts)),
-            'cfa-by-district'    => $this->toCsv($this->cfaByDistrict($districts)),
-            'gender-state'       => $this->toCsv($this->genderState($districts)),
-            'gender-district'    => $this->toCsv($this->genderByDistrict($districts)),
-            'education-state'    => $this->toCsv($this->educationState($districts)),
+            'summary' => $this->toCsv($this->stateSummary($districts)),
+            'cfa-by-district' => $this->toCsv($this->cfaByDistrict($districts)),
+            'gender-state' => $this->toCsv($this->genderState($districts)),
+            'gender-district' => $this->toCsv($this->genderByDistrict($districts)),
+            'education-state' => $this->toCsv($this->educationState($districts)),
             'education-district' => $this->toCsv($this->educationByDistrict($districts)),
-            default              => [['error' => 'Unknown section']],
+            default => [['error' => 'Unknown section']],
         };
     }
 
@@ -301,7 +293,7 @@ class ProgramDataCentreService
             return [];
         }
         $keys = array_filter(array_keys($rows[0]), fn ($k) => $k !== '_is_total');
-        $out  = [array_map(fn ($k) => ucwords(str_replace(['_', '/'], [' ', '/'], (string) $k)), $keys)];
+        $out = [array_map(fn ($k) => ucwords(str_replace(['_', '/'], [' ', '/'], (string) $k)), $keys)];
         foreach ($rows as $row) {
             $out[] = array_map(fn ($k) => $row[$k] ?? '', $keys);
         }
@@ -504,8 +496,8 @@ class ProgramDataCentreService
             })
             ->groupByRaw("LOWER(d.name), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.gender'))")
             ->get() as $r) {
-            $g                                      = ($r->gender === 'null' || $r->gender === null) ? '' : (string) $r->gender;
-            $this->p3Gender[(string) $r->dist][$g]  = (int) $r->c;
+            $g = ($r->gender === 'null' || $r->gender === null) ? '' : (string) $r->gender;
+            $this->p3Gender[(string) $r->dist][$g] = (int) $r->c;
         }
 
         return $this->p3Gender;
@@ -530,8 +522,8 @@ class ProgramDataCentreService
             })
             ->groupByRaw("LOWER(d.name), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.education'))")
             ->get() as $r) {
-            $e                                         = ($r->education === 'null' || $r->education === null) ? '' : (string) $r->education;
-            $this->p3Education[(string) $r->dist][$e]  = (int) $r->c;
+            $e = ($r->education === 'null' || $r->education === null) ? '' : (string) $r->education;
+            $this->p3Education[(string) $r->dist][$e] = (int) $r->c;
         }
 
         return $this->p3Education;
@@ -543,9 +535,9 @@ class ProgramDataCentreService
 
     private function p1DistrictCount(string $name): int
     {
-        $data  = $this->loadP1Counts();
+        $data = $this->loadP1Counts();
         $total = 0;
-        foreach (self::P1_ALIASES[$name] ?? [mb_strtolower($name)] as $norm) {
+        foreach (LegacyPhase1DistrictResolver::legacyKeysForDistrict($name) as $norm) {
             $total += $data[$norm] ?? 0;
         }
 
@@ -554,7 +546,7 @@ class ProgramDataCentreService
 
     private function p2DistrictCount(string $name): int
     {
-        $data  = $this->loadP2Counts();
+        $data = $this->loadP2Counts();
         $total = 0;
         foreach ($this->p2Norms($name) as $norm) {
             $total += $data[$norm] ?? 0;
@@ -603,24 +595,24 @@ class ProgramDataCentreService
 
         if ($phase === 'p1') {
             $data = $this->loadP1Gender();
-            foreach (self::P1_ALIASES[$name] ?? [mb_strtolower($name)] as $norm) {
+            foreach (LegacyPhase1DistrictResolver::legacyKeysForDistrict($name) as $norm) {
                 foreach ($data[$norm] ?? [] as $raw => $cnt) {
-                    $key      = $this->normGender((string) $raw);
-                    $b[$key]  = ($b[$key] ?? 0) + $cnt;
+                    $key = $this->normGender((string) $raw);
+                    $b[$key] = ($b[$key] ?? 0) + $cnt;
                 }
             }
         } elseif ($phase === 'p2') {
             $data = $this->loadP2Gender();
             foreach ($this->p2Norms($name) as $norm) {
                 foreach ($data[$norm] ?? [] as $raw => $cnt) {
-                    $key      = $this->normGender((string) $raw);
-                    $b[$key]  = ($b[$key] ?? 0) + $cnt;
+                    $key = $this->normGender((string) $raw);
+                    $b[$key] = ($b[$key] ?? 0) + $cnt;
                 }
             }
         } else {
             $data = $this->loadP3Gender();
             foreach ($data[mb_strtolower($name)] ?? [] as $raw => $cnt) {
-                $key     = $this->normGender((string) $raw);
+                $key = $this->normGender((string) $raw);
                 $b[$key] = ($b[$key] ?? 0) + $cnt;
             }
         }
@@ -663,24 +655,24 @@ class ProgramDataCentreService
 
         if ($phase === 'p1') {
             $data = $this->loadP1Education();
-            foreach (self::P1_ALIASES[$name] ?? [mb_strtolower($name)] as $norm) {
+            foreach (LegacyPhase1DistrictResolver::legacyKeysForDistrict($name) as $norm) {
                 foreach ($data[$norm] ?? [] as $raw => $cnt) {
-                    $key      = $this->normEducation((string) $raw);
-                    $b[$key]  = ($b[$key] ?? 0) + $cnt;
+                    $key = $this->normEducation((string) $raw);
+                    $b[$key] = ($b[$key] ?? 0) + $cnt;
                 }
             }
         } elseif ($phase === 'p2') {
             $data = $this->loadP2Education();
             foreach ($this->p2Norms($name) as $norm) {
                 foreach ($data[$norm] ?? [] as $raw => $cnt) {
-                    $key      = $this->normEducation((string) $raw);
-                    $b[$key]  = ($b[$key] ?? 0) + $cnt;
+                    $key = $this->normEducation((string) $raw);
+                    $b[$key] = ($b[$key] ?? 0) + $cnt;
                 }
             }
         } else {
             $data = $this->loadP3Education();
             foreach ($data[mb_strtolower($name)] ?? [] as $raw => $cnt) {
-                $key     = $this->normEducation((string) $raw);
+                $key = $this->normEducation((string) $raw);
                 $b[$key] = ($b[$key] ?? 0) + $cnt;
             }
         }
@@ -785,7 +777,7 @@ class ProgramDataCentreService
     /** @return list<string> */
     private function canonicalDistricts(): array
     {
-        return array_keys(self::P1_ALIASES);
+        return LegacyPhase1DistrictResolver::canonicalDistricts();
     }
 
     /** @return list<string> */

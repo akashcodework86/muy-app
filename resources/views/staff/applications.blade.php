@@ -46,9 +46,14 @@
             autocomplete="off"
             aria-label="Search applications"
         >
+        <select name="onboard" style="padding:0.45rem 0.65rem;border:1px solid #d4d4d8;border-radius:8px;font-size:0.88rem;">
+            <option value="">All onboard</option>
+            <option value="onboarded" @selected(request('onboard') === 'onboarded')>Onboarded</option>
+            <option value="non_onboarded" @selected(request('onboard') === 'non_onboarded')>Non onboarded</option>
+        </select>
         <button type="submit" style="padding:0.45rem 0.85rem;background:#18181b;color:#fff;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">Search</button>
-        @if (! empty($searchQuery))
-            <a href="{{ route('staff.applications', array_filter(['scope' => $scope])) }}" style="font-size:0.85rem;color:#4f46e5;">Clear search</a>
+        @if (! empty($searchQuery) || request()->filled('onboard'))
+            <a href="{{ route('staff.applications', array_filter(['scope' => $scope])) }}" style="font-size:0.85rem;color:#4f46e5;">Clear filters</a>
         @endif
         @if ($exportUrl)
             <a
@@ -78,6 +83,7 @@
                     <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">Applicant</th>
                     <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">Phone</th>
                     <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">District</th>
+                    <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">Onboard</th>
                     @if ($scope === 'district')
                         <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">Source</th>
                         <th style="padding:0.55rem 0.65rem;border-bottom:1px solid #e4e4e7;">Referred by</th>
@@ -104,6 +110,13 @@
                         <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">{{ $row->applicant_name }}</td>
                         <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;color:#52525b;">{{ $row->phone }}</td>
                         <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;color:#52525b;">{{ $row->district?->name ?? '—' }}</td>
+                        <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;">
+                            @if (($row->onboard_status ?? '') === 'onboarded')
+                                <span style="display:inline-block;padding:0.15rem 0.45rem;border-radius:999px;background:#dcfce7;color:#166534;font-weight:700;font-size:0.72rem;">Onboarded</span>
+                            @else
+                                <span style="display:inline-block;padding:0.15rem 0.45rem;border-radius:999px;background:#f1f5f9;color:#64748b;font-weight:600;font-size:0.72rem;">Non onboarded</span>
+                            @endif
+                        </td>
                         @if ($scope === 'district')
                             <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;color:#52525b;">{{ $sourceLabel }}</td>
                             <td style="padding:0.45rem 0.65rem;border-bottom:1px solid #f4f4f5;color:#52525b;">{{ $referredBy }}</td>

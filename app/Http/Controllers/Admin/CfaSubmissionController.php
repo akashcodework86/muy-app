@@ -6,9 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CfaSubmission;
 use App\Models\District;
-use App\Models\FiscalYear;
+use App\Services\Cfa\CfaFyOnboardingStatsService;
+use App\Services\Cfa\CfaSubmissionListQuery;
 use App\Services\CfaSubmissionAuditSnapshot;
-use Carbon\Carbon;
 use App\Services\LegacyPhase2ApplicationDetailService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -22,25 +22,32 @@ class CfaSubmissionController extends Controller
     {
         $districts = District::orderBy('name')->get(['id', 'name']);
         $filters = $this->extractFilters($request);
+        $scopeCounts = CfaSubmissionListQuery::scopeCounts($filters);
+        $fyOnboarding = CfaFyOnboardingStatsService::breakdown(
+            ! empty($filters['district_id']) ? (int) $filters['district_id'] : null
+        );
 
-        $submissions = $this->filteredQuery($filters)
-            ->with(['district', 'referralUser', 'fiscalYear'])
+        $submissions = CfaSubmissionListQuery::applyFilters(CfaSubmission::query(), $filters)
+            ->with(['district', 'referralUser', 'fiscalYear', 'onboardingBatchMembership'])
             ->orderByDesc('created_at')
             ->paginate(25)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn (CfaSubmission $row) => CfaSubmissionListQuery::enrichSubmission($row));
 
         return view('admin.cfa.index', [
             'submissions' => $submissions,
             'districts' => $districts,
             'sectors' => config('cfa.business_categories'),
             'filters' => $filters,
+            'scopeCounts' => $scopeCounts,
+            'fyOnboarding' => $fyOnboarding,
         ]);
     }
 
     public function export(Request $request): StreamedResponse
     {
         $filters = $this->extractFilters($request);
-        $query = $this->filteredQuery($filters)
+        $query = CfaSubmissionListQuery::applyFilters(CfaSubmission::query(), $filters)
             ->with(['district:id,name', 'referralUser:id,name', 'fiscalYear:id,code,name']);
 
         $payloadColumnsMap = $this->discoverPayloadColumns((clone $query)->reorder());
@@ -148,7 +155,7 @@ class CfaSubmissionController extends Controller
     }
 
     /**
-     * @return array{name: string, application_no: string, district_id: int|null, sector: string, from: string, to: string}
+     * @return array{name: string, application_no: string, district_id: int|null, sector: string, from: string, to: string, onboard: string}
      */
     private function extractFilters(Request $request): array
     {
@@ -158,6 +165,7 @@ class CfaSubmissionController extends Controller
         $sector = trim((string) $request->query('sector', ''));
         $from = trim((string) $request->query('from', ''));
         $to = trim((string) $request->query('to', ''));
+        $onboard = CfaSubmissionListQuery::normalizeOnboardParam($request);
 
         $v = Validator::make(
             ['from' => $from, 'to' => $to],
@@ -178,54 +186,8 @@ class CfaSubmissionController extends Controller
             'sector' => $sector,
             'from' => $from,
             'to' => $to,
+            'onboard' => $onboard,
         ];
-    }
-
-    /**
-     * Same CFA scope as the state dashboard hero counts (see StateAdminDashboardService $phase3Scope).
-     */
-    private function applyPhase3DashboardScope(Builder $query): Builder
-    {
-        $phase3FloorDate = Carbon::create(2026, 4, 1)->startOfDay();
-        $activeFyId = (int) (optional(FiscalYear::phase3Default())->id ?? 0);
-
-        return $query->when(
-            $activeFyId > 0,
-            fn ($q) => $q->where('fiscal_year_id', $activeFyId),
-            fn ($q) => $q->where('created_at', '>=', $phase3FloorDate)
-        );
-    }
-
-    /**
-     * @param  array{name: string, application_no: string, district_id: int|null, sector: string, from: string, to: string}  $filters
-     */
-    private function filteredQuery(array $filters): Builder
-    {
-        $searchByApplicationNo = $filters['application_no'] !== '';
-
-        $query = CfaSubmission::query();
-        if (! $searchByApplicationNo) {
-            $query = $this->applyPhase3DashboardScope($query);
-        }
-
-        return $query
-            ->when($searchByApplicationNo, function (Builder $q) use ($filters): void {
-                $term = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['application_no']);
-                $q->where(function (Builder $inner) use ($term, $filters): void {
-                    $inner->where('application_no', 'like', '%'.$term.'%');
-                    if (ctype_digit($filters['application_no'])) {
-                        $inner->orWhere('id', (int) $filters['application_no']);
-                    }
-                });
-            })
-            ->when($filters['name'] !== '', fn ($q) => $q->where('applicant_name', 'like', '%'.$filters['name'].'%'))
-            ->when($filters['district_id'], fn ($q) => $q->where('district_id', $filters['district_id']))
-            ->when($filters['sector'] !== '', fn ($q) => $q->whereRaw(
-                "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.business_category')) = ?",
-                [$filters['sector']]
-            ))
-            ->when($filters['from'] !== '', fn ($q) => $q->whereDate('created_at', '>=', $filters['from']))
-            ->when($filters['to'] !== '', fn ($q) => $q->whereDate('created_at', '<=', $filters['to']));
     }
 
     public function show(CfaSubmission $cfa_submission): View

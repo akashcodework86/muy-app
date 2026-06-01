@@ -12,13 +12,17 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\User;
 use App\Services\AdminAuditLogger;
+use App\Services\Cfa\CfaSubmissionListQuery;
 use App\Services\CfaBusinessStageService;
 use App\Services\CfaSubmissionAuditSnapshot;
 use App\Services\CfaSubmissionValidator;
+use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
+use App\Services\LegacyPhase1\LegacyPhase1ListQuery;
+use App\Services\LegacyPhase2\LegacyPhase2DistrictResolver;
+use App\Services\LegacyPhase2\LegacyPhase2ListQuery;
 use App\Services\LegacyPhase2ApplicationDetailService;
 use App\Services\StaffMonthlyTargetsDashboardService;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -77,7 +81,7 @@ class StaffPortalController extends Controller
         $staff = $request->user()->load('district');
 
         $query = CfaSubmission::query()
-            ->with(['district', 'referralUser']);
+            ->with(['district', 'referralUser', 'onboardingBatchMembership']);
 
         [$scope, $forceMineNotice] = $this->applyStaffApplicationScope(
             $query,
@@ -94,10 +98,16 @@ class StaffPortalController extends Controller
             $this->applyApplicationsSearch($query, $search);
         }
 
+        $onboard = CfaSubmissionListQuery::normalizeOnboardParam($request);
+        if (in_array($onboard, ['onboarded', 'non_onboarded'], true)) {
+            CfaSubmissionListQuery::applyOnboardFilter($query, $onboard);
+        }
+
         $submissions = $query
             ->orderByDesc('created_at')
             ->paginate(25)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn (CfaSubmission $row) => CfaSubmissionListQuery::enrichSubmission($row));
 
         $mineCount = CfaSubmission::query()
             ->where('referral_user_id', (int) $staff->id)
@@ -613,34 +623,11 @@ class StaffPortalController extends Controller
             ]);
         }
 
-        $query = $this->phase2BaseQueryForDistrict($districtName);
-        $this->applyPhase2Filters($query, $request);
+        $scopeCounts = LegacyPhase2ListQuery::scopeCountsForDistrict($request, $districtName);
+        $filterOptions = LegacyPhase2ListQuery::filterOptionsForDistrict($districtName);
 
-        $districtNorm = mb_strtolower($districtName);
-
-        $categoryOptions = DB::connection('legacy')
-            ->table('rbi_applicant_details as d')
-            ->leftJoin('rbi_applications as a', 'a.id', '=', 'd.application_id')
-            ->whereRaw('LOWER(TRIM(d.district)) = ?', [$districtNorm])
-            ->whereNotNull('a.category')
-            ->where('a.category', '!=', '')
-            ->distinct()
-            ->orderBy('a.category')
-            ->pluck('a.category')
-            ->values()
-            ->all();
-
-        $stageOptions = DB::connection('legacy')
-            ->table('rbi_applicant_details as d')
-            ->leftJoin('rbi_applications as a', 'a.id', '=', 'd.application_id')
-            ->whereRaw('LOWER(TRIM(d.district)) = ?', [$districtNorm])
-            ->whereNotNull('a.form_stage')
-            ->where('a.form_stage', '!=', '')
-            ->distinct()
-            ->orderBy('a.form_stage')
-            ->pluck('a.form_stage')
-            ->values()
-            ->all();
+        $query = LegacyPhase2ListQuery::districtListQuery($districtName);
+        LegacyPhase2ListQuery::applyFilters($query, $request, $districtName);
 
         $rows = $query
             ->orderByDesc('a.submission_date')
@@ -668,8 +655,9 @@ class StaffPortalController extends Controller
         return view('staff.phase2-data', [
             'staff' => $staff,
             'rows' => $rows,
-            'categoryOptions' => $categoryOptions,
-            'stageOptions' => $stageOptions,
+            'districtName' => $districtName,
+            'scopeCounts' => $scopeCounts,
+            'filterOptions' => $filterOptions,
             'legacyUnavailable' => false,
             'legacyMissingTables' => false,
             'noDistrict' => false,
@@ -685,6 +673,10 @@ class StaffPortalController extends Controller
             return view('staff.phase1-data', [
                 'staff' => $staff,
                 'rows' => collect(),
+                'districtTotal' => 0,
+                'districtName' => '',
+                'scopeCounts' => ['total' => 0, 'onboarded' => 0, 'non_onboarded' => 0],
+                'filterOptions' => LegacyPhase1ListQuery::filterOptions(),
                 'phase1Unavailable' => false,
                 'phase1MissingTables' => false,
                 'noDistrict' => true,
@@ -695,6 +687,10 @@ class StaffPortalController extends Controller
             return view('staff.phase1-data', [
                 'staff' => $staff,
                 'rows' => collect(),
+                'districtTotal' => 0,
+                'districtName' => $districtName,
+                'scopeCounts' => ['total' => 0, 'onboarded' => 0, 'non_onboarded' => 0],
+                'filterOptions' => LegacyPhase1ListQuery::filterOptions(),
                 'phase1Unavailable' => true,
                 'phase1MissingTables' => false,
                 'noDistrict' => false,
@@ -705,46 +701,35 @@ class StaffPortalController extends Controller
             return view('staff.phase1-data', [
                 'staff' => $staff,
                 'rows' => collect(),
+                'districtTotal' => 0,
+                'districtName' => $districtName,
+                'scopeCounts' => ['total' => 0, 'onboarded' => 0, 'non_onboarded' => 0],
+                'filterOptions' => LegacyPhase1ListQuery::filterOptions(),
                 'phase1Unavailable' => false,
                 'phase1MissingTables' => true,
                 'noDistrict' => false,
             ]);
         }
 
-        $districtNorm = mb_strtolower($districtName);
+        $scopeCounts = LegacyPhase1ListQuery::scopeCounts($request, $districtName);
+        $districtTotal = $scopeCounts['total'];
 
-        $query = DB::connection('legacy_phase1')
-            ->table('tblapplication')
-            ->whereRaw('LOWER(TRIM(City)) = ?', [$districtNorm])
-            ->select([
-                'ID as legacy_id',
-                'ApplicationNumber as application_no',
-                'FullName as full_name',
-                'MobileNumber as mobile_number',
-                'hub as hub_name',
-                'City as city_name',
-                'status as application_status',
-                'ApplicationDate as application_date',
-            ]);
-
-        if ($request->filled('search')) {
-            $search = '%'.trim((string) $request->query('search')).'%';
-            $query->where(function ($q) use ($search) {
-                $q->where('ApplicationNumber', 'like', $search)
-                    ->orWhere('FullName', 'like', $search)
-                    ->orWhere('MobileNumber', 'like', $search);
-            });
-        }
+        $query = LegacyPhase1ListQuery::listQuery();
+        LegacyPhase1ListQuery::applyFilters($query, $request, $districtName);
+        $query->orderByDesc('ApplicationDate')->orderByDesc('ID');
 
         $rows = $query
-            ->orderByDesc('ApplicationDate')
-            ->orderByDesc('ID')
             ->paginate(50)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn ($row) => LegacyPhase1DistrictResolver::enrichRow($row));
 
         return view('staff.phase1-data', [
             'staff' => $staff,
             'rows' => $rows,
+            'districtTotal' => $districtTotal,
+            'districtName' => $districtName,
+            'scopeCounts' => $scopeCounts,
+            'filterOptions' => LegacyPhase1ListQuery::filterOptions(),
             'phase1Unavailable' => false,
             'phase1MissingTables' => false,
             'noDistrict' => false,
@@ -760,8 +745,8 @@ class StaffPortalController extends Controller
         abort_if((string) config('database.connections.legacy.database', '') === '', 422, 'Legacy database is not configured.');
         abort_if(! $this->hasLegacyPhase2Tables(), 422, 'Required legacy Phase 2 tables are missing.');
 
-        $query = $this->phase2BaseQueryForDistrict($districtName);
-        $this->applyPhase2Filters($query, $request);
+        $query = LegacyPhase2ListQuery::districtListQuery($districtName);
+        LegacyPhase2ListQuery::applyFilters($query, $request, $districtName);
 
         $allRows = $query->orderByDesc('a.submission_date')->orderByDesc('a.id')->get();
         $applicationIds = $allRows->pluck('application_id')
@@ -876,79 +861,6 @@ class StaffPortalController extends Controller
         }
     }
 
-    private function applyPhase2Filters(QueryBuilder $query, Request $request): void
-    {
-        if ($request->filled('search')) {
-            $search = '%'.trim((string) $request->query('search')).'%';
-            $query->where(function ($q) use ($search) {
-                $q->where('a.application_no', 'like', $search)
-                    ->orWhere('d.applicant_name', 'like', $search)
-                    ->orWhere('d.phone', 'like', $search);
-            });
-        }
-
-        if ($request->filled('category')) {
-            $query->where('a.category', (string) $request->query('category'));
-        }
-
-        if ($request->filled('form_stage')) {
-            $query->where('a.form_stage', (string) $request->query('form_stage'));
-        }
-
-        $onboard = (string) $request->query('onboarding_status', '');
-        if ($onboard === 'yes') {
-            $query->whereNotNull('oa.status')->where('oa.status', '!=', '');
-        } elseif ($onboard === 'no') {
-            $query->where(function ($q) {
-                $q->whereNull('oa.status')->orWhere('oa.status', '');
-            });
-        }
-    }
-
-    private function phase2BaseQueryForDistrict(string $districtName)
-    {
-        $districtNorm = mb_strtolower(trim($districtName));
-
-        return DB::connection('legacy')
-            ->table('rbi_applicant_details as d')
-            ->leftJoin('rbi_applications as a', 'a.id', '=', 'd.application_id')
-            ->leftJoin('rbi_onboarded_applicants as oa', 'oa.application_id', '=', 'd.application_id')
-            ->leftJoin('rbi_onboarding_batches as ob', 'ob.id', '=', 'oa.onboarding_batch_id')
-            ->leftJoin(DB::raw('(
-                SELECT e1.application_id, e1.turnover_last_year
-                FROM rbi_enterprise_details e1
-                INNER JOIN (
-                    SELECT application_id, MAX(id) AS max_id
-                    FROM rbi_enterprise_details
-                    GROUP BY application_id
-                ) t ON t.application_id = e1.application_id AND t.max_id = e1.id
-            ) as ed'), 'ed.application_id', '=', 'd.application_id')
-            ->whereRaw('LOWER(TRIM(d.district)) = ?', [$districtNorm])
-            ->select([
-                'd.application_id',
-                'd.applicant_name',
-                'd.phone',
-                'd.district',
-                'd.block',
-                'd.village',
-                'd.gender',
-                'd.is_shg_member',
-                'd.caste',
-                'd.loan_taken',
-                'd.bank_loan',
-                'a.application_no',
-                'a.product',
-                'a.category as app_category',
-                'a.form_stage',
-                'a.submission_date',
-                'a.created_at',
-                'a.business_category',
-                'ob.batch_name as cohort_name',
-                'oa.status as onboard_status_db',
-                'ed.turnover_last_year as turnover_last_year',
-            ]);
-    }
-
     /**
      * @param  list<int>  $applicationIds
      * @return array<int, list<object>>
@@ -999,6 +911,12 @@ class StaffPortalController extends Controller
             'bank_loan' => (string) (($row->bank_loan ?? '') !== '' ? $row->bank_loan : $na),
             'cohort_name' => (string) ($row->cohort_name ?: $na),
             'onboarding_status' => ! empty($row->onboard_status_db) ? 'yes' : 'no',
+            'onboard_status' => LegacyPhase2DistrictResolver::isOnboardedFromStatus(
+                is_string($row->onboard_status_db ?? null) ? $row->onboard_status_db : null
+            ) ? 'onboarded' : 'non_onboarded',
+            'onboard_label' => LegacyPhase2DistrictResolver::onboardLabel(
+                is_string($row->onboard_status_db ?? null) ? $row->onboard_status_db : null
+            ),
             'marketing_service' => $services['marketing_service'],
             'marketing_details' => $services['marketing_details'],
             'finance_service' => $services['finance_service'],

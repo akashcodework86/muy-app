@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\FiscalYear;
-use Carbon\Carbon;
+use App\Services\LegacyPhase2\LegacyPhase2ListQuery;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -19,7 +19,6 @@ class LegacyPhase2CfaApplicationController extends Controller
      */
     public function index(Request $request): View
     {
-        // Default this page to FY 2025-26 (the legacy Phase 2 data year) when no explicit FY is chosen.
         if ($request->query('fiscal_year_id')) {
             $requestedFyId = (int) $request->query('fiscal_year_id');
         } else {
@@ -28,127 +27,50 @@ class LegacyPhase2CfaApplicationController extends Controller
         }
 
         [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi($requestedFyId);
+        $districts = LegacyPhase2ListQuery::canonicalDistricts();
 
         if ($fiscalYears->isEmpty()) {
-            return view('admin.phase2-cfa.index', [
-                'rows' => $this->emptyPaginator(),
-                'fiscalYears' => $fiscalYears,
-                'fiscalYearId' => 0,
-                'fiscalYear' => null,
-                'districts' => [],
-                'legacyUnavailable' => false,
-                'legacyMissingTables' => false,
-            ]);
+            return view('admin.phase2-cfa.index', $this->emptyViewData($fiscalYears, $districts));
         }
 
         $fiscalYear = FiscalYear::query()->find($fiscalYearId);
         if ($fiscalYear === null) {
-            return view('admin.phase2-cfa.index', [
-                'rows' => $this->emptyPaginator(),
-                'fiscalYears' => $fiscalYears,
-                'fiscalYearId' => 0,
-                'fiscalYear' => null,
-                'districts' => [],
-                'legacyUnavailable' => false,
-                'legacyMissingTables' => false,
-            ]);
+            return view('admin.phase2-cfa.index', $this->emptyViewData($fiscalYears, $districts));
         }
 
         if ((string) config('database.connections.legacy.database', '') === '') {
-            return view('admin.phase2-cfa.index', [
-                'rows' => $this->emptyPaginator(),
-                'fiscalYears' => $fiscalYears,
-                'fiscalYearId' => $fiscalYearId,
-                'fiscalYear' => $fiscalYear,
-                'districts' => [],
+            return view('admin.phase2-cfa.index', array_merge($this->emptyViewData($fiscalYears, $districts, $fiscalYearId, $fiscalYear), [
                 'legacyUnavailable' => true,
-                'legacyMissingTables' => false,
-            ]);
+            ]));
         }
 
         try {
             $hasTables = Schema::connection('legacy')->hasTable('rbi_applications')
                 && Schema::connection('legacy')->hasTable('rbi_applicant_details');
         } catch (\Exception $e) {
-            return view('admin.phase2-cfa.index', [
-                'rows' => $this->emptyPaginator(),
-                'fiscalYears' => $fiscalYears,
-                'fiscalYearId' => $fiscalYearId,
-                'fiscalYear' => $fiscalYear,
-                'districts' => [],
+            return view('admin.phase2-cfa.index', array_merge($this->emptyViewData($fiscalYears, $districts, $fiscalYearId, $fiscalYear), [
                 'legacyUnavailable' => true,
-                'legacyMissingTables' => false,
-            ]);
+            ]));
         }
 
         if (! $hasTables) {
-            return view('admin.phase2-cfa.index', [
-                'rows' => $this->emptyPaginator(),
-                'fiscalYears' => $fiscalYears,
-                'fiscalYearId' => $fiscalYearId,
-                'fiscalYear' => $fiscalYear,
-                'districts' => [],
-                'legacyUnavailable' => false,
+            return view('admin.phase2-cfa.index', array_merge($this->emptyViewData($fiscalYears, $districts, $fiscalYearId, $fiscalYear), [
                 'legacyMissingTables' => true,
-            ]);
+            ]));
         }
 
-        $start = Carbon::parse($fiscalYear->starts_on)->toDateString();
-        $end = Carbon::parse($fiscalYear->ends_on)->toDateString();
+        [$start, $end] = LegacyPhase2ListQuery::fyWindowDates($fiscalYear);
+        $scopeCounts = LegacyPhase2ListQuery::scopeCounts($request, $start, $end);
+        $filterOptions = LegacyPhase2ListQuery::filterOptions($start, $end);
 
-        // Distinct districts for filter dropdown
-        $districts = DB::connection('legacy')
-            ->table('rbi_applicant_details')
-            ->whereNotNull('district')
-            ->where('district', '!=', '')
-            ->distinct()
-            ->orderBy('district')
-            ->pluck('district')
-            ->toArray();
-
-        $query = DB::connection('legacy')
-            ->table('rbi_applications as a')
-            ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
-            ->whereNotNull('a.submission_date')
-            ->whereBetween(DB::raw('DATE(a.submission_date)'), [$start, $end])
-            ->select([
-                'a.id as legacy_id',
-                'a.application_no',
-                'a.category',
-                'a.form_stage',
-                'a.submission_date',
-                'd.applicant_name',
-                'd.phone',
-                'd.district',
-                'd.block',
-                'd.gender',
-                'd.submitted_by_name',
-            ]);
-
-        // Filter: district
-        if ($request->filled('district')) {
-            $query->where('d.district', $request->input('district'));
-        }
-
-        // Filter: search by applicant name, phone, application no., or numeric application id
-        if ($request->filled('search')) {
-            $raw = trim((string) $request->input('search'));
-            $search = '%'.$raw.'%';
-            $query->where(function ($q) use ($search, $raw) {
-                $q->where('d.applicant_name', 'like', $search)
-                    ->orWhere('d.phone', 'like', $search)
-                    ->orWhere('a.application_no', 'like', $search);
-                if ($raw !== '' && ctype_digit($raw)) {
-                    $id = (int) $raw;
-                    $q->orWhere('a.id', $id)
-                        ->orWhere('d.application_id', $id);
-                }
-            });
-        }
-
+        $query = LegacyPhase2ListQuery::listQueryForFyWindow($start, $end);
+        LegacyPhase2ListQuery::applyFilters($query, $request);
         $query->orderByDesc('a.submission_date')->orderByDesc('a.id');
 
-        $rows = $query->paginate(100)->withQueryString();
+        $rows = $query
+            ->paginate(100)
+            ->withQueryString()
+            ->through(fn ($row) => LegacyPhase2ListQuery::enrichRow($row));
 
         return view('admin.phase2-cfa.index', [
             'rows' => $rows,
@@ -156,9 +78,35 @@ class LegacyPhase2CfaApplicationController extends Controller
             'fiscalYearId' => $fiscalYearId,
             'fiscalYear' => $fiscalYear,
             'districts' => $districts,
+            'filterOptions' => $filterOptions,
+            'scopeCounts' => $scopeCounts,
             'legacyUnavailable' => false,
             'legacyMissingTables' => false,
         ]);
+    }
+
+    /**
+     * @param  Collection<int, FiscalYear>  $fiscalYears
+     * @param  list<string>  $districts
+     * @return array<string, mixed>
+     */
+    private function emptyViewData(
+        $fiscalYears,
+        array $districts,
+        int $fiscalYearId = 0,
+        ?FiscalYear $fiscalYear = null,
+    ): array {
+        return [
+            'rows' => $this->emptyPaginator(),
+            'fiscalYears' => $fiscalYears,
+            'fiscalYearId' => $fiscalYearId,
+            'fiscalYear' => $fiscalYear,
+            'districts' => $districts,
+            'filterOptions' => ['categories' => [], 'form_stages' => [], 'genders' => []],
+            'scopeCounts' => ['total' => 0, 'onboarded' => 0, 'non_onboarded' => 0],
+            'legacyUnavailable' => false,
+            'legacyMissingTables' => false,
+        ];
     }
 
     private function emptyPaginator(): LengthAwarePaginator

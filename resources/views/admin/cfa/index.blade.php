@@ -1,265 +1,131 @@
 @extends('layouts.admin')
 
-@section('title', 'CFA applications')
-@section('heading', 'CFA applications')
+@section('title', 'CFA applications (FY 2026–27)')
+@section('heading', 'CFA applications (FY 2026–27)')
 
 @push('styles')
-    <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.phase1-legacy.styles')
 @endpush
 
 @section('content')
-        @php
-            $cfaHasFilters = ($filters['name'] ?? '') || ($filters['application_no'] ?? '') || ($filters['district_id'] ?? null) || ($filters['sector'] ?? '') || ($filters['from'] ?? '') || ($filters['to'] ?? '');
-        @endphp
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <form method="get" action="{{ route('admin.cfa.index') }}" class="flex flex-wrap items-end gap-3">
+<div class="p1l-page">
+    <div class="p1l-banner">
+        <strong>Live MIS — Phase 3.</strong> Source: <code>muy.cfa_submissions</code> (current FY scope).
+        <strong>Onboarded</strong> = linked in an onboarding batch (<code>onboarding_batch_cfa</code>).
+    </div>
 
-                {{-- Name search --}}
-                <div class="flex flex-col gap-1">
-                    <label for="cfa-name" class="text-xs font-medium text-slate-500 uppercase tracking-wide">Search by name</label>
-                    <div class="relative">
-                        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-                            <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                                <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.8"/>
-                                <path d="M12.5 12.5l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                            </svg>
-                        </span>
-                        <input
-                            id="cfa-name"
-                            type="text"
-                            name="name"
-                            value="{{ $filters['name'] }}"
-                            placeholder="Applicant name…"
-                            class="w-52 rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                        />
-                    </div>
-                </div>
-
-                {{-- Application number search (all-time scope) --}}
-                <div class="flex flex-col gap-1">
-                    <label for="cfa-application-no" class="text-xs font-medium text-slate-500 uppercase tracking-wide">Search by application no.</label>
-                    <div class="relative">
-                        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-                            <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                                <path d="M4 6h12M4 10h8M4 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                            </svg>
-                        </span>
-                        <input
-                            id="cfa-application-no"
-                            type="search"
-                            name="application_no"
-                            value="{{ $filters['application_no'] ?? '' }}"
-                            placeholder="e.g. 5040602D"
-                            class="w-44 rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                        />
-                    </div>
-                </div>
-
-                {{-- District --}}
-                <div class="flex flex-col gap-1">
-                    <label for="cfa-district" class="text-xs font-medium text-slate-500 uppercase tracking-wide">District</label>
-                    <div class="relative">
-                        <select
-                            id="cfa-district"
-                            name="district_id"
-                            class="min-w-44 appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                        >
-                            <option value="">All districts</option>
-                            @foreach ($districts as $dist)
-                                <option value="{{ $dist->id }}" @selected((int) ($filters['district_id'] ?? 0) === (int) $dist->id)>{{ $dist->name }}</option>
-                            @endforeach
-                        </select>
-                        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                            <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    </div>
-                </div>
-
-                {{-- Sector --}}
-                <div class="flex flex-col gap-1">
-                    <label for="cfa-sector" class="text-xs font-medium text-slate-500 uppercase tracking-wide">Sector</label>
-                    <div class="relative">
-                        <select
-                            id="cfa-sector"
-                            name="sector"
-                            class="min-w-44 appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                        >
-                            <option value="">All sectors</option>
-                            @foreach ($sectors as $sec)
-                                <option value="{{ $sec }}" @selected($filters['sector'] === $sec)>{{ $sec }}</option>
-                            @endforeach
-                        </select>
-                        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                            <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    </div>
-                </div>
-
-                {{-- Submitted from / to (created_at date) --}}
-                <div class="flex flex-col gap-1">
-                    <label for="cfa-from" class="text-xs font-medium text-slate-500 uppercase tracking-wide">From date</label>
-                    <input
-                        id="cfa-from"
-                        type="date"
-                        name="from"
-                        value="{{ $filters['from'] ?? '' }}"
-                        class="w-40 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    />
-                </div>
-                <div class="flex flex-col gap-1">
-                    <label for="cfa-to" class="text-xs font-medium text-slate-500 uppercase tracking-wide">To date</label>
-                    <input
-                        id="cfa-to"
-                        type="date"
-                        name="to"
-                        value="{{ $filters['to'] ?? '' }}"
-                        class="w-40 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    />
-                </div>
-
-                {{-- Action buttons --}}
-                <div class="flex flex-wrap items-center gap-2 pb-0.5">
-                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                            <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.8"/>
-                            <path d="M12.5 12.5l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                        </svg>
-                        Search
-                    </button>
-                    <a
-                        href="{{ route('admin.cfa.export', request()->query()) }}"
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-300"
-                    >
-                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                            <path d="M10 3v10M10 13l-3-3m3 3l3-3M4 17h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        Download CSV
-                    </a>
-                    @if ($cfaHasFilters)
-                        <a href="{{ route('admin.cfa.index') }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50">
-                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                            </svg>
-                            Clear
-                        </a>
-                    @endif
-                </div>
-
-            </form>
-
-            <p class="mt-3 text-sm text-slate-500">
-                Default list matches the state dashboard CFA total (active FY when set, otherwise from 01 Apr 2026).
-                <strong>Application no. search</strong> looks across all CFA records (full history). CSV download uses the same filters as above. Newest first.
-                @if ($cfaHasFilters)
-                    &mdash; <span class="font-medium text-indigo-600">{{ $submissions->total() }} result(s) found</span>
-                @endif
+    <div class="p1l-hero">
+        <div>
+            <h2 class="p1l-hero__title">CFA applications — FY 2026–27</h2>
+            <p class="p1l-hero__sub">
+                Default list matches the state dashboard Phase 3 scope. Application no. search spans full history.
             </p>
         </div>
-
-        <div class="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
-                <thead class="bg-slate-50">
-                    <tr class="text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
-                        <th class="px-3 py-3">App. no.</th>
-                        <th class="px-3 py-3">Date</th>
-                        <th class="px-3 py-3">Applicant</th>
-                        <th class="px-3 py-3">Phone</th>
-                        <th class="px-3 py-3">District</th>
-                        <th class="px-3 py-3">LGD (st / dist / blk)</th>
-                        <th class="px-3 py-3">Source / Referral staff</th>
-                        <th class="no-print-col whitespace-nowrap px-3 py-3">View</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 text-slate-700">
-                    @forelse ($submissions as $row)
-                        <tr class="hover:bg-slate-50/80">
-                            <td class="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{{ $row->application_no ?? '—' }}</td>
-                            <td class="whitespace-nowrap px-3 py-3 text-slate-500">{{ $row->created_at?->format('Y-m-d H:i') }} IST</td>
-                            <td class="px-3 py-3">{{ $row->applicant_name }}</td>
-                            <td class="whitespace-nowrap px-3 py-3 text-slate-500">{{ $row->phone }}</td>
-                            <td class="px-3 py-3 text-slate-500">{{ $row->district?->name ?? '—' }}</td>
-                            <td class="whitespace-nowrap px-3 py-3 text-xs text-slate-500" title="MoPR LGD snapshot at submit">{{ $row->lgd_state_code ?? '—' }} / {{ $row->lgd_district_code ?? '—' }} / {{ $row->lgd_block_code ?? '—' }}</td>
-                            <td class="px-3 py-3 text-slate-500">
-                                @if ($row->source === 'public_form')
-                                    @php
-                                        $submitMode = is_array($row->payload ?? null)
-                                            ? (string) ($row->payload['public_cfa_submit_mode'] ?? 'self')
-                                            : 'self';
-                                        $publicSourceLabel = $submitMode === 'gdc_team'
-                                            ? 'BY GDC TEAM'
-                                            : '🌐 Public / Walk-in';
-                                    @endphp
-                                    <span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
-                                        {{ $publicSourceLabel }}
-                                    </span>
-                                @else
-                                    {{ $row->referralUser?->name ?? '—' }}
-                                @endif
-                            </td>
-                            <td class="no-print-col px-3 py-3">
-                                <a href="{{ route('admin.cfa.show', $row) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800">
-                                    View
-                                    <svg class="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                                        <path d="M7 5l6 5-6 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                </a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-sm text-slate-500">No applications yet.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+        <div class="p1l-hero__badges">
+            <span class="p1l-badge p1l-badge--fy">FY 2026–27</span>
+            <span class="p1l-badge p1l-badge--district">{{ number_format($scopeCounts['total'] ?? 0) }} in scope</span>
+            <span class="p1l-badge p1l-badge--hub">{{ number_format($fyOnboarding['total'] ?? $scopeCounts['onboarded'] ?? 0) }} onboarded (FY)</span>
         </div>
+    </div>
 
-        @if ($submissions->hasPages())
-            <div class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-                <p class="text-slate-600">
-                    Showing {{ $submissions->firstItem() }} to {{ $submissions->lastItem() }} of {{ $submissions->total() }}
-                </p>
-                <div class="flex items-center gap-2">
-                    @if ($submissions->onFirstPage())
-                        <span class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-slate-400">
-                            <svg class="h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                                <path d="M12.5 15L7.5 10l5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                            <span aria-hidden="true">←</span>
-                            Previous
-                        </span>
-                    @else
-                        <a href="{{ $submissions->previousPageUrl() }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-slate-700 transition hover:bg-slate-50">
-                            <svg class="h-4 w-4 shrink-0 text-slate-700" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                                <path d="M12.5 15L7.5 10l5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                            <span aria-hidden="true">←</span>
-                            Previous
-                        </a>
-                    @endif
+    @include('partials.phase1-legacy.stats', [
+        'scopeCounts' => $scopeCounts ?? [],
+        'fyOnboarding' => $fyOnboarding ?? null,
+        'rows' => $submissions,
+        'totalLabel' => 'In scope',
+        'totalHint' => 'Phase 3 FY filters (excl. onboard filter)',
+        'countDistrictParam' => true,
+    ])
 
-                    <span class="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700">
-                        Page {{ $submissions->currentPage() }} of {{ $submissions->lastPage() }}
-                    </span>
+    @include('partials.phase3-cfa.filters', [
+        'filters' => $filters,
+        'districts' => $districts,
+        'sectors' => $sectors,
+    ])
 
-                    @if ($submissions->hasMorePages())
-                        <a href="{{ $submissions->nextPageUrl() }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-slate-700 transition hover:bg-slate-50">
-                            Next
-                            <span aria-hidden="true">→</span>
-                            <svg class="h-4 w-4 shrink-0 text-slate-700" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                                <path d="M7.5 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                        </a>
-                    @else
-                        <span class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-slate-400">
-                            Next
-                            <span aria-hidden="true">→</span>
-                            <svg class="h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                                <path d="M7.5 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                        </span>
-                    @endif
-                </div>
-            </div>
+    @php
+        $hasPaginator = $submissions->hasPages();
+        $total = (int) $submissions->total();
+        $serialFrom = $total > 0 ? (($submissions->currentPage() - 1) * $submissions->perPage()) + 1 : 0;
+        $serialTo = min($submissions->currentPage() * $submissions->perPage(), $total);
+        $filterActive = \App\Services\Cfa\CfaSubmissionListQuery::hasActiveFilters(request());
+    @endphp
+
+    <div class="p1l-toolbar">
+        <p>
+            @if ($total > 0)
+                Showing <strong>{{ number_format($serialFrom) }}–{{ number_format($serialTo) }}</strong>
+                of <strong>{{ number_format($total) }}</strong>
+                @if ($filterActive)<span class="p1l-muted">(filtered)</span>@endif
+            @else
+                No applications
+            @endif
+        </p>
+        @if ($hasPaginator)
+            <p class="p1l-muted">Page {{ $submissions->currentPage() }} of {{ $submissions->lastPage() }}</p>
         @endif
+    </div>
+
+    <div class="p1l-table-wrap">
+        <table class="p1l-table">
+            <thead>
+                <tr>
+                    <th style="text-align:right;">Sr. No.</th>
+                    <th>App. no.</th>
+                    <th>Submitted</th>
+                    <th>Applicant</th>
+                    <th>Phone</th>
+                    <th>District</th>
+                    <th>Onboard status</th>
+                    <th>Source / staff</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($submissions as $row)
+                    <tr>
+                        <td class="p1l-sr">{{ number_format($serialFrom + $loop->iteration - 1) }}</td>
+                        <td class="p1l-appno">{{ $row->application_no ?? '—' }}</td>
+                        <td style="white-space:nowrap;font-size:0.8rem;color:#64748b;">
+                            {{ $row->created_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}
+                        </td>
+                        <td class="p1l-name">{{ $row->applicant_name }}</td>
+                        <td style="white-space:nowrap;">{{ $row->phone }}</td>
+                        <td>{{ $row->district?->name ?? '—' }}</td>
+                        <td>
+                            @if (($row->onboard_status ?? '') === 'onboarded')
+                                <span class="p1l-pill p1l-pill--onboard-yes">{{ $row->onboard_label ?? 'Onboarded' }}</span>
+                            @else
+                                <span class="p1l-pill p1l-pill--onboard-no">{{ $row->onboard_label ?? 'Non onboarded' }}</span>
+                            @endif
+                        </td>
+                        <td class="p1l-muted" style="font-size:0.8rem;">
+                            @if ($row->source === 'public_form')
+                                @php
+                                    $submitMode = is_array($row->payload ?? null)
+                                        ? (string) ($row->payload['public_cfa_submit_mode'] ?? 'self')
+                                        : 'self';
+                                @endphp
+                                {{ $submitMode === 'gdc_team' ? 'GDC team' : 'Public / walk-in' }}
+                            @else
+                                {{ $row->referralUser?->name ?? $row->source ?? '—' }}
+                            @endif
+                        </td>
+                        <td>
+                            <a href="{{ route('admin.cfa.show', $row) }}" class="p1l-btn p1l-btn--primary" style="padding:0.35rem 0.65rem;font-size:0.75rem;">View</a>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="9" class="p1l-empty">No applications match your filters.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    @if ($hasPaginator)
+        <div class="p1l-pagination">{{ $submissions->links() }}</div>
+    @endif
+</div>
 @endsection
