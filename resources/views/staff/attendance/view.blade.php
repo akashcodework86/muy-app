@@ -1,8 +1,14 @@
 @extends('layouts.admin')
-@php $rp = $routePrefix ?? 'staff.attendance'; $mp = $modelParam ?? 'attendanceReport'; @endphp
+@php
+    $rp = $routePrefix ?? 'staff.attendance';
+    $mp = $modelParam ?? 'attendanceReport';
+    $isFieldCoordinatorView = \App\Services\FieldCoordinatorReports\FieldCoordinatorReportScope::isFieldCoordinator($user ?? auth()->user());
+    $viewPageTitle = $isFieldCoordinatorView ? 'Field reports — district view' : 'Block Level Workshops — District View';
+    $viewBannerTitle = $isFieldCoordinatorView ? 'Field report records' : 'Block Level Workshop Records';
+@endphp
 
-@section('title', 'Block Level Workshops — District View')
-@section('heading', 'Block Level Workshop Dashboard')
+@section('title', $viewPageTitle)
+@section('heading', $isFieldCoordinatorView ? 'Field report dashboard' : 'Block Level Workshop Dashboard')
 
 @push('styles')
 <style>
@@ -128,13 +134,13 @@
         <div class="bw-banner__left">
             <div class="bw-banner__icon"><i class="fa-solid fa-people-group"></i></div>
             <div>
-                <p class="bw-banner__title">Block Level Workshop Records</p>
+                <p class="bw-banner__title">{{ $viewBannerTitle }}</p>
                 <p class="bw-banner__sub">{{ $user->name }} &middot; <strong>{{ $user->district?->name ?? 'No district' }}</strong></p>
             </div>
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
             <a href="{{ route($rp.'.index') }}" class="bw-banner__btn">
-                <i class="fa-solid fa-plus"></i> New workshop
+                <i class="fa-solid fa-plus"></i> {{ $isFieldCoordinatorView ? 'New field report' : 'New workshop' }}
             </a>
         </div>
     </div>
@@ -261,7 +267,12 @@
                             </td>
 
                             <td>
-                                <div style="font-size:0.82rem;font-weight:600;color:var(--bw-text);">{{ $row->field_coordinator_name ?: '—' }}</div>
+                                @include('staff.attendance.partials.submitter-cell', [
+                                    'row' => $row,
+                                    'fallbackUser' => $row->coordinator,
+                                    'nameColor' => 'var(--bw-text)',
+                                    'roleColor' => 'var(--bw-muted)',
+                                ])
                             </td>
 
                             <td>

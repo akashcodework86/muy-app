@@ -114,6 +114,77 @@ class FieldCoordinatorFieldVisitTest extends TestCase
         $this->assertCount(2, $report->visitMediaItems());
         Storage::disk('local')->assertExists((string) $report->visit_media_json[0]['path']);
         $this->assertFalse($report->hasAttendanceSheet());
+
+        if (FieldCoordinatorAttendanceReport::supportsRecordType()) {
+            $this->assertSame(FieldCoordinatorAttendanceReport::TYPE_FIELD_VISIT, $report->record_type);
+        }
+    }
+
+    public function test_submitted_entries_appear_on_index_and_district_view_regardless_of_record_type(): void
+    {
+        if (! FieldCoordinatorAttendanceReport::supportsRecordType()) {
+            $this->markTestSkipped('record_type column not migrated.');
+        }
+
+        $district = $this->createDistrict('nainital-fc', 'Nainital');
+        $designation = Designation::query()->create(['name' => 'Field Coordinator', 'sort_order' => 1]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'designation_id' => $designation->id,
+            'is_active' => true,
+        ]);
+
+        FieldCoordinatorAttendanceReport::query()->create([
+            'field_coordinator_user_id' => $staff->id,
+            'field_coordinator_name' => $staff->name,
+            'visit_date' => '2026-05-18',
+            'entry_date' => '2026-05-18',
+            'block' => 'Haldwani',
+            'area' => 'Visible Village',
+            'district_id' => $district->id,
+            'participants_male_count' => 3,
+            'participants_female_count' => 4,
+            'participants_total' => 7,
+            'status' => FieldCoordinatorAttendanceReport::STATUS_SUBMITTED,
+            'record_type' => FieldCoordinatorAttendanceReport::TYPE_BLOCK_WORKSHOP,
+            'visit_media_json' => [
+                ['path' => 'field-visits/test.jpg', 'original_name' => 'test.jpg', 'mime' => 'image/jpeg', 'size_bytes' => 100],
+            ],
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.attendance.index'))
+            ->assertOk()
+            ->assertSee('Visible Village', false);
+
+        $this->actingAs($staff)
+            ->get(route('staff.attendance.view'))
+            ->assertOk()
+            ->assertSee('Visible Village', false);
+    }
+
+    public function test_draft_created_via_attendance_uses_field_visit_record_type(): void
+    {
+        if (! FieldCoordinatorAttendanceReport::supportsDraftWorkflow()) {
+            $this->markTestSkipped('Draft workflow migration not applied.');
+        }
+
+        $district = $this->createDistrict('champawat-fc', 'Champawat');
+        $designation = Designation::query()->create(['name' => 'Field Coordinator', 'sort_order' => 1]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'designation_id' => $designation->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)
+            ->postJson(route('staff.attendance.draft.create'))
+            ->assertCreated();
+
+        $draft = FieldCoordinatorAttendanceReport::query()->firstOrFail();
+        $this->assertSame(FieldCoordinatorAttendanceReport::TYPE_FIELD_VISIT, $draft->record_type);
     }
 
     public function test_gram_panchayat_api_is_scoped_to_block_and_district(): void

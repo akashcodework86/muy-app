@@ -17,12 +17,32 @@ class FieldCoordinatorAttendanceEditDeleteTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_edit_route_opens_full_workshop_form_for_submitted_report(): void
+    {
+        if (! FieldCoordinatorAttendanceReport::supportsDraftWorkflow()) {
+            $this->markTestSkipped('Draft workflow migration not applied.');
+        }
+
+        [$staff, , , , $report] = $this->createReport();
+
+        $this->actingAs($staff)
+            ->get(route('staff.attendance.edit', $report))
+            ->assertRedirect(route('staff.attendance.index', ['edit' => $report->id]));
+
+        $this->actingAs($staff)
+            ->get(route('staff.attendance.index', ['edit' => $report->id]))
+            ->assertOk()
+            ->assertSee('Editing submitted workshop', false)
+            ->assertSee('Save changes', false)
+            ->assertSee('Edit workshop details', false);
+    }
+
     public function test_field_coordinator_can_edit_participant_counts(): void
     {
         [$staff, $block, $gp, $district, $report] = $this->createReport();
 
         $this->actingAs($staff)
-            ->put(route('staff.attendance.update', $report), [
+            ->post(route('staff.attendance.save', $report), [
                 'visit_date' => '2026-04-25',
                 'district_block_id' => $block->id,
                 'gram_panchayat_id' => $gp->id,
@@ -30,6 +50,7 @@ class FieldCoordinatorAttendanceEditDeleteTest extends TestCase
                 'participants_male_count' => 8,
                 'participants_female_count' => 12,
                 'remark' => 'Updated',
+                'skip_media_check' => '1',
             ])
             ->assertRedirect(route('staff.attendance.index'));
 
@@ -110,12 +131,16 @@ class FieldCoordinatorAttendanceEditDeleteTest extends TestCase
             'entry_date' => '2026-04-25',
             'block' => $block->name,
             'district_block_id' => $block->id,
-            'gram_panchayat_id' => null,
+            'gram_panchayat_id' => $gp->id,
             'area' => 'Demo Area',
             'district_id' => $district->id,
-            'participants_male_count' => 0,
-            'participants_female_count' => 0,
+            'participants_male_count' => 5,
+            'participants_female_count' => 15,
             'participants_total' => 20,
+            'status' => FieldCoordinatorAttendanceReport::STATUS_SUBMITTED,
+            'visit_media_json' => [
+                ['path' => 'field-visits/test.jpg', 'original_name' => 'test.jpg', 'mime' => 'image/jpeg', 'size_bytes' => 100],
+            ],
         ]);
 
         return [$staff, $block, $gp, $district, $report];

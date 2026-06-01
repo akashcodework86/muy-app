@@ -60,8 +60,21 @@ class FieldCoordinatorAttendanceController extends Controller
             ]);
         }
 
+        $editId = (int) $request->query('edit', 0);
+        $editingSubmitted = false;
         $activeDraft = null;
-        if ($draftWorkflow) {
+
+        if ($draftWorkflow && $editId > 0) {
+            $activeDraft = FieldCoordinatorAttendanceReport::query()
+                ->submitted()
+                ->where('field_coordinator_user_id', (int) $user->id)
+                ->whereKey($editId)
+                ->with(['district', 'gramPanchayat', 'districtBlock'])
+                ->firstOrFail();
+            $editingSubmitted = true;
+        }
+
+        if ($activeDraft === null && $draftWorkflow) {
             $draftId = (int) $request->query('draft', 0);
             if ($draftId > 0) {
                 $activeDraft = FieldCoordinatorAttendanceReport::query()
@@ -83,14 +96,10 @@ class FieldCoordinatorAttendanceController extends Controller
 
         $reportsQuery = FieldCoordinatorAttendanceReport::query()
             ->where('field_coordinator_user_id', (int) $user->id)
-            ->with(['district', 'gramPanchayat']);
+            ->with(['district', 'gramPanchayat', 'coordinator.designationRecord']);
 
         if ($draftWorkflow) {
             $reportsQuery->submitted();
-        }
-
-        if (FieldCoordinatorAttendanceReport::supportsRecordType()) {
-            $reportsQuery->fieldVisits();
         }
 
         $reports = $reportsQuery
@@ -107,6 +116,7 @@ class FieldCoordinatorAttendanceController extends Controller
             'migrationMissing' => false,
             'draftWorkflow' => $draftWorkflow,
             'activeDraft' => $activeDraft,
+            'editingSubmitted' => $editingSubmitted,
         ]);
     }
 
@@ -138,7 +148,7 @@ class FieldCoordinatorAttendanceController extends Controller
             'entry_date' => now()->toDateString(),
             'district_id' => $districtId > 0 ? $districtId : null,
             'status' => FieldCoordinatorAttendanceReport::STATUS_DRAFT,
-            'record_type' => FieldCoordinatorAttendanceReport::TYPE_BLOCK_WORKSHOP,
+            ...$this->staffAttendanceRecordTypePayload(),
             'participants_male_count' => 0,
             'participants_female_count' => 0,
             'participants_total' => 0,
@@ -160,7 +170,7 @@ class FieldCoordinatorAttendanceController extends Controller
     ): JsonResponse {
         $user = $request->user()->load('district');
         abort_unless($this->canSubmitFieldVisit($user), 403);
-        $this->assertOwnDraft($user, $attendanceReport);
+        $this->assertOwnEditable($user, $attendanceReport);
 
         $rules = [
             'visit_date' => ['nullable', 'date'],
@@ -214,6 +224,7 @@ class FieldCoordinatorAttendanceController extends Controller
             'participants_female_count' => $female,
             'participants_total' => $total,
             'participants_json' => $rows,
+            ...$this->staffAttendanceRecordTypePayload(),
         ];
 
         if (array_key_exists('visit_date', $validated) && $validated['visit_date'] !== null) {
@@ -249,7 +260,7 @@ class FieldCoordinatorAttendanceController extends Controller
     ): JsonResponse {
         $user = $request->user()->load('district');
         abort_unless($this->canSubmitFieldVisit($user), 403);
-        $this->assertOwnDraft($user, $attendanceReport);
+        $this->assertOwnEditable($user, $attendanceReport);
 
         $validated = $request->validate([
             'participants' => ['nullable', 'array', 'max:'.BlockWorkshopParticipantRowsService::MAX_ROWS],
@@ -444,13 +455,11 @@ class FieldCoordinatorAttendanceController extends Controller
             'participants_total' => $participantsTotal,
             'participants_json' => $rows,
             'status' => FieldCoordinatorAttendanceReport::STATUS_SUBMITTED,
+            ...$this->staffAttendanceRecordTypePayload(),
             ...$sheetPayload,
         ]);
 
         $status = 'Block level workshop submitted.';
-        if ($participantsTotal > 0 && $sheetPayload === []) {
-            $status .= ' You can upload the attendance Excel sheet later from My submissions.';
-        }
 
         return redirect()
             ->route('staff.attendance.index')
@@ -464,7 +473,7 @@ class FieldCoordinatorAttendanceController extends Controller
     ): JsonResponse {
         $user = $request->user();
         abort_unless($this->canSubmitFieldVisit($user), 403);
-        $this->assertOwnDraft($user, $attendanceReport);
+        $this->assertOwnEditable($user, $attendanceReport);
 
         $current = count($attendanceReport->visitMediaItems());
         $remaining = FieldVisitMediaStorage::MAX_PHOTOS_PER_REPORT - $current;
@@ -507,7 +516,7 @@ class FieldCoordinatorAttendanceController extends Controller
     ): JsonResponse {
         $user = $request->user();
         abort_unless($this->canSubmitFieldVisit($user), 403);
-        $this->assertOwnDraft($user, $attendanceReport);
+        $this->assertOwnEditable($user, $attendanceReport);
 
         $items = $this->mediaStorage->removeAt($attendanceReport, $photoIndex);
         $attendanceReport->update(['visit_media_json' => $items]);
@@ -655,15 +664,11 @@ class FieldCoordinatorAttendanceController extends Controller
                 $q->submitted();
             }
 
-            if (FieldCoordinatorAttendanceReport::supportsRecordType()) {
-                $q->fieldVisits();
-            }
-
             return $q;
         };
 
         $query = $baseQuery()
-            ->with(['district', 'gramPanchayat', 'coordinator:id,name']);
+            ->with(['district', 'gramPanchayat', 'coordinator.designationRecord']);
 
         if ($request->filled('from')) {
             $query->whereDate('visit_date', '>=', $request->query('from'));
@@ -973,12 +978,12 @@ class FieldCoordinatorAttendanceController extends Controller
             );
         }
 
-        FieldCoordinatorAttendanceReport::query()->create($createPayload);
+        FieldCoordinatorAttendanceReport::query()->create([
+            ...$createPayload,
+            ...$this->staffAttendanceRecordTypePayload(),
+        ]);
 
-        $status = 'Field visit report submitted.';
-        if ($participantsTotal > 0 && $sheetPayload === []) {
-            $status .= ' You can upload the attendance Excel sheet later from My submissions.';
-        }
+        $status = 'Block level workshop submitted.';
 
         return redirect()
             ->route('staff.attendance.index')
@@ -1026,7 +1031,7 @@ class FieldCoordinatorAttendanceController extends Controller
             ->with('status', 'Attendance sheet uploaded.');
     }
 
-    public function edit(FieldCoordinatorAttendanceReport $attendanceReport, Request $request): View|RedirectResponse
+    public function edit(FieldCoordinatorAttendanceReport $attendanceReport, Request $request): RedirectResponse
     {
         $user = $request->user()->load(['district', 'designationRecord']);
         abort_unless($this->canSubmitFieldVisit($user), 403);
@@ -1036,23 +1041,7 @@ class FieldCoordinatorAttendanceController extends Controller
             return redirect()->route('staff.attendance.index', ['draft' => $attendanceReport->id]);
         }
 
-        $districtId = (int) ($user->district_id ?: 0);
-        $blockRows = $districtId > 0
-            ? DistrictBlock::query()
-                ->where('district_id', $districtId)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'name'])
-            : collect();
-
-        $attendanceReport->load(['district', 'gramPanchayat']);
-
-        return view('staff.attendance.edit', [
-            'report' => $attendanceReport,
-            'user' => $user,
-            'blockRows' => $blockRows,
-            'gramPanchayatsEnabled' => Schema::hasTable('gram_panchayats'),
-        ]);
+        return redirect()->route('staff.attendance.index', ['edit' => $attendanceReport->id]);
     }
 
     public function update(
@@ -1061,7 +1050,9 @@ class FieldCoordinatorAttendanceController extends Controller
     ): RedirectResponse {
         $user = $request->user()->load(['district', 'designationRecord']);
         abort_unless($this->canSubmitFieldVisit($user), 403);
-        abort_unless((int) $attendanceReport->field_coordinator_user_id === (int) $user->id, 403);
+        abort_unless($this->canModifySubmitted($user, $attendanceReport), 403);
+
+        $districtId = (int) ($user->district_id ?: 0);
 
         $rules = [
             'visit_date' => ['required', 'date'],
@@ -1071,23 +1062,35 @@ class FieldCoordinatorAttendanceController extends Controller
             'participants_male_count' => ['required', 'integer', 'min:0'],
             'participants_female_count' => ['required', 'integer', 'min:0'],
             'remark' => ['nullable', 'string', 'max:2000'],
+            'attendance_sheet' => ['nullable', 'file', 'mimes:xlsx,xls,csv,txt', 'max:10240'],
         ];
 
         if (! Schema::hasTable('gram_panchayats')) {
-            unset($rules['gram_panchayat_id']);
             $rules['gram_panchayat_id'] = ['nullable'];
         }
 
         $validated = $request->validate($rules);
 
-        $districtId = (int) ($user->district_id ?: 0);
         $block = DistrictBlock::query()->findOrFail((int) $validated['district_block_id']);
-        abort_unless((int) $block->district_id === $districtId, 422);
+        abort_unless((int) $block->district_id === $districtId, 403);
 
         $gramPanchayat = null;
-        if (Schema::hasTable('gram_panchayats')) {
+        if (Schema::hasTable('gram_panchayats') && ! empty($validated['gram_panchayat_id'])) {
             $gramPanchayat = GramPanchayat::query()->findOrFail((int) $validated['gram_panchayat_id']);
             abort_unless((int) $gramPanchayat->district_block_id === (int) $block->id, 422);
+        }
+
+        $mediaItems = $attendanceReport->visitMediaItems();
+
+        if (! $request->has('skip_media_check') && count($mediaItems) === 0) {
+            $newMedia = $this->mediaStorage->storeMany((array) $request->file('visit_media', []));
+            $mediaItems = $this->mediaStorage->mergeOntoReport($attendanceReport, $newMedia);
+        }
+
+        if (count($mediaItems) === 0) {
+            return back()
+                ->withErrors(['visit_media' => 'Upload at least one workshop photo.'])
+                ->withInput();
         }
 
         $male = (int) $validated['participants_male_count'];
@@ -1104,6 +1107,9 @@ class FieldCoordinatorAttendanceController extends Controller
             || (string) $attendanceReport->area !== (string) $validated['area']
             || (string) $attendanceReport->block !== (string) $block->name;
 
+        $sheetPayload = [];
+        $sheetFile = $request->file('attendance_sheet');
+
         if ($locationOrCountsChanged && $attendanceReport->hasAttendanceSheet()) {
             $sheetPath = (string) $attendanceReport->attendance_sheet_path;
             if ($sheetPath !== '' && Storage::exists($sheetPath)) {
@@ -1115,6 +1121,52 @@ class FieldCoordinatorAttendanceController extends Controller
             $attendanceReport->attendance_sheet_size_bytes = null;
         }
 
+        if ($sheetFile instanceof UploadedFile) {
+            if ($participantsTotal <= 0) {
+                return back()
+                    ->withErrors(['attendance_sheet' => 'Set participant counts before uploading an attendance sheet.'])
+                    ->withInput();
+            }
+
+            $districtName = (string) ($user->district?->name ?? '');
+            $gpName = (string) ($gramPanchayat?->name ?? '');
+
+            $this->attendanceSheetService->assertValidUpload(
+                $sheetFile,
+                $participantsTotal,
+                $male,
+                $female,
+                $districtName,
+                (string) $block->name,
+                $gpName,
+            );
+
+            if ($attendanceReport->attendance_sheet_path) {
+                Storage::delete($attendanceReport->attendance_sheet_path);
+            }
+
+            $sheetPayload = $this->attendanceSheetService->storeUploadedFile($sheetFile);
+        }
+
+        $districtName = (string) ($user->district?->name ?? $attendanceReport->district?->name ?? '');
+        $gpName = (string) ($gramPanchayat?->name ?? '');
+        $rows = $this->participantRowsService->syncRowCount(
+            $attendanceReport->participantRows(),
+            $male,
+            $female,
+            $districtName,
+            (string) $block->name,
+            $gramPanchayat?->id,
+            $gpName !== '' ? $gpName : null,
+        );
+
+        if ($request->has('participants') && is_array($request->input('participants'))) {
+            $rows = $this->participantRowsService->sanitizeIncoming(
+                $request->input('participants'),
+                $participantsTotal,
+            );
+        }
+
         $attendanceReport->update([
             'visit_date' => $validated['visit_date'],
             'block' => (string) $block->name,
@@ -1122,20 +1174,19 @@ class FieldCoordinatorAttendanceController extends Controller
             'gram_panchayat_id' => $gramPanchayat?->id,
             'area' => $validated['area'],
             'remark' => $validated['remark'] ?? null,
+            'visit_media_json' => $mediaItems,
             'participants_male_count' => $male,
             'participants_female_count' => $female,
             'participants_total' => $participantsTotal,
+            'participants_json' => $rows,
             'district_id' => $districtId > 0 ? $districtId : null,
+            ...$this->staffAttendanceRecordTypePayload(),
+            ...$sheetPayload,
         ]);
-
-        $status = 'Visit updated.';
-        if ($locationOrCountsChanged && $participantsTotal > 0) {
-            $status .= ' Download a new attendance template and upload the sheet again.';
-        }
 
         return redirect()
             ->route('staff.attendance.index')
-            ->with('status', $status);
+            ->with('status', 'Workshop updated.');
     }
 
     public function destroy(
@@ -1192,10 +1243,35 @@ class FieldCoordinatorAttendanceController extends Controller
         return $this->mediaStorage->legacyDownload($attendanceReport);
     }
 
+    /**
+     * @return array{record_type?: string}
+     */
+    private function staffAttendanceRecordTypePayload(): array
+    {
+        if (! FieldCoordinatorAttendanceReport::supportsRecordType()) {
+            return [];
+        }
+
+        return ['record_type' => FieldCoordinatorAttendanceReport::TYPE_FIELD_VISIT];
+    }
+
     private function assertOwnDraft(User $user, FieldCoordinatorAttendanceReport $report): void
     {
         abort_unless((int) $report->field_coordinator_user_id === (int) $user->id, 403);
         abort_unless($report->isDraft(), 422, 'This workshop is not a draft.');
+    }
+
+    private function assertOwnEditable(User $user, FieldCoordinatorAttendanceReport $report): void
+    {
+        abort_unless((int) $report->field_coordinator_user_id === (int) $user->id, 403);
+        abort_unless($report->isDraft() || $report->isSubmitted(), 422);
+    }
+
+    private function canModifySubmitted(User $user, FieldCoordinatorAttendanceReport $report): bool
+    {
+        return $this->canSubmitFieldVisit($user)
+            && $report->isSubmitted()
+            && (int) $report->field_coordinator_user_id === (int) $user->id;
     }
 
     private function canSubmitFieldVisit(User $user): bool

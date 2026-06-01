@@ -100,7 +100,7 @@ class BlockWorkshopController extends Controller
         $reports = BlockWorkshop::query()
             ->where('field_coordinator_user_id', (int) $user->id)
             ->submitted()
-            ->with(['district', 'gramPanchayat'])
+            ->with(['district', 'gramPanchayat', 'coordinator.designationRecord'])
             ->orderByDesc('visit_date')
             ->orderByDesc('id')
             ->paginate(20)
@@ -503,7 +503,7 @@ class BlockWorkshopController extends Controller
             ->where('district_id', $districtId)
             ->submitted();
 
-        $query = $baseQuery()->with(['district', 'gramPanchayat', 'coordinator:id,name']);
+        $query = $baseQuery()->with(['district', 'gramPanchayat', 'coordinator.designationRecord']);
 
         if ($request->filled('from')) {
             $query->whereDate('visit_date', '>=', $request->query('from'));
