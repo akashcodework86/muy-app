@@ -43,6 +43,7 @@ use App\Http\Controllers\FieldCoordinatorReportController;
 use App\Http\Controllers\Hub\HubApplicationsController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Hub\HubOnboardingInsightController;
+use App\Http\Controllers\Hub\HubPendingActionsController;
 use App\Http\Controllers\Hub\HubStaffPerformanceController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
 use App\Http\Controllers\Incubatee\MentorshipRequestController;
@@ -783,6 +784,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('batches', [HubBatchController::class, 'index'])->name('batches.index');
         Route::get('batches/{batch}/onboarding-letter', [BatchReadOnlyController::class, 'downloadOnboardingLetter'])->name('batches.onboarding-letter');
         Route::get('staff-performance', [HubStaffPerformanceController::class, 'index'])->name('staff-performance.index');
+        Route::get('pending-actions', [HubPendingActionsController::class, 'index'])->name('pending-actions.index');
         Route::get('onboarding-insight', [HubOnboardingInsightController::class, 'index'])->name('onboarding-insight.index');
         Route::post('batches/api', [HubBatchController::class, 'api'])->name('batches.api');
         Route::post('batches/upload-cdo', [HubBatchController::class, 'uploadCdo'])->name('batches.upload-cdo');

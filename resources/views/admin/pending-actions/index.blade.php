@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
 @section('title', 'Pending Actions')
-@section('heading', 'Pending Actions')
+@section('heading', 'Pending Actions' . (! empty($scopeLabel) ? ' — '.$scopeLabel : ''))
 
 @section('content')
     <style>
@@ -48,6 +48,9 @@
     </style>
 
     <div class="pa-grid">
+        @if (! empty($scopeLabel))
+            <p style="margin:0;font-size:0.85rem;color:#64748b;">Showing service-case backlog for districts under <strong>{{ $scopeLabel }}</strong>.</p>
+        @endif
         <div class="pa-cards">
             <div class="pa-card">
                 <div class="pa-k">Total submissions</div>
@@ -153,7 +156,7 @@
             </table>
         </div>
 
-        <form method="get" class="pa-tools">
+        <form method="get" action="{{ route($pageRoute ?? 'admin.pending-actions.index') }}" class="pa-tools">
             <div>
                 <label class="pa-lbl" for="spoc_id">Filter by SPOC</label>
                 <select id="spoc_id" name="spoc_id" class="pa-sel">

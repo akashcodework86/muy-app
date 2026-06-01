@@ -82,6 +82,7 @@
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         str_starts_with($r, 'hub.applications') => 'hub-applications',
         str_starts_with($r, 'hub.staff-performance') => 'hub-staff-performance',
+        str_starts_with($r, 'hub.pending-actions') => 'hub-pending-actions',
         $r === 'staff.monthly-targets' => 'staff-targets',
         str_starts_with($r, 'staff.services') => 'staff-services',
         str_starts_with($r, 'staff.applications') => 'staff-apps',
@@ -442,6 +443,9 @@
             </a>
             <a href="{{ route('hub.staff-performance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-staff-performance') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Staff Performance</span>
+            </a>
+            <a href="{{ route('hub.pending-actions.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-pending-actions') is-active @endif">
+                {!! $i('inbox') !!}<span class="admin-topbar__link-text">Pending Actions</span>
             </a>
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
