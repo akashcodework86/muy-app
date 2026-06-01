@@ -6,7 +6,8 @@ use App\Models\FiscalYear;
 use App\Models\User;
 use App\Services\Deliverables\DeliverablesBreakdownCsvExport;
 use App\Services\Deliverables\DeliverablesBreakdownPdfExport;
-use App\Services\Deliverables\DeliverablesBreakdownSpreadsheetExport;
+use App\Services\Deliverables\Exports\DeliverablesBreakdownExcelExport;
+use App\Services\Deliverables\Exports\DeliverablesProgramExcelExport;
 use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
@@ -14,13 +15,8 @@ use App\Services\ProgramDeliverablesReportService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Illuminate\Support\Facades\Log;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -29,7 +25,8 @@ class DeliverablesReportController extends Controller
     public function __construct(
         private readonly ProgramDeliverablesReportService $reportService,
         private readonly ProgramDeliverablesAchievementBreakdownService $breakdownService,
-        private readonly DeliverablesBreakdownSpreadsheetExport $breakdownSpreadsheetExport,
+        private readonly DeliverablesProgramExcelExport $programExcelExport,
+        private readonly DeliverablesBreakdownExcelExport $breakdownExcelExport,
         private readonly DeliverablesBreakdownPdfExport $breakdownPdfExport,
         private readonly DeliverablesBreakdownCsvExport $breakdownCsvExport,
     ) {}
@@ -44,64 +41,21 @@ class DeliverablesReportController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
-        $context = $this->resolveRequestContext($request);
-        $payload = $this->buildReportPayload($context);
-        $report = $payload['report'];
-        $fyLabel = $report['fiscalYear']?->name ?? 'all';
-        $filter = $payload['filter'];
+        try {
+            $context = $this->resolveRequestContext($request);
+            $payload = $this->buildReportPayload($context);
+            $report = $payload['report'];
 
-        if (! class_exists(Spreadsheet::class)) {
-            abort(500, 'Excel export is not available (PhpSpreadsheet not installed). Run composer install on the server and retry.');
+            return $this->programExcelExport->download(
+                $report['rows'],
+                $payload['filter'],
+                $payload['scopeLabel'],
+                $payload['periodLabel'],
+                $report['fiscalYear']?->name ?? 'all',
+            );
+        } catch (\RuntimeException $e) {
+            abort(503, $e->getMessage());
         }
-
-        $spreadsheet = new Spreadsheet;
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Deliverables');
-
-        $headers = ['S.N.', 'Indicator', 'Type of Indicator', 'Spoke/ Hub/ State', 'Targets', 'Achievement', 'Achievement (%)'];
-        foreach ($headers as $colIndex => $label) {
-            $col = chr(ord('A') + $colIndex);
-            $sheet->setCellValue($col.'1', $label);
-        }
-
-        $sheet->getStyle('A1:G1')->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '9A3412']],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-        ]);
-
-        $rowNum = 2;
-        foreach ($report['rows'] as $row) {
-            $isHeading = in_array($row['row_type'] ?? '', ['pillar', 'subcategory'], true);
-            $sheet->setCellValue('A'.$rowNum, $row['serial']);
-            $sheet->setCellValue('B'.$rowNum, $row['name']);
-            $sheet->setCellValue('C'.$rowNum, $isHeading ? '' : ($row['indicator_type'] ?? ''));
-            $sheet->setCellValue('D'.$rowNum, $isHeading ? '' : ($row['level'] ?? ''));
-            $sheet->setCellValue('E'.$rowNum, $isHeading ? '' : ($row['target'] ?? ''));
-            $sheet->setCellValue('F'.$rowNum, $isHeading ? '' : ($row['achievement'] ?? ''));
-            $sheet->setCellValue('G'.$rowNum, $isHeading ? '' : ($row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : ''));
-
-            if ($isHeading) {
-                $sheet->getStyle('A'.$rowNum.':G'.$rowNum)->applyFromArray([
-                    'font' => ['bold' => true],
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFEDD5']],
-                ]);
-            }
-
-            $rowNum++;
-        }
-
-        $suffix = $filter->districtId ? '-d'.$filter->districtId : '';
-        if ($filter->month) {
-            $suffix .= '-m'.$filter->month;
-        }
-        $fileName = 'deliverables-'.str_replace([' ', '/'], '-', $fyLabel).$suffix.'-'.now()->format('Ymd').'.xlsx';
-
-        return response()->streamDownload(function () use ($spreadsheet): void {
-            (new Xlsx($spreadsheet))->save('php://output');
-        }, $fileName, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ]);
     }
 
     public function breakdown(Request $request): JsonResponse
@@ -129,42 +83,29 @@ class DeliverablesReportController extends Controller
         ]);
     }
 
-    public function breakdownExport(Request $request): BinaryFileResponse|StreamedResponse
+    public function breakdownExport(Request $request): StreamedResponse
     {
         try {
             $context = $this->resolveBreakdownExportContext($request);
-            $meta = [
-                'scope_label' => $context['payload']['scopeLabel'],
-                'period_label' => $context['payload']['periodLabel'],
-            ];
 
-            try {
-                return $this->breakdownSpreadsheetExport->download(
-                    $context['breakdown'],
-                    $context['row'],
-                    $meta,
-                    $context['serial'],
-                );
-            } catch (\Throwable $e) {
-                Log::error('Deliverables breakdown Excel export failed', [
-                    'serial' => $context['serial'],
-                    'message' => $e->getMessage(),
-                ]);
-
-                return $this->breakdownCsvExport->download(
-                    $context['breakdown'],
-                    $context['row'],
-                    $meta,
-                    $context['serial'],
-                );
-            }
+            return $this->breakdownExcelExport->download(
+                $context['breakdown'],
+                $context['row'],
+                [
+                    'scope_label' => $context['payload']['scopeLabel'],
+                    'period_label' => $context['payload']['periodLabel'],
+                ],
+                $context['serial'],
+            );
+        } catch (\RuntimeException $e) {
+            abort(503, $e->getMessage());
         } catch (\Throwable $e) {
-            Log::error('Deliverables breakdown export failed', [
+            Log::error('Deliverables breakdown Excel export failed', [
                 'serial' => $request->query('serial'),
                 'message' => $e->getMessage(),
             ]);
 
-            abort(500, 'Could not export breakdown. Try Download CSV or contact support.');
+            abort(500, 'Could not export breakdown to Excel. Try Download CSV or contact support.');
         }
     }
 
@@ -261,7 +202,7 @@ class DeliverablesReportController extends Controller
         }
     }
 
-  /**
+    /**
      * @param  array{user: User, scope: ProgramDeliverablesScope, safeFilter: ProgramDeliverablesFilter}  $context
      * @return array<string, mixed>
      */
