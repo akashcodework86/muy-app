@@ -2,6 +2,8 @@
 
 namespace App\Services\Deliverables\Exports;
 
+use App\Services\Deliverables\DeliverablesBreakdownCsvExport;
+use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -13,6 +15,10 @@ class DeliverablesBreakdownExcelExport
     /** @var list<string> */
     private array $usedSheetTitles = [];
 
+    public function __construct(
+        private readonly DeliverablesBreakdownCsvExport $csvExport,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $breakdown
      * @param  array<string, mixed>|null  $row
@@ -20,7 +26,14 @@ class DeliverablesBreakdownExcelExport
      */
     public function download(array $breakdown, ?array $row, array $meta, string $serial): StreamedResponse
     {
-        DeliverablesExcelSupport::ensureAvailable();
+        if (! DeliverablesExcelSupport::isAvailable()) {
+            Log::warning('Deliverables breakdown export: using CSV fallback', [
+                'serial' => $serial,
+                'reason' => DeliverablesExcelSupport::availabilityIssue(),
+            ]);
+
+            return $this->csvExport->download($breakdown, $row, $meta, $serial);
+        }
 
         $target = is_array($row) ? ($row['target'] ?? null) : null;
         $achievementPct = is_array($row) ? ($row['achievement_pct'] ?? null) : null;

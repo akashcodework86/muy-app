@@ -3,6 +3,7 @@
 namespace App\Services\Deliverables\Exports;
 
 use App\Services\Deliverables\ProgramDeliverablesFilter;
+use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -10,6 +11,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DeliverablesProgramExcelExport
 {
+    public function __construct(
+        private readonly DeliverablesProgramCsvExport $csvExport,
+    ) {}
+
     /**
      * @param  list<array<string, mixed>>  $rows
      */
@@ -20,7 +25,13 @@ class DeliverablesProgramExcelExport
         string $periodLabel,
         string $fiscalYearLabel,
     ): StreamedResponse {
-        DeliverablesExcelSupport::ensureAvailable();
+        if (! DeliverablesExcelSupport::isAvailable()) {
+            Log::warning('Deliverables program export: using CSV fallback', [
+                'reason' => DeliverablesExcelSupport::availabilityIssue(),
+            ]);
+
+            return $this->csvExport->download($rows, $filter, $scopeLabel, $periodLabel, $fiscalYearLabel);
+        }
 
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();

@@ -18,21 +18,32 @@ final class DeliverablesExcelSupport
 
     public const META_LABEL_FILL = 'F8FAFC';
 
+    public static function isAvailable(): bool
+    {
+        return class_exists(\ZipArchive::class) && class_exists(Spreadsheet::class);
+    }
+
+    public static function availabilityIssue(): ?string
+    {
+        if (! class_exists(\ZipArchive::class)) {
+            return 'PHP Zip extension (ext-zip) is not enabled.';
+        }
+
+        if (! class_exists(Spreadsheet::class)) {
+            return 'PhpSpreadsheet is not installed (run composer install --no-dev in muy-app on the server).';
+        }
+
+        return null;
+    }
+
     /**
      * @throws \RuntimeException
      */
     public static function ensureAvailable(): void
     {
-        if (! class_exists(\ZipArchive::class)) {
-            throw new \RuntimeException(
-                'Excel export requires the PHP Zip extension. Enable ext-zip on the server and retry.'
-            );
-        }
-
-        if (! class_exists(Spreadsheet::class)) {
-            throw new \RuntimeException(
-                'Excel export requires PhpSpreadsheet. Run composer install --no-dev in the application directory on the server and retry.'
-            );
+        $issue = self::availabilityIssue();
+        if ($issue !== null) {
+            throw new \RuntimeException('Excel export is unavailable: '.$issue);
         }
     }
 

@@ -41,21 +41,17 @@ class DeliverablesReportController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
-        try {
-            $context = $this->resolveRequestContext($request);
-            $payload = $this->buildReportPayload($context);
-            $report = $payload['report'];
+        $context = $this->resolveRequestContext($request);
+        $payload = $this->buildReportPayload($context);
+        $report = $payload['report'];
 
-            return $this->programExcelExport->download(
-                $report['rows'],
-                $payload['filter'],
-                $payload['scopeLabel'],
-                $payload['periodLabel'],
-                $report['fiscalYear']?->name ?? 'all',
-            );
-        } catch (\RuntimeException $e) {
-            abort(503, $e->getMessage());
-        }
+        return $this->programExcelExport->download(
+            $report['rows'],
+            $payload['filter'],
+            $payload['scopeLabel'],
+            $payload['periodLabel'],
+            $report['fiscalYear']?->name ?? 'all',
+        );
     }
 
     public function breakdown(Request $request): JsonResponse
@@ -97,8 +93,6 @@ class DeliverablesReportController extends Controller
                 ],
                 $context['serial'],
             );
-        } catch (\RuntimeException $e) {
-            abort(503, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('Deliverables breakdown Excel export failed', [
                 'serial' => $request->query('serial'),
