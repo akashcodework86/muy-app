@@ -85,6 +85,60 @@ class LegacyApplicationServiceCaseSupport
     /**
      * @return list<int>
      */
+    /**
+     * @param  list<int>  $laravelDistrictIds
+     * @return list<int>
+     */
+    public function legacyApplicationIdsForLaravelDistrictIds(array $laravelDistrictIds): array
+    {
+        $ids = [];
+        foreach ($laravelDistrictIds as $districtId) {
+            $ids = array_merge($ids, $this->legacyApplicationIdsInLaravelDistrict((int) $districtId));
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(fn ($id): int => (int) $id, $ids),
+            fn (int $id): bool => $id > 0
+        )));
+    }
+
+    /**
+     * Scope approved service_cases to districts via CFA submission or Phase 2 legacy application.
+     *
+     * Expects {@see leftJoin} on `cfa_submissions as cs` (`cs.id` = `sc.cfa_submission_id`).
+     *
+     * @param  list<int>|null  $districtIds  null = statewide (no district filter)
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    public function applyAchievementDistrictScopeToServiceCaseQuery($query, ?array $districtIds): void
+    {
+        if ($districtIds === null) {
+            return;
+        }
+
+        if ($districtIds === []) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $legacyIds = ServiceCase::supportsLegacyApplicationLink()
+            ? $this->legacyApplicationIdsForLaravelDistrictIds($districtIds)
+            : [];
+
+        $query->where(function ($outer) use ($districtIds, $legacyIds): void {
+            $outer->whereIn('cs.district_id', $districtIds);
+
+            if ($legacyIds !== []) {
+                $outer->orWhere(function ($legacy) use ($legacyIds): void {
+                    $legacy->whereNull('sc.cfa_submission_id')
+                        ->whereNotNull('sc.legacy_application_id')
+                        ->whereIn('sc.legacy_application_id', $legacyIds);
+                });
+            }
+        });
+    }
+
     public function legacyApplicationIdsInLaravelDistrict(int $laravelDistrictId): array
     {
         if (! $this->legacyDbAvailable() || $laravelDistrictId < 1) {

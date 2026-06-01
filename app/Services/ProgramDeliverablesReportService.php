@@ -14,6 +14,7 @@ use App\Models\StateDeliverableTarget;
 use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
+use App\Services\LegacyApplicationServiceCaseSupport;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -22,6 +23,7 @@ class ProgramDeliverablesReportService
 {
     public function __construct(
         private readonly ServiceTargetDeliverableSyncService $serviceTargetDeliverables,
+        private readonly LegacyApplicationServiceCaseSupport $legacyServiceCases,
     ) {}
 
     /** @var array<string, int> */
@@ -1374,12 +1376,12 @@ SQL;
         $query = DB::table('service_cases as sc')
             ->join('services as s', 's.id', '=', 'sc.service_id')
             ->leftJoin('deliverables as d', 'd.id', '=', 's.deliverable_id')
+            ->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
             ->whereIn('sc.status', $statuses)
             ->whereNotNull('sc.service_id');
 
         if ($this->districtIds !== null) {
-            $query->join('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
-                ->whereIn('cs.district_id', $this->districtIds);
+            $this->legacyServiceCases->applyAchievementDistrictScopeToServiceCaseQuery($query, $this->districtIds);
         }
 
         $floor = $this->phase3FloorDate();

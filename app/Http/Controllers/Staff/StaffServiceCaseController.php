@@ -147,6 +147,9 @@ class StaffServiceCaseController extends Controller
             }
 
             foreach ($q->orderByDesc('updated_at')->get() as $case) {
+                if (ServiceCase::supportsLegacyApplicationLink() && $case->legacy_application_id && ! $case->cfa_submission_id) {
+                    $case->legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $case->legacy_application_id);
+                }
                 $listItems->push([
                     'type' => 'service_case',
                     'service_case' => $case,

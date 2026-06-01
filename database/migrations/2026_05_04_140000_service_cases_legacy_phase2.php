@@ -16,7 +16,17 @@ return new class extends Migration
             }
         });
 
-        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            Schema::table('service_cases', function (Blueprint $table) {
+                $table->unsignedBigInteger('cfa_submission_id')->nullable()->change();
+            });
+
+            return;
+        }
+
+        if ($driver !== 'mysql') {
             return;
         }
 

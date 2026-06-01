@@ -6,9 +6,12 @@ use App\Models\Deliverable;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\FiscalYear;
 use App\Models\MarketLinkageSubmission;
+use App\Models\District;
 use App\Models\Service;
 use App\Models\ServiceCase;
+use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\ServiceTargetDeliverableSyncService;
+use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -28,7 +31,11 @@ class ProgramDeliverablesAchievementBreakdownService
 
     public function __construct(
         private readonly ServiceTargetDeliverableSyncService $serviceTargetDeliverables,
+        private readonly LegacyApplicationServiceCaseSupport $legacyServiceCases,
     ) {}
+
+    /** @var array<int, ?District> */
+    private array $legacyDistrictCache = [];
 
     /**
      * @return array<string, mixed>
@@ -50,6 +57,7 @@ class ProgramDeliverablesAchievementBreakdownService
         [$resolvedFyId] = FiscalYear::resolveIdForUi($filter->fiscalYearId);
         $this->activeFiscalYear = $fiscalYears->firstWhere('id', $resolvedFyId);
         $this->filter = $filter;
+        $this->legacyDistrictCache = [];
         $this->districtIds = $scope->effectiveDistrictIds($filter->districtId);
         [$this->periodFrom, $this->periodTo] = $filter->resolvePeriod($this->activeFiscalYear);
 
@@ -170,19 +178,20 @@ class ProgramDeliverablesAchievementBreakdownService
         $monthExpr = $this->monthKeySql($dateExpr);
         $statuses = [ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_COMPLETED];
 
-        $query = DB::table('service_cases as sc')
+        $cfaQuery = DB::table('service_cases as sc')
             ->join('services as s', 's.id', '=', 'sc.service_id')
             ->join('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
             ->join('districts as d', 'd.id', '=', 'cs.district_id')
             ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
             ->leftJoin('users as spoc', 'spoc.id', '=', 'sc.spoc_user_id')
             ->whereIn('sc.status', $statuses)
-            ->whereIn('sc.service_id', $serviceIds);
+            ->whereIn('sc.service_id', $serviceIds)
+            ->whereNotNull('sc.cfa_submission_id');
 
-        $this->applyDistrictScope($query, 'cs.district_id');
-        $this->applyServiceCaseDateScope($query, $dateExpr);
+        $this->applyDistrictScope($cfaQuery, 'cs.district_id');
+        $this->applyServiceCaseDateScope($cfaQuery, $dateExpr);
 
-        $rows = (clone $query)
+        $cfaRows = (clone $cfaQuery)
             ->selectRaw("
                 d.id as district_id,
                 d.name as district_name,
@@ -195,7 +204,7 @@ class ProgramDeliverablesAchievementBreakdownService
             ->groupBy('d.id', 'd.name', 'h.name', 's.id', 's.name', DB::raw($monthExpr))
             ->get();
 
-        $records = (clone $query)
+        $cfaRecords = (clone $cfaQuery)
             ->select([
                 'sc.id',
                 'sc.reference_number',
@@ -210,20 +219,233 @@ class ProgramDeliverablesAchievementBreakdownService
             ->orderByDesc(DB::raw($dateExpr))
             ->limit(100)
             ->get()
-            ->map(fn ($row) => [
-                'id' => (int) $row->id,
-                'reference' => (string) ($row->reference_number ?: '—'),
-                'applicant' => (string) ($row->applicant_name ?: '—'),
-                'district' => (string) ($row->district_name ?: '—'),
-                'hub' => (string) ($row->hub_name ?: '—'),
-                'service' => (string) ($row->service_name ?: '—'),
-                'spoc' => (string) ($row->spoc_name ?: '—'),
-                'status' => ucfirst(str_replace('_', ' ', (string) $row->status)),
-                'date' => $row->achievement_date ? Carbon::parse($row->achievement_date)->format('d M Y') : '—',
-            ])
+            ->map(fn ($row) => $this->mapServiceCaseBreakdownRecord($row))
             ->all();
 
+        [$legacyRows, $legacyRecords] = $this->legacyServiceCaseBreakdownContributions(
+            $serviceIds,
+            $dateExpr,
+            $monthExpr,
+            $statuses,
+        );
+
+        $rows = $this->mergeServiceCaseAggregateRows($cfaRows, $legacyRows);
+        $records = $this->mergeServiceCaseBreakdownRecords($cfaRecords, $legacyRecords, 100);
+
         return $this->aggregateGroupedRows($rows, includeService: true, records: $records);
+    }
+
+    /**
+     * @param  list<int>  $serviceIds
+     * @param  list<string>  $statuses
+     * @return array{0: Collection<int, object>, 1: list<array<string, mixed>>}
+     */
+    private function legacyServiceCaseBreakdownContributions(
+        array $serviceIds,
+        string $dateExpr,
+        string $monthExpr,
+        array $statuses,
+    ): array {
+        if (! ServiceCase::supportsLegacyApplicationLink()) {
+            return [collect(), []];
+        }
+
+        if ($this->districtIds === []) {
+            return [collect(), []];
+        }
+
+        $legacyIds = $this->districtIds === null
+            ? null
+            : $this->legacyServiceCases->legacyApplicationIdsForLaravelDistrictIds($this->districtIds);
+
+        if ($legacyIds !== null && $legacyIds === []) {
+            return [collect(), []];
+        }
+
+        $query = DB::table('service_cases as sc')
+            ->join('services as s', 's.id', '=', 'sc.service_id')
+            ->leftJoin('users as spoc', 'spoc.id', '=', 'sc.spoc_user_id')
+            ->whereIn('sc.status', $statuses)
+            ->whereIn('sc.service_id', $serviceIds)
+            ->whereNull('sc.cfa_submission_id')
+            ->whereNotNull('sc.legacy_application_id');
+
+        if ($legacyIds !== null) {
+            $query->whereIn('sc.legacy_application_id', $legacyIds);
+        }
+
+        $this->applyServiceCaseDateScope($query, $dateExpr);
+
+        $cases = (clone $query)
+            ->select([
+                'sc.id',
+                'sc.legacy_application_id',
+                'sc.reference_number',
+                'sc.status',
+                's.name as service_name',
+                'spoc.name as spoc_name',
+            ])
+            ->selectRaw("{$dateExpr} as achievement_date")
+            ->selectRaw("{$monthExpr} as month_key")
+            ->get();
+
+        if ($cases->isEmpty()) {
+            return [collect(), []];
+        }
+
+        $legacyApplicationIds = $cases
+            ->pluck('legacy_application_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $snapshots = $this->legacyServiceCases->applicantSnapshotsByLegacyApplicationIds($legacyApplicationIds);
+
+        $aggregateBuckets = [];
+        $records = [];
+
+        foreach ($cases as $case) {
+            $legacyApplicationId = (int) ($case->legacy_application_id ?? 0);
+            $district = $this->districtForLegacyApplication($legacyApplicationId);
+            $districtName = (string) ($district?->name ?? 'Unknown');
+            $hubName = (string) ($district?->hub?->name ?? 'Unassigned');
+            $serviceName = (string) ($case->service_name ?? 'Unknown');
+            $monthKey = (string) ($case->month_key ?? '');
+
+            $bucketKey = implode('|', [$districtName, $hubName, $serviceName, $monthKey]);
+            if (! isset($aggregateBuckets[$bucketKey])) {
+                $aggregateBuckets[$bucketKey] = (object) [
+                    'district_id' => (int) ($district?->id ?? 0),
+                    'district_name' => $districtName,
+                    'hub_name' => $hubName,
+                    'service_id' => 0,
+                    'service_name' => $serviceName,
+                    'month_key' => $monthKey,
+                    'total' => 0,
+                ];
+            }
+            $aggregateBuckets[$bucketKey]->total++;
+
+            $snapshot = $snapshots[$legacyApplicationId] ?? null;
+            $records[] = $this->mapServiceCaseBreakdownRecord($case, [
+                'applicant_name' => (string) ($snapshot['name'] ?? ''),
+                'district_name' => $districtName,
+                'hub_name' => $hubName,
+            ]);
+        }
+
+        return [collect(array_values($aggregateBuckets)), $records];
+    }
+
+    private function districtForLegacyApplication(int $legacyApplicationId): ?District
+    {
+        if ($legacyApplicationId < 1) {
+            return null;
+        }
+
+        if (array_key_exists($legacyApplicationId, $this->legacyDistrictCache)) {
+            return $this->legacyDistrictCache[$legacyApplicationId];
+        }
+
+        $preview = $this->legacyServiceCases->incubateePreview($legacyApplicationId);
+        $districtId = $preview !== null
+            ? $this->legacyServiceCases->laravelDistrictIdForLegacyDistrictName((string) ($preview['district'] ?? ''))
+            : null;
+
+        $district = $districtId !== null
+            ? District::query()->with('hub')->find($districtId)
+            : null;
+
+        return $this->legacyDistrictCache[$legacyApplicationId] = $district;
+    }
+
+    /**
+     * @param  object  $row
+     * @param  array<string, string>  $overrides
+     * @return array<string, mixed>
+     */
+    private function mapServiceCaseBreakdownRecord(object $row, array $overrides = []): array
+    {
+        $applicant = array_key_exists('applicant_name', $overrides)
+            ? $overrides['applicant_name']
+            : (string) ($row->applicant_name ?? '');
+        $districtName = array_key_exists('district_name', $overrides)
+            ? $overrides['district_name']
+            : (string) ($row->district_name ?? '');
+        $hubName = array_key_exists('hub_name', $overrides)
+            ? $overrides['hub_name']
+            : (string) ($row->hub_name ?? '');
+
+        $achievementDate = $row->achievement_date ?? null;
+
+        return [
+            'id' => (int) ($row->id ?? 0),
+            'reference' => (string) ($row->reference_number ?: '—'),
+            'applicant' => $applicant !== '' ? $applicant : '—',
+            'district' => $districtName !== '' ? $districtName : '—',
+            'hub' => $hubName !== '' ? $hubName : '—',
+            'service' => (string) ($row->service_name ?? '—'),
+            'spoc' => (string) ($row->spoc_name ?? '—'),
+            'status' => ucfirst(str_replace('_', ' ', (string) ($row->status ?? ''))),
+            'date' => $achievementDate ? Carbon::parse($achievementDate)->format('d M Y') : '—',
+            '_sort_date' => $achievementDate ? (string) $achievementDate : '',
+        ];
+    }
+
+    /**
+     * @param  Collection<int, object>  $cfaRows
+     * @param  Collection<int, object>  $legacyRows
+     * @return Collection<int, object>
+     */
+    private function mergeServiceCaseAggregateRows(Collection $cfaRows, Collection $legacyRows): Collection
+    {
+        $merged = [];
+
+        foreach ($cfaRows->concat($legacyRows) as $row) {
+            $key = implode('|', [
+                (string) ($row->district_name ?? 'Unknown'),
+                (string) ($row->hub_name ?? 'Unassigned'),
+                (string) ($row->service_name ?? 'Unknown'),
+                (string) ($row->month_key ?? ''),
+            ]);
+
+            if (! isset($merged[$key])) {
+                $merged[$key] = (object) [
+                    'district_id' => (int) ($row->district_id ?? 0),
+                    'district_name' => (string) ($row->district_name ?? 'Unknown'),
+                    'hub_name' => (string) ($row->hub_name ?? 'Unassigned'),
+                    'service_id' => (int) ($row->service_id ?? 0),
+                    'service_name' => (string) ($row->service_name ?? 'Unknown'),
+                    'month_key' => (string) ($row->month_key ?? ''),
+                    'total' => 0,
+                ];
+            }
+
+            $merged[$key]->total += (int) ($row->total ?? 0);
+        }
+
+        return collect(array_values($merged));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $cfaRecords
+     * @param  list<array<string, mixed>>  $legacyRecords
+     * @return list<array<string, mixed>>
+     */
+    private function mergeServiceCaseBreakdownRecords(array $cfaRecords, array $legacyRecords, int $limit): array
+    {
+        $combined = array_merge($cfaRecords, $legacyRecords);
+        usort($combined, function (array $a, array $b): int {
+            return strcmp((string) ($b['_sort_date'] ?? ''), (string) ($a['_sort_date'] ?? ''));
+        });
+
+        return array_map(function (array $record): array {
+            unset($record['_sort_date']);
+
+            return $record;
+        }, array_slice($combined, 0, $limit));
     }
 
     /**

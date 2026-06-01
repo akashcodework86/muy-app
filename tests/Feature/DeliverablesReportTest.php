@@ -16,8 +16,10 @@ use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\ServiceCategory;
 use App\Models\StateDeliverableTarget;
 use App\Models\User;
+use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
+use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\ProgramDeliverablesReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -349,6 +351,113 @@ class DeliverablesReportTest extends TestCase
 
         $this->assertNotNull($row);
         $this->assertSame(350, $row['target']);
+    }
+
+    public function test_gst_achievement_counts_legacy_linked_service_case_in_district_scope(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'gst-legacy-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'gst-legacy-district',
+            'name' => 'GST Legacy District',
+            'sort_order' => 1,
+        ]);
+
+        $child = ServiceCategory::query()->create(['slug' => 'legal-gst-legacy', 'name' => 'Legal', 'sort_order' => 1]);
+        Deliverable::query()->create([
+            'sort_order' => 8,
+            'code' => 'gst',
+            'name' => 'GST Registration',
+            'mis_entry_label' => 'GST',
+            'is_active' => true,
+        ]);
+        $svcGst = Deliverable::query()->create([
+            'sort_order' => 18,
+            'code' => 'svc_gst',
+            'name' => 'GST',
+            'mis_entry_label' => 'GST',
+            'is_active' => true,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcGst->id,
+            'code' => 'gst',
+            'name' => 'GST',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Sunita Khulbey',
+            'application_no' => '4090103M',
+            'phone' => '9999999902',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'approved_at' => '2026-05-09 00:17:23',
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => null,
+            'legacy_application_id' => 1416,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'approved_at' => '2026-05-09 00:17:52',
+        ]);
+
+        $this->partialMock(LegacyApplicationServiceCaseSupport::class, function ($mock): void {
+            $mock->shouldReceive('legacyApplicationIdsForLaravelDistrictIds')
+                ->andReturn([1416]);
+            $mock->shouldReceive('applicantSnapshotsByLegacyApplicationIds')
+                ->andReturn([
+                    1416 => [
+                        'name' => 'Paras singhal',
+                        'application_no' => 'RBI1749712514',
+                        'phone' => '',
+                        'gender' => '',
+                        'village' => '',
+                        'block_name' => '',
+                    ],
+                ]);
+            $mock->shouldReceive('incubateePreview')
+                ->with(1416)
+                ->andReturn([
+                    'applicant_name' => 'Paras singhal',
+                    'application_no' => 'RBI1749712514',
+                    'district' => 'GST Legacy District',
+                ]);
+        });
+
+        $filter = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '4.2.4');
+
+        $this->assertNotNull($row);
+        $this->assertSame(2, $row['achievement']);
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '4.2.4');
+        $applicants = collect($breakdown['records'] ?? [])->pluck('applicant')->all();
+        $this->assertContains('Sunita Khulbey', $applicants);
+        $this->assertContains('Paras singhal', $applicants);
     }
 
     public function test_state_admin_sees_district_target_when_district_filter_applied(): void
