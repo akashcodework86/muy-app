@@ -6,6 +6,8 @@ use App\Models\OnboardingBatch;
 use App\Models\ServiceCase;
 use App\Models\DistrictServiceSpoc;
 use App\Models\OnboardingBatchEditRequest;
+use App\Models\StateTask;
+use App\Models\StateTaskAssignment;
 use App\Models\User;
 
 class NotificationReminderService
@@ -93,6 +95,20 @@ class NotificationReminderService
                     'unread' => true,
                 ];
             }
+
+            $submittedAssignments = StateTaskAssignment::query()
+                ->where('status', StateTaskAssignment::STATUS_SUBMITTED)
+                ->whereHas('task', fn ($q) => $q->where('status', StateTask::STATUS_PUBLISHED))
+                ->count();
+
+            if ($submittedAssignments > 0) {
+                $out[] = [
+                    'title' => 'State tasks awaiting review',
+                    'body' => $submittedAssignments.' assignment(s) were submitted by state staff and need your review.',
+                    'link' => route('admin.state-tasks.index'),
+                    'unread' => true,
+                ];
+            }
         }
 
         if ($user->role === 'district_staff') {
@@ -148,6 +164,48 @@ class NotificationReminderService
                         'unread' => true,
                     ];
                 }
+            }
+
+            $openTasks = StateTaskAssignment::query()
+                ->where('assignee_user_id', (int) $user->id)
+                ->whereIn('status', [
+                    StateTaskAssignment::STATUS_PENDING,
+                    StateTaskAssignment::STATUS_IN_PROGRESS,
+                    StateTaskAssignment::STATUS_SENT_BACK,
+                ])
+                ->whereHas('task', fn ($q) => $q
+                    ->where('status', StateTask::STATUS_PUBLISHED)
+                    ->where(function ($qq): void {
+                        $qq->whereNull('due_date')
+                            ->orWhereDate('due_date', '>=', now()->toDateString());
+                    }))
+                ->count();
+
+            if ($openTasks > 0) {
+                $out[] = [
+                    'title' => 'Open state tasks',
+                    'body' => $openTasks.' assigned task(s) need your progress update.',
+                    'link' => route('spoc.state-tasks.index'),
+                    'unread' => true,
+                ];
+            }
+
+            $overdueTasks = StateTaskAssignment::query()
+                ->where('assignee_user_id', (int) $user->id)
+                ->whereNotIn('status', [StateTaskAssignment::STATUS_COMPLETED])
+                ->whereHas('task', fn ($q) => $q
+                    ->where('status', StateTask::STATUS_PUBLISHED)
+                    ->whereNotNull('due_date')
+                    ->whereDate('due_date', '<', now()->toDateString()))
+                ->count();
+
+            if ($overdueTasks > 0) {
+                $out[] = [
+                    'title' => 'Overdue state tasks',
+                    'body' => $overdueTasks.' assigned task(s) are past the due date.',
+                    'link' => route('spoc.state-tasks.index'),
+                    'unread' => true,
+                ];
             }
         }
 
