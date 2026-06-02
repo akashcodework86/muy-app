@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\ServiceTargetAllocationController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\StaffPhase3AttendanceNavController;
 use App\Http\Controllers\Admin\StateStaffController;
+use App\Http\Controllers\Admin\StateTaskController as AdminStateTaskController;
 use App\Http\Controllers\DeliverablesReportController;
 use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Admin\TeamDirectoryController;
@@ -61,6 +62,7 @@ use App\Http\Controllers\SocialMediaPostLandingController;
 use App\Http\Controllers\SocialMediaPostController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
 use App\Http\Controllers\StateStaff\SpocMarketLinkageController;
+use App\Http\Controllers\Spoc\StateTaskController as SpocStateTaskController;
 use App\Http\Controllers\StateStaff\SpocServiceCaseController;
 use App\Http\Controllers\TechnicalTrainingAttendanceController;
 use App\Http\Controllers\TrainingPackageAttendanceController;
@@ -445,6 +447,17 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     /** State Staff (SPOC) — maker-checker approval queue */
     Route::middleware('state_staff')->prefix('spoc')->name('spoc.')->group(function () {
+        Route::get('state-tasks', [SpocStateTaskController::class, 'index'])->name('state-tasks.index');
+        Route::get('state-tasks/{state_task}', [SpocStateTaskController::class, 'show'])->name('state-tasks.show');
+        Route::post('state-tasks/{state_task}/progress', [SpocStateTaskController::class, 'updateProgress'])
+            ->middleware('throttle:60,1')
+            ->name('state-tasks.progress');
+        Route::post('state-tasks/{state_task}/submit', [SpocStateTaskController::class, 'submit'])
+            ->middleware('throttle:30,1')
+            ->name('state-tasks.submit');
+        Route::get('state-tasks/{state_task}/attachments/{attachment}/download', [SpocStateTaskController::class, 'downloadAttachment'])
+            ->name('state-tasks.attachments.download');
+
         Route::get('service-cases', [SpocServiceCaseController::class, 'index'])->name('service-cases.index');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
@@ -647,6 +660,20 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('service-spocs', [DistrictSpocController::class, 'update'])->name('service-spocs.update');
         Route::put('service-spocs/by-spoc', [DistrictSpocController::class, 'updateForSpoc'])->name('service-spocs.update-for-spoc');
         Route::get('pending-actions', [PendingActionsController::class, 'index'])->name('pending-actions.index');
+
+        Route::get('state-tasks', [AdminStateTaskController::class, 'index'])->name('state-tasks.index');
+        Route::get('state-tasks/create', [AdminStateTaskController::class, 'create'])->name('state-tasks.create');
+        Route::post('state-tasks', [AdminStateTaskController::class, 'store'])->name('state-tasks.store');
+        Route::get('state-tasks/{state_task}', [AdminStateTaskController::class, 'show'])->name('state-tasks.show');
+        Route::get('state-tasks/{state_task}/edit', [AdminStateTaskController::class, 'edit'])->name('state-tasks.edit');
+        Route::put('state-tasks/{state_task}', [AdminStateTaskController::class, 'update'])->name('state-tasks.update');
+        Route::post('state-tasks/{state_task}/publish', [AdminStateTaskController::class, 'publish'])->name('state-tasks.publish');
+        Route::post('state-tasks/{state_task}/close', [AdminStateTaskController::class, 'close'])->name('state-tasks.close');
+        Route::post('state-tasks/{state_task}/cancel', [AdminStateTaskController::class, 'cancel'])->name('state-tasks.cancel');
+        Route::post('state-tasks/{state_task}/assignments/{state_task_assignment}/complete', [AdminStateTaskController::class, 'completeAssignment'])->name('state-tasks.assignments.complete');
+        Route::post('state-tasks/{state_task}/assignments/{state_task_assignment}/send-back', [AdminStateTaskController::class, 'sendBackAssignment'])->name('state-tasks.assignments.send-back');
+        Route::get('state-tasks/{state_task}/attachments/{attachment}/download', [AdminStateTaskController::class, 'downloadAttachment'])->name('state-tasks.attachments.download');
+        Route::delete('state-tasks/{state_task}/attachments/{attachment}', [AdminStateTaskController::class, 'destroyAttachment'])->name('state-tasks.attachments.destroy');
 
         /** Service module runtime settings (master switch + eligibility scope). */
         Route::get('service-module-settings', [ServiceModuleSettingsController::class, 'edit'])->name('service-module-settings.edit');

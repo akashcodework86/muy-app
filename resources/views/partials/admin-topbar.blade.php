@@ -44,6 +44,7 @@
         str_starts_with($r, 'admin.onboarded') => 'onboarded',
         str_starts_with($r, 'hub.onboarded') => 'onboarded',
         str_starts_with($r, 'staff.onboarded') => 'onboarded',
+        str_starts_with($r, 'spoc.state-tasks') => 'state-tasks-spoc',
         str_starts_with($r, 'spoc.onboarded') => 'onboarded',
         str_starts_with($r, 'admin.phase3-services') => 'phase3-services',
         str_starts_with($r, 'admin.deliverables') => 'deliverables',
@@ -58,6 +59,7 @@
         str_starts_with($r, 'admin.state-staff') => 'state-staff',
         str_starts_with($r, 'admin.service-spocs') => 'service-spocs',
         str_starts_with($r, 'admin.pending-actions') => 'pending-actions',
+        str_starts_with($r, 'admin.state-tasks') => 'state-tasks',
         str_starts_with($r, 'spoc.') => 'spoc-queue',
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
         str_starts_with($r, 'team.') => 'team-directory',
@@ -142,7 +144,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'field-coordinator-report'], true);
+    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
@@ -266,6 +268,9 @@
                     </a>
                     <a href="{{ route('admin.pending-actions.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pending-actions') is-active @endif" role="menuitem">
                         {!! $i('inbox') !!}<span>Pending actions</span>
+                    </a>
+                    <a href="{{ route('admin.state-tasks.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'state-tasks') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>State tasks</span>
                     </a>
                     <a href="{{ route('admin.team-performance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'team-performance') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Team performance</span>
@@ -397,6 +402,9 @@
             </a>
             <a href="{{ route('spoc.service-cases.index') }}" class="admin-topbar__link @if ($activeNav === 'spoc-queue') is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Approval queue</span>
+            </a>
+            <a href="{{ route('spoc.state-tasks.index') }}" class="admin-topbar__link @if ($activeNav === 'state-tasks-spoc') is-active @endif">
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">My tasks</span>
             </a>
             <a href="{{ route('spoc.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
