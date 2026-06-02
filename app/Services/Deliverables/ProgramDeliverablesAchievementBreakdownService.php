@@ -101,6 +101,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'by_hub' => $breakdown['by_hub'] ?? [],
             'by_month' => $byMonth,
             'by_service' => $breakdown['by_service'] ?? [],
+            'applied_amount_total' => $breakdown['applied_amount_total'] ?? null,
+            'sanctioned_amount_total' => $breakdown['sanctioned_amount_total'] ?? null,
             'records' => $breakdown['records'] ?? [],
             'insights' => $this->buildInsights($total, $byDistrict, $byMonth, $breakdown['by_service'] ?? []),
         ];
@@ -202,12 +204,15 @@ class ProgramDeliverablesAchievementBreakdownService
                 d.name as district_name,
                 h.name as hub_name,
                 s.id as service_id,
+                s.code as service_code,
                 s.name as service_name,
                 {$monthExpr} as month_key,
                 COUNT(*) as total
             ")
-            ->groupBy('d.id', 'd.name', 'h.name', 's.id', 's.name', DB::raw($monthExpr))
+            ->groupBy('d.id', 'd.name', 'h.name', 's.id', 's.code', 's.name', DB::raw($monthExpr))
             ->get();
+
+        $cfaAmountTotals = $this->amountTotalsByServiceIdFromServiceCaseQuery($cfaQuery);
 
         $cfaRecords = (clone $cfaQuery)
             ->select([
@@ -227,7 +232,7 @@ class ProgramDeliverablesAchievementBreakdownService
             ->map(fn ($row) => $this->mapServiceCaseBreakdownRecord($row))
             ->all();
 
-        [$legacyRows, $legacyRecords] = $this->legacyServiceCaseBreakdownContributions(
+        [$legacyRows, $legacyRecords, $legacyAmountTotals] = $this->legacyServiceCaseBreakdownContributions(
             $serviceIds,
             $dateExpr,
             $monthExpr,
@@ -236,14 +241,25 @@ class ProgramDeliverablesAchievementBreakdownService
 
         $rows = $this->mergeServiceCaseAggregateRows($cfaRows, $legacyRows);
         $records = $this->mergeServiceCaseBreakdownRecords($cfaRecords, $legacyRecords, 100);
+        $amountTotalsByServiceId = $this->mergeAmountTotalsByServiceId($cfaAmountTotals, $legacyAmountTotals);
+        $breakdown = $this->aggregateGroupedRows($rows, includeService: true, records: $records);
+        $breakdown['by_service'] = $this->bifurcationRowsForSource(
+            $source,
+            $rows,
+            (int) ($breakdown['total'] ?? 0),
+            $amountTotalsByServiceId,
+            $breakdown['by_service'] ?? [],
+        );
+        $breakdown['applied_amount_total'] = $this->sumAmountMetric($amountTotalsByServiceId, 'applied');
+        $breakdown['sanctioned_amount_total'] = $this->sumAmountMetric($amountTotalsByServiceId, 'sanctioned');
 
-        return $this->aggregateGroupedRows($rows, includeService: true, records: $records);
+        return $breakdown;
     }
 
     /**
      * @param  list<int>  $serviceIds
      * @param  list<string>  $statuses
-     * @return array{0: Collection<int, object>, 1: list<array<string, mixed>>}
+     * @return array{0: Collection<int, object>, 1: list<array<string, mixed>>, 2: array<int, array{applied: float, sanctioned: float}>}
      */
     private function legacyServiceCaseBreakdownContributions(
         array $serviceIds,
@@ -252,11 +268,11 @@ class ProgramDeliverablesAchievementBreakdownService
         array $statuses,
     ): array {
         if (! ServiceCase::supportsLegacyApplicationLink()) {
-            return [collect(), []];
+            return [collect(), [], []];
         }
 
         if ($this->districtIds === []) {
-            return [collect(), []];
+            return [collect(), [], []];
         }
 
         $legacyIds = $this->districtIds === null
@@ -264,7 +280,7 @@ class ProgramDeliverablesAchievementBreakdownService
             : $this->legacyServiceCases->legacyApplicationIdsForLaravelDistrictIds($this->districtIds);
 
         if ($legacyIds !== null && $legacyIds === []) {
-            return [collect(), []];
+            return [collect(), [], []];
         }
 
         $query = DB::table('service_cases as sc')
@@ -280,13 +296,16 @@ class ProgramDeliverablesAchievementBreakdownService
         }
 
         $this->applyServiceCaseDateScope($query, $dateExpr);
+        $amountTotalsByServiceId = $this->amountTotalsByServiceIdFromServiceCaseQuery($query);
 
         $cases = (clone $query)
             ->select([
                 'sc.id',
                 'sc.legacy_application_id',
+                'sc.service_id',
                 'sc.reference_number',
                 'sc.status',
+                's.code as service_code',
                 's.name as service_name',
                 'spoc.name as spoc_name',
             ])
@@ -295,7 +314,7 @@ class ProgramDeliverablesAchievementBreakdownService
             ->get();
 
         if ($cases->isEmpty()) {
-            return [collect(), []];
+            return [collect(), [], $amountTotalsByServiceId];
         }
 
         $legacyApplicationIds = $cases
@@ -319,13 +338,14 @@ class ProgramDeliverablesAchievementBreakdownService
             $serviceName = (string) ($case->service_name ?? 'Unknown');
             $monthKey = (string) ($case->month_key ?? '');
 
-            $bucketKey = implode('|', [$districtName, $hubName, $serviceName, $monthKey]);
+            $bucketKey = implode('|', [$districtName, $hubName, (string) ((int) ($case->service_id ?? 0)), $serviceName, $monthKey]);
             if (! isset($aggregateBuckets[$bucketKey])) {
                 $aggregateBuckets[$bucketKey] = (object) [
                     'district_id' => (int) ($district?->id ?? 0),
                     'district_name' => $districtName,
                     'hub_name' => $hubName,
-                    'service_id' => 0,
+                    'service_id' => (int) ($case->service_id ?? 0),
+                    'service_code' => (string) ($case->service_code ?? ''),
                     'service_name' => $serviceName,
                     'month_key' => $monthKey,
                     'total' => 0,
@@ -341,7 +361,7 @@ class ProgramDeliverablesAchievementBreakdownService
             ]);
         }
 
-        return [collect(array_values($aggregateBuckets)), $records];
+        return [collect(array_values($aggregateBuckets)), $records, $amountTotalsByServiceId];
     }
 
     private function districtForLegacyApplication(int $legacyApplicationId): ?District
@@ -412,6 +432,7 @@ class ProgramDeliverablesAchievementBreakdownService
             $key = implode('|', [
                 (string) ($row->district_name ?? 'Unknown'),
                 (string) ($row->hub_name ?? 'Unassigned'),
+                (string) ((int) ($row->service_id ?? 0)),
                 (string) ($row->service_name ?? 'Unknown'),
                 (string) ($row->month_key ?? ''),
             ]);
@@ -422,6 +443,7 @@ class ProgramDeliverablesAchievementBreakdownService
                     'district_name' => (string) ($row->district_name ?? 'Unknown'),
                     'hub_name' => (string) ($row->hub_name ?? 'Unassigned'),
                     'service_id' => (int) ($row->service_id ?? 0),
+                    'service_code' => (string) ($row->service_code ?? ''),
                     'service_name' => (string) ($row->service_name ?? 'Unknown'),
                     'month_key' => (string) ($row->month_key ?? ''),
                     'total' => 0,
@@ -1176,8 +1198,176 @@ class ProgramDeliverablesAchievementBreakdownService
             'by_hub' => $this->formatBreakdownList($byHub, $total, fn ($name) => ['hub' => $name]),
             'by_month' => $this->formatMonthBreakdown($byMonth, $total),
             'by_service' => $this->formatBreakdownList($byService, $total, fn ($name) => ['service' => $name]),
+            'applied_amount_total' => null,
+            'sanctioned_amount_total' => null,
             'records' => $records,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     * @param  Collection<int, object>  $rows
+     * @param  array<int, array{applied: float, sanctioned: float}>  $amountTotalsByServiceId
+     * @param  list<array<string, mixed>>  $fallbackByService
+     * @return list<array<string, mixed>>
+     */
+    private function bifurcationRowsForSource(array $source, Collection $rows, int $total, array $amountTotalsByServiceId, array $fallbackByService): array
+    {
+        $bifurcation = $source['bifurcation'] ?? [];
+        if (! is_array($bifurcation) || $bifurcation === []) {
+            return $this->enrichServiceRowsWithAmounts($fallbackByService, $rows, $amountTotalsByServiceId, $total);
+        }
+
+        $countByServiceId = [];
+        foreach ($rows as $row) {
+            $serviceId = (int) ($row->service_id ?? 0);
+            if ($serviceId < 1) {
+                continue;
+            }
+            $countByServiceId[$serviceId] = ($countByServiceId[$serviceId] ?? 0) + (int) ($row->total ?? 0);
+        }
+
+        $out = [];
+        foreach ($bifurcation as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $label = trim((string) ($item['name'] ?? ''));
+            $codes = array_values(array_filter(array_map('strval', (array) ($item['codes'] ?? []))));
+            if ($label === '' || $codes === []) {
+                continue;
+            }
+
+            $serviceIds = $this->resolveServiceIdsForSource([
+                'type' => 'services',
+                'codes' => $codes,
+            ]);
+            $count = 0;
+            $applied = 0.0;
+            $sanctioned = 0.0;
+            foreach ($serviceIds as $serviceId) {
+                $count += (int) ($countByServiceId[$serviceId] ?? 0);
+                $applied += (float) (($amountTotalsByServiceId[$serviceId]['applied'] ?? 0.0));
+                $sanctioned += (float) (($amountTotalsByServiceId[$serviceId]['sanctioned'] ?? 0.0));
+            }
+
+            $out[] = [
+                'service' => $label,
+                'count' => $count,
+                'share_pct' => $total > 0 ? (int) round(($count / $total) * 100) : 0,
+                'applied_amount' => round($applied, 2),
+                'sanctioned_amount' => round($sanctioned, 2),
+            ];
+        }
+
+        return $out !== [] ? $out : $this->enrichServiceRowsWithAmounts($fallbackByService, $rows, $amountTotalsByServiceId, $total);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @return array<int, array{applied: float, sanctioned: float}>
+     */
+    private function amountTotalsByServiceIdFromServiceCaseQuery($query): array
+    {
+        $appliedExpr = $this->serviceCasePayloadAmountSql('applied_amount');
+        $sanctionedExpr = $this->serviceCasePayloadAmountSql('sanctioned_amount');
+
+        $rows = (clone $query)
+            ->selectRaw('sc.service_id as service_id, COALESCE(SUM('.$appliedExpr.'), 0) as applied_total, COALESCE(SUM('.$sanctionedExpr.'), 0) as sanctioned_total')
+            ->groupBy('sc.service_id')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $serviceId = (int) ($row->service_id ?? 0);
+            if ($serviceId < 1) {
+                continue;
+            }
+            $out[$serviceId] = [
+                'applied' => (float) ($row->applied_total ?? 0),
+                'sanctioned' => (float) ($row->sanctioned_total ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    private function serviceCasePayloadAmountSql(string $key): string
+    {
+        $jsonExtract = "JSON_UNQUOTE(JSON_EXTRACT(sc.payload, '$.\"{$key}\"'))";
+        $normalized = "REPLACE(REPLACE(REPLACE({$jsonExtract}, ',', ''), '₹', ''), ' ', '')";
+
+        return "COALESCE(CAST(NULLIF({$normalized}, '') AS DECIMAL(18,2)), 0)";
+    }
+
+    /**
+     * @param  array<int, array{applied: float, sanctioned: float}>  $left
+     * @param  array<int, array{applied: float, sanctioned: float}>  $right
+     * @return array<int, array{applied: float, sanctioned: float}>
+     */
+    private function mergeAmountTotalsByServiceId(array $left, array $right): array
+    {
+        $merged = $left;
+        foreach ($right as $serviceId => $totals) {
+            $merged[$serviceId]['applied'] = (float) (($merged[$serviceId]['applied'] ?? 0.0) + (float) ($totals['applied'] ?? 0.0));
+            $merged[$serviceId]['sanctioned'] = (float) (($merged[$serviceId]['sanctioned'] ?? 0.0) + (float) ($totals['sanctioned'] ?? 0.0));
+        }
+
+        return $merged;
+    }
+
+    /**
+     * @param  array<int, array{applied: float, sanctioned: float}>  $amountTotalsByServiceId
+     */
+    private function sumAmountMetric(array $amountTotalsByServiceId, string $metric): float
+    {
+        $total = 0.0;
+        foreach ($amountTotalsByServiceId as $totals) {
+            $total += (float) ($totals[$metric] ?? 0.0);
+        }
+
+        return round($total, 2);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $serviceRows
+     * @param  Collection<int, object>  $rows
+     * @param  array<int, array{applied: float, sanctioned: float}>  $amountTotalsByServiceId
+     * @return list<array<string, mixed>>
+     */
+    private function enrichServiceRowsWithAmounts(array $serviceRows, Collection $rows, array $amountTotalsByServiceId, int $total): array
+    {
+        $serviceIdsByName = [];
+        foreach ($rows as $row) {
+            $serviceName = (string) ($row->service_name ?? '');
+            $serviceId = (int) ($row->service_id ?? 0);
+            if ($serviceName === '' || $serviceId < 1) {
+                continue;
+            }
+            $serviceIdsByName[$serviceName][$serviceId] = true;
+        }
+
+        $out = [];
+        foreach ($serviceRows as $row) {
+            $serviceName = (string) ($row['service'] ?? '');
+            $count = (int) ($row['count'] ?? 0);
+            $applied = 0.0;
+            $sanctioned = 0.0;
+            foreach (array_keys($serviceIdsByName[$serviceName] ?? []) as $serviceId) {
+                $applied += (float) ($amountTotalsByServiceId[$serviceId]['applied'] ?? 0.0);
+                $sanctioned += (float) ($amountTotalsByServiceId[$serviceId]['sanctioned'] ?? 0.0);
+            }
+
+            $out[] = [
+                'service' => $serviceName,
+                'count' => $count,
+                'share_pct' => $total > 0 ? (int) round(($count / $total) * 100) : (int) ($row['share_pct'] ?? 0),
+                'applied_amount' => round($applied, 2),
+                'sanctioned_amount' => round($sanctioned, 2),
+            ];
+        }
+
+        return $out;
     }
 
     /**
@@ -1431,6 +1621,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'by_hub' => [],
             'by_month' => [],
             'by_service' => [],
+            'applied_amount_total' => null,
+            'sanctioned_amount_total' => null,
             'records' => [],
         ];
     }
@@ -1488,7 +1680,14 @@ class ProgramDeliverablesAchievementBreakdownService
             ->orderBy('mlp.partner_name')
             ->limit(500)
             ->get()
+            ->unique(fn ($row) => strtolower(trim((string) ($row->partner_name ?? ''))))
+            ->values()
+            ->take(10)
             ->map(fn ($row) => [
+                'reference' => (string) ($row->application_no ?? '—'),
+                'applicant' => (string) ($row->incubatee_name ?: '—'),
+                'service' => (string) ($row->partner_name ?: '—'),
+                'date' => $row->linkage_date ? Carbon::parse($row->linkage_date)->format('d M Y') : '—',
                 'district' => (string) $row->district_name,
                 'hub' => (string) ($row->hub_name ?? ''),
                 'partner_name' => (string) $row->partner_name,
@@ -1517,9 +1716,18 @@ class ProgramDeliverablesAchievementBreakdownService
         $this->applyMarketLinkagePartnerDateScope($totalQuery);
         $total = (int) $totalQuery->selectRaw('COUNT(DISTINCT LOWER(TRIM(mlp.partner_name))) as aggregate')->value('aggregate');
 
+        $byDistrictCounts = [];
+        foreach ($byDistrictRows as $row) {
+            $label = (string) ($row['label'] ?? '');
+            if ($label === '') {
+                continue;
+            }
+            $byDistrictCounts[$label] = (int) ($row['total'] ?? 0);
+        }
+
         return [
             'total' => $total,
-            'by_district' => $byDistrictRows,
+            'by_district' => $this->formatBreakdownList($byDistrictCounts, $total, fn ($name) => ['district' => $name, 'hub' => '—']),
             'by_hub' => [],
             'by_month' => [],
             'by_service' => [],
@@ -1570,6 +1778,10 @@ SQL;
             ->limit(500)
             ->get()
             ->map(fn ($row) => [
+                'reference' => (string) ($row->application_no ?? '—'),
+                'applicant' => (string) ($row->incubatee_name ?: '—'),
+                'service' => 'Partners linked: '.(int) $row->partner_count,
+                'date' => '—',
                 'district' => (string) $row->district_name,
                 'hub' => (string) ($row->hub_name ?? ''),
                 'incubatee_name' => (string) $row->incubatee_name,

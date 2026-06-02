@@ -397,6 +397,10 @@
     let activeSerial = null;
 
     const fmt = (n) => new Intl.NumberFormat('en-IN').format(Number(n || 0));
+    const fmtCurrency = (n) => {
+        const value = Number(n || 0);
+        return 'Rs ' + value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
     const PAGE_SIZE_DEFAULT = 25;
     const PAGE_SIZE_PARTICIPANTS = 100;
 
@@ -478,12 +482,24 @@
             <tr><td>${row.month}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td></tr>
         `).join('');
 
+        const hasAmountSummary = data.applied_amount_total != null || data.sanctioned_amount_total != null;
+        const amountCards = hasAmountSummary ? `
+                <div class="dlv-stat-card">
+                    <div class="dlv-stat-card__label">Applied Amount</div>
+                    <div class="dlv-stat-card__value">${fmtCurrency(data.applied_amount_total || 0)}</div>
+                </div>
+                <div class="dlv-stat-card">
+                    <div class="dlv-stat-card__label">Sanctioned Amount</div>
+                    <div class="dlv-stat-card__value">${fmtCurrency(data.sanctioned_amount_total || 0)}</div>
+                </div>
+        ` : '';
+
         const serviceSection = (data.by_service || []).length ? `
             <div class="dlv-section">
-                <h3 class="dlv-section__title">By service</h3>
+                <h3 class="dlv-section__title">Service bifurcation</h3>
                 <table class="dlv-table">
-                    <thead><tr><th>Service</th><th>Count</th><th>Share</th></tr></thead>
-                    <tbody>${(data.by_service || []).map((row) => `<tr><td>${row.service}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td></tr>`).join('')}</tbody>
+                    <thead><tr><th>Service</th><th>Count</th><th>Share</th><th>Applied Amount</th><th>Sanctioned Amount</th></tr></thead>
+                    <tbody>${(data.by_service || []).map((row) => `<tr><td>${row.service}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td><td>${fmtCurrency(row.applied_amount || 0)}</td><td>${fmtCurrency(row.sanctioned_amount || 0)}</td></tr>`).join('')}</tbody>
                 </table>
             </div>
         ` : '';
@@ -504,6 +520,7 @@
                     <div class="dlv-stat-card__label">Progress</div>
                     <div class="dlv-stat-card__value">${data.achievement_pct != null ? data.achievement_pct + '%' : '—'}</div>
                 </div>
+                ${amountCards}
             </div>
             <div class="dlv-insights">${insights || '<div class="dlv-insight dlv-insight--muted"><div class="dlv-insight__label">Insights</div><div class="dlv-insight__value">No data in this period</div></div>'}</div>
             <div class="dlv-section">
@@ -532,6 +549,10 @@
         const isFP = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
         const isBst = _sourceType === 'bst_participants';
+        const isPartners = _sourceType === 'market_linkage_unique_partners';
+        if (isPartners) {
+            return `Partner names <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">top 10 unique</span>`;
+        }
         if (isFP) {
             return `Female Participants <span style="font-weight:400;font-size:0.78rem;color:#be185d;margin-left:0.4rem;">${fmt(total)} entries</span>`;
         }
@@ -554,6 +575,7 @@
         const isFP = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
         const isBst = _sourceType === 'bst_participants';
+        const isPartners = _sourceType === 'market_linkage_unique_partners';
 
         const isFPPage = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const pageSize = (isFPPage || isBst) ? PAGE_SIZE_PARTICIPANTS : PAGE_SIZE_DEFAULT;
@@ -649,6 +671,21 @@
                     <th>Hub</th>
                 </tr></thead>
                 <tbody>${rowsHtml || '<tr><td colspan="6" style="color:#94a3b8;font-style:italic;padding:0.75rem 0.35rem;">No unique incubatees in this period.</td></tr>'}</tbody>
+            </table>`;
+        } else if (isPartners) {
+            const rowsHtml = pageRecords.map((row, i) => {
+                const sr = globalOffset + i + 1;
+                return `<tr>
+                    <td style="text-align:center;color:#94a3b8;font-weight:700;font-size:0.75rem;">${sr}</td>
+                    <td>${escapeHtml(row.service && row.service !== '—' ? row.service : '—')}</td>
+                </tr>`;
+            }).join('');
+            tableHtml = `<table class="dlv-table">
+                <thead><tr>
+                    <th style="width:2rem;text-align:center;">#</th>
+                    <th>Partner name</th>
+                </tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="2">No partner names found.</td></tr>'}</tbody>
             </table>`;
         } else {
             const rowsHtml = pageRecords.map((row, i) => {
