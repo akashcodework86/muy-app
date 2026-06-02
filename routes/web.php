@@ -15,7 +15,6 @@ use App\Http\Controllers\Admin\GramPanchayatImportController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
-use App\Http\Controllers\Admin\MigrationOpsController;
 use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\OnboardedApplicantController;
 use App\Http\Controllers\Admin\PendingActionsController;
@@ -549,13 +548,6 @@ Route::middleware(['auth', 'active'])->group(function () {
                 'results' => $results,
             ]);
         })->name('ops.cache-clear');
-
-        Route::get('ops/migrations', [MigrationOpsController::class, 'index'])->name('ops.migrations');
-        Route::post('ops/migrations/run', [MigrationOpsController::class, 'run'])->name('ops.migrations.run');
-        Route::post('ops/migrations/clear-cache', [MigrationOpsController::class, 'clearCache'])->name('ops.migrations.clear-cache');
-        Route::get('ops/migrations/sql/{bundle}', [MigrationOpsController::class, 'downloadSql'])
-            ->where('bundle', '[A-Za-z0-9_-]+')
-            ->name('ops.migrations.sql');
 
         Route::get('data-centre', [DataCentreController::class, 'index'])->name('data-centre.index');
         Route::post('data-centre/refresh', [DataCentreController::class, 'refresh'])->name('data-centre.refresh');

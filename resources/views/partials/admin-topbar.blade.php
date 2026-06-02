@@ -70,7 +70,6 @@
         str_starts_with($r, 'spoc.field-coordinator-reports') => 'field-coordinator-report',
         str_starts_with($r, 'admin.designations') => 'designations',
         str_starts_with($r, 'admin.audit') => 'audit',
-        str_starts_with($r, 'admin.ops.migrations') => 'ops-migrations',
         str_starts_with($r, 'admin.ops.cache-clear') => 'ops-cache-clear',
         str_starts_with($r, 'admin.hub-batch-compliance') => 'hub-batch-compliance',
         str_starts_with($r, 'admin.documents') => 'admin-documents',
@@ -623,9 +622,6 @@
                         {!! $i('cog') !!}<span>Settings</span>
                     </a>
                     @if ($showAdminNav)
-                        <a href="{{ route('admin.ops.migrations') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'ops-migrations') is-active @endif" role="menuitem">
-                            {!! $i('database') !!}<span>Database migrations</span>
-                        </a>
                         <a href="{{ route('admin.audit.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'audit') is-active @endif" role="menuitem">
                             {!! $i('shield') !!}<span>Audit log</span>
                         </a>
