@@ -71,8 +71,23 @@ class DeliverablesBreakdownCsvExport
             $sourceType = (string) ($breakdown['source_type'] ?? '');
             $isFemaleParticipants = in_array($sourceType, ['field_work_participants', 'field_visit_participants'], true);
             $isFieldWorkshops = in_array($sourceType, ['field_work_workshops', 'field_visit_sessions'], true);
+            $isBstParticipants = $sourceType === 'bst_participants';
 
-            if ($isFemaleParticipants) {
+            if ($isBstParticipants) {
+                fputcsv($out, ['#', 'Incubatee Name', 'Application No.', 'District', 'Hub', 'Sessions Attended', 'Session Count']);
+                $idx = 1;
+                foreach ($breakdown['records'] ?? [] as $item) {
+                    fputcsv($out, [
+                        $idx++,
+                        $item['applicant'] ?? '',
+                        $item['reference'] ?? '',
+                        $item['district'] ?? '',
+                        $item['hub'] ?? '',
+                        $item['service'] ?? '',
+                        (int) ($item['session_count'] ?? 0),
+                    ]);
+                }
+            } elseif ($isFemaleParticipants) {
                 fputcsv($out, ['#', 'Participant Name', 'Gender', 'District', 'Hub', 'Gram Panchayat / Mobile', 'Workshop Ref', 'Visit Date']);
                 $idx = 1;
                 foreach ($breakdown['records'] ?? [] as $item) {

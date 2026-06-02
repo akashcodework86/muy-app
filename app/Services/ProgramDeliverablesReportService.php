@@ -14,6 +14,9 @@ use App\Models\StateDeliverableTarget;
 use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
+use App\Support\BstTrainingDeliverablesSupport;
+use App\Support\PotentialLakhpatiOnboardingSql;
+use App\Support\TechnicalTrainingPotentialLakhpatiSupport;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -501,6 +504,7 @@ class ProgramDeliverablesReportService
             'services' => $this->achievementForServiceCodes((array) ($source['codes'] ?? [])),
             'cfa_count' => $this->cfaCount(),
             'onboarding_count' => $this->onboardingCount(),
+            'potential_lakhpati_onboarding_count' => $this->potentialLakhpatiOnboardingCount(),
             'field_work_workshops' => $this->fieldWorkWorkshopsCount(),
             'field_work_participants' => $this->fieldWorkParticipantsCount(),
             'field_visit_sessions' => $this->fieldWorkWorkshopsCount(),
@@ -510,6 +514,7 @@ class ProgramDeliverablesReportService
             'bst_sessions' => $this->bstSessionsCount(),
             'bst_participants' => $this->bstParticipantsCount(),
             'technical_training_sessions' => $this->technicalTrainingSessionsCount(),
+            'technical_training_potential_lakhpati_participations' => $this->technicalTrainingPotentialLakhpatiParticipationsCount(),
             'market_linkage_unique_partners' => $this->marketLinkageUniquePartnersCount(),
             'market_linkage_incubatees' => $this->marketLinkageIncubateesCount(),
             default => 0,
@@ -529,7 +534,7 @@ class ProgramDeliverablesReportService
                 array_map('strval', (array) ($source['codes'] ?? [])),
                 sumServiceTargets: true,
             ),
-            'cfa_count', 'onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants' => $this->resolveStateTargetForCodes([
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants', 'technical_training_potential_lakhpati_participations' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
             'target_name' => $this->resolveStateTargetByNameKeyword((string) ($source['match'] ?? '')),
@@ -973,6 +978,25 @@ SQL;
         return (int) $query->count();
     }
 
+    private function potentialLakhpatiOnboardingCount(): int
+    {
+        if (! Schema::hasTable('onboarding_batch_cfa') || ! Schema::hasTable('onboarding_batches')) {
+            return 0;
+        }
+
+        $query = DB::table('onboarding_batch_cfa as obc')
+            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+            ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
+            ->where('ob.status', 'locked')
+            ->whereNotNull('ob.locked_at');
+
+        $this->applyDistrictScope($query, 'cs.district_id');
+        $this->applyOnboardingAchievementScope($query);
+        $query->whereRaw(PotentialLakhpatiOnboardingSql::qualifiesSql());
+
+        return (int) $query->count();
+    }
+
     /**
      * Align with state dashboard: CFA achievement = submissions tagged to the FY (`fiscal_year_id`),
      * not every row whose `created_at` falls in the FY calendar window.
@@ -1172,46 +1196,24 @@ SQL;
 
     private function bstSessionsCount(): int
     {
-        if (Schema::hasTable('training_package_month_sessions')) {
-            $query = DB::table('training_package_month_sessions');
-            $this->applyDistrictScope($query, 'district_id');
-            $this->applyBstMonthSessionPeriod($query);
-
-            return (int) $query->count();
+        if (! BstTrainingDeliverablesSupport::tableReady()) {
+            return 0;
         }
 
-        if (Schema::hasTable('training_packages')) {
-            $query = DB::table('training_packages');
-            $dateCol = Schema::hasColumn('training_packages', 'event_date') ? 'event_date' : 'created_at';
-            $this->applyDistrictScope($query, 'district_id');
-            $this->applyPeriodFilter($query, $dateCol);
-
-            return (int) $query->count();
-        }
-
-        return 0;
+        return (int) BstTrainingDeliverablesSupport::scopedPackagesQuery(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        )->count();
     }
 
     private function bstParticipantsCount(): int
     {
-        if (! Schema::hasTable('training_packages')) {
-            return 0;
-        }
-
-        $query = DB::table('training_packages');
-        $dateCol = Schema::hasColumn('training_packages', 'event_date') ? 'event_date' : 'created_at';
-        $this->applyDistrictScope($query, 'district_id');
-        $this->applyPeriodFilter($query, $dateCol);
-
-        if (Schema::hasColumn('training_packages', 'participants_total')) {
-            return (int) (clone $query)->sum('participants_total');
-        }
-
-        if (Schema::hasColumn('training_packages', 'male_participants') && Schema::hasColumn('training_packages', 'female_participants')) {
-            return (int) (clone $query)->sum(DB::raw('COALESCE(male_participants,0) + COALESCE(female_participants,0)'));
-        }
-
-        return (int) $query->count();
+        return BstTrainingDeliverablesSupport::countUniqueParticipants(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        );
     }
 
     private function technicalTrainingSessionsCount(): int
@@ -1237,6 +1239,15 @@ SQL;
         }
 
         return 0;
+    }
+
+    private function technicalTrainingPotentialLakhpatiParticipationsCount(): int
+    {
+        return TechnicalTrainingPotentialLakhpatiSupport::countEligibleParticipations(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        );
     }
 
     private ?FiscalYear $activeFiscalYear = null;

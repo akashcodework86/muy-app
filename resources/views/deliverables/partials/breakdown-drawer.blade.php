@@ -247,6 +247,8 @@
     .dlv-gender-badge--f { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; }
     .dlv-gender-badge--m { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
     .dlv-participant-name { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; }
+    .dlv-session-line { padding: 0.12rem 0; border-bottom: 1px dashed #e2e8f0; }
+    .dlv-session-line:last-child { border-bottom: none; padding-bottom: 0; }
     .dlv-type-chip {
         display: inline-block;
         padding: 0.12rem 0.4rem;
@@ -529,19 +531,32 @@
     function buildRecordsSectionTitle(total) {
         const isFP = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
+        const isBst = _sourceType === 'bst_participants';
         if (isFP) {
             return `Female Participants <span style="font-weight:400;font-size:0.78rem;color:#be185d;margin-left:0.4rem;">${fmt(total)} entries</span>`;
+        }
+        if (isBst) {
+            return `Unique incubatees <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">${fmt(total)} people</span>`;
         }
         if (isWS) return 'Activities';
         return 'Records';
     }
 
+    function escapeHtml(text) {
+        return String(text ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     function renderRecordsPage() {
         const isFP = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
+        const isBst = _sourceType === 'bst_participants';
 
         const isFPPage = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
-        const pageSize = isFPPage ? PAGE_SIZE_PARTICIPANTS : PAGE_SIZE_DEFAULT;
+        const pageSize = (isFPPage || isBst) ? PAGE_SIZE_PARTICIPANTS : PAGE_SIZE_DEFAULT;
 
         const total = _allRecords.length;
         const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -603,6 +618,37 @@
                     <th>Date</th>
                 </tr></thead>
                 <tbody>${rowsHtml || '<tr><td colspan="5">No records found.</td></tr>'}</tbody>
+            </table>`;
+        } else if (isBst) {
+            const rowsHtml = pageRecords.map((row, i) => {
+                const sr = globalOffset + i + 1;
+                const namePart = (row.applicant && row.applicant !== '—')
+                    ? `<strong>${escapeHtml(row.applicant)}</strong>`
+                    : `<span style="color:#94a3b8;font-style:italic;">Name not recorded</span>`;
+                const sessions = Array.isArray(row.sessions) && row.sessions.length
+                    ? row.sessions.map((label) => `<div class="dlv-session-line">${escapeHtml(label)}</div>`).join('')
+                    : (row.service && row.service !== '—'
+                        ? `<div class="dlv-session-line">${escapeHtml(row.service).replace(/\n/g, '<br>')}</div>`
+                        : '<span style="color:#94a3b8;font-style:italic;">—</span>');
+                return `<tr>
+                    <td style="text-align:center;color:#94a3b8;font-weight:700;font-size:0.75rem;">${sr}</td>
+                    <td>${namePart}</td>
+                    <td>${escapeHtml(row.reference && row.reference !== '—' ? row.reference : '—')}</td>
+                    <td>${escapeHtml(row.district)}</td>
+                    <td style="font-size:0.78rem;color:#334155;line-height:1.45;">${sessions}</td>
+                    <td style="font-size:0.75rem;color:#64748b;">${escapeHtml(row.hub)}</td>
+                </tr>`;
+            }).join('');
+            tableHtml = `<table class="dlv-table">
+                <thead><tr>
+                    <th style="width:2rem;text-align:center;">#</th>
+                    <th>Incubatee name</th>
+                    <th>Application no.</th>
+                    <th>District</th>
+                    <th>BST session(s) attended</th>
+                    <th>Hub</th>
+                </tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="6" style="color:#94a3b8;font-style:italic;padding:0.75rem 0.35rem;">No unique incubatees in this period.</td></tr>'}</tbody>
             </table>`;
         } else {
             const rowsHtml = pageRecords.map((row, i) => {

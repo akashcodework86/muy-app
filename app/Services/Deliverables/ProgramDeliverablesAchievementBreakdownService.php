@@ -11,6 +11,9 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\ServiceTargetDeliverableSyncService;
+use App\Support\BstTrainingDeliverablesSupport;
+use App\Support\PotentialLakhpatiOnboardingSql;
+use App\Support\TechnicalTrainingPotentialLakhpatiSupport;
 use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -66,6 +69,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'service', 'services' => $this->serviceCaseBreakdown($source),
             'cfa_count' => $this->cfaBreakdown(),
             'onboarding_count' => $this->onboardingBreakdown(),
+            'potential_lakhpati_onboarding_count' => $this->potentialLakhpatiOnboardingBreakdown(),
             'field_work_workshops', 'field_visit_sessions' => $this->fieldWorkBreakdown(false),
             'field_work_participants', 'field_visit_participants' => $this->fieldWorkBreakdown(true),
             'district_workshop_sessions' => $this->simpleTableBreakdown('district_workshop_sessions', 'event_date', 'created_at'),
@@ -73,6 +77,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'bst_sessions' => $this->bstSessionsBreakdown(),
             'bst_participants' => $this->bstParticipantsBreakdown(),
             'technical_training_sessions' => $this->technicalTrainingBreakdown(),
+            'technical_training_potential_lakhpati_participations' => $this->technicalTrainingPotentialLakhpatiParticipationsBreakdown(),
             'market_linkage_unique_partners' => $this->marketLinkagePartnersBreakdown(),
             'market_linkage_incubatees' => $this->marketLinkageIncubateesBreakdown(),
             default => ['total' => 0, 'by_district' => [], 'by_hub' => [], 'by_month' => [], 'by_service' => [], 'records' => []],
@@ -559,6 +564,71 @@ class ProgramDeliverablesAchievementBreakdownService
     }
 
     /**
+     * MIS 2.1.1 — onboarded SHG/CBO, or Individual with SHG/CBO member Yes (Phase 3 CFA only).
+     *
+     * @return array<string, mixed>
+     */
+    private function potentialLakhpatiOnboardingBreakdown(): array
+    {
+        if (! Schema::hasTable('onboarding_batch_cfa') || ! Schema::hasTable('onboarding_batches')) {
+            return $this->emptyBreakdown();
+        }
+
+        $query = DB::table('onboarding_batch_cfa as obc')
+            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+            ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
+            ->join('districts as d', 'd.id', '=', 'cs.district_id')
+            ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
+            ->where('ob.status', 'locked')
+            ->whereNotNull('ob.locked_at');
+
+        $this->applyDistrictScope($query, 'cs.district_id');
+        $this->applyOnboardingAchievementScope($query);
+        $query->whereRaw(PotentialLakhpatiOnboardingSql::qualifiesSql());
+
+        $monthExpr = $this->monthKeySql('ob.onboarding_date');
+
+        $rows = (clone $query)
+            ->selectRaw("
+                d.id as district_id,
+                d.name as district_name,
+                h.name as hub_name,
+                {$monthExpr} as month_key,
+                COUNT(*) as total
+            ")
+            ->groupBy('d.id', 'd.name', 'h.name', DB::raw($monthExpr))
+            ->get();
+
+        $records = (clone $query)
+            ->select([
+                'cs.id',
+                'cs.application_no',
+                'cs.applicant_name',
+                'd.name as district_name',
+                'h.name as hub_name',
+                'ob.onboarding_date',
+                'ob.name as batch_name',
+            ])
+            ->orderByDesc('ob.onboarding_date')
+            ->limit(100)
+            ->get()
+            ->map(fn ($row) => [
+                'id' => (int) $row->id,
+                'reference' => (string) ($row->application_no ?: $row->batch_name ?: '—'),
+                'applicant' => (string) ($row->applicant_name ?: '—'),
+                'district' => (string) ($row->district_name ?: '—'),
+                'hub' => (string) ($row->hub_name ?: '—'),
+                'service' => 'Potential Lakhpati / SHG / CBO onboarding',
+                'spoc' => '—',
+                'status' => 'Locked',
+                'date' => $row->onboarding_date ? Carbon::parse($row->onboarding_date)->format('d M Y') : '—',
+            ])
+            ->all();
+
+        return $this->aggregateGroupedRows($rows, includeService: false, records: $records);
+    }
+
+    /**
      * MIS 1.3 / 1.3.1 — field_coordinator_attendance_reports + block_workshops combined.
      * When $participants = true  → sum female counts + individual female participant records.
      * When $participants = false → count workshop submissions + workshop-level records.
@@ -859,17 +929,75 @@ class ProgramDeliverablesAchievementBreakdownService
      */
     private function bstSessionsBreakdown(): array
     {
-        if (Schema::hasTable('training_package_month_sessions')) {
-            return $this->bstMonthSessionsBreakdown();
+        if (! BstTrainingDeliverablesSupport::tableReady()) {
+            return $this->emptyBreakdown();
         }
 
-        if (Schema::hasTable('training_packages')) {
-            $dateCol = Schema::hasColumn('training_packages', 'event_date') ? 'event_date' : 'created_at';
+        $dateCol = BstTrainingDeliverablesSupport::eventDateColumn();
+        $query = BstTrainingDeliverablesSupport::scopedPackagesQuery(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        );
 
-            return $this->simpleTableBreakdown('training_packages', $dateCol, 'created_at', label: 'BST Session');
-        }
+        $monthExpr = $this->monthKeySql("tp.{$dateCol}");
+        $hasLegacyModule = Schema::hasColumn('training_packages', 'training_package');
+        $moduleSelect = $hasLegacyModule ? 'tp.training_package' : 'NULL as training_package';
+        $districtNameExpr = "COALESCE(d.name, tp.district_name, 'Unknown')";
+        $hubNameExpr = "COALESCE(h.name, '—')";
 
-        return $this->emptyBreakdown();
+        $rows = (clone $query)
+            ->selectRaw("
+                d.id as district_id,
+                {$districtNameExpr} as district_name,
+                {$hubNameExpr} as hub_name,
+                {$monthExpr} as month_key,
+                COUNT(*) as total
+            ")
+            ->groupBy('d.id', DB::raw($districtNameExpr), DB::raw($hubNameExpr), DB::raw($monthExpr))
+            ->get();
+
+        $records = (clone $query)
+            ->select([
+                'tp.id',
+                'tp.event_date',
+                'tp.training_batch_name',
+                'tp.submitted_by_name',
+                'tp.training_packages',
+                DB::raw($moduleSelect),
+                DB::raw("{$districtNameExpr} as district_name"),
+                DB::raw("{$hubNameExpr} as hub_name"),
+            ])
+            ->when(
+                Schema::hasColumn('training_packages', 'selected_incubatee_ids'),
+                fn ($q) => $q->addSelect('tp.selected_incubatee_ids')
+            )
+            ->orderByDesc('tp.'.$dateCol)
+            ->limit(100)
+            ->get()
+            ->map(function ($row) use ($dateCol): array {
+                $participantCount = BstTrainingDeliverablesSupport::parseIncubateeIds($row->selected_incubatee_ids ?? null);
+
+                return [
+                    'id' => (int) $row->id,
+                    'reference' => trim((string) ($row->training_batch_name ?? '')) !== ''
+                        ? (string) $row->training_batch_name
+                        : 'BST #'.$row->id,
+                    'applicant' => (string) ($row->submitted_by_name ?: '—'),
+                    'district' => (string) ($row->district_name ?: '—'),
+                    'hub' => (string) ($row->hub_name ?: '—'),
+                    'service' => BstTrainingDeliverablesSupport::modulesLabel(
+                        $row->training_packages ?? null,
+                        $row->training_package ?? null,
+                    ).($participantCount !== [] ? ' · '.count($participantCount).' participants' : ''),
+                    'spoc' => '—',
+                    'status' => 'Recorded',
+                    'date' => $row->{$dateCol} ? Carbon::parse($row->{$dateCol})->format('d M Y') : '—',
+                ];
+            })
+            ->all();
+
+        return $this->aggregateGroupedRows($rows, includeService: false, records: $records);
     }
 
     /**
@@ -877,61 +1005,20 @@ class ProgramDeliverablesAchievementBreakdownService
      */
     private function bstParticipantsBreakdown(): array
     {
-        if (! Schema::hasTable('training_packages')) {
-            return $this->emptyBreakdown();
-        }
+        $data = BstTrainingDeliverablesSupport::participantBreakdown(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        );
 
-        $dateCol = Schema::hasColumn('training_packages', 'event_date') ? 'event_date' : 'created_at';
-        $query = DB::table('training_packages as t')
-            ->join('districts as d', 'd.id', '=', 't.district_id')
-            ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id');
-
-        $this->applyDistrictScope($query, 't.district_id');
-        $this->applyPeriodFilter($query, 't.'.$dateCol);
-        $monthExpr = $this->monthKeySql("t.{$dateCol}");
-
-        $participantExpr = Schema::hasColumn('training_packages', 'participants_total')
-            ? 'COALESCE(t.participants_total, 0)'
-            : 'COALESCE(t.male_participants, 0) + COALESCE(t.female_participants, 0)';
-
-        $rows = (clone $query)
-            ->selectRaw("
-                d.id as district_id,
-                d.name as district_name,
-                h.name as hub_name,
-                {$monthExpr} as month_key,
-                SUM({$participantExpr}) as total
-            ")
-            ->groupBy('d.id', 'd.name', 'h.name', DB::raw($monthExpr))
-            ->get();
-
-        return $this->aggregateGroupedRows($rows, includeService: false);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function bstMonthSessionsBreakdown(): array
-    {
-        $query = DB::table('training_package_month_sessions as t')
-            ->join('districts as d', 'd.id', '=', 't.district_id')
-            ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id');
-
-        $this->applyDistrictScope($query, 't.district_id');
-        $this->applyBstMonthSessionPeriod($query);
-
-        $rows = (clone $query)
-            ->selectRaw('
-                d.id as district_id,
-                d.name as district_name,
-                h.name as hub_name,
-                CONCAT(t.calendar_year, "-", LPAD(t.calendar_month, 2, "0")) as month_key,
-                COUNT(*) as total
-            ')
-            ->groupBy('d.id', 'd.name', 'h.name', 't.calendar_year', 't.calendar_month')
-            ->get();
-
-        return $this->aggregateGroupedRows($rows, includeService: false);
+        return [
+            'total' => (int) $data['total'],
+            'by_district' => $data['by_district'],
+            'by_hub' => $data['by_hub'],
+            'by_month' => $data['by_month'],
+            'by_service' => [],
+            'records' => $data['records'],
+        ];
     }
 
     /**
@@ -952,6 +1039,27 @@ class ProgramDeliverablesAchievementBreakdownService
         }
 
         return $this->emptyBreakdown();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function technicalTrainingPotentialLakhpatiParticipationsBreakdown(): array
+    {
+        $data = TechnicalTrainingPotentialLakhpatiSupport::eligibleParticipationsBreakdown(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        );
+
+        return [
+            'total' => (int) ($data['total'] ?? 0),
+            'by_district' => $data['by_district'] ?? [],
+            'by_hub' => $data['by_hub'] ?? [],
+            'by_month' => $data['by_month'] ?? [],
+            'by_service' => [],
+            'records' => $data['records'] ?? [],
+        ];
     }
 
     /**
@@ -1337,13 +1445,15 @@ class ProgramDeliverablesAchievementBreakdownService
             'deliverable', 'service', 'services' => 'Approved service cases',
             'cfa_count' => 'CFA submissions',
             'onboarding_count' => 'Onboarded incubatees',
+            'potential_lakhpati_onboarding_count' => 'Potential Lakhpati Didi/ SHG/CBO onboardings',
             'field_work_workshops', 'field_visit_sessions' => 'Field work visits & block workshops',
             'field_work_participants', 'field_visit_participants' => 'Female outreach participants',
             'district_workshop_sessions' => 'District workshops',
             'edp_sessions' => 'EAP/EDP sessions',
-            'bst_sessions' => 'Business skills training sessions',
-            'bst_participants' => 'BST participants',
+            'bst_sessions' => 'Business skills training sessions (conducted)',
+            'bst_participants' => 'Unique BST participants',
             'technical_training_sessions' => 'Technical training sessions',
+            'technical_training_potential_lakhpati_participations' => 'Potential Lakhpati technical-training participations',
             'market_linkage_unique_partners' => 'Market linkage partners',
             'market_linkage_incubatees' => 'Market linkage incubatees',
             default => 'Achievement records',

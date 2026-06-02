@@ -183,8 +183,20 @@ class DeliverablesBreakdownExcelExport
         $sourceType = (string) ($breakdown['source_type'] ?? '');
         $isFemaleParticipants = in_array($sourceType, ['field_work_participants', 'field_visit_participants'], true);
         $isFieldWorkshops = in_array($sourceType, ['field_work_workshops', 'field_visit_sessions'], true);
+        $isBstParticipants = $sourceType === 'bst_participants';
 
-        if ($isFemaleParticipants) {
+        if ($isBstParticipants) {
+            $headers = ['#', 'Incubatee Name', 'Application No.', 'District', 'Hub', 'Sessions Attended', 'Session Count'];
+            $rows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
+                $idx + 1,
+                DeliverablesExcelSupport::sanitizeCell($item['applicant'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['reference'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['district'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['hub'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['service'] ?? ''),
+                (int) ($item['session_count'] ?? 0),
+            ])->all();
+        } elseif ($isFemaleParticipants) {
             $headers = ['#', 'Participant Name', 'Gender', 'District', 'Hub', 'Gram Panchayat / Mobile', 'Workshop Ref', 'Visit Date'];
             $rows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
                 $idx + 1,

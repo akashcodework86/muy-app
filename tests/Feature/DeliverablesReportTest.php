@@ -10,6 +10,8 @@ use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
+use App\Models\TrainingPackage;
+use App\Models\TrainingPackageMonthSession;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\FieldCoordinatorAttendanceReport;
@@ -193,7 +195,8 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($workshops);
         $this->assertNotNull($participants);
         $this->assertSame(2, $workshops['achievement']);
-        $this->assertSame(65, $participants['achievement']);
+        // MIS 1.3.1 counts female participants only (20 + 15).
+        $this->assertSame(35, $participants['achievement']);
     }
 
     public function test_district_staff_sees_district_target_via_svc_deliverable_mapping(): void
@@ -1080,6 +1083,7 @@ class DeliverablesReportTest extends TestCase
             'target_size' => 20,
             'status' => 'locked',
             'locked_at' => '2026-05-15 10:00:00',
+            'onboarding_date' => '2026-05-15',
         ]);
 
         OnboardingBatchCfa::query()->create([
@@ -1099,6 +1103,317 @@ class DeliverablesReportTest extends TestCase
             ->assertJsonPath('name', 'Incubatees Onboarded')
             ->assertJsonPath('total', 1)
             ->assertJsonPath('source_type_label', 'Onboarded incubatees');
+    }
+
+    public function test_program_deliverables_2_1_1_counts_potential_lakhpati_onboardings(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'lakhpati-onb-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'lakhpati-onb-district',
+            'name' => 'Lakhpati District',
+            'sort_order' => 1,
+        ]);
+
+        $this->seedLockedOnboarding($hub, $district, [
+            'applicant_name' => 'SHG Group',
+            'source' => 'phase3',
+            'payload' => ['category' => 'SHG'],
+        ]);
+        $this->seedLockedOnboarding($hub, $district, [
+            'applicant_name' => 'Member Individual',
+            'source' => 'phase3',
+            'payload' => ['category' => 'Individual', 'is_member' => 'Yes'],
+        ]);
+        $this->seedLockedOnboarding($hub, $district, [
+            'applicant_name' => 'Lakhpati Only',
+            'source' => 'phase3',
+            'payload' => ['category' => 'Individual', 'lakhpati' => 'Yes'],
+        ]);
+        $this->seedLockedOnboarding($hub, $district, [
+            'applicant_name' => 'Legacy SHG',
+            'source' => 'legacy_phase2',
+            'payload' => ['category' => 'SHG'],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $parent = collect($report['rows'])->firstWhere('serial', '2.1');
+        $child = collect($report['rows'])->firstWhere('serial', '2.1.1');
+
+        $this->assertNotNull($parent);
+        $this->assertNotNull($child);
+        $this->assertSame(4, $parent['achievement']);
+        $this->assertSame(2, $child['achievement']);
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '2.1.1');
+        $this->assertSame(2, $breakdown['total']);
+        $this->assertSame('Potential Lakhpati Didi/ SHG/CBO onboardings', $breakdown['source_type_label']);
+    }
+
+    public function test_program_deliverables_3_1_and_3_2_count_bst_sessions_and_unique_participants(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'bst-deliv-hub', 'name' => 'BST Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bst-deliv-district',
+            'name' => 'BST District',
+            'sort_order' => 1,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'hub_id' => $hub->id,
+            'is_active' => true,
+        ]);
+
+        TrainingPackageMonthSession::query()->create([
+            'district_id' => $district->id,
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+            'sort_order' => 1,
+            'session_name' => 'Empty planned slot',
+        ]);
+
+        $this->seedBstTrainingPackage($district, $staff, [
+            'event_date' => '2026-05-10',
+            'training_batch_name' => 'Batch Alpha',
+            'training_packages' => ['t1'],
+            'selected_incubatee_ids' => [101, 102],
+            'selected_incubatees_snapshot' => [
+                ['incubatee_id' => 101, 'name' => 'Incubatee A'],
+                ['incubatee_id' => 102, 'name' => 'Incubatee B'],
+            ],
+        ]);
+        $this->seedBstTrainingPackage($district, $staff, [
+            'event_date' => '2026-06-12',
+            'training_batch_name' => 'Batch Beta',
+            'training_packages' => ['t2', 't3'],
+            'selected_incubatee_ids' => [101, 103],
+            'selected_incubatees_snapshot' => [
+                ['incubatee_id' => 101, 'name' => 'Incubatee A'],
+                ['incubatee_id' => 103, 'name' => 'Incubatee C'],
+            ],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $sessions = collect($report['rows'])->firstWhere('serial', '3.1');
+        $participants = collect($report['rows'])->firstWhere('serial', '3.2');
+
+        $this->assertNotNull($sessions);
+        $this->assertNotNull($participants);
+        $this->assertSame(2, $sessions['achievement']);
+        $this->assertSame(3, $participants['achievement']);
+
+        $sessionsBreakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '3.1');
+        $this->assertSame(2, $sessionsBreakdown['total']);
+        $this->assertCount(2, $sessionsBreakdown['records']);
+        $this->assertSame('Business skills training sessions (conducted)', $sessionsBreakdown['source_type_label']);
+
+        $participantsBreakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '3.2');
+        $this->assertSame(3, $participantsBreakdown['total']);
+        $this->assertSame(3, $participants['achievement']);
+        $this->assertCount(3, $participantsBreakdown['records']);
+        $this->assertCount(
+            $participantsBreakdown['total'],
+            $participantsBreakdown['records'],
+            'Breakdown records must include every unique incubatee, not a capped subset',
+        );
+        $districtSum = collect($participantsBreakdown['by_district'])->sum('count');
+        $this->assertSame(3, $districtSum, 'District unique counts must sum to statewide unique total');
+
+        $incubateeA = collect($participantsBreakdown['records'])->firstWhere('applicant', 'Incubatee A');
+        $this->assertNotNull($incubateeA);
+        $this->assertSame(2, (int) ($incubateeA['session_count'] ?? 0));
+        $this->assertCount(2, (array) ($incubateeA['sessions'] ?? []));
+        $sessionsText = implode("\n", (array) ($incubateeA['sessions'] ?? []));
+        $this->assertStringContainsString('Batch Alpha', $sessionsText);
+        $this->assertStringContainsString('Batch Beta', $sessionsText);
+    }
+
+    public function test_program_deliverables_3_2_breakdown_includes_all_unique_participants_beyond_100(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'bst-cap-hub', 'name' => 'BST Cap Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bst-cap-district',
+            'name' => 'BST Cap District',
+            'sort_order' => 1,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'hub_id' => $hub->id,
+            'is_active' => true,
+        ]);
+
+        $ids = range(1, 105);
+        $snapshot = array_map(
+            static fn (int $id): array => ['incubatee_id' => $id, 'name' => 'Incubatee '.$id],
+            $ids,
+        );
+
+        $this->seedBstTrainingPackage($district, $staff, [
+            'event_date' => '2026-05-15',
+            'training_batch_name' => 'Large batch',
+            'selected_incubatee_ids' => $ids,
+            'selected_incubatees_snapshot' => $snapshot,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '3.2');
+
+        $this->assertSame(105, $breakdown['total']);
+        $this->assertCount(105, $breakdown['records']);
+    }
+
+    public function test_program_deliverables_technical_training_potential_lakhpati_counts_non_unique_eligible_participations(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'tt-hub', 'name' => 'TT Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'tt-district',
+            'name' => 'TT District',
+            'sort_order' => 1,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'hub_id' => $hub->id,
+            'is_active' => true,
+        ]);
+
+        $eligibleShg = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Eligible SHG',
+            'application_no' => 'TT-001',
+            'phone' => '9000000001',
+            'source' => 'phase3',
+            'payload' => json_encode(['category' => 'shg']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $eligibleIndividual = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Eligible Individual',
+            'application_no' => 'TT-002',
+            'phone' => '9000000002',
+            'source' => 'phase3',
+            'payload' => json_encode(['category' => 'individual', 'is_shg_member' => 'Yes']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $notEligibleIndividual = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Ineligible Individual',
+            'application_no' => 'TT-003',
+            'phone' => '9000000003',
+            'source' => 'phase3',
+            'payload' => json_encode(['category' => 'individual', 'is_shg_member' => 'No']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $legacyShg = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Legacy SHG',
+            'application_no' => 'TT-004',
+            'phone' => '9000000004',
+            'source' => 'legacy_phase2',
+            'payload' => json_encode(['category' => 'shg']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('technical_trainings')->insert([
+            [
+                'submitted_by_user_id' => $staff->id,
+                'submitted_by_name' => (string) $staff->name,
+                'event_date' => '2026-05-10',
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'training_batch_name' => 'Batch A',
+                'session_name' => 'Session A',
+                'session_brief' => null,
+                'attendance_media_json' => json_encode([]),
+                'selected_incubatee_ids' => json_encode([$eligibleShg, $eligibleIndividual, $notEligibleIndividual, $legacyShg]),
+                'selected_incubatees_snapshot' => json_encode([]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'submitted_by_user_id' => $staff->id,
+                'submitted_by_name' => (string) $staff->name,
+                'event_date' => '2026-06-12',
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'training_batch_name' => 'Batch B',
+                'session_name' => 'Session B',
+                'session_brief' => null,
+                'attendance_media_json' => json_encode([]),
+                'selected_incubatee_ids' => json_encode([$eligibleShg, $eligibleIndividual, $notEligibleIndividual]),
+                'selected_incubatees_snapshot' => json_encode([]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $row = collect($report['rows'])->firstWhere('name', 'Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs');
+        $this->assertNotNull($row);
+        $this->assertSame(4, (int) ($row['achievement'] ?? 0));
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, (string) $row['serial']);
+        $this->assertSame(4, $breakdown['total']);
+        $this->assertCount(4, $breakdown['records']);
     }
 
     public function test_deliverables_breakdown_returns_json_for_field_work(): void
@@ -1135,6 +1450,7 @@ class DeliverablesReportTest extends TestCase
             'entry_date' => '2026-06-10',
             'area' => 'Block A',
             'participants_total' => 10,
+            'participants_female_count' => 6,
         ]);
 
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
@@ -1147,7 +1463,7 @@ class DeliverablesReportTest extends TestCase
             ->assertOk()
             ->assertJsonPath('serial', '1.3')
             ->assertJsonPath('total', 1)
-            ->assertJsonPath('source_type_label', 'Field work visits');
+            ->assertJsonPath('source_type_label', 'Field work visits & block workshops');
     }
 
     public function test_deliverables_breakdown_export_returns_xlsx_for_field_work(): void
@@ -1544,5 +1860,62 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($incubateesDistrict);
         $this->assertSame(2, $partnersDistrict['achievement']);
         $this->assertSame(1, $incubateesDistrict['achievement']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function seedLockedOnboarding(Hub $hub, District $district, array $overrides = []): void
+    {
+        $payload = (array) ($overrides['payload'] ?? []);
+        unset($overrides['payload']);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId(array_merge([
+            'district_id' => $district->id,
+            'applicant_name' => 'Applicant',
+            'phone' => '9876543210',
+            'source' => 'phase3',
+            'payload' => json_encode($payload),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $overrides));
+
+        $batch = OnboardingBatch::query()->create([
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'name' => 'Batch '.$cfaId,
+            'target_size' => 1,
+            'status' => 'locked',
+            'locked_at' => '2026-05-15 10:00:00',
+            'onboarding_date' => '2026-05-15',
+        ]);
+
+        OnboardingBatchCfa::query()->create([
+            'onboarding_batch_id' => $batch->id,
+            'cfa_submission_id' => $cfaId,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function seedBstTrainingPackage(District $district, User $staff, array $overrides = []): void
+    {
+        TrainingPackage::query()->create(array_merge([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => (string) $staff->name,
+            'event_date' => '2026-05-10',
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'training_package' => 't1',
+            'training_packages' => ['t1'],
+            'attendance_file_path' => null,
+            'attendance_file_name' => null,
+            'attendance_file_mime' => null,
+            'attendance_file_size_bytes' => null,
+            'attendance_media_json' => [],
+            'selected_incubatee_ids' => [],
+            'selected_incubatees_snapshot' => [],
+        ], $overrides));
     }
 }

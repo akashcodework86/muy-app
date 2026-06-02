@@ -10,6 +10,7 @@ use App\Models\DistrictServiceSpoc;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\StateDeliverableTarget;
+use App\Support\PotentialLakhpatiOnboardingSql;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -901,34 +902,12 @@ class OnboardedApplicantController extends Controller
 
     private function potentialLakhpatiCountSql(): string
     {
-        $categoryJson = $this->payloadJson('$.category');
-        $appCategoryJson = $this->payloadJson('$.app_category');
-        $isMemberJson = $this->payloadJson('$.is_member');
-        $isShgMemberJson = $this->payloadJson('$.is_shg_member');
-
-        return "SUM(CASE
-            WHEN {$this->phase3CfaSourceSql()}
-                AND (
-                    LOWER(TRIM(COALESCE({$categoryJson}, ''))) IN ('shg', 'cbo')
-                    OR LOWER(TRIM(COALESCE({$appCategoryJson}, ''))) IN ('shg', 'cbo')
-                    OR (
-                        (
-                            LOWER(TRIM(COALESCE({$categoryJson}, ''))) = 'individual'
-                            OR LOWER(TRIM(COALESCE({$appCategoryJson}, ''))) = 'individual'
-                        )
-                        AND (
-                            LOWER(TRIM(COALESCE({$isMemberJson}, ''))) = 'yes'
-                            OR LOWER(TRIM(COALESCE({$isShgMemberJson}, ''))) = 'yes'
-                        )
-                    )
-                )
-            THEN 1 ELSE 0
-        END)";
+        return PotentialLakhpatiOnboardingSql::sumCaseCountSql();
     }
 
     private function phase3CfaSourceSql(): string
     {
-        return "LOWER(TRIM(COALESCE(cs.source, ''))) NOT IN ('legacy_phase2', 'rbiphase2')";
+        return PotentialLakhpatiOnboardingSql::phase3CfaSourceSql();
     }
 
     private function phase3OnboardedCountSql(): string

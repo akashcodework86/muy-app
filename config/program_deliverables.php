@@ -12,6 +12,7 @@ return [
     |
     | Tree: pillar/subcategory headings (blank metrics) + leaf indicators (1.1, 1.2, …).
     | source types: deliverable, service, services, cfa_count, onboarding_count,
+    |   potential_lakhpati_onboarding_count (2.1.1 — SHG/CBO onboarded subset),
     |   field_work_workshops (1.3), field_work_participants (1.3.1) — staff Field work visits,
     |   district_workshop_sessions,
     |   edp_sessions, bst_sessions, bst_participants, technical_training_sessions,
@@ -85,7 +86,7 @@ return [
                             'row_type' => 'leaf',
                             'indicator_type' => 'Non-Key',
                             'level' => 'Spoke & Hub',
-                            'source' => ['type' => 'deliverable', 'code' => 'lakhpati_block'],
+                            'source' => ['type' => 'potential_lakhpati_onboarding_count'],
                         ],
                     ],
                 ],
@@ -121,7 +122,7 @@ return [
                             'row_type' => 'leaf',
                             'indicator_type' => 'Non-Key',
                             'level' => 'Spoke & Hub',
-                            'source' => ['type' => 'none'],
+                            'source' => ['type' => 'technical_training_potential_lakhpati_participations'],
                         ],
                     ],
                 ],
