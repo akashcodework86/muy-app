@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesWorkshopParticipantRows;
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\DistrictWorkshopSession;
 use Illuminate\Http\RedirectResponse;
@@ -18,6 +19,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DistrictWorkshopSessionAttendanceController extends Controller
 {
+    use ResolvesWorkshopParticipantRows;
     use ValidatesAttendanceMediaUploads;
 
     public function create(Request $request): View
@@ -25,9 +27,15 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         $user = $request->user()->load('district');
         abort_unless($this->canSubmit($user->role), 403);
 
+        $participantContext = $this->workshopParticipantFormContext($user);
+
         return view('staff.district-workshop-sessions.form', [
             'user' => $user,
             'migrationMissing' => ! Schema::hasTable('district_workshop_sessions'),
+            ...$participantContext,
+            'initialRows' => [],
+            'defaultBlockId' => 0,
+            'defaultGpId' => 0,
         ]);
     }
 
@@ -54,10 +62,16 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         $districtId = (int) ($user->district_id ?: 0);
         abort_unless($districtId > 0, 422, 'District assignment is required to submit attendance.');
 
+        $male = (int) $validated['male_participants'];
+        $female = (int) $validated['female_participants'];
+        $total = $male + $female;
+        $this->assertWorkshopParticipantLocation($request, $male, $female);
+        $participantRows = $this->resolveWorkshopParticipantsFromRequest($request, $user, $male, $female);
+
         $mediaItems = $this->storeUploadedMedia((array) $request->file('attendance_media', []));
         $photoItems = $this->storeUploadedPhotos((array) $request->file('workshop_photos', []));
 
-        DistrictWorkshopSession::query()->create([
+        $payload = [
             'submitted_by_user_id' => (int) $user->id,
             'submitted_by_name' => (string) $user->name,
             'event_date' => $validated['session_date'],
@@ -65,13 +79,22 @@ class DistrictWorkshopSessionAttendanceController extends Controller
             'district_name' => (string) ($user->district?->name ?? ''),
             'workshop_mode' => (string) $validated['workshop_mode'],
             'notes' => trim((string) ($validated['notes'] ?? '')) ?: null,
-            'male_participants' => (int) $validated['male_participants'],
-            'female_participants' => (int) $validated['female_participants'],
+            'male_participants' => $male,
+            'female_participants' => $female,
             'attendance_media_json' => $mediaItems,
             'workshop_photos_json' => $photoItems,
             'selected_incubatee_ids' => [],
             'selected_incubatees_snapshot' => [],
-        ]);
+        ];
+
+        if (Schema::hasColumn('district_workshop_sessions', 'participants_total')) {
+            $payload['participants_total'] = $total;
+        }
+        if (Schema::hasColumn('district_workshop_sessions', 'participants_json')) {
+            $payload['participants_json'] = $participantRows;
+        }
+
+        DistrictWorkshopSession::query()->create($payload);
 
         return redirect()
             ->route('staff.district-workshop-sessions.dashboard')
@@ -101,11 +124,18 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         $search = trim((string) $request->query('q', ''));
         if ($search !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
-            $query->where(function ($q) use ($like): void {
+            $query->where(function ($q) use ($like, $search): void {
                 $q->where('submitted_by_name', 'like', $like)
                     ->orWhere('district_name', 'like', $like)
+                    ->orWhere('topic', 'like', $like)
                     ->orWhere('notes', 'like', $like)
                     ->orWhere('workshop_mode', 'like', $like);
+                if (ctype_digit($search)) {
+                    $n = (int) $search;
+                    $q->orWhere('male_participants', $n)
+                        ->orWhere('female_participants', $n)
+                        ->orWhere('participants_total', $n);
+                }
             });
         }
 
@@ -193,11 +223,18 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         $search = trim((string) $request->query('q', ''));
         if ($search !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
-            $query->where(function ($q) use ($like): void {
+            $query->where(function ($q) use ($like, $search): void {
                 $q->where('submitted_by_name', 'like', $like)
                     ->orWhere('district_name', 'like', $like)
+                    ->orWhere('topic', 'like', $like)
                     ->orWhere('notes', 'like', $like)
                     ->orWhere('workshop_mode', 'like', $like);
+                if (ctype_digit($search)) {
+                    $n = (int) $search;
+                    $q->orWhere('male_participants', $n)
+                        ->orWhere('female_participants', $n)
+                        ->orWhere('participants_total', $n);
+                }
             });
         }
 
@@ -235,9 +272,16 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         $user = $request->user()->load('district');
         $this->assertCanEdit($districtWorkshopSession, (int) $user->id);
 
+        $participantContext = $this->workshopParticipantFormContext($user);
+        $firstRow = $districtWorkshopSession->participantRows()[0] ?? [];
+
         return view('staff.district-workshop-sessions.edit', [
             'user' => $user,
             'row' => $districtWorkshopSession,
+            ...$participantContext,
+            'initialRows' => $districtWorkshopSession->participantRows(),
+            'defaultBlockId' => $this->defaultBlockIdFromParticipantRows($participantContext['blockRows'], $firstRow),
+            'defaultGpId' => (int) ($firstRow['gram_panchayat_id'] ?? 0),
         ]);
     }
 
@@ -295,11 +339,29 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                 ->withErrors(['workshop_photos' => 'Please upload at least one workshop photo (minimum 1, maximum 5).']);
         }
 
+        $male = (int) $validated['male_participants'];
+        $female = (int) $validated['female_participants'];
+        $total = $male + $female;
+        $this->assertWorkshopParticipantLocation($request, $male, $female);
+        $participantRows = $this->resolveWorkshopParticipantsFromRequest(
+            $request,
+            $user->load('district'),
+            $male,
+            $female,
+            $districtWorkshopSession->participantRows(),
+        );
+
         $districtWorkshopSession->event_date = $validated['session_date'];
         $districtWorkshopSession->workshop_mode = (string) $validated['workshop_mode'];
         $districtWorkshopSession->notes = trim((string) ($validated['notes'] ?? '')) ?: null;
-        $districtWorkshopSession->male_participants = (int) $validated['male_participants'];
-        $districtWorkshopSession->female_participants = (int) $validated['female_participants'];
+        $districtWorkshopSession->male_participants = $male;
+        $districtWorkshopSession->female_participants = $female;
+        if (Schema::hasColumn('district_workshop_sessions', 'participants_total')) {
+            $districtWorkshopSession->participants_total = $total;
+        }
+        if (Schema::hasColumn('district_workshop_sessions', 'participants_json')) {
+            $districtWorkshopSession->participants_json = $participantRows;
+        }
         $districtWorkshopSession->save();
 
         return redirect()
@@ -345,7 +407,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         Request $request,
         bool $requiresPhotosUpload,
     ): array {
-        $validator = Validator::make($request->all(), [
+        $validator = Validator::make($request->all(), array_merge([
             'session_date' => ['required', 'date'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'notes' => ['nullable', 'string', 'max:5000'],
@@ -357,7 +419,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                 ? ['required', 'array', 'min:1', 'max:5']
                 : ['nullable', 'array', 'max:5'],
             'workshop_photos.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:51200'],
-        ]);
+        ], $this->workshopParticipantValidationRules()));
 
         $validator->after(function ($validator) use ($request): void {
             $male = (int) $request->input('male_participants', 0);

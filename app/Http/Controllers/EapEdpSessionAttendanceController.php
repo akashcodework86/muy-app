@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesWorkshopParticipantRows;
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\EapEdpSession;
 use Illuminate\Http\RedirectResponse;
@@ -17,6 +18,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EapEdpSessionAttendanceController extends Controller
 {
+    use ResolvesWorkshopParticipantRows;
     use ValidatesAttendanceMediaUploads;
 
     private const PROGRAM_TYPE = 'eap_edp';
@@ -26,9 +28,15 @@ class EapEdpSessionAttendanceController extends Controller
         $user = $request->user()->load('district');
         abort_unless($this->canSubmit($user->role), 403);
 
+        $participantContext = $this->workshopParticipantFormContext($user);
+
         return view('staff.eap-edp-sessions.form', [
             'user' => $user,
             'migrationMissing' => ! Schema::hasTable('eap_edp_sessions'),
+            ...$participantContext,
+            'initialRows' => [],
+            'defaultBlockId' => 0,
+            'defaultGpId' => 0,
         ]);
     }
 
@@ -57,7 +65,7 @@ class EapEdpSessionAttendanceController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
             'attendance_male_count' => ['required', 'integer', 'min:0'],
             'attendance_female_count' => ['required', 'integer', 'min:0'],
-        ], $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(requirePhotos: true), [
+        ], $this->workshopParticipantValidationRules(), $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(requirePhotos: true), [
             'attendance_media' => ['nullable', 'array', 'max:25'],
         ]));
 
@@ -67,6 +75,9 @@ class EapEdpSessionAttendanceController extends Controller
         $male = (int) $validated['attendance_male_count'];
         $female = (int) $validated['attendance_female_count'];
         $total = $male + $female;
+        $this->assertWorkshopParticipantLocation($request, $male, $female);
+
+        $participantRows = $this->resolveWorkshopParticipantsFromRequest($request, $user, $male, $female);
 
         $mediaItems = $this->storeUploadedMedia((array) $request->file('attendance_media', []));
         $photoItems = $this->storeUploadedPhotos($this->sessionPhotoUploads($request));
@@ -93,6 +104,10 @@ class EapEdpSessionAttendanceController extends Controller
             'selected_incubatees_snapshot' => [],
         ];
 
+        if (Schema::hasColumn('eap_edp_sessions', 'participants_json')) {
+            $sessionPayload['participants_json'] = $participantRows;
+        }
+
         $this->applyVenueToPayload($sessionPayload, trim((string) $validated['venue_name_address']));
 
         if (Schema::hasColumn('eap_edp_sessions', 'session_photos_json')) {
@@ -116,6 +131,7 @@ class EapEdpSessionAttendanceController extends Controller
                 'rows' => collect(),
                 'migrationMissing' => true,
                 'isPaginated' => false,
+                'totals' => ['male' => 0, 'female' => 0, 'participants' => 0],
             ]);
         }
 
@@ -155,6 +171,12 @@ class EapEdpSessionAttendanceController extends Controller
 
         $eventPeriod = $this->applyEventPeriodFilter($query, $request);
 
+        $totals = [
+            'male' => (int) (clone $query)->sum('attendance_male_count'),
+            'female' => (int) (clone $query)->sum('attendance_female_count'),
+        ];
+        $totals['participants'] = $totals['male'] + $totals['female'];
+
         $rows = $query
             ->orderByDesc('event_date')
             ->orderByDesc('id')
@@ -177,6 +199,7 @@ class EapEdpSessionAttendanceController extends Controller
                 'event_year' => $eventPeriod['event_year'],
                 'event_month' => $eventPeriod['event_month'],
             ],
+            'totals' => $totals,
         ]);
     }
 
@@ -261,9 +284,16 @@ class EapEdpSessionAttendanceController extends Controller
         $user = $request->user()->load('district');
         $this->assertCanEdit($eapEdpSession, (int) $user->id);
 
+        $participantContext = $this->workshopParticipantFormContext($user);
+        $firstRow = $eapEdpSession->participantRows()[0] ?? [];
+
         return view('staff.eap-edp-sessions.edit', [
             'user' => $user,
             'row' => $eapEdpSession,
+            ...$participantContext,
+            'initialRows' => $eapEdpSession->participantRows(),
+            'defaultBlockId' => $this->defaultBlockIdFromParticipantRows($participantContext['blockRows'], $firstRow),
+            'defaultGpId' => (int) ($firstRow['gram_panchayat_id'] ?? 0),
         ]);
     }
 
@@ -290,7 +320,7 @@ class EapEdpSessionAttendanceController extends Controller
             'remove_media_indices.*' => ['integer', 'min:0'],
             'remove_photo_indices' => ['nullable', 'array'],
             'remove_photo_indices.*' => ['integer', 'min:0'],
-        ], $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(requirePhotos: false), [
+        ], $this->workshopParticipantValidationRules(), $this->attendanceMediaValidationRules(), $this->sessionPhotosValidationRules(requirePhotos: false), [
             'attendance_media' => ['nullable', 'array', 'max:25'],
             'session_photos' => ['nullable', 'array', 'max:25'],
         ]));
@@ -298,6 +328,15 @@ class EapEdpSessionAttendanceController extends Controller
         $male = (int) $validated['attendance_male_count'];
         $female = (int) $validated['attendance_female_count'];
         $total = $male + $female;
+        $this->assertWorkshopParticipantLocation($request, $male, $female);
+
+        $participantRows = $this->resolveWorkshopParticipantsFromRequest(
+            $request,
+            $user->load('district'),
+            $male,
+            $female,
+            $eapEdpSession->participantRows(),
+        );
 
         $existingMedia = collect((array) $eapEdpSession->attendance_media_json)
             ->filter(fn ($item): bool => is_array($item))
@@ -364,6 +403,9 @@ class EapEdpSessionAttendanceController extends Controller
         $eapEdpSession->attendance_female_count = $female;
         $eapEdpSession->attendance_total_count = $total;
         $eapEdpSession->notes = trim((string) ($validated['notes'] ?? '')) ?: null;
+        if (Schema::hasColumn('eap_edp_sessions', 'participants_json')) {
+            $eapEdpSession->participants_json = $participantRows;
+        }
         $eapEdpSession->save();
 
         return redirect()

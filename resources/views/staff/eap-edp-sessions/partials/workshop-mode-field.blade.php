@@ -67,7 +67,7 @@
 @endonce
 
 <div class="tp-field tp-field--full ees-ws-field">
-    <label for="{{ $name }}">Virtual or physical workshop *</label>
+    <label for="{{ $name }}">Virtual or physical workshop <span class="tp-req">*</span></label>
     <div class="ees-ws-control" data-ees-ws>
         <span class="ees-ws-tick {{ $selected === '' || $selected === null ? 'is-empty' : '' }}" data-ees-ws-tick aria-hidden="true">{{ $selected === 'virtual' || $selected === 'physical' ? '✓' : '' }}</span>
         <select

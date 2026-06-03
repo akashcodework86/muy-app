@@ -19,6 +19,8 @@ class DistrictWorkshopSession extends Model
         'notes',
         'male_participants',
         'female_participants',
+        'participants_total',
+        'participants_json',
         'attendance_media_json',
         'workshop_photos_json',
         'selected_incubatee_ids',
@@ -31,6 +33,8 @@ class DistrictWorkshopSession extends Model
             'event_date' => 'date',
             'male_participants' => 'integer',
             'female_participants' => 'integer',
+            'participants_total' => 'integer',
+            'participants_json' => 'array',
             'attendance_media_json' => 'array',
             'workshop_photos_json' => 'array',
             'selected_incubatee_ids' => 'array',
@@ -38,8 +42,21 @@ class DistrictWorkshopSession extends Model
         ];
     }
 
+    /** @return list<array<string, mixed>> */
+    public function participantRows(): array
+    {
+        $rows = $this->participants_json;
+
+        return is_array($rows) ? array_values($rows) : [];
+    }
+
     public function totalParticipantCount(): int
     {
+        $fromTotal = (int) ($this->participants_total ?? 0);
+        if ($fromTotal > 0) {
+            return $fromTotal;
+        }
+
         $fromCounts = (int) ($this->male_participants ?? 0) + (int) ($this->female_participants ?? 0);
         if ($fromCounts > 0) {
             return $fromCounts;
@@ -60,6 +77,11 @@ class DistrictWorkshopSession extends Model
     public function isAttendancePending(): bool
     {
         return ! $this->hasAttendanceSheet();
+    }
+
+    protected function displayVenue(): Attribute
+    {
+        return Attribute::get(fn (): string => trim((string) ($this->topic ?? '')));
     }
 
     protected function formattedProgramType(): Attribute

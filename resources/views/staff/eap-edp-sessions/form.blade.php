@@ -37,6 +37,7 @@
     .ees-att-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:0.85rem 1rem; }
     @media (max-width:640px) { .ees-att-grid { grid-template-columns:1fr; } }
     .ees-att-total input { font-weight:800; color:#0f172a; letter-spacing:0.02em; }
+    .tp-req { color:#e11d48; margin-left:1px; }
 </style>
 @endpush
 
@@ -67,7 +68,7 @@
 
     <div class="tp-card">
         <h3 class="tp-card__title">Submission Form</h3>
-        <form method="post" action="{{ route('staff.eap-edp-sessions.store') }}" enctype="multipart/form-data">
+        <form id="eesWorkshopForm" method="post" action="{{ route('staff.eap-edp-sessions.store') }}" enctype="multipart/form-data">
             @csrf
             <div class="tp-grid">
                 <div class="tp-field">
@@ -75,16 +76,23 @@
                     <input type="text" class="tp-readonly" value="{{ $user->name }}" readonly>
                 </div>
                 <div class="tp-field">
-                    <label>Date of Session *</label>
+                    <label>Date of Session <span class="tp-req">*</span></label>
                     <input type="date" name="session_date" value="{{ old('session_date') }}" required>
                 </div>
                 <div class="tp-field">
                     <label>District</label>
                     <input type="text" class="tp-readonly" value="{{ $user->district?->name ?? 'Not assigned' }}" readonly>
                 </div>
+                @include('staff.partials.workshop-participants.location-fields', [
+                    'user' => $user,
+                    'blockRows' => $blockRows ?? collect(),
+                    'gramPanchayatsEnabled' => $gramPanchayatsEnabled ?? false,
+                    'defaultBlockId' => $defaultBlockId ?? 0,
+                    'defaultGpId' => $defaultGpId ?? 0,
+                ])
                 @include('staff.eap-edp-sessions.partials.workshop-mode-field', ['selected' => null])
                 <div class="tp-field tp-field--full">
-                    <label>Venue address *</label>
+                    <label>Venue address <span class="tp-req">*</span></label>
                     <textarea name="venue_name_address" maxlength="5000" required placeholder="Enter venue name and full address">{{ old('venue_name_address') }}</textarea>
                 </div>
                 <div class="tp-field tp-field--full">
@@ -94,15 +102,15 @@
             </div>
 
             <div class="tp-section">
-                <h4 class="tp-section__title">Attendance (headcount) *</h4>
+                <h4 class="tp-section__title">Attendance (headcount) <span class="tp-req">*</span></h4>
                 <p class="tp-field-hint" style="margin:0 0 0.75rem;">Open sessions: record how many participants attended by gender. Total updates automatically.</p>
                 <div class="ees-att-grid">
                     <div class="tp-field">
-                        <label for="attendance_male_count">No. of male *</label>
+                        <label for="attendance_male_count">No. of male <span class="tp-req">*</span></label>
                         <input id="attendance_male_count" type="number" name="attendance_male_count" min="0" step="1" value="{{ old('attendance_male_count', 0) }}" required inputmode="numeric">
                     </div>
                     <div class="tp-field">
-                        <label for="attendance_female_count">No. of female *</label>
+                        <label for="attendance_female_count">No. of female <span class="tp-req">*</span></label>
                         <input id="attendance_female_count" type="number" name="attendance_female_count" min="0" step="1" value="{{ old('attendance_female_count', 0) }}" required inputmode="numeric">
                     </div>
                     <div class="tp-field ees-att-total">
@@ -112,9 +120,11 @@
                 </div>
             </div>
 
+            @include('staff.partials.workshop-participants.registry')
+
             <div class="tp-section">
                 <div class="tp-field tp-field--full">
-                    <label>Session photos (mandatory) *</label>
+                    <label>Session photos <span class="tp-req">*</span></label>
                     <input id="eesSessionPhotosInput" type="file" name="session_photos[]" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple required>
                     <p class="tp-field-hint">Upload at least one photo from the session. JPG, PNG, or WebP, up to 25 photos (10 MB each). Click × on a thumbnail to remove before submitting.</p>
                     <div id="eesSessionPhotosPreview"></div>
@@ -144,6 +154,17 @@
     ])
 </div>
 @endsection
+
+@include('staff.partials.workshop-participants.script', [
+    'maleInputId' => 'attendance_male_count',
+    'femaleInputId' => 'attendance_female_count',
+    'formId' => 'eesWorkshopForm',
+    'gramPanchayatsUrl' => route('staff.eap-edp-sessions.gram-panchayats'),
+    'districtLabel' => $districtLabel ?? ($user->district?->name ?? '—'),
+    'initialRows' => $initialRows ?? [],
+    'defaultBlockId' => $defaultBlockId ?? 0,
+    'defaultGpId' => $defaultGpId ?? 0,
+])
 
 @push('scripts')
 <script>

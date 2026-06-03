@@ -45,6 +45,7 @@
         border:1px solid #fde68a;
         color:#92400e;
     }
+    .tp-req { color:#e11d48; margin-left:1px; }
 </style>
 @endpush
 
@@ -63,7 +64,7 @@
 
     <div class="tp-card">
         <h3 class="tp-card__title">Update Submission</h3>
-        <form method="post" action="{{ route('staff.district-workshop-sessions.update', $row) }}" enctype="multipart/form-data">
+        <form id="dwsWorkshopForm" method="post" action="{{ route('staff.district-workshop-sessions.update', $row) }}" enctype="multipart/form-data">
             @csrf
             @method('put')
             <div class="tp-grid">
@@ -72,20 +73,27 @@
                     <input type="text" class="tp-readonly" value="{{ $row->submitted_by_name }}" readonly>
                 </div>
                 <div class="tp-field">
-                    <label>Date of Session *</label>
+                    <label>Date of Session <span class="tp-req">*</span></label>
                     <input type="date" name="session_date" value="{{ old('session_date', $row->event_date?->format('Y-m-d')) }}" required>
                 </div>
                 <div class="tp-field">
                     <label>District</label>
                     <input type="text" class="tp-readonly" value="{{ $row->district_name ?: ($row->district?->name ?? 'NA') }}" readonly>
                 </div>
+                @include('staff.partials.workshop-participants.location-fields', [
+                    'user' => $user,
+                    'blockRows' => $blockRows ?? collect(),
+                    'gramPanchayatsEnabled' => $gramPanchayatsEnabled ?? false,
+                    'defaultBlockId' => $defaultBlockId ?? 0,
+                    'defaultGpId' => $defaultGpId ?? 0,
+                ])
                 @include('staff.district-workshop-sessions.partials.workshop-mode-field', ['selected' => $row->workshop_mode ?? 'physical'])
                 <div class="tp-field">
-                    <label>Male participants *</label>
+                    <label>Male participants <span class="tp-req">*</span></label>
                     <input id="tpMaleParticipants" type="number" name="male_participants" value="{{ old('male_participants', $row->male_participants ?? 0) }}" min="0" step="1" required>
                 </div>
                 <div class="tp-field">
-                    <label>Female participants *</label>
+                    <label>Female participants <span class="tp-req">*</span></label>
                     <input id="tpFemaleParticipants" type="number" name="female_participants" value="{{ old('female_participants', $row->female_participants ?? 0) }}" min="0" step="1" required>
                 </div>
                 <div class="tp-field">
@@ -98,9 +106,11 @@
                 </div>
             </div>
 
+            @include('staff.partials.workshop-participants.registry')
+
             <div class="tp-section">
                 <div class="tp-field">
-                    <label>Upload workshop photos @if (!is_array($row->workshop_photos_json) || count($row->workshop_photos_json) === 0)*@endif</label>
+                    <label>Upload workshop photos @if (!is_array($row->workshop_photos_json) || count($row->workshop_photos_json) === 0)<span class="tp-req">*</span>@endif</label>
                     <input id="tpPhotosInput" type="file" name="workshop_photos[]" accept=".jpg,.jpeg,.png,.webp,image/*" multiple>
                     <p class="tp-field-hint">Workshop photos (JPG/PNG). Minimum 1, maximum 5 total (50 MB each).</p>
                     @if (is_array($row->workshop_photos_json) && count($row->workshop_photos_json))
@@ -153,6 +163,16 @@
 ])
 @endsection
 
+@include('staff.partials.workshop-participants.script', [
+    'maleInputId' => 'tpMaleParticipants',
+    'femaleInputId' => 'tpFemaleParticipants',
+    'formId' => 'dwsWorkshopForm',
+    'gramPanchayatsUrl' => route('staff.district-workshop-sessions.gram-panchayats'),
+    'districtLabel' => $districtLabel ?? ($user->district?->name ?? '—'),
+    'initialRows' => $initialRows ?? $row->participantRows(),
+    'defaultBlockId' => $defaultBlockId ?? 0,
+    'defaultGpId' => $defaultGpId ?? 0,
+])
 @include('staff.district-workshop-sessions.partials.attendance-upload-script')
 @include('staff.district-workshop-sessions.partials.workshop-photos-upload-script')
 @include('staff.district-workshop-sessions.partials.participant-total-script')

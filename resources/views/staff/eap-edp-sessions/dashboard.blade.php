@@ -105,6 +105,8 @@
     .ees-dash-att__doc-btn:hover { background:#e0e7ff; color:#312e81; }
     .ees-dash-att__doc-icon { display:inline-flex; flex-shrink:0; }
     .ees-dash-att__no-doc { font-size:0.76rem; color:#94a3b8; font-weight:600; }
+    .tp-table tfoot tr { background:#f8fafc; }
+    .tp-table tfoot td { font-weight:800; color:#0f172a; border-top:2px solid #cbd5e1; }
 </style>
 @endpush
 
@@ -132,6 +134,18 @@
         <div class="tp-stat-card">
             <div class="tp-stat-card__label">Total Sessions</div>
             <div class="tp-stat-card__value">{{ number_format($totalBatches) }}</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Male</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['male'] ?? 0)) }}</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Female</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['female'] ?? 0)) }}</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Participants</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['participants'] ?? 0)) }}</div>
         </div>
     </div>
 
@@ -197,10 +211,16 @@
                 <th>Date of Session</th>
                 <th>Session Taken By</th>
                 <th>District</th>
+                <th>Block</th>
+                <th>Gram panchayat</th>
                 <th>Workshop</th>
                 <th>Venue</th>
                 <th>Notes</th>
-                <th>Attendance</th>
+                <th>Male</th>
+                <th>Female</th>
+                <th>Total</th>
+                <th>Participant rows</th>
+                <th>Attendance sheet</th>
                 <th>Images</th>
                 <th>Actions</th>
             </tr>
@@ -217,6 +237,8 @@
                     <td>{{ $row->event_date?->format('d M Y') ?: 'NA' }}</td>
                     <td>{{ $row->submitted_by_name }}</td>
                     <td>{{ $row->district_name ?: ($row->district?->name ?? 'NA') }}</td>
+                    <td>@include('staff.partials.workshop-participants.dashboard-block-cell', ['row' => $row])</td>
+                    <td>@include('staff.partials.workshop-participants.dashboard-gp-cell', ['row' => $row])</td>
                     <td>
                         <span class="ees-ws-pill {{ ($row->workshop_mode ?? '') === 'virtual' ? 'ees-ws-pill--virtual' : 'ees-ws-pill--physical' }}">
                             {{ $row->formatted_workshop_mode }}
@@ -230,10 +252,15 @@
                             —
                         @endif
                     </td>
+                    <td>{{ number_format((int) ($row->attendance_male_count ?? 0)) }}</td>
+                    <td>{{ number_format((int) ($row->attendance_female_count ?? 0)) }}</td>
+                    <td>{{ number_format((int) ($row->attendance_total_count ?? ((int) ($row->attendance_male_count ?? 0) + (int) ($row->attendance_female_count ?? 0)))) }}</td>
+                    <td>@include('staff.partials.workshop-participants.dashboard-rows-cell', ['row' => $row])</td>
                     <td>
                         @include('staff.eap-edp-sessions.partials.dashboard-attendance-cell', [
                             'row' => $row,
                             'attachmentRouteName' => $eapEdpAttachmentRoute,
+                            'countsOnly' => true,
                         ])
                     </td>
                     <td>
@@ -267,10 +294,21 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10" class="tp-empty">No entries found.</td>
+                    <td colspan="16" class="tp-empty">No entries found.</td>
                 </tr>
             @endforelse
             </tbody>
+            @if (($rows instanceof \Countable ? count($rows) : 0) > 0)
+            <tfoot>
+            <tr>
+                <td colspan="9"><strong>Total (all filtered entries)</strong></td>
+                <td>{{ number_format((int) ($totals['male'] ?? 0)) }}</td>
+                <td>{{ number_format((int) ($totals['female'] ?? 0)) }}</td>
+                <td>{{ number_format((int) ($totals['participants'] ?? 0)) }}</td>
+                <td colspan="4"></td>
+            </tr>
+            </tfoot>
+            @endif
         </table>
     </div>
 

@@ -71,6 +71,9 @@
     $m = (int) ($row->attendance_male_count ?? 0);
     $f = (int) ($row->attendance_female_count ?? 0);
     $t = (int) ($row->attendance_total_count ?? ($m + $f));
+    $firstParticipant = ($row->participantRows()[0] ?? []);
+    $blockName = trim((string) ($firstParticipant['block_name'] ?? ''));
+    $gpName = trim((string) ($firstParticipant['gram_panchayat_name'] ?? ''));
 @endphp
 <div class="tp-show-shell">
     @if (session('status'))
@@ -93,6 +96,14 @@
             <div class="tp-show-field">
                 <span class="tp-show-field__label">District</span>
                 <span class="tp-show-field__value">{{ $row->district_name ?: ($row->district?->name ?? 'NA') }}</span>
+            </div>
+            <div class="tp-show-field">
+                <span class="tp-show-field__label">Block</span>
+                <span class="tp-show-field__value">{{ $blockName !== '' ? $blockName : '—' }}</span>
+            </div>
+            <div class="tp-show-field">
+                <span class="tp-show-field__label">Gram panchayat</span>
+                <span class="tp-show-field__value">{{ $gpName !== '' ? $gpName : '—' }}</span>
             </div>
             <div class="tp-show-field">
                 <span class="tp-show-field__label">Workshop format</span>
@@ -151,6 +162,12 @@
             } }}">Back to dashboard</a>
         </div>
     </div>
+
+    @include('staff.partials.workshop-participants.register-readonly', [
+        'record' => $row,
+        'participantRows' => $row->participantRows(),
+        'title' => 'Participant register',
+    ])
 
     <div class="tp-show-card">
         <h3 class="tp-show-card__title">Session photos</h3>

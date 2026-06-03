@@ -367,6 +367,7 @@ Route::middleware(['auth', 'active'])->group(function () {
                 ->name('eap-edp-sessions.store');
             Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
             Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
+            Route::get('eap-edp-sessions/gram-panchayats', [EapEdpSessionAttendanceController::class, 'workshopGramPanchayats'])->name('eap-edp-sessions.gram-panchayats');
             Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');
             Route::get('eap-edp-sessions/{eapEdpSession}/export', [EapEdpSessionAttendanceController::class, 'exportSingle'])->name('eap-edp-sessions.export-single');
             Route::get('eap-edp-sessions/{eapEdpSession}/edit', [EapEdpSessionAttendanceController::class, 'edit'])->name('eap-edp-sessions.edit');
@@ -389,6 +390,7 @@ Route::middleware(['auth', 'active'])->group(function () {
                 ->name('district-workshop-sessions.store');
             Route::get('district-workshop-sessions/dashboard', [DistrictWorkshopSessionAttendanceController::class, 'dashboard'])->name('district-workshop-sessions.dashboard');
             Route::get('district-workshop-sessions/export', [DistrictWorkshopSessionAttendanceController::class, 'export'])->name('district-workshop-sessions.export');
+            Route::get('district-workshop-sessions/gram-panchayats', [DistrictWorkshopSessionAttendanceController::class, 'workshopGramPanchayats'])->name('district-workshop-sessions.gram-panchayats');
             Route::get('district-workshop-sessions/{districtWorkshopSession}', [DistrictWorkshopSessionAttendanceController::class, 'show'])->name('district-workshop-sessions.show');
             Route::get('district-workshop-sessions/{districtWorkshopSession}/export', [DistrictWorkshopSessionAttendanceController::class, 'exportSingle'])->name('district-workshop-sessions.export-single');
             Route::get('district-workshop-sessions/{districtWorkshopSession}/edit', [DistrictWorkshopSessionAttendanceController::class, 'edit'])->name('district-workshop-sessions.edit');

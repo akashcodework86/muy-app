@@ -21,6 +21,7 @@ class EapEdpSession extends Model
         'attendance_male_count',
         'attendance_female_count',
         'attendance_total_count',
+        'participants_json',
         'notes',
         'attendance_media_json',
         'session_photos_json',
@@ -35,6 +36,7 @@ class EapEdpSession extends Model
             'attendance_male_count' => 'integer',
             'attendance_female_count' => 'integer',
             'attendance_total_count' => 'integer',
+            'participants_json' => 'array',
             'attendance_media_json' => 'array',
             'session_photos_json' => 'array',
             'selected_incubatee_ids' => 'array',
@@ -59,6 +61,14 @@ class EapEdpSession extends Model
 
             return trim((string) ($this->topic ?? ''));
         });
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function participantRows(): array
+    {
+        $rows = $this->participants_json;
+
+        return is_array($rows) ? array_values($rows) : [];
     }
 
     public function hasAttendanceSheet(): bool

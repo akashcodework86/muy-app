@@ -1,10 +1,6 @@
 @php
-    /** @var \App\Models\EapEdpSession $row */
-    $routeName = (string) ($attachmentRouteName ?? 'staff.eap-edp-sessions.attachment');
-    $countsOnly = ! empty($countsOnly);
-    $dm = (int) ($row->attendance_male_count ?? 0);
-    $df = (int) ($row->attendance_female_count ?? 0);
-    $dt = (int) ($row->attendance_total_count ?? ($dm + $df));
+    /** @var \App\Models\DistrictWorkshopSession $row */
+    $routeName = (string) ($attachmentRouteName ?? 'staff.district-workshop-sessions.attachment');
 
     $mediaItems = is_array($row->attendance_media_json ?? null) ? $row->attendance_media_json : [];
     $firstIdx = null;
@@ -60,23 +56,6 @@
         : 'View attendance sheet';
 @endphp
 <div class="ees-dash-att">
-    @unless ($countsOnly)
-    <div class="ees-dash-att__counts" role="group" aria-label="Attendance headcount">
-        <span class="ees-dash-att__pair" title="Male">
-            <span class="ees-dash-att__icon ees-dash-att__icon--male" aria-hidden="true">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="14" r="5"/><path d="M14 10l7-7M21 3v6M21 3h-6"/></svg>
-            </span>
-            <strong class="ees-dash-att__num">{{ number_format($dm) }}</strong>
-        </span>
-        <span class="ees-dash-att__pair" title="Female">
-            <span class="ees-dash-att__icon ees-dash-att__icon--female" aria-hidden="true">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="5"/><path d="M12 14v7M9 21h6"/></svg>
-            </span>
-            <strong class="ees-dash-att__num">{{ number_format($df) }}</strong>
-        </span>
-        <span class="ees-dash-att__total" title="Total attendance">{{ number_format($dt) }} total</span>
-    </div>
-    @endunless
     @if ($firstMedia !== null && $viewUrl !== '')
         <button
             type="button"

@@ -87,17 +87,29 @@
     }
     .ees-ws-pill--virtual { background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; }
     .ees-ws-pill--physical { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
-    .tp-attendance-pill {
-        display:inline-flex;
-        align-items:center;
-        padding:0.2rem 0.55rem;
-        border-radius:999px;
-        font-size:0.74rem;
-        font-weight:800;
-        white-space:nowrap;
+    .ees-dash-att { display:flex; flex-direction:column; gap:0.55rem; align-items:flex-start; min-width:0; }
+    .ees-dash-att__doc-btn {
+        display:inline-flex; align-items:center; gap:0.35rem;
+        padding:0.38rem 0.65rem; border-radius:8px; border:1px solid #c7d2fe;
+        background:#eef2ff; color:#3730a3; font-size:0.78rem; font-weight:800;
+        cursor:pointer; font-family:inherit;
+        box-shadow:0 2px 8px rgba(79,70,229,0.1);
     }
-    .tp-attendance-pill--pending { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
-    .tp-attendance-pill--uploaded { background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; }
+    .ees-dash-att__doc-btn:hover { background:#e0e7ff; color:#312e81; }
+    .ees-dash-att__doc-icon { display:inline-flex; flex-shrink:0; }
+    .ees-dash-att__no-doc { font-size:0.76rem; color:#94a3b8; font-weight:600; }
+    .ees-dash-photos { display:flex; flex-wrap:wrap; gap:0.35rem; align-items:center; max-width:220px; }
+    .ees-dash-photo {
+        width:40px; height:40px; object-fit:cover;
+        border-radius:6px; border:1px solid #e2e8f0; cursor:pointer; background:#f8fafc;
+    }
+    .ees-dash-photo-more {
+        display:inline-flex; align-items:center; justify-content:center;
+        min-width:40px; height:40px; padding:0 0.35rem; border-radius:6px;
+        background:#f1f5f9; border:1px solid #e2e8f0;
+        font-size:0.72rem; font-weight:800; color:#475569;
+    }
+    .ees-dash-photos-empty { font-size:0.76rem; color:#94a3b8; }
     .tp-table tfoot tr { background:#f8fafc; }
     .tp-table tfoot td { font-weight:800; color:#0f172a; border-top:2px solid #cbd5e1; }
 </style>
@@ -183,6 +195,14 @@
         </form>
     </div>
 
+    @php
+        $dwsAttachmentRoute = match ($currentRole ?? auth()->user()->role) {
+            'state_admin' => 'admin.district-workshop-sessions.attachment',
+            'state_staff' => 'spoc.district-workshop-sessions.attachment',
+            default => 'staff.district-workshop-sessions.attachment',
+        };
+    @endphp
+
     <div class="tp-table-card">
         <table class="tp-table">
             <thead>
@@ -191,12 +211,17 @@
                 <th>Date of Session</th>
                 <th>Session Taken By</th>
                 <th>District</th>
+                <th>Block</th>
+                <th>Gram panchayat</th>
                 <th>Workshop</th>
+                <th>Venue</th>
+                <th>Notes</th>
                 <th>Male</th>
                 <th>Female</th>
                 <th>Total</th>
-                <th>Attendance</th>
-                <th>Notes</th>
+                <th>Participant rows</th>
+                <th>Attendance sheet</th>
+                <th>Images</th>
                 <th>Actions</th>
             </tr>
             </thead>
@@ -212,21 +237,37 @@
                     <td>{{ $row->event_date?->format('d M Y') ?: 'NA' }}</td>
                     <td>{{ $row->submitted_by_name }}</td>
                     <td>{{ $row->district_name ?: ($row->district?->name ?? 'NA') }}</td>
+                    <td>@include('staff.partials.workshop-participants.dashboard-block-cell', ['row' => $row])</td>
+                    <td>@include('staff.partials.workshop-participants.dashboard-gp-cell', ['row' => $row])</td>
                     <td>
                         <span class="ees-ws-pill {{ ($row->workshop_mode ?? '') === 'virtual' ? 'ees-ws-pill--virtual' : 'ees-ws-pill--physical' }}">
                             {{ $row->formatted_workshop_mode }}
                         </span>
                     </td>
-                    <td>{{ number_format((int) ($row->male_participants ?? 0)) }}</td>
-                    <td>{{ number_format((int) ($row->female_participants ?? 0)) }}</td>
-                    <td>{{ number_format($row->totalParticipantCount()) }}</td>
-                    <td>@include('staff.district-workshop-sessions.partials.attendance-status-pill', ['row' => $row])</td>
+                    <td>{{ \Illuminate\Support\Str::limit($row->display_venue, 80) ?: '—' }}</td>
                     <td>
                         @if ($row->notes)
                             <div class="tp-brief">{{ \Illuminate\Support\Str::limit($row->notes, 120) }}</div>
                         @else
                             —
                         @endif
+                    </td>
+                    <td>{{ number_format((int) ($row->male_participants ?? 0)) }}</td>
+                    <td>{{ number_format((int) ($row->female_participants ?? 0)) }}</td>
+                    <td>{{ number_format($row->totalParticipantCount()) }}</td>
+                    <td>@include('staff.partials.workshop-participants.dashboard-rows-cell', ['row' => $row])</td>
+                    <td>
+                        @include('staff.district-workshop-sessions.partials.dashboard-attendance-cell', [
+                            'row' => $row,
+                            'attachmentRouteName' => $dwsAttachmentRoute,
+                            'countsOnly' => true,
+                        ])
+                    </td>
+                    <td>
+                        @include('staff.district-workshop-sessions.partials.dashboard-photos-cell', [
+                            'row' => $row,
+                            'attachmentRouteName' => $dwsAttachmentRoute,
+                        ])
                     </td>
                     <td>
                         <div class="tp-row-actions">
@@ -253,18 +294,18 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="12" class="tp-empty">No entries found.</td>
+                    <td colspan="16" class="tp-empty">No entries found.</td>
                 </tr>
             @endforelse
             </tbody>
             @if (($rows instanceof \Countable ? count($rows) : 0) > 0)
             <tfoot>
             <tr>
-                <td colspan="5"><strong>Total (all filtered entries)</strong></td>
+                <td colspan="9"><strong>Total (all filtered entries)</strong></td>
                 <td>{{ number_format((int) ($totals['male'] ?? 0)) }}</td>
                 <td>{{ number_format((int) ($totals['female'] ?? 0)) }}</td>
                 <td>{{ number_format((int) ($totals['participants'] ?? 0)) }}</td>
-                <td colspan="3"></td>
+                <td colspan="4"></td>
             </tr>
             </tfoot>
             @endif
@@ -274,5 +315,12 @@
     @if (!empty($isPaginated) && $rows instanceof \Illuminate\Contracts\Pagination\Paginator && $rows->hasPages())
         <div>{{ $rows->links() }}</div>
     @endif
+
+    @include('staff.technical-trainings.partials.attendance-media-preview', [
+        'mediaItems' => [],
+        'attachmentRoute' => $dwsAttachmentRoute,
+        'record' => \App\Models\DistrictWorkshopSession::make(),
+        'showEmptyMessage' => false,
+    ])
 </div>
 @endsection

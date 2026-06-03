@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\District;
+use App\Models\DistrictBlock;
 use App\Models\DistrictWorkshopSession;
+use App\Models\GramPanchayat;
 use App\Models\Hub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,18 +21,19 @@ class DistrictWorkshopSessionAttendanceTest extends TestCase
     {
         Storage::fake('local');
 
-        $district = $this->createDistrict();
-        $staff = User::factory()->create([
-            'role' => 'district_staff',
-            'district_id' => $district->id,
-            'is_active' => true,
-        ]);
+        [$staff, $block, $gp, $district] = $this->staffWithBlockAndGp();
 
         $response = $this->actingAs($staff)->post(route('staff.district-workshop-sessions.store'), [
             'session_date' => '2026-05-18',
             'workshop_mode' => 'physical',
-            'male_participants' => 12,
-            'female_participants' => 8,
+            'male_participants' => 1,
+            'female_participants' => 1,
+            'district_block_id' => $block->id,
+            'gram_panchayat_id' => $gp->id,
+            'participants' => [
+                ['name' => 'Ram', 'gender' => 'M', 'gram_panchayat_id' => $gp->id, 'gram_panchayat_name' => $gp->name],
+                ['name' => 'Sita', 'gender' => 'F', 'gram_panchayat_id' => $gp->id, 'gram_panchayat_name' => $gp->name],
+            ],
             'notes' => 'District awareness workshop',
             'attendance_media' => [
                 UploadedFile::fake()->create('attendance.pdf', 100, 'application/pdf'),
@@ -46,8 +49,9 @@ class DistrictWorkshopSessionAttendanceTest extends TestCase
         $this->assertDatabaseHas('district_workshop_sessions', [
             'district_id' => $district->id,
             'submitted_by_user_id' => $staff->id,
-            'male_participants' => 12,
-            'female_participants' => 8,
+            'male_participants' => 1,
+            'female_participants' => 1,
+            'participants_total' => 2,
             'notes' => 'District awareness workshop',
         ]);
 
@@ -55,24 +59,22 @@ class DistrictWorkshopSessionAttendanceTest extends TestCase
         $this->assertNotNull($session);
         $this->assertCount(1, (array) $session->attendance_media_json);
         $this->assertCount(2, (array) $session->workshop_photos_json);
+        $this->assertCount(2, $session->participantRows());
+        $this->assertSame('Ram', $session->participantRows()[0]['name']);
     }
 
     public function test_district_staff_cannot_submit_with_too_many_workshop_photos(): void
     {
         Storage::fake('local');
 
-        $district = $this->createDistrict();
-        $staff = User::factory()->create([
-            'role' => 'district_staff',
-            'district_id' => $district->id,
-            'is_active' => true,
-        ]);
+        [$staff, $block] = $this->staffWithBlockAndGp();
 
         $response = $this->actingAs($staff)->post(route('staff.district-workshop-sessions.store'), [
             'session_date' => '2026-05-18',
             'workshop_mode' => 'physical',
             'male_participants' => 5,
             'female_participants' => 5,
+            'district_block_id' => $block->id,
             'attendance_media' => [
                 UploadedFile::fake()->create('attendance.pdf', 100, 'application/pdf'),
             ],
@@ -114,18 +116,14 @@ class DistrictWorkshopSessionAttendanceTest extends TestCase
     {
         Storage::fake('local');
 
-        $district = $this->createDistrict();
-        $staff = User::factory()->create([
-            'role' => 'district_staff',
-            'district_id' => $district->id,
-            'is_active' => true,
-        ]);
+        [$staff, $block] = $this->staffWithBlockAndGp();
 
         $response = $this->actingAs($staff)->post(route('staff.district-workshop-sessions.store'), [
             'session_date' => '2026-05-18',
             'workshop_mode' => 'physical',
             'male_participants' => 3,
             'female_participants' => 2,
+            'district_block_id' => $block->id,
             'workshop_photos' => [
                 UploadedFile::fake()->create('workshop-1.jpg', 100, 'image/jpeg'),
             ],
@@ -143,18 +141,14 @@ class DistrictWorkshopSessionAttendanceTest extends TestCase
     {
         Storage::fake('local');
 
-        $district = $this->createDistrict();
-        $staff = User::factory()->create([
-            'role' => 'district_staff',
-            'district_id' => $district->id,
-            'is_active' => true,
-        ]);
+        [$staff, $block] = $this->staffWithBlockAndGp();
 
         $this->actingAs($staff)->post(route('staff.district-workshop-sessions.store'), [
             'session_date' => '2026-05-18',
             'workshop_mode' => 'physical',
             'male_participants' => 2,
             'female_participants' => 3,
+            'district_block_id' => $block->id,
             'workshop_photos' => [
                 UploadedFile::fake()->create('workshop-1.jpg', 100, 'image/jpeg'),
             ],
@@ -183,5 +177,30 @@ class DistrictWorkshopSessionAttendanceTest extends TestCase
             'slug' => $slug,
             'is_active' => true,
         ]);
+    }
+
+    /**
+     * @return array{0: User, 1: DistrictBlock, 2: GramPanchayat, 3: District}
+     */
+    private function staffWithBlockAndGp(string $slug = 'dehradun', string $name = 'Dehradun'): array
+    {
+        $district = $this->createDistrict($slug, $name);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $block = DistrictBlock::query()->create([
+            'district_id' => $district->id,
+            'name' => 'Block A',
+            'sort_order' => 0,
+        ]);
+        $gp = GramPanchayat::query()->create([
+            'district_id' => $district->id,
+            'district_block_id' => $block->id,
+            'name' => 'GP One',
+        ]);
+
+        return [$staff, $block, $gp, $district];
     }
 }
