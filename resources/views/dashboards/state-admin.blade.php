@@ -3,510 +3,657 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>State Admin - {{ config('app.name') }}</title>
+    <title>State Command — {{ config('app.name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
     @include('partials.admin-shell-styles')
     <style>
+        .admin-app-body--dashboard .admin-main {
+            padding: 0.65rem clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
+        }
         :root {
-            --text: #0f172a;
-            --text-muted: #5f6f86;
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --radius: 24px;
-            --shadow: 0 24px 60px rgba(13, 110, 79, 0.1);
-            --border: rgba(255, 255, 255, 0.72);
-            /* MUY / Uttarakhand scheme accents (forest + Himalayan sky + warm saffron) */
-            --muy-green: #0d6e4f;
-            --muy-green-deep: #065f46;
-            --muy-teal: #0f766e;
-            --muy-sky: #0369a1;
-            --muy-saffron: #c2410c;
-            --muy-gold: #b45309;
-            --muy-accent: var(--muy-green);
-            --muy-accent-soft: rgba(13, 110, 79, 0.12);
-            --muy-accent-border: rgba(13, 110, 79, 0.22);
+            --sad-text: #0f172a;
+            --sad-muted: #5b6b82;
+            --sad-border: #e2e8f0;
+            --sad-surface: #ffffff;
+            --sad-green: #0d6e4f;
+            --sad-green-deep: #065f46;
+            --sad-teal: #0f766e;
+            --sad-sky: #0369a1;
+            --sad-saffron: #c2410c;
+            --sad-gold: #b45309;
+            --sad-radius: 14px;
+            --sad-shadow: 0 4px 24px rgba(13, 110, 79, 0.08);
         }
-        .dashboard-shell {
-            position: relative;
+        .sad {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            color: var(--sad-text);
             max-width: 100%;
-            overflow-x: clip;
-            box-sizing: border-box;
         }
-        .dashboard-shell::before {
+        .sad-masthead {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 0.75rem 1.25rem;
+            padding: 1rem 1.15rem;
+            border-radius: 18px;
+            background: linear-gradient(125deg, #065f46 0%, #0d6e4f 42%, #0f766e 72%, #0369a1 100%);
+            color: #fff;
+            box-shadow: var(--sad-shadow);
+            margin-bottom: 0.65rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .sad-masthead::after {
             content: '';
             position: absolute;
-            inset: 0 0 auto;
-            height: 16rem;
-            background:
-                radial-gradient(circle at 10% 10%, rgba(251, 191, 36, 0.2), transparent 22%),
-                radial-gradient(circle at 88% 8%, rgba(3, 105, 161, 0.14), transparent 20%),
-                radial-gradient(circle at 55% 40%, rgba(13, 110, 79, 0.14), transparent 24%);
+            inset: 0;
+            background: radial-gradient(circle at 92% 8%, rgba(251, 191, 36, 0.35), transparent 40%);
             pointer-events: none;
-            z-index: 0;
         }
-        .dashboard-shell > * { position: relative; z-index: 1; }
-        .glass-surface {
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.46) 0%, rgba(255, 255, 255, 0.28) 100%);
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-        }
-        .dashboard-intro {
-            position: relative;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: stretch;
-            justify-content: space-between;
-            gap: 1rem;
-            margin-bottom: 1.1rem;
-            padding: 1.15rem 1.25rem;
-            border-radius: 32px;
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.58)),
-                linear-gradient(120deg, rgba(13, 110, 79, 0.07), rgba(3, 105, 161, 0.05));
-            border: 1px solid rgba(255, 255, 255, 0.7);
-            box-shadow: var(--shadow);
-            overflow: hidden;
-        }
-        .dashboard-intro h2 {
-            font-family: 'DM Sans', sans-serif;
-            font-size: clamp(1.4rem, 3vw, 2rem);
-            font-weight: 800;
-            margin: 0;
-            letter-spacing: -0.04em;
-            color: var(--text);
-            line-height: 1.05;
-        }
-        .dashboard-intro p { margin: 0.45rem 0 0; color: var(--text-muted); font-size: 0.88rem; max-width: 44rem; line-height: 1.45; }
-        .dashboard-intro__eyebrow {
+        .sad-masthead > * { position: relative; z-index: 1; }
+        .sad-masthead__eyebrow {
             display: inline-flex;
             align-items: center;
-            gap: 0.45rem;
-            padding: 0.45rem 0.8rem;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.85);
-            border: 1px solid var(--muy-accent-border);
-            color: var(--muy-green-deep);
-            font-size: 0.76rem;
+            gap: 0.4rem;
+            font-size: 0.68rem;
             font-weight: 700;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin-bottom: 0.5rem;
-        }
-        /* Hero 2-column split */
-        .dashboard-intro__grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1.5rem; align-items: center; width: 100%; }
-        @media (max-width: 1440px) {
-            .dashboard-intro { padding: 1.2rem 1.35rem; margin-bottom: 1.25rem; }
-            .dashboard-intro__grid { gap: 1.65rem; }
-        }
-        @media (max-width: 1366px) {
-            .dashboard-intro { padding: 1.15rem 1.2rem; }
-            .dashboard-intro__grid { grid-template-columns: minmax(0, 1fr) 300px; gap: 1.35rem; }
-        }
-        @media (max-width: 960px) { .dashboard-intro__grid { grid-template-columns: 1fr; } }
-        .dashboard-intro__left { min-width: 0; }
-        .dashboard-intro__right { display: flex; flex-direction: column; gap: 0.8rem; min-width: 0; }
-
-        /* Hero progress ring card */
-        .hero-ring-card { position: relative; padding: 1rem 1.1rem; border-radius: 20px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(236, 253, 245, 0.55)); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 12px 30px rgba(13, 110, 79, 0.08); display: grid; grid-template-columns: auto 1fr; gap: 0.9rem; align-items: center; }
-        .hero-ring-svg { width: 98px; height: 98px; flex-shrink: 0; }
-        .hero-ring-svg .track { fill: none; stroke: rgba(148, 163, 184, 0.2); stroke-width: 9; }
-        .hero-ring-svg .bar { fill: none; stroke: url(#heroRingGrad); stroke-width: 9; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1); }
-        .hero-ring-svg .pct { font-family: 'DM Sans', sans-serif; font-weight: 800; fill: #0f172a; font-size: 20px; }
-        .hero-ring-svg .pct-sub { font-size: 7px; font-weight: 700; fill: #64748b; letter-spacing: 1px; }
-        .hero-ring-body__eyebrow { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muy-green); margin-bottom: 0.2rem; }
-        .hero-ring-body__value { font-family: 'DM Sans', sans-serif; font-size: 1.1rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
-        .hero-ring-body__value small { color: #94a3b8; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.02em; }
-        .hero-ring-body__label { display: block; font-size: 0.68rem; color: #64748b; margin-top: 0.2rem; font-weight: 600; }
-        .hero-ring-body__gap { display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: var(--muy-accent-soft); color: var(--muy-green-deep); font-size: 0.6rem; font-weight: 700; }
-        .hero-ring-body__gap.is-good { background: rgba(34, 197, 94, 0.12); color: #15803d; }
-
-        /* Hero "today" pills */
-        .hero-today-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; }
-        .hero-today { padding: 0.62rem 0.72rem; border-radius: 12px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(226, 232, 240, 0.92); display: flex; flex-direction: column; gap: 0.22rem; transition: transform 200ms ease, box-shadow 200ms ease; position: relative; min-width: 0; }
-        .hero-today:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08); }
-        .hero-today__head { display: flex; align-items: center; gap: 0.35rem; font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; }
-        .hero-today__head i { font-size: 0.7rem; }
-        .hero-today__value { font-family: 'DM Sans', sans-serif; font-size: 1.25rem; font-weight: 800; color: #0f172a; line-height: 1; letter-spacing: -0.02em; }
-        .hero-today__delta {
-            font-size: 0.58rem;
-            font-weight: 700;
-            color: #64748b;
-            display: inline-flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.2rem;
-            line-height: 1.35;
-            max-width: 100%;
-        }
-        .hero-today__delta-label { font-weight: 600; color: #64748b; }
-        .hero-today__delta.is-up { color: #15803d; background: rgba(34, 197, 94, 0.1); border-radius: 8px; padding: 0.18rem 0.4rem; }
-        .hero-today__delta.is-lower {
-            color: #92400e;
-            background: rgba(251, 191, 36, 0.14);
-            border: 1px solid rgba(251, 191, 36, 0.35);
-            border-radius: 8px;
-            padding: 0.18rem 0.4rem;
-        }
-        .hero-today__delta.is-lower i { font-size: 0.5rem; opacity: 0.85; }
-        .hero-today__delta.is-down { color: #b45309; background: rgba(251, 191, 36, 0.12); border-radius: 8px; padding: 0.18rem 0.4rem; }
-        .hero-today--cfa .hero-today__head { color: var(--muy-green); }
-        .hero-today--mentor .hero-today__head { color: #be185d; }
-        .hero-today--online .hero-today__head { color: #15803d; }
-        .hero-today--online::after { content: ''; position: absolute; top: 0.55rem; right: 0.55rem; width: 7px; height: 7px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); animation: heroDot 1.8s ease-in-out infinite; }
-        @keyframes heroDot { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); } 50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); } }
-
-        /* Hero sparkline */
-        .hero-spark { padding: 0.65rem 0.85rem; border-radius: 14px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(236, 253, 245, 0.55)); border: 1px solid rgba(226, 232, 240, 0.92); display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
-        .hero-spark__left { min-width: 0; flex-shrink: 0; }
-        .hero-spark__eyebrow { font-size: 0.52rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muy-sky); line-height: 1; }
-        .hero-spark__value { font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem; line-height: 1; }
-        .hero-spark__value small { color: #64748b; font-weight: 600; font-size: 0.62rem; margin-left: 0.2rem; }
-        .hero-spark__chart { flex: 1; min-width: 0; height: 36px; position: relative; }
-        .hero-spark__chart svg { width: 100%; height: 100%; overflow: visible; }
-        .hero-spark__chart .spark-fill { fill: url(#heroSparkGrad); opacity: 0.55; }
-        .hero-spark__chart .spark-line { fill: none; stroke: var(--muy-teal); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-        .hero-spark__chart .spark-dot { fill: var(--muy-teal); stroke: #fff; stroke-width: 1.5; }
-
-        .welcome-meta-pills { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.75rem; }
-        .welcome-meta-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            padding: 0.45rem 0.7rem;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(148, 163, 184, 0.22);
-            color: #334155;
-            font-size: 0.78rem;
-            font-weight: 600;
-            box-shadow: 0 10px 24px rgba(148, 163, 184, 0.12);
-        }
-        .insight-grid {
-            margin-top: 0.85rem;
-            display: grid;
-            grid-template-columns: 1.2fr 1fr 1fr;
-            gap: 0.95rem;
-        }
-        @media (max-width: 1366px) {
-            .insight-grid {
-                grid-template-columns: 1fr 1fr;
-                gap: 1rem;
-            }
-            .insight-grid .insight-card:last-child {
-                grid-column: 1 / -1;
-            }
-        }
-        @media (max-width: 1100px) { .insight-grid { grid-template-columns: 1fr; } .insight-grid .insight-card:last-child { grid-column: auto; } }
-        .insight-card {
-            background: rgba(255, 255, 255, 0.86);
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            border-radius: 14px;
-            padding: 0.88rem 1rem;
-        }
-        .insight-card__title {
-            font-size: 0.62rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--muy-green);
-            margin-bottom: 0.5rem;
-        }
-        .insight-progress__top {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 0.6rem;
+            opacity: 0.9;
             margin-bottom: 0.35rem;
         }
-        .insight-progress__value { font-size: 1rem; font-weight: 800; color: #0f172a; }
-        .insight-progress__meta { font-size: 0.7rem; color: #64748b; font-weight: 700; }
-        .insight-progress__bar {
-            height: 8px;
-            background: rgba(226, 232, 240, 0.95);
-            border-radius: 999px;
-            overflow: hidden;
-            border: 1px solid rgba(203, 213, 225, 0.9);
-        }
-        .insight-progress__fill {
-            height: 100%;
-            border-radius: inherit;
-            background: linear-gradient(90deg, var(--muy-green), var(--muy-teal));
-        }
-        .insight-progress__foot {
-            margin-top: 0.4rem;
-            font-size: 0.69rem;
-            color: #475569;
-            line-height: 1.45;
-        }
-        .insight-kpi-list { display: grid; grid-template-columns: 1fr; gap: 0.42rem; }
-        .insight-kpi {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.75rem;
-            padding: 0.38rem 0.45rem;
-            background: rgba(248, 250, 252, 0.9);
-            border: 1px solid rgba(226, 232, 240, 0.95);
-            border-radius: 10px;
-        }
-        .insight-kpi strong { color: #0f172a; font-weight: 800; }
-        .insight-kpi__chip { font-weight: 800; font-size: 0.68rem; }
-        .insight-kpi__chip.up { color: #15803d; }
-        .insight-kpi__chip.down { color: #b91c1c; }
-        .insight-kpi__chip.flat { color: #475569; }
-        .insight-split-list {
-            margin-top: 0.5rem;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 0.28rem;
-            max-height: 122px;
-            overflow-y: auto;
-            padding-right: 0.2rem;
-        }
-        .insight-split-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 0.55rem;
-            align-items: center;
-            font-size: 0.7rem;
-            padding: 0.25rem 0.35rem;
-            border-radius: 8px;
-            background: rgba(248, 250, 252, 0.92);
-            border: 1px solid rgba(226, 232, 240, 0.85);
-        }
-        .insight-split-row strong { font-size: 0.72rem; color: #0f172a; }
-        .insight-split-title {
-            margin-top: 0.5rem;
-            font-size: 0.62rem;
+        .sad-masthead h1 {
+            margin: 0;
+            font-size: clamp(1.25rem, 2.5vw, 1.75rem);
             font-weight: 800;
-            letter-spacing: 0.07em;
-            text-transform: uppercase;
-            color: #64748b;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
         }
-        .hero-three-col {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.05rem;
-            margin-bottom: 1.65rem;
-            align-items: stretch;
-            width: 100%;
-            max-width: 100%;
-            min-width: 0;
+        .sad-masthead__sub {
+            margin: 0.35rem 0 0;
+            font-size: 0.82rem;
+            opacity: 0.88;
+            max-width: 36rem;
+            line-height: 1.4;
         }
-        @media (max-width: 1366px) {
-            .hero-three-col { gap: 1.15rem; }
-            .hero-col { padding: 1.05rem 1.1rem; }
-        }
-        @media (max-width: 1100px) { .hero-three-col { grid-template-columns: 1fr; } }
-        .hero-col {
-            border-radius: 16px;
-            padding: 1rem 1.1rem;
+        .sad-masthead__meta {
             display: flex;
-            flex-direction: column;
-            min-width: 0;
-            min-height: 200px;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            justify-content: flex-end;
         }
-        .hero-col__title {
-            font-size: 0.6rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--muy-saffron);
-            margin-bottom: 0.75rem;
-            display: flex;
+        .sad-badge {
+            display: inline-flex;
             align-items: center;
             gap: 0.35rem;
-        }
-        .hero-col__content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-        /* State pulse (same structure as district pulse) */
-        .welcome-district-embed { margin-top: 0.85rem; padding: 0.85rem 0.75rem; border-radius: 14px; background: linear-gradient(145deg, rgba(236, 253, 245, 0.4), rgba(224, 242, 254, 0.2)); }
-        .welcome-district-embed__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.35rem; margin-bottom: 0.55rem; }
-        .welcome-district-embed__eyebrow { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muy-green); }
-        .welcome-district-embed__where { font-size: 0.62rem; color: #64748b; font-weight: 600; }
-        .welcome-district-embed__grid { display: grid; grid-template-columns: auto 1fr; gap: 0.65rem; align-items: stretch; min-height: 0; }
-        @media (max-width: 520px) { .welcome-district-embed__grid { grid-template-columns: 1fr; } }
-        .welcome-district-embed__ring { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; }
-        .welcome-district-embed__ring-meta { text-align: center; margin-top: 0.15rem; }
-        .welcome-district-embed__pct { font-family: 'DM Sans', sans-serif; font-size: 1.1rem; font-weight: 800; color: #0f172a; display: block; line-height: 1.1; }
-        .welcome-district-embed__pct-label { font-size: 0.58rem; color: #64748b; display: block; margin-top: 0.1rem; }
-        .welcome-district-embed__chart { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-        .welcome-district-embed__chart-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #475569; margin-bottom: 0.35rem; }
-        .welcome-district-embed__chart-hint { font-size: 0.55rem; font-weight: 600; color: #94a3b8; text-transform: none; letter-spacing: 0; }
-        .welcome-district-chart-wrap { position: relative; flex: 1; min-height: 118px; max-height: 140px; }
-        .welcome-district-chart-wrap canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
-        .welcome-district-embed__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; margin-top: 0.55rem; padding-top: 0.55rem; border-top: 1px dashed rgba(148, 163, 184, 0.45); }
-        @media (max-width: 520px) { .welcome-district-embed__stats { grid-template-columns: repeat(2, 1fr); } }
-        .welcome-d-stat { background: rgba(255, 255, 255, 0.75); border: 1px solid rgba(226, 232, 240, 0.9); border-radius: 10px; padding: 0.35rem 0.45rem; text-align: center; }
-        .welcome-d-stat__l { display: block; font-size: 0.52rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
-        .welcome-d-stat__v { display: block; font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 800; color: #0f172a; margin-top: 0.15rem; }
-        .welcome-district-embed__mix { margin-top: 0.5rem; }
-        .welcome-district-embed__mix-title { font-size: 0.52rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; display: block; margin-bottom: 0.35rem; }
-        .welcome-d-stage-row { display: grid; grid-template-columns: 1.1rem 1fr 2rem; align-items: center; gap: 0.35rem; font-size: 0.62rem; margin-bottom: 0.28rem; }
-        .welcome-d-stage-row:last-child { margin-bottom: 0; }
-        .welcome-d-stage-row__l { font-weight: 800; color: #94a3b8; text-align: center; }
-        .welcome-d-stage-row__t { height: 8px; border-radius: 999px; background: rgba(241, 245, 249, 0.95); overflow: hidden; border: 1px solid rgba(226, 232, 240, 0.85); }
-        .welcome-d-stage-row__f { height: 100%; border-radius: inherit; min-width: 0; }
-        .welcome-d-stage-row__f--seed { background: linear-gradient(90deg, #facc15, #ea580c); }
-        .welcome-d-stage-row__f--early { background: linear-gradient(90deg, #38bdf8, var(--muy-teal)); }
-        .welcome-d-stage-row__f--growth { background: linear-gradient(90deg, #34d399, #14b8a6); }
-        .welcome-d-stage-row__p { font-weight: 800; color: #0f172a; text-align: right; font-variant-numeric: tabular-nums; font-size: 0.62rem; }
-        .welcome-district-embed__note { margin: 0.45rem 0 0; font-size: 0.55rem; line-height: 1.35; color: #94a3b8; }
-        .district-ring { width: 92px; height: 92px; transform: rotate(-90deg); }
-        .district-ring__bg { fill: none; stroke: rgba(148, 163, 184, 0.25); stroke-width: 10; }
-        .district-ring__progress { fill: none; stroke: url(#stateRingGradWelcome); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 339.292; transition: stroke-dashoffset 0.6s ease; }
-        .apps-highlight { margin-bottom: 0.75rem; }
-        .apps-highlight__main { margin-bottom: 0.5rem; }
-        .apps-highlight__number { font-family: 'DM Sans', sans-serif; font-size: 2rem; font-weight: 800; color: #0f172a; line-height: 1; }
-        .apps-highlight__label { font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
-        /* Business mix leaderboard */
-        .business-mix-compact { margin-top: 0.75rem; padding: 1rem; background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(248, 250, 252, 0.45)); border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 16px; }
-        .business-mix-compact__header { margin-bottom: 0.75rem; }
-        .business-mix-compact__title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #334155; }
-        .business-mix-compact__meta { font-size: 0.62rem; color: #64748b; margin-top: 0.1rem; }
-        .biz-cat-lb { display: flex; flex-direction: column; gap: 0.5rem; }
-        .biz-cat-lb__row {
-            display: grid; grid-template-columns: 1.6rem minmax(0, 1fr); gap: 0.45rem; padding: 0.4rem 0.45rem;
-            border-radius: 12px; background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(226, 232, 240, 0.95);
-        }
-        .biz-cat-lb__rank { font-size: 0.58rem; font-weight: 800; color: #94a3b8; padding-top: 0.55rem; text-align: center; }
-        .biz-cat-lb__main { min-width: 0; display: flex; flex-direction: column; gap: 0.32rem; }
-        .biz-cat-lb__label-row { display: flex; justify-content: space-between; gap: 0.5rem; min-width: 0; align-items: center; }
-        .biz-cat-lb__name-wrap { display: inline-flex; align-items: center; gap: 0.45rem; min-width: 0; }
-        .biz-cat-lb__icon {
-            width: 1.5rem; height: 1.5rem; flex-shrink: 0;
-            display: inline-grid; place-items: center;
-            border-radius: 8px;
-            color: var(--biz-color, #6366f1);
-            background: color-mix(in srgb, var(--biz-color, #6366f1) 14%, transparent);
-            border: 1px solid color-mix(in srgb, var(--biz-color, #6366f1) 30%, transparent);
+            padding: 0.38rem 0.65rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.28);
             font-size: 0.72rem;
+            font-weight: 600;
+            white-space: nowrap;
         }
-        .biz-cat-lb__name { font-size: 0.68rem; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .biz-cat-lb__nums { display: inline-flex; gap: 0.45rem; flex-shrink: 0; }
-        .biz-cat-lb__pct { font-size: 0.58rem; font-weight: 700; color: #64748b; }
-        .biz-cat-lb__count { font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 800; color: #0f172a; }
-        .biz-cat-lb__track { height: 7px; border-radius: 999px; background: rgba(241, 245, 249, 0.95); border: 1px solid rgba(226, 232, 240, 0.85); overflow: hidden; }
-        .biz-cat-lb__fill { height: 100%; width: 0; background: var(--biz-color); border-radius: inherit;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42); animation: stateBizFill 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards; animation-delay: var(--biz-delay, 0s); }
-        @keyframes stateBizFill { from { width: 0; opacity: 0.88; } to { width: var(--biz-pct); opacity: 1; } }
-        @media (prefers-reduced-motion: reduce) { .biz-cat-lb__fill { animation: none; width: var(--biz-pct); } }
-        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
-        @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
-        .charts-grid > * { min-width: 0; }
-
-        .chart-card {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.2));
-            border-radius: var(--radius);
-            border: 1px solid var(--glass-border);
-            box-shadow: var(--shadow);
-            padding: 1.2rem 1.3rem 1.4rem;
-            backdrop-filter: blur(30px);
-            min-width: 0;
-            max-width: 100%;
+        .sad-badge--live::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #4ade80;
+            box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.35);
+            animation: sadPulse 1.6s ease-in-out infinite;
         }
-        .chart-card h4 { margin: 0 0 0.15rem; font-size: 0.95rem; font-weight: 700; font-family: 'DM Sans', sans-serif; color: var(--text); }
-        .chart-card .hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; }
-        .chart-card .canvas-wrap { position: relative; height: 260px; max-width: 100%; overflow: hidden; }
-        .chart-card.tall .canvas-wrap { height: 300px; }
-        .staff-cfa-panel { display: flex; flex-direction: column; gap: 0.8rem; }
-        .staff-cfa-controls { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 0.55rem; }
-        @media (max-width: 520px) { .staff-cfa-controls { grid-template-columns: 1fr; } }
-        .staff-cfa-input,
-        .staff-cfa-select {
-            width: 100%;
-            border: 1px solid rgba(148, 163, 184, 0.4);
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 0.5rem 0.7rem;
-            font-size: 0.8rem;
-            color: #0f172a;
+        @keyframes sadPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5); }
+            50% { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
         }
-        .staff-cfa-list { max-height: 300px; overflow-y: auto; padding-right: 0.2rem; display: flex; flex-direction: column; gap: 0.45rem; }
-        .staff-cfa-row {
+        .sad-kpi-strip {
             display: grid;
-            grid-template-columns: 2rem minmax(0, 1fr) auto;
-            gap: 0.6rem;
-            align-items: center;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 0.5rem;
+            margin-bottom: 0.6rem;
+        }
+        @media (max-width: 1200px) {
+            .sad-kpi-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 640px) {
+            .sad-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        .sad-kpi {
+            background: var(--sad-surface);
+            border: 1px solid var(--sad-border);
+            border-radius: var(--sad-radius);
             padding: 0.55rem 0.65rem;
-            border-radius: 12px;
-            border: 1px solid rgba(226, 232, 240, 0.95);
-            background: rgba(255, 255, 255, 0.68);
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+            min-width: 0;
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .staff-cfa-rank { font-size: 0.68rem; color: #64748b; font-weight: 700; text-align: center; }
-        .staff-cfa-main { min-width: 0; }
-        .staff-cfa-main-wrap { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-        .staff-cfa-avatar {
-            width: 1.8rem;
-            height: 1.8rem;
-            border-radius: 999px;
-            object-fit: cover;
-            flex-shrink: 0;
-            border: 1px solid rgba(148, 163, 184, 0.38);
-            background: #e2e8f0;
+        .sad-kpi:hover {
+            border-color: rgba(13, 110, 79, 0.35);
+            box-shadow: 0 6px 18px rgba(13, 110, 79, 0.1);
         }
-        .staff-cfa-avatar-fallback {
-            width: 1.8rem;
-            height: 1.8rem;
-            border-radius: 999px;
+        .sad-kpi__icon {
+            width: 1.65rem;
+            height: 1.65rem;
+            border-radius: 8px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            flex-shrink: 0;
+            font-size: 0.75rem;
+            margin-bottom: 0.35rem;
+        }
+        .sad-kpi__icon--green { background: rgba(13, 110, 79, 0.12); color: var(--sad-green); }
+        .sad-kpi__icon--sky { background: rgba(3, 105, 161, 0.12); color: var(--sad-sky); }
+        .sad-kpi__icon--teal { background: rgba(15, 118, 110, 0.12); color: var(--sad-teal); }
+        .sad-kpi__icon--amber { background: rgba(194, 65, 12, 0.12); color: var(--sad-saffron); }
+        .sad-kpi__icon--rose { background: rgba(190, 24, 93, 0.1); color: #be185d; }
+        .sad-kpi__label {
+            font-size: 0.58rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--sad-muted);
+            line-height: 1.2;
+        }
+        .sad-kpi__value {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-top: 0.12rem;
+            line-height: 1.1;
+        }
+        .sad-kpi__foot {
+            font-size: 0.62rem;
+            color: var(--sad-muted);
+            margin-top: 0.2rem;
+            font-weight: 600;
+        }
+        .sad-kpi__foot.is-up { color: #15803d; }
+        .sad-kpi__foot.is-down { color: #b45309; }
+        .sad-kpi__foot.is-warn { color: #92400e; }
+        .sad-alerts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-bottom: 0.55rem;
+        }
+        .sad-alert {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.32rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            border: 1px solid transparent;
+        }
+        .sad-alert--warn {
+            background: #fffbeb;
+            border-color: #fcd34d;
+            color: #92400e;
+        }
+        .sad-alert--info {
+            background: #eff6ff;
+            border-color: #93c5fd;
+            color: #1d4ed8;
+        }
+        .sad-alert--ok {
+            background: #ecfdf5;
+            border-color: #6ee7b7;
+            color: #065f46;
+        }
+        .sad-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-bottom: 0.6rem;
+            padding: 0.35rem;
+            background: var(--sad-surface);
+            border: 1px solid var(--sad-border);
+            border-radius: 12px;
+            position: sticky;
+            top: 0.5rem;
+            z-index: 20;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+        .sad-nav__btn {
+            flex: 1;
+            min-width: 7rem;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--sad-muted);
+            padding: 0.5rem 0.65rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            transition: background 0.15s, color 0.15s;
+        }
+        .sad-nav__btn:hover { background: #f1f5f9; color: var(--sad-text); }
+        .sad-nav__btn.is-active {
+            background: linear-gradient(135deg, var(--sad-green), var(--sad-teal));
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(13, 110, 79, 0.25);
+        }
+        .sad-panel { display: none; animation: sadFade 0.25s ease; }
+        .sad-panel.is-active { display: block; }
+        @keyframes sadFade {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .sad-grid {
+            display: grid;
+            gap: 0.55rem;
+        }
+        .sad-grid--2 { grid-template-columns: 1fr 1fr; }
+        .sad-grid--3 { grid-template-columns: 1.1fr 1fr 1fr; }
+        @media (max-width: 1100px) {
+            .sad-grid--2, .sad-grid--3 { grid-template-columns: 1fr; }
+        }
+        .sad-card {
+            background: var(--sad-surface);
+            border: 1px solid var(--sad-border);
+            border-radius: var(--sad-radius);
+            padding: 0.75rem 0.85rem;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+            min-width: 0;
+        }
+        .sad-card__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.55rem;
+        }
+        .sad-card__title {
+            font-size: 0.82rem;
+            font-weight: 800;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .sad-card__title i { color: var(--sad-green); font-size: 0.85rem; }
+        .sad-card__hint {
+            font-size: 0.68rem;
+            color: var(--sad-muted);
+            margin: -0.35rem 0 0.5rem;
+            line-height: 1.35;
+        }
+        .sad-card__tag {
+            font-size: 0.62rem;
+            font-weight: 700;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            background: rgba(13, 110, 79, 0.1);
+            color: var(--sad-green-deep);
+        }
+        .sad-progress-block { margin-bottom: 0.65rem; }
+        .sad-progress-block:last-child { margin-bottom: 0; }
+        .sad-progress-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+        .sad-progress-top strong { font-size: 0.95rem; font-weight: 800; }
+        .sad-progress-track {
+            height: 8px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .sad-progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--sad-green), var(--sad-teal));
+            transition: width 0.6s ease;
+        }
+        .sad-progress-fill--sky {
+            background: linear-gradient(90deg, #0369a1, #0ea5e9);
+        }
+        .sad-progress-foot {
+            font-size: 0.68rem;
+            color: var(--sad-muted);
+            margin-top: 0.28rem;
+            line-height: 1.35;
+        }
+        .sad-signals {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+        }
+        .sad-signal {
+            padding: 0.45rem 0.5rem;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        .sad-signal span {
+            display: block;
+            font-size: 0.62rem;
+            color: var(--sad-muted);
+            font-weight: 600;
+        }
+        .sad-signal strong {
+            font-size: 0.88rem;
+            margin-top: 0.15rem;
+            display: block;
+        }
+        .sad-chip {
+            display: inline-block;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 0.15rem 0.4rem;
+            border-radius: 6px;
+        }
+        .sad-chip.up { background: rgba(34, 197, 94, 0.12); color: #15803d; }
+        .sad-chip.down { background: rgba(251, 191, 36, 0.15); color: #b45309; }
+        .sad-chip.flat { background: #f1f5f9; color: #64748b; }
+        .sad-ring-wrap {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.75rem;
+            align-items: center;
+        }
+        .sad-ring-svg { width: 88px; height: 88px; }
+        .sad-ring-svg .track { fill: none; stroke: #e2e8f0; stroke-width: 8; }
+        .sad-ring-svg .bar {
+            fill: none;
+            stroke: url(#sadRingGrad);
+            stroke-width: 8;
+            stroke-linecap: round;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        .sad-ring-svg .pct {
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 800;
+            fill: var(--sad-text);
+            font-size: 18px;
+        }
+        .sad-ring-meta__big {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+        .sad-ring-meta__lbl {
+            font-size: 0.68rem;
+            color: var(--sad-muted);
+            margin-top: 0.2rem;
+            font-weight: 600;
+        }
+        .sad-chart-box { height: 168px; position: relative; }
+        .sad-chart-box--tall { height: min(420px, 55vh); }
+        .sad-stage-row {
+            display: grid;
+            grid-template-columns: 1.4rem 1fr 2.2rem;
+            gap: 0.35rem;
+            align-items: center;
+            font-size: 0.68rem;
+            font-weight: 700;
+            margin-bottom: 0.28rem;
+        }
+        .sad-stage-track {
+            height: 6px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .sad-stage-fill--seed { background: #ca8a04; height: 100%; border-radius: 999px; }
+        .sad-stage-fill--early { background: #0d9488; height: 100%; border-radius: 999px; }
+        .sad-stage-fill--growth { background: #0d6e4f; height: 100%; border-radius: 999px; }
+        .sad-biz-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 0.45rem;
+            align-items: center;
+            margin-bottom: 0.35rem;
+            font-size: 0.72rem;
+        }
+        .sad-biz-row__rank {
+            width: 1.35rem;
+            height: 1.35rem;
+            border-radius: 6px;
+            background: #f1f5f9;
+            font-size: 0.62rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--sad-muted);
+        }
+        .sad-biz-row__track {
+            height: 5px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .sad-biz-row__fill { height: 100%; border-radius: 999px; }
+        .sad-biz-row__nums { font-weight: 700; white-space: nowrap; }
+        .sad-district-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+            gap: 0.45rem;
+            margin-bottom: 0.55rem;
+        }
+        .sad-district-card {
+            padding: 0.5rem 0.55rem;
+            border-radius: 10px;
+            border: 1px solid var(--sad-border);
+            background: #f8fafc;
+        }
+        .sad-district-card.is-top {
+            border-color: rgba(13, 110, 79, 0.35);
+            background: linear-gradient(145deg, #ecfdf5, #fff);
+        }
+        .sad-district-card__name {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--sad-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sad-district-card__val {
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin-top: 0.15rem;
+        }
+        .sad-split-table {
+            max-height: 14rem;
+            overflow-y: auto;
+            border: 1px solid var(--sad-border);
+            border-radius: 10px;
+        }
+        .sad-split-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.38rem 0.55rem;
+            font-size: 0.72rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .sad-split-row:last-child { border-bottom: none; }
+        .sad-split-row.is-zero { opacity: 0.5; }
+        .sad-staff-controls {
+            display: flex;
+            gap: 0.4rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .sad-staff-controls input,
+        .sad-staff-controls select {
+            flex: 1;
+            min-width: 8rem;
+            padding: 0.42rem 0.55rem;
+            border: 1px solid var(--sad-border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.78rem;
+        }
+        .sad-staff-list { max-height: min(480px, 52vh); overflow-y: auto; }
+        .sad-staff-row {
+            display: grid;
+            grid-template-columns: 2rem 1fr auto;
+            gap: 0.45rem;
+            align-items: center;
+            padding: 0.42rem 0.35rem;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.78rem;
+        }
+        .sad-staff-row:last-child { border-bottom: none; }
+        .sad-staff-rank {
             font-size: 0.68rem;
             font-weight: 800;
-            letter-spacing: 0.02em;
+            color: var(--sad-muted);
+        }
+        .sad-staff-rank.is-medal { color: var(--sad-gold); }
+        .sad-staff-main { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+        .sad-staff-avatar, .sad-staff-fallback {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            flex-shrink: 0;
+            object-fit: cover;
+        }
+        .sad-staff-fallback {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--sad-green), var(--sad-teal));
             color: #fff;
-            background: linear-gradient(135deg, var(--muy-green), var(--muy-teal));
-            border: 1px solid var(--muy-accent-border);
-        }
-        .staff-cfa-main-text { min-width: 0; }
-        .staff-cfa-name { font-size: 0.78rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .staff-cfa-district { font-size: 0.65rem; color: #64748b; margin-top: 0.1rem; }
-        .staff-cfa-value {
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.9rem;
+            font-size: 0.7rem;
             font-weight: 800;
-            color: var(--muy-green-deep);
-            background: var(--muy-accent-soft);
-            border: 1px solid var(--muy-accent-border);
-            border-radius: 999px;
-            padding: 0.2rem 0.5rem;
-            min-width: 3rem;
+        }
+        .sad-staff-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sad-staff-district { font-size: 0.65rem; color: var(--sad-muted); }
+        .sad-staff-val { font-weight: 800; font-size: 0.9rem; }
+        .sad-savings-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.45rem;
+            margin-bottom: 0.55rem;
+        }
+        @media (max-width: 720px) {
+            .sad-savings-grid { grid-template-columns: 1fr; }
+        }
+        .sad-savings-tile {
+            padding: 0.55rem 0.65rem;
+            border-radius: 10px;
+            border: 1px solid;
+        }
+        .sad-savings-tile--green { border-color: rgba(34, 197, 94, 0.35); background: #ecfdf5; }
+        .sad-savings-tile--blue { border-color: rgba(59, 130, 246, 0.35); background: #eff6ff; }
+        .sad-savings-tile--violet { border-color: rgba(13, 110, 79, 0.25); background: #f0fdf4; }
+        .sad-savings-tile__lbl {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .sad-savings-tile__val {
+            font-size: 1.15rem;
+            font-weight: 800;
+            margin-top: 0.2rem;
+        }
+        .sad-table-wrap {
+            border: 1px solid var(--sad-border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .sad-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.76rem;
+        }
+        .sad-table th {
+            text-align: left;
+            padding: 0.45rem 0.55rem;
+            background: #f8fafc;
+            font-weight: 700;
+            color: var(--sad-muted);
+        }
+        .sad-table th:not(:first-child),
+        .sad-table td:not(:first-child) { text-align: right; }
+        .sad-table td {
+            padding: 0.42rem 0.55rem;
+            border-top: 1px solid #f1f5f9;
+        }
+        .sad-dock {
+            margin-top: 0.65rem;
+            padding: 0.55rem 0.65rem;
+            background: var(--sad-surface);
+            border: 1px solid var(--sad-border);
+            border-radius: var(--sad-radius);
+        }
+        .sad-dock__title {
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--sad-muted);
+            margin: 0 0 0.45rem;
+        }
+        .sad-dock__links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+        .sad-dock__link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.38rem 0.55rem;
+            border-radius: 8px;
+            border: 1px solid var(--sad-border);
+            background: #f8fafc;
+            color: var(--sad-text);
+            text-decoration: none;
+            font-size: 0.72rem;
+            font-weight: 600;
+            transition: background 0.12s, border-color 0.12s, transform 0.12s;
+        }
+        .sad-dock__link:hover {
+            background: #ecfdf5;
+            border-color: rgba(13, 110, 79, 0.35);
+            transform: translateY(-1px);
+        }
+        .sad-dock__link i { color: var(--sad-green); font-size: 0.8rem; }
+        .sad-spark {
+            height: 28px;
+            margin-top: 0.25rem;
+        }
+        .sad-spark svg { width: 100%; height: 100%; }
+        .sad-spark .line { fill: none; stroke: var(--sad-teal); stroke-width: 1.5; }
+        .sad-spark .fill { fill: url(#sadSparkGrad); opacity: 0.4; }
+        .sad-empty {
             text-align: center;
-            font-variant-numeric: tabular-nums;
+            padding: 1.25rem;
+            color: #94a3b8;
+            font-size: 0.8rem;
         }
-        .target-strip {
-            margin-top: 1rem;
-            padding: 1rem 1.25rem;
-            border-radius: 16px;
-            background: linear-gradient(120deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%);
-            color: #e0e7ff;
-            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;
+        details.sad-details summary {
+            cursor: pointer;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--sad-sky);
+            list-style: none;
         }
-        .target-strip h3 { margin: 0; font-size: 0.85rem; font-weight: 600; opacity: 0.9; }
-        .target-strip .big { font-family: 'DM Sans', sans-serif; font-size: 1.75rem; font-weight: 700; margin: 0.25rem 0 0; }
-        .target-strip .meta { font-size: 0.8rem; opacity: 0.8; max-width: 22rem; }
-        .target-strip .meta a { color: #a5b4fc; }
-        .target-strip .bar { height: 8px; background: rgba(255,255,255,0.15); border-radius: 999px; overflow: hidden; margin-top: 0.5rem; }
-        .target-strip .fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #34d399, #6ee7b7); }
-        .state-bento { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
-        .state-bento a {
-            display: block; padding: 1rem 1.1rem; border-radius: 14px; text-decoration: none; color: inherit;
-            border: 1px solid rgba(255, 255, 255, 0.65);
-            background: rgba(255, 255, 255, 0.55);
-            transition: transform 0.15s, box-shadow 0.15s;
-        }
-        .state-bento a:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(79, 70, 229, 0.12); }
-        .state-bento .qi { font-size: 1.35rem; margin-bottom: 0.35rem; }
-        .state-bento strong { display: block; font-size: 0.88rem; font-weight: 700; color: #0f172a; }
-        .state-bento span { font-size: 0.76rem; color: #64748b; margin-top: 0.2rem; display: block; line-height: 1.35; }
-        .banner { margin-bottom: 1rem; }
-        .no-data-message { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.85rem; }
+        details.sad-details summary::-webkit-details-marker { display: none; }
     </style>
 </head>
 <body class="admin-app-body admin-app-body--dashboard">
@@ -516,657 +663,586 @@
             <div class="banner">{{ session('status') }}</div>
         @endif
 
-        <div class="dashboard-shell">
-                @php
-                    $sStageTotals = ['SEED' => 0, 'EARLY' => 0, 'GROWTH' => 0];
-                    foreach ($stateBusinessStageMix['labels'] ?? [] as $dIdx => $dLabel) {
-                        $u = strtoupper(trim((string) $dLabel));
-                        if (isset($sStageTotals[$u])) {
-                            $sStageTotals[$u] = (int) ($stateBusinessStageMix['values'][$dIdx] ?? 0);
-                        }
-                    }
-                    $sStageSum = array_sum($sStageTotals);
-                    $sStagePct = [
-                        'SEED' => $sStageSum > 0 ? (int) round(($sStageTotals['SEED'] / $sStageSum) * 100) : 0,
-                        'EARLY' => $sStageSum > 0 ? (int) round(($sStageTotals['EARLY'] / $sStageSum) * 100) : 0,
-                        'GROWTH' => $sStageSum > 0 ? (int) round(($sStageTotals['GROWTH'] / $sStageSum) * 100) : 0,
-                    ];
-                    $ringCirc = 339.292;
-                    $ringPct = $stateProgressPct !== null ? (int) min(100, max(0, $stateProgressPct)) : null;
-                    $ringOffset = $ringPct !== null ? $ringCirc * (1 - $ringPct / 100) : $ringCirc;
-                @endphp
+        @php
+            $phaseLabel = $phase3FloorDateLabel ?? '01 Apr 2026';
+            $cfaTotalN = (int) ($cfaTotal ?? 0);
+            $cfaTargetN = $stateCfaTarget !== null ? (int) $stateCfaTarget : null;
+            $achPct = ($cfaTargetN !== null && $cfaTargetN > 0)
+                ? (int) round(($cfaTotalN / $cfaTargetN) * 100)
+                : null;
+            $ringPct = $stateProgressPct !== null ? (int) min(100, max(0, $stateProgressPct)) : 0;
+            $ringCirc = 2 * M_PI * 38;
+            $ringOffset = $ringCirc * (1 - $ringPct / 100);
 
-                @php
-                    $heroRingPct = $stateProgressPct !== null ? (int) min(100, max(0, $stateProgressPct)) : 0;
-                    $heroRingCirc = 2 * M_PI * 40;
-                    $heroRingOffset = $heroRingCirc * (1 - $heroRingPct / 100);
+            $sStageTotals = ['SEED' => 0, 'EARLY' => 0, 'GROWTH' => 0];
+            foreach ($stateBusinessStageMix['labels'] ?? [] as $dIdx => $dLabel) {
+                $u = strtoupper(trim((string) $dLabel));
+                if (isset($sStageTotals[$u])) {
+                    $sStageTotals[$u] = (int) ($stateBusinessStageMix['values'][$dIdx] ?? 0);
+                }
+            }
+            $sStageSum = array_sum($sStageTotals);
+            $sStagePct = [
+                'SEED' => $sStageSum > 0 ? (int) round(($sStageTotals['SEED'] / $sStageSum) * 100) : 0,
+                'EARLY' => $sStageSum > 0 ? (int) round(($sStageTotals['EARLY'] / $sStageSum) * 100) : 0,
+                'GROWTH' => $sStageSum > 0 ? (int) round(($sStageTotals['GROWTH'] / $sStageSum) * 100) : 0,
+            ];
 
-                    $sparkVals = $heroSparkline30['values'] ?? [];
-                    $sparkSum = (int) array_sum($sparkVals);
-                    $sparkMax = ! empty($sparkVals) ? max(max($sparkVals), 1) : 1;
-                    $sparkW = 160;
-                    $sparkH = 36;
-                    $sparkPts = [];
-                    $sparkCount = count($sparkVals);
-                    if ($sparkCount > 1) {
-                        foreach ($sparkVals as $i => $v) {
-                            $x = round(($i / ($sparkCount - 1)) * $sparkW, 2);
-                            $y = round($sparkH - (($v / $sparkMax) * ($sparkH - 4)) - 2, 2);
-                            $sparkPts[] = $x . ',' . $y;
-                        }
-                    }
-                    $sparkLine = implode(' ', $sparkPts);
-                    $sparkFill = $sparkPts ? ('0,' . $sparkH . ' ' . $sparkLine . ' ' . $sparkW . ',' . $sparkH) : '';
-                    $sparkLastX = $sparkPts ? (float) explode(',', end($sparkPts))[0] : 0;
-                    $sparkLastY = $sparkPts ? (float) explode(',', end($sparkPts))[1] : 0;
+            $onbTarget = (int) ($stateOnboardingTarget ?? 0);
+            $onbAchieved = (int) ($stateOnboardingAchieved ?? 0);
+            $onbPct = $stateOnboardingProgressPct !== null ? (int) $stateOnboardingProgressPct : 0;
+            $onbGap = max(0, $onbTarget - $onbAchieved);
+            $onbDistrictRows = collect($stateOnboardingByDistrict ?? []);
 
-                    $halfMonth = (int) floor($sparkCount / 2);
-                    $firstHalf = array_sum(array_slice($sparkVals, 0, $halfMonth));
-                    $secondHalf = array_sum(array_slice($sparkVals, $halfMonth));
-                    $sparkTrend = $firstHalf > 0 ? (int) round((($secondHalf - $firstHalf) / $firstHalf) * 100) : 0;
+            $insGap = $cfaTargetN !== null ? max(0, $cfaTargetN - $cfaTotalN) : 0;
+            $todayDelta = (int) ($heroCfaTodayDelta ?? 0);
+            $cfaTodayCount = (int) ($heroCfaToday ?? 0);
+            $cfaYesterdayCount = (int) ($heroCfaYesterday ?? 0);
 
-                    $todayDelta = (int) ($heroCfaTodayDelta ?? 0);
-                    $cfaTodayCount = (int) ($heroCfaToday ?? 0);
-                    $cfaYesterdayCount = (int) ($heroCfaYesterday ?? 0);
-                @endphp
+            $sparkVals = $heroSparkline30['values'] ?? [];
+            $sparkSum = (int) array_sum($sparkVals);
+            $sparkMax = ! empty($sparkVals) ? max(max($sparkVals), 1) : 1;
+            $sparkW = 120;
+            $sparkH = 28;
+            $sparkPts = [];
+            $sparkCount = count($sparkVals);
+            if ($sparkCount > 1) {
+                foreach ($sparkVals as $i => $v) {
+                    $x = round(($i / ($sparkCount - 1)) * $sparkW, 2);
+                    $y = round($sparkH - (($v / $sparkMax) * ($sparkH - 4)) - 2, 2);
+                    $sparkPts[] = $x . ',' . $y;
+                }
+            }
+            $sparkLine = implode(' ', $sparkPts);
+            $sparkFill = $sparkPts ? ('0,' . $sparkH . ' ' . $sparkLine . ' ' . $sparkW . ',' . $sparkH) : '';
 
-                <div class="dashboard-intro">
-                    <div class="dashboard-intro__grid">
-                        <div class="dashboard-intro__left">
-                            <div class="dashboard-intro__eyebrow"><i class="fa-solid fa-flag" aria-hidden="true"></i> State overview</div>
-                            <h2>Welcome back, {{ auth()->user()->name }}</h2>
-                            <p>All districts - Phase 3 CFA picture (from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }}).</p>
-                            <div class="welcome-meta-pills">
-                                @if ($stateCfaTarget !== null)
-                                    <div class="welcome-meta-pill">
-                                        <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
-                                        <span><strong>State CFA target</strong> {{ number_format((int) $stateCfaTarget) }}</span>
-                                    </div>
-                                @endif
-                                <div class="welcome-meta-pill">
-                                    <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
-                                    <span><strong>Districts</strong> {{ number_format($districtsCount) }}</span>
-                                </div>
-                                <div class="welcome-meta-pill">
-                                    <i class="fa-solid fa-users" aria-hidden="true"></i>
-                                    <span><strong>Staff (active)</strong> {{ number_format($staffActive) }} / {{ number_format($staffTotal) }}</span>
-                                </div>
-                            </div>
-                            @if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0)
-                                @php
-                                    $insActual = (int) ($cfaTotal ?? 0);
-                                    $insTarget = (int) $stateCfaTarget;
-                                    $insPct = $insTarget > 0 ? (int) round(($insActual / $insTarget) * 100) : 0;
-                                    $insGap = max(0, $insTarget - $insActual);
-                                    $onbTarget = (int) ($stateOnboardingTarget ?? 0);
-                                    $onbAchieved = (int) ($stateOnboardingAchieved ?? 0);
-                                    $onbPct = $stateOnboardingProgressPct !== null ? (int) $stateOnboardingProgressPct : 0;
-                                    $onbGap = max(0, $onbTarget - $onbAchieved);
-                                    $onbDistrictRows = collect($stateOnboardingByDistrict ?? []);
-                                @endphp
-                                <div class="insight-grid">
-                                    <div class="insight-card insight-progress">
-                                        <div class="insight-card__title">Target Progress Insight</div>
-                                        <div class="insight-progress__top">
-                                            <div class="insight-progress__value">{{ number_format($insActual) }} / {{ number_format($insTarget) }}</div>
-                                            <div class="insight-progress__meta">{{ $insPct }}% achieved</div>
-                                        </div>
-                                        <div class="insight-progress__bar">
-                                            <div class="insight-progress__fill" style="width: {{ min(100, max(0, $insPct)) }}%;"></div>
-                                        </div>
-                                        <div class="insight-progress__foot">
-                                            Remaining to target: <strong>{{ number_format($insGap) }}</strong>.
-                                            Allocation status:
-                                            <strong>
-                                                @if (($districtAllocPct ?? null) === 100)
-                                                    district plan fully aligned.
-                                                @elseif (($districtAllocPct ?? 0) > 0)
-                                                    district plan at {{ (int) $districtAllocPct }}% of target.
-                                                @else
-                                                    district allocation pending.
-                                                @endif
-                                            </strong>
-                                        </div>
-                                    </div>
-                                    <div class="insight-card">
-                                        <div class="insight-card__title">Smart Signals</div>
-                                        <div class="insight-kpi-list">
-                                            <div class="insight-kpi">
-                                                <span>Last 7 days CFA</span>
-                                                <strong>{{ number_format((int) ($cfaLast7 ?? 0)) }}</strong>
-                                            </div>
-                                            <div class="insight-kpi">
-                                                <span>Week-over-week trend</span>
-                                                <span class="insight-kpi__chip {{ ($cfaWoWDeltaPct ?? 0) > 0 ? 'up' : (($cfaWoWDeltaPct ?? 0) < 0 ? 'down' : 'flat') }}">
-                                                    {{ ($cfaWoWDeltaPct ?? 0) > 0 ? '+' : '' }}{{ (int) ($cfaWoWDeltaPct ?? 0) }}%
-                                                </span>
-                                            </div>
-                                            <div class="insight-kpi">
-                                                <span>Top district today</span>
-                                                <strong>{{ $todayTopDistrict['name'] ?? '—' }} @if(isset($todayTopDistrict['count']))({{ number_format((int)$todayTopDistrict['count']) }})@endif</strong>
-                                            </div>
-                                            <div class="insight-kpi">
-                                                <span>Districts with 0 today</span>
-                                                <strong>{{ number_format((int) ($todayZeroDistricts ?? 0)) }}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="insight-card insight-progress">
-                                        <div class="insight-card__title">Onboarding Insight</div>
-                                        @if ($onbTarget > 0)
-                                            <div class="insight-progress__top">
-                                                <div class="insight-progress__value">{{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }}</div>
-                                                <div class="insight-progress__meta">{{ $onbPct }}% achieved</div>
-                                            </div>
-                                            <div class="insight-progress__bar">
-                                                <div class="insight-progress__fill" style="width: {{ min(100, max(0, $onbPct)) }}%;background:linear-gradient(90deg,#0ea5e9,#10b981);"></div>
-                                            </div>
-                                            <div class="insight-progress__foot">
-                                                Remaining onboarding gap: <strong>{{ number_format($onbGap) }}</strong>.
-                                                Achievement is based on locked hub batch members (Phase 3 window).
-                                            </div>
-                                            <div class="insight-split-title">District-wise bifurcation ({{ number_format($onbAchieved) }})</div>
-                                            <div class="insight-split-list" style="max-height:14rem;overflow-y:auto;padding-right:0.25rem;">
-                                                @forelse ($onbDistrictRows as $row)
-                                                    @php $rowCount = (int) ($row['count'] ?? 0); @endphp
-                                                    <div class="insight-split-row" @if ($rowCount === 0) style="opacity:0.55;" @endif>
-                                                        <span>{{ $row['district'] }}</span>
-                                                        <strong>{{ number_format($rowCount) }}</strong>
-                                                    </div>
-                                                @empty
-                                                    <div class="insight-progress__foot" style="margin-top:0;">No districts configured yet.</div>
-                                                @endforelse
-                                            </div>
-                                        @else
-                                            <div class="insight-progress__foot">
-                                                Onboarding target is not configured yet. Set it in <strong>State targets</strong> to activate this insight.
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
+            $districtLabels = $cfaByDistrict['labels'] ?? [];
+            $districtValues = $cfaByDistrict['values'] ?? [];
+            $topDistricts = collect($districtLabels)
+                ->map(fn ($name, $i) => ['name' => $name, 'total' => (int) ($districtValues[$i] ?? 0)])
+                ->sortByDesc('total')
+                ->take(6)
+                ->values();
+
+            $bizMixTotal = (int) array_sum($businessMix['values'] ?? []);
+            $bizIconMap = [
+                'agri allied' => 'fa-wheat-awn',
+                'food processing' => 'fa-utensils',
+                'handloom & handicraft' => 'fa-shirt',
+                'handloom and handicraft' => 'fa-shirt',
+                'herbal and aromatic' => 'fa-leaf',
+                'herbal & aromatic' => 'fa-leaf',
+                'homestay' => 'fa-house-chimney',
+                'others' => 'fa-shapes',
+                'other' => 'fa-shapes',
+                'not specified' => 'fa-circle-question',
+            ];
+            $bizIconFor = function (string $label) use ($bizIconMap): string {
+                $key = strtolower(trim($label));
+                return $bizIconMap[$key] ?? 'fa-briefcase';
+            };
+
+            $savingsTotalTillDate = (float) ($estimatedSavings['total_till_date'] ?? 0);
+            $savingsTotalThisFy = (float) ($estimatedSavings['total_this_fy'] ?? 0);
+            $topSavingsServices = $estimatedSavings['top_services'] ?? [];
+            $staffCfaRows = $staffCfaByStaff ?? [];
+            $staffDistrictOptions = collect($staffCfaRows)->pluck('district')->filter()->unique()->sort()->values()->all();
+
+            $fyLabel = $activeFy?->name ?? ($activeFy?->code ?? 'Phase 3');
+        @endphp
+
+        <div class="sad">
+            <header class="sad-masthead">
+                <div>
+                    <div class="sad-masthead__eyebrow"><i class="fa-solid fa-mountain-sun" aria-hidden="true"></i> MUY State Command</div>
+                    <h1>Welcome, {{ auth()->user()->name }}</h1>
+                    <p class="sad-masthead__sub">
+                        Unified Phase 3 intelligence across {{ number_format($districtsCount) }} districts — CFA from {{ $phaseLabel }}.
+                    </p>
+                </div>
+                <div class="sad-masthead__meta">
+                    <span class="sad-badge"><i class="fa-solid fa-calendar" aria-hidden="true"></i> {{ $fyLabel }}</span>
+                    <span class="sad-badge sad-badge--live"><i class="fa-solid fa-signal" aria-hidden="true"></i> {{ number_format((int) ($heroStaffOnlineNow ?? 0)) }} online</span>
+                    <span class="sad-badge"><i class="fa-solid fa-users" aria-hidden="true"></i> {{ number_format($staffActive) }}/{{ number_format($staffTotal) }} staff</span>
+                </div>
+            </header>
+
+            <div class="sad-kpi-strip" role="group" aria-label="Key performance indicators">
+                <div class="sad-kpi" title="Phase 3 CFA submissions (all districts)">
+                    <div class="sad-kpi__icon sad-kpi__icon--green"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i></div>
+                    <div class="sad-kpi__label">CFA total</div>
+                    <div class="sad-kpi__value">{{ number_format($cfaTotalN) }}</div>
+                    <div class="sad-kpi__foot">{{ number_format((int) ($cfaLast30 ?? 0)) }} in last 30 days</div>
+                </div>
+                <div class="sad-kpi">
+                    <div class="sad-kpi__icon sad-kpi__icon--teal"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></div>
+                    <div class="sad-kpi__label">Target progress</div>
+                    <div class="sad-kpi__value">{{ $ringPct }}%</div>
+                    <div class="sad-kpi__foot">
+                        @if ($cfaTargetN !== null)
+                            {{ number_format($cfaTotalN) }} / {{ number_format($cfaTargetN) }}
+                        @else
+                            No state target set
+                        @endif
+                    </div>
+                </div>
+                <div class="sad-kpi">
+                    <div class="sad-kpi__icon sad-kpi__icon--sky"><i class="fa-solid fa-sun" aria-hidden="true"></i></div>
+                    <div class="sad-kpi__label">CFA today</div>
+                    <div class="sad-kpi__value">{{ number_format($cfaTodayCount) }}</div>
+                    <div class="sad-kpi__foot @if ($todayDelta > 0) is-up @elseif ($todayDelta < 0) is-down @endif">
+                        @if ($todayDelta > 0)
+                            +{{ number_format($todayDelta) }} vs yesterday ({{ number_format($cfaYesterdayCount) }})
+                        @elseif ($todayDelta < 0)
+                            {{ number_format(abs($todayDelta)) }} fewer vs yesterday ({{ number_format($cfaYesterdayCount) }})
+                        @else
+                            Same as yesterday ({{ number_format($cfaYesterdayCount) }})
+                        @endif
+                    </div>
+                </div>
+                <div class="sad-kpi">
+                    <div class="sad-kpi__icon sad-kpi__icon--amber"><i class="fa-solid fa-user-check" aria-hidden="true"></i></div>
+                    <div class="sad-kpi__label">Onboarding</div>
+                    <div class="sad-kpi__value">
+                        @if ($onbTarget > 0)
+                            {{ $onbPct }}%
+                        @else
+                            {{ number_format($onbAchieved) }}
+                        @endif
+                    </div>
+                    <div class="sad-kpi__foot">
+                        @if ($onbTarget > 0)
+                            {{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }} locked
+                        @else
+                            Locked hub members (Phase 3)
+                        @endif
+                    </div>
+                </div>
+                <div class="sad-kpi">
+                    <div class="sad-kpi__icon sad-kpi__icon--rose"><i class="fa-solid fa-handshake" aria-hidden="true"></i></div>
+                    <div class="sad-kpi__label">Mentorship queue</div>
+                    <div class="sad-kpi__value">{{ number_format((int) ($heroMentorshipPending ?? 0)) }}</div>
+                    <div class="sad-kpi__foot @if (($heroMentorshipPending ?? 0) > 0) is-warn @endif">Pending requests</div>
+                </div>
+                <div class="sad-kpi">
+                    <div class="sad-kpi__icon sad-kpi__icon--green"><i class="fa-solid fa-piggy-bank" aria-hidden="true"></i></div>
+                    <div class="sad-kpi__label">Savings (FY est.)</div>
+                    <div class="sad-kpi__value" style="font-size:0.95rem;">Rs {{ number_format($savingsTotalThisFy, 0) }}</div>
+                    <div class="sad-kpi__foot">Approved services impact</div>
+                </div>
+            </div>
+
+            <div class="sad-alerts" role="status">
+                @if (($todayZeroDistricts ?? 0) > 0)
+                    <span class="sad-alert sad-alert--warn">
+                        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                        {{ number_format((int) $todayZeroDistricts) }} district(s) with zero CFA today
+                    </span>
+                @endif
+                @if ($todayTopDistrict)
+                    <span class="sad-alert sad-alert--ok">
+                        <i class="fa-solid fa-trophy" aria-hidden="true"></i>
+                        Top today: {{ $todayTopDistrict['name'] }} ({{ number_format((int) $todayTopDistrict['count']) }})
+                    </span>
+                @endif
+                @if (($cfaWoWDeltaPct ?? 0) !== 0)
+                    <span class="sad-alert sad-alert--info">
+                        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                        7-day CFA {{ ($cfaWoWDeltaPct ?? 0) > 0 ? 'up' : 'down' }} {{ abs((int) ($cfaWoWDeltaPct ?? 0)) }}% vs prior week
+                    </span>
+                @endif
+                @if (($districtAllocPct ?? null) !== null && ($districtAllocPct ?? 0) !== 100 && $cfaTargetN)
+                    <span class="sad-alert sad-alert--warn">
+                        <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i>
+                        District allocation {{ (int) $districtAllocPct }}% of state CFA target
+                    </span>
+                @endif
+            </div>
+
+            <nav class="sad-nav" aria-label="Dashboard sections">
+                <button type="button" class="sad-nav__btn is-active" data-sad-tab="overview">
+                    <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Overview
+                </button>
+                <button type="button" class="sad-nav__btn" data-sad-tab="districts">
+                    <i class="fa-solid fa-map" aria-hidden="true"></i> Districts
+                </button>
+                <button type="button" class="sad-nav__btn" data-sad-tab="team">
+                    <i class="fa-solid fa-users-gear" aria-hidden="true"></i> Team performance
+                </button>
+                <button type="button" class="sad-nav__btn" data-sad-tab="impact">
+                    <i class="fa-solid fa-seedling" aria-hidden="true"></i> Impact &amp; savings
+                </button>
+            </nav>
+
+            {{-- OVERVIEW --}}
+            <section class="sad-panel is-active" data-sad-panel="overview">
+                <div class="sad-grid sad-grid--2">
+                    <div class="sad-card">
+                        <div class="sad-card__head">
+                            <h2 class="sad-card__title"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Program intelligence</h2>
+                            @if ($achPct !== null)
+                                <span class="sad-card__tag">{{ $achPct }}% achieved</span>
                             @endif
                         </div>
-
-                        <div class="dashboard-intro__right">
-                            <div class="hero-ring-card" title="Phase 3 CFA submissions from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }}">
-                                <svg class="hero-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
-                                    <defs>
-                                        <linearGradient id="heroRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                            <stop offset="0%" stop-color="#0d6e4f"/>
-                                            <stop offset="100%" stop-color="#0369a1"/>
-                                        </linearGradient>
-                                    </defs>
-                                    <circle class="track" cx="50" cy="50" r="40"/>
-                                    <circle class="bar" cx="50" cy="50" r="40"
-                                        stroke-dasharray="{{ round($heroRingCirc, 3) }}"
-                                        stroke-dashoffset="{{ round($heroRingOffset, 3) }}"/>
-                                    <text class="pct" x="50" y="52" text-anchor="middle" dominant-baseline="middle">{{ $heroRingPct }}%</text>
-                                    <text class="pct-sub" x="50" y="66" text-anchor="middle">PHASE 3</text>
-                                </svg>
-                                <div>
-                                    <div class="hero-ring-body__eyebrow">Scoped total</div>
-                                    <div class="hero-ring-body__value">
-                                        {{ number_format((int) ($cfaTotal ?? 0)) }}
+                        @if ($cfaTargetN !== null && $cfaTargetN > 0)
+                            <div class="sad-progress-block">
+                                <div class="sad-progress-top">
+                                    <span>CFA vs state target</span>
+                                    <strong>{{ number_format($cfaTotalN) }} / {{ number_format($cfaTargetN) }}</strong>
+                                </div>
+                                <div class="sad-progress-track">
+                                    <div class="sad-progress-fill" style="width: {{ min(100, max(0, $achPct ?? 0)) }}%;"></div>
+                                </div>
+                                <p class="sad-progress-foot">Gap to target: <strong>{{ number_format($insGap) }}</strong> applications.</p>
+                            </div>
+                            @if ($districtAllocPct !== null)
+                                <div class="sad-progress-block">
+                                    <div class="sad-progress-top">
+                                        <span>District plan alignment</span>
+                                        <strong>{{ (int) $districtAllocPct }}%</strong>
                                     </div>
-                                    <span class="hero-ring-body__label">CFA submissions (Phase 3 from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }})</span>
+                                    <div class="sad-progress-track">
+                                        <div class="sad-progress-fill sad-progress-fill--sky" style="width: {{ min(100, (int) $districtAllocPct) }}%;"></div>
+                                    </div>
+                                    <p class="sad-progress-foot">
+                                        District sum {{ number_format((int) ($districtsCfaSum ?? 0)) }} vs state {{ number_format($cfaTargetN) }}.
+                                        @if ($cfaDeliverable && $activeFy)
+                                            <a href="{{ route('admin.targets.district', ['fiscal_year_id' => $activeFy->id, 'deliverable_id' => $cfaDeliverable->id]) }}">Edit targets</a>
+                                        @endif
+                                    </p>
                                 </div>
-                            </div>
-
-                            {{-- Today pills --}}
-                            <div class="hero-today-row">
-                                <div class="hero-today hero-today--cfa"
-                                    title="Phase 3 CFA submissions recorded today compared with yesterday (all districts).">
-                                    <div class="hero-today__head"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> CFA today</div>
-                                    <div class="hero-today__value">{{ number_format($cfaTodayCount) }}</div>
-                                    @if ($todayDelta > 0)
-                                        <span class="hero-today__delta is-up"
-                                            title="Today: {{ number_format($cfaTodayCount) }}. Yesterday: {{ number_format($cfaYesterdayCount) }}.">
-                                            <i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i>
-                                            <span>+{{ number_format($todayDelta) }} <span class="hero-today__delta-label">vs yesterday ({{ number_format($cfaYesterdayCount) }})</span></span>
-                                        </span>
-                                    @elseif ($todayDelta < 0)
-                                        <span class="hero-today__delta is-lower"
-                                            title="Today: {{ number_format($cfaTodayCount) }}. Yesterday: {{ number_format($cfaYesterdayCount) }}. A lower day is normal variation, not a system error.">
-                                            <i class="fa-solid fa-minus" aria-hidden="true"></i>
-                                            <span>{{ number_format(abs($todayDelta)) }} fewer <span class="hero-today__delta-label">vs yesterday ({{ number_format($cfaYesterdayCount) }})</span></span>
-                                        </span>
-                                    @else
-                                        <span class="hero-today__delta"
-                                            title="Today: {{ number_format($cfaTodayCount) }}. Yesterday: {{ number_format($cfaYesterdayCount) }}.">
-                                            Same as yesterday <span class="hero-today__delta-label">({{ number_format($cfaYesterdayCount) }})</span>
-                                        </span>
-                                    @endif
-                                </div>
-                                <div class="hero-today hero-today--mentor">
-                                    <div class="hero-today__head"><i class="fa-solid fa-handshake" aria-hidden="true"></i> Mentorship</div>
-                                    <div class="hero-today__value">{{ number_format((int) ($heroMentorshipPending ?? 0)) }}</div>
-                                    <span class="hero-today__delta">pending requests</span>
-                                </div>
-                                <div class="hero-today hero-today--online">
-                                    <div class="hero-today__head"><i class="fa-solid fa-signal" aria-hidden="true"></i> Online now</div>
-                                    <div class="hero-today__value">{{ number_format((int) ($heroStaffOnlineNow ?? 0)) }}</div>
-                                    <span class="hero-today__delta">active in last 3 min</span>
-                                </div>
-                            </div>
-
-                            {{-- 30-day sparkline --}}
-                            @if (! empty($sparkLine))
-                            <div class="hero-spark" title="Daily CFA submissions — last 30 days (Phase 3 scope)">
-                                <div class="hero-spark__left">
-                                    <div class="hero-spark__eyebrow">30-DAY PULSE</div>
-                                    <div class="hero-spark__value">{{ number_format($sparkSum) }} <small>CFAs</small></div>
-                                </div>
-                                <div class="hero-spark__chart" aria-hidden="true">
-                                    <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
-                                        <defs>
-                                            <linearGradient id="heroSparkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                                <stop offset="0%" stop-color="#0f766e" stop-opacity="0.45"/>
-                                                <stop offset="100%" stop-color="#0f766e" stop-opacity="0"/>
-                                            </linearGradient>
-                                        </defs>
-                                        <polygon class="spark-fill" points="{{ $sparkFill }}"/>
-                                        <polyline class="spark-line" points="{{ $sparkLine }}"/>
-                                        <circle class="spark-dot" cx="{{ $sparkLastX }}" cy="{{ $sparkLastY }}" r="2.4"/>
-                                    </svg>
-                                </div>
-                                <div style="text-align:right;flex-shrink:0;">
-                                    <span class="hero-today__delta @if ($sparkTrend > 0) is-up @elseif ($sparkTrend < 0) is-lower @endif" style="font-size:0.62rem;"
-                                        title="Compares CFA volume in the last 15 days of this 30-day window with the first 15 days.">
-                                        @if ($sparkTrend > 0)<i class="fa-solid fa-arrow-trend-up"></i> +{{ $sparkTrend }}%
-                                        @elseif ($sparkTrend < 0)<i class="fa-solid fa-minus"></i> {{ $sparkTrend }}%
-                                        @else flat @endif
-                                    </span>
-                                    <div style="font-size:0.5rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:0.15rem;">vs previous 15 days</div>
-                                </div>
-                            </div>
                             @endif
+                        @else
+                            <p class="sad-progress-foot">Configure CFA state target in <a href="{{ route('admin.targets.state') }}">State targets</a> to unlock progress tracking.</p>
+                        @endif
+
+                        @if ($onbTarget > 0)
+                            <div class="sad-progress-block">
+                                <div class="sad-progress-top">
+                                    <span>Onboarding (locked batches)</span>
+                                    <strong>{{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }}</strong>
+                                </div>
+                                <div class="sad-progress-track">
+                                    <div class="sad-progress-fill sad-progress-fill--sky" style="width: {{ min(100, $onbPct) }}%;"></div>
+                                </div>
+                                <p class="sad-progress-foot">Remaining gap: <strong>{{ number_format($onbGap) }}</strong>.</p>
+                            </div>
+                        @endif
+
+                        <div class="sad-signals">
+                            <div class="sad-signal">
+                                <span>Last 7 days CFA</span>
+                                <strong>{{ number_format((int) ($cfaLast7 ?? 0)) }}</strong>
+                            </div>
+                            <div class="sad-signal">
+                                <span>Week-over-week</span>
+                                <span class="sad-chip {{ ($cfaWoWDeltaPct ?? 0) > 0 ? 'up' : (($cfaWoWDeltaPct ?? 0) < 0 ? 'down' : 'flat') }}">
+                                    {{ ($cfaWoWDeltaPct ?? 0) > 0 ? '+' : '' }}{{ (int) ($cfaWoWDeltaPct ?? 0) }}%
+                                </span>
+                            </div>
+                            <div class="sad-signal">
+                                <span>This month</span>
+                                <strong>{{ number_format((int) ($cfaThisMonth ?? 0)) }}</strong>
+                            </div>
+                            <div class="sad-signal">
+                                <span>Hubs / deliverables</span>
+                                <strong>{{ number_format($hubsCount) }} / {{ number_format($deliverablesCount) }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sad-card">
+                        <div class="sad-card__head">
+                            <h2 class="sad-card__title"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> State pulse</h2>
+                            <span class="sad-card__tag">14-day intake</span>
+                        </div>
+                        <div class="sad-ring-wrap">
+                            <svg class="sad-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+                                <defs>
+                                    <linearGradient id="sadRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#0d6e4f"/>
+                                        <stop offset="100%" stop-color="#0369a1"/>
+                                    </linearGradient>
+                                </defs>
+                                <circle class="track" cx="50" cy="50" r="38"/>
+                                <circle class="bar" cx="50" cy="50" r="38"
+                                    stroke-dasharray="{{ round($ringCirc, 3) }}"
+                                    stroke-dashoffset="{{ round($ringOffset, 3) }}"/>
+                                <text class="pct" x="50" y="52" text-anchor="middle" dominant-baseline="middle">{{ $ringPct }}%</text>
+                            </svg>
+                            <div>
+                                <div class="sad-ring-meta__big">{{ number_format($cfaTotalN) }}</div>
+                                <div class="sad-ring-meta__lbl">Phase 3 CFA · {{ $phaseLabel }} onward</div>
+                                @if ($sparkLine)
+                                    <div class="sad-spark" title="30-day CFA volume: {{ number_format($sparkSum) }} total">
+                                        <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
+                                            <defs>
+                                                <linearGradient id="sadSparkGrad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stop-color="#0f766e" stop-opacity="0.5"/>
+                                                    <stop offset="100%" stop-color="#0f766e" stop-opacity="0"/>
+                                                </linearGradient>
+                                            </defs>
+                                            <polygon class="fill" points="{{ $sparkFill }}"/>
+                                            <polyline class="line" points="{{ $sparkLine }}"/>
+                                        </svg>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="sad-chart-box" style="margin-top:0.5rem;">
+                            <canvas id="stateTrendCurveChart" aria-label="CFA per day, all districts"></canvas>
+                        </div>
+                        <p class="sad-card__hint" style="margin-top:0.45rem;margin-bottom:0.35rem;">Stage mix (saved forms)</p>
+                        <div class="sad-stage-row">
+                            <span>Seed</span>
+                            <div class="sad-stage-track"><div class="sad-stage-fill--seed" style="width: {{ $sStagePct['SEED'] }}%;"></div></div>
+                            <span>{{ $sStagePct['SEED'] }}%</span>
+                        </div>
+                        <div class="sad-stage-row">
+                            <span>Early</span>
+                            <div class="sad-stage-track"><div class="sad-stage-fill--early" style="width: {{ $sStagePct['EARLY'] }}%;"></div></div>
+                            <span>{{ $sStagePct['EARLY'] }}%</span>
+                        </div>
+                        <div class="sad-stage-row">
+                            <span>Growth</span>
+                            <div class="sad-stage-track"><div class="sad-stage-fill--growth" style="width: {{ $sStagePct['GROWTH'] }}%;"></div></div>
+                            <span>{{ $sStagePct['GROWTH'] }}%</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="hero-three-col">
-                    <div class="hero-col hero-col--welcome glass-surface">
-                        <div class="hero-col__title">
-                            <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> State cockpit
-                        </div>
-                        <div class="hero-col__content">
-                            <div class="apps-highlight">
-                                <div class="apps-highlight__main">
-                                    <div class="apps-highlight__number">{{ number_format((int) ($cfaTotal ?? 0)) }}</div>
-                                    <div class="apps-highlight__label">All CFA submissions (all districts) - Phase 3 from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }}</div>
-                                </div>
-                            </div>
-                            @if ($stateCfaTarget !== null && (int) $stateCfaTarget > 0 && $districtAllocPct !== null)
+                <div class="sad-card" style="margin-top:0.55rem;">
+                    <div class="sad-card__head">
+                        <h2 class="sad-card__title"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Business category mix</h2>
+                        <span class="sad-card__tag">{{ number_format($bizMixTotal) }} apps</span>
+                    </div>
+                    @if (count($businessMix['labels'] ?? []) === 0)
+                        <div class="sad-empty">No category data yet</div>
+                    @else
+                        @foreach ($businessMix['labels'] as $idx => $label)
                             @php
-                                $achievedNow = (int) ($cfaTotal ?? 0);
-                                $targetNow = (int) $stateCfaTarget;
-                                $achievementPct = $targetNow > 0 ? (int) round(($achievedNow / $targetNow) * 100) : 0;
-                                $remainingGap = max(0, $targetNow - $achievedNow);
-                                $allocationGap = abs((int) (($districtsCfaSum ?? 0) - $targetNow));
+                                $bizV = (int) ($businessMix['values'][$idx] ?? 0);
+                                $bizPct = $bizMixTotal > 0 ? (int) round(100 * $bizV / $bizMixTotal) : 0;
+                                $bizCol = $businessMix['colors'][$idx] ?? '#0d6e4f';
                             @endphp
-                            <div class="target-strip" style="margin-top:0;border-radius:14px;">
+                            <div class="sad-biz-row">
+                                <span class="sad-biz-row__rank">#{{ $idx + 1 }}</span>
                                 <div>
-                                    <h3>District Target Allocation Status</h3>
-                                    <p class="big">{{ $districtAllocPct }}%</p>
-                                    <p class="meta"><strong>Allocation match %</strong> (district target total vs state target). Current district sum: {{ number_format((int) ($districtsCfaSum ?? 0)) }} of state {{ number_format((int) $stateCfaTarget) }}.
-                                        @if ($cfaDeliverable)
-                                            <a href="{{ route('admin.targets.district', ['fiscal_year_id' => $activeFy->id, 'deliverable_id' => $cfaDeliverable->id]) }}">Edit district targets</a>
-                                        @endif
-                                    </p>
-                                    <p class="meta" style="margin-top:0.45rem;">
-                                        <strong>Smart analysis:</strong> Achievement is <strong>{{ $achievementPct }}%</strong> ({{ number_format($achievedNow) }} of {{ number_format($targetNow) }}), remaining gap <strong>{{ number_format($remainingGap) }}</strong>.
-                                        @if ($allocationGap === 0)
-                                            District allocation is perfectly aligned with state target.
-                                        @else
-                                            District allocation differs from state target by {{ number_format($allocationGap) }}.
-                                        @endif
-                                    </p>
-                                </div>
-                                <div style="min-width:12rem;flex:1;max-width:20rem;">
-                                    <div class="bar"><div class="fill" style="width: {{ min(100, $districtAllocPct) }}%;"></div></div>
-                                </div>
-                            </div>
-                            @endif
-
-                            <div class="business-mix-compact">
-                                <div class="business-mix-compact__header">
-                                    <div class="business-mix-compact__title">Business categories</div>
-                                    <div class="business-mix-compact__meta">Ranked mix - all Phase 3 applications ({{ number_format((int) array_sum($businessMix['values'] ?? [])) }})</div>
-                                </div>
-                                @if (count($businessMix['labels']) === 0)
-                                    <div class="no-data-message">No category data yet</div>
-                                @else
-                                    @php
-                                        $bizMixTotal = (int) array_sum($businessMix['values']);
-                                        $bizIconMap = [
-                                            'agri allied' => 'fa-wheat-awn',
-                                            'food processing' => 'fa-utensils',
-                                            'handloom & handicraft' => 'fa-shirt',
-                                            'handloom and handicraft' => 'fa-shirt',
-                                            'herbal and aromatic' => 'fa-leaf',
-                                            'herbal & aromatic' => 'fa-leaf',
-                                            'homestay' => 'fa-house-chimney',
-                                            'others' => 'fa-shapes',
-                                            'other' => 'fa-shapes',
-                                            'not specified' => 'fa-circle-question',
-                                        ];
-                                        $bizIconFor = function (string $label) use ($bizIconMap): string {
-                                            $key = strtolower(trim($label));
-                                            return $bizIconMap[$key] ?? 'fa-briefcase';
-                                        };
-                                    @endphp
-                                    <div class="biz-cat-lb" role="list">
-                                        @foreach ($businessMix['labels'] as $idx => $label)
-                                            @php
-                                                $bizV = (int) ($businessMix['values'][$idx] ?? 0);
-                                                $bizPct = $bizMixTotal > 0 ? (int) round(100 * $bizV / $bizMixTotal) : 0;
-                                                $bizCol = $businessMix['colors'][$idx] ?? '#6366f1';
-                                                $bizIcon = $bizIconFor((string) $label);
-                                            @endphp
-                                            <div class="biz-cat-lb__row" style="--biz-color: {{ $bizCol }}; --biz-pct: {{ $bizPct }}%; --biz-delay: {{ $idx * 0.05 }}s;">
-                                                <div class="biz-cat-lb__rank">#{{ $idx + 1 }}</div>
-                                                <div class="biz-cat-lb__main">
-                                                    <div class="biz-cat-lb__label-row">
-                                                        <span class="biz-cat-lb__name-wrap">
-                                                            <span class="biz-cat-lb__icon" aria-hidden="true"><i class="fa-solid {{ $bizIcon }}"></i></span>
-                                                            <span class="biz-cat-lb__name">{{ $label }}</span>
-                                                        </span>
-                                                        <span class="biz-cat-lb__nums">
-                                                            <span class="biz-cat-lb__pct">{{ $bizPct }}%</span>
-                                                            <span class="biz-cat-lb__count">{{ number_format($bizV) }}</span>
-                                                        </span>
-                                                    </div>
-                                                    <div class="biz-cat-lb__track"><div class="biz-cat-lb__fill"></div></div>
-                                                </div>
-                                            </div>
-                                        @endforeach
+                                    <div style="font-weight:700;font-size:0.72rem;margin-bottom:0.2rem;">
+                                        <i class="fa-solid {{ $bizIconFor((string) $label) }}" aria-hidden="true" style="color:{{ $bizCol }};margin-right:0.25rem;"></i>
+                                        {{ $label }}
                                     </div>
-                                @endif
+                                    <div class="sad-biz-row__track">
+                                        <div class="sad-biz-row__fill" style="width:{{ $bizPct }}%;background:{{ $bizCol }};"></div>
+                                    </div>
+                                </div>
+                                <span class="sad-biz-row__nums">{{ $bizPct }}% · {{ number_format($bizV) }}</span>
                             </div>
+                        @endforeach
+                    @endif
+                </div>
+            </section>
+
+            {{-- DISTRICTS --}}
+            <section class="sad-panel" data-sad-panel="districts">
+                <div class="sad-district-cards">
+                    @foreach ($topDistricts as $i => $d)
+                        <div class="sad-district-card @if ($i === 0) is-top @endif">
+                            <div class="sad-district-card__name">
+                                @if ($i === 0)<i class="fa-solid fa-crown" style="color:var(--sad-gold);margin-right:0.2rem;" aria-hidden="true"></i>@endif
+                                {{ $d['name'] }}
+                            </div>
+                            <div class="sad-district-card__val">{{ number_format($d['total']) }}</div>
+                        </div>
+                    @endforeach
+                </div>
+                <div class="sad-grid sad-grid--2">
+                    <div class="sad-card">
+                        <h2 class="sad-card__title"><i class="fa-solid fa-chart-bar" aria-hidden="true"></i> Applications by district</h2>
+                        <p class="sad-card__hint">Phase 3 CFA from {{ $phaseLabel }}</p>
+                        <div class="sad-chart-box sad-chart-box--tall">
+                            <canvas id="chartDistrictCfa"></canvas>
                         </div>
                     </div>
-
-                    <div class="hero-col hero-col--metrics glass-surface">
-                        <div class="hero-col__title">
-                            <i class="fa-solid fa-chart-area" aria-hidden="true"></i> State pulse
+                    <div class="sad-card">
+                        <h2 class="sad-card__title"><i class="fa-solid fa-map-pin" aria-hidden="true"></i> District signals</h2>
+                        <div class="sad-signals" style="margin-bottom:0.55rem;">
+                            <div class="sad-signal">
+                                <span>Top district today</span>
+                                <strong>{{ $todayTopDistrict['name'] ?? '—' }} @if(isset($todayTopDistrict['count'])) ({{ number_format((int) $todayTopDistrict['count']) }}) @endif</strong>
+                            </div>
+                            <div class="sad-signal">
+                                <span>Lowest active today</span>
+                                <strong>
+                                    @if ($todayLowestActiveDistrict)
+                                        {{ $todayLowestActiveDistrict['name'] }} ({{ number_format((int) $todayLowestActiveDistrict['count']) }})
+                                    @else
+                                        —
+                                    @endif
+                                </strong>
+                            </div>
                         </div>
-                        <div class="welcome-district-embed glass-surface" style="margin-top:0;">
-                            <div class="welcome-district-embed__head">
-                                <span class="welcome-district-embed__eyebrow"><i class="fa-solid fa-earth-asia" aria-hidden="true"></i> All districts</span>
-                                    <span class="welcome-district-embed__where">From {{ $phase3FloorDateLabel ?? '01 Apr 2026' }} (Phase 3)</span>
-                            </div>
-                            <div class="welcome-district-embed__grid">
-                                <div class="welcome-district-embed__ring">
-                                    <svg class="district-ring" viewBox="0 0 120 120" aria-hidden="true">
-                                        <defs>
-                                            <linearGradient id="stateRingGradWelcome" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                <stop offset="0%" style="stop-color:#0d6e4f"/>
-                                                <stop offset="100%" style="stop-color:#0369a1"/>
-                                            </linearGradient>
-                                        </defs>
-                                        <circle class="district-ring__bg" cx="60" cy="60" r="54" fill="none"/>
-                                        <circle class="district-ring__progress" cx="60" cy="60" r="54" fill="none"
-                                            stroke="url(#stateRingGradWelcome)"
-                                            stroke-dasharray="{{ $ringCirc }}"
-                                            style="stroke-dashoffset: {{ $ringOffset }}"/>
-                                    </svg>
-                                    <div class="welcome-district-embed__ring-meta">
-                                        @if ($stateProgressPct !== null)
-                                            <span class="welcome-district-embed__pct">{{ $stateProgressPct }}%</span>
-                                            <span class="welcome-district-embed__pct-label">Phase 3 overall coverage</span>
-                                        @else
-                                            <span class="welcome-district-embed__pct">--</span>
-                                            <span class="welcome-district-embed__pct-label">No baseline configured</span>
-                                        @endif
-                                    </div>
+                        <h3 class="sad-card__title" style="font-size:0.78rem;margin-bottom:0.35rem;">
+                            <i class="fa-solid fa-user-group" aria-hidden="true"></i> Onboarding by district
+                        </h3>
+                        <div class="sad-split-table">
+                            @forelse ($onbDistrictRows as $row)
+                                @php $rowCount = (int) ($row['count'] ?? 0); @endphp
+                                <div class="sad-split-row @if ($rowCount === 0) is-zero @endif">
+                                    <span>{{ $row['district'] }}</span>
+                                    <strong>{{ number_format($rowCount) }}</strong>
                                 </div>
-                                <div class="welcome-district-embed__chart">
-                                    <div class="welcome-district-embed__chart-head">
-                                        <span>14-day state intake</span>
-                                        <span class="welcome-district-embed__chart-hint">All-time</span>
-                                    </div>
-                                    <div class="welcome-district-chart-wrap">
-                                        <canvas id="stateTrendCurveChart" aria-label="CFA per day, all districts"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="welcome-district-embed__stats" role="group">
-                                <div class="welcome-d-stat">
-                                    <span class="welcome-d-stat__l">Phase 3 total</span>
-                                    <span class="welcome-d-stat__v">{{ number_format((int) ($cfaTotal ?? 0)) }}</span>
-                                </div>
-                                @if ($stateCfaTarget !== null)
-                                    <div class="welcome-d-stat">
-                                        <span class="welcome-d-stat__l">Target</span>
-                                        <span class="welcome-d-stat__v">{{ number_format((int) $stateCfaTarget) }}</span>
-                                    </div>
-                                @endif
-                                <div class="welcome-d-stat">
-                                    <span class="welcome-d-stat__l">Districts</span>
-                                    <span class="welcome-d-stat__v">{{ number_format($districtsCount) }}</span>
-                                </div>
-                                <div class="welcome-d-stat">
-                                    <span class="welcome-d-stat__l">Hubs</span>
-                                    <span class="welcome-d-stat__v">{{ number_format($hubsCount) }}</span>
-                                </div>
-                            </div>
-                            <div class="welcome-district-embed__mix">
-                                <span class="welcome-district-embed__mix-title">Stage mix (from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }})</span>
-                                <div class="welcome-d-stage-row">
-                                    <span class="welcome-d-stage-row__l">S</span>
-                                    <div class="welcome-d-stage-row__t"><div class="welcome-d-stage-row__f welcome-d-stage-row__f--seed" style="width: {{ $sStagePct['SEED'] }}%;"></div></div>
-                                    <span class="welcome-d-stage-row__p">{{ $sStagePct['SEED'] }}%</span>
-                                </div>
-                                <div class="welcome-d-stage-row">
-                                    <span class="welcome-d-stage-row__l">E</span>
-                                    <div class="welcome-d-stage-row__t"><div class="welcome-d-stage-row__f welcome-d-stage-row__f--early" style="width: {{ $sStagePct['EARLY'] }}%;"></div></div>
-                                    <span class="welcome-d-stage-row__p">{{ $sStagePct['EARLY'] }}%</span>
-                                </div>
-                                <div class="welcome-d-stage-row">
-                                    <span class="welcome-d-stage-row__l">G</span>
-                                    <div class="welcome-d-stage-row__t"><div class="welcome-d-stage-row__f welcome-d-stage-row__f--growth" style="width: {{ $sStagePct['GROWTH'] }}%;"></div></div>
-                                    <span class="welcome-d-stage-row__p">{{ $sStagePct['GROWTH'] }}%</span>
-                                </div>
-                            </div>
-                            <p class="welcome-district-embed__note">Stage mix from saved Phase 3 forms from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }} onward.</p>
+                            @empty
+                                <div class="sad-empty">No district onboarding data</div>
+                            @endforelse
                         </div>
                     </div>
                 </div>
+            </section>
 
-                <div class="charts-grid">
-                    <div class="chart-card tall">
-                        <h4>Applications by district</h4>
-                        <p class="hint">CFA count from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }} onward - all districts</p>
-                        <div class="canvas-wrap"><canvas id="chartDistrictCfa"></canvas></div>
+            {{-- TEAM --}}
+            <section class="sad-panel" data-sad-panel="team">
+                <div class="sad-card">
+                    <div class="sad-card__head">
+                        <h2 class="sad-card__title"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> CFA by district staff</h2>
+                        <span class="sad-card__tag">{{ count($staffCfaRows) }} rows</span>
                     </div>
-                    <div class="chart-card tall">
-                        <h4>CFA by staffs</h4>
-                        <p class="hint">Search by staff name and filter by district (Phase 3 from {{ $phase3FloorDateLabel ?? '01 Apr 2026' }}).</p>
-                        @php
-                            $staffCfaRows = $staffCfaByStaff ?? [];
-                            $staffDistrictOptions = collect($staffCfaRows)
-                                ->pluck('district')
-                                ->filter()
-                                ->unique()
-                                ->sort()
-                                ->values()
-                                ->all();
-                        @endphp
-                        <div class="staff-cfa-panel">
-                            <div class="staff-cfa-controls">
-                                <input
-                                    type="text"
-                                    id="stateStaffCfaSearch"
-                                    class="staff-cfa-input"
-                                    placeholder="Search staff name..."
-                                    autocomplete="off"
-                                >
-                                <select id="stateStaffCfaDistrictFilter" class="staff-cfa-select">
-                                    <option value="">All districts</option>
-                                    @foreach ($staffDistrictOptions as $districtName)
-                                        <option value="{{ strtolower($districtName) }}">{{ $districtName }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="staff-cfa-list" id="stateStaffCfaList">
-                                @forelse ($staffCfaRows as $index => $row)
-                                    <div
-                                        class="staff-cfa-row"
-                                        data-name="{{ strtolower($row['name']) }}"
-                                        data-district="{{ strtolower($row['district']) }}"
-                                    >
-                                        <div class="staff-cfa-rank">#{{ $index + 1 }}</div>
-                                        <div class="staff-cfa-main">
-                                            <div class="staff-cfa-main-wrap">
-                                                @if (!empty($row['avatar_url']))
-                                                    <img src="{{ $row['avatar_url'] }}" alt="" class="staff-cfa-avatar">
-                                                @else
-                                                    <span class="staff-cfa-avatar-fallback">{{ strtoupper(substr(trim((string) $row['name']), 0, 1)) ?: '?' }}</span>
-                                                @endif
-                                                <div class="staff-cfa-main-text">
-                                                    <div class="staff-cfa-name">{{ $row['name'] }}</div>
-                                                    <div class="staff-cfa-district">{{ $row['district'] }}</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="staff-cfa-value">{{ number_format((int) $row['cfa_total']) }}</div>
+                    <p class="sad-card__hint">Referral-linked CFA aligned to staff district · Phase 3 from {{ $phaseLabel }}</p>
+                    <div class="sad-staff-controls">
+                        <input type="text" id="stateStaffCfaSearch" placeholder="Search staff name…" autocomplete="off">
+                        <select id="stateStaffCfaDistrictFilter">
+                            <option value="">All districts</option>
+                            @foreach ($staffDistrictOptions as $districtName)
+                                <option value="{{ strtolower($districtName) }}">{{ $districtName }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="sad-staff-list" id="stateStaffCfaList">
+                        @forelse ($staffCfaRows as $index => $row)
+                            <div class="sad-staff-row"
+                                data-name="{{ strtolower($row['name']) }}"
+                                data-district="{{ strtolower($row['district']) }}">
+                                <span class="sad-staff-rank @if ($index < 3) is-medal @endif">#{{ $index + 1 }}</span>
+                                <div class="sad-staff-main">
+                                    @if (!empty($row['avatar_url']))
+                                        <img src="{{ $row['avatar_url'] }}" alt="" class="sad-staff-avatar">
+                                    @else
+                                        <span class="sad-staff-fallback">{{ strtoupper(substr(trim((string) $row['name']), 0, 1)) ?: '?' }}</span>
+                                    @endif
+                                    <div style="min-width:0;">
+                                        <div class="sad-staff-name">{{ $row['name'] }}</div>
+                                        <div class="sad-staff-district">{{ $row['district'] }}</div>
                                     </div>
-                                @empty
-                                    <div class="no-data-message">No staff data yet</div>
-                                @endforelse
-                                <div class="no-data-message" id="stateStaffCfaNoResults" style="display:none;">No staff matches this search/filter</div>
+                                </div>
+                                <span class="sad-staff-val">{{ number_format((int) $row['cfa_total']) }}</span>
                             </div>
-                        </div>
+                        @empty
+                            <div class="sad-empty">No staff data yet</div>
+                        @endforelse
+                        <div class="sad-empty" id="stateStaffCfaNoResults" style="display:none;">No matches for this filter</div>
                     </div>
                 </div>
+            </section>
 
-                @php
-                    $savingsTotalTillDate = (float) ($estimatedSavings['total_till_date'] ?? 0);
-                    $savingsTotalThisFy = (float) ($estimatedSavings['total_this_fy'] ?? 0);
-                    $topSavingsServices = $estimatedSavings['top_services'] ?? [];
-                @endphp
-                <div class="chart-card" style="margin-bottom:1.25rem;">
-                    <h4>Estimated savings impact</h4>
-                    <p class="hint">Calculated from approved service cases × configured average market price.</p>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:0.75rem;margin-bottom:0.85rem;">
-                        <div style="padding:0.75rem 0.85rem;border-radius:12px;border:1px solid rgba(34,197,94,0.25);background:rgba(34,197,94,0.08);">
-                            <div style="font-size:0.65rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.06em;">Total till date</div>
-                            <div style="font-family:'DM Sans',sans-serif;font-size:1.3rem;font-weight:800;color:#14532d;margin-top:0.25rem;">Rs {{ number_format($savingsTotalTillDate, 2) }}</div>
-                        </div>
-                        <div style="padding:0.75rem 0.85rem;border-radius:12px;border:1px solid rgba(59,130,246,0.25);background:rgba(59,130,246,0.08);">
-                            <div style="font-size:0.65rem;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:0.06em;">Estimated this FY</div>
-                            <div style="font-family:'DM Sans',sans-serif;font-size:1.3rem;font-weight:800;color:#1e3a8a;margin-top:0.25rem;">Rs {{ number_format($savingsTotalThisFy, 2) }}</div>
-                        </div>
-                        <div style="padding:0.75rem 0.85rem;border-radius:12px;border:1px solid rgba(99,102,241,0.25);background:rgba(99,102,241,0.08);">
-                            <div style="font-size:0.65rem;font-weight:700;color:var(--muy-green);text-transform:uppercase;letter-spacing:0.06em;">Top services shown</div>
-                            <div style="font-family:'DM Sans',sans-serif;font-size:1.3rem;font-weight:800;color:#312e81;margin-top:0.25rem;">{{ number_format(count($topSavingsServices)) }}</div>
-                        </div>
+            {{-- IMPACT --}}
+            <section class="sad-panel" data-sad-panel="impact">
+                <div class="sad-savings-grid">
+                    <div class="sad-savings-tile sad-savings-tile--green">
+                        <div class="sad-savings-tile__lbl" style="color:#166534;">Total till date</div>
+                        <div class="sad-savings-tile__val" style="color:#14532d;">Rs {{ number_format($savingsTotalTillDate, 2) }}</div>
                     </div>
-                    <div style="border:1px solid rgba(148,163,184,0.28);border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.72);">
-                        <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+                    <div class="sad-savings-tile sad-savings-tile--blue">
+                        <div class="sad-savings-tile__lbl" style="color:#1d4ed8;">Estimated this FY</div>
+                        <div class="sad-savings-tile__val" style="color:#1e3a8a;">Rs {{ number_format($savingsTotalThisFy, 2) }}</div>
+                    </div>
+                    <div class="sad-savings-tile sad-savings-tile--violet">
+                        <div class="sad-savings-tile__lbl" style="color:var(--sad-green);">Active deliverables</div>
+                        <div class="sad-savings-tile__val" style="color:var(--sad-green-deep);">{{ number_format($deliverablesCount) }}</div>
+                    </div>
+                </div>
+                <div class="sad-card">
+                    <h2 class="sad-card__title"><i class="fa-solid fa-hand-holding-heart" aria-hidden="true"></i> Top services by estimated savings</h2>
+                    <p class="sad-card__hint">Approved service cases × configured average market price</p>
+                    <div class="sad-table-wrap">
+                        <table class="sad-table">
                             <thead>
-                                <tr style="background:rgba(241,245,249,0.75);">
-                                    <th style="text-align:left;padding:0.55rem 0.65rem;">Service</th>
-                                    <th style="text-align:right;padding:0.55rem 0.65rem;">Approved cases</th>
-                                    <th style="text-align:right;padding:0.55rem 0.65rem;">Avg market price</th>
-                                    <th style="text-align:right;padding:0.55rem 0.65rem;">Estimated savings</th>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Approved</th>
+                                    <th>Avg price</th>
+                                    <th>Savings</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse ($topSavingsServices as $svc)
                                     <tr>
-                                        <td style="padding:0.52rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);">{{ $svc['name'] }}</td>
-                                        <td style="padding:0.52rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);text-align:right;">{{ number_format((int) $svc['approved_count']) }}</td>
-                                        <td style="padding:0.52rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);text-align:right;">Rs {{ number_format((float) $svc['avg_price'], 2) }}</td>
-                                        <td style="padding:0.52rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);text-align:right;font-weight:700;">Rs {{ number_format((float) $svc['savings'], 2) }}</td>
+                                        <td>{{ $svc['name'] }}</td>
+                                        <td>{{ number_format((int) $svc['approved_count']) }}</td>
+                                        <td>Rs {{ number_format((float) $svc['avg_price'], 2) }}</td>
+                                        <td><strong>Rs {{ number_format((float) $svc['savings'], 2) }}</strong></td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" style="padding:0.75rem 0.65rem;border-top:1px solid rgba(226,232,240,0.9);color:#64748b;">
-                                            No services with average market price and approved cases yet.
-                                        </td>
+                                        <td colspan="4" class="sad-empty">No savings data yet — configure service market prices.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
+                    <p class="sad-card__hint" style="margin-top:0.5rem;">
+                        <a href="{{ route('admin.phase3-services.index') }}">View Phase 3 service cases</a>
+                        · <a href="{{ route('admin.deliverables.index') }}">Deliverables report</a>
+                    </p>
                 </div>
+            </section>
 
-                <h3 style="font-family:'DM Sans',sans-serif;font-size:1rem;margin:0 0 0.65rem;color:var(--text);font-weight:800;">Quick actions</h3>
-                <div class="state-bento">
-                    <a href="{{ route('admin.cfa.index') }}">
-                        <div class="qi"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></div>
-                        <strong>CFA applications</strong>
-                        <span>All districts - review submissions</span>
-                    </a>
-                    <a href="{{ route('admin.targets.state') }}">
-                        <div class="qi"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></div>
-                        <strong>State targets</strong>
-                        <span>MIS totals by deliverable</span>
-                    </a>
-                    <a href="{{ route('admin.targets.district') }}">
-                        <div class="qi"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i></div>
-                        <strong>District targets</strong>
-                        <span>Per-district allocation</span>
-                    </a>
-                    <a href="{{ route('admin.staff.index') }}">
-                        <div class="qi"><i class="fa-solid fa-user-tie" aria-hidden="true"></i></div>
-                        <strong>Staff &amp; links</strong>
-                        <span>Referral URLs &amp; targets</span>
-                    </a>
-                    <a href="{{ route('admin.attendance.index') }}">
-                        <div class="qi"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></div>
-                        <strong>Field attendance</strong>
-                        <span>Field coordinator visit records</span>
-                    </a>
-                    <a href="{{ route('admin.staff-check-ins.index') }}">
-                        <div class="qi"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></div>
-                        <strong>Staff daily attendance</strong>
-                        <span>GPS check-in by hub, district &amp; state staff</span>
-                    </a>
-                    <a href="{{ route('admin.block-workshops.index') }}">
-                        <div class="qi"><i class="fa-solid fa-people-group" aria-hidden="true"></i></div>
-                        <strong>Block level workshops</strong>
-                        <span>Participant records, photos &amp; exports</span>
-                    </a>
-                    <a href="{{ route('team.index') }}">
-                        <div class="qi"><i class="fa-solid fa-people-group" aria-hidden="true"></i></div>
-                        <strong>Team directory</strong>
-                        <span>State, hub, and district contacts</span>
-                    </a>
-                    <a href="{{ route('admin.designations.index') }}">
-                        <div class="qi"><i class="fa-solid fa-tags" aria-hidden="true"></i></div>
-                        <strong>Designations</strong>
-                        <span>Role titles</span>
-                    </a>
-                    <a href="{{ route('library.documents.index') }}">
-                        <div class="qi"><i class="fa-solid fa-folder-open" aria-hidden="true"></i></div>
-                        <strong>Document repository</strong>
-                        <span>View role-authorized uploaded documents</span>
-                    </a>
-                    <a href="{{ route('admin.audit.index') }}">
-                        <div class="qi"><i class="fa-solid fa-scroll" aria-hidden="true"></i></div>
-                        <strong>Audit log</strong>
-                        <span>Activity trail</span>
-                    </a>
+            <div class="sad-dock">
+                <p class="sad-dock__title">Quick command links</p>
+                <div class="sad-dock__links">
+                    <a class="sad-dock__link" href="{{ route('admin.cfa.index') }}"><i class="fa-solid fa-clipboard-list"></i> CFA</a>
+                    <a class="sad-dock__link" href="{{ route('admin.targets.state') }}"><i class="fa-solid fa-bullseye"></i> State targets</a>
+                    <a class="sad-dock__link" href="{{ route('admin.targets.district') }}"><i class="fa-solid fa-map-location-dot"></i> District targets</a>
+                    <a class="sad-dock__link" href="{{ route('admin.targets.allocate-by-service') }}"><i class="fa-solid fa-sliders"></i> Allocate by service</a>
+                    <a class="sad-dock__link" href="{{ route('admin.state-tasks.index') }}"><i class="fa-solid fa-list-check"></i> State tasks</a>
+                    <a class="sad-dock__link" href="{{ route('admin.staff.index') }}"><i class="fa-solid fa-user-tie"></i> Staff</a>
+                    <a class="sad-dock__link" href="{{ route('admin.attendance.index') }}"><i class="fa-solid fa-calendar-check"></i> Field attendance</a>
+                    <a class="sad-dock__link" href="{{ route('admin.staff-check-ins.index') }}"><i class="fa-solid fa-location-dot"></i> Staff check-ins</a>
+                    <a class="sad-dock__link" href="{{ route('admin.data-centre.index') }}"><i class="fa-solid fa-database"></i> Data centre</a>
+                    <a class="sad-dock__link" href="{{ route('admin.deliverables.index') }}"><i class="fa-solid fa-chart-column"></i> Deliverables</a>
+                    <a class="sad-dock__link" href="{{ route('admin.onboarded.index') }}"><i class="fa-solid fa-user-check"></i> Onboarded</a>
+                    <a class="sad-dock__link" href="{{ route('team.index') }}"><i class="fa-solid fa-people-group"></i> Team</a>
+                    <a class="sad-dock__link" href="{{ route('library.documents.index') }}"><i class="fa-solid fa-folder-open"></i> Documents</a>
+                    <a class="sad-dock__link" href="{{ route('admin.audit.index') }}"><i class="fa-solid fa-scroll"></i> Audit</a>
                 </div>
+            </div>
         </div>
     </main>
 
 <script>
 (function () {
-    const grid = { color: 'rgba(148, 163, 184, 0.25)' };
-    const accent = '#0d6e4f';
+    const gridColor = 'rgba(148, 163, 184, 0.22)';
+
+    document.querySelectorAll('[data-sad-tab]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-sad-tab');
+            document.querySelectorAll('[data-sad-tab]').forEach((b) => {
+                b.classList.toggle('is-active', b === btn);
+            });
+            document.querySelectorAll('[data-sad-panel]').forEach((p) => {
+                p.classList.toggle('is-active', p.getAttribute('data-sad-panel') === id);
+            });
+        });
+    });
 
     const trendLabels = @json($stateCfaTrend['labels'] ?? []);
     const trendValues = @json($stateCfaTrend['values'] ?? []);
     const stEl = document.getElementById('stateTrendCurveChart');
     if (stEl && trendLabels.length) {
         const cx = stEl.getContext('2d');
-        const dh = stEl.parentElement?.clientHeight || 130;
+        const dh = stEl.parentElement?.clientHeight || 168;
         const dFill = cx.createLinearGradient(0, 0, 0, dh);
-        dFill.addColorStop(0, 'rgba(13, 148, 136, 0.32)');
-        dFill.addColorStop(1, 'rgba(45, 212, 191, 0.02)');
+        dFill.addColorStop(0, 'rgba(13, 110, 79, 0.28)');
+        dFill.addColorStop(1, 'rgba(13, 110, 79, 0.02)');
         new Chart(stEl, {
             type: 'line',
             data: {
@@ -1174,38 +1250,22 @@
                 datasets: [{
                     label: 'State CFA',
                     data: trendValues,
-                    borderColor: 'rgba(13, 148, 136, 0.95)',
+                    borderColor: '#0d6e4f',
                     backgroundColor: dFill,
                     fill: true,
-                    tension: 0.5,
-                    borderWidth: 2.5,
+                    tension: 0.42,
+                    borderWidth: 2,
                     pointRadius: 0,
-                    pointHoverRadius: 5,
-                    pointHoverBorderWidth: 2
+                    pointHoverRadius: 4
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: { intersect: false, mode: 'index' },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                        padding: 10,
-                        cornerRadius: 10
-                    }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    x: {
-                        grid: { display: false, drawBorder: false },
-                        ticks: { maxRotation: 0, font: { size: 9 }, color: '#64748b' }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: grid.color },
-                        ticks: { stepSize: 1, font: { size: 10 } }
-                    }
+                    x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#64748b', maxRotation: 0 } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, font: { size: 9 } } }
                 }
             }
         });
@@ -1225,87 +1285,68 @@
             const meta = chart.getDatasetMeta(0);
             const values = chart.data.datasets[0]?.data || [];
             ctx.save();
-            ctx.font = '700 11px DM Sans, sans-serif';
+            ctx.font = '700 10px DM Sans, sans-serif';
             ctx.fillStyle = '#0f172a';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             meta.data.forEach((bar, i) => {
                 const raw = Number(values[i] ?? 0);
-                const text = Number.isFinite(raw) ? raw.toLocaleString('en-IN') : '0';
-                const x = bar.x + 8;
-                const y = bar.y;
-                ctx.fillText(text, x, y);
+                ctx.fillText(raw.toLocaleString('en-IN'), bar.x + 6, bar.y);
             });
             ctx.restore();
         }
     };
 
-    new Chart(document.getElementById('chartDistrictCfa'), {
-        type: 'bar',
-        plugins: [districtValueLabelsPlugin],
-        data: {
-            labels: dLabels.length ? dLabels : ['No data'],
-            datasets: [{
-                label: 'CFA',
-                data: dLabels.length ? dValues : [0],
-                backgroundColor: dLabels.length
-                    ? dValues.map((_, i) => districtPalette[i % districtPalette.length])
-                    : ['#e2e8f0'],
-                borderRadius: 6
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: {
-                padding: {
-                    right: 56
-                }
+    const districtEl = document.getElementById('chartDistrictCfa');
+    if (districtEl) {
+        new Chart(districtEl, {
+            type: 'bar',
+            plugins: [districtValueLabelsPlugin],
+            data: {
+                labels: dLabels.length ? dLabels : ['No data'],
+                datasets: [{
+                    label: 'CFA',
+                    data: dLabels.length ? dValues : [0],
+                    backgroundColor: dLabels.length
+                        ? dValues.map((_, i) => districtPalette[i % districtPalette.length])
+                        : ['#e2e8f0'],
+                    borderRadius: 5
+                }]
             },
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { beginAtZero: true, grid: { color: grid.color } },
-                y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { right: 48 } },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor } },
+                    y: { grid: { display: false }, ticks: { font: { size: 9 } } }
+                }
             }
-        }
-    });
+        });
+    }
 
     const searchInput = document.getElementById('stateStaffCfaSearch');
     const districtSelect = document.getElementById('stateStaffCfaDistrictFilter');
-    const staffRows = Array.from(document.querySelectorAll('#stateStaffCfaList .staff-cfa-row'));
+    const staffRows = Array.from(document.querySelectorAll('#stateStaffCfaList .sad-staff-row'));
     const noResults = document.getElementById('stateStaffCfaNoResults');
 
     const applyStaffCfaFilters = () => {
-        if (!staffRows.length) {
-            return;
-        }
-
+        if (!staffRows.length) return;
         const q = (searchInput?.value || '').trim().toLowerCase();
         const district = (districtSelect?.value || '').trim().toLowerCase();
-        let visibleCount = 0;
-
+        let visible = 0;
         staffRows.forEach((row) => {
-            const name = row.dataset.name || '';
-            const districtValue = row.dataset.district || '';
-            const matchesName = q === '' || name.includes(q);
-            const matchesDistrict = district === '' || districtValue === district;
-            const show = matchesName && matchesDistrict;
+            const show = (q === '' || (row.dataset.name || '').includes(q))
+                && (district === '' || (row.dataset.district || '') === district);
             row.style.display = show ? '' : 'none';
-            if (show) visibleCount += 1;
+            if (show) visible += 1;
         });
-
-        if (noResults) {
-            noResults.style.display = visibleCount === 0 ? '' : 'none';
-        }
+        if (noResults) noResults.style.display = visible === 0 ? '' : 'none';
     };
-
-    if (searchInput) {
-        searchInput.addEventListener('input', applyStaffCfaFilters);
-    }
-    if (districtSelect) {
-        districtSelect.addEventListener('change', applyStaffCfaFilters);
-    }
+    searchInput?.addEventListener('input', applyStaffCfaFilters);
+    districtSelect?.addEventListener('change', applyStaffCfaFilters);
 })();
 </script>
 
