@@ -14,6 +14,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -39,6 +40,29 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', TrackUserPresence::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (TokenMismatchException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Session expired. Refresh the page and try again.',
+                ], 419);
+            }
+
+            if ($request->routeIs('login') && $request->isMethod('post')) {
+                return redirect()
+                    ->route('login')
+                    ->withInput($request->only('email'))
+                    ->withErrors([
+                        'email' => 'Session expired. Refresh this page, then log in again.',
+                    ]);
+            }
+
+            return redirect()
+                ->route('login')
+                ->withErrors([
+                    'email' => 'Session expired. Refresh the page, then log in again.',
+                ]);
+        });
+
         $exceptions->render(function (PostTooLargeException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([
