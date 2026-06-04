@@ -818,11 +818,13 @@
                         @endif
                     </div>
                 </div>
-                <div class="sad-kpi">
-                    <div class="sad-kpi__icon sad-kpi__icon--rose"><i class="fa-solid fa-handshake" aria-hidden="true"></i></div>
-                    <div class="sad-kpi__label">Mentorship queue</div>
-                    <div class="sad-kpi__value">{{ number_format((int) ($heroMentorshipPending ?? 0)) }}</div>
-                    <div class="sad-kpi__foot @if (($heroMentorshipPending ?? 0) > 0) is-warn @endif">Pending requests</div>
+                <div class="sad-kpi" title="Approved Phase 3 service cases (delivered) — all time">
+                    <div class="sad-kpi__icon sad-kpi__icon--teal"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
+                    <div class="sad-kpi__label">Services delivered till date</div>
+                    <div class="sad-kpi__value">{{ number_format((int) ($servicesDeliveredTillDate ?? 0)) }}</div>
+                    <div class="sad-kpi__foot">
+                        Till date · {{ number_format((int) ($servicesDeliveredThisFy ?? 0)) }} this FY
+                    </div>
                 </div>
                 <div class="sad-kpi">
                     <div class="sad-kpi__icon sad-kpi__icon--green"><i class="fa-solid fa-piggy-bank" aria-hidden="true"></i></div>

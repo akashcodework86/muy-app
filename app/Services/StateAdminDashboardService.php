@@ -7,6 +7,7 @@ use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\MentorshipRequest;
+use App\Models\ServiceCase;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -309,6 +310,7 @@ class StateAdminDashboardService
             : null;
 
         $estimatedSavings = $this->estimatedSavingsMetrics($activeFy, $phase3FloorDate);
+        $servicesDeliveredCounts = $this->servicesDeliveredCounts($activeFy, $phase3FloorDate);
 
         return [
             'activeFy' => $activeFy,
@@ -368,11 +370,47 @@ class StateAdminDashboardService
             'heroCfaYesterday' => $heroCfaYesterday,
             'heroCfaTodayDelta' => $heroCfaTodayDelta,
             'heroMentorshipPending' => $heroMentorshipPending,
+            'servicesDeliveredTillDate' => $servicesDeliveredCounts['till_date'],
+            'servicesDeliveredThisFy' => $servicesDeliveredCounts['this_fy'],
             'heroStaffOnlineNow' => $heroStaffOnlineNow,
             'heroSparkline30' => $heroSparkline30,
             'phase3FloorDateLabel' => $phase3FloorDateLabel,
             'estimatedSavings' => $estimatedSavings,
         ];
+    }
+
+    /**
+     * Approved service cases = delivered in Phase 3 service workflow.
+     *
+     * @return array{till_date: int, this_fy: int}
+     */
+    private function servicesDeliveredCounts(?FiscalYear $activeFy, Carbon $phase3FloorDate): array
+    {
+        if (! Schema::hasTable('service_cases') || ! Schema::hasColumn('service_cases', 'status')) {
+            return ['till_date' => 0, 'this_fy' => 0];
+        }
+
+        $tillDate = (int) DB::table('service_cases')
+            ->where('status', ServiceCase::STATUS_APPROVED)
+            ->count();
+
+        $fyStart = $activeFy?->starts_on
+            ? Carbon::parse($activeFy->starts_on)->startOfDay()
+            : $phase3FloorDate;
+        $fyEnd = $activeFy?->ends_on
+            ? Carbon::parse($activeFy->ends_on)->endOfDay()
+            : now()->endOfDay();
+
+        $approvedAtExpr = Schema::hasColumn('service_cases', 'approved_at')
+            ? 'COALESCE(approved_at, completed_at, created_at)'
+            : (Schema::hasColumn('service_cases', 'completed_at') ? 'COALESCE(completed_at, created_at)' : 'created_at');
+
+        $thisFy = (int) DB::table('service_cases')
+            ->where('status', ServiceCase::STATUS_APPROVED)
+            ->whereBetween(DB::raw($approvedAtExpr), [$fyStart, $fyEnd])
+            ->count();
+
+        return ['till_date' => $tillDate, 'this_fy' => $thisFy];
     }
 
     /**
