@@ -29,8 +29,10 @@ class StateAdminDashboardService
         $phase3Scope = CfaSubmission::query()
             ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate));
         $cfaDeliverable = null;
+        $cfaDeliverableIds = [];
         $stateCfaTarget = null;
         $districtsCfaSum = null;
+        $districtPlanAlignment = $this->emptyDistrictPlanAlignment();
         $stateOnboardingTarget = null;
         $stateOnboardingAchieved = 0;
         $stateOnboardingProgressPct = null;
@@ -112,6 +114,10 @@ class StateAdminDashboardService
                         $stateOnboardingTarget = null;
                     }
                 }
+
+                if ($activeFy) {
+                    $districtPlanAlignment = $this->districtPlanAlignmentMetrics($activeFy, $cfaDeliverableIds);
+                }
             }
         } catch (\Throwable) {
             // Keep dashboard resilient if target tables/columns are missing on any environment.
@@ -122,6 +128,7 @@ class StateAdminDashboardService
             $districtsCfaSum = null;
             $stateProgressPct = null;
             $stateOnboardingTarget = null;
+            $districtPlanAlignment = $this->emptyDistrictPlanAlignment();
         }
 
         if (Schema::hasTable('onboarding_batch_cfa') && Schema::hasTable('onboarding_batches')) {
@@ -305,9 +312,7 @@ class StateAdminDashboardService
 
         $heroSparkline30 = $this->dailyCfaSparkline(30, $phase3FloorDate, $activeFyId);
 
-        $districtAllocPct = ($stateCfaTarget !== null && $stateCfaTarget > 0 && $districtsCfaSum !== null)
-            ? (int) round(($districtsCfaSum / $stateCfaTarget) * 100)
-            : null;
+        $districtAllocPct = $districtPlanAlignment['pct'];
 
         $estimatedSavings = $this->estimatedSavingsMetrics($activeFy, $phase3FloorDate);
         $servicesDeliveredCounts = $this->servicesDeliveredCounts($activeFy, $phase3FloorDate);
@@ -318,6 +323,7 @@ class StateAdminDashboardService
             'stateCfaTarget' => $stateCfaTarget !== null ? (int) $stateCfaTarget : null,
             'districtsCfaSum' => $districtsCfaSum,
             'districtAllocPct' => $districtAllocPct,
+            'districtPlanAlignment' => $districtPlanAlignment,
             'stateOnboardingTarget' => $stateOnboardingTarget,
             'stateOnboardingAchieved' => $stateOnboardingAchieved,
             'stateOnboardingProgressPct' => $stateOnboardingProgressPct,
@@ -377,6 +383,170 @@ class StateAdminDashboardService
             'phase3FloorDateLabel' => $phase3FloorDateLabel,
             'estimatedSavings' => $estimatedSavings,
         ];
+    }
+
+    /**
+     * @return array{
+     *   pct: int|null,
+     *   aligned_count: int,
+     *   tracked_count: int,
+     *   all_aligned: bool,
+     *   state_total: int,
+     *   district_total: int,
+     *   cfa: array{state: int, district: int, aligned: bool, tracked: bool},
+     *   services: array{state: int, district: int, aligned_count: int, tracked_count: int, all_aligned: bool},
+     *   misaligned: list<array{name: string, state: int, district: int, gap: int, kind: string}>
+     * }
+     */
+    private function emptyDistrictPlanAlignment(): array
+    {
+        return [
+            'pct' => null,
+            'aligned_count' => 0,
+            'tracked_count' => 0,
+            'all_aligned' => false,
+            'state_total' => 0,
+            'district_total' => 0,
+            'cfa' => ['state' => 0, 'district' => 0, 'aligned' => false, 'tracked' => false],
+            'services' => ['state' => 0, 'district' => 0, 'aligned_count' => 0, 'tracked_count' => 0, 'all_aligned' => false],
+            'misaligned' => [],
+        ];
+    }
+
+    /**
+     * Per-deliverable check: district target sum must equal state target (CFA + active service deliverables).
+     *
+     * @param  list<int>  $cfaDeliverableIds
+     * @return array<string, mixed>
+     */
+    private function districtPlanAlignmentMetrics(FiscalYear $activeFy, array $cfaDeliverableIds): array
+    {
+        $result = $this->emptyDistrictPlanAlignment();
+        $fyId = (int) $activeFy->id;
+        $onboardingId = Deliverable::onboardingTargetDeliverableId();
+
+        $serviceDeliverableIds = Deliverable::query()
+            ->where('is_active', true)
+            ->where('code', 'like', 'svc_%')
+            ->when($onboardingId !== null, fn ($q) => $q->where('id', '!=', $onboardingId))
+            ->when($cfaDeliverableIds !== [], fn ($q) => $q->whereNotIn('id', $cfaDeliverableIds))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
+
+        $deliverableIds = collect($cfaDeliverableIds)
+            ->merge($serviceDeliverableIds)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($deliverableIds === []) {
+            return $result;
+        }
+
+        $deliverables = Deliverable::query()
+            ->whereIn('id', $deliverableIds)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'mis_entry_label']);
+
+        $stateByDeliverable = DB::table('state_deliverable_targets')
+            ->where('fiscal_year_id', $fyId)
+            ->whereIn('deliverable_id', $deliverableIds)
+            ->pluck('target_total', 'deliverable_id')
+            ->map(fn ($v) => (int) $v);
+
+        $districtByDeliverable = DB::table('district_deliverable_targets')
+            ->where('fiscal_year_id', $fyId)
+            ->whereIn('deliverable_id', $deliverableIds)
+            ->selectRaw('deliverable_id, SUM(target_total) as district_sum')
+            ->groupBy('deliverable_id')
+            ->pluck('district_sum', 'deliverable_id')
+            ->map(fn ($v) => (int) $v);
+
+        $cfaIdsSet = array_fill_keys($cfaDeliverableIds, true);
+        $alignedCount = 0;
+        $trackedCount = 0;
+        $misaligned = [];
+        $cfaState = 0;
+        $cfaDistrict = 0;
+        $cfaTracked = false;
+        $cfaAligned = true;
+        $svcState = 0;
+        $svcDistrict = 0;
+        $svcAlignedCount = 0;
+        $svcTrackedCount = 0;
+
+        foreach ($deliverables as $deliverable) {
+            $id = (int) $deliverable->id;
+            $state = (int) ($stateByDeliverable[$id] ?? 0);
+            $district = (int) ($districtByDeliverable[$id] ?? 0);
+            $isCfa = isset($cfaIdsSet[$id]);
+            $label = (string) ($deliverable->mis_entry_label ?: $deliverable->name);
+
+            if ($isCfa) {
+                $cfaState += $state;
+                $cfaDistrict += $district;
+            } else {
+                $svcState += $state;
+                $svcDistrict += $district;
+            }
+
+            if ($state <= 0) {
+                continue;
+            }
+
+            $trackedCount++;
+            if ($isCfa) {
+                $cfaTracked = true;
+            } else {
+                $svcTrackedCount++;
+            }
+
+            $isAligned = $district === $state;
+            if ($isAligned) {
+                $alignedCount++;
+                if (! $isCfa) {
+                    $svcAlignedCount++;
+                }
+            } else {
+                if ($isCfa) {
+                    $cfaAligned = false;
+                }
+                $misaligned[] = [
+                    'name' => $label,
+                    'state' => $state,
+                    'district' => $district,
+                    'gap' => abs($state - $district),
+                    'kind' => $isCfa ? 'cfa' : 'service',
+                ];
+            }
+        }
+
+        $result['aligned_count'] = $alignedCount;
+        $result['tracked_count'] = $trackedCount;
+        $result['all_aligned'] = $trackedCount > 0 && $alignedCount === $trackedCount;
+        $result['pct'] = $trackedCount > 0 ? (int) round(($alignedCount / $trackedCount) * 100) : null;
+        $result['state_total'] = $cfaState + $svcState;
+        $result['district_total'] = $cfaDistrict + $svcDistrict;
+        $result['cfa'] = [
+            'state' => $cfaState,
+            'district' => $cfaDistrict,
+            'aligned' => $cfaTracked && $cfaAligned,
+            'tracked' => $cfaTracked,
+        ];
+        $result['services'] = [
+            'state' => $svcState,
+            'district' => $svcDistrict,
+            'aligned_count' => $svcAlignedCount,
+            'tracked_count' => $svcTrackedCount,
+            'all_aligned' => $svcTrackedCount > 0 && $svcAlignedCount === $svcTrackedCount,
+        ];
+        $result['misaligned'] = $misaligned;
+
+        return $result;
     }
 
     /**

@@ -654,6 +654,31 @@
             list-style: none;
         }
         details.sad-details summary::-webkit-details-marker { display: none; }
+        .sad-align-status {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.35rem;
+        }
+        .sad-align-pill {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+        }
+        .sad-align-pill--ok { background: #ecfdf5; color: #065f46; }
+        .sad-align-pill--bad { background: #fffbeb; color: #92400e; }
+        .sad-align-gaps {
+            margin-top: 0.4rem;
+            padding: 0.45rem 0.55rem;
+            border-radius: 8px;
+            background: #f8fafc;
+            border: 1px solid var(--sad-border);
+            font-size: 0.68rem;
+            max-height: 8rem;
+            overflow-y: auto;
+        }
+        .sad-align-gaps li { margin: 0.2rem 0; line-height: 1.35; }
     </style>
 </head>
 <body class="admin-app-body admin-app-body--dashboard">
@@ -749,6 +774,11 @@
             $staffDistrictOptions = collect($staffCfaRows)->pluck('district')->filter()->unique()->sort()->values()->all();
 
             $fyLabel = $activeFy?->name ?? ($activeFy?->code ?? 'Phase 3');
+            $plan = $districtPlanAlignment ?? [];
+            $planPct = $plan['pct'] ?? null;
+            $planCfa = $plan['cfa'] ?? [];
+            $planSvc = $plan['services'] ?? [];
+            $planMisaligned = $plan['misaligned'] ?? [];
         @endphp
 
         <div class="sad">
@@ -853,10 +883,10 @@
                         7-day CFA {{ ($cfaWoWDeltaPct ?? 0) > 0 ? 'up' : 'down' }} {{ abs((int) ($cfaWoWDeltaPct ?? 0)) }}% vs prior week
                     </span>
                 @endif
-                @if (($districtAllocPct ?? null) !== null && ($districtAllocPct ?? 0) !== 100 && $cfaTargetN)
+                @if ($planPct !== null && ! ($plan['all_aligned'] ?? false))
                     <span class="sad-alert sad-alert--warn">
                         <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i>
-                        District allocation {{ (int) $districtAllocPct }}% of state CFA target
+                        CFA + services: {{ (int) $planPct }}% deliverables aligned ({{ (int) ($plan['aligned_count'] ?? 0) }}/{{ (int) ($plan['tracked_count'] ?? 0) }})
                     </span>
                 @endif
             </div>
@@ -897,22 +927,63 @@
                                 </div>
                                 <p class="sad-progress-foot">Gap to target: <strong>{{ number_format($insGap) }}</strong> applications.</p>
                             </div>
-                            @if ($districtAllocPct !== null)
+                            @if ($planPct !== null)
                                 <div class="sad-progress-block">
                                     <div class="sad-progress-top">
-                                        <span>District plan alignment</span>
-                                        <strong>{{ (int) $districtAllocPct }}%</strong>
+                                        <span>District plan alignment (CFA + services)</span>
+                                        <strong>{{ (int) $planPct }}%</strong>
                                     </div>
                                     <div class="sad-progress-track">
-                                        <div class="sad-progress-fill sad-progress-fill--sky" style="width: {{ min(100, (int) $districtAllocPct) }}%;"></div>
+                                        <div class="sad-progress-fill sad-progress-fill--sky" style="width: {{ min(100, (int) $planPct) }}%;"></div>
                                     </div>
                                     <p class="sad-progress-foot">
-                                        District sum {{ number_format((int) ($districtsCfaSum ?? 0)) }} vs state {{ number_format($cfaTargetN) }}.
-                                        @if ($cfaDeliverable && $activeFy)
-                                            <a href="{{ route('admin.targets.district', ['fiscal_year_id' => $activeFy->id, 'deliverable_id' => $cfaDeliverable->id]) }}">Edit targets</a>
+                                        <strong>{{ (int) ($plan['aligned_count'] ?? 0) }} of {{ (int) ($plan['tracked_count'] ?? 0) }}</strong> deliverables with state target have matching district totals.
+                                        Combined district {{ number_format((int) ($plan['district_total'] ?? 0)) }} vs state {{ number_format((int) ($plan['state_total'] ?? 0)) }}.
+                                        @if ($activeFy)
+                                            <a href="{{ route('admin.targets.district', ['fiscal_year_id' => $activeFy->id]) }}">District targets</a>
                                         @endif
                                     </p>
+                                    <div class="sad-align-status">
+                                        @if ($planCfa['tracked'] ?? false)
+                                            <span class="sad-align-pill {{ ($planCfa['aligned'] ?? false) ? 'sad-align-pill--ok' : 'sad-align-pill--bad' }}">
+                                                CFA {{ ($planCfa['aligned'] ?? false) ? 'aligned' : 'mismatch' }}
+                                                ({{ number_format((int) ($planCfa['district'] ?? 0)) }}/{{ number_format((int) ($planCfa['state'] ?? 0)) }})
+                                            </span>
+                                        @else
+                                            <span class="sad-align-pill sad-align-pill--bad">CFA target not set</span>
+                                        @endif
+                                        @if (($planSvc['tracked_count'] ?? 0) > 0)
+                                            <span class="sad-align-pill {{ ($planSvc['all_aligned'] ?? false) ? 'sad-align-pill--ok' : 'sad-align-pill--bad' }}">
+                                                Services {{ (int) ($planSvc['aligned_count'] ?? 0) }}/{{ (int) ($planSvc['tracked_count'] ?? 0) }} aligned
+                                                ({{ number_format((int) ($planSvc['district'] ?? 0)) }}/{{ number_format((int) ($planSvc['state'] ?? 0)) }})
+                                            </span>
+                                        @else
+                                            <span class="sad-align-pill sad-align-pill--bad">No service targets set</span>
+                                        @endif
+                                    </div>
+                                    @if (count($planMisaligned) > 0)
+                                        <details class="sad-details" style="margin-top:0.35rem;">
+                                            <summary>{{ count($planMisaligned) }} deliverable(s) need district fix</summary>
+                                            <ul class="sad-align-gaps">
+                                                @foreach ($planMisaligned as $gap)
+                                                    <li>
+                                                        <strong>{{ $gap['name'] }}</strong>
+                                                        ({{ $gap['kind'] === 'cfa' ? 'CFA' : 'Service' }}):
+                                                        district {{ number_format((int) $gap['district']) }}
+                                                        vs state {{ number_format((int) $gap['state']) }}
+                                                        — gap {{ number_format((int) $gap['gap']) }}
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        </details>
+                                    @elseif ($plan['all_aligned'] ?? false)
+                                        <p class="sad-progress-foot" style="color:#065f46;margin-top:0.35rem;">
+                                            <i class="fa-solid fa-circle-check" aria-hidden="true"></i> All CFA and service district targets match state plan.
+                                        </p>
+                                    @endif
                                 </div>
+                            @elseif ($cfaTargetN !== null && $cfaTargetN > 0)
+                                <p class="sad-progress-foot">Set service state targets in <a href="{{ route('admin.targets.state') }}">State targets</a>, then split by district for full alignment view.</p>
                             @endif
                         @else
                             <p class="sad-progress-foot">Configure CFA state target in <a href="{{ route('admin.targets.state') }}">State targets</a> to unlock progress tracking.</p>
