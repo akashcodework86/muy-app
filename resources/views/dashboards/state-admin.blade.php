@@ -637,9 +637,8 @@
         }
         .sad-dock__link i { color: var(--sad-brand); font-size: 0.8rem; }
         .sad-spark {
-            height: 32px;
-            margin-top: 0.35rem;
-            position: relative;
+            height: 28px;
+            margin-top: 0.25rem;
         }
         .sad-spark svg {
             width: 100%;
@@ -647,86 +646,44 @@
             display: block;
             overflow: visible;
         }
-        .sad-spark__fill {
+        .sad-spark--live .sad-spark__fill {
             fill: url(#sadSparkGrad);
-            opacity: 0.38;
-            transform-origin: center bottom;
-            animation: sadSparkFillBeat 1.35s ease-in-out infinite;
-        }
-        .sad-spark__glow {
-            fill: none;
-            stroke: var(--sad-brand);
-            stroke-width: 4;
-            stroke-linecap: round;
-            stroke-linejoin: round;
             opacity: 0;
-            filter: blur(1px);
-            animation: sadSparkGlowBeat 1.35s ease-in-out infinite;
+            animation: sadSparkFadeIn 0.55s ease-out 0.1s 1 forwards;
         }
-        .sad-spark__line {
+        .sad-spark--live .sad-spark__line {
             fill: none;
             stroke: var(--sad-brand);
-            stroke-width: 2;
+            stroke-width: 1.5;
             stroke-linecap: round;
             stroke-linejoin: round;
-            stroke-dasharray: 6 10;
-            animation: sadSparkLineBeat 1.35s ease-in-out infinite;
+            stroke-dasharray: 140;
+            stroke-dashoffset: 140;
+            animation: sadSparkDraw 0.75s ease-out 1 forwards;
         }
-        .sad-spark__dot {
+        .sad-spark--live .sad-spark__dot {
             fill: var(--sad-brand);
-            stroke: #fff;
-            stroke-width: 0.75;
-            transform-box: fill-box;
-            transform-origin: center;
-            animation: sadSparkDotBeat 1.35s ease-in-out infinite;
+            opacity: 0;
+            animation: sadSparkDotIn 0.35s ease-out 0.55s 1 forwards;
         }
-        @keyframes sadSparkFillBeat {
-            0%, 52%, 100% { opacity: 0.32; transform: scaleY(1); }
-            8% { opacity: 0.5; transform: scaleY(1.07); }
-            16% { opacity: 0.36; transform: scaleY(1.02); }
-            28% { opacity: 0.48; transform: scaleY(1.05); }
+        @keyframes sadSparkFadeIn {
+            to { opacity: 0.4; }
         }
-        @keyframes sadSparkLineBeat {
-            0%, 52%, 100% {
-                stroke-opacity: 0.82;
-                stroke-dashoffset: 0;
-                filter: drop-shadow(0 0 0 rgba(208, 74, 2, 0));
-            }
-            8% {
-                stroke-opacity: 1;
-                stroke-dashoffset: -4;
-                filter: drop-shadow(0 0 4px rgba(208, 74, 2, 0.55));
-            }
-            16% {
-                stroke-opacity: 0.88;
-                stroke-dashoffset: -2;
-            }
-            28% {
-                stroke-opacity: 1;
-                stroke-dashoffset: -6;
-                filter: drop-shadow(0 0 3px rgba(208, 74, 2, 0.45));
-            }
+        @keyframes sadSparkDraw {
+            to { stroke-dashoffset: 0; }
         }
-        @keyframes sadSparkGlowBeat {
-            0%, 52%, 100% { opacity: 0; }
-            8% { opacity: 0.35; }
-            28% { opacity: 0.28; }
-        }
-        @keyframes sadSparkDotBeat {
-            0%, 52%, 100% { opacity: 0.72; }
-            8% { opacity: 1; }
-            16% { opacity: 0.82; }
-            28% { opacity: 1; }
+        @keyframes sadSparkDotIn {
+            to { opacity: 1; }
         }
         @media (prefers-reduced-motion: reduce) {
-            .sad-spark__fill,
-            .sad-spark__glow,
-            .sad-spark__line,
-            .sad-spark__dot {
+            .sad-spark--live .sad-spark__fill,
+            .sad-spark--live .sad-spark__line,
+            .sad-spark--live .sad-spark__dot {
                 animation: none !important;
+                opacity: 1;
+                stroke-dashoffset: 0;
             }
-            .sad-spark__fill { opacity: 0.4; transform: none; }
-            .sad-spark__glow { display: none; }
+            .sad-spark--live .sad-spark__fill { opacity: 0.4; }
         }
         .sad-empty {
             text-align: center;
@@ -1152,10 +1109,9 @@
                                                 </linearGradient>
                                             </defs>
                                             <polygon class="sad-spark__fill" points="{{ $sparkFill }}"/>
-                                            <polyline class="sad-spark__glow" points="{{ $sparkLine }}"/>
                                             <polyline class="sad-spark__line" points="{{ $sparkLine }}"/>
                                             @if ($sparkDotX !== null && $sparkDotY !== null)
-                                                <circle class="sad-spark__dot" cx="{{ $sparkDotX }}" cy="{{ $sparkDotY }}" r="2.5"/>
+                                                <circle class="sad-spark__dot" cx="{{ $sparkDotX }}" cy="{{ $sparkDotY }}" r="2"/>
                                             @endif
                                         </svg>
                                     </div>
