@@ -404,6 +404,90 @@ class ServiceTargetAllocationTest extends TestCase
             ->assertSessionHasErrors('months');
     }
 
+    public function test_index_shows_saved_staff_monthly_targets_after_apply(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'reload-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'reload-district',
+            'name' => 'Reload District',
+            'sort_order' => 1,
+        ]);
+
+        $deliverable = Deliverable::query()->create([
+            'sort_order' => 6,
+            'code' => 'svc_reload',
+            'name' => 'Reload Service',
+            'mis_entry_label' => 'REL',
+            'is_active' => true,
+        ]);
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $deliverable->id,
+            'target_total' => 18,
+        ]);
+
+        $designation = Designation::query()->create(['name' => 'Field Coordinator', 'sort_order' => 1]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'designation_id' => $designation->id,
+            'is_active' => true,
+            'name' => 'Reload Staff',
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $key = app(ServiceTargetAllocationService::class)->designationKey($designation->id);
+
+        $months = [];
+        foreach (range(1, 12) as $month) {
+            $months[$month] = $month <= 6 ? 3 : 0;
+        }
+
+        $this->actingAs($admin)
+            ->post(route('admin.targets.allocate-by-service.apply'), [
+                'fiscal_year_id' => $fy->id,
+                'district_id' => $district->id,
+                'deliverable_id' => $deliverable->id,
+                'percent' => [$key => 100],
+                'months' => [
+                    $staff->id => $months,
+                ],
+            ])
+            ->assertRedirect();
+
+        $url = route('admin.targets.allocate-by-service', [
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $deliverable->id,
+        ]);
+
+        $response = $this->actingAs($admin)->get($url);
+
+        $response->assertOk()
+            ->assertSee('saved staff targets', false)
+            ->assertSee('preferSaved = true', false);
+
+        $html = $response->getContent();
+        $this->assertIsString($html);
+        $this->assertStringContainsString('"user_id":'.$staff->id, $html);
+        $this->assertStringContainsString('"annual_total":18', $html);
+        $this->assertMatchesRegularExpression('/"months":\{[^}]*"1":3/', $html);
+    }
+
     public function test_service_split_helpers_preserve_totals(): void
     {
         $service = app(ServiceTargetAllocationService::class);

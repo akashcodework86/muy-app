@@ -56,6 +56,7 @@ class ServiceTargetAllocationController extends Controller
         $defaultPercents = [];
         $percentValues = [];
         $previewRows = [];
+        $loadedFromDatabase = false;
         $district = $districtId ? $districts->firstWhere('id', $districtId) : null;
 
         if ($districtId && $deliverableId) {
@@ -98,6 +99,21 @@ class ServiceTargetAllocationController extends Controller
                             $designationGroups,
                             $percentValues
                         );
+
+                        $hasOldMonths = is_array(old('months')) && old('months') !== [];
+                        $savedMonths = $this->allocation->districtStaffMonthsByUser(
+                            $fiscalYearId,
+                            $districtId,
+                            $deliverable->id
+                        );
+
+                        if (! $hasOldMonths && $this->allocation->districtHasSavedStaffTargets($savedMonths)) {
+                            $previewRows = $this->allocation->applySavedMonthsToAllocations(
+                                $previewRows,
+                                $savedMonths
+                            );
+                            $loadedFromDatabase = true;
+                        }
                     } catch (\InvalidArgumentException) {
                         $previewRows = [];
                     }
@@ -118,6 +134,7 @@ class ServiceTargetAllocationController extends Controller
             'designationGroups' => $designationGroups,
             'percentValues' => $percentValues,
             'previewRows' => $previewRows,
+            'loadedFromDatabase' => $loadedFromDatabase,
         ]);
     }
 

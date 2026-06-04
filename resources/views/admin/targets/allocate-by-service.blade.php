@@ -73,6 +73,12 @@
                 <div><strong>District target (annual):</strong> {{ number_format((int) $districtTarget) }}</div>
             </div>
 
+            @if (! empty($loadedFromDatabase))
+                <p style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; padding:0.75rem; border-radius:8px; font-size:0.88rem; margin:0 0 1rem;">
+                    Showing <strong>saved staff targets</strong> from the last apply (M1–M12). Change designation % to recalculate from scratch.
+                </p>
+            @endif
+
             <form method="post" action="{{ route('admin.targets.allocate-by-service.apply') }}" id="allocate-form">
                 @csrf
                 <input type="hidden" name="fiscal_year_id" value="{{ $fiscalYearId }}">
@@ -168,6 +174,8 @@
             (function () {
                 const districtTarget = {{ (int) ($districtTarget ?? 0) }};
                 const designationGroups = @json($designationGroups ?? []);
+                const initialPreviewRows = @json($previewRows ?? []);
+                let preferSaved = @json(! empty($loadedFromDatabase));
                 const oldMonths = @json(old('months', []));
                 let useOldMonths = Object.keys(oldMonths).length > 0;
                 const inputs = document.querySelectorAll('.js-designation-pct');
@@ -316,9 +324,8 @@
                     return total;
                 }
 
-                function renderPreview(percentByKey) {
+                function renderPreviewRows(rows) {
                     if (!previewTbody) return;
-                    const rows = buildStaffAllocations(districtTarget, designationGroups, percentByKey);
                     previewTbody.innerHTML = '';
                     if (rows.length === 0) {
                         if (previewEmpty) previewEmpty.style.display = 'block';
@@ -348,6 +355,12 @@
                     });
                     updateStaffTotal();
                     useOldMonths = false;
+                }
+
+                function renderPreview(percentByKey) {
+                    if (!previewTbody) return;
+                    const rows = buildStaffAllocations(districtTarget, designationGroups, percentByKey);
+                    renderPreviewRows(rows);
                 }
 
                 function updateRemainder(sum) {
@@ -386,11 +399,17 @@
                     sumEl.textContent = sum.toFixed(1);
                     sumEl.style.color = Math.abs(sum - 100) < 0.05 ? '#047857' : '#b45309';
                     updateRemainder(sum);
-                    renderPreview(percentByKey);
+
+                    if (preferSaved && initialPreviewRows.length > 0) {
+                        renderPreviewRows(initialPreviewRows);
+                    } else {
+                        renderPreview(percentByKey);
+                    }
                 }
 
                 inputs.forEach(function (el) {
                     el.addEventListener('input', function () {
+                        preferSaved = false;
                         useOldMonths = false;
                         upd();
                     });

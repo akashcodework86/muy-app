@@ -386,6 +386,86 @@ class ServiceTargetAllocationService
     }
 
     /**
+     * Existing M1–M12 targets for all active district staff in a district (zeros when no row).
+     *
+     * @return array<int, array<int, int>>
+     */
+    public function districtStaffMonthsByUser(int $fiscalYearId, int $districtId, int $deliverableId): array
+    {
+        $staffIds = User::query()
+            ->where('district_id', $districtId)
+            ->where('role', 'district_staff')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($staffIds === []) {
+            return [];
+        }
+
+        $monthsByUser = [];
+        foreach ($staffIds as $userId) {
+            $monthsByUser[$userId] = array_fill(1, 12, 0);
+        }
+
+        $rows = StaffMonthlyTarget::query()
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->where('deliverable_id', $deliverableId)
+            ->whereIn('user_id', $staffIds)
+            ->get(['user_id', 'month_number', 'target_count']);
+
+        foreach ($rows as $row) {
+            $userId = (int) $row->user_id;
+            $month = (int) $row->month_number;
+            if ($month >= 1 && $month <= 12) {
+                $monthsByUser[$userId][$month] = (int) $row->target_count;
+            }
+        }
+
+        return $monthsByUser;
+    }
+
+    public function districtHasSavedStaffTargets(array $monthsByUser): bool
+    {
+        foreach ($monthsByUser as $months) {
+            if (array_sum($months) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Replace calculated months with values already stored in staff_monthly_targets.
+     *
+     * @param  list<array{user_id: int, user_name: string, designation_name: string, annual_total: int, months: array<int, int>}>  $allocations
+     * @param  array<int, array<int, int>>  $monthsByUser
+     * @return list<array{user_id: int, user_name: string, designation_name: string, annual_total: int, months: array<int, int>}>
+     */
+    public function applySavedMonthsToAllocations(array $allocations, array $monthsByUser): array
+    {
+        return array_map(function (array $row) use ($monthsByUser): array {
+            $userId = (int) $row['user_id'];
+            if (! isset($monthsByUser[$userId])) {
+                return $row;
+            }
+
+            $months = $monthsByUser[$userId];
+            if (array_sum($months) <= 0) {
+                return $row;
+            }
+
+            $row['months'] = $months;
+            $row['annual_total'] = array_sum($months);
+
+            return $row;
+        }, $allocations);
+    }
+
+    /**
      * @param  list<array{user_id: int, user_name: string, designation_name: string, annual_total: int, months: array<int, int>}>  $allocations
      */
     public function districtTotalMismatchMessage(array $allocations, int $districtTarget): ?string
