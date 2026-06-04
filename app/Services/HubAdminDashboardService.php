@@ -19,6 +19,7 @@ class HubAdminDashboardService
 {
     public function __construct(
         private readonly StaffCheckInService $staffCheckIns,
+        private readonly StaffMonthlyTargetsDashboardService $staffTargetsDashboard,
     ) {}
 
     /**
@@ -205,9 +206,14 @@ class HubAdminDashboardService
             ->values();
 
         $staffAvatarMap = User::query()
-            ->whereIn('id', $staffCfaByStaff->pluck('id')->filter()->map(fn ($id) => (int) $id)->filter(fn (int $id) => $id > 0)->all())
-            ->get()
+            ->where('role', 'district_staff')
+            ->where('hub_id', $hubId)
+            ->get(['id', 'avatar_path'])
             ->keyBy('id');
+
+        $staffPerformanceCards = $activeFy
+            ? $this->buildHubStaffPerformanceCards($hubId, $activeFy, $staffAvatarMap)
+            : [];
 
         $trendLabels = [];
         $trendValues = [];
@@ -333,6 +339,7 @@ class HubAdminDashboardService
                 'cfa_total' => (int) $row->cfa_total,
                 'avatar_url' => $row->id ? $staffAvatarMap->get((int) $row->id)?->avatarUrl() : null,
             ])->all(),
+            'staffPerformanceCards' => $staffPerformanceCards,
             'cfaTrend' => [
                 'labels' => $trendLabels,
                 'values' => $trendValues,
@@ -752,6 +759,107 @@ class HubAdminDashboardService
         }
 
         return ['labels' => $labels, 'values' => $values];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, User>  $staffAvatarMap
+     * @return list<array<string, mixed>>
+     */
+    private function buildHubStaffPerformanceCards(int $hubId, FiscalYear $fy, $staffAvatarMap): array
+    {
+        $staffUsers = User::query()
+            ->where('role', 'district_staff')
+            ->where('hub_id', $hubId)
+            ->where('is_active', true)
+            ->with(['district:id,name'])
+            ->orderBy('name')
+            ->get();
+
+        $cards = [];
+        foreach ($staffUsers as $user) {
+            $deliverableRows = [];
+            $targetSum = 0;
+            $achievedSum = 0;
+            $scoreParts = 0;
+            $scoreWeight = 0;
+            $cfaTotal = 0;
+            $servicesActive = 0;
+
+            foreach ($this->staffTargetsDashboard->buildRows($user, $fy) as $row) {
+                if (! $row['tracksAchievement']) {
+                    continue;
+                }
+
+                $target = (int) $row['monthlySum'];
+                $achieved = (int) $row['achievementAnnual'];
+                if ($target <= 0 && $achieved <= 0) {
+                    continue;
+                }
+
+                /** @var Deliverable $deliverable */
+                $deliverable = $row['deliverable'];
+                $code = (string) $deliverable->code;
+                $pct = $target > 0 ? (int) min(100, round(($achieved / $target) * 100)) : null;
+
+                if ($code === 'cfa') {
+                    $cfaTotal = $achieved;
+                }
+                if (str_starts_with($code, 'svc_') && $achieved > 0) {
+                    $servicesActive++;
+                }
+
+                if ($target > 0) {
+                    $targetSum += $target;
+                    $achievedSum += $achieved;
+                    $scoreParts += ($achieved / $target) * 100;
+                    $scoreWeight++;
+                }
+
+                $deliverableRows[] = [
+                    'name' => (string) ($deliverable->mis_entry_label ?: $deliverable->name),
+                    'code' => $code,
+                    'target' => $target,
+                    'achieved' => $achieved,
+                    'pct' => $pct,
+                    'is_service' => str_starts_with($code, 'svc_'),
+                ];
+            }
+
+            usort($deliverableRows, function (array $a, array $b): int {
+                if ($a['achieved'] !== $b['achieved']) {
+                    return $b['achieved'] <=> $a['achieved'];
+                }
+
+                return strcasecmp((string) $a['name'], (string) $b['name']);
+            });
+
+            $performancePct = $scoreWeight > 0 ? (int) round($scoreParts / $scoreWeight) : null;
+
+            $cards[] = [
+                'id' => (int) $user->id,
+                'name' => (string) $user->name,
+                'district' => (string) ($user->district?->name ?? 'Unassigned'),
+                'avatar_url' => $staffAvatarMap->get((int) $user->id)?->avatarUrl(),
+                'cfa_total' => $cfaTotal,
+                'services_active' => $servicesActive,
+                'target_total' => $targetSum,
+                'achieved_total' => $achievedSum,
+                'performance_pct' => $performancePct,
+                'deliverables' => $deliverableRows,
+            ];
+        }
+
+        usort($cards, function (array $a, array $b): int {
+            $pa = $a['performance_pct'] ?? -1;
+            $pb = $b['performance_pct'] ?? -1;
+            if ($pa !== $pb) {
+                return $pb <=> $pa;
+            }
+
+            return ((int) $b['cfa_total']) <=> ((int) $a['cfa_total']);
+        });
+
+        return $cards;
     }
 
     /**

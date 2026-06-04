@@ -745,6 +745,187 @@
         }
         .had-chart-box { height: 200px; position: relative; }
         .had-chart-box--tall { height: 240px; }
+        .had-team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+            gap: 0.55rem;
+        }
+        @media (min-width: 900px) {
+            .had-team-grid { grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); }
+        }
+        .had-team-card {
+            position: relative;
+            border: 1px solid var(--had-border);
+            border-radius: 12px;
+            background: var(--had-surface);
+            padding: 0.65rem 0.7rem 0.55rem;
+            min-height: 7.5rem;
+            transition: border-color 0.15s, box-shadow 0.15s, z-index 0s;
+            z-index: 1;
+        }
+        .had-team-card:hover,
+        .had-team-card:focus-within {
+            border-color: #f0b48a;
+            box-shadow: 0 10px 28px rgba(208, 74, 2, 0.14);
+            z-index: 40;
+        }
+        .had-team-card__rank {
+            position: absolute;
+            top: 0.45rem;
+            right: 0.5rem;
+            font-size: 0.62rem;
+            font-weight: 800;
+            color: var(--had-muted);
+        }
+        .had-team-card__rank.is-medal { color: var(--had-gold); }
+        .had-team-card__head {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 0;
+        }
+        .had-team-card__meta { min-width: 0; flex: 1; }
+        .had-team-card__name {
+            font-size: 0.76rem;
+            font-weight: 800;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .had-team-card__district {
+            font-size: 0.64rem;
+            color: var(--had-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .had-team-card__score {
+            margin-top: 0.45rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.35rem;
+            font-size: 0.68rem;
+        }
+        .had-team-card__score strong {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--had-brand-deep);
+        }
+        .had-team-card__chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-top: 0.35rem;
+        }
+        .had-team-chip {
+            font-size: 0.58rem;
+            font-weight: 700;
+            padding: 0.15rem 0.35rem;
+            border-radius: 5px;
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .had-team-chip--svc { background: var(--had-brand-light); color: var(--had-brand-deep); }
+        .had-team-card__detail {
+            position: absolute;
+            left: -1px;
+            right: -1px;
+            top: calc(100% - 2px);
+            padding: 0.55rem 0.65rem 0.65rem;
+            background: var(--had-surface);
+            border: 1px solid #f0b48a;
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-4px);
+            transition: opacity 0.18s, transform 0.18s, visibility 0.18s;
+            max-height: min(320px, 50vh);
+            overflow-y: auto;
+            pointer-events: none;
+        }
+        .had-team-card:hover .had-team-card__detail,
+        .had-team-card:focus-within .had-team-card__detail {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .had-team-card__detail-title {
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--had-muted);
+            margin-bottom: 0.4rem;
+        }
+        .had-del-row {
+            margin-bottom: 0.42rem;
+        }
+        .had-del-row:last-child { margin-bottom: 0; }
+        .had-del-row__top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.35rem;
+            font-size: 0.66rem;
+            margin-bottom: 0.2rem;
+        }
+        .had-del-row__name {
+            font-weight: 700;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .had-del-row__nums {
+            font-weight: 700;
+            color: var(--had-brand-deep);
+            flex-shrink: 0;
+        }
+        .had-del-row__bar {
+            height: 5px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .had-del-row__fill {
+            height: 100%;
+            border-radius: 999px;
+            background: var(--had-brand-grad);
+        }
+        .had-del-row__fill.is-warn { background: linear-gradient(90deg, #f59e0b, #d97706); }
+        .had-del-row__fill.is-low { background: linear-gradient(90deg, #f87171, #dc2626); }
+        .had-team-card__foot {
+            margin-top: 0.35rem;
+            padding-top: 0.35rem;
+            border-top: 1px dashed var(--had-border);
+            font-size: 0.62rem;
+            color: var(--had-muted);
+            line-height: 1.35;
+        }
+        .had-team-card__foot a {
+            color: var(--had-brand-deep);
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .had-team-card__foot a:hover { text-decoration: underline; }
+        @media (hover: none) {
+            .had-team-card__detail {
+                position: static;
+                opacity: 1;
+                visibility: visible;
+                transform: none;
+                border: none;
+                box-shadow: none;
+                max-height: none;
+                padding: 0.45rem 0 0;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="admin-app-body admin-app-body--dashboard admin-app-body--hub-premium">
@@ -835,7 +1016,8 @@
             };
 
             $staffCfaRows = $staffCfaByStaff ?? [];
-            $staffDistrictOptions = collect($staffCfaRows)->pluck('district')->filter()->unique()->sort()->values()->all();
+            $teamCards = $staffPerformanceCards ?? [];
+            $staffDistrictOptions = collect($teamCards)->pluck('district')->filter()->unique()->sort()->values()->all();
 
             $planPct = $plan['pct'] ?? null;
             $planCfa = $plan['cfa'] ?? [];
@@ -1259,10 +1441,13 @@
             <section class="had-panel" data-had-panel="team">
                 <div class="had-card">
                     <div class="had-card__head">
-                        <h2 class="had-card__title"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> CFA by district staff</h2>
-                        <span class="had-card__tag">{{ count($staffCfaRows) }} rows</span>
+                        <h2 class="had-card__title"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> Team performance</h2>
+                        <span class="had-card__tag">{{ count($teamCards) }} staff</span>
                     </div>
-                    <p class="had-card__hint">Referral-linked CFA ? hub staff ? {{ $fyLabel }}</p>
+                    <p class="had-card__hint">
+                        Hover a card for deliverable-wise target vs achievement (CFA + services) for {{ $fyLabel }}.
+                        <a href="{{ route('hub.staff-performance.index') }}" style="color:var(--had-brand-deep);font-weight:700;">Full report</a>
+                    </p>
                     <div class="had-staff-controls">
                         <input type="text" id="hubStaffCfaSearch" placeholder="Search staff name?" autocomplete="off">
                         <select id="hubStaffCfaDistrictFilter">
@@ -1272,30 +1457,74 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="had-staff-list" id="hubStaffCfaList">
-                        @forelse ($staffCfaRows as $index => $row)
-                            <div class="had-staff-row"
-                                data-name="{{ strtolower($row['name']) }}"
-                                data-district="{{ strtolower($row['district']) }}">
-                                <span class="had-staff-rank @if ($index < 3) is-medal @endif">#{{ $index + 1 }}</span>
-                                <div class="had-staff-main">
-                                    @if (!empty($row['avatar_url']))
-                                        <img src="{{ $row['avatar_url'] }}" alt="" class="had-staff-avatar">
+                    <div class="had-team-grid" id="hubTeamGrid">
+                        @forelse ($teamCards as $index => $card)
+                            @php
+                                $perfPct = $card['performance_pct'] ?? null;
+                                $deliverables = $card['deliverables'] ?? [];
+                            @endphp
+                            <article class="had-team-card hub-team-card"
+                                tabindex="0"
+                                data-name="{{ strtolower($card['name']) }}"
+                                data-district="{{ strtolower($card['district']) }}">
+                                <span class="had-team-card__rank @if ($index < 3) is-medal @endif">#{{ $index + 1 }}</span>
+                                <div class="had-team-card__head">
+                                    @if (!empty($card['avatar_url']))
+                                        <img src="{{ $card['avatar_url'] }}" alt="" class="had-staff-avatar">
                                     @else
-                                        <span class="had-staff-fallback">{{ strtoupper(substr(trim((string) $row['name']), 0, 1)) ?: '?' }}</span>
+                                        <span class="had-staff-fallback">{{ strtoupper(substr(trim((string) $card['name']), 0, 1)) ?: '?' }}</span>
                                     @endif
-                                    <div style="min-width:0;">
-                                        <div class="had-staff-name">{{ $row['name'] }}</div>
-                                        <div class="had-staff-district">{{ $row['district'] }}</div>
+                                    <div class="had-team-card__meta">
+                                        <div class="had-team-card__name" title="{{ $card['name'] }}">{{ $card['name'] }}</div>
+                                        <div class="had-team-card__district">{{ $card['district'] }}</div>
                                     </div>
                                 </div>
-                                <span class="had-staff-val">{{ number_format((int) $row['cfa_total']) }}</span>
-                            </div>
+                                <div class="had-team-card__score">
+                                    <span>FY performance</span>
+                                    <strong>@if ($perfPct !== null){{ (int) $perfPct }}%@else&mdash;@endif</strong>
+                                </div>
+                                <div class="had-team-card__chips">
+                                    <span class="had-team-chip">CFA {{ number_format((int) ($card['cfa_total'] ?? 0)) }}</span>
+                                    @if ((int) ($card['services_active'] ?? 0) > 0)
+                                        <span class="had-team-chip had-team-chip--svc">{{ (int) $card['services_active'] }} services</span>
+                                    @endif
+                                </div>
+                                <div class="had-team-card__detail" role="tooltip">
+                                    <div class="had-team-card__detail-title">Target vs achievement</div>
+                                    @forelse ($deliverables as $del)
+                                        @php
+                                            $pct = $del['pct'] ?? null;
+                                            $barPct = $pct !== null ? min(100, (int) $pct) : ($del['achieved'] > 0 ? 100 : 0);
+                                            $barClass = $pct === null ? '' : ($pct >= 75 ? '' : ($pct >= 40 ? 'is-warn' : 'is-low'));
+                                        @endphp
+                                        <div class="had-del-row">
+                                            <div class="had-del-row__top">
+                                                <span class="had-del-row__name" title="{{ $del['name'] }}">{{ $del['name'] }}</span>
+                                                <span class="had-del-row__nums">
+                                                    {{ number_format((int) $del['achieved']) }}
+                                                    @if ((int) $del['target'] > 0)
+                                                        / {{ number_format((int) $del['target']) }}
+                                                    @endif
+                                                </span>
+                                            </div>
+                                            <div class="had-del-row__bar">
+                                                <div class="had-del-row__fill {{ $barClass }}" style="width:{{ $barPct }}%;"></div>
+                                            </div>
+                                        </div>
+                                    @empty
+                                        <p style="margin:0;font-size:0.68rem;color:var(--had-muted);">No targets or achievements recorded for this FY yet.</p>
+                                    @endforelse
+                                    <div class="had-team-card__foot">
+                                        Weighted score across deliverables with staff targets.
+                                        <a href="{{ route('hub.staff-performance.index', array_filter(['staff_id' => $card['id'], 'fy' => $activeFy?->id])) }}">Open staff report</a>
+                                    </div>
+                                </div>
+                            </article>
                         @empty
-                            <div class="had-empty">No staff data yet</div>
+                            <div class="had-empty" style="grid-column:1/-1;">No active district staff in this hub</div>
                         @endforelse
-                        <div class="had-empty" id="hubStaffCfaNoResults" style="display:none;">No matches for this filter</div>
                     </div>
+                    <div class="had-empty" id="hubStaffCfaNoResults" style="display:none;">No matches for this filter</div>
                 </div>
             </section>
 
@@ -1638,7 +1867,7 @@
 
     const searchInput = document.getElementById('hubStaffCfaSearch');
     const districtSelect = document.getElementById('hubStaffCfaDistrictFilter');
-    const staffRows = Array.from(document.querySelectorAll('#hubStaffCfaList .had-staff-row'));
+    const staffRows = Array.from(document.querySelectorAll('#hubTeamGrid .hub-team-card'));
     const noResults = document.getElementById('hubStaffCfaNoResults');
 
     const applyStaffCfaFilters = () => {
@@ -1652,7 +1881,7 @@
             row.style.display = show ? '' : 'none';
             if (show) visible += 1;
         });
-        if (noResults) noResults.style.display = visible === 0 ? '' : 'none';
+        if (noResults) noResults.style.display = visible === 0 && staffRows.length > 0 ? '' : 'none';
     };
     searchInput?.addEventListener('input', applyStaffCfaFilters);
     districtSelect?.addEventListener('change', applyStaffCfaFilters);
