@@ -9,6 +9,7 @@ use App\Models\DistrictDeliverableTarget;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\MentorshipRequest;
+use App\Models\ServiceCase;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -268,12 +269,39 @@ class HubAdminDashboardService
             $heroRemaining = max(0, (int) $hubCfaTargetSum - (int) ($hubCfaThisFy ?? 0));
         }
 
+        $hubServicesTargetSum = null;
+        $hubTargetPlan = $this->emptyHubTargetPlan();
+        $servicesDeliveredCounts = ['till_date' => 0, 'this_fy' => 0];
+        $heroServicesProgressPct = null;
+        $heroServicesRemaining = null;
+
+        if ($activeFy && $districtIds !== []) {
+            $hubServicesTargetSum = $this->hubServicesTargetSum((int) $activeFy->id, $districtIds);
+            $cfaDeliverableId = $cfaDeliverable ? (int) $cfaDeliverable->id : 0;
+            $hubTargetPlan = $this->hubTargetPlanMetrics((int) $activeFy->id, $districtIds, $cfaDeliverableId);
+            $servicesDeliveredCounts = $this->hubServicesDeliveredCounts($activeFy, $districtIds);
+
+            if ($hubServicesTargetSum !== null && $hubServicesTargetSum > 0) {
+                $heroServicesProgressPct = (int) min(
+                    100,
+                    round(($servicesDeliveredCounts['this_fy'] / $hubServicesTargetSum) * 100)
+                );
+                $heroServicesRemaining = max(0, $hubServicesTargetSum - $servicesDeliveredCounts['this_fy']);
+            }
+        }
+
         return [
             'hub' => $hub,
             'districtsInHub' => count($districtIds),
             'activeFy' => $activeFy,
             'cfaDeliverable' => $cfaDeliverable,
             'hubCfaTargetSum' => $hubCfaTargetSum,
+            'hubServicesTargetSum' => $hubServicesTargetSum,
+            'hubTargetPlan' => $hubTargetPlan,
+            'servicesDeliveredTillDate' => $servicesDeliveredCounts['till_date'],
+            'servicesDeliveredThisFy' => $servicesDeliveredCounts['this_fy'],
+            'heroServicesProgressPct' => $heroServicesProgressPct,
+            'heroServicesRemaining' => $heroServicesRemaining,
             'staffTotal' => $staffTotal,
             'staffActive' => $staffActive,
             'cfaTotal' => $cfaTotal,
@@ -449,6 +477,232 @@ class HubAdminDashboardService
             'districtsWithoutTarget' => $districtsWithoutTarget,
             'districtsWithZeroAchieved' => $districtsWithZeroAchieved,
         ];
+    }
+
+    /**
+     * @return array{till_date: int, this_fy: int}
+     */
+    private function hubServicesDeliveredCounts(FiscalYear $activeFy, array $districtIds): array
+    {
+        if (
+            $districtIds === []
+            || ! Schema::hasTable('service_cases')
+            || ! Schema::hasColumn('service_cases', 'status')
+        ) {
+            return ['till_date' => 0, 'this_fy' => 0];
+        }
+
+        $base = DB::table('service_cases as sc')
+            ->join('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
+            ->whereIn('cs.district_id', $districtIds)
+            ->where('sc.status', ServiceCase::STATUS_APPROVED);
+
+        $tillDate = (int) (clone $base)->count();
+
+        $fyStart = $activeFy->starts_on
+            ? Carbon::parse($activeFy->starts_on)->startOfDay()
+            : now()->startOfYear();
+        $fyEnd = $activeFy->ends_on
+            ? Carbon::parse($activeFy->ends_on)->endOfDay()
+            : now()->endOfDay();
+
+        $approvedAtExpr = Schema::hasColumn('service_cases', 'approved_at')
+            ? 'COALESCE(sc.approved_at, sc.completed_at, sc.created_at)'
+            : (Schema::hasColumn('service_cases', 'completed_at') ? 'COALESCE(sc.completed_at, sc.created_at)' : 'sc.created_at');
+
+        $thisFy = (int) (clone $base)
+            ->whereBetween(DB::raw($approvedAtExpr), [$fyStart, $fyEnd])
+            ->count();
+
+        return ['till_date' => $tillDate, 'this_fy' => $thisFy];
+    }
+
+    private function hubServicesTargetSum(int $fiscalYearId, array $districtIds): ?int
+    {
+        if ($districtIds === [] || ! Schema::hasTable('district_deliverable_targets')) {
+            return null;
+        }
+
+        $serviceDeliverableIds = Deliverable::query()
+            ->where('is_active', true)
+            ->where('code', 'like', 'svc_%')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($serviceDeliverableIds === []) {
+            return null;
+        }
+
+        $sum = (int) DB::table('district_deliverable_targets')
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('district_id', $districtIds)
+            ->whereIn('deliverable_id', $serviceDeliverableIds)
+            ->sum('target_total');
+
+        return $sum > 0 ? $sum : null;
+    }
+
+    /**
+     * District target vs staff monthly roll-up (hub districts only).
+     *
+     * @param  list<int>  $districtIds
+     * @return array<string, mixed>
+     */
+    private function emptyHubTargetPlan(): array
+    {
+        return [
+            'pct' => null,
+            'aligned_count' => 0,
+            'tracked_count' => 0,
+            'all_aligned' => false,
+            'cfa' => ['district_target' => 0, 'staff_sum' => 0, 'aligned' => false, 'tracked' => false],
+            'services' => ['district_target' => 0, 'staff_sum' => 0, 'aligned_count' => 0, 'tracked_count' => 0, 'all_aligned' => false],
+            'misaligned' => [],
+        ];
+    }
+
+    /**
+     * @param  list<int>  $districtIds
+     * @return array<string, mixed>
+     */
+    private function hubTargetPlanMetrics(int $fiscalYearId, array $districtIds, int $cfaDeliverableId): array
+    {
+        $result = $this->emptyHubTargetPlan();
+        if ($districtIds === [] || ! Schema::hasTable('district_deliverable_targets')) {
+            return $result;
+        }
+
+        $onboardingId = Deliverable::onboardingTargetDeliverableId();
+        $serviceDeliverableIds = Deliverable::query()
+            ->where('is_active', true)
+            ->where('code', 'like', 'svc_%')
+            ->when($onboardingId !== null, fn ($q) => $q->where('id', '!=', $onboardingId))
+            ->when($cfaDeliverableId > 0, fn ($q) => $q->where('id', '!=', $cfaDeliverableId))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $deliverableIds = collect($cfaDeliverableId > 0 ? [$cfaDeliverableId] : [])
+            ->merge($serviceDeliverableIds)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($deliverableIds === []) {
+            return $result;
+        }
+
+        $deliverables = Deliverable::query()
+            ->whereIn('id', $deliverableIds)
+            ->orderBy('sort_order')
+            ->get(['id', 'code', 'name', 'mis_entry_label']);
+
+        $districtTargets = DB::table('district_deliverable_targets')
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('district_id', $districtIds)
+            ->whereIn('deliverable_id', $deliverableIds)
+            ->get(['district_id', 'deliverable_id', 'target_total']);
+
+        $districtNames = District::query()
+            ->whereIn('id', $districtIds)
+            ->pluck('name', 'id');
+
+        $hasStaffMonthlies = Schema::hasTable('staff_monthly_targets');
+        $cfaIdSet = $cfaDeliverableId > 0 ? [$cfaDeliverableId => true] : [];
+        $alignedCount = 0;
+        $trackedCount = 0;
+        $misaligned = [];
+        $cfaDistrictTarget = 0;
+        $cfaStaffSum = 0;
+        $cfaTracked = false;
+        $cfaAligned = true;
+        $svcDistrictTarget = 0;
+        $svcStaffSum = 0;
+        $svcAlignedCount = 0;
+        $svcTrackedCount = 0;
+
+        foreach ($districtTargets as $row) {
+            $districtId = (int) $row->district_id;
+            $deliverableId = (int) $row->deliverable_id;
+            $districtTarget = (int) $row->target_total;
+            if ($districtTarget <= 0) {
+                continue;
+            }
+
+            $deliverable = $deliverables->firstWhere('id', $deliverableId);
+            $label = $deliverable
+                ? (string) ($deliverable->mis_entry_label ?: $deliverable->name)
+                : 'Deliverable';
+            $isCfa = isset($cfaIdSet[$deliverableId]);
+
+            $staffSum = 0;
+            if ($hasStaffMonthlies) {
+                $staffSum = (int) DB::table('staff_monthly_targets as smt')
+                    ->join('users as u', 'u.id', '=', 'smt.user_id')
+                    ->where('smt.fiscal_year_id', $fiscalYearId)
+                    ->where('smt.deliverable_id', $deliverableId)
+                    ->where('u.district_id', $districtId)
+                    ->where('u.role', 'district_staff')
+                    ->sum('smt.target_count');
+            }
+
+            if ($isCfa) {
+                $cfaDistrictTarget += $districtTarget;
+                $cfaStaffSum += $staffSum;
+            } else {
+                $svcDistrictTarget += $districtTarget;
+                $svcStaffSum += $staffSum;
+            }
+
+            $trackedCount++;
+            if ($isCfa) {
+                $cfaTracked = true;
+            } else {
+                $svcTrackedCount++;
+            }
+
+            $isAligned = $staffSum === $districtTarget;
+            if ($isAligned) {
+                $alignedCount++;
+                if (! $isCfa) {
+                    $svcAlignedCount++;
+                }
+            } else {
+                if ($isCfa) {
+                    $cfaAligned = false;
+                }
+                $misaligned[] = [
+                    'district' => (string) ($districtNames[$districtId] ?? 'District'),
+                    'name' => $label,
+                    'district_target' => $districtTarget,
+                    'staff_sum' => $staffSum,
+                    'gap' => abs($districtTarget - $staffSum),
+                    'kind' => $isCfa ? 'cfa' : 'service',
+                ];
+            }
+        }
+
+        $result['aligned_count'] = $alignedCount;
+        $result['tracked_count'] = $trackedCount;
+        $result['all_aligned'] = $trackedCount > 0 && $alignedCount === $trackedCount;
+        $result['pct'] = $trackedCount > 0 ? (int) round(($alignedCount / $trackedCount) * 100) : null;
+        $result['cfa'] = [
+            'district_target' => $cfaDistrictTarget,
+            'staff_sum' => $cfaStaffSum,
+            'aligned' => $cfaTracked && $cfaAligned,
+            'tracked' => $cfaTracked,
+        ];
+        $result['services'] = [
+            'district_target' => $svcDistrictTarget,
+            'staff_sum' => $svcStaffSum,
+            'aligned_count' => $svcAlignedCount,
+            'tracked_count' => $svcTrackedCount,
+            'all_aligned' => $svcTrackedCount > 0 && $svcAlignedCount === $svcTrackedCount,
+        ];
+        $result['misaligned'] = $misaligned;
+
+        return $result;
     }
 
     /**
