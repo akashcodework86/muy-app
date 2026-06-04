@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BlockWorkshop;
+use App\Support\WorkshopDashboardCsvExport;
 use App\Models\District;
 use App\Models\Hub;
 use App\Services\FieldVisitAttendanceSheetService;
@@ -123,7 +124,54 @@ class BlockWorkshopAdminController extends Controller
             'totalMale' => (int) ($stats->total_male ?? 0),
             'totalFemale' => (int) ($stats->total_female ?? 0),
             'totalParticipants' => (int) ($stats->total_participants ?? 0),
+            'exportRoute' => 'admin.block-workshops.export',
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        abort_unless(Schema::hasTable('block_workshops'), 404);
+
+        $hubId = $request->integer('hub') ?: null;
+        $districtId = $request->integer('district') ?: null;
+
+        $query = BlockWorkshop::query()
+            ->join('districts as d', 'd.id', '=', 'block_workshops.district_id')
+            ->when($hubId, fn ($q) => $q->where('d.hub_id', $hubId))
+            ->when($districtId, fn ($q) => $q->where('block_workshops.district_id', $districtId))
+            ->submitted()
+            ->with(['district:id,name', 'gramPanchayat:id,name', 'coordinator:id,name'])
+            ->select('block_workshops.*');
+
+        $search = trim((string) $request->query('q', ''));
+        if ($search !== '') {
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
+            $query->where(function ($q) use ($like): void {
+                $q->where('block_workshops.field_coordinator_name', 'like', $like)
+                    ->orWhere('block_workshops.block', 'like', $like)
+                    ->orWhere('block_workshops.remark', 'like', $like);
+            });
+        }
+
+        if ($request->filled('from')) {
+            $query->whereDate('block_workshops.visit_date', '>=', $request->query('from'));
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('block_workshops.visit_date', '<=', $request->query('to'));
+        }
+        if ($request->filled('block')) {
+            $query->where('block_workshops.block', $request->query('block'));
+        }
+
+        $rows = $query
+            ->orderByDesc('block_workshops.visit_date')
+            ->orderByDesc('block_workshops.id')
+            ->get();
+
+        return WorkshopDashboardCsvExport::blockWorkshopsAdmin(
+            $rows,
+            'block-workshops-state-'.now()->format('Ymd_His').'.csv'
+        );
     }
 
     public function show(BlockWorkshop $blockWorkshop, Request $request): View

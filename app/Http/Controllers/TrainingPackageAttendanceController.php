@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\DistrictBlock;
 use App\Models\TrainingPackage;
+use App\Support\IncubateeAttendeeCounts;
+use App\Support\WorkshopDashboardCsvExport;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\TrainingPackageMonthSessionService;
 use Illuminate\Http\RedirectResponse;
@@ -257,6 +259,10 @@ class TrainingPackageAttendanceController extends Controller
 
         $eventPeriod = $this->applyEventPeriodFilter($query, $request);
 
+        $totals = IncubateeAttendeeCounts::sumForRecords(
+            (clone $query)->get(['selected_incubatee_ids', 'selected_incubatees_snapshot'])
+        );
+
         $rows = $query
             ->orderByDesc('event_date')
             ->orderByDesc('id')
@@ -269,6 +275,7 @@ class TrainingPackageAttendanceController extends Controller
             'rows' => $rows,
             'migrationMissing' => false,
             'isPaginated' => true,
+            'totals' => $totals,
             'currentRole' => (string) $user->role,
             'yearOptions' => $this->trainingPackageYearOptions(),
             'monthOptions' => $this->trainingPackageMonthOptions($filterYear),
@@ -280,6 +287,7 @@ class TrainingPackageAttendanceController extends Controller
                 'event_year' => $eventPeriod['event_year'],
                 'event_month' => $eventPeriod['event_month'],
             ],
+            'exportRoute' => $this->exportRouteForRole((string) $user->role),
         ]);
     }
 
@@ -334,7 +342,7 @@ class TrainingPackageAttendanceController extends Controller
 
         $rows = $query->orderByDesc('event_date')->orderByDesc('id')->get();
 
-        return $this->streamExportCsv(
+        return WorkshopDashboardCsvExport::trainingPackages(
             $rows,
             'training-packages-'.now()->format('Ymd_His').'.csv'
         );
@@ -346,7 +354,7 @@ class TrainingPackageAttendanceController extends Controller
         abort_unless($this->canViewDashboard((string) $user->role), 403);
         $this->assertCanAccessRecord((string) $user->role, (int) ($user->district_id ?: 0), $trainingPackage);
 
-        return $this->streamExportCsv(
+        return WorkshopDashboardCsvExport::trainingPackages(
             collect([$trainingPackage]),
             'training-package-'.$trainingPackage->id.'-'.now()->format('Ymd_His').'.csv'
         );
@@ -767,94 +775,6 @@ class TrainingPackageAttendanceController extends Controller
         );
     }
 
-    private function streamExportCsv(Collection $rows, string $filename): StreamedResponse
-    {
-        $headers = [
-            'Entry ID',
-            'Date of Session',
-            'Session Taken By',
-            'District',
-            'Training Batch',
-            'Workshop (Virtual / Physical)',
-            'Training Modules',
-            'Uploaded Media Count',
-            'Selected Applicants Count',
-            'Created At',
-            'Updated At',
-            'Applicant Incubatee ID',
-            'Applicant Name',
-            'Applicant Application No',
-            'Applicant Phone',
-            'Applicant Gender',
-            'Applicant Village',
-            'Applicant Block',
-            'Applicant Onboarding Batch ID',
-            'Applicant Onboarding Batch Name',
-        ];
-
-        return response()->streamDownload(function () use ($rows, $headers): void {
-            $out = fopen('php://output', 'w');
-            if ($out === false) {
-                return;
-            }
-
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, $headers);
-
-            foreach ($rows as $row) {
-                $entry = $row instanceof TrainingPackage ? $row : null;
-                if (! $entry) {
-                    continue;
-                }
-
-                $workshopLabel = match ((string) ($entry->workshop_delivery ?? '')) {
-                    'virtual' => 'Virtual',
-                    'physical' => 'Physical',
-                    default => '',
-                };
-
-                $base = [
-                    (string) $entry->id,
-                    (string) ($entry->event_date?->format('Y-m-d') ?? ''),
-                    (string) $entry->submitted_by_name,
-                    (string) ($entry->district_name ?: ($entry->district?->name ?? '')),
-                    (string) ($entry->training_batch_name ?? ''),
-                    $workshopLabel,
-                    strtoupper(implode(', ', (array) ($entry->training_packages ?? [$entry->training_package]))),
-                    (string) count((array) $entry->attendance_media_json),
-                    (string) (is_array($entry->selected_incubatee_ids) ? count($entry->selected_incubatee_ids) : 0),
-                    (string) ($entry->created_at?->format('Y-m-d H:i:s') ?? ''),
-                    (string) ($entry->updated_at?->format('Y-m-d H:i:s') ?? ''),
-                ];
-
-                $snapshots = collect((array) $entry->selected_incubatees_snapshot);
-                if ($snapshots->isEmpty()) {
-                    fputcsv($out, array_merge($base, array_fill(0, 9, '')));
-                    continue;
-                }
-
-                foreach ($snapshots as $snap) {
-                    $snap = is_array($snap) ? $snap : [];
-                    fputcsv($out, array_merge($base, [
-                        (string) ($snap['incubatee_id'] ?? ''),
-                        (string) ($snap['name'] ?? ''),
-                        (string) ($snap['application_no'] ?? ''),
-                        (string) ($snap['phone'] ?? ''),
-                        (string) ($snap['gender'] ?? ''),
-                        (string) ($snap['village'] ?? ''),
-                        (string) ($snap['block_name'] ?? ''),
-                        (string) ($snap['onboarding_batch_id'] ?? ''),
-                        (string) ($snap['onboarding_batch_name'] ?? ''),
-                    ]));
-                }
-            }
-
-            fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
-    }
-
     private function deleteExistingMediaFiles(TrainingPackage $trainingPackage): void
     {
         foreach ((array) $trainingPackage->attendance_media_json as $media) {
@@ -943,6 +863,15 @@ class TrainingPackageAttendanceController extends Controller
             'monthSummary' => $monthSummary,
             'monthOptions' => $monthOptions,
         ];
+    }
+
+    private function exportRouteForRole(string $role): string
+    {
+        return match ($role) {
+            'state_admin' => 'admin.training-packages.export',
+            'state_staff' => 'spoc.training-packages.export',
+            default => 'staff.training-packages.export',
+        };
     }
 
     private function canSubmit(string $role): bool

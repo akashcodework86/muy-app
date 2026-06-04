@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\TechnicalTraining;
+use App\Support\IncubateeAttendeeCounts;
+use App\Support\WorkshopDashboardCsvExport;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -140,6 +142,10 @@ class TechnicalTrainingAttendanceController extends Controller
 
         $eventPeriod = $this->applyEventPeriodFilter($query, $request);
 
+        $totals = IncubateeAttendeeCounts::sumForRecords(
+            (clone $query)->get(['selected_incubatee_ids', 'selected_incubatees_snapshot'])
+        );
+
         $rows = $query
             ->orderByDesc('event_date')
             ->orderByDesc('id')
@@ -152,6 +158,7 @@ class TechnicalTrainingAttendanceController extends Controller
             'rows' => $rows,
             'migrationMissing' => false,
             'isPaginated' => true,
+            'totals' => $totals,
             'currentRole' => (string) $user->role,
             'yearOptions' => $this->yearOptions(),
             'monthOptions' => $this->monthOptions($filterYear),
@@ -162,6 +169,7 @@ class TechnicalTrainingAttendanceController extends Controller
                 'event_year' => $eventPeriod['event_year'],
                 'event_month' => $eventPeriod['event_month'],
             ],
+            'exportRoute' => $this->exportRouteForRole((string) $user->role),
         ]);
     }
 
@@ -215,7 +223,7 @@ class TechnicalTrainingAttendanceController extends Controller
 
         $rows = $query->orderByDesc('event_date')->orderByDesc('id')->get();
 
-        return $this->streamExportCsv(
+        return WorkshopDashboardCsvExport::technicalTrainings(
             $rows,
             'technical-trainings-'.now()->format('Ymd_His').'.csv'
         );
@@ -227,7 +235,7 @@ class TechnicalTrainingAttendanceController extends Controller
         abort_unless($this->canViewDashboard((string) $user->role), 403);
         $this->assertCanAccessRecord((string) $user->role, (int) ($user->district_id ?: 0), $technicalTraining);
 
-        return $this->streamExportCsv(
+        return WorkshopDashboardCsvExport::technicalTrainings(
             collect([$technicalTraining]),
             'technical-training-'.$technicalTraining->id.'-'.now()->format('Ymd_His').'.csv'
         );
@@ -656,88 +664,6 @@ class TechnicalTrainingAttendanceController extends Controller
         );
     }
 
-    private function streamExportCsv(Collection $rows, string $filename): StreamedResponse
-    {
-        $headers = [
-            'Entry ID',
-            'Date of Session',
-            'Session Taken By',
-            'District',
-            'Training Batch',
-            'Session Name',
-            'Session Brief',
-            'Uploaded Media Count',
-            'Selected Applicants Count',
-            'Created At',
-            'Updated At',
-            'Applicant Incubatee ID',
-            'Applicant Name',
-            'Applicant Application No',
-            'Applicant Phone',
-            'Applicant Gender',
-            'Applicant Village',
-            'Applicant Block',
-            'Applicant Onboarding Batch ID',
-            'Applicant Onboarding Batch Name',
-        ];
-
-        return response()->streamDownload(function () use ($rows, $headers): void {
-            $out = fopen('php://output', 'w');
-            if ($out === false) {
-                return;
-            }
-
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, $headers);
-
-            foreach ($rows as $row) {
-                $entry = $row instanceof TechnicalTraining ? $row : null;
-                if (! $entry) {
-                    continue;
-                }
-
-                $base = [
-                    (string) $entry->id,
-                    (string) ($entry->event_date?->format('Y-m-d') ?? ''),
-                    (string) $entry->submitted_by_name,
-                    (string) ($entry->district_name ?: ($entry->district?->name ?? '')),
-                    (string) ($entry->training_batch_name ?? ''),
-                    (string) $entry->session_name,
-                    (string) ($entry->session_brief ?? ''),
-                    (string) count((array) $entry->attendance_media_json),
-                    (string) (is_array($entry->selected_incubatee_ids) ? count($entry->selected_incubatee_ids) : 0),
-                    (string) ($entry->created_at?->format('Y-m-d H:i:s') ?? ''),
-                    (string) ($entry->updated_at?->format('Y-m-d H:i:s') ?? ''),
-                ];
-
-                $snapshots = collect((array) $entry->selected_incubatees_snapshot);
-                if ($snapshots->isEmpty()) {
-                    fputcsv($out, array_merge($base, array_fill(0, 9, '')));
-                    continue;
-                }
-
-                foreach ($snapshots as $snap) {
-                    $snap = is_array($snap) ? $snap : [];
-                    fputcsv($out, array_merge($base, [
-                        (string) ($snap['incubatee_id'] ?? ''),
-                        (string) ($snap['name'] ?? ''),
-                        (string) ($snap['application_no'] ?? ''),
-                        (string) ($snap['phone'] ?? ''),
-                        (string) ($snap['gender'] ?? ''),
-                        (string) ($snap['village'] ?? ''),
-                        (string) ($snap['block_name'] ?? ''),
-                        (string) ($snap['onboarding_batch_id'] ?? ''),
-                        (string) ($snap['onboarding_batch_name'] ?? ''),
-                    ]));
-                }
-            }
-
-            fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
-    }
-
     private function deleteExistingMediaFiles(TechnicalTraining $technicalTraining): void
     {
         foreach ((array) $technicalTraining->attendance_media_json as $media) {
@@ -749,6 +675,15 @@ class TechnicalTrainingAttendanceController extends Controller
                 Storage::delete($path);
             }
         }
+    }
+
+    private function exportRouteForRole(string $role): string
+    {
+        return match ($role) {
+            'state_admin' => 'admin.technical-trainings.export',
+            'state_staff' => 'spoc.technical-trainings.export',
+            default => 'staff.technical-trainings.export',
+        };
     }
 
     private function canSubmit(string $role): bool

@@ -202,6 +202,9 @@
                 </div>
                 <div style="display:flex;gap:0.4rem;align-items:flex-end;">
                     <button type="submit" class="bwa-btn"><i class="fa-solid fa-filter"></i> Filter</button>
+                    @if (!empty($exportRoute))
+                        <a href="{{ route($exportRoute, request()->query()) }}" class="bwa-btn bwa-btn--ghost">Excel Export</a>
+                    @endif
                     <a href="{{ route('admin.block-workshops.index') }}" class="bwa-btn bwa-btn--ghost">Reset</a>
                 </div>
             </div>

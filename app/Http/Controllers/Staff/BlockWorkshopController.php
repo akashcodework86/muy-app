@@ -8,6 +8,7 @@ use App\Models\BlockWorkshop;
 use App\Models\DistrictBlock;
 use App\Models\GramPanchayat;
 use App\Services\BlockWorkshopParticipantRowsService;
+use App\Support\WorkshopDashboardCsvExport;
 use App\Services\FieldVisitAttendanceSheetService;
 use App\Services\FieldVisitMediaStorage;
 use Illuminate\Http\JsonResponse;
@@ -574,7 +575,45 @@ class BlockWorkshopController extends Controller
             'totalParticipants' => (int) ($stats->total_participants ?? 0),
             'routePrefix' => 'staff.workshops',
             'modelParam' => 'blockWorkshop',
+            'exportRoute' => 'staff.workshops.export',
         ]);
+    }
+
+    public function exportList(Request $request): StreamedResponse
+    {
+        $user = $request->user()->load(['district', 'designationRecord']);
+        abort_unless(Schema::hasTable('block_workshops'), 404);
+
+        $districtId = (int) ($user->district_id ?: 0);
+        abort_unless($districtId > 0, 403);
+
+        $query = BlockWorkshop::query()
+            ->where('district_id', $districtId)
+            ->submitted()
+            ->with(['district', 'gramPanchayat', 'coordinator.designationRecord']);
+
+        if ($request->filled('from')) {
+            $query->whereDate('visit_date', '>=', $request->query('from'));
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('visit_date', '<=', $request->query('to'));
+        }
+        if ($request->filled('block')) {
+            $query->where('block', $request->query('block'));
+        }
+        if ($request->filled('coordinator_id')) {
+            $query->where('field_coordinator_user_id', (int) $request->query('coordinator_id'));
+        }
+
+        $rows = $query
+            ->orderByDesc('visit_date')
+            ->orderByDesc('id')
+            ->get();
+
+        return WorkshopDashboardCsvExport::blockWorkshopsStaff(
+            $rows,
+            'block-workshops-'.now()->format('Ymd_His').'.csv'
+        );
     }
 
     // ── Show detail ───────────────────────────────────────────────────────────

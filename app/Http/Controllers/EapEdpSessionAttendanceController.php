@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResolvesWorkshopParticipantRows;
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\EapEdpSession;
+use App\Support\WorkshopDashboardCsvExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -200,6 +201,7 @@ class EapEdpSessionAttendanceController extends Controller
                 'event_month' => $eventPeriod['event_month'],
             ],
             'totals' => $totals,
+            'exportRoute' => $this->exportRouteForRole((string) $user->role),
         ]);
     }
 
@@ -261,7 +263,7 @@ class EapEdpSessionAttendanceController extends Controller
 
         $rows = $query->orderByDesc('event_date')->orderByDesc('id')->get();
 
-        return $this->streamExportCsv(
+        return WorkshopDashboardCsvExport::eapEdpSessions(
             $rows,
             'eap-edp-sessions-'.now()->format('Ymd_His').'.csv'
         );
@@ -273,7 +275,7 @@ class EapEdpSessionAttendanceController extends Controller
         abort_unless($this->canViewDashboard((string) $user->role), 403);
         $this->assertCanAccessRecord((string) $user->role, (int) ($user->district_id ?: 0), $eapEdpSession);
 
-        return $this->streamExportCsv(
+        return WorkshopDashboardCsvExport::eapEdpSessions(
             collect([$eapEdpSession]),
             'eap-edp-session-'.$eapEdpSession->id.'-'.now()->format('Ymd_His').'.csv'
         );
@@ -691,64 +693,13 @@ class EapEdpSessionAttendanceController extends Controller
         );
     }
 
-    private function streamExportCsv(Collection $rows, string $filename): StreamedResponse
+    private function exportRouteForRole(string $role): string
     {
-        $headers = [
-            'Entry ID',
-            'Date of Session',
-            'Session Taken By',
-            'District',
-            'Session type',
-            'Venue name and address',
-            'Workshop mode',
-            'Notes',
-            'Attendance sheet files',
-            'Session photos',
-            'Male count',
-            'Female count',
-            'Total attendance',
-            'Created At',
-            'Updated At',
-        ];
-
-        return response()->streamDownload(function () use ($rows, $headers): void {
-            $out = fopen('php://output', 'w');
-            if ($out === false) {
-                return;
-            }
-
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, $headers);
-
-            foreach ($rows as $row) {
-                $entry = $row instanceof EapEdpSession ? $row : null;
-                if (! $entry) {
-                    continue;
-                }
-
-                fputcsv($out, [
-                    (string) $entry->id,
-                    (string) ($entry->event_date?->format('Y-m-d') ?? ''),
-                    (string) $entry->submitted_by_name,
-                    (string) ($entry->district_name ?: ($entry->district?->name ?? '')),
-                    (string) $entry->formatted_program_type,
-                    (string) $entry->display_venue,
-                    (string) $entry->formatted_workshop_mode,
-                    (string) ($entry->notes ?? ''),
-                    (string) count((array) $entry->attendance_media_json),
-                    (string) count((array) $entry->session_photos_json),
-                    (string) (int) ($entry->attendance_male_count ?? 0),
-                    (string) (int) ($entry->attendance_female_count ?? 0),
-                    (string) (int) ($entry->attendance_total_count ?? 0),
-                    (string) ($entry->created_at?->format('Y-m-d H:i:s') ?? ''),
-                    (string) ($entry->updated_at?->format('Y-m-d H:i:s') ?? ''),
-                ]);
-            }
-
-            fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return match ($role) {
+            'state_admin' => 'admin.eap-edp-sessions.export',
+            'state_staff' => 'spoc.eap-edp-sessions.export',
+            default => 'staff.eap-edp-sessions.export',
+        };
     }
 
     private function canSubmit(string $role): bool

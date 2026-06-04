@@ -88,6 +88,18 @@
             <div class="tp-stat-card__label">Total Sessions</div>
             <div class="tp-stat-card__value">{{ number_format($totalBatches) }}</div>
         </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Male</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['male'] ?? 0)) }}</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Female</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['female'] ?? 0)) }}</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Attendees</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['total'] ?? 0)) }}</div>
+        </div>
     </div>
 
     <div class="tp-card">
@@ -124,6 +136,9 @@
             </div>
             <div class="tp-filter-actions">
                 <button type="submit" class="tp-btn">Filter</button>
+                @if (!empty($exportRoute))
+                    <a href="{{ route($exportRoute, request()->query()) }}" class="tp-btn--secondary">Excel Export</a>
+                @endif
                 @if (auth()->user()->role === 'district_staff')
                     <a href="{{ route('staff.technical-trainings.create') }}" class="tp-btn--secondary">New entry</a>
                 @endif
@@ -141,7 +156,9 @@
                 <th>District</th>
                 <th>Session Name</th>
                 <th>Session Brief</th>
-                <th>Attendees</th>
+                <th>Male</th>
+                <th>Female</th>
+                <th>Total</th>
                 <th>Actions</th>
             </tr>
             </thead>
@@ -151,9 +168,7 @@
                     $rowNumber = (!empty($isPaginated) && $rows instanceof \Illuminate\Contracts\Pagination\Paginator)
                         ? ((int) ($rows->firstItem() ?? 1) + $loop->index)
                         : ($loop->iteration);
-                    $attendeeCount = is_array($row->selected_incubatee_ids) && count($row->selected_incubatee_ids) > 0
-                        ? count($row->selected_incubatee_ids)
-                        : count((array) $row->selected_incubatees_snapshot);
+                    $attendeeCounts = \App\Support\IncubateeAttendeeCounts::fromTrainingRecord($row);
                 @endphp
                 <tr>
                     <td>{{ $rowNumber }}</td>
@@ -168,7 +183,9 @@
                             —
                         @endif
                     </td>
-                    <td>{{ number_format($attendeeCount) }}</td>
+                    <td>{{ number_format($attendeeCounts['male']) }}</td>
+                    <td>{{ number_format($attendeeCounts['female']) }}</td>
+                    <td>{{ number_format($attendeeCounts['total']) }}</td>
                     <td>
                         <div class="tp-row-actions">
                             <a class="tp-btn--view" href="{{ match ($currentRole ?? auth()->user()->role) {
@@ -184,7 +201,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="tp-empty">No entries found.</td>
+                    <td colspan="10" class="tp-empty">No entries found.</td>
                 </tr>
             @endforelse
             </tbody>

@@ -247,8 +247,12 @@ class TechnicalTrainingAttendanceTest extends TestCase
 
         $response->assertOk();
         $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        $this->assertStringContainsString('Sr. No.', $response->streamedContent());
         $this->assertStringContainsString('Session Name', $response->streamedContent());
         $this->assertStringContainsString('Session Brief', $response->streamedContent());
+        $this->assertStringContainsString('Male', $response->streamedContent());
+        $this->assertStringContainsString('Female', $response->streamedContent());
+        $this->assertStringContainsString('Total', $response->streamedContent());
         $this->assertStringContainsString('Export session', $response->streamedContent());
         $this->assertStringContainsString('Export brief', $response->streamedContent());
     }

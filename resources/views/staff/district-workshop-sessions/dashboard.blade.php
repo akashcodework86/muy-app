@@ -188,6 +188,9 @@
             </div>
             <div class="tp-filter-actions">
                 <button type="submit" class="tp-btn">Filter</button>
+                @if (!empty($exportRoute))
+                    <a href="{{ route($exportRoute, request()->query()) }}" class="tp-btn--secondary">Excel Export</a>
+                @endif
                 @if (auth()->user()->role === 'district_staff')
                     <a href="{{ route('staff.district-workshop-sessions.create') }}" class="tp-btn--secondary">New entry</a>
                 @endif

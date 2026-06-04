@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResolvesWorkshopParticipantRows;
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\DistrictWorkshopSession;
+use App\Support\WorkshopDashboardCsvExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -177,6 +178,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
                 'event_month' => $eventPeriod['event_month'],
             ],
             'totals' => $totals,
+            'exportRoute' => $this->exportRouteForRole((string) $user->role),
         ]);
     }
 
@@ -249,7 +251,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
 
         $rows = $query->orderByDesc('event_date')->orderByDesc('id')->get();
 
-        return $this->streamExportCsv(
+        return WorkshopDashboardCsvExport::districtWorkshopSessions(
             $rows,
             'district-workshop-sessions-'.now()->format('Ymd_His').'.csv'
         );
@@ -261,7 +263,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         abort_unless($this->canViewDashboard((string) $user->role), 403);
         $this->assertCanAccessRecord((string) $user->role, (int) ($user->district_id ?: 0), $districtWorkshopSession);
 
-        return $this->streamExportCsv(
+        return WorkshopDashboardCsvExport::districtWorkshopSessions(
             collect([$districtWorkshopSession]),
             'district-workshop-session-'.$districtWorkshopSession->id.'-'.now()->format('Ymd_His').'.csv'
         );
@@ -577,64 +579,13 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         );
     }
 
-    private function streamExportCsv(Collection $rows, string $filename): StreamedResponse
+    private function exportRouteForRole(string $role): string
     {
-        $headers = [
-            'Entry ID',
-            'Date of Session',
-            'Session Taken By',
-            'District',
-            'Session type',
-            'Workshop mode',
-            'Notes',
-            'Male Participants',
-            'Female Participants',
-            'Total Participants',
-            'Attendance Files Count',
-            'Workshop Photos Count',
-            'Attendance Status',
-            'Created At',
-            'Updated At',
-        ];
-
-        return response()->streamDownload(function () use ($rows, $headers): void {
-            $out = fopen('php://output', 'w');
-            if ($out === false) {
-                return;
-            }
-
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, $headers);
-
-            foreach ($rows as $row) {
-                $entry = $row instanceof DistrictWorkshopSession ? $row : null;
-                if (! $entry) {
-                    continue;
-                }
-
-                fputcsv($out, [
-                    (string) $entry->id,
-                    (string) ($entry->event_date?->format('Y-m-d') ?? ''),
-                    (string) $entry->submitted_by_name,
-                    (string) ($entry->district_name ?: ($entry->district?->name ?? '')),
-                    (string) $entry->formatted_program_type,
-                    (string) $entry->formatted_workshop_mode,
-                    (string) ($entry->notes ?? ''),
-                    (string) (int) ($entry->male_participants ?? 0),
-                    (string) (int) ($entry->female_participants ?? 0),
-                    (string) $entry->totalParticipantCount(),
-                    (string) count((array) $entry->attendance_media_json),
-                    (string) count((array) $entry->workshop_photos_json),
-                    $entry->hasAttendanceSheet() ? 'Uploaded' : 'Pending',
-                    (string) ($entry->created_at?->format('Y-m-d H:i:s') ?? ''),
-                    (string) ($entry->updated_at?->format('Y-m-d H:i:s') ?? ''),
-                ]);
-            }
-
-            fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return match ($role) {
+            'state_admin' => 'admin.district-workshop-sessions.export',
+            'state_staff' => 'spoc.district-workshop-sessions.export',
+            default => 'staff.district-workshop-sessions.export',
+        };
     }
 
     private function canSubmit(string $role): bool

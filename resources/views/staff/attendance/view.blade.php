@@ -216,6 +216,9 @@
                 @endif
                 <div style="display:flex;gap:0.4rem;align-items:flex-end;">
                     <button type="submit" class="bw-btn"><i class="fa-solid fa-filter"></i> Filter</button>
+                    @if (!empty($exportRoute))
+                        <a href="{{ route($exportRoute, request()->query()) }}" class="bw-btn bw-btn--ghost">Excel Export</a>
+                    @endif
                     <a href="{{ route($rp.'.view') }}" class="bw-btn bw-btn--ghost">Reset</a>
                 </div>
             </div>

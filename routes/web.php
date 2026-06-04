@@ -279,6 +279,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         // ── Block level workshops (separate table) ────────────────────────────
         Route::get('workshops', [BlockWorkshopController::class, 'index'])->name('workshops.index');
         Route::get('workshops/view', [BlockWorkshopController::class, 'view'])->name('workshops.view');
+        Route::get('workshops/export', [BlockWorkshopController::class, 'exportList'])->name('workshops.export');
         Route::get('workshops/gram-panchayats', [BlockWorkshopController::class, 'gramPanchayats'])->name('workshops.gram-panchayats');
         Route::get('workshops/attendance-sheet-template', [BlockWorkshopController::class, 'downloadAttendanceSheetTemplate'])->name('workshops.sheet-template');
         Route::post('workshops/draft', [BlockWorkshopController::class, 'createDraft'])
@@ -754,6 +755,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('district-workshop-sessions/{districtWorkshopSession}/attachment', [DistrictWorkshopSessionAttendanceController::class, 'downloadAttachment'])
             ->name('district-workshop-sessions.attachment');
         Route::get('block-workshops', [BlockWorkshopAdminController::class, 'index'])->name('block-workshops.index');
+        Route::get('block-workshops/export', [BlockWorkshopAdminController::class, 'export'])->name('block-workshops.export');
         Route::get('block-workshops/{blockWorkshop}', [BlockWorkshopAdminController::class, 'show'])->name('block-workshops.show');
         Route::get('block-workshops/{blockWorkshop}/attachment', [BlockWorkshopAdminController::class, 'downloadAttachment'])->name('block-workshops.attachment');
         Route::get('block-workshops/{blockWorkshop}/participants-export', [BlockWorkshopAdminController::class, 'exportParticipants'])->name('block-workshops.participants-export');
