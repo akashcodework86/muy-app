@@ -16,8 +16,18 @@
             --text-muted: #5f6f86;
             --glass-border: rgba(255, 255, 255, 0.1);
             --radius: 24px;
-            --shadow: 0 24px 60px rgba(99, 102, 241, 0.12);
+            --shadow: 0 24px 60px rgba(13, 110, 79, 0.1);
             --border: rgba(255, 255, 255, 0.72);
+            /* MUY / Uttarakhand scheme accents (forest + Himalayan sky + warm saffron) */
+            --muy-green: #0d6e4f;
+            --muy-green-deep: #065f46;
+            --muy-teal: #0f766e;
+            --muy-sky: #0369a1;
+            --muy-saffron: #c2410c;
+            --muy-gold: #b45309;
+            --muy-accent: var(--muy-green);
+            --muy-accent-soft: rgba(13, 110, 79, 0.12);
+            --muy-accent-border: rgba(13, 110, 79, 0.22);
         }
         .dashboard-shell {
             position: relative;
@@ -31,9 +41,9 @@
             inset: 0 0 auto;
             height: 16rem;
             background:
-                radial-gradient(circle at 10% 10%, rgba(251, 191, 36, 0.22), transparent 22%),
-                radial-gradient(circle at 85% 10%, rgba(59, 130, 246, 0.18), transparent 20%),
-                radial-gradient(circle at 55% 40%, rgba(236, 72, 153, 0.12), transparent 24%);
+                radial-gradient(circle at 10% 10%, rgba(251, 191, 36, 0.2), transparent 22%),
+                radial-gradient(circle at 88% 8%, rgba(3, 105, 161, 0.14), transparent 20%),
+                radial-gradient(circle at 55% 40%, rgba(13, 110, 79, 0.14), transparent 24%);
             pointer-events: none;
             z-index: 0;
         }
@@ -56,7 +66,7 @@
             padding: 1.15rem 1.25rem;
             border-radius: 32px;
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.58)),
-                linear-gradient(120deg, rgba(79, 70, 229, 0.08), rgba(45, 212, 191, 0.04));
+                linear-gradient(120deg, rgba(13, 110, 79, 0.07), rgba(3, 105, 161, 0.05));
             border: 1px solid rgba(255, 255, 255, 0.7);
             box-shadow: var(--shadow);
             overflow: hidden;
@@ -78,8 +88,8 @@
             padding: 0.45rem 0.8rem;
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.85);
-            border: 1px solid rgba(99, 102, 241, 0.15);
-            color: #5b21b6;
+            border: 1px solid var(--muy-accent-border);
+            color: var(--muy-green-deep);
             font-size: 0.76rem;
             font-weight: 700;
             text-transform: uppercase;
@@ -88,53 +98,80 @@
         }
         /* Hero 2-column split */
         .dashboard-intro__grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1.5rem; align-items: center; width: 100%; }
+        @media (max-width: 1440px) {
+            .dashboard-intro { padding: 1.2rem 1.35rem; margin-bottom: 1.25rem; }
+            .dashboard-intro__grid { gap: 1.65rem; }
+        }
+        @media (max-width: 1366px) {
+            .dashboard-intro { padding: 1.15rem 1.2rem; }
+            .dashboard-intro__grid { grid-template-columns: minmax(0, 1fr) 300px; gap: 1.35rem; }
+        }
         @media (max-width: 960px) { .dashboard-intro__grid { grid-template-columns: 1fr; } }
         .dashboard-intro__left { min-width: 0; }
         .dashboard-intro__right { display: flex; flex-direction: column; gap: 0.8rem; min-width: 0; }
 
         /* Hero progress ring card */
-        .hero-ring-card { position: relative; padding: 1rem 1.1rem; border-radius: 20px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(238, 242, 255, 0.55)); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 12px 30px rgba(79, 70, 229, 0.08); display: grid; grid-template-columns: auto 1fr; gap: 0.9rem; align-items: center; }
+        .hero-ring-card { position: relative; padding: 1rem 1.1rem; border-radius: 20px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(236, 253, 245, 0.55)); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 12px 30px rgba(13, 110, 79, 0.08); display: grid; grid-template-columns: auto 1fr; gap: 0.9rem; align-items: center; }
         .hero-ring-svg { width: 98px; height: 98px; flex-shrink: 0; }
         .hero-ring-svg .track { fill: none; stroke: rgba(148, 163, 184, 0.2); stroke-width: 9; }
         .hero-ring-svg .bar { fill: none; stroke: url(#heroRingGrad); stroke-width: 9; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1); }
         .hero-ring-svg .pct { font-family: 'DM Sans', sans-serif; font-weight: 800; fill: #0f172a; font-size: 20px; }
         .hero-ring-svg .pct-sub { font-size: 7px; font-weight: 700; fill: #64748b; letter-spacing: 1px; }
-        .hero-ring-body__eyebrow { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin-bottom: 0.2rem; }
+        .hero-ring-body__eyebrow { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muy-green); margin-bottom: 0.2rem; }
         .hero-ring-body__value { font-family: 'DM Sans', sans-serif; font-size: 1.1rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
         .hero-ring-body__value small { color: #94a3b8; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.02em; }
         .hero-ring-body__label { display: block; font-size: 0.68rem; color: #64748b; margin-top: 0.2rem; font-weight: 600; }
-        .hero-ring-body__gap { display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: rgba(99, 102, 241, 0.1); color: #4338ca; font-size: 0.6rem; font-weight: 700; }
+        .hero-ring-body__gap { display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: var(--muy-accent-soft); color: var(--muy-green-deep); font-size: 0.6rem; font-weight: 700; }
         .hero-ring-body__gap.is-good { background: rgba(34, 197, 94, 0.12); color: #15803d; }
 
         /* Hero "today" pills */
-        .hero-today-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45rem; }
-        .hero-today { padding: 0.55rem 0.65rem; border-radius: 12px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(226, 232, 240, 0.92); display: flex; flex-direction: column; gap: 0.15rem; transition: transform 200ms ease, box-shadow 200ms ease; position: relative; min-width: 0; }
+        .hero-today-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; }
+        .hero-today { padding: 0.62rem 0.72rem; border-radius: 12px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(226, 232, 240, 0.92); display: flex; flex-direction: column; gap: 0.22rem; transition: transform 200ms ease, box-shadow 200ms ease; position: relative; min-width: 0; }
         .hero-today:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08); }
         .hero-today__head { display: flex; align-items: center; gap: 0.35rem; font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; }
         .hero-today__head i { font-size: 0.7rem; }
         .hero-today__value { font-family: 'DM Sans', sans-serif; font-size: 1.25rem; font-weight: 800; color: #0f172a; line-height: 1; letter-spacing: -0.02em; }
-        .hero-today__delta { font-size: 0.58rem; font-weight: 700; color: #64748b; display: inline-flex; align-items: center; gap: 0.15rem; }
-        .hero-today__delta.is-up { color: #16a34a; }
-        .hero-today__delta.is-down { color: #dc2626; }
-        .hero-today--cfa .hero-today__head { color: #4338ca; }
+        .hero-today__delta {
+            font-size: 0.58rem;
+            font-weight: 700;
+            color: #64748b;
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.2rem;
+            line-height: 1.35;
+            max-width: 100%;
+        }
+        .hero-today__delta-label { font-weight: 600; color: #64748b; }
+        .hero-today__delta.is-up { color: #15803d; background: rgba(34, 197, 94, 0.1); border-radius: 8px; padding: 0.18rem 0.4rem; }
+        .hero-today__delta.is-lower {
+            color: #92400e;
+            background: rgba(251, 191, 36, 0.14);
+            border: 1px solid rgba(251, 191, 36, 0.35);
+            border-radius: 8px;
+            padding: 0.18rem 0.4rem;
+        }
+        .hero-today__delta.is-lower i { font-size: 0.5rem; opacity: 0.85; }
+        .hero-today__delta.is-down { color: #b45309; background: rgba(251, 191, 36, 0.12); border-radius: 8px; padding: 0.18rem 0.4rem; }
+        .hero-today--cfa .hero-today__head { color: var(--muy-green); }
         .hero-today--mentor .hero-today__head { color: #be185d; }
         .hero-today--online .hero-today__head { color: #15803d; }
         .hero-today--online::after { content: ''; position: absolute; top: 0.55rem; right: 0.55rem; width: 7px; height: 7px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); animation: heroDot 1.8s ease-in-out infinite; }
         @keyframes heroDot { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); } 50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); } }
 
         /* Hero sparkline */
-        .hero-spark { padding: 0.6rem 0.8rem; border-radius: 14px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(236, 254, 255, 0.55)); border: 1px solid rgba(226, 232, 240, 0.92); display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+        .hero-spark { padding: 0.65rem 0.85rem; border-radius: 14px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(236, 253, 245, 0.55)); border: 1px solid rgba(226, 232, 240, 0.92); display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
         .hero-spark__left { min-width: 0; flex-shrink: 0; }
-        .hero-spark__eyebrow { font-size: 0.52rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #0891b2; line-height: 1; }
+        .hero-spark__eyebrow { font-size: 0.52rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muy-sky); line-height: 1; }
         .hero-spark__value { font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 800; color: #0f172a; margin-top: 0.2rem; line-height: 1; }
         .hero-spark__value small { color: #64748b; font-weight: 600; font-size: 0.62rem; margin-left: 0.2rem; }
         .hero-spark__chart { flex: 1; min-width: 0; height: 36px; position: relative; }
         .hero-spark__chart svg { width: 100%; height: 100%; overflow: visible; }
         .hero-spark__chart .spark-fill { fill: url(#heroSparkGrad); opacity: 0.55; }
-        .hero-spark__chart .spark-line { fill: none; stroke: #0891b2; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-        .hero-spark__chart .spark-dot { fill: #0891b2; stroke: #fff; stroke-width: 1.5; }
+        .hero-spark__chart .spark-line { fill: none; stroke: var(--muy-teal); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+        .hero-spark__chart .spark-dot { fill: var(--muy-teal); stroke: #fff; stroke-width: 1.5; }
 
-        .welcome-meta-pills { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.65rem; }
+        .welcome-meta-pills { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.75rem; }
         .welcome-meta-pill {
             display: inline-flex;
             align-items: center;
@@ -149,25 +186,34 @@
             box-shadow: 0 10px 24px rgba(148, 163, 184, 0.12);
         }
         .insight-grid {
-            margin-top: 0.65rem;
+            margin-top: 0.85rem;
             display: grid;
             grid-template-columns: 1.2fr 1fr 1fr;
-            gap: 0.75rem;
+            gap: 0.95rem;
         }
-        @media (max-width: 1100px) { .insight-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 1366px) {
+            .insight-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+            }
+            .insight-grid .insight-card:last-child {
+                grid-column: 1 / -1;
+            }
+        }
+        @media (max-width: 1100px) { .insight-grid { grid-template-columns: 1fr; } .insight-grid .insight-card:last-child { grid-column: auto; } }
         .insight-card {
             background: rgba(255, 255, 255, 0.86);
             border: 1px solid rgba(226, 232, 240, 0.9);
             border-radius: 14px;
-            padding: 0.75rem 0.85rem;
+            padding: 0.88rem 1rem;
         }
         .insight-card__title {
             font-size: 0.62rem;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: #6366f1;
-            margin-bottom: 0.45rem;
+            color: var(--muy-green);
+            margin-bottom: 0.5rem;
         }
         .insight-progress__top {
             display: flex;
@@ -188,7 +234,7 @@
         .insight-progress__fill {
             height: 100%;
             border-radius: inherit;
-            background: linear-gradient(90deg, #4f46e5, #14b8a6);
+            background: linear-gradient(90deg, var(--muy-green), var(--muy-teal));
         }
         .insight-progress__foot {
             margin-top: 0.4rem;
@@ -245,17 +291,21 @@
         .hero-three-col {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 0.85rem;
-            margin-bottom: 1.5rem;
+            gap: 1.05rem;
+            margin-bottom: 1.65rem;
             align-items: stretch;
             width: 100%;
             max-width: 100%;
             min-width: 0;
         }
+        @media (max-width: 1366px) {
+            .hero-three-col { gap: 1.15rem; }
+            .hero-col { padding: 1.05rem 1.1rem; }
+        }
         @media (max-width: 1100px) { .hero-three-col { grid-template-columns: 1fr; } }
         .hero-col {
             border-radius: 16px;
-            padding: 0.95rem 1rem;
+            padding: 1rem 1.1rem;
             display: flex;
             flex-direction: column;
             min-width: 0;
@@ -266,7 +316,7 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: #7c3aed;
+            color: var(--muy-saffron);
             margin-bottom: 0.75rem;
             display: flex;
             align-items: center;
@@ -274,9 +324,9 @@
         }
         .hero-col__content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
         /* State pulse (same structure as district pulse) */
-        .welcome-district-embed { margin-top: 0.75rem; padding: 0.75rem 0.65rem; border-radius: 14px; background: linear-gradient(145deg, rgba(238, 242, 255, 0.35), rgba(224, 250, 248, 0.15)); }
+        .welcome-district-embed { margin-top: 0.85rem; padding: 0.85rem 0.75rem; border-radius: 14px; background: linear-gradient(145deg, rgba(236, 253, 245, 0.4), rgba(224, 242, 254, 0.2)); }
         .welcome-district-embed__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.35rem; margin-bottom: 0.55rem; }
-        .welcome-district-embed__eyebrow { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; }
+        .welcome-district-embed__eyebrow { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muy-green); }
         .welcome-district-embed__where { font-size: 0.62rem; color: #64748b; font-weight: 600; }
         .welcome-district-embed__grid { display: grid; grid-template-columns: auto 1fr; gap: 0.65rem; align-items: stretch; min-height: 0; }
         @media (max-width: 520px) { .welcome-district-embed__grid { grid-template-columns: 1fr; } }
@@ -302,7 +352,7 @@
         .welcome-d-stage-row__t { height: 8px; border-radius: 999px; background: rgba(241, 245, 249, 0.95); overflow: hidden; border: 1px solid rgba(226, 232, 240, 0.85); }
         .welcome-d-stage-row__f { height: 100%; border-radius: inherit; min-width: 0; }
         .welcome-d-stage-row__f--seed { background: linear-gradient(90deg, #facc15, #ea580c); }
-        .welcome-d-stage-row__f--early { background: linear-gradient(90deg, #60a5fa, #6366f1); }
+        .welcome-d-stage-row__f--early { background: linear-gradient(90deg, #38bdf8, var(--muy-teal)); }
         .welcome-d-stage-row__f--growth { background: linear-gradient(90deg, #34d399, #14b8a6); }
         .welcome-d-stage-row__p { font-weight: 800; color: #0f172a; text-align: right; font-variant-numeric: tabular-nums; font-size: 0.62rem; }
         .welcome-district-embed__note { margin: 0.45rem 0 0; font-size: 0.55rem; line-height: 1.35; color: #94a3b8; }
@@ -411,8 +461,8 @@
             font-weight: 800;
             letter-spacing: 0.02em;
             color: #fff;
-            background: linear-gradient(135deg, #6366f1, #14b8a6);
-            border: 1px solid rgba(99, 102, 241, 0.32);
+            background: linear-gradient(135deg, var(--muy-green), var(--muy-teal));
+            border: 1px solid var(--muy-accent-border);
         }
         .staff-cfa-main-text { min-width: 0; }
         .staff-cfa-name { font-size: 0.78rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -421,9 +471,9 @@
             font-family: 'DM Sans', sans-serif;
             font-size: 0.9rem;
             font-weight: 800;
-            color: #4338ca;
-            background: rgba(99, 102, 241, 0.12);
-            border: 1px solid rgba(99, 102, 241, 0.2);
+            color: var(--muy-green-deep);
+            background: var(--muy-accent-soft);
+            border: 1px solid var(--muy-accent-border);
             border-radius: 999px;
             padding: 0.2rem 0.5rem;
             min-width: 3rem;
@@ -516,6 +566,8 @@
                     $sparkTrend = $firstHalf > 0 ? (int) round((($secondHalf - $firstHalf) / $firstHalf) * 100) : 0;
 
                     $todayDelta = (int) ($heroCfaTodayDelta ?? 0);
+                    $cfaTodayCount = (int) ($heroCfaToday ?? 0);
+                    $cfaYesterdayCount = (int) ($heroCfaYesterday ?? 0);
                 @endphp
 
                 <div class="dashboard-intro">
@@ -640,8 +692,8 @@
                                 <svg class="hero-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                                     <defs>
                                         <linearGradient id="heroRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                            <stop offset="0%" stop-color="#6366f1"/>
-                                            <stop offset="100%" stop-color="#14b8a6"/>
+                                            <stop offset="0%" stop-color="#0d6e4f"/>
+                                            <stop offset="100%" stop-color="#0369a1"/>
                                         </linearGradient>
                                     </defs>
                                     <circle class="track" cx="50" cy="50" r="40"/>
@@ -662,15 +714,27 @@
 
                             {{-- Today pills --}}
                             <div class="hero-today-row">
-                                <div class="hero-today hero-today--cfa">
+                                <div class="hero-today hero-today--cfa"
+                                    title="Phase 3 CFA submissions recorded today compared with yesterday (all districts).">
                                     <div class="hero-today__head"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> CFA today</div>
-                                    <div class="hero-today__value">{{ number_format((int) ($heroCfaToday ?? 0)) }}</div>
+                                    <div class="hero-today__value">{{ number_format($cfaTodayCount) }}</div>
                                     @if ($todayDelta > 0)
-                                        <span class="hero-today__delta is-up"><i class="fa-solid fa-caret-up" aria-hidden="true"></i> {{ $todayDelta }} vs yest.</span>
+                                        <span class="hero-today__delta is-up"
+                                            title="Today: {{ number_format($cfaTodayCount) }}. Yesterday: {{ number_format($cfaYesterdayCount) }}.">
+                                            <i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i>
+                                            <span>+{{ number_format($todayDelta) }} <span class="hero-today__delta-label">vs yesterday ({{ number_format($cfaYesterdayCount) }})</span></span>
+                                        </span>
                                     @elseif ($todayDelta < 0)
-                                        <span class="hero-today__delta is-down"><i class="fa-solid fa-caret-down" aria-hidden="true"></i> {{ abs($todayDelta) }} vs yest.</span>
+                                        <span class="hero-today__delta is-lower"
+                                            title="Today: {{ number_format($cfaTodayCount) }}. Yesterday: {{ number_format($cfaYesterdayCount) }}. A lower day is normal variation, not a system error.">
+                                            <i class="fa-solid fa-minus" aria-hidden="true"></i>
+                                            <span>{{ number_format(abs($todayDelta)) }} fewer <span class="hero-today__delta-label">vs yesterday ({{ number_format($cfaYesterdayCount) }})</span></span>
+                                        </span>
                                     @else
-                                        <span class="hero-today__delta">same as yest.</span>
+                                        <span class="hero-today__delta"
+                                            title="Today: {{ number_format($cfaTodayCount) }}. Yesterday: {{ number_format($cfaYesterdayCount) }}.">
+                                            Same as yesterday <span class="hero-today__delta-label">({{ number_format($cfaYesterdayCount) }})</span>
+                                        </span>
                                     @endif
                                 </div>
                                 <div class="hero-today hero-today--mentor">
@@ -687,7 +751,7 @@
 
                             {{-- 30-day sparkline --}}
                             @if (! empty($sparkLine))
-                            <div class="hero-spark" title="Daily CFA submissions ï¿½ last 30 days">
+                            <div class="hero-spark" title="Daily CFA submissions — last 30 days (Phase 3 scope)">
                                 <div class="hero-spark__left">
                                     <div class="hero-spark__eyebrow">30-DAY PULSE</div>
                                     <div class="hero-spark__value">{{ number_format($sparkSum) }} <small>CFAs</small></div>
@@ -696,8 +760,8 @@
                                     <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
                                         <defs>
                                             <linearGradient id="heroSparkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                                <stop offset="0%" stop-color="#0891b2" stop-opacity="0.45"/>
-                                                <stop offset="100%" stop-color="#0891b2" stop-opacity="0"/>
+                                                <stop offset="0%" stop-color="#0f766e" stop-opacity="0.45"/>
+                                                <stop offset="100%" stop-color="#0f766e" stop-opacity="0"/>
                                             </linearGradient>
                                         </defs>
                                         <polygon class="spark-fill" points="{{ $sparkFill }}"/>
@@ -706,12 +770,13 @@
                                     </svg>
                                 </div>
                                 <div style="text-align:right;flex-shrink:0;">
-                                    <span class="hero-today__delta @if ($sparkTrend > 0) is-up @elseif ($sparkTrend < 0) is-down @endif" style="font-size:0.62rem;">
-                                        @if ($sparkTrend > 0)<i class="fa-solid fa-caret-up"></i> +{{ $sparkTrend }}%
-                                        @elseif ($sparkTrend < 0)<i class="fa-solid fa-caret-down"></i> {{ $sparkTrend }}%
+                                    <span class="hero-today__delta @if ($sparkTrend > 0) is-up @elseif ($sparkTrend < 0) is-lower @endif" style="font-size:0.62rem;"
+                                        title="Compares CFA volume in the last 15 days of this 30-day window with the first 15 days.">
+                                        @if ($sparkTrend > 0)<i class="fa-solid fa-arrow-trend-up"></i> +{{ $sparkTrend }}%
+                                        @elseif ($sparkTrend < 0)<i class="fa-solid fa-minus"></i> {{ $sparkTrend }}%
                                         @else flat @endif
                                     </span>
-                                    <div style="font-size:0.5rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:0.15rem;">vs prev 15d</div>
+                                    <div style="font-size:0.5rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:0.15rem;">vs previous 15 days</div>
                                 </div>
                             </div>
                             @endif
@@ -835,8 +900,8 @@
                                     <svg class="district-ring" viewBox="0 0 120 120" aria-hidden="true">
                                         <defs>
                                             <linearGradient id="stateRingGradWelcome" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                <stop offset="0%" style="stop-color:#6366f1"/>
-                                                <stop offset="100%" style="stop-color:#2dd4bf"/>
+                                                <stop offset="0%" style="stop-color:#0d6e4f"/>
+                                                <stop offset="100%" style="stop-color:#0369a1"/>
                                             </linearGradient>
                                         </defs>
                                         <circle class="district-ring__bg" cx="60" cy="60" r="54" fill="none"/>
@@ -993,7 +1058,7 @@
                             <div style="font-family:'DM Sans',sans-serif;font-size:1.3rem;font-weight:800;color:#1e3a8a;margin-top:0.25rem;">Rs {{ number_format($savingsTotalThisFy, 2) }}</div>
                         </div>
                         <div style="padding:0.75rem 0.85rem;border-radius:12px;border:1px solid rgba(99,102,241,0.25);background:rgba(99,102,241,0.08);">
-                            <div style="font-size:0.65rem;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:0.06em;">Top services shown</div>
+                            <div style="font-size:0.65rem;font-weight:700;color:var(--muy-green);text-transform:uppercase;letter-spacing:0.06em;">Top services shown</div>
                             <div style="font-family:'DM Sans',sans-serif;font-size:1.3rem;font-weight:800;color:#312e81;margin-top:0.25rem;">{{ number_format(count($topSavingsServices)) }}</div>
                         </div>
                     </div>
@@ -1091,7 +1156,7 @@
 <script>
 (function () {
     const grid = { color: 'rgba(148, 163, 184, 0.25)' };
-    const accent = '#4f46e5';
+    const accent = '#0d6e4f';
 
     const trendLabels = @json($stateCfaTrend['labels'] ?? []);
     const trendValues = @json($stateCfaTrend['values'] ?? []);
@@ -1149,9 +1214,9 @@
     const dLabels = @json($cfaByDistrict['labels']);
     const dValues = @json($cfaByDistrict['values']);
     const districtPalette = [
-        '#4f46e5', '#0d9488', '#ea580c', '#7c3aed', '#0891b2',
-        '#db2777', '#ca8a04', '#16a34a', '#e11d48', '#2563eb',
-        '#059669', '#d946ef', '#f97316'
+        '#0d6e4f', '#0f766e', '#0369a1', '#c2410c', '#b45309',
+        '#db2777', '#ca8a04', '#16a34a', '#059669', '#2563eb',
+        '#0891b2', '#d946ef', '#ea580c'
     ];
     const districtValueLabelsPlugin = {
         id: 'districtValueLabelsPlugin',
