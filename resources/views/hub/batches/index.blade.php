@@ -14,16 +14,16 @@
             --text: #0f172a;
             --muted: #64748b;
             --border: #e2e8f0;
-            --accent: #059669;
-            --accent2: #0d9488;
-            --radius: 14px;
-            --shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+            --accent: #d04a02;
+            --accent2: #eb8c00;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(208, 74, 2, 0.08);
         }
         body.hub-batch-page { font-family: 'DM Sans', system-ui, sans-serif; }
         .hb-wrap { max-width: 1200px; margin: 0 auto; }
         .hb-hero {
-            background: linear-gradient(135deg, #064e3b 0%, #059669 50%, #14b8a6 100%);
-            color: #ecfdf5;
+            background: linear-gradient(135deg, #a63d02 0%, #d04a02 55%, #eb8c00 100%);
+            color: #fff;
             border-radius: var(--radius);
             padding: 1.5rem 1.75rem;
             margin-bottom: 1.25rem;
@@ -84,7 +84,7 @@
         .hb-stage-mix__box .ideal { font-size: 0.62rem; color: var(--muted); }
         .hb-stage-mix__box--seed { background: linear-gradient(180deg, #fffbeb, #fff); border-color: #fcd34d; }
         .hb-stage-mix__box--early { background: linear-gradient(180deg, #eff6ff, #fff); border-color: #93c5fd; }
-        .hb-stage-mix__box--growth { background: linear-gradient(180deg, #f5f3ff, #fff); border-color: #c4b5fd; }
+        .hb-stage-mix__box--growth { background: linear-gradient(180deg, #fdeee6, #fff); border-color: #f5c4a8; }
         .hb-stage-mix__note { font-size: 0.65rem; color: #92400e; margin: 0.5rem 0 0; line-height: 1.4; }
         .hb-pool-tools { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); background: #fcfcfd; }
         .hb-pool-tools .hb-btn { padding: 0.32rem 0.55rem; font-size: 0.72rem; border-radius: 8px; }
@@ -94,7 +94,7 @@
             background: none;
             border: none;
             padding: 0;
-            color: #0f766e;
+            color: #d04a02;
             font-weight: 700;
             text-align: left;
             cursor: pointer;
@@ -144,7 +144,7 @@
             cursor: pointer;
         }
         .hb-filter-chip:hover { background: #cffafe; }
-        .hb-filter-chip .x { font-size: 0.85rem; line-height: 1; color: #0f766e; }
+        .hb-filter-chip .x { font-size: 0.85rem; line-height: 1; color: #d04a02; }
         .hb-detail-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75rem; }
         .hb-detail-box {
             border: 1px solid var(--border);
@@ -171,7 +171,7 @@
         }
         .hb-cat-btn:hover { background: #f0f9ff; border-color: #bae6fd; }
         .hb-cat-btn.is-active { background: #ecfeff; border-color: #67e8f9; }
-        .hb-member-link { color: #0f766e; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+        .hb-member-link { color: #d04a02; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
         .hb-member-link:hover { color: #0f172a; }
         .hb-member-table-wrap { max-height: min(52vh, 480px); overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
         .hb-portal-note { font-size: 0.72rem; color: var(--muted); margin: 0 0 0.45rem; line-height: 1.4; }
@@ -184,7 +184,7 @@
         }
     </style>
 </head>
-<body class="admin-app-body hub-batch-page">
+<body class="admin-app-body admin-app-body--dashboard admin-app-body--hub-premium hub-batch-page">
     @include('partials.admin-topbar')
     <main class="admin-main hb-wrap">
         @if (session('status'))
@@ -781,7 +781,7 @@
                     if (b.status === 'locked' && b.locked_at) {
                         if (b.has_cdo_pdf) {
                             cdo = '<span style="color:var(--accent);font-weight:600">Uploaded</span>'
-                                + ` <a href="${letterViewUrl(b.id)}" target="_blank" rel="noopener noreferrer" style="margin-left:0.4rem;font-size:0.76rem;font-weight:700;color:#0f766e;text-decoration:underline;">View</a>`;
+                                + ` <a href="${letterViewUrl(b.id)}" target="_blank" rel="noopener noreferrer" style="margin-left:0.4rem;font-size:0.76rem;font-weight:700;color:#d04a02;text-decoration:underline;">View</a>`;
                         }
                         else if (b.cdo_overdue) cdo = '<span style="color:#dc2626;font-weight:700">Overdue</span>';
                         else if (b.cdo_pending) cdo = '<span style="color:#d97706;font-weight:600">Pending</span>';
@@ -810,7 +810,7 @@
                            <button type="button" class="link-mini batch-delete" style="color:#dc2626" data-id="${b.id}">Delete</button>`;
                     } else if (b.status === 'locked' && b.edit_unlocked) {
                         actions = `<button type="button" class="link-mini batch-continue" data-id="${b.id}">Edit</button>
-                           <button type="button" class="link-mini batch-relock" style="color:#0f766e" data-id="${b.id}">Re-lock</button>`;
+                           <button type="button" class="link-mini batch-relock" style="color:#d04a02" data-id="${b.id}">Re-lock</button>`;
                     } else if (b.status === 'locked') {
                         const reqCount = parseInt(b.pending_unlock_requests || 0, 10) || 0;
                         actions = `<button type="button" class="link-mini batch-request-unlock" data-id="${b.id}">Request unlock</button>

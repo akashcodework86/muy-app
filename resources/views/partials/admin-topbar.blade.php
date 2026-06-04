@@ -424,7 +424,7 @@
         @endif
 
         @if ($showHubNav)
-        <nav class="admin-topbar__nav" aria-label="Hub">
+        <nav class="admin-topbar__nav admin-topbar__nav--hub-admin" aria-label="Hub">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>

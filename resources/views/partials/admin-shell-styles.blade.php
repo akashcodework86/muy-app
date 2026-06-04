@@ -11,6 +11,10 @@
         overflow-x: clip;
         max-width: 100%;
     }
+    .admin-app-body--state-premium,
+    .admin-app-body--hub-premium {
+        background: #f7f5f2 !important;
+    }
     .admin-app-body--dashboard .admin-topbar {
         background: #d04a02;
         backdrop-filter: none;
@@ -23,44 +27,10 @@
     .admin-app-body--dashboard .admin-topbar::after {
         display: none;
     }
-    .admin-app-body--dashboard .admin-brand {
-        color: #fff;
-    }
-    .admin-app-body--dashboard .admin-brand__sub {
-        color: rgba(255, 255, 255, 0.78);
-    }
-    .admin-app-body--dashboard .admin-topbar__link {
-        color: rgba(255, 255, 255, 0.9);
-    }
-    .admin-app-body--dashboard .admin-topbar__link:hover {
-        color: #fff;
-        background: rgba(255, 255, 255, 0.16);
-    }
-    .admin-app-body--dashboard .admin-topbar__link.is-active {
-        color: #d04a02;
-        background: #fff;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
-    }
-    .admin-app-body--dashboard .admin-topbar__user {
-        color: #fff;
-    }
-    .admin-app-body--dashboard .admin-topbar__user-role {
-        color: rgba(255, 255, 255, 0.78);
-    }
     .admin-app-body--dashboard .admin-topbar__dropdown-panel {
         background: #fff;
         border-color: #e2e8f0;
         box-shadow: 0 16px 40px rgba(208, 74, 2, 0.16);
-    }
-    .admin-app-body--dashboard .admin-topbar__notif-summary {
-        border-color: rgba(255, 255, 255, 0.35);
-        background: rgba(255, 255, 255, 0.14);
-        color: #fff;
-    }
-    .admin-app-body--dashboard .admin-topbar__details--notifications[open] .admin-topbar__notif-summary {
-        border-color: #fff;
-        color: #d04a02;
-        background: #fff;
     }
     .admin-topbar {
         position: sticky;
@@ -149,7 +119,8 @@
         .admin-topbar__nav { justify-content: flex-start; margin-left: 1rem; }
     }
     @media (min-width: 1100px) {
-        .admin-topbar__nav--state-admin {
+        .admin-topbar__nav--state-admin,
+        .admin-topbar__nav--hub-admin {
             flex-wrap: nowrap;
         }
     }
@@ -176,7 +147,8 @@
     }
     @media (max-width: 1100px) {
         /* Let the nav wrap below the brand on small laptops/tablets */
-        .admin-topbar__nav--state-admin { flex-basis: 100%; order: 3; justify-content: flex-start; margin-left: 0; }
+        .admin-topbar__nav--state-admin,
+        .admin-topbar__nav--hub-admin { flex-basis: 100%; order: 3; justify-content: flex-start; margin-left: 0; }
         .admin-topbar__right { margin-left: auto; }
     }
     .admin-topbar__details {
@@ -1116,19 +1088,128 @@
         animation: muyBreathe 2.4s ease-in-out infinite;
     }
 
-    /* Dashboard-body overrides: PwC orange masthead */
+    /* Dashboard-body overrides: PwC orange masthead (wins over animated defaults below) */
     .admin-app-body--dashboard .admin-topbar {
         background: #d04a02;
         border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 0;
+    }
+    .admin-app-body--dashboard .admin-topbar__inner {
+        padding: 0.6rem 1.15rem;
+    }
+    .admin-app-body--dashboard .admin-brand::before {
+        display: none;
+    }
+    .admin-app-body--dashboard .admin-brand:hover {
+        background: transparent;
+        transform: none;
+    }
+    .admin-app-body--dashboard .admin-brand__name {
+        background: none;
+        background-size: unset;
+        -webkit-background-clip: unset;
+        background-clip: unset;
+        -webkit-text-fill-color: #fff;
+        color: #fff;
+        animation: none;
+    }
+    .admin-app-body--dashboard .admin-brand__sub {
+        background: rgba(255, 255, 255, 0.16);
+        border-color: rgba(255, 255, 255, 0.32);
+        color: rgba(255, 255, 255, 0.95) !important;
+    }
+    .admin-app-body--dashboard .admin-brand__img {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+    }
+    .admin-app-body--dashboard .admin-topbar__nav--state-admin,
+    .admin-app-body--dashboard .admin-topbar__nav--hub-admin {
+        border-top: 1px solid rgba(255, 255, 255, 0.14);
+        padding-top: 0.4rem;
+        margin-top: 0.1rem;
+    }
+    @media (min-width: 1101px) {
+        .admin-app-body--dashboard .admin-topbar__nav--state-admin,
+        .admin-app-body--dashboard .admin-topbar__nav--hub-admin {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 0;
+        }
+    }
+    .admin-app-body--dashboard .admin-topbar__link {
+        color: rgba(255, 255, 255, 0.94);
+        border-color: transparent;
     }
     .admin-app-body--dashboard .admin-topbar__link:hover {
         color: #fff;
-        background: rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.18);
+        border-color: rgba(255, 255, 255, 0.22);
+        transform: none;
+        box-shadow: none;
     }
-    .admin-app-body--dashboard .admin-topbar__link.is-active {
+    .admin-app-body--dashboard .admin-topbar__link:hover::before {
+        opacity: 0;
+        animation: none;
+    }
+    .admin-app-body--dashboard .admin-topbar__link.is-active,
+    .admin-app-body--dashboard .admin-topbar__link.is-active.admin-topbar__dropdown-trigger {
+        color: #d04a02 !important;
+        background: #fff !important;
+        border-color: transparent !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+        transform: none;
+    }
+    .admin-app-body--dashboard .admin-topbar__link.is-active:not(.admin-topbar__dropdown-trigger)::after {
+        display: none;
+    }
+    .admin-app-body--dashboard .admin-topbar__notif-summary {
+        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.95);
+        color: #d04a02;
+    }
+    .admin-app-body--dashboard .admin-topbar__notif-summary:hover {
+        transform: none;
+        border-color: #fff;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+    .admin-app-body--dashboard .admin-topbar__details--notifications[open] .admin-topbar__notif-summary {
         color: #d04a02;
         background: #fff;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
+        border-color: #fff;
+    }
+    .admin-app-body--dashboard .admin-topbar__profile {
+        background: #fff;
+        border-color: rgba(255, 255, 255, 0.45);
+    }
+    .admin-app-body--dashboard .admin-topbar__profile-summary:hover .admin-topbar__profile {
+        transform: none;
+        border-color: #fff;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    }
+    .admin-app-body--dashboard .admin-topbar__details--profile[open] .admin-topbar__profile {
+        background: #fff;
+        border-color: #fff;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+    }
+    .admin-app-body--dashboard .admin-topbar__user {
+        color: #2d2d2d;
+    }
+    .admin-app-body--dashboard .admin-topbar__user-role {
+        color: #6b6b6b;
+    }
+    .admin-app-body--dashboard .admin-topbar__avatar {
+        background: linear-gradient(135deg, #d04a02, #eb8c00);
+        box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(208, 74, 2, 0.35);
+    }
+    .admin-app-body--dashboard .admin-topbar__settings {
+        background: rgba(255, 255, 255, 0.95);
+        border-color: rgba(255, 255, 255, 0.4);
+        color: #2d2d2d;
+    }
+    .admin-app-body--dashboard .admin-topbar__settings:hover,
+    .admin-app-body--dashboard .admin-topbar__settings.is-active {
+        background: #fff;
+        color: #d04a02;
+        border-color: #fff;
     }
 
     /* Reduce motion preference */
