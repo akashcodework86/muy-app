@@ -637,12 +637,97 @@
         }
         .sad-dock__link i { color: var(--sad-brand); font-size: 0.8rem; }
         .sad-spark {
-            height: 28px;
-            margin-top: 0.25rem;
+            height: 32px;
+            margin-top: 0.35rem;
+            position: relative;
         }
-        .sad-spark svg { width: 100%; height: 100%; }
-        .sad-spark .line { fill: none; stroke: var(--sad-brand); stroke-width: 1.5; }
-        .sad-spark .fill { fill: url(#sadSparkGrad); opacity: 0.4; }
+        .sad-spark svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+        .sad-spark__fill {
+            fill: url(#sadSparkGrad);
+            opacity: 0.38;
+            transform-origin: center bottom;
+            animation: sadSparkFillBeat 1.35s ease-in-out infinite;
+        }
+        .sad-spark__glow {
+            fill: none;
+            stroke: var(--sad-brand);
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0;
+            filter: blur(1px);
+            animation: sadSparkGlowBeat 1.35s ease-in-out infinite;
+        }
+        .sad-spark__line {
+            fill: none;
+            stroke: var(--sad-brand);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-dasharray: 6 10;
+            animation: sadSparkLineBeat 1.35s ease-in-out infinite;
+        }
+        .sad-spark__dot {
+            fill: var(--sad-brand);
+            stroke: #fff;
+            stroke-width: 0.75;
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: sadSparkDotBeat 1.35s ease-in-out infinite;
+        }
+        @keyframes sadSparkFillBeat {
+            0%, 52%, 100% { opacity: 0.32; transform: scaleY(1); }
+            8% { opacity: 0.5; transform: scaleY(1.07); }
+            16% { opacity: 0.36; transform: scaleY(1.02); }
+            28% { opacity: 0.48; transform: scaleY(1.05); }
+        }
+        @keyframes sadSparkLineBeat {
+            0%, 52%, 100% {
+                stroke-opacity: 0.82;
+                stroke-dashoffset: 0;
+                filter: drop-shadow(0 0 0 rgba(208, 74, 2, 0));
+            }
+            8% {
+                stroke-opacity: 1;
+                stroke-dashoffset: -4;
+                filter: drop-shadow(0 0 4px rgba(208, 74, 2, 0.55));
+            }
+            16% {
+                stroke-opacity: 0.88;
+                stroke-dashoffset: -2;
+            }
+            28% {
+                stroke-opacity: 1;
+                stroke-dashoffset: -6;
+                filter: drop-shadow(0 0 3px rgba(208, 74, 2, 0.45));
+            }
+        }
+        @keyframes sadSparkGlowBeat {
+            0%, 52%, 100% { opacity: 0; }
+            8% { opacity: 0.35; }
+            28% { opacity: 0.28; }
+        }
+        @keyframes sadSparkDotBeat {
+            0%, 52%, 100% { opacity: 0.72; }
+            8% { opacity: 1; }
+            16% { opacity: 0.82; }
+            28% { opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .sad-spark__fill,
+            .sad-spark__glow,
+            .sad-spark__line,
+            .sad-spark__dot {
+                animation: none !important;
+            }
+            .sad-spark__fill { opacity: 0.4; transform: none; }
+            .sad-spark__glow { display: none; }
+        }
         .sad-empty {
             text-align: center;
             padding: 1.25rem;
@@ -743,6 +828,14 @@
             }
             $sparkLine = implode(' ', $sparkPts);
             $sparkFill = $sparkPts ? ('0,' . $sparkH . ' ' . $sparkLine . ' ' . $sparkW . ',' . $sparkH) : '';
+            $sparkDotX = null;
+            $sparkDotY = null;
+            if ($sparkCount > 0) {
+                $lastSparkPt = $sparkPts[$sparkCount - 1];
+                if (str_contains($lastSparkPt, ',')) {
+                    [$sparkDotX, $sparkDotY] = array_map(static fn ($v) => (float) $v, explode(',', $lastSparkPt, 2));
+                }
+            }
 
             $districtLabels = $cfaByDistrict['labels'] ?? [];
             $districtValues = $cfaByDistrict['values'] ?? [];
@@ -1050,16 +1143,20 @@
                                 <div class="sad-ring-meta__big">{{ number_format($cfaTotalN) }}</div>
                                 <div class="sad-ring-meta__lbl">Phase 3 CFA · {{ $phaseLabel }} onward</div>
                                 @if ($sparkLine)
-                                    <div class="sad-spark" title="30-day CFA volume: {{ number_format($sparkSum) }} total">
+                                    <div class="sad-spark sad-spark--live" title="30-day CFA volume: {{ number_format($sparkSum) }} total" aria-hidden="true">
                                         <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
                                             <defs>
                                                 <linearGradient id="sadSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stop-color="#d04a02" stop-opacity="0.4"/>
+                                                    <stop offset="0%" stop-color="#d04a02" stop-opacity="0.45"/>
                                                     <stop offset="100%" stop-color="#d04a02" stop-opacity="0"/>
                                                 </linearGradient>
                                             </defs>
-                                            <polygon class="fill" points="{{ $sparkFill }}"/>
-                                            <polyline class="line" points="{{ $sparkLine }}"/>
+                                            <polygon class="sad-spark__fill" points="{{ $sparkFill }}"/>
+                                            <polyline class="sad-spark__glow" points="{{ $sparkLine }}"/>
+                                            <polyline class="sad-spark__line" points="{{ $sparkLine }}"/>
+                                            @if ($sparkDotX !== null && $sparkDotY !== null)
+                                                <circle class="sad-spark__dot" cx="{{ $sparkDotX }}" cy="{{ $sparkDotY }}" r="2.5"/>
+                                            @endif
                                         </svg>
                                     </div>
                                 @endif
