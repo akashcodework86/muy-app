@@ -19,25 +19,25 @@
             --sad-muted: #64748b;
             --sad-border: #e2e8f0;
             --sad-surface: #ffffff;
-            --sad-brand: #745af2;
-            --sad-brand-deep: #5e48d9;
-            --sad-brand-light: #ede9fe;
-            --sad-accent: #eab308;
-            --sad-accent-soft: #fef9c3;
+            --sad-brand: #d04a02;
+            --sad-brand-deep: #a63d02;
+            --sad-brand-light: #fdeee6;
+            --sad-accent: #eb8c00;
+            --sad-accent-soft: #fff4e6;
             --sad-green: #22c55e;
             --sad-green-deep: #16a34a;
-            --sad-teal: #745af2;
-            --sad-sky: #3b82f6;
-            --sad-navy: #1e3a5f;
-            --sad-coral: #ef5350;
-            --sad-saffron: #eab308;
-            --sad-gold: #ca8a04;
+            --sad-teal: #d04a02;
+            --sad-sky: #464646;
+            --sad-navy: #2d2d2d;
+            --sad-coral: #eb8c00;
+            --sad-saffron: #ffb600;
+            --sad-gold: #b45309;
             --sad-radius: 12px;
-            --sad-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(116, 90, 242, 0.08);
-            --sad-brand-grad: linear-gradient(135deg, #5e48d9 0%, #745af2 55%, #8b72f4 100%);
+            --sad-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(208, 74, 2, 0.08);
+            --sad-brand-grad: linear-gradient(135deg, #a63d02 0%, #d04a02 55%, #eb8c00 100%);
         }
         .admin-app-body--state-premium {
-            background: #f4f7fa !important;
+            background: #f7f5f2 !important;
         }
         .sad {
             font-family: 'DM Sans', system-ui, sans-serif;
@@ -138,8 +138,8 @@
             transition: border-color 0.15s, box-shadow 0.15s;
         }
         .sad-kpi:hover {
-            border-color: #c4b5fd;
-            box-shadow: 0 4px 16px rgba(116, 90, 242, 0.12);
+            border-color: #f5c4a8;
+            box-shadow: 0 4px 16px rgba(208, 74, 2, 0.12);
         }
         .sad-kpi__icon {
             width: 1.65rem;
@@ -247,7 +247,7 @@
         .sad-nav__btn.is-active {
             background: var(--sad-brand-grad);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(116, 90, 242, 0.28);
+            box-shadow: 0 2px 8px rgba(208, 74, 2, 0.28);
         }
         .sad-panel { display: none; animation: sadFade 0.25s ease; }
         .sad-panel.is-active { display: block; }
@@ -327,7 +327,7 @@
             transition: width 0.6s ease;
         }
         .sad-progress-fill--sky {
-            background: linear-gradient(90deg, #0284c7, #0ea5e9);
+            background: linear-gradient(90deg, #eb8c00, #ffb600);
         }
         .sad-progress-foot {
             font-size: 0.68rem;
@@ -419,7 +419,7 @@
             overflow: hidden;
         }
         .sad-stage-fill--seed { background: #d97706; height: 100%; border-radius: 999px; }
-        .sad-stage-fill--early { background: #0284c7; height: 100%; border-radius: 999px; }
+        .sad-stage-fill--early { background: #eb8c00; height: 100%; border-radius: 999px; }
         .sad-stage-fill--growth { background: var(--sad-brand); height: 100%; border-radius: 999px; }
         .sad-biz-row {
             display: grid;
@@ -562,7 +562,7 @@
         }
         .sad-savings-tile--green { border-color: #a7f3d0; background: #ecfdf5; }
         .sad-savings-tile--blue { border-color: #bae6fd; background: #f0f9ff; }
-        .sad-savings-tile--violet { border-color: #c4b5fd; background: var(--sad-brand-light); }
+        .sad-savings-tile--violet { border-color: #f5c4a8; background: var(--sad-brand-light); }
         .sad-savings-tile__lbl {
             font-size: 0.6rem;
             font-weight: 700;
@@ -633,7 +633,7 @@
         }
         .sad-dock__link:hover {
             background: var(--sad-brand-light);
-            border-color: #a78bfa;
+            border-color: #f0b48a;
         }
         .sad-dock__link i { color: var(--sad-brand); font-size: 0.8rem; }
         .sad-spark {
@@ -1036,8 +1036,8 @@
                             <svg class="sad-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                                 <defs>
                                     <linearGradient id="sadRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#5e48d9"/>
-                                        <stop offset="100%" stop-color="#745af2"/>
+                                        <stop offset="0%" stop-color="#a63d02"/>
+                                        <stop offset="100%" stop-color="#d04a02"/>
                                     </linearGradient>
                                 </defs>
                                 <circle class="track" cx="50" cy="50" r="38"/>
@@ -1054,8 +1054,8 @@
                                         <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
                                             <defs>
                                                 <linearGradient id="sadSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stop-color="#745af2" stop-opacity="0.4"/>
-                                                    <stop offset="100%" stop-color="#745af2" stop-opacity="0"/>
+                                                    <stop offset="0%" stop-color="#d04a02" stop-opacity="0.4"/>
+                                                    <stop offset="100%" stop-color="#d04a02" stop-opacity="0"/>
                                                 </linearGradient>
                                             </defs>
                                             <polygon class="fill" points="{{ $sparkFill }}"/>
@@ -1099,7 +1099,7 @@
                             @php
                                 $bizV = (int) ($businessMix['values'][$idx] ?? 0);
                                 $bizPct = $bizMixTotal > 0 ? (int) round(100 * $bizV / $bizMixTotal) : 0;
-                                $bizCol = $businessMix['colors'][$idx] ?? '#0d6e4f';
+                                $bizCol = $businessMix['colors'][$idx] ?? '#d04a02';
                             @endphp
                             <div class="sad-biz-row">
                                 <span class="sad-biz-row__rank">#{{ $idx + 1 }}</span>
@@ -1317,8 +1317,8 @@
         const cx = stEl.getContext('2d');
         const dh = stEl.parentElement?.clientHeight || 168;
         const dFill = cx.createLinearGradient(0, 0, 0, dh);
-        dFill.addColorStop(0, 'rgba(116, 90, 242, 0.24)');
-        dFill.addColorStop(1, 'rgba(116, 90, 242, 0.02)');
+        dFill.addColorStop(0, 'rgba(208, 74, 2, 0.24)');
+        dFill.addColorStop(1, 'rgba(208, 74, 2, 0.02)');
         new Chart(stEl, {
             type: 'line',
             data: {
@@ -1326,7 +1326,7 @@
                 datasets: [{
                     label: 'State CFA',
                     data: trendValues,
-                    borderColor: '#745af2',
+                    borderColor: '#d04a02',
                     backgroundColor: dFill,
                     fill: true,
                     tension: 0.42,
@@ -1350,9 +1350,9 @@
     const dLabels = @json($cfaByDistrict['labels']);
     const dValues = @json($cfaByDistrict['values']);
     const districtPalette = [
-        '#745af2', '#3b82f6', '#2563eb', '#fbbf24', '#eab308',
-        '#1e3a5f', '#ef5354', '#22c55e', '#8b72f4', '#5e48d9',
-        '#64748b', '#0891b2', '#16a34a'
+        '#d04a02', '#eb8c00', '#ffb600', '#2d2d2d', '#464646',
+        '#a63d02', '#6b6b6b', '#22c55e', '#c75b12', '#b83d02',
+        '#8b8b8b', '#d97706', '#16a34a'
     ];
     const districtValueLabelsPlugin = {
         id: 'districtValueLabelsPlugin',

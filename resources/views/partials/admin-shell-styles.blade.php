@@ -7,16 +7,16 @@
         color: #0f172a;
     }
     .admin-app-body--dashboard {
-        background: #f4f7fa;
+        background: #f7f5f2;
         overflow-x: clip;
         max-width: 100%;
     }
     .admin-app-body--dashboard .admin-topbar {
-        background: #745af2;
+        background: #d04a02;
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
         border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-        box-shadow: 0 4px 20px rgba(91, 63, 217, 0.28);
+        box-shadow: 0 4px 20px rgba(208, 74, 2, 0.28);
         border-radius: 0;
     }
     .admin-app-body--dashboard .admin-topbar::before,
@@ -37,7 +37,7 @@
         background: rgba(255, 255, 255, 0.16);
     }
     .admin-app-body--dashboard .admin-topbar__link.is-active {
-        color: #5e48d9;
+        color: #d04a02;
         background: #fff;
         box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
     }
@@ -50,7 +50,7 @@
     .admin-app-body--dashboard .admin-topbar__dropdown-panel {
         background: #fff;
         border-color: #e2e8f0;
-        box-shadow: 0 16px 40px rgba(116, 90, 242, 0.18);
+        box-shadow: 0 16px 40px rgba(208, 74, 2, 0.16);
     }
     .admin-app-body--dashboard .admin-topbar__notif-summary {
         border-color: rgba(255, 255, 255, 0.35);
@@ -59,7 +59,7 @@
     }
     .admin-app-body--dashboard .admin-topbar__details--notifications[open] .admin-topbar__notif-summary {
         border-color: #fff;
-        color: #5e48d9;
+        color: #d04a02;
         background: #fff;
     }
     .admin-topbar {
@@ -1116,9 +1116,9 @@
         animation: muyBreathe 2.4s ease-in-out infinite;
     }
 
-    /* Dashboard-body overrides: Pixel purple masthead */
+    /* Dashboard-body overrides: PwC orange masthead */
     .admin-app-body--dashboard .admin-topbar {
-        background: #745af2;
+        background: #d04a02;
         border-bottom: 1px solid rgba(255, 255, 255, 0.14);
     }
     .admin-app-body--dashboard .admin-topbar__link:hover {
@@ -1126,7 +1126,7 @@
         background: rgba(255, 255, 255, 0.16);
     }
     .admin-app-body--dashboard .admin-topbar__link.is-active {
-        color: #5e48d9;
+        color: #d04a02;
         background: #fff;
         box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
     }

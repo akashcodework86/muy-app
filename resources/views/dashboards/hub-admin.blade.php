@@ -19,21 +19,21 @@
             --had-muted: #64748b;
             --had-border: #e2e8f0;
             --had-surface: #ffffff;
-            --had-brand: #745af2;
-            --had-brand-deep: #5e48d9;
-            --had-brand-light: #ede9fe;
-            --had-brand-grad: linear-gradient(135deg, #5e48d9 0%, #745af2 55%, #8b72f4 100%);
+            --had-brand: #d04a02;
+            --had-brand-deep: #a63d02;
+            --had-brand-light: #fdeee6;
+            --had-brand-grad: linear-gradient(135deg, #a63d02 0%, #d04a02 55%, #eb8c00 100%);
             --had-green: #22c55e;
             --had-green-deep: #16a34a;
-            --had-teal: #745af2;
-            --had-sky: #3b82f6;
-            --had-saffron: #eab308;
-            --had-gold: #ca8a04;
+            --had-teal: #d04a02;
+            --had-sky: #464646;
+            --had-saffron: #ffb600;
+            --had-gold: #b45309;
             --had-radius: 12px;
-            --had-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(116, 90, 242, 0.08);
+            --had-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(208, 74, 2, 0.08);
         }
         .admin-app-body--hub-premium {
-            background: #f4f7fa !important;
+            background: #f7f5f2 !important;
         }
         .had {
             font-family: 'DM Sans', system-ui, sans-serif;
@@ -134,8 +134,8 @@
             transition: border-color 0.15s, box-shadow 0.15s;
         }
         .had-kpi:hover {
-            border-color: #c4b5fd;
-            box-shadow: 0 4px 16px rgba(116, 90, 242, 0.12);
+            border-color: #f5c4a8;
+            box-shadow: 0 4px 16px rgba(208, 74, 2, 0.12);
         }
         .had-kpi__icon {
             width: 1.65rem;
@@ -243,7 +243,7 @@
         .had-nav__btn.is-active {
             background: var(--had-brand-grad);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(116, 90, 242, 0.28);
+            box-shadow: 0 2px 8px rgba(208, 74, 2, 0.28);
         }
         .had-panel { display: none; animation: hadFade 0.25s ease; }
         .had-panel.is-active { display: block; }
@@ -323,7 +323,7 @@
             transition: width 0.6s ease;
         }
         .had-progress-fill--sky {
-            background: linear-gradient(90deg, #0369a1, #0ea5e9);
+            background: linear-gradient(90deg, #eb8c00, #ffb600);
         }
         .had-progress-foot {
             font-size: 0.68rem;
@@ -415,7 +415,7 @@
             overflow: hidden;
         }
         .had-stage-fill--seed { background: #ca8a04; height: 100%; border-radius: 999px; }
-        .had-stage-fill--early { background: #3b82f6; height: 100%; border-radius: 999px; }
+        .had-stage-fill--early { background: #eb8c00; height: 100%; border-radius: 999px; }
         .had-stage-fill--growth { background: var(--had-brand); height: 100%; border-radius: 999px; }
         .had-biz-row {
             display: grid;
@@ -458,7 +458,7 @@
             background: #f8fafc;
         }
         .had-district-card.is-top {
-            border-color: #c4b5fd;
+            border-color: #f5c4a8;
             background: #fff;
         }
         .had-district-card__name {
@@ -558,7 +558,7 @@
         }
         .had-savings-tile--green { border-color: rgba(34, 197, 94, 0.35); background: #ecfdf5; }
         .had-savings-tile--blue { border-color: rgba(59, 130, 246, 0.35); background: #eff6ff; }
-        .had-savings-tile--violet { border-color: #c4b5fd; background: var(--had-brand-light); }
+        .had-savings-tile--violet { border-color: #f5c4a8; background: var(--had-brand-light); }
         .had-savings-tile__lbl {
             font-size: 0.6rem;
             font-weight: 700;
@@ -629,7 +629,7 @@
         }
         .had-dock__link:hover {
             background: var(--had-brand-light);
-            border-color: #a78bfa;
+            border-color: #f0b48a;
         }
         .had-dock__link i { color: var(--had-brand); font-size: 0.8rem; }
         .had-spark {
@@ -1037,8 +1037,8 @@
                             <svg class="had-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                                 <defs>
                                     <linearGradient id="hadRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#5e48d9"/>
-                                        <stop offset="100%" stop-color="#745af2"/>
+                                        <stop offset="0%" stop-color="#a63d02"/>
+                                        <stop offset="100%" stop-color="#d04a02"/>
                                     </linearGradient>
                                 </defs>
                                 <circle class="track" cx="50" cy="50" r="38"/>
@@ -1055,8 +1055,8 @@
                                         <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
                                             <defs>
                                                 <linearGradient id="hadSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stop-color="#745af2" stop-opacity="0.4"/>
-                                                    <stop offset="100%" stop-color="#745af2" stop-opacity="0"/>
+                                                    <stop offset="0%" stop-color="#d04a02" stop-opacity="0.4"/>
+                                                    <stop offset="100%" stop-color="#d04a02" stop-opacity="0"/>
                                                 </linearGradient>
                                             </defs>
                                             <polygon class="fill" points="{{ $sparkFill }}"/>
@@ -1100,7 +1100,7 @@
                             @php
                                 $bizV = (int) ($businessMix['values'][$idx] ?? 0);
                                 $bizPct = $bizMixTotal > 0 ? (int) round(100 * $bizV / $bizMixTotal) : 0;
-                                $bizCol = $businessMix['colors'][$idx] ?? '#745af2';
+                                $bizCol = $businessMix['colors'][$idx] ?? '#d04a02';
                             @endphp
                             <div class="had-biz-row">
                                 <span class="had-biz-row__rank">#{{ $idx + 1 }}</span>
@@ -1259,8 +1259,8 @@
         const cx = stEl.getContext('2d');
         const dh = stEl.parentElement?.clientHeight || 168;
         const dFill = cx.createLinearGradient(0, 0, 0, dh);
-        dFill.addColorStop(0, 'rgba(116, 90, 242, 0.24)');
-        dFill.addColorStop(1, 'rgba(116, 90, 242, 0.02)');
+        dFill.addColorStop(0, 'rgba(208, 74, 2, 0.24)');
+        dFill.addColorStop(1, 'rgba(208, 74, 2, 0.02)');
         new Chart(stEl, {
             type: 'line',
             data: {
@@ -1268,7 +1268,7 @@
                 datasets: [{
                     label: 'State CFA',
                     data: trendValues,
-                    borderColor: '#745af2',
+                    borderColor: '#d04a02',
                     backgroundColor: dFill,
                     fill: true,
                     tension: 0.42,
@@ -1292,9 +1292,9 @@
     const dLabels = @json($cfaByDistrict['labels']);
     const dValues = @json($cfaByDistrict['values']);
     const districtPalette = [
-        '#745af2', '#3b82f6', '#2563eb', '#fbbf24', '#eab308',
-        '#1e3a5f', '#ef5354', '#22c55e', '#8b72f4', '#5e48d9',
-        '#64748b', '#0891b2', '#16a34a'
+        '#d04a02', '#eb8c00', '#ffb600', '#2d2d2d', '#464646',
+        '#a63d02', '#6b6b6b', '#22c55e', '#c75b12', '#b83d02',
+        '#8b8b8b', '#d97706', '#16a34a'
     ];
     const districtValueLabelsPlugin = {
         id: 'districtValueLabelsPlugin',
