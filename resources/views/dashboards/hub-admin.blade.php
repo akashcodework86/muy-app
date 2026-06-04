@@ -16,17 +16,24 @@
         }
         :root {
             --had-text: #0f172a;
-            --had-muted: #5b6b82;
+            --had-muted: #64748b;
             --had-border: #e2e8f0;
             --had-surface: #ffffff;
-            --had-green: #0d6e4f;
-            --had-green-deep: #065f46;
-            --had-teal: #0f766e;
-            --had-sky: #0369a1;
-            --had-saffron: #c2410c;
-            --had-gold: #b45309;
-            --had-radius: 14px;
-            --had-shadow: 0 4px 24px rgba(13, 110, 79, 0.08);
+            --had-brand: #745af2;
+            --had-brand-deep: #5e48d9;
+            --had-brand-light: #ede9fe;
+            --had-brand-grad: linear-gradient(135deg, #5e48d9 0%, #745af2 55%, #8b72f4 100%);
+            --had-green: #22c55e;
+            --had-green-deep: #16a34a;
+            --had-teal: #745af2;
+            --had-sky: #3b82f6;
+            --had-saffron: #eab308;
+            --had-gold: #ca8a04;
+            --had-radius: 12px;
+            --had-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(116, 90, 242, 0.08);
+        }
+        .admin-app-body--hub-premium {
+            background: #f4f7fa !important;
         }
         .had {
             font-family: 'DM Sans', system-ui, sans-serif;
@@ -40,31 +47,23 @@
             justify-content: space-between;
             gap: 0.75rem 1.25rem;
             padding: 1rem 1.15rem;
-            border-radius: 18px;
-            background: linear-gradient(125deg, #065f46 0%, #0d6e4f 42%, #0f766e 72%, #0369a1 100%);
-            color: #fff;
+            border-radius: var(--had-radius);
+            background: var(--had-surface);
+            color: var(--had-text);
+            border: 1px solid var(--had-border);
+            border-top: 3px solid var(--had-brand);
             box-shadow: var(--had-shadow);
             margin-bottom: 0.65rem;
-            position: relative;
-            overflow: hidden;
         }
-        .had-masthead::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 92% 8%, rgba(251, 191, 36, 0.35), transparent 40%);
-            pointer-events: none;
-        }
-        .had-masthead > * { position: relative; z-index: 1; }
         .had-masthead__eyebrow {
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
             font-size: 0.68rem;
             font-weight: 700;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            opacity: 0.9;
+            color: var(--had-brand-deep);
             margin-bottom: 0.35rem;
         }
         .had-masthead h1 {
@@ -77,7 +76,7 @@
         .had-masthead__sub {
             margin: 0.35rem 0 0;
             font-size: 0.82rem;
-            opacity: 0.88;
+            color: var(--had-muted);
             max-width: 36rem;
             line-height: 1.4;
         }
@@ -93,10 +92,11 @@
             gap: 0.35rem;
             padding: 0.38rem 0.65rem;
             border-radius: 999px;
-            background: rgba(255, 255, 255, 0.16);
-            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: #f8fafc;
+            border: 1px solid var(--had-border);
             font-size: 0.72rem;
             font-weight: 600;
+            color: #334155;
             white-space: nowrap;
         }
         .had-badge--live::before {
@@ -134,8 +134,8 @@
             transition: border-color 0.15s, box-shadow 0.15s;
         }
         .had-kpi:hover {
-            border-color: rgba(13, 110, 79, 0.35);
-            box-shadow: 0 6px 18px rgba(13, 110, 79, 0.1);
+            border-color: #c4b5fd;
+            box-shadow: 0 4px 16px rgba(116, 90, 242, 0.12);
         }
         .had-kpi__icon {
             width: 1.65rem;
@@ -147,10 +147,10 @@
             font-size: 0.75rem;
             margin-bottom: 0.35rem;
         }
-        .had-kpi__icon--green { background: rgba(13, 110, 79, 0.12); color: var(--had-green); }
-        .had-kpi__icon--sky { background: rgba(3, 105, 161, 0.12); color: var(--had-sky); }
-        .had-kpi__icon--teal { background: rgba(15, 118, 110, 0.12); color: var(--had-teal); }
-        .had-kpi__icon--amber { background: rgba(194, 65, 12, 0.12); color: var(--had-saffron); }
+        .had-kpi__icon--green { background: #ecfdf5; color: var(--had-green-deep); }
+        .had-kpi__icon--sky { background: #eff6ff; color: var(--had-sky); }
+        .had-kpi__icon--teal { background: var(--had-brand-light); color: var(--had-brand-deep); }
+        .had-kpi__icon--amber { background: #fef9c3; color: var(--had-gold); }
         .had-kpi__icon--rose { background: rgba(190, 24, 93, 0.1); color: #be185d; }
         .had-kpi__label {
             font-size: 0.58rem;
@@ -205,7 +205,7 @@
         .had-alert--ok {
             background: #ecfdf5;
             border-color: #6ee7b7;
-            color: #065f46;
+            color: var(--had-green-deep);
         }
         .had-nav {
             display: flex;
@@ -241,9 +241,9 @@
         }
         .had-nav__btn:hover { background: #f1f5f9; color: var(--had-text); }
         .had-nav__btn.is-active {
-            background: linear-gradient(135deg, var(--had-green), var(--had-teal));
+            background: var(--had-brand-grad);
             color: #fff;
-            box-shadow: 0 4px 14px rgba(13, 110, 79, 0.25);
+            box-shadow: 0 2px 8px rgba(116, 90, 242, 0.28);
         }
         .had-panel { display: none; animation: hadFade 0.25s ease; }
         .had-panel.is-active { display: block; }
@@ -283,7 +283,7 @@
             align-items: center;
             gap: 0.4rem;
         }
-        .had-card__title i { color: var(--had-green); font-size: 0.85rem; }
+        .had-card__title i { color: var(--had-brand); font-size: 0.85rem; }
         .had-card__hint {
             font-size: 0.68rem;
             color: var(--had-muted);
@@ -295,8 +295,8 @@
             font-weight: 700;
             padding: 0.2rem 0.45rem;
             border-radius: 6px;
-            background: rgba(13, 110, 79, 0.1);
-            color: var(--had-green-deep);
+            background: var(--had-brand-light);
+            color: var(--had-brand-deep);
         }
         .had-progress-block { margin-bottom: 0.65rem; }
         .had-progress-block:last-child { margin-bottom: 0; }
@@ -319,7 +319,7 @@
         .had-progress-fill {
             height: 100%;
             border-radius: 999px;
-            background: linear-gradient(90deg, var(--had-green), var(--had-teal));
+            background: var(--had-brand-grad);
             transition: width 0.6s ease;
         }
         .had-progress-fill--sky {
@@ -415,8 +415,8 @@
             overflow: hidden;
         }
         .had-stage-fill--seed { background: #ca8a04; height: 100%; border-radius: 999px; }
-        .had-stage-fill--early { background: #0d9488; height: 100%; border-radius: 999px; }
-        .had-stage-fill--growth { background: #0d6e4f; height: 100%; border-radius: 999px; }
+        .had-stage-fill--early { background: #3b82f6; height: 100%; border-radius: 999px; }
+        .had-stage-fill--growth { background: var(--had-brand); height: 100%; border-radius: 999px; }
         .had-biz-row {
             display: grid;
             grid-template-columns: auto 1fr auto;
@@ -458,8 +458,8 @@
             background: #f8fafc;
         }
         .had-district-card.is-top {
-            border-color: rgba(13, 110, 79, 0.35);
-            background: linear-gradient(145deg, #ecfdf5, #fff);
+            border-color: #c4b5fd;
+            background: #fff;
         }
         .had-district-card__name {
             font-size: 0.68rem;
@@ -534,7 +534,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, var(--had-green), var(--had-teal));
+            background: var(--had-brand-grad);
             color: #fff;
             font-size: 0.7rem;
             font-weight: 800;
@@ -558,7 +558,7 @@
         }
         .had-savings-tile--green { border-color: rgba(34, 197, 94, 0.35); background: #ecfdf5; }
         .had-savings-tile--blue { border-color: rgba(59, 130, 246, 0.35); background: #eff6ff; }
-        .had-savings-tile--violet { border-color: rgba(13, 110, 79, 0.25); background: #f0fdf4; }
+        .had-savings-tile--violet { border-color: #c4b5fd; background: var(--had-brand-light); }
         .had-savings-tile__lbl {
             font-size: 0.6rem;
             font-weight: 700;
@@ -628,11 +628,10 @@
             transition: background 0.12s, border-color 0.12s, transform 0.12s;
         }
         .had-dock__link:hover {
-            background: #ecfdf5;
-            border-color: rgba(13, 110, 79, 0.35);
-            transform: translateY(-1px);
+            background: var(--had-brand-light);
+            border-color: #a78bfa;
         }
-        .had-dock__link i { color: var(--had-green); font-size: 0.8rem; }
+        .had-dock__link i { color: var(--had-brand); font-size: 0.8rem; }
         .had-spark {
             height: 28px;
             margin-top: 0.25rem;
@@ -666,7 +665,7 @@
             padding: 0.2rem 0.45rem;
             border-radius: 6px;
         }
-        .had-align-pill--ok { background: #ecfdf5; color: #065f46; }
+        .had-align-pill--ok { background: #ecfdf5; color: var(--had-green-deep); }
         .had-align-pill--bad { background: #fffbeb; color: #92400e; }
         .had-align-gaps {
             margin-top: 0.4rem;
@@ -681,7 +680,7 @@
         .had-align-gaps li { margin: 0.2rem 0; line-height: 1.35; }
     </style>
 </head>
-<body class="admin-app-body admin-app-body--dashboard">
+<body class="admin-app-body admin-app-body--dashboard admin-app-body--hub-premium">
     @include('partials.admin-topbar')
     <main class="admin-main">
         @include('partials.staff-daily-check-in-reminder')
@@ -984,7 +983,7 @@
                                         </ul>
                                     </details>
                                 @elseif ($plan['all_aligned'] ?? false)
-                                    <p class="had-progress-foot" style="color:#065f46;margin-top:0.35rem;">
+                                    <p class="had-progress-foot" style="color:#16a34a;margin-top:0.35rem;">
                                         <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Staff monthly targets match district plan for CFA + services.
                                     </p>
                                 @endif
@@ -1038,8 +1037,8 @@
                             <svg class="had-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                                 <defs>
                                     <linearGradient id="hadRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#0d6e4f"/>
-                                        <stop offset="100%" stop-color="#0369a1"/>
+                                        <stop offset="0%" stop-color="#5e48d9"/>
+                                        <stop offset="100%" stop-color="#745af2"/>
                                     </linearGradient>
                                 </defs>
                                 <circle class="track" cx="50" cy="50" r="38"/>
@@ -1056,8 +1055,8 @@
                                         <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
                                             <defs>
                                                 <linearGradient id="hadSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stop-color="#0f766e" stop-opacity="0.5"/>
-                                                    <stop offset="100%" stop-color="#0f766e" stop-opacity="0"/>
+                                                    <stop offset="0%" stop-color="#745af2" stop-opacity="0.4"/>
+                                                    <stop offset="100%" stop-color="#745af2" stop-opacity="0"/>
                                                 </linearGradient>
                                             </defs>
                                             <polygon class="fill" points="{{ $sparkFill }}"/>
@@ -1101,7 +1100,7 @@
                             @php
                                 $bizV = (int) ($businessMix['values'][$idx] ?? 0);
                                 $bizPct = $bizMixTotal > 0 ? (int) round(100 * $bizV / $bizMixTotal) : 0;
-                                $bizCol = $businessMix['colors'][$idx] ?? '#0d6e4f';
+                                $bizCol = $businessMix['colors'][$idx] ?? '#745af2';
                             @endphp
                             <div class="had-biz-row">
                                 <span class="had-biz-row__rank">#{{ $idx + 1 }}</span>
@@ -1179,7 +1178,7 @@
                         <h2 class="had-card__title"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> CFA by district staff</h2>
                         <span class="had-card__tag">{{ count($staffCfaRows) }} rows</span>
                     </div>
-                    <p class="had-card__hint">Referral-linked CFA · hub staff · {{ $fyLabel }}</p>
+                    <p class="had-card__hint">Referral-linked CFA ? hub staff ? {{ $fyLabel }}</p>
                     <div class="had-staff-controls">
                         <input type="text" id="hubStaffCfaSearch" placeholder="Search staff name?" autocomplete="off">
                         <select id="hubStaffCfaDistrictFilter">
@@ -1260,8 +1259,8 @@
         const cx = stEl.getContext('2d');
         const dh = stEl.parentElement?.clientHeight || 168;
         const dFill = cx.createLinearGradient(0, 0, 0, dh);
-        dFill.addColorStop(0, 'rgba(13, 110, 79, 0.28)');
-        dFill.addColorStop(1, 'rgba(13, 110, 79, 0.02)');
+        dFill.addColorStop(0, 'rgba(116, 90, 242, 0.24)');
+        dFill.addColorStop(1, 'rgba(116, 90, 242, 0.02)');
         new Chart(stEl, {
             type: 'line',
             data: {
@@ -1269,7 +1268,7 @@
                 datasets: [{
                     label: 'State CFA',
                     data: trendValues,
-                    borderColor: '#0d6e4f',
+                    borderColor: '#745af2',
                     backgroundColor: dFill,
                     fill: true,
                     tension: 0.42,
@@ -1293,9 +1292,9 @@
     const dLabels = @json($cfaByDistrict['labels']);
     const dValues = @json($cfaByDistrict['values']);
     const districtPalette = [
-        '#0d6e4f', '#0f766e', '#0369a1', '#c2410c', '#b45309',
-        '#db2777', '#ca8a04', '#16a34a', '#059669', '#2563eb',
-        '#0891b2', '#d946ef', '#ea580c'
+        '#745af2', '#3b82f6', '#2563eb', '#fbbf24', '#eab308',
+        '#1e3a5f', '#ef5354', '#22c55e', '#8b72f4', '#5e48d9',
+        '#64748b', '#0891b2', '#16a34a'
     ];
     const districtValueLabelsPlugin = {
         id: 'districtValueLabelsPlugin',

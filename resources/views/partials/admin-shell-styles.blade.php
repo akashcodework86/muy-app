@@ -7,49 +7,60 @@
         color: #0f172a;
     }
     .admin-app-body--dashboard {
-        background:
-            radial-gradient(circle at top left, rgba(251, 191, 36, 0.28), transparent 22%),
-            radial-gradient(circle at top right, rgba(45, 212, 191, 0.24), transparent 24%),
-            radial-gradient(circle at 20% 80%, rgba(129, 140, 248, 0.18), transparent 26%),
-            linear-gradient(180deg, #fff8ef 0%, #eef7ff 42%, #f8fbff 100%);
+        background: #f4f7fa;
         overflow-x: clip;
         max-width: 100%;
     }
     .admin-app-body--dashboard .admin-topbar {
-        background: rgba(255, 255, 255, 0.76);
-        backdrop-filter: blur(18px);
-        -webkit-backdrop-filter: blur(18px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.72);
-        box-shadow: 0 16px 40px rgba(99, 102, 241, 0.08);
+        background: #745af2;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 4px 20px rgba(91, 63, 217, 0.28);
+        border-radius: 0;
+    }
+    .admin-app-body--dashboard .admin-topbar::before,
+    .admin-app-body--dashboard .admin-topbar::after {
+        display: none;
     }
     .admin-app-body--dashboard .admin-brand {
-        color: #0f172a;
+        color: #fff;
     }
     .admin-app-body--dashboard .admin-brand__sub {
-        color: #64748b;
+        color: rgba(255, 255, 255, 0.78);
     }
     .admin-app-body--dashboard .admin-topbar__link {
-        color: #334155;
+        color: rgba(255, 255, 255, 0.9);
     }
     .admin-app-body--dashboard .admin-topbar__link:hover {
-        color: #1e1b4b;
-        background: rgba(99, 102, 241, 0.12);
+        color: #fff;
+        background: rgba(255, 255, 255, 0.16);
     }
     .admin-app-body--dashboard .admin-topbar__link.is-active {
-        color: #fff;
-        background: linear-gradient(135deg, #4f46e5, #7c3aed);
-        box-shadow: 0 10px 24px rgba(99, 102, 241, 0.22);
+        color: #5e48d9;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
     }
     .admin-app-body--dashboard .admin-topbar__user {
-        color: #334155;
+        color: #fff;
     }
     .admin-app-body--dashboard .admin-topbar__user-role {
-        color: #64748b;
+        color: rgba(255, 255, 255, 0.78);
     }
     .admin-app-body--dashboard .admin-topbar__dropdown-panel {
-        background: rgba(255, 255, 255, 0.96);
-        border-color: rgba(255, 255, 255, 0.85);
-        box-shadow: 0 20px 48px rgba(79, 70, 229, 0.14);
+        background: #fff;
+        border-color: #e2e8f0;
+        box-shadow: 0 16px 40px rgba(116, 90, 242, 0.18);
+    }
+    .admin-app-body--dashboard .admin-topbar__notif-summary {
+        border-color: rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+    }
+    .admin-app-body--dashboard .admin-topbar__details--notifications[open] .admin-topbar__notif-summary {
+        border-color: #fff;
+        color: #5e48d9;
+        background: #fff;
     }
     .admin-topbar {
         position: sticky;
@@ -1105,22 +1116,19 @@
         animation: muyBreathe 2.4s ease-in-out infinite;
     }
 
-    /* Dashboard-body overrides: keep the light design consistent */
+    /* Dashboard-body overrides: Pixel purple masthead */
     .admin-app-body--dashboard .admin-topbar {
-        background:
-            linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.74) 55%, rgba(240, 253, 250, 0.8) 100%);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+        background: #745af2;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.14);
     }
     .admin-app-body--dashboard .admin-topbar__link:hover {
-        color: #0f766e;
-        background: linear-gradient(135deg, rgba(20, 184, 166, 0.1), rgba(99, 102, 241, 0.08));
+        color: #fff;
+        background: rgba(255, 255, 255, 0.16);
     }
     .admin-app-body--dashboard .admin-topbar__link.is-active {
-        color: #fff;
-        background: linear-gradient(135deg, #0d9488 0%, #4f46e5 55%, #7c3aed 100%);
-        box-shadow:
-            0 12px 24px -10px rgba(79, 70, 229, 0.55),
-            0 6px 16px -8px rgba(20, 184, 166, 0.5);
+        color: #5e48d9;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
     }
 
     /* Reduce motion preference */

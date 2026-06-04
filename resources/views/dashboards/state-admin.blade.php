@@ -19,23 +19,25 @@
             --sad-muted: #64748b;
             --sad-border: #e2e8f0;
             --sad-surface: #ffffff;
-            --sad-brand: #0d9488;
-            --sad-brand-deep: #0f766e;
-            --sad-brand-light: #ccfbf1;
-            --sad-accent: #d97706;
-            --sad-accent-soft: #fff7ed;
-            --sad-green: #059669;
-            --sad-green-deep: #047857;
-            --sad-teal: #0d9488;
-            --sad-sky: #0284c7;
-            --sad-saffron: #d97706;
-            --sad-gold: #b45309;
+            --sad-brand: #745af2;
+            --sad-brand-deep: #5e48d9;
+            --sad-brand-light: #ede9fe;
+            --sad-accent: #eab308;
+            --sad-accent-soft: #fef9c3;
+            --sad-green: #22c55e;
+            --sad-green-deep: #16a34a;
+            --sad-teal: #745af2;
+            --sad-sky: #3b82f6;
+            --sad-navy: #1e3a5f;
+            --sad-coral: #ef5350;
+            --sad-saffron: #eab308;
+            --sad-gold: #ca8a04;
             --sad-radius: 12px;
-            --sad-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.06);
-            --sad-brand-grad: linear-gradient(135deg, #0f766e 0%, #0d9488 55%, #14b8a6 100%);
+            --sad-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(116, 90, 242, 0.08);
+            --sad-brand-grad: linear-gradient(135deg, #5e48d9 0%, #745af2 55%, #8b72f4 100%);
         }
         .admin-app-body--state-premium {
-            background: #f1f5f9 !important;
+            background: #f4f7fa !important;
         }
         .sad {
             font-family: 'DM Sans', system-ui, sans-serif;
@@ -136,8 +138,8 @@
             transition: border-color 0.15s, box-shadow 0.15s;
         }
         .sad-kpi:hover {
-            border-color: #99f6e4;
-            box-shadow: 0 4px 16px rgba(13, 148, 136, 0.1);
+            border-color: #c4b5fd;
+            box-shadow: 0 4px 16px rgba(116, 90, 242, 0.12);
         }
         .sad-kpi__icon {
             width: 1.65rem;
@@ -245,7 +247,7 @@
         .sad-nav__btn.is-active {
             background: var(--sad-brand-grad);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+            box-shadow: 0 2px 8px rgba(116, 90, 242, 0.28);
         }
         .sad-panel { display: none; animation: sadFade 0.25s ease; }
         .sad-panel.is-active { display: block; }
@@ -560,7 +562,7 @@
         }
         .sad-savings-tile--green { border-color: #a7f3d0; background: #ecfdf5; }
         .sad-savings-tile--blue { border-color: #bae6fd; background: #f0f9ff; }
-        .sad-savings-tile--violet { border-color: #99f6e4; background: var(--sad-brand-light); }
+        .sad-savings-tile--violet { border-color: #c4b5fd; background: var(--sad-brand-light); }
         .sad-savings-tile__lbl {
             font-size: 0.6rem;
             font-weight: 700;
@@ -631,7 +633,7 @@
         }
         .sad-dock__link:hover {
             background: var(--sad-brand-light);
-            border-color: #5eead4;
+            border-color: #a78bfa;
         }
         .sad-dock__link i { color: var(--sad-brand); font-size: 0.8rem; }
         .sad-spark {
@@ -1034,8 +1036,8 @@
                             <svg class="sad-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                                 <defs>
                                     <linearGradient id="sadRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#0f766e"/>
-                                        <stop offset="100%" stop-color="#14b8a6"/>
+                                        <stop offset="0%" stop-color="#5e48d9"/>
+                                        <stop offset="100%" stop-color="#745af2"/>
                                     </linearGradient>
                                 </defs>
                                 <circle class="track" cx="50" cy="50" r="38"/>
@@ -1052,8 +1054,8 @@
                                         <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
                                             <defs>
                                                 <linearGradient id="sadSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.4"/>
-                                                    <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+                                                    <stop offset="0%" stop-color="#745af2" stop-opacity="0.4"/>
+                                                    <stop offset="100%" stop-color="#745af2" stop-opacity="0"/>
                                                 </linearGradient>
                                             </defs>
                                             <polygon class="fill" points="{{ $sparkFill }}"/>
@@ -1315,8 +1317,8 @@
         const cx = stEl.getContext('2d');
         const dh = stEl.parentElement?.clientHeight || 168;
         const dFill = cx.createLinearGradient(0, 0, 0, dh);
-        dFill.addColorStop(0, 'rgba(13, 148, 136, 0.22)');
-        dFill.addColorStop(1, 'rgba(13, 148, 136, 0.02)');
+        dFill.addColorStop(0, 'rgba(116, 90, 242, 0.24)');
+        dFill.addColorStop(1, 'rgba(116, 90, 242, 0.02)');
         new Chart(stEl, {
             type: 'line',
             data: {
@@ -1324,7 +1326,7 @@
                 datasets: [{
                     label: 'State CFA',
                     data: trendValues,
-                    borderColor: '#0d9488',
+                    borderColor: '#745af2',
                     backgroundColor: dFill,
                     fill: true,
                     tension: 0.42,
@@ -1348,9 +1350,9 @@
     const dLabels = @json($cfaByDistrict['labels']);
     const dValues = @json($cfaByDistrict['values']);
     const districtPalette = [
-        '#0d9488', '#0f766e', '#0284c7', '#0369a1', '#d97706',
-        '#059669', '#64748b', '#7c3aed', '#0891b2', '#b45309',
-        '#14b8a6', '#475569', '#047857'
+        '#745af2', '#3b82f6', '#2563eb', '#fbbf24', '#eab308',
+        '#1e3a5f', '#ef5354', '#22c55e', '#8b72f4', '#5e48d9',
+        '#64748b', '#0891b2', '#16a34a'
     ];
     const districtValueLabelsPlugin = {
         id: 'districtValueLabelsPlugin',
