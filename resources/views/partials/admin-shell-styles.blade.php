@@ -1212,30 +1212,261 @@
         border-color: #fff;
     }
 
-    /* Hub admin: compact brand + grouped nav (no horizontal cram) */
-    .admin-brand--hub .admin-brand__name {
-        font-size: 1.05rem;
-        letter-spacing: -0.02em;
+    /* ---- Hub admin premium header -------------------------------- */
+    .admin-topbar--hub {
+        background: linear-gradient(115deg, #7a2f03 0%, #a63d02 22%, #d04a02 52%, #e07012 78%, #c94408 100%);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px rgba(122, 47, 3, 0.35);
     }
-    .admin-brand--hub .admin-brand__sub {
-        max-width: 14rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .admin-topbar--hub::before {
+        display: block;
+        width: 420px;
+        height: 420px;
+        top: -280px;
+        left: 8%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 68%);
+        opacity: 1;
     }
-    .admin-topbar__nav--hub-admin {
-        flex-wrap: nowrap;
-        gap: 0.2rem;
+    .admin-topbar--hub::after {
+        display: block;
+        width: 360px;
+        height: 360px;
+        top: -240px;
+        right: 5%;
+        background: radial-gradient(circle, rgba(255, 200, 120, 0.2) 0%, rgba(255, 200, 120, 0) 70%);
+        opacity: 1;
+    }
+    .admin-topbar__inner--hub {
+        display: grid;
+        grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.85rem 1.1rem;
+        padding: 0.72rem 1.35rem;
+    }
+    @media (max-width: 1100px) {
+        .admin-topbar__inner--hub {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+        .admin-topbar__inner--hub .admin-topbar__nav-rail {
+            grid-column: 1 / -1;
+            order: 3;
+        }
+    }
+    .admin-brand--hub {
+        gap: 0.7rem;
+        min-width: 0;
+        max-width: 240px;
+    }
+    .admin-brand--hub .admin-brand__logo-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+        flex-shrink: 0;
+    }
+    .admin-brand--hub .admin-brand__img {
+        height: 36px;
+        max-width: 40px;
+        box-shadow: none;
+        border-radius: 8px;
+    }
+    .admin-brand--hub .admin-brand__text {
+        gap: 0.1rem;
         min-width: 0;
     }
-    .admin-topbar__nav--hub-admin .admin-topbar__link {
-        padding: 0.45rem 0.75rem;
-        font-size: 0.82rem;
+    .admin-brand--hub .admin-brand__eyebrow {
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.72);
+        line-height: 1.2;
+    }
+    .admin-brand--hub .admin-brand__name {
+        font-size: 1.2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        background: none !important;
+    }
+    .admin-brand--hub .admin-brand__hub {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+        font-size: 0.76rem;
+        font-weight: 600;
+        line-height: 1.3;
+        color: rgba(255, 255, 255, 0.92);
+        max-width: 13.5rem;
+    }
+    .admin-topbar__nav-rail {
+        display: flex;
+        justify-content: center;
+        min-width: 0;
+    }
+    .admin-topbar--hub .admin-topbar__nav-rail {
+        padding: 0.28rem;
+        background: rgba(0, 0, 0, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 14px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+    .admin-topbar--hub .admin-topbar__nav--hub-admin {
+        flex: 1;
+        flex-wrap: nowrap;
+        gap: 0.15rem;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border-top: none !important;
+        justify-content: center;
+    }
+    .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.42rem;
+        padding: 0.5rem 0.85rem;
+        font-size: 0.84rem;
+        font-weight: 600;
+        border-radius: 10px;
+        color: rgba(255, 255, 255, 0.95);
         white-space: nowrap;
     }
-    @media (min-width: 769px) and (max-width: 1280px) {
-        .admin-topbar__nav--hub-admin .admin-topbar__link-text {
-            font-size: 0.8rem;
+    .admin-topbar--hub .admin-topbar__link-ico {
+        width: 1.15rem;
+        height: 1.15rem;
+        color: rgba(255, 255, 255, 0.92) !important;
+    }
+    .admin-topbar--hub .admin-topbar__link:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.16);
+        border-color: transparent;
+    }
+    .admin-topbar--hub .admin-topbar__link:hover .admin-topbar__link-ico {
+        color: #fff !important;
+        transform: none;
+    }
+    .admin-topbar--hub .admin-topbar__link.is-active,
+    .admin-topbar--hub .admin-topbar__link.is-active.admin-topbar__dropdown-trigger {
+        color: #a63d02 !important;
+        background: #fff !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14) !important;
+    }
+    .admin-topbar--hub .admin-topbar__link.is-active .admin-topbar__link-ico {
+        color: #d04a02 !important;
+    }
+    .admin-topbar--hub .admin-topbar__dropdown-trigger::after {
+        border-color: currentColor;
+        opacity: 0.55;
+    }
+    .admin-topbar--hub .admin-topbar__right {
+        gap: 0.45rem;
+    }
+    .admin-topbar--hub .admin-topbar__notif-summary,
+    .admin-topbar--hub .admin-topbar__settings {
+        width: 2.35rem;
+        height: 2.35rem;
+        border-radius: 11px;
+        border-color: rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+    }
+    .admin-topbar--hub .admin-topbar__notif-summary:hover,
+    .admin-topbar--hub .admin-topbar__settings:hover {
+        background: rgba(255, 255, 255, 0.26);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: #fff;
+    }
+    .admin-topbar--hub .admin-topbar__details--notifications[open] .admin-topbar__notif-summary {
+        background: #fff;
+        color: #d04a02;
+    }
+    .admin-topbar--hub .admin-topbar__profile {
+        padding: 0.3rem 0.7rem 0.3rem 0.32rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.98);
+        border-color: rgba(255, 255, 255, 0.55);
+        gap: 0.5rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+    .admin-topbar--hub .admin-topbar__user {
+        max-width: 9.5rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.8rem;
+    }
+    .admin-topbar--hub .admin-topbar__user-role {
+        font-size: 0.62rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .admin-topbar--hub .admin-topbar__avatar {
+        width: 34px;
+        height: 34px;
+        font-size: 0.72rem;
+    }
+    @media (min-width: 1101px) {
+        .admin-app-body--hub-admin .admin-topbar__nav--hub-admin {
+            flex-basis: auto;
+            order: unset;
+        }
+    }
+    .admin-topbar--hub .lo-trigger {
+        border-color: rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+        margin-right: 0;
+    }
+    .admin-topbar--hub .lo-trigger:hover {
+        background: rgba(255, 255, 255, 0.26);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: #fff;
+        transform: none;
+    }
+    .admin-topbar--hub .lo-trigger.is-open {
+        background: #fff;
+        color: #d04a02;
+        border-color: #fff;
+    }
+    .admin-topbar--hub .admin-topbar__hamburger {
+        border-color: rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+    }
+    .admin-topbar--hub .admin-topbar__hamburger-icon span {
+        background: #fff;
+    }
+    @media (max-width: 768px) {
+        .admin-topbar__inner--hub {
+            padding: 0.65rem 0.85rem;
+        }
+        .admin-brand--hub {
+            max-width: 100%;
+        }
+        .admin-brand--hub .admin-brand__hub {
+            max-width: 100%;
+        }
+        .admin-topbar--hub .admin-topbar__nav-rail {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            justify-content: flex-start;
+        }
+        .admin-topbar--hub .admin-topbar__user-wrap {
+            display: none;
+        }
+        .admin-topbar--hub .admin-topbar__profile {
+            padding: 0.25rem;
         }
     }
 

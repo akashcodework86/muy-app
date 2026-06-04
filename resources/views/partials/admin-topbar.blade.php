@@ -170,6 +170,7 @@
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents'], true);
+    $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
@@ -199,14 +200,17 @@
     // Helper to render an icon as a labelled wrapper span (keeps markup short below).
     $i = fn ($key) => '<span class="admin-topbar__link-ico" aria-hidden="true">'.($ico[$key] ?? '').'</span>';
 @endphp
-<header class="admin-topbar">
-    <div class="admin-topbar__inner">
+<header class="admin-topbar @if ($showHubNav) admin-topbar--hub @endif">
+    <div class="admin-topbar__inner @if ($showHubNav) admin-topbar__inner--hub @endif">
         <a href="{{ route('dashboard') }}" class="admin-brand @if ($showHubNav) admin-brand--hub @endif" title="Mukhyamantri Udyamshala Yojana">
-            <img src="{{ $logoUrl }}" alt="MUY Logo" class="admin-brand__img">
+            <span class="admin-brand__logo-wrap">
+                <img src="{{ $logoUrl }}" alt="MUY Logo" class="admin-brand__img">
+            </span>
             <span class="admin-brand__text">
                 @if ($showHubNav)
+                    <span class="admin-brand__eyebrow">Hub command centre</span>
                     <span class="admin-brand__name">MUY</span>
-                    <span class="admin-brand__sub">{{ $u->hub?->name ?? 'Hub' }} · {{ $brandSub }}</span>
+                    <span class="admin-brand__hub" title="{{ $hubDisplayName }}">{{ $hubDisplayName }}</span>
                 @else
                     <span class="admin-brand__name">Mukhyamantri Udyamshala Yojana</span>
                     <span class="admin-brand__sub">{{ $brandSub }}</span>
@@ -434,6 +438,7 @@
         @endif
 
         @if ($showHubNav)
+        <div class="admin-topbar__nav-rail">
         <nav class="admin-topbar__nav admin-topbar__nav--hub-admin" aria-label="Hub">
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
@@ -497,6 +502,7 @@
                 </div>
             </details>
         </nav>
+        </div>
         @endif
 
         @if ($showStaffNav)
@@ -656,7 +662,13 @@
                         <span class="admin-topbar__user-wrap">
                             <span class="admin-topbar__user">{{ $u->name }}</span>
                             @if (! $showAdminNav)
-                                <span class="admin-topbar__user-role">{{ str_replace('_', ' ', $u->role ?? 'user') }}</span>
+                                <span class="admin-topbar__user-role">
+                                    @if ($showHubNav)
+                                        Hub admin
+                                    @else
+                                        {{ str_replace('_', ' ', $u->role ?? 'user') }}
+                                    @endif
+                                </span>
                             @endif
                         </span>
                     </div>
