@@ -15,32 +15,27 @@
             padding: 0.65rem clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
         }
         :root {
-            --sad-text: #1e1b4b;
-            --sad-muted: #5b5f8a;
-            --sad-border: #e0e7ff;
+            --sad-text: #0f172a;
+            --sad-muted: #64748b;
+            --sad-border: #e2e8f0;
             --sad-surface: #ffffff;
-            --sad-green: #10b981;
-            --sad-green-deep: #059669;
-            --sad-teal: #14b8a6;
-            --sad-sky: #0ea5e9;
-            --sad-violet: #8b5cf6;
-            --sad-magenta: #ec4899;
-            --sad-coral: #f97316;
-            --sad-saffron: #f59e0b;
-            --sad-gold: #eab308;
-            --sad-lime: #84cc16;
-            --sad-radius: 14px;
-            --sad-shadow: 0 8px 32px rgba(99, 102, 241, 0.12);
-            --sad-grad-joy: linear-gradient(120deg, #8b5cf6 0%, #0ea5e9 22%, #14b8a6 44%, #22c55e 66%, #eab308 88%, #f97316 100%);
-            --sad-grad-soft: linear-gradient(145deg, #faf5ff 0%, #eff6ff 40%, #ecfdf5 100%);
+            --sad-brand: #0d9488;
+            --sad-brand-deep: #0f766e;
+            --sad-brand-light: #ccfbf1;
+            --sad-accent: #d97706;
+            --sad-accent-soft: #fff7ed;
+            --sad-green: #059669;
+            --sad-green-deep: #047857;
+            --sad-teal: #0d9488;
+            --sad-sky: #0284c7;
+            --sad-saffron: #d97706;
+            --sad-gold: #b45309;
+            --sad-radius: 12px;
+            --sad-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.06);
+            --sad-brand-grad: linear-gradient(135deg, #0f766e 0%, #0d9488 55%, #14b8a6 100%);
         }
-        .admin-app-body--state-vibrant {
-            background:
-                radial-gradient(circle at 8% 4%, rgba(251, 191, 36, 0.45), transparent 28%),
-                radial-gradient(circle at 92% 6%, rgba(236, 72, 153, 0.32), transparent 26%),
-                radial-gradient(circle at 78% 88%, rgba(34, 211, 238, 0.35), transparent 30%),
-                radial-gradient(circle at 12% 72%, rgba(167, 139, 250, 0.28), transparent 28%),
-                linear-gradient(180deg, #fffbeb 0%, #f0f9ff 38%, #f5f3ff 72%, #fff7ed 100%) !important;
+        .admin-app-body--state-premium {
+            background: #f1f5f9 !important;
         }
         .sad {
             font-family: 'DM Sans', system-ui, sans-serif;
@@ -54,40 +49,23 @@
             justify-content: space-between;
             gap: 0.75rem 1.25rem;
             padding: 1rem 1.15rem;
-            border-radius: 18px;
-            background: var(--sad-grad-joy);
-            color: #fff;
-            box-shadow: 0 12px 40px rgba(139, 92, 246, 0.28), 0 4px 16px rgba(249, 115, 22, 0.15);
+            border-radius: var(--sad-radius);
+            background: var(--sad-surface);
+            color: var(--sad-text);
+            border: 1px solid var(--sad-border);
+            border-top: 3px solid var(--sad-brand);
+            box-shadow: var(--sad-shadow);
             margin-bottom: 0.65rem;
-            position: relative;
-            overflow: hidden;
         }
-        .sad-masthead::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background:
-                radial-gradient(circle at 12% 20%, rgba(255, 255, 255, 0.22), transparent 35%),
-                radial-gradient(circle at 88% 15%, rgba(255, 255, 255, 0.18), transparent 32%);
-            pointer-events: none;
-        }
-        .sad-masthead::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 72% 95%, rgba(255, 255, 255, 0.2), transparent 38%);
-            pointer-events: none;
-        }
-        .sad-masthead > * { position: relative; z-index: 1; }
         .sad-masthead__eyebrow {
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
             font-size: 0.68rem;
             font-weight: 700;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            opacity: 0.9;
+            color: var(--sad-brand-deep);
             margin-bottom: 0.35rem;
         }
         .sad-masthead h1 {
@@ -100,7 +78,7 @@
         .sad-masthead__sub {
             margin: 0.35rem 0 0;
             font-size: 0.82rem;
-            opacity: 0.88;
+            color: var(--sad-muted);
             max-width: 36rem;
             line-height: 1.4;
         }
@@ -116,10 +94,11 @@
             gap: 0.35rem;
             padding: 0.38rem 0.65rem;
             border-radius: 999px;
-            background: rgba(255, 255, 255, 0.16);
-            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: #f8fafc;
+            border: 1px solid var(--sad-border);
             font-size: 0.72rem;
             font-weight: 600;
+            color: #334155;
             white-space: nowrap;
         }
         .sad-badge--live::before {
@@ -127,13 +106,13 @@
             width: 7px;
             height: 7px;
             border-radius: 50%;
-            background: #fef08a;
-            box-shadow: 0 0 0 3px rgba(254, 240, 138, 0.45);
+            background: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
             animation: sadPulse 1.6s ease-in-out infinite;
         }
         @keyframes sadPulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(254, 240, 138, 0.65); }
-            50% { box-shadow: 0 0 0 6px rgba(254, 240, 138, 0); }
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45); }
+            50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
         }
         .sad-kpi-strip {
             display: grid;
@@ -148,25 +127,17 @@
             .sad-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         .sad-kpi {
-            background: linear-gradient(160deg, #ffffff 0%, #faf5ff 100%);
+            background: var(--sad-surface);
             border: 1px solid var(--sad-border);
             border-radius: var(--sad-radius);
             padding: 0.55rem 0.65rem;
-            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.08);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
             min-width: 0;
-            transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
-            border-top: 3px solid transparent;
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .sad-kpi:nth-child(1) { border-top-color: #8b5cf6; }
-        .sad-kpi:nth-child(2) { border-top-color: #0ea5e9; }
-        .sad-kpi:nth-child(3) { border-top-color: #f59e0b; }
-        .sad-kpi:nth-child(4) { border-top-color: #ec4899; }
-        .sad-kpi:nth-child(5) { border-top-color: #14b8a6; }
-        .sad-kpi:nth-child(6) { border-top-color: #22c55e; }
         .sad-kpi:hover {
-            border-color: rgba(139, 92, 246, 0.4);
-            box-shadow: 0 10px 28px rgba(139, 92, 246, 0.18);
-            transform: translateY(-2px);
+            border-color: #99f6e4;
+            box-shadow: 0 4px 16px rgba(13, 148, 136, 0.1);
         }
         .sad-kpi__icon {
             width: 1.65rem;
@@ -178,11 +149,11 @@
             font-size: 0.75rem;
             margin-bottom: 0.35rem;
         }
-        .sad-kpi__icon--green { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669; }
-        .sad-kpi__icon--sky { background: linear-gradient(135deg, #dbeafe, #bae6fd); color: #0284c7; }
-        .sad-kpi__icon--teal { background: linear-gradient(135deg, #ccfbf1, #99f6e4); color: #0d9488; }
-        .sad-kpi__icon--amber { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706; }
-        .sad-kpi__icon--rose { background: linear-gradient(135deg, #fce7f3, #fbcfe8); color: #db2777; }
+        .sad-kpi__icon--green { background: #ecfdf5; color: var(--sad-green-deep); }
+        .sad-kpi__icon--sky { background: #eff6ff; color: var(--sad-sky); }
+        .sad-kpi__icon--teal { background: var(--sad-brand-light); color: var(--sad-brand-deep); }
+        .sad-kpi__icon--amber { background: var(--sad-accent-soft); color: var(--sad-accent); }
+        .sad-kpi__icon--rose { background: #f1f5f9; color: #64748b; }
         .sad-kpi__label {
             font-size: 0.58rem;
             font-weight: 700;
@@ -204,9 +175,9 @@
             margin-top: 0.2rem;
             font-weight: 600;
         }
-        .sad-kpi__foot.is-up { color: #059669; font-weight: 700; }
-        .sad-kpi__foot.is-down { color: #ea580c; font-weight: 700; }
-        .sad-kpi__foot.is-warn { color: #c026d3; font-weight: 700; }
+        .sad-kpi__foot.is-up { color: var(--sad-green-deep); }
+        .sad-kpi__foot.is-down { color: #b45309; }
+        .sad-kpi__foot.is-warn { color: #b45309; }
         .sad-alerts {
             display: flex;
             flex-wrap: wrap;
@@ -224,19 +195,19 @@
             border: 1px solid transparent;
         }
         .sad-alert--warn {
-            background: linear-gradient(135deg, #fff7ed, #ffedd5);
-            border-color: #fdba74;
-            color: #c2410c;
+            background: #fffbeb;
+            border-color: #fcd34d;
+            color: #92400e;
         }
         .sad-alert--info {
-            background: linear-gradient(135deg, #eff6ff, #e0f2fe);
-            border-color: #7dd3fc;
+            background: #f0f9ff;
+            border-color: #bae6fd;
             color: #0369a1;
         }
         .sad-alert--ok {
-            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            background: #ecfdf5;
             border-color: #6ee7b7;
-            color: #047857;
+            color: var(--sad-green-deep);
         }
         .sad-nav {
             display: flex;
@@ -244,14 +215,13 @@
             gap: 0.35rem;
             margin-bottom: 0.6rem;
             padding: 0.35rem;
-            background: rgba(255, 255, 255, 0.88);
-            border: 1px solid #c7d2fe;
-            border-radius: 12px;
+            background: var(--sad-surface);
+            border: 1px solid var(--sad-border);
+            border-radius: var(--sad-radius);
             position: sticky;
             top: 0.5rem;
             z-index: 20;
-            box-shadow: 0 8px 28px rgba(139, 92, 246, 0.12);
-            backdrop-filter: blur(10px);
+            box-shadow: var(--sad-shadow);
         }
         .sad-nav__btn {
             flex: 1;
@@ -271,11 +241,11 @@
             gap: 0.4rem;
             transition: background 0.15s, color 0.15s;
         }
-        .sad-nav__btn:hover { background: #ede9fe; color: var(--sad-violet); }
+        .sad-nav__btn:hover { background: #f1f5f9; color: var(--sad-text); }
         .sad-nav__btn.is-active {
-            background: var(--sad-grad-joy);
+            background: var(--sad-brand-grad);
             color: #fff;
-            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.35);
+            box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
         }
         .sad-panel { display: none; animation: sadFade 0.25s ease; }
         .sad-panel.is-active { display: block; }
@@ -293,11 +263,11 @@
             .sad-grid--2, .sad-grid--3 { grid-template-columns: 1fr; }
         }
         .sad-card {
-            background: var(--sad-grad-soft);
-            border: 1px solid #ddd6fe;
+            background: var(--sad-surface);
+            border: 1px solid var(--sad-border);
             border-radius: var(--sad-radius);
             padding: 0.75rem 0.85rem;
-            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.08);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
             min-width: 0;
         }
         .sad-card__head {
@@ -315,7 +285,7 @@
             align-items: center;
             gap: 0.4rem;
         }
-        .sad-card__title i { color: var(--sad-violet); font-size: 0.85rem; }
+        .sad-card__title i { color: var(--sad-brand); font-size: 0.85rem; }
         .sad-card__hint {
             font-size: 0.68rem;
             color: var(--sad-muted);
@@ -327,8 +297,8 @@
             font-weight: 700;
             padding: 0.2rem 0.45rem;
             border-radius: 6px;
-            background: linear-gradient(135deg, #ede9fe, #dbeafe);
-            color: #6d28d9;
+            background: var(--sad-brand-light);
+            color: var(--sad-brand-deep);
         }
         .sad-progress-block { margin-bottom: 0.65rem; }
         .sad-progress-block:last-child { margin-bottom: 0; }
@@ -343,21 +313,19 @@
         }
         .sad-progress-top strong { font-size: 0.95rem; font-weight: 800; }
         .sad-progress-track {
-            height: 9px;
+            height: 8px;
             border-radius: 999px;
-            background: #e0e7ff;
+            background: #e2e8f0;
             overflow: hidden;
         }
         .sad-progress-fill {
             height: 100%;
             border-radius: 999px;
-            background: linear-gradient(90deg, #8b5cf6, #0ea5e9, #14b8a6, #22c55e);
+            background: var(--sad-brand-grad);
             transition: width 0.6s ease;
-            box-shadow: 0 0 12px rgba(139, 92, 246, 0.35);
         }
         .sad-progress-fill--sky {
-            background: linear-gradient(90deg, #0ea5e9, #06b6d4, #14b8a6);
-            box-shadow: 0 0 12px rgba(14, 165, 233, 0.35);
+            background: linear-gradient(90deg, #0284c7, #0ea5e9);
         }
         .sad-progress-foot {
             font-size: 0.68rem;
@@ -373,13 +341,9 @@
         .sad-signal {
             padding: 0.45rem 0.5rem;
             border-radius: 10px;
-            background: linear-gradient(145deg, #ffffff, #f5f3ff);
-            border: 1px solid #ddd6fe;
+            background: #f8fafc;
+            border: 1px solid var(--sad-border);
         }
-        .sad-signal:nth-child(1) { border-left: 3px solid #8b5cf6; }
-        .sad-signal:nth-child(2) { border-left: 3px solid #f59e0b; }
-        .sad-signal:nth-child(3) { border-left: 3px solid #0ea5e9; }
-        .sad-signal:nth-child(4) { border-left: 3px solid #22c55e; }
         .sad-signal span {
             display: block;
             font-size: 0.62rem;
@@ -398,8 +362,8 @@
             padding: 0.15rem 0.4rem;
             border-radius: 6px;
         }
-        .sad-chip.up { background: linear-gradient(135deg, #d1fae5, #bbf7d0); color: #047857; }
-        .sad-chip.down { background: linear-gradient(135deg, #ffedd5, #fed7aa); color: #c2410c; }
+        .sad-chip.up { background: #ecfdf5; color: var(--sad-green-deep); }
+        .sad-chip.down { background: #fffbeb; color: #b45309; }
         .sad-chip.flat { background: #f1f5f9; color: #64748b; }
         .sad-ring-wrap {
             display: grid;
@@ -452,9 +416,9 @@
             background: #e2e8f0;
             overflow: hidden;
         }
-        .sad-stage-fill--seed { background: linear-gradient(90deg, #fbbf24, #f59e0b); height: 100%; border-radius: 999px; }
-        .sad-stage-fill--early { background: linear-gradient(90deg, #22d3ee, #0ea5e9); height: 100%; border-radius: 999px; }
-        .sad-stage-fill--growth { background: linear-gradient(90deg, #4ade80, #10b981); height: 100%; border-radius: 999px; }
+        .sad-stage-fill--seed { background: #d97706; height: 100%; border-radius: 999px; }
+        .sad-stage-fill--early { background: #0284c7; height: 100%; border-radius: 999px; }
+        .sad-stage-fill--growth { background: var(--sad-brand); height: 100%; border-radius: 999px; }
         .sad-biz-row {
             display: grid;
             grid-template-columns: auto 1fr auto;
@@ -496,9 +460,8 @@
             background: #f8fafc;
         }
         .sad-district-card.is-top {
-            border-color: #fbbf24;
-            background: linear-gradient(145deg, #fffbeb, #fef3c7);
-            box-shadow: 0 6px 18px rgba(251, 191, 36, 0.25);
+            border-color: #fcd34d;
+            background: #fffbeb;
         }
         .sad-district-card__name {
             font-size: 0.68rem;
@@ -573,7 +536,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: var(--sad-grad-joy);
+            background: var(--sad-brand-grad);
             color: #fff;
             font-size: 0.7rem;
             font-weight: 800;
@@ -595,9 +558,9 @@
             border-radius: 10px;
             border: 1px solid;
         }
-        .sad-savings-tile--green { border-color: #6ee7b7; background: linear-gradient(145deg, #ecfdf5, #d1fae5); }
-        .sad-savings-tile--blue { border-color: #93c5fd; background: linear-gradient(145deg, #eff6ff, #dbeafe); }
-        .sad-savings-tile--violet { border-color: #c4b5fd; background: linear-gradient(145deg, #f5f3ff, #ede9fe); }
+        .sad-savings-tile--green { border-color: #a7f3d0; background: #ecfdf5; }
+        .sad-savings-tile--blue { border-color: #bae6fd; background: #f0f9ff; }
+        .sad-savings-tile--violet { border-color: #99f6e4; background: var(--sad-brand-light); }
         .sad-savings-tile__lbl {
             font-size: 0.6rem;
             font-weight: 700;
@@ -667,17 +630,16 @@
             transition: background 0.12s, border-color 0.12s, transform 0.12s;
         }
         .sad-dock__link:hover {
-            background: linear-gradient(135deg, #ede9fe, #dbeafe);
-            border-color: #a78bfa;
-            transform: translateY(-1px);
+            background: var(--sad-brand-light);
+            border-color: #5eead4;
         }
-        .sad-dock__link i { color: var(--sad-violet); font-size: 0.8rem; }
+        .sad-dock__link i { color: var(--sad-brand); font-size: 0.8rem; }
         .sad-spark {
             height: 28px;
             margin-top: 0.25rem;
         }
         .sad-spark svg { width: 100%; height: 100%; }
-        .sad-spark .line { fill: none; stroke: #8b5cf6; stroke-width: 1.5; }
+        .sad-spark .line { fill: none; stroke: var(--sad-brand); stroke-width: 1.5; }
         .sad-spark .fill { fill: url(#sadSparkGrad); opacity: 0.4; }
         .sad-empty {
             text-align: center;
@@ -705,8 +667,8 @@
             padding: 0.2rem 0.45rem;
             border-radius: 6px;
         }
-        .sad-align-pill--ok { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #047857; }
-        .sad-align-pill--bad { background: linear-gradient(135deg, #ffedd5, #fecaca); color: #b91c1c; }
+        .sad-align-pill--ok { background: #ecfdf5; color: var(--sad-green-deep); }
+        .sad-align-pill--bad { background: #fffbeb; color: #92400e; }
         .sad-align-gaps {
             margin-top: 0.4rem;
             padding: 0.45rem 0.55rem;
@@ -720,7 +682,7 @@
         .sad-align-gaps li { margin: 0.2rem 0; line-height: 1.35; }
     </style>
 </head>
-<body class="admin-app-body admin-app-body--dashboard admin-app-body--state-vibrant">
+<body class="admin-app-body admin-app-body--dashboard admin-app-body--state-premium">
     @include('partials.admin-topbar')
     <main class="admin-main">
         @if (session('status'))
@@ -1072,9 +1034,8 @@
                             <svg class="sad-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                                 <defs>
                                     <linearGradient id="sadRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#8b5cf6"/>
-                                        <stop offset="50%" stop-color="#0ea5e9"/>
-                                        <stop offset="100%" stop-color="#22c55e"/>
+                                        <stop offset="0%" stop-color="#0f766e"/>
+                                        <stop offset="100%" stop-color="#14b8a6"/>
                                     </linearGradient>
                                 </defs>
                                 <circle class="track" cx="50" cy="50" r="38"/>
@@ -1091,8 +1052,8 @@
                                         <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
                                             <defs>
                                                 <linearGradient id="sadSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.55"/>
-                                                    <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
+                                                    <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.4"/>
+                                                    <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
                                                 </linearGradient>
                                             </defs>
                                             <polygon class="fill" points="{{ $sparkFill }}"/>
@@ -1354,9 +1315,8 @@
         const cx = stEl.getContext('2d');
         const dh = stEl.parentElement?.clientHeight || 168;
         const dFill = cx.createLinearGradient(0, 0, 0, dh);
-        dFill.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
-        dFill.addColorStop(0.5, 'rgba(14, 165, 233, 0.2)');
-        dFill.addColorStop(1, 'rgba(34, 197, 94, 0.02)');
+        dFill.addColorStop(0, 'rgba(13, 148, 136, 0.22)');
+        dFill.addColorStop(1, 'rgba(13, 148, 136, 0.02)');
         new Chart(stEl, {
             type: 'line',
             data: {
@@ -1364,7 +1324,7 @@
                 datasets: [{
                     label: 'State CFA',
                     data: trendValues,
-                    borderColor: '#8b5cf6',
+                    borderColor: '#0d9488',
                     backgroundColor: dFill,
                     fill: true,
                     tension: 0.42,
@@ -1388,9 +1348,9 @@
     const dLabels = @json($cfaByDistrict['labels']);
     const dValues = @json($cfaByDistrict['values']);
     const districtPalette = [
-        '#8b5cf6', '#0ea5e9', '#14b8a6', '#22c55e', '#eab308',
-        '#f97316', '#ec4899', '#06b6d4', '#84cc16', '#6366f1',
-        '#f43f5e', '#a855f7', '#10b981'
+        '#0d9488', '#0f766e', '#0284c7', '#0369a1', '#d97706',
+        '#059669', '#64748b', '#7c3aed', '#0891b2', '#b45309',
+        '#14b8a6', '#475569', '#047857'
     ];
     const districtValueLabelsPlugin = {
         id: 'districtValueLabelsPlugin',
