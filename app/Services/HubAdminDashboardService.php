@@ -17,6 +17,10 @@ use Illuminate\Support\Facades\Schema;
 
 class HubAdminDashboardService
 {
+    public function __construct(
+        private readonly StaffCheckInService $staffCheckIns,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -348,6 +352,7 @@ class HubAdminDashboardService
             'hubOnboardingAchieved' => $hubOnboardingAchieved,
             'hubOnboardingProgressPct' => $hubOnboardingProgressPct,
             'hubOnboardingByDistrict' => $hubOnboardingByDistrict,
+            'attendance' => $this->staffCheckIns->hubAttendanceMetrics($hubId),
         ];
     }
 

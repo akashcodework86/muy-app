@@ -678,6 +678,73 @@
             overflow-y: auto;
         }
         .had-align-gaps li { margin: 0.2rem 0; line-height: 1.35; }
+        .had-att-subnav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin-bottom: 0.55rem;
+            padding: 0.25rem;
+            background: #f8fafc;
+            border: 1px solid var(--had-border);
+            border-radius: 10px;
+        }
+        .had-att-subnav__btn {
+            flex: 1;
+            min-width: 6.5rem;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--had-muted);
+            padding: 0.42rem 0.55rem;
+            border-radius: 7px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+        }
+        .had-att-subnav__btn.is-active {
+            background: var(--had-surface);
+            color: var(--had-brand-deep);
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+        }
+        .had-att-panel { display: none; }
+        .had-att-panel.is-active { display: block; animation: hadFade 0.2s ease; }
+        .had-att-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.18rem 0.4rem;
+            border-radius: 6px;
+        }
+        .had-att-status--ok { background: #ecfdf5; color: var(--had-green-deep); }
+        .had-att-status--miss { background: #fef2f2; color: #b91c1c; }
+        .had-insight-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        .had-insight-list li {
+            display: flex;
+            gap: 0.45rem;
+            align-items: flex-start;
+            padding: 0.42rem 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.74rem;
+            line-height: 1.4;
+        }
+        .had-insight-list li:last-child { border-bottom: none; }
+        .had-insight-list i {
+            color: var(--had-brand);
+            margin-top: 0.15rem;
+            flex-shrink: 0;
+        }
+        .had-chart-box { height: 200px; position: relative; }
+        .had-chart-box--tall { height: 240px; }
     </style>
 </head>
 <body class="admin-app-body admin-app-body--dashboard admin-app-body--hub-premium">
@@ -774,6 +841,20 @@
             $planCfa = $plan['cfa'] ?? [];
             $planSvc = $plan['services'] ?? [];
             $planMisaligned = $plan['misaligned'] ?? [];
+
+            $att = $attendance ?? [];
+            $attEnabled = (bool) ($att['enabled'] ?? false);
+            $attToday = $att['today'] ?? ['total' => 0, 'present' => 0, 'absent' => 0, 'rate_pct' => null];
+            $attTodayRows = $att['today_rows'] ?? [];
+            $attDistrictToday = $att['district_today'] ?? [];
+            $attTrend = $att['trend_14d'] ?? ['labels' => [], 'rates' => [], 'present' => [], 'total' => []];
+            $attRate7d = $att['rate_7d'] ?? null;
+            $attRate30d = $att['rate_30d'] ?? null;
+            $attRateMtd = $att['rate_mtd'] ?? null;
+            $attStaff30d = $att['staff_30d'] ?? [];
+            $attWeekday = $att['weekday'] ?? ['labels' => [], 'rates' => []];
+            $attInsights = $att['insights'] ?? [];
+            $attDateLabel = (string) ($att['date_label'] ?? now()->format('d M Y'));
         @endphp
 
         <div class="had">
@@ -902,6 +983,9 @@
                 </button>
                 <button type="button" class="had-nav__btn" data-had-tab="team">
                     <i class="fa-solid fa-users-gear" aria-hidden="true"></i> Team performance
+                </button>
+                <button type="button" class="had-nav__btn" data-had-tab="attendance">
+                    <i class="fa-solid fa-clipboard-user" aria-hidden="true"></i> Attendance
                 </button>
             </nav>
 
@@ -1215,6 +1299,213 @@
                 </div>
             </section>
 
+            {{-- ATTENDANCE --}}
+            <section class="had-panel" data-had-panel="attendance">
+                @if (! $attEnabled)
+                    <div class="had-card">
+                        <div class="had-empty">
+                            <i class="fa-solid fa-clipboard-user" aria-hidden="true"></i>
+                            Daily staff attendance is not available yet. Run migrations to enable <code>staff_check_ins</code>.
+                        </div>
+                    </div>
+                @else
+                    <nav class="had-att-subnav" aria-label="Attendance views">
+                        <button type="button" class="had-att-subnav__btn is-active" data-had-att-sub="today">
+                            <i class="fa-solid fa-calendar-day" aria-hidden="true"></i> Today
+                        </button>
+                        <button type="button" class="had-att-subnav__btn" data-had-att-sub="overall">
+                            <i class="fa-solid fa-calendar-week" aria-hidden="true"></i> Overall
+                        </button>
+                        <button type="button" class="had-att-subnav__btn" data-had-att-sub="analysis">
+                            <i class="fa-solid fa-chart-line" aria-hidden="true"></i> Analysis
+                        </button>
+                    </nav>
+
+                    <div class="had-att-panel is-active" data-had-att-panel="today">
+                        <div class="had-savings-grid" style="margin-bottom:0.55rem;">
+                            <div class="had-savings-tile had-savings-tile--green">
+                                <div class="had-savings-tile__lbl">Present today</div>
+                                <div class="had-savings-tile__val">{{ number_format((int) $attToday['present']) }}</div>
+                            </div>
+                            <div class="had-savings-tile had-savings-tile--blue">
+                                <div class="had-savings-tile__lbl">Absent today</div>
+                                <div class="had-savings-tile__val">{{ number_format((int) $attToday['absent']) }}</div>
+                            </div>
+                            <div class="had-savings-tile had-savings-tile--violet">
+                                <div class="had-savings-tile__lbl">Mark rate</div>
+                                <div class="had-savings-tile__val">
+                                    @if ($attToday['rate_pct'] !== null){{ (int) $attToday['rate_pct'] }}%@else&mdash;@endif
+                                </div>
+                            </div>
+                        </div>
+                        <div class="had-grid had-grid--2">
+                            <div class="had-card">
+                                <div class="had-card__head">
+                                    <h2 class="had-card__title"><i class="fa-solid fa-users" aria-hidden="true"></i> District staff today</h2>
+                                    <span class="had-card__tag">{{ $attDateLabel }}</span>
+                                </div>
+                                <p class="had-card__hint">{{ (int) $attToday['present'] }} of {{ (int) $attToday['total'] }} active district staff marked daily attendance.</p>
+                                <div class="had-staff-controls">
+                                    <input type="text" id="hubAttTodaySearch" placeholder="Search staff name?" autocomplete="off">
+                                    <select id="hubAttTodayFilter">
+                                        <option value="">All</option>
+                                        <option value="present">Present only</option>
+                                        <option value="absent">Absent only</option>
+                                    </select>
+                                </div>
+                                <div class="had-staff-list" id="hubAttTodayList">
+                                    @forelse ($attTodayRows as $row)
+                                        <div class="had-staff-row hub-att-today-row"
+                                            data-name="{{ strtolower($row['name']) }}"
+                                            data-status="{{ $row['present'] ? 'present' : 'absent' }}">
+                                            <span class="had-staff-rank">
+                                                @if ($row['present'])
+                                                    <i class="fa-solid fa-circle-check" style="color:var(--had-green-deep);" aria-hidden="true"></i>
+                                                @else
+                                                    <i class="fa-regular fa-circle" style="color:#cbd5e1;" aria-hidden="true"></i>
+                                                @endif
+                                            </span>
+                                            <div class="had-staff-main">
+                                                <span class="had-staff-fallback">{{ strtoupper(substr(trim((string) $row['name']), 0, 1)) ?: '?' }}</span>
+                                                <div style="min-width:0;">
+                                                    <div class="had-staff-name">{{ $row['name'] }}</div>
+                                                    <div class="had-staff-district">{{ $row['district'] }}</div>
+                                                </div>
+                                            </div>
+                                            <span>
+                                                @if ($row['present'])
+                                                    <span class="had-att-status had-att-status--ok">Present @if (!empty($row['marked_at'])){{ $row['marked_at'] }}@endif</span>
+                                                @else
+                                                    <span class="had-att-status had-att-status--miss">Absent</span>
+                                                @endif
+                                            </span>
+                                        </div>
+                                    @empty
+                                        <div class="had-empty">No active district staff in this hub</div>
+                                    @endforelse
+                                    <div class="had-empty" id="hubAttTodayNoResults" style="display:none;">No matches for this filter</div>
+                                </div>
+                            </div>
+                            <div class="had-card">
+                                <div class="had-card__head">
+                                    <h2 class="had-card__title"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> By district today</h2>
+                                </div>
+                                <div class="had-table-wrap">
+                                    <table class="had-table">
+                                        <thead>
+                                            <tr>
+                                                <th>District</th>
+                                                <th>Present</th>
+                                                <th>Total</th>
+                                                <th>Rate</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse ($attDistrictToday as $dRow)
+                                                <tr>
+                                                    <td>{{ $dRow['district'] }}</td>
+                                                    <td>{{ (int) $dRow['present'] }}</td>
+                                                    <td>{{ (int) $dRow['total'] }}</td>
+                                                    <td>@if ($dRow['rate_pct'] !== null){{ (int) $dRow['rate_pct'] }}%@else&mdash;@endif</td>
+                                                </tr>
+                                            @empty
+                                                <tr><td colspan="4" class="had-empty">No district breakdown for today</td></tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="had-att-panel" data-had-att-panel="overall">
+                        <div class="had-savings-grid" style="margin-bottom:0.55rem;">
+                            <div class="had-savings-tile had-savings-tile--green">
+                                <div class="had-savings-tile__lbl">7-day average</div>
+                                <div class="had-savings-tile__val">@if ($attRate7d !== null){{ (int) $attRate7d }}%@else&mdash;@endif</div>
+                            </div>
+                            <div class="had-savings-tile had-savings-tile--blue">
+                                <div class="had-savings-tile__lbl">30-day mark rate</div>
+                                <div class="had-savings-tile__val">@if ($attRate30d !== null){{ (int) $attRate30d }}%@else&mdash;@endif</div>
+                            </div>
+                            <div class="had-savings-tile had-savings-tile--violet">
+                                <div class="had-savings-tile__lbl">Month to date</div>
+                                <div class="had-savings-tile__val">@if ($attRateMtd !== null){{ (int) $attRateMtd }}%@else&mdash;@endif</div>
+                            </div>
+                        </div>
+                        <div class="had-grid had-grid--2">
+                            <div class="had-card">
+                                <div class="had-card__head">
+                                    <h2 class="had-card__title"><i class="fa-solid fa-chart-area" aria-hidden="true"></i> 14-day attendance trend</h2>
+                                    <span class="had-card__tag">Daily mark %</span>
+                                </div>
+                                <div class="had-chart-box had-chart-box--tall">
+                                    <canvas id="hubAttTrendChart" aria-label="14 day attendance trend"></canvas>
+                                </div>
+                            </div>
+                            <div class="had-card">
+                                <div class="had-card__head">
+                                    <h2 class="had-card__title"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> Staff consistency (30 days)</h2>
+                                </div>
+                                <p class="had-card__hint">Days marked out of 30 for each active district staff member.</p>
+                                <div class="had-staff-list" style="max-height:min(420px,48vh);">
+                                    @forelse ($attStaff30d as $index => $sRow)
+                                        <div class="had-staff-row">
+                                            <span class="had-staff-rank @if ($index < 3) is-medal @endif">#{{ $index + 1 }}</span>
+                                            <div class="had-staff-main">
+                                                <span class="had-staff-fallback">{{ strtoupper(substr(trim((string) $sRow['name']), 0, 1)) ?: '?' }}</span>
+                                                <div style="min-width:0;">
+                                                    <div class="had-staff-name">{{ $sRow['name'] }}</div>
+                                                    <div class="had-staff-district">{{ $sRow['district'] }}</div>
+                                                </div>
+                                            </div>
+                                            <span class="had-staff-val">{{ (int) $sRow['days_present'] }}/30</span>
+                                        </div>
+                                    @empty
+                                        <div class="had-empty">No attendance marks in the last 30 days</div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="had-att-panel" data-had-att-panel="analysis">
+                        <div class="had-grid had-grid--2">
+                            <div class="had-card">
+                                <div class="had-card__head">
+                                    <h2 class="had-card__title"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i> Weekday pattern</h2>
+                                    <span class="had-card__tag">Last 4 weeks</span>
+                                </div>
+                                <p class="had-card__hint">Average daily mark rate by weekday across the hub.</p>
+                                <div class="had-chart-box">
+                                    <canvas id="hubAttWeekdayChart" aria-label="Weekday attendance pattern"></canvas>
+                                </div>
+                            </div>
+                            <div class="had-card">
+                                <div class="had-card__head">
+                                    <h2 class="had-card__title"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Attendance insights</h2>
+                                </div>
+                                <ul class="had-insight-list">
+                                    @forelse ($attInsights as $insight)
+                                        <li><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>{{ $insight }}</span></li>
+                                    @empty
+                                        <li><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Mark rates will appear here once staff begin daily check-ins.</span></li>
+                                    @endforelse
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="had-card" style="margin-top:0.55rem;">
+                            <div class="had-card__head">
+                                <h2 class="had-card__title"><i class="fa-solid fa-table" aria-hidden="true"></i> District comparison today</h2>
+                            </div>
+                            <div class="had-chart-box had-chart-box--tall">
+                                <canvas id="hubAttDistrictChart" aria-label="District attendance today"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            </section>
+
             <p class="had-progress-foot" style="margin-top:0.5rem;">
                 Targets are set by <strong>state admin</strong>. This dashboard is read-only hub oversight.
             </p>
@@ -1365,6 +1656,124 @@
     };
     searchInput?.addEventListener('input', applyStaffCfaFilters);
     districtSelect?.addEventListener('change', applyStaffCfaFilters);
+
+    document.querySelectorAll('[data-had-att-sub]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-had-att-sub');
+            document.querySelectorAll('[data-had-att-sub]').forEach((b) => {
+                b.classList.toggle('is-active', b === btn);
+            });
+            document.querySelectorAll('[data-had-att-panel]').forEach((p) => {
+                p.classList.toggle('is-active', p.getAttribute('data-had-att-panel') === id);
+            });
+        });
+    });
+
+    const attSearch = document.getElementById('hubAttTodaySearch');
+    const attFilter = document.getElementById('hubAttTodayFilter');
+    const attRows = Array.from(document.querySelectorAll('#hubAttTodayList .hub-att-today-row'));
+    const attNoResults = document.getElementById('hubAttTodayNoResults');
+    const applyAttTodayFilters = () => {
+        if (!attRows.length) return;
+        const q = (attSearch?.value || '').trim().toLowerCase();
+        const status = (attFilter?.value || '').trim().toLowerCase();
+        let visible = 0;
+        attRows.forEach((row) => {
+            const show = (q === '' || (row.dataset.name || '').includes(q))
+                && (status === '' || (row.dataset.status || '') === status);
+            row.style.display = show ? '' : 'none';
+            if (show) visible += 1;
+        });
+        if (attNoResults) attNoResults.style.display = visible === 0 ? '' : 'none';
+    };
+    attSearch?.addEventListener('input', applyAttTodayFilters);
+    attFilter?.addEventListener('change', applyAttTodayFilters);
+
+    const attTrendLabels = @json($attTrend['labels'] ?? []);
+    const attTrendRates = @json($attTrend['rates'] ?? []);
+    const attTrendEl = document.getElementById('hubAttTrendChart');
+    if (attTrendEl && attTrendLabels.length) {
+        new Chart(attTrendEl, {
+            type: 'line',
+            data: {
+                labels: attTrendLabels,
+                datasets: [{
+                    label: 'Mark %',
+                    data: attTrendRates,
+                    borderColor: '#d04a02',
+                    backgroundColor: 'rgba(208, 74, 2, 0.12)',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 2,
+                    pointHoverRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { callback: (v) => v + '%' } },
+                    x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 45 } }
+                }
+            }
+        });
+    }
+
+    const attWeekdayLabels = @json($attWeekday['labels'] ?? []);
+    const attWeekdayRates = @json($attWeekday['rates'] ?? []);
+    const attWeekdayEl = document.getElementById('hubAttWeekdayChart');
+    if (attWeekdayEl && attWeekdayLabels.length) {
+        new Chart(attWeekdayEl, {
+            type: 'bar',
+            data: {
+                labels: attWeekdayLabels,
+                datasets: [{
+                    label: 'Avg %',
+                    data: attWeekdayRates,
+                    backgroundColor: 'rgba(208, 74, 2, 0.75)',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { callback: (v) => v + '%' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    const attDistrictLabels = @json(collect($attDistrictToday)->pluck('district')->values()->all());
+    const attDistrictRates = @json(collect($attDistrictToday)->pluck('rate_pct')->map(fn ($v) => (int) ($v ?? 0))->values()->all());
+    const attDistrictEl = document.getElementById('hubAttDistrictChart');
+    if (attDistrictEl && attDistrictLabels.length) {
+        new Chart(attDistrictEl, {
+            type: 'bar',
+            data: {
+                labels: attDistrictLabels,
+                datasets: [{
+                    label: 'Today %',
+                    data: attDistrictRates,
+                    backgroundColor: attDistrictRates.map((_, i) => ['#d04a02', '#eb8c00', '#a63d02', '#f59e0b', '#fb923c', '#fdba74'][i % 6]),
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { callback: (v) => v + '%' } },
+                    y: { grid: { display: false }, ticks: { font: { size: 9 } } }
+                }
+            }
+        });
+    }
 })();
 </script>
 
