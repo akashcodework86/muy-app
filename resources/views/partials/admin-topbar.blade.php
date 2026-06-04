@@ -84,6 +84,7 @@
         str_starts_with($r, 'hub.applications') => 'hub-applications',
         str_starts_with($r, 'hub.staff-performance') => 'hub-staff-performance',
         str_starts_with($r, 'hub.pending-actions') => 'hub-pending-actions',
+        str_starts_with($r, 'hub.onboarding-insight') => 'hub-onboarding-insight',
         $r === 'staff.monthly-targets' => 'staff-targets',
         str_starts_with($r, 'staff.services') => 'staff-services',
         str_starts_with($r, 'staff.applications') => 'staff-apps',
@@ -166,6 +167,10 @@
     $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard'], true)
         || $staffFieldWorkActive;
 
+    $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
+    $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
+    $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents'], true);
+
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
     $ico = [
         'dashboard'   => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
@@ -196,11 +201,16 @@
 @endphp
 <header class="admin-topbar">
     <div class="admin-topbar__inner">
-        <a href="{{ route('dashboard') }}" class="admin-brand" title="Mukhyamantri Udyamshala Yojana">
+        <a href="{{ route('dashboard') }}" class="admin-brand @if ($showHubNav) admin-brand--hub @endif" title="Mukhyamantri Udyamshala Yojana">
             <img src="{{ $logoUrl }}" alt="MUY Logo" class="admin-brand__img">
             <span class="admin-brand__text">
-                <span class="admin-brand__name">Mukhyamantri Udyamshala Yojana</span>
-                <span class="admin-brand__sub">{{ $brandSub }}</span>
+                @if ($showHubNav)
+                    <span class="admin-brand__name">MUY</span>
+                    <span class="admin-brand__sub">{{ $u->hub?->name ?? 'Hub' }} · {{ $brandSub }}</span>
+                @else
+                    <span class="admin-brand__name">Mukhyamantri Udyamshala Yojana</span>
+                    <span class="admin-brand__sub">{{ $brandSub }}</span>
+                @endif
             </span>
         </a>
 
@@ -428,35 +438,64 @@
             <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>
-            @if ($showStaffDailyCheckInNav)
-            <a href="{{ route('staff-daily-check-in.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-daily-check-in') is-active @endif">
-                {!! $i('pin') !!}<span class="admin-topbar__link-text">Daily attendance</span>
-            </a>
-            @endif
-            <a href="{{ route('hub.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
-                {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
-            </a>
-            <a href="{{ route('hub.batches.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-batches') is-active @endif">
-                {!! $i('batches') !!}<span class="admin-topbar__link-text">Batches</span>
-            </a>
-            <a href="{{ route('hub.applications.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-applications') is-active @endif">
-                {!! $i('inbox') !!}<span class="admin-topbar__link-text">Applications</span>
-            </a>
-            <a href="{{ route('hub.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
-                {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
-            </a>
-            <a href="{{ route('hub.field-coordinator-reports.index') }}" class="admin-topbar__link @if ($activeNav === 'field-coordinator-report') is-active @endif">
-                {!! $i('calendar') !!}<span class="admin-topbar__link-text">Field coordinator report</span>
-            </a>
-            <a href="{{ route('hub.staff-performance.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-staff-performance') is-active @endif">
-                {!! $i('bars') !!}<span class="admin-topbar__link-text">Staff Performance</span>
-            </a>
-            <a href="{{ route('hub.pending-actions.index') }}" class="admin-topbar__link @if ($activeNav === 'hub-pending-actions') is-active @endif">
-                {!! $i('inbox') !!}<span class="admin-topbar__link-text">Pending Actions</span>
-            </a>
-            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
-                {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
-            </a>
+
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($hubCfaGroupActive) is-active @endif">
+                    {!! $i('cfa') !!}<span class="admin-topbar__link-text">CFA</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Applications &amp; onboarding</p>
+                    <a href="{{ route('hub.applications.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-applications') is-active @endif" role="menuitem">
+                        {!! $i('inbox') !!}<span>CFA applications</span>
+                    </a>
+                    <a href="{{ route('hub.batches.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batches') is-active @endif" role="menuitem">
+                        {!! $i('batches') !!}<span>Batch manager</span>
+                    </a>
+                    <a href="{{ route('hub.onboarded.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarded') is-active @endif" role="menuitem">
+                        {!! $i('badge') !!}<span>Onboarded incubatees</span>
+                    </a>
+                    <a href="{{ route('hub.onboarding-insight.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-onboarding-insight') is-active @endif" role="menuitem">
+                        {!! $i('pie') !!}<span>Onboarding insight</span>
+                    </a>
+                </div>
+            </details>
+
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($hubPerformanceGroupActive) is-active @endif">
+                    {!! $i('bars') !!}<span class="admin-topbar__link-text">Performance</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Hub oversight</p>
+                    <a href="{{ route('hub.deliverables.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'deliverables') is-active @endif" role="menuitem">
+                        {!! $i('pie') !!}<span>Deliverables</span>
+                    </a>
+                    <a href="{{ route('hub.staff-performance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-staff-performance') is-active @endif" role="menuitem">
+                        {!! $i('users') !!}<span>Staff performance</span>
+                    </a>
+                    <a href="{{ route('hub.field-coordinator-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-coordinator-report') is-active @endif" role="menuitem">
+                        {!! $i('calendar') !!}<span>Field coordinator report</span>
+                    </a>
+                    <a href="{{ route('hub.pending-actions.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-pending-actions') is-active @endif" role="menuitem">
+                        {!! $i('inbox') !!}<span>Pending actions</span>
+                    </a>
+                </div>
+            </details>
+
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($hubMoreGroupActive) is-active @endif">
+                    {!! $i('more') !!}<span class="admin-topbar__link-text">More</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    @if ($showStaffDailyCheckInNav)
+                    <a href="{{ route('staff-daily-check-in.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-daily-check-in') is-active @endif" role="menuitem">
+                        {!! $i('pin') !!}<span>Daily attendance</span>
+                    </a>
+                    @endif
+                    <a href="{{ route('library.documents.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'documents') is-active @endif" role="menuitem">
+                        {!! $i('book') !!}<span>Documents</span>
+                    </a>
+                </div>
+            </details>
         </nav>
         @endif
 

@@ -1212,6 +1212,33 @@
         border-color: #fff;
     }
 
+    /* Hub admin: compact brand + grouped nav (no horizontal cram) */
+    .admin-brand--hub .admin-brand__name {
+        font-size: 1.05rem;
+        letter-spacing: -0.02em;
+    }
+    .admin-brand--hub .admin-brand__sub {
+        max-width: 14rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .admin-topbar__nav--hub-admin {
+        flex-wrap: nowrap;
+        gap: 0.2rem;
+        min-width: 0;
+    }
+    .admin-topbar__nav--hub-admin .admin-topbar__link {
+        padding: 0.45rem 0.75rem;
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+    @media (min-width: 769px) and (max-width: 1280px) {
+        .admin-topbar__nav--hub-admin .admin-topbar__link-text {
+            font-size: 0.8rem;
+        }
+    }
+
     /* Reduce motion preference */
     @media (prefers-reduced-motion: reduce) {
         .admin-topbar::before,
