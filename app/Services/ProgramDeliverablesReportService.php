@@ -1090,16 +1090,32 @@ SQL;
         if (Schema::hasTable('field_coordinator_attendance_reports')) {
             $query = FieldCoordinatorAttendanceReport::query();
             $this->applyFieldWorkAchievementScope($query);
-            $total += (int) $query->sum(DB::raw('COALESCE(participants_female_count, 0)'));
+            $total += $this->sumFemaleParticipants($query, 'field_coordinator_attendance_reports');
         }
 
         if (Schema::hasTable('block_workshops')) {
             $query = DB::table('block_workshops');
             $this->applyBlockWorkshopCountScope($query);
-            $total += (int) $query->sum(DB::raw('COALESCE(participants_female_count, 0)'));
+            if (Schema::hasColumn('block_workshops', 'participants_female_count')) {
+                $total += (int) $query->sum(DB::raw('COALESCE(participants_female_count, 0)'));
+            }
         }
 
         return $total;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     */
+    private function sumFemaleParticipants($query, string $table): int
+    {
+        if (! Schema::hasColumn($table, 'participants_female_count')) {
+            return 0;
+        }
+
+        $prefix = str_contains($table, '.') ? $table : $table;
+
+        return (int) $query->sum(DB::raw('COALESCE('.$prefix.'.participants_female_count, 0)'));
     }
 
     /**

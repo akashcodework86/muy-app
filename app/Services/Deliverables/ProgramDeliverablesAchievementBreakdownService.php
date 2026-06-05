@@ -671,7 +671,8 @@ class ProgramDeliverablesAchievementBreakdownService
             $this->applyFieldWorkAchievementScope($fcQuery);
             $monthExpr = $this->monthKeySql('field_coordinator_attendance_reports.visit_date');
 
-            $countExpr = $participants
+            $hasFemaleCol = Schema::hasColumn('field_coordinator_attendance_reports', 'participants_female_count');
+            $countExpr = ($participants && $hasFemaleCol)
                 ? 'COALESCE(field_coordinator_attendance_reports.participants_female_count, 0)'
                 : '1';
 
@@ -688,7 +689,7 @@ class ProgramDeliverablesAchievementBreakdownService
 
             $allGroupedRows = $allGroupedRows->concat($fcRows);
 
-            if ($participants) {
+            if ($participants && $hasFemaleCol) {
                 $fcWithJson = (clone $fcQuery)
                     ->select([
                         'field_coordinator_attendance_reports.id',
@@ -706,7 +707,7 @@ class ProgramDeliverablesAchievementBreakdownService
                 foreach ($fcWithJson as $row) {
                     $this->extractFemaleParticipantRecords($row, $allRecords, 'field_visit');
                 }
-            } else {
+            } elseif (! $participants) {
                 $fcRecords = (clone $fcQuery)
                     ->select([
                         'field_coordinator_attendance_reports.id',
@@ -744,7 +745,8 @@ class ProgramDeliverablesAchievementBreakdownService
             $this->applyBlockWorkshopBreakdownScope($bwQuery);
             $monthExpr = $this->monthKeySql('bw.visit_date');
 
-            $countExpr = $participants
+            $hasBwFemaleCol = Schema::hasColumn('block_workshops', 'participants_female_count');
+            $countExpr = ($participants && $hasBwFemaleCol)
                 ? 'COALESCE(bw.participants_female_count, 0)'
                 : '1';
 
@@ -761,7 +763,7 @@ class ProgramDeliverablesAchievementBreakdownService
 
             $allGroupedRows = $allGroupedRows->concat($bwRows);
 
-            if ($participants) {
+            if ($participants && $hasBwFemaleCol) {
                 $bwWithJson = (clone $bwQuery)
                     ->select([
                         'bw.id',
@@ -779,7 +781,7 @@ class ProgramDeliverablesAchievementBreakdownService
                 foreach ($bwWithJson as $row) {
                     $this->extractFemaleParticipantRecords($row, $allRecords, 'block_workshop');
                 }
-            } else {
+            } elseif (! $participants) {
                 $bwRecords = (clone $bwQuery)
                     ->select([
                         'bw.id',
