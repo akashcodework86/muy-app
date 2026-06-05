@@ -19,13 +19,21 @@ final class PotentialLakhpatiOnboardingSql
         return "JSON_UNQUOTE(JSON_EXTRACT({$payloadColumn}, '{$path}'))";
     }
 
+    public static function isLegacyCfaSourceSql(string $sourceColumn = 'cs.source'): string
+    {
+        return "LOWER(TRIM(COALESCE({$sourceColumn}, ''))) IN ('legacy_phase2', 'rbiphase2')";
+    }
+
     public static function phase3CfaSourceSql(string $sourceColumn = 'cs.source'): string
     {
-        return "LOWER(TRIM(COALESCE({$sourceColumn}, ''))) NOT IN ('legacy_phase2', 'rbiphase2')";
+        return 'NOT ('.self::isLegacyCfaSourceSql($sourceColumn).')';
     }
 
     /**
-     * SQL boolean — Phase 3 onboarded row qualifies as Potential Lakhpati Didi/ SHG/CBO.
+     * SQL boolean — onboarded row qualifies for MIS 2.1.1.
+     *
+     * Phase 3: SHG/CBO category, or Individual with SHG/CBO member Yes.
+     * Legacy Phase 2: Lakhpati Didi Yes and SHG/CBO member Yes (both required).
      */
     public static function qualifiesSql(string $payloadColumn = 'cs.payload', string $sourceColumn = 'cs.source'): string
     {
@@ -33,8 +41,14 @@ final class PotentialLakhpatiOnboardingSql
         $appCategoryJson = self::payloadJson('$.app_category', $payloadColumn);
         $isMemberJson = self::payloadJson('$.is_member', $payloadColumn);
         $isShgMemberJson = self::payloadJson('$.is_shg_member', $payloadColumn);
+        $lakhpatiJson = self::payloadJson('$.lakhpati', $payloadColumn);
 
-        return '(
+        $memberYes = "(
+            LOWER(TRIM(COALESCE({$isMemberJson}, ''))) = 'yes'
+            OR LOWER(TRIM(COALESCE({$isShgMemberJson}, ''))) = 'yes'
+        )";
+
+        $phase3Qualifies = '(
             '.self::phase3CfaSourceSql($sourceColumn)."
             AND (
                 LOWER(TRIM(COALESCE({$categoryJson}, ''))) IN ('shg', 'cbo')
@@ -44,13 +58,18 @@ final class PotentialLakhpatiOnboardingSql
                         LOWER(TRIM(COALESCE({$categoryJson}, ''))) = 'individual'
                         OR LOWER(TRIM(COALESCE({$appCategoryJson}, ''))) = 'individual'
                     )
-                    AND (
-                        LOWER(TRIM(COALESCE({$isMemberJson}, ''))) = 'yes'
-                        OR LOWER(TRIM(COALESCE({$isShgMemberJson}, ''))) = 'yes'
-                    )
+                    AND {$memberYes}
                 )
             )
         )";
+
+        $legacyQualifies = '(
+            '.self::isLegacyCfaSourceSql($sourceColumn)."
+            AND LOWER(TRIM(COALESCE({$lakhpatiJson}, ''))) = 'yes'
+            AND {$memberYes}
+        )";
+
+        return "({$phase3Qualifies} OR {$legacyQualifies})";
     }
 
     /** SUM(CASE WHEN qualifies THEN 1 ELSE 0 END) for aggregate selects. */

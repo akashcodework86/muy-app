@@ -64,6 +64,46 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSeeText('0 Potential Lakhpati Didi/ SHG Members/ CBOs (0%)');
     }
 
+    public function test_potential_lakhpati_counts_legacy_when_lakhpati_and_member_yes(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('almora-legacy-lakhpati', 'Almora');
+
+        $this->seedOnboardedApplicant(
+            $district,
+            '40804101',
+            'Legacy Lakhpati Member',
+            'female',
+            'Yes',
+            'legacy_phase2',
+            null,
+            'Individual',
+            null,
+            'Yes',
+        );
+        $this->seedOnboardedApplicant(
+            $district,
+            '40804102',
+            'Legacy Lakhpati No Member',
+            'female',
+            'Yes',
+            'legacy_phase2',
+            null,
+            'Individual',
+            null,
+            'No',
+        );
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('1 Potential Lakhpati Didi/ SHG Members/ CBOs (50%)');
+    }
+
     public function test_onboarded_page_shows_target_progress_insights_and_sector_breakdown(): void
     {
         $admin = User::factory()->create([
@@ -181,6 +221,7 @@ class OnboardedApplicantTest extends TestCase
         ?string $businessCategory = null,
         string $category = 'Individual',
         ?string $isMember = null,
+        ?string $isShgMember = null,
     ): int {
         $payload = [
             'gender' => $gender,
@@ -196,6 +237,9 @@ class OnboardedApplicantTest extends TestCase
         }
         if ($isMember !== null) {
             $payload['is_member'] = $isMember;
+        }
+        if ($isShgMember !== null) {
+            $payload['is_shg_member'] = $isShgMember;
         }
 
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([

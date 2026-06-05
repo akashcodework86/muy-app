@@ -521,7 +521,7 @@
             <div class="onb-kpi__value">{{ number_format((int) ($overview['potential_lakhpati_count'] ?? 0)) }}</div>
             <div class="onb-kpi__sub">
                 @if (! is_null($overview['potential_lakhpati_pct'] ?? null))
-                    {{ $overview['potential_lakhpati_pct'] }}% of onboarded · SHG/CBO category, or Individual with member Yes
+                    {{ $overview['potential_lakhpati_pct'] }}% of onboarded · Phase 3: SHG/CBO or member Yes · Legacy: Lakhpati Yes + member Yes
                 @else
                     No onboarded applicants in current filter scope
                 @endif

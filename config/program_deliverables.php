@@ -12,7 +12,7 @@ return [
     |
     | Tree: pillar/subcategory headings (blank metrics) + leaf indicators (1.1, 1.2, …).
     | source types: deliverable, service, services, cfa_count, onboarding_count,
-    |   potential_lakhpati_onboarding_count (2.1.1 — SHG/CBO onboarded subset),
+    |   potential_lakhpati_onboarding_count (2.1.1 — Phase 3 SHG/CBO/member; Legacy Lakhpati+member Yes),
     |   field_work_workshops (1.3), field_work_participants (1.3.1) — staff Field work visits,
     |   district_workshop_sessions,
     |   edp_sessions, bst_sessions, bst_participants, technical_training_sessions,

@@ -1220,6 +1220,46 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame('Potential Lakhpati Didi/ SHG/CBO onboardings', $breakdown['source_type_label']);
     }
 
+    public function test_program_deliverables_2_1_1_counts_legacy_lakhpati_and_member_yes(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'legacy-lakhpati-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'legacy-lakhpati-district',
+            'name' => 'Legacy Lakhpati District',
+            'sort_order' => 1,
+        ]);
+
+        $this->seedLockedOnboarding($hub, $district, [
+            'applicant_name' => 'Km Pushpa Legacy',
+            'source' => 'legacy_phase2',
+            'payload' => ['category' => 'Individual', 'lakhpati' => 'Yes', 'is_shg_member' => 'Yes'],
+        ]);
+        $this->seedLockedOnboarding($hub, $district, [
+            'applicant_name' => 'Legacy Lakhpati Only',
+            'source' => 'legacy_phase2',
+            'payload' => ['category' => 'Individual', 'lakhpati' => 'Yes', 'is_shg_member' => 'No'],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $child = collect($report['rows'])->firstWhere('serial', '2.1.1');
+
+        $this->assertNotNull($child);
+        $this->assertSame(1, $child['achievement']);
+    }
+
     public function test_program_deliverables_3_1_and_3_2_count_bst_sessions_and_unique_participants(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
