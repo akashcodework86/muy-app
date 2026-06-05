@@ -25,6 +25,7 @@ class DeliverablesReportController extends Controller
     public function __construct(
         private readonly ProgramDeliverablesReportService $reportService,
         private readonly ProgramDeliverablesAchievementBreakdownService $breakdownService,
+        private readonly ProgramDeliverablesActivityGuideService $activityGuideService,
         private readonly DeliverablesProgramExcelExport $programExcelExport,
         private readonly DeliverablesBreakdownExcelExport $breakdownExcelExport,
         private readonly DeliverablesBreakdownPdfExport $breakdownPdfExport,
@@ -37,6 +38,20 @@ class DeliverablesReportController extends Controller
         $payload = $this->buildReportPayload($context);
 
         return view('deliverables.index', $payload);
+    }
+
+    public function activityGuide(Request $request): View
+    {
+        $context = $this->resolveRequestContext($request);
+        $payload = $this->buildReportPayload($context);
+        $guide = $this->activityGuideService->build($payload['rows'], $context['user']->role);
+
+        return view('deliverables.activity-guide', [
+            ...$payload,
+            'guideRows' => $guide['rows'],
+            'guideSummary' => $guide['summary'],
+            'guideRoute' => $this->routeNameFor($context['user'], 'activity-guide'),
+        ]);
     }
 
     public function export(Request $request): StreamedResponse
@@ -222,6 +237,7 @@ class DeliverablesReportController extends Controller
             'scopeLabel' => $scope->scopeLabel($safeFilter->districtId),
             'periodLabel' => $this->periodLabel($periodFrom, $periodTo, $safeFilter),
             'indexRoute' => $this->routeNameFor($user, 'index'),
+            'activityGuideRoute' => $this->routeNameFor($user, 'activity-guide'),
             'exportRoute' => $this->routeNameFor($user, 'export'),
             'breakdownRoute' => $this->routeNameFor($user, 'breakdown'),
             'breakdownExportRoute' => $this->routeNameFor($user, 'breakdown.export'),
