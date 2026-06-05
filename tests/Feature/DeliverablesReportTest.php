@@ -354,6 +354,63 @@ class DeliverablesReportTest extends TestCase
 
         $this->assertNotNull($row);
         $this->assertSame(350, $row['target']);
+
+        $guide = app(\App\Services\Deliverables\ProgramDeliverablesActivityGuideService::class)
+            ->build($report['rows'], 'state_admin', $fy->id);
+        $guideRow = collect($guide['rows'])->firstWhere('serial', '4.2.4');
+        $this->assertNotNull($guideRow);
+        $this->assertStringContainsString('State ✓', (string) $guideRow['target_state_label']);
+        $this->assertStringContainsString('350', (string) $guideRow['target_state_label']);
+    }
+
+    public function test_activity_guide_links_gst_when_only_svc_deliverable_row_exists(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $child = ServiceCategory::query()->create(['slug' => 'legal-svc-only', 'name' => 'Legal', 'sort_order' => 1]);
+        $svcGst = Deliverable::query()->create([
+            'sort_order' => 18,
+            'code' => 'svc_gst',
+            'name' => 'GST',
+            'mis_entry_label' => 'GST',
+            'is_active' => true,
+        ]);
+
+        Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcGst->id,
+            'code' => 'gst',
+            'name' => 'GST',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $svcGst->id,
+            'target_total' => 350,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $guide = app(\App\Services\Deliverables\ProgramDeliverablesActivityGuideService::class)
+            ->build($report['rows'], 'state_admin', $fy->id);
+        $guideRow = collect($guide['rows'])->firstWhere('serial', '4.2.4');
+
+        $this->assertNotNull($guideRow);
+        $this->assertStringContainsString('State ✓', (string) $guideRow['target_state_label']);
+        $this->assertStringContainsString('350', (string) $guideRow['target_state_label']);
+        $this->assertStringNotContainsString('No deliverable row linked', (string) $guideRow['target_note']);
     }
 
     public function test_gst_achievement_counts_legacy_linked_service_case_in_district_scope(): void

@@ -2,14 +2,11 @@
 
 namespace App\Services\Deliverables;
 
-use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\DistrictDeliverableTarget;
-use App\Models\Service;
 use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
 use App\Models\User;
-use App\Services\ServiceTargetDeliverableSyncService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 
@@ -18,11 +15,8 @@ use Illuminate\Support\Facades\Route;
  */
 class ProgramDeliverablesActivityGuideService
 {
-    /** @var array<string, int> */
-    private array $deliverableIdsByCode = [];
-
     public function __construct(
-        private readonly ServiceTargetDeliverableSyncService $serviceTargetDeliverables,
+        private readonly ProgramDeliverableCodeLookup $codeLookup,
     ) {}
 
     /**
@@ -34,11 +28,7 @@ class ProgramDeliverablesActivityGuideService
      */
     public function build(array $reportRows, string $role, int $fiscalYearId): array
     {
-        $this->deliverableIdsByCode = Deliverable::query()
-            ->where('is_active', true)
-            ->pluck('id', 'code')
-            ->map(fn ($id) => (int) $id)
-            ->all();
+        $this->codeLookup->boot();
 
         $bySerial = collect($reportRows)->keyBy('serial');
         $rows = [];
@@ -99,7 +89,7 @@ class ProgramDeliverablesActivityGuideService
             $module = $this->loggingModule($role, $sourceType, $source, (string) ($node['level'] ?? ''));
             $input = $this->assessInputMechanism($sourceType, $module);
             $tracking = $this->assessAchievementTracking($sourceType, is_array($report) && ($report['drilldown'] ?? false));
-            $deliverableIds = $this->resolveDeliverableIds($source, $indicatorName);
+            $deliverableIds = $this->codeLookup->deliverableIdsForSource($source, $indicatorName);
             $targetSetup = $fiscalYearId > 0
                 ? $this->assessTargetCascade($fiscalYearId, $deliverableIds, $sourceType)
                 : $this->emptyTargetSetup('Select a fiscal year to check targets.');
@@ -329,119 +319,6 @@ class ProgramDeliverablesActivityGuideService
 
     /**
      * @param  array<string, mixed>  $source
-     * @return list<int>
-     */
-    private function resolveDeliverableIds(array $source, string $indicatorName): array
-    {
-        $codes = $this->lookupCodesForSource($source, $indicatorName);
-        $ids = [];
-
-        foreach ($codes as $code) {
-            foreach ($this->candidateCodesForLookup($code) as $candidate) {
-                if (isset($this->deliverableIdsByCode[$candidate])) {
-                    $ids[] = (int) $this->deliverableIdsByCode[$candidate];
-                }
-            }
-        }
-
-        $serviceDeliverableIds = Service::query()
-            ->where('is_active', true)
-            ->where(function ($q) use ($codes): void {
-                foreach ($codes as $code) {
-                    foreach ($this->candidateCodesForLookup($code) as $candidate) {
-                        $q->orWhere('code', $candidate);
-                    }
-                }
-            })
-            ->pluck('deliverable_id');
-
-        foreach ($serviceDeliverableIds as $id) {
-            if ($id) {
-                $ids[] = (int) $id;
-            }
-        }
-
-        if ($ids === [] && ($source['type'] ?? '') === 'target_name') {
-            $match = strtolower(trim((string) ($source['match'] ?? '')));
-            if ($match !== '') {
-                $ids = Deliverable::query()
-                    ->where('is_active', true)
-                    ->where(function ($q) use ($match): void {
-                        $q->whereRaw('LOWER(name) LIKE ?', ['%'.$match.'%'])
-                            ->orWhereRaw('LOWER(mis_entry_label) LIKE ?', ['%'.$match.'%']);
-                    })
-                    ->pluck('id')
-                    ->map(fn ($id) => (int) $id)
-                    ->all();
-            }
-        }
-
-        if ($ids === [] && $indicatorName !== '') {
-            $needle = strtolower($indicatorName);
-            $ids = Deliverable::query()
-                ->where('is_active', true)
-                ->where(function ($q) use ($needle): void {
-                    $q->whereRaw('LOWER(name) LIKE ?', ['%'.$needle.'%'])
-                        ->orWhereRaw('LOWER(mis_entry_label) LIKE ?', ['%'.$needle.'%']);
-                })
-                ->limit(3)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
-        }
-
-        return array_values(array_unique($ids));
-    }
-
-    /**
-     * @param  array<string, mixed>  $source
-     * @return list<string>
-     */
-    private function lookupCodesForSource(array $source, string $indicatorName): array
-    {
-        return match ($source['type'] ?? 'none') {
-            'deliverable' => [(string) ($source['code'] ?? '')],
-            'service' => [(string) ($source['code'] ?? '')],
-            'services' => array_map('strval', (array) ($source['codes'] ?? [])),
-            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count',
-            'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants',
-            'technical_training_potential_lakhpati_participations' => [(string) ($source['deliverable_code'] ?? '')],
-            default => [],
-        };
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function candidateCodesForLookup(string $code): array
-    {
-        $code = strtolower(trim($code));
-        if ($code === '') {
-            return [];
-        }
-
-        $codes = array_values(array_unique(array_filter([
-            $code,
-            $this->serviceTargetDeliverables->deliverableCodeForServiceCode($code),
-        ])));
-
-        $aliases = config('program_deliverables.target_code_aliases.'.$code, []);
-        if (is_array($aliases)) {
-            foreach ($aliases as $alias) {
-                $alias = strtolower(trim((string) $alias));
-                if ($alias === '') {
-                    continue;
-                }
-                $codes[] = $alias;
-                $codes[] = $this->serviceTargetDeliverables->deliverableCodeForServiceCode($alias);
-            }
-        }
-
-        return array_values(array_unique(array_filter($codes)));
-    }
-
-    /**
-     * @param  array<string, mixed>  $source
      * @return array{label: string, route: string|null, note: string}
      */
     private function loggingModule(string $role, string $sourceType, array $source, string $level): array
@@ -472,26 +349,37 @@ class ProgramDeliverablesActivityGuideService
             default => 'admin.',
         };
 
-        $pick = function (string $suffix, string $label, string $note = '') use ($prefix): array {
+        $pick = function (string $suffix, string $label, string $note = '', ?string $adminSuffix = null) use ($prefix): array {
+            if ($prefix === 'admin.' && $adminSuffix !== null) {
+                $adminRoute = 'admin.'.$adminSuffix;
+                if (Route::has($adminRoute)) {
+                    return ['label' => $label, 'route' => $adminRoute, 'note' => $note];
+                }
+            }
+
             $route = $prefix.$suffix;
             if (! Route::has($route)) {
-                return ['label' => $label, 'route' => null, 'note' => $note ?: 'Module route not registered.'];
+                $staffNote = $prefix === 'admin.'
+                    ? ($note !== '' ? $note.' ' : '').'District staff log this in their portal.'
+                    : ($note ?: 'Module route not registered.');
+
+                return ['label' => $label, 'route' => null, 'note' => trim($staffNote)];
             }
 
             return ['label' => $label, 'route' => $route, 'note' => $note];
         };
 
         return match ($sourceType) {
-            'cfa_count' => $pick('applications', 'CFA → Applications', 'Referral-linked CFA applications.'),
-            'onboarding_count' => $pick('batches.index', 'CFA → Batches', 'Lock onboarding batches.'),
-            'potential_lakhpati_onboarding_count' => $pick('batches.index', 'CFA → Batches', 'Lakhpati / SHG / CBO onboarding subset.'),
+            'cfa_count' => $pick('applications', 'CFA → Applications', 'Referral-linked CFA applications.', 'cfa.index'),
+            'onboarding_count' => $pick('batches.index', 'CFA → Batches', 'Lock onboarding batches.', 'onboarded.index'),
+            'potential_lakhpati_onboarding_count' => $pick('batches.index', 'CFA → Batches', 'Lakhpati / SHG / CBO onboarding subset.', 'onboarded.index'),
             'field_work_workshops', 'field_visit_sessions' => $pick('attendance.index', 'Field work → Block workshop', 'Field visit / block workshop reports.'),
             'field_work_participants', 'field_visit_participants' => $pick('attendance.index', 'Field work → Block workshop', 'Female participants from field work form.'),
             'district_workshop_sessions' => $pick('district-workshop-sessions.dashboard', 'Field work → District workshop', 'District-level workshops.'),
             'edp_sessions' => $pick('eap-edp-sessions.dashboard', 'Field work → EAP / EDP', 'EAP/EDP session attendance.'),
             'bst_sessions', 'bst_participants' => $pick('training-packages.dashboard', 'Field work → Training package', 'BST sessions & participants.'),
             'technical_training_sessions', 'technical_training_potential_lakhpati_participations' => $pick('technical-trainings.dashboard', 'Field work → Technical training', 'Technical training sessions.'),
-            'deliverable', 'service', 'services' => $pick('services.index', 'Service → Add service case', 'Approved service cases count toward achievement.'),
+            'deliverable', 'service', 'services' => $pick('services.index', 'Service → Service cases', 'Approved service cases count toward achievement.', 'phase3-services.index'),
             'market_linkage_unique_partners', 'market_linkage_incubatees' => $pick('market-linkages.dashboard', 'Service → Market linkage', 'Market linkage partners & incubatees.'),
             default => [
                 'label' => 'Achievement records',

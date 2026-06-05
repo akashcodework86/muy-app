@@ -492,7 +492,7 @@ return [
         'fssai' => ['fssai_registration', 'fssai_renewal', 'fssai_registration_renewal'],
         'gst' => ['gst_registration'],
         'artisan_card' => ['artisan_card_registration'],
-        'utdb_registration' => ['utdb_registration_bf', 'utdb_registration'],
+        'utdb_registration' => ['utdb_registration_bf', 'utdb_registration', 'utdb'],
         'trademark' => ['trademark_registration'],
         'gi_seller' => ['gi_seller_registration'],
     ],
