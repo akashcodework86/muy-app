@@ -180,7 +180,7 @@ return [
                         [
                             'name' => 'GST Registration',
                             'row_type' => 'leaf',
-                            'indicator_type' => 'Key Indicator',
+                            'indicator_type' => 'Non-Key',
                             'level' => 'Spoke & Hub',
                             'source' => ['type' => 'deliverable', 'code' => 'gst'],
                         ],

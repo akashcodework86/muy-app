@@ -92,7 +92,7 @@ class ProgramDeliverablesAchievementBreakdownService
         return [
             'serial' => $serial,
             'name' => (string) ($leaf['name'] ?? ''),
-            'indicator_type' => (string) ($leaf['indicator_type'] ?? ''),
+            'indicator_type' => ProgramDeliverableReportingTier::indicatorTypeLabel($leaf),
             'level' => (string) ($leaf['level'] ?? ''),
             'source_type' => $sourceType,
             'source_type_label' => $sourceTypeLabel,

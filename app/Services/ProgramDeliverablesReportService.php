@@ -12,6 +12,7 @@ use App\Models\ServiceCase;
 use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
 use App\Models\User;
+use App\Services\Deliverables\ProgramDeliverableReportingTier;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Support\BstTrainingDeliverablesSupport;
@@ -1354,7 +1355,7 @@ SQL;
             'row_type' => (string) ($node['row_type'] ?? 'leaf'),
             'serial' => $serial,
             'name' => (string) ($node['name'] ?? ''),
-            'indicator_type' => (string) ($node['indicator_type'] ?? ''),
+            'indicator_type' => ProgramDeliverableReportingTier::indicatorTypeLabel($node),
             'level' => (string) ($node['level'] ?? ''),
             'target' => $target,
             'achievement' => $achievement,
