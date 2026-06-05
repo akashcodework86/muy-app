@@ -178,7 +178,6 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::middleware('district_staff')->prefix('my')->name('staff.')->group(function () {
         Route::get('monthly-targets', [StaffPortalController::class, 'monthlyTargets'])->name('monthly-targets');
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
-        Route::get('deliverables/activity-guide', [DeliverablesReportController::class, 'activityGuide'])->name('deliverables.activity-guide');
         Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
         Route::get('deliverables/breakdown/export/csv', [DeliverablesReportController::class, 'breakdownExportCsv'])->name('deliverables.breakdown.export.csv');
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
@@ -469,7 +468,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
         Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
-        Route::get('deliverables/activity-guide', [DeliverablesReportController::class, 'activityGuide'])->name('deliverables.activity-guide');
         Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
         Route::get('deliverables/breakdown/export/csv', [DeliverablesReportController::class, 'breakdownExportCsv'])->name('deliverables.breakdown.export.csv');
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
@@ -798,7 +796,6 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
-        Route::get('deliverables/activity-guide', [DeliverablesReportController::class, 'activityGuide'])->name('deliverables.activity-guide');
         Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
         Route::get('deliverables/breakdown/export/csv', [DeliverablesReportController::class, 'breakdownExportCsv'])->name('deliverables.breakdown.export.csv');
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');

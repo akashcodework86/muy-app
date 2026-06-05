@@ -43,6 +43,8 @@ class DeliverablesReportController extends Controller
 
     public function activityGuide(Request $request): View
     {
+        abort_unless($request->user()?->role === 'state_admin', 403);
+
         $context = $this->resolveRequestContext($request);
         $payload = $this->buildReportPayload($context);
         $guide = $this->activityGuideService->build($payload['rows'], $context['user']->role);
@@ -238,7 +240,8 @@ class DeliverablesReportController extends Controller
             'scopeLabel' => $scope->scopeLabel($safeFilter->districtId),
             'periodLabel' => $this->periodLabel($periodFrom, $periodTo, $safeFilter),
             'indexRoute' => $this->routeNameFor($user, 'index'),
-            'activityGuideRoute' => $this->routeNameFor($user, 'activity-guide'),
+            'showActivityGuideLink' => $user->role === 'state_admin',
+            'activityGuideRoute' => 'admin.deliverables.activity-guide',
             'exportRoute' => $this->routeNameFor($user, 'export'),
             'breakdownRoute' => $this->routeNameFor($user, 'breakdown'),
             'breakdownExportRoute' => $this->routeNameFor($user, 'breakdown.export'),

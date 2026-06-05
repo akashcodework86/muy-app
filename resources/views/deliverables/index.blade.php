@@ -52,7 +52,9 @@
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;cursor:pointer;">Apply</button>
         <a href="{{ route($indexRoute) }}" style="padding:0.48rem 0.75rem;border:1px solid #d4d4d8;border-radius:8px;text-decoration:none;color:#334155;font-size:0.88rem;">Reset</a>
         <a href="{{ route($exportRoute, $queryParams) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;">⬇ Export .xlsx</a>
-        <a href="{{ route($activityGuideRoute, $queryParams) }}" style="text-decoration:none;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:0.48rem 0.9rem;border-radius:8px;font-weight:700;font-size:0.88rem;">Activity guide →</a>
+        @if ($showActivityGuideLink ?? false)
+            <a href="{{ route($activityGuideRoute, $queryParams) }}" style="text-decoration:none;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:0.48rem 0.9rem;border-radius:8px;font-weight:700;font-size:0.88rem;">Activity guide →</a>
+        @endif
         @if ($showStateTargetsLink ?? false)
             <a href="{{ route('admin.targets.state', ['fiscal_year_id' => $fiscalYearId]) }}" style="font-size:0.85rem;color:#4f46e5;margin-left:auto;">Edit state targets →</a>
         @endif
