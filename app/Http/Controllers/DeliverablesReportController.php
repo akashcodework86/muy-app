@@ -47,7 +47,11 @@ class DeliverablesReportController extends Controller
 
         $context = $this->resolveRequestContext($request);
         $payload = $this->buildReportPayload($context);
-        $guide = $this->activityGuideService->build($payload['rows'], $context['user']->role);
+        $guide = $this->activityGuideService->build(
+            $payload['rows'],
+            $context['user']->role,
+            (int) ($payload['fiscalYearId'] ?? 0),
+        );
 
         return view('deliverables.activity-guide', [
             ...$payload,

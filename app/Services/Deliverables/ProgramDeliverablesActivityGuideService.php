@@ -2,14 +2,29 @@
 
 namespace App\Services\Deliverables;
 
+use App\Models\Deliverable;
+use App\Models\District;
+use App\Models\DistrictDeliverableTarget;
+use App\Models\Service;
+use App\Models\StaffMonthlyTarget;
+use App\Models\StateDeliverableTarget;
+use App\Models\User;
+use App\Services\ServiceTargetDeliverableSyncService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 
 /**
- * Maps each deliverables-matrix indicator to its logging module, target, and progress status.
+ * MIS setup guide: target cascade (state → district → staff), input module, achievement wiring.
  */
 class ProgramDeliverablesActivityGuideService
 {
+    /** @var array<string, int> */
+    private array $deliverableIdsByCode = [];
+
+    public function __construct(
+        private readonly ServiceTargetDeliverableSyncService $serviceTargetDeliverables,
+    ) {}
+
     /**
      * @param  list<array<string, mixed>>  $reportRows
      * @return array{
@@ -17,8 +32,14 @@ class ProgramDeliverablesActivityGuideService
      *     summary: array<string, int>
      * }
      */
-    public function build(array $reportRows, string $role): array
+    public function build(array $reportRows, string $role, int $fiscalYearId): array
     {
+        $this->deliverableIdsByCode = Deliverable::query()
+            ->where('is_active', true)
+            ->pluck('id', 'code')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         $bySerial = collect($reportRows)->keyBy('serial');
         $rows = [];
         $pillarIndex = 0;
@@ -26,33 +47,25 @@ class ProgramDeliverablesActivityGuideService
         foreach (config('program_deliverables.matrix', []) as $pillar) {
             $pillarIndex++;
             $pillarName = (string) ($pillar['name'] ?? '');
-            $this->walkNode($pillar, [(string) $pillarIndex], $pillarName, $bySerial, $role, $rows);
+            $this->walkNode($pillar, [(string) $pillarIndex], $pillarName, $bySerial, $role, $fiscalYearId, $rows);
         }
 
         $summary = [
             'total' => count($rows),
-            'target_set' => 0,
-            'met' => 0,
-            'in_progress' => 0,
-            'pending' => 0,
-            'no_target' => 0,
-            'not_wired' => 0,
-            'tracking_only' => 0,
+            'ready' => 0,
+            'target_gap' => 0,
+            'input_missing' => 0,
+            'tracking_na' => 0,
         ];
 
         foreach ($rows as $row) {
-            match ($row['status']) {
-                'met' => $summary['met']++,
-                'in_progress' => $summary['in_progress']++,
-                'pending' => $summary['pending']++,
-                'no_target' => $summary['no_target']++,
-                'not_wired' => $summary['not_wired']++,
-                'tracking_only' => $summary['tracking_only']++,
+            match ($row['overall_status']) {
+                'ready' => $summary['ready']++,
+                'target_gap' => $summary['target_gap']++,
+                'input_missing' => $summary['input_missing']++,
+                'tracking_na' => $summary['tracking_na']++,
                 default => null,
             };
-            if ($row['target'] !== null && (int) $row['target'] > 0) {
-                $summary['target_set']++;
-            }
         }
 
         return ['rows' => $rows, 'summary' => $summary];
@@ -70,6 +83,7 @@ class ProgramDeliverablesActivityGuideService
         string $pillarName,
         Collection $bySerial,
         string $role,
+        int $fiscalYearId,
         array &$out,
     ): void {
         $rowType = (string) ($node['row_type'] ?? 'leaf');
@@ -79,28 +93,41 @@ class ProgramDeliverablesActivityGuideService
             $report = $bySerial->get($serial, []);
             $source = $node['source'] ?? ['type' => 'none'];
             $sourceType = (string) ($source['type'] ?? 'none');
+            $indicatorName = (string) ($node['name'] ?? '');
             $target = is_array($report) ? ($report['target'] ?? null) : null;
             $achievement = is_array($report) ? (int) ($report['achievement'] ?? 0) : 0;
-            $achievementPct = is_array($report) ? ($report['achievement_pct'] ?? null) : null;
             $module = $this->loggingModule($role, $sourceType, $source, (string) ($node['level'] ?? ''));
+            $input = $this->assessInputMechanism($sourceType, $module);
+            $tracking = $this->assessAchievementTracking($sourceType, is_array($report) && ($report['drilldown'] ?? false));
+            $deliverableIds = $this->resolveDeliverableIds($source, $indicatorName);
+            $targetSetup = $fiscalYearId > 0
+                ? $this->assessTargetCascade($fiscalYearId, $deliverableIds, $sourceType)
+                : $this->emptyTargetSetup('Select a fiscal year to check targets.');
+            $overall = $this->resolveOverallStatus($input, $tracking, $targetSetup, $sourceType);
 
             $out[] = [
                 'serial' => $serial,
                 'pillar' => $pillarName,
-                'name' => (string) ($node['name'] ?? ''),
+                'name' => $indicatorName,
                 'indicator_type' => ProgramDeliverableReportingTier::indicatorTypeLabel($node),
                 'level' => (string) ($node['level'] ?? ''),
                 'target' => $target !== null ? (int) $target : null,
                 'achievement' => $achievement,
-                'achievement_pct' => $achievementPct,
-                'gap' => ($target !== null && (int) $target > 0) ? max(0, (int) $target - $achievement) : null,
                 'source_type' => $sourceType,
                 'achievement_source' => $this->achievementSourceLabel($sourceType),
                 'logging_module' => $module['label'],
                 'logging_route' => $module['route'],
                 'logging_note' => $module['note'],
-                'status' => $this->resolveStatus($sourceType, $target, $achievement, $achievementPct),
-                'status_label' => $this->statusLabel($sourceType, $target, $achievement, $achievementPct),
+                'input_status' => $input['status'],
+                'input_status_label' => $input['label'],
+                'target_state_label' => $targetSetup['state_label'],
+                'target_district_label' => $targetSetup['district_label'],
+                'target_staff_label' => $targetSetup['staff_label'],
+                'target_note' => $targetSetup['note'],
+                'achievement_status' => $tracking['status'],
+                'achievement_status_label' => $tracking['label'],
+                'overall_status' => $overall['status'],
+                'overall_status_label' => $overall['label'],
                 'drilldown' => is_array($report) && ($report['drilldown'] ?? false),
             ];
         }
@@ -108,8 +135,309 @@ class ProgramDeliverablesActivityGuideService
         $childIndex = 0;
         foreach ($node['children'] ?? [] as $child) {
             $childIndex++;
-            $this->walkNode($child, [...$serialParts, (string) $childIndex], $pillarName, $bySerial, $role, $out);
+            $this->walkNode($child, [...$serialParts, (string) $childIndex], $pillarName, $bySerial, $role, $fiscalYearId, $out);
         }
+    }
+
+    /**
+     * @return array{status: string, label: string}
+     */
+    private function assessInputMechanism(string $sourceType, array $module): array
+    {
+        if (in_array($sourceType, ['none', 'target_name'], true)) {
+            return ['status' => 'missing', 'label' => 'No input module'];
+        }
+
+        if ($module['route'] !== null) {
+            return ['status' => 'complete', 'label' => 'Input module ready'];
+        }
+
+        return ['status' => 'partial', 'label' => 'Module mapped, route missing'];
+    }
+
+    /**
+     * @return array{status: string, label: string}
+     */
+    private function assessAchievementTracking(string $sourceType, bool $drilldown): array
+    {
+        if (in_array($sourceType, ['none', 'target_name'], true)) {
+            return ['status' => 'na', 'label' => 'Not auto-tracked'];
+        }
+
+        if ($drilldown) {
+            return ['status' => 'active', 'label' => 'Achievement wired'];
+        }
+
+        return ['status' => 'partial', 'label' => 'Counted, no drilldown'];
+    }
+
+    /**
+     * @param  list<int>  $deliverableIds
+     * @return array{
+     *     state_label: string,
+     *     district_label: string,
+     *     staff_label: string,
+     *     note: string,
+     *     state_ok: bool,
+     *     district_ok: bool,
+     *     staff_ok: bool
+     * }
+     */
+    private function assessTargetCascade(int $fiscalYearId, array $deliverableIds, string $sourceType): array
+    {
+        if (in_array($sourceType, ['none'], true)) {
+            return $this->emptyTargetSetup('Indicator not mapped to FY targets.');
+        }
+
+        if ($deliverableIds === []) {
+            return $this->emptyTargetSetup('No deliverable row linked — check MIS name / service catalog.');
+        }
+
+        $stateTotal = (int) StateDeliverableTarget::query()
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('deliverable_id', $deliverableIds)
+            ->sum('target_total');
+
+        $districtTotal = (int) DistrictDeliverableTarget::query()
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('deliverable_id', $deliverableIds)
+            ->sum('target_total');
+
+        $staffTotal = (int) StaffMonthlyTarget::query()
+            ->where('fiscal_year_id', $fiscalYearId)
+            ->whereIn('deliverable_id', $deliverableIds)
+            ->sum('target_count');
+
+        $stateOk = $stateTotal > 0;
+        $districtOk = $stateOk && $districtTotal === $stateTotal;
+        $staffOk = $districtOk && $staffTotal === $districtTotal && $this->allDistrictsStaffAligned($fiscalYearId, $deliverableIds);
+
+        $stateLabel = $stateOk ? 'State ✓ ('.number_format($stateTotal).')' : 'State ✗ not set';
+        $districtLabel = ! $stateOk
+            ? 'District —'
+            : ($districtOk ? 'District ✓ ('.number_format($districtTotal).')' : 'District ✗ gap ('.number_format($districtTotal).' ≠ '.number_format($stateTotal).')');
+        $staffLabel = ! $districtOk
+            ? 'Staff —'
+            : ($staffOk ? 'Staff ✓ ('.number_format($staffTotal).')' : 'Staff ✗ gap ('.number_format($staffTotal).' ≠ '.number_format($districtTotal).')');
+
+        $note = '';
+        if ($stateOk && $districtOk && $staffOk) {
+            $note = 'Targets aligned: state → district → staff.';
+        } elseif ($stateOk && ! $districtOk) {
+            $note = 'District allocation does not match state total.';
+        } elseif ($districtOk && ! $staffOk) {
+            $note = 'Staff monthly targets do not match district allocation in one or more districts.';
+        } elseif (! $stateOk) {
+            $note = 'Set state FY target first, then district and staff monthlies.';
+        }
+
+        return [
+            'state_label' => $stateLabel,
+            'district_label' => $districtLabel,
+            'staff_label' => $staffLabel,
+            'note' => $note,
+            'state_ok' => $stateOk,
+            'district_ok' => $districtOk,
+            'staff_ok' => $staffOk,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     state_label: string,
+     *     district_label: string,
+     *     staff_label: string,
+     *     note: string,
+     *     state_ok: bool,
+     *     district_ok: bool,
+     *     staff_ok: bool
+     * }
+     */
+    private function emptyTargetSetup(string $note): array
+    {
+        return [
+            'state_label' => 'State —',
+            'district_label' => 'District —',
+            'staff_label' => 'Staff —',
+            'note' => $note,
+            'state_ok' => false,
+            'district_ok' => false,
+            'staff_ok' => false,
+        ];
+    }
+
+    /**
+     * @param  list<int>  $deliverableIds
+     */
+    private function allDistrictsStaffAligned(int $fiscalYearId, array $deliverableIds): bool
+    {
+        foreach (District::query()->pluck('id') as $districtId) {
+            $districtTarget = (int) DistrictDeliverableTarget::query()
+                ->where('fiscal_year_id', $fiscalYearId)
+                ->where('district_id', $districtId)
+                ->whereIn('deliverable_id', $deliverableIds)
+                ->sum('target_total');
+
+            if ($districtTarget === 0) {
+                continue;
+            }
+
+            $userIds = User::query()->where('district_id', $districtId)->pluck('id');
+            $staffSum = (int) StaffMonthlyTarget::query()
+                ->where('fiscal_year_id', $fiscalYearId)
+                ->whereIn('deliverable_id', $deliverableIds)
+                ->whereIn('user_id', $userIds)
+                ->sum('target_count');
+
+            if ($staffSum !== $districtTarget) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array{state_ok: bool, district_ok: bool, staff_ok: bool}  $targetSetup
+     * @return array{status: string, label: string}
+     */
+    private function resolveOverallStatus(array $input, array $tracking, array $targetSetup, string $sourceType): array
+    {
+        if (in_array($sourceType, ['none', 'target_name'], true)) {
+            return ['status' => 'tracking_na', 'label' => 'Not configured in app'];
+        }
+
+        if ($input['status'] === 'missing') {
+            return ['status' => 'input_missing', 'label' => 'Input not wired'];
+        }
+
+        if ($tracking['status'] === 'na') {
+            return ['status' => 'tracking_na', 'label' => 'Achievement not tracked'];
+        }
+
+        if ($targetSetup['state_ok'] && $targetSetup['district_ok'] && $targetSetup['staff_ok']
+            && $input['status'] === 'complete' && $tracking['status'] === 'active') {
+            return ['status' => 'ready', 'label' => 'Fully configured'];
+        }
+
+        if (! $targetSetup['state_ok'] || ! $targetSetup['district_ok'] || ! $targetSetup['staff_ok']) {
+            return ['status' => 'target_gap', 'label' => 'Target setup incomplete'];
+        }
+
+        return ['status' => 'target_gap', 'label' => 'Review setup'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     * @return list<int>
+     */
+    private function resolveDeliverableIds(array $source, string $indicatorName): array
+    {
+        $codes = $this->lookupCodesForSource($source, $indicatorName);
+        $ids = [];
+
+        foreach ($codes as $code) {
+            foreach ($this->candidateCodesForLookup($code) as $candidate) {
+                if (isset($this->deliverableIdsByCode[$candidate])) {
+                    $ids[] = (int) $this->deliverableIdsByCode[$candidate];
+                }
+            }
+        }
+
+        $serviceDeliverableIds = Service::query()
+            ->where('is_active', true)
+            ->where(function ($q) use ($codes): void {
+                foreach ($codes as $code) {
+                    foreach ($this->candidateCodesForLookup($code) as $candidate) {
+                        $q->orWhere('code', $candidate);
+                    }
+                }
+            })
+            ->pluck('deliverable_id');
+
+        foreach ($serviceDeliverableIds as $id) {
+            if ($id) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        if ($ids === [] && ($source['type'] ?? '') === 'target_name') {
+            $match = strtolower(trim((string) ($source['match'] ?? '')));
+            if ($match !== '') {
+                $ids = Deliverable::query()
+                    ->where('is_active', true)
+                    ->where(function ($q) use ($match): void {
+                        $q->whereRaw('LOWER(name) LIKE ?', ['%'.$match.'%'])
+                            ->orWhereRaw('LOWER(mis_entry_label) LIKE ?', ['%'.$match.'%']);
+                    })
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+            }
+        }
+
+        if ($ids === [] && $indicatorName !== '') {
+            $needle = strtolower($indicatorName);
+            $ids = Deliverable::query()
+                ->where('is_active', true)
+                ->where(function ($q) use ($needle): void {
+                    $q->whereRaw('LOWER(name) LIKE ?', ['%'.$needle.'%'])
+                        ->orWhereRaw('LOWER(mis_entry_label) LIKE ?', ['%'.$needle.'%']);
+                })
+                ->limit(3)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     * @return list<string>
+     */
+    private function lookupCodesForSource(array $source, string $indicatorName): array
+    {
+        return match ($source['type'] ?? 'none') {
+            'deliverable' => [(string) ($source['code'] ?? '')],
+            'service' => [(string) ($source['code'] ?? '')],
+            'services' => array_map('strval', (array) ($source['codes'] ?? [])),
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count',
+            'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants',
+            'technical_training_potential_lakhpati_participations' => [(string) ($source['deliverable_code'] ?? '')],
+            default => [],
+        };
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function candidateCodesForLookup(string $code): array
+    {
+        $code = strtolower(trim($code));
+        if ($code === '') {
+            return [];
+        }
+
+        $codes = array_values(array_unique(array_filter([
+            $code,
+            $this->serviceTargetDeliverables->deliverableCodeForServiceCode($code),
+        ])));
+
+        $aliases = config('program_deliverables.target_code_aliases.'.$code, []);
+        if (is_array($aliases)) {
+            foreach ($aliases as $alias) {
+                $alias = strtolower(trim((string) $alias));
+                if ($alias === '') {
+                    continue;
+                }
+                $codes[] = $alias;
+                $codes[] = $this->serviceTargetDeliverables->deliverableCodeForServiceCode($alias);
+            }
+        }
+
+        return array_values(array_unique(array_filter($codes)));
     }
 
     /**
@@ -123,22 +451,12 @@ class ProgramDeliverablesActivityGuideService
                 'label' => 'Not auto-tracked in app',
                 'route' => null,
                 'note' => $sourceType === 'target_name'
-                    ? 'Target may exist in MIS plan; achievement is not wired to a staff module yet.'
-                    : 'Placeholder indicator — log manually or pending MIS wiring.',
+                    ? 'Target may exist in MIS plan; no staff logging module linked yet.'
+                    : 'Placeholder indicator — pending MIS wiring.',
             ];
         }
 
-        if ($level === 'State' && $role === 'district_staff') {
-            $module = $this->moduleBySourceType($sourceType, $source, 'state_admin');
-
-            return [
-                'label' => $module['label'],
-                'route' => null,
-                'note' => 'State-level indicator — usually logged by state / hub team, not district staff.',
-            ];
-        }
-
-        return $this->moduleBySourceType($sourceType, $source, $role);
+        return $this->moduleBySourceType($sourceType, $source, 'state_admin');
     }
 
     /**
@@ -157,24 +475,24 @@ class ProgramDeliverablesActivityGuideService
         $pick = function (string $suffix, string $label, string $note = '') use ($prefix): array {
             $route = $prefix.$suffix;
             if (! Route::has($route)) {
-                return ['label' => $label, 'route' => null, 'note' => $note ?: 'Module not available for this role.'];
+                return ['label' => $label, 'route' => null, 'note' => $note ?: 'Module route not registered.'];
             }
 
             return ['label' => $label, 'route' => $route, 'note' => $note];
         };
 
         return match ($sourceType) {
-            'cfa_count' => $pick('applications', 'CFA → Applications', 'Add referral-linked CFA applications.'),
-            'onboarding_count' => $pick('batches.index', 'CFA → Batches', 'Lock onboarding batches to count incubatees onboarded.'),
-            'potential_lakhpati_onboarding_count' => $pick('batches.index', 'CFA → Batches', 'Subset of onboarded incubatees (Potential Lakhpati / SHG / CBO).'),
-            'field_work_workshops', 'field_visit_sessions' => $pick('attendance.index', 'Field work → Block level workshop', 'Submit field visit / outreach workshop reports.'),
-            'field_work_participants', 'field_visit_participants' => $pick('attendance.index', 'Field work → Block level workshop', 'Female participant count comes from the same field work form.'),
-            'district_workshop_sessions' => $pick('district-workshop-sessions.dashboard', 'Field work → District workshop', 'District-level workshop sessions.'),
-            'edp_sessions' => $pick('eap-edp-sessions.dashboard', 'Field work → EAP / EDP', 'Log EAP/EDP session attendance.'),
-            'bst_sessions', 'bst_participants' => $pick('training-packages.dashboard', 'Field work → Training package', 'Business skills training sessions & participants.'),
-            'technical_training_sessions', 'technical_training_potential_lakhpati_participations' => $pick('technical-trainings.dashboard', 'Field work → Technical training', 'Technical training sessions & participations.'),
+            'cfa_count' => $pick('applications', 'CFA → Applications', 'Referral-linked CFA applications.'),
+            'onboarding_count' => $pick('batches.index', 'CFA → Batches', 'Lock onboarding batches.'),
+            'potential_lakhpati_onboarding_count' => $pick('batches.index', 'CFA → Batches', 'Lakhpati / SHG / CBO onboarding subset.'),
+            'field_work_workshops', 'field_visit_sessions' => $pick('attendance.index', 'Field work → Block workshop', 'Field visit / block workshop reports.'),
+            'field_work_participants', 'field_visit_participants' => $pick('attendance.index', 'Field work → Block workshop', 'Female participants from field work form.'),
+            'district_workshop_sessions' => $pick('district-workshop-sessions.dashboard', 'Field work → District workshop', 'District-level workshops.'),
+            'edp_sessions' => $pick('eap-edp-sessions.dashboard', 'Field work → EAP / EDP', 'EAP/EDP session attendance.'),
+            'bst_sessions', 'bst_participants' => $pick('training-packages.dashboard', 'Field work → Training package', 'BST sessions & participants.'),
+            'technical_training_sessions', 'technical_training_potential_lakhpati_participations' => $pick('technical-trainings.dashboard', 'Field work → Technical training', 'Technical training sessions.'),
             'deliverable', 'service', 'services' => $pick('services.index', 'Service → Add service case', 'Approved service cases count toward achievement.'),
-            'market_linkage_unique_partners', 'market_linkage_incubatees' => $pick('market-linkages.dashboard', 'Service → Market linkage', 'Market linkage partners & linked incubatees.'),
+            'market_linkage_unique_partners', 'market_linkage_incubatees' => $pick('market-linkages.dashboard', 'Service → Market linkage', 'Market linkage partners & incubatees.'),
             default => [
                 'label' => 'Achievement records',
                 'route' => Route::has($prefix.'deliverables.index') ? $prefix.'deliverables.index' : null,
@@ -203,42 +521,6 @@ class ProgramDeliverablesActivityGuideService
             'none' => 'Not wired',
             'target_name' => 'Name-matched deliverable target',
             default => 'System achievement count',
-        };
-    }
-
-    private function resolveStatus(string $sourceType, mixed $target, int $achievement, mixed $achievementPct): string
-    {
-        if (in_array($sourceType, ['none', 'target_name'], true)) {
-            return 'not_wired';
-        }
-
-        $targetN = $target !== null ? (int) $target : null;
-
-        if ($targetN === null || $targetN <= 0) {
-            return $achievement > 0 ? 'tracking_only' : 'no_target';
-        }
-
-        if ($achievement >= $targetN) {
-            return 'met';
-        }
-
-        if ($achievement > 0) {
-            return 'in_progress';
-        }
-
-        return 'pending';
-    }
-
-    private function statusLabel(string $sourceType, mixed $target, int $achievement, mixed $achievementPct): string
-    {
-        return match ($this->resolveStatus($sourceType, $target, $achievement, $achievementPct)) {
-            'met' => 'Target met',
-            'in_progress' => 'In progress',
-            'pending' => 'Pending — start logging',
-            'no_target' => 'Target not set',
-            'tracking_only' => 'Tracking only (no FY target)',
-            'not_wired' => 'Not wired in app',
-            default => '—',
         };
     }
 }
