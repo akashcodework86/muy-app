@@ -160,6 +160,35 @@ class LegacyPhase2IncubateeProfileController extends Controller
             ->with('status', 'Profile picture updated.');
     }
 
+    public function updateLakhpati(Request $request, int $legacy_application): RedirectResponse
+    {
+        $staff = $request->user();
+        $this->legacySupport->assertLegacyApplicationInStaffDistrict($staff, $legacy_application);
+
+        if (! $this->profileService->lakhpatiColumnAvailable()) {
+            return redirect()->back()->withErrors([
+                'lakhpati' => 'Legacy Lakhpati Didi field is not available.',
+            ]);
+        }
+
+        $request->validate([
+            'lakhpati' => ['required', 'in:Yes,No'],
+        ], [
+            'lakhpati.required' => 'Please choose Yes or No.',
+            'lakhpati.in' => 'Lakhpati Didi must be Yes or No.',
+        ]);
+
+        if (! $this->profileService->updateLakhpati($legacy_application, (string) $request->input('lakhpati'))) {
+            return redirect()->back()->withErrors([
+                'lakhpati' => 'Could not update Lakhpati Didi for this application.',
+            ]);
+        }
+
+        return redirect()
+            ->route('staff.phase2-profile.show', ['legacy_application' => $legacy_application])
+            ->with('status', 'Lakhpati Didi updated.');
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */

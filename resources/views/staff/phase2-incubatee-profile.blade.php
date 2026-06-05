@@ -320,6 +320,17 @@
         <button type="button" id="p2-downloadBtn" onclick="p2DownloadPdf()">Download PDF</button>
     </div>
 
+    @if (session('status'))
+        <p class="p2-no-print" style="margin:0 0 0.55rem;padding:0.45rem 0.65rem;border-radius:0.375rem;background:#ecfdf5;color:#065f46;font-size:0.75rem;font-weight:600;">{{ session('status') }}</p>
+    @endif
+    @if ($errors->any())
+        <div class="p2-no-print" style="margin:0 0 0.55rem;padding:0.45rem 0.65rem;border-radius:0.375rem;background:#fef2f2;color:#991b1b;font-size:0.75rem;">
+            @foreach ($errors->all() as $error)
+                <p style="margin:0;">{{ $error }}</p>
+            @endforeach
+        </div>
+    @endif
+
     <div id="p2-profile" class="shadow-sm p2-print-area p2-watermark">
         <header class="p2-profile-header">
             <div class="p2-profile-header__crest p2-profile-header__crest--left" title="Government of Uttarakhand">
@@ -373,6 +384,22 @@
                     <li><strong>Caste</strong><span>{{ $p['caste'] ?? '—' }}</span></li>
                     <li><strong>SHG member</strong><span>{{ $p['is_shg_member'] ?? '—' }}</span></li>
                     <li><strong>SHG name</strong><span>{{ $p['shg_name'] ?? '—' }}</span></li>
+                    <li>
+                        <strong>Lakhpati Didi</strong>
+                        <span>
+                            {{ $p['lakhpati'] ?? '—' }}
+                            @if (! empty($profile['lakhpati_editable']))
+                                <form action="{{ route('staff.phase2-profile.lakhpati.update', ['legacy_application' => $profile['legacy_application_id']]) }}" method="post" class="p2-no-print" style="display:inline-flex;flex-wrap:wrap;gap:0.25rem;margin-left:0.35rem;align-items:center;vertical-align:middle;">
+                                    @csrf
+                                    <select name="lakhpati" class="rounded border border-slate-300 px-1 py-0.5 text-xs" aria-label="Lakhpati Didi">
+                                        <option value="Yes" @selected(($p['lakhpati'] ?? '') === 'Yes')>Yes</option>
+                                        <option value="No" @selected(($p['lakhpati'] ?? '') !== 'Yes')>No</option>
+                                    </select>
+                                    <button type="submit" class="rounded bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white hover:bg-blue-700">Save</button>
+                                </form>
+                            @endif
+                        </span>
+                    </li>
                 </ul>
             </div>
 

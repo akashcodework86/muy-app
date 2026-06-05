@@ -229,6 +229,10 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->whereNumber('legacy_application')
             ->middleware('throttle:15,1')
             ->name('phase2-profile.photo.upload');
+        Route::post('phase2-applications/{legacy_application}/lakhpati', [LegacyPhase2IncubateeProfileController::class, 'updateLakhpati'])
+            ->whereNumber('legacy_application')
+            ->middleware('throttle:30,1')
+            ->name('phase2-profile.lakhpati.update');
         Route::get('attendance', [FieldCoordinatorAttendanceController::class, 'index'])->name('attendance.index');
         Route::post('attendance/draft', [FieldCoordinatorAttendanceController::class, 'createDraft'])
             ->middleware('throttle:30,1')

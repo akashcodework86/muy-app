@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\CfaSubmission;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Read-only legacy rbiphase2 "Incubatee profile" data (mirrors legacy PHP profile page queries).
+ * Legacy rbiphase2 "Incubatee profile" data (mirrors legacy PHP profile page queries).
  */
 class LegacyPhase2IncubateeProfileService
 {
@@ -34,7 +35,8 @@ class LegacyPhase2IncubateeProfileService
      *   product_image_urls: list<string>,
      *   services: list<array{service_name: string, category: string, assigned_on: ?string, partner_name: string, partner_link: string, served_by_name: string}>,
      *   profile_pic_filename: ?string,
-     *   profile_pic_storage_relative: ?string
+     *   profile_pic_storage_relative: ?string,
+     *   lakhpati_editable: bool
      * }|null
      */
     public function loadProfile(int $legacyApplicationId): ?array
@@ -44,6 +46,7 @@ class LegacyPhase2IncubateeProfileService
         }
 
         $hasEnterprise = $this->legacyHasTable('rbi_enterprise_details');
+        $hasLakhpati = $this->lakhpatiColumnAvailable();
 
         $base = DB::connection('legacy')
             ->table('rbi_applicant_details as d')
@@ -81,6 +84,10 @@ class LegacyPhase2IncubateeProfileService
             'd.submitted_by_name',
             'd.submitted_by_mobile',
         ];
+
+        if ($hasLakhpati) {
+            $select[] = 'd.lakhpati';
+        }
 
         if ($hasEnterprise) {
             $base->leftJoin(DB::raw('(
@@ -157,6 +164,7 @@ class LegacyPhase2IncubateeProfileService
             'migrated_for_employment' => (string) ($r['migrated_for_employment'] ?? 'N/A'),
             'submitted_by_name' => (string) ($r['submitted_by_name'] ?? 'N/A'),
             'submitted_by_mobile' => (string) ($r['submitted_by_mobile'] ?? 'N/A'),
+            'lakhpati' => $hasLakhpati ? $this->parseYesNo($r['lakhpati'] ?? null) : '—',
         ];
 
         $turnover = $r['turnover_last_year'] ?? null;
@@ -235,7 +243,90 @@ class LegacyPhase2IncubateeProfileService
             'services' => $services,
             'profile_pic_filename' => $profilePicFilename,
             'profile_pic_storage_relative' => $profilePicStorageRelative,
+            'lakhpati_editable' => $hasLakhpati,
         ];
+    }
+
+    public function lakhpatiColumnAvailable(): bool
+    {
+        if (! $this->legacyAvailable()) {
+            return false;
+        }
+
+        try {
+            return Schema::connection('legacy')->hasColumn('rbi_applicant_details', 'lakhpati');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    public function updateLakhpati(int $legacyApplicationId, string $yesNo): bool
+    {
+        $normalized = $this->normalizeYesNoInput($yesNo);
+        if ($normalized === null || $legacyApplicationId < 1 || ! $this->lakhpatiColumnAvailable()) {
+            return false;
+        }
+
+        try {
+            $exists = DB::connection('legacy')
+                ->table('rbi_applicant_details')
+                ->where('application_id', $legacyApplicationId)
+                ->exists();
+            if (! $exists) {
+                return false;
+            }
+
+            DB::connection('legacy')
+                ->table('rbi_applicant_details')
+                ->where('application_id', $legacyApplicationId)
+                ->update(['lakhpati' => $normalized]);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        $this->syncCfaPayloadLakhpati($legacyApplicationId, $normalized);
+
+        return true;
+    }
+
+    private function syncCfaPayloadLakhpati(int $legacyApplicationId, string $value): void
+    {
+        try {
+            CfaSubmission::query()
+                ->whereIn('source', ['legacy_phase2', 'rbiphase2'])
+                ->get(['id', 'payload'])
+                ->each(function (CfaSubmission $cfa) use ($legacyApplicationId, $value): void {
+                    $payload = is_array($cfa->payload) ? $cfa->payload : [];
+                    if ((int) ($payload['legacy_application_id'] ?? 0) !== $legacyApplicationId) {
+                        return;
+                    }
+                    $payload['lakhpati'] = $value;
+                    $cfa->update(['payload' => $payload]);
+                });
+        } catch (\Throwable) {
+            // non-fatal — deliverables read legacy DB directly
+        }
+    }
+
+    private function parseYesNo(mixed $raw): string
+    {
+        if ($raw === null || $raw === '') {
+            return '—';
+        }
+        if (is_numeric($raw)) {
+            return ((int) $raw) !== 0 ? 'Yes' : 'No';
+        }
+
+        return in_array(mb_strtolower(trim((string) $raw)), ['yes', 'y', 'true', '1'], true) ? 'Yes' : 'No';
+    }
+
+    private function normalizeYesNoInput(string $value): ?string
+    {
+        return match (mb_strtolower(trim($value))) {
+            'yes', 'y', '1', 'true' => 'Yes',
+            'no', 'n', '0', 'false' => 'No',
+            default => null,
+        };
     }
 
     /**
