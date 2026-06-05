@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CfaSubmission;
 use App\Models\District;
+use App\Models\DistrictBlock;
 use App\Services\Cfa\CfaFyOnboardingStatsService;
 use App\Services\Cfa\CfaSubmissionListQuery;
 use App\Services\CfaSubmissionAuditSnapshot;
@@ -37,6 +38,7 @@ class CfaSubmissionController extends Controller
         return view('admin.cfa.index', [
             'submissions' => $submissions,
             'districts' => $districts,
+            'blocks' => $this->blocksForFilter($filters['district_id'] ?? null),
             'sectors' => config('cfa.business_categories'),
             'filters' => $filters,
             'scopeCounts' => $scopeCounts,
@@ -59,6 +61,7 @@ class CfaSubmissionController extends Controller
             'applicant_name',
             'phone',
             'district',
+            'block',
             'lgd_state_code',
             'lgd_district_code',
             'lgd_block_code',
@@ -90,6 +93,7 @@ class CfaSubmissionController extends Controller
                         $row->applicant_name ?? '',
                         $phone,
                         $row->district?->name ?? '',
+                        $this->blockFromPayload($row),
                         $row->lgd_state_code ?? '',
                         $row->lgd_district_code ?? '',
                         $row->lgd_block_code ?? '',
@@ -155,13 +159,14 @@ class CfaSubmissionController extends Controller
     }
 
     /**
-     * @return array{name: string, application_no: string, district_id: int|null, sector: string, from: string, to: string, onboard: string}
+     * @return array{name: string, application_no: string, district_id: int|null, block: string, sector: string, from: string, to: string, onboard: string}
      */
     private function extractFilters(Request $request): array
     {
         $name = trim((string) $request->query('name', ''));
         $applicationNo = trim((string) $request->query('application_no', ''));
         $districtId = $request->query('district_id');
+        $block = trim((string) $request->query('block', ''));
         $sector = trim((string) $request->query('sector', ''));
         $from = trim((string) $request->query('from', ''));
         $to = trim((string) $request->query('to', ''));
@@ -183,11 +188,47 @@ class CfaSubmissionController extends Controller
             'name' => $name,
             'application_no' => $applicationNo,
             'district_id' => $districtId ? (int) $districtId : null,
+            'block' => $block,
             'sector' => $sector,
             'from' => $from,
             'to' => $to,
             'onboard' => $onboard,
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function blocksForFilter(?int $districtId): array
+    {
+        if ($districtId) {
+            $blocks = DistrictBlock::orderedNamesForDistrict($districtId);
+            if ($blocks !== []) {
+                return $blocks;
+            }
+
+            $district = District::query()->find($districtId);
+            if ($district) {
+                return config('cfa.blocks_by_district.'.$district->name, []);
+            }
+
+            return [];
+        }
+
+        return DistrictBlock::query()
+            ->orderBy('name')
+            ->pluck('name')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function blockFromPayload(CfaSubmission $row): string
+    {
+        $payload = is_array($row->payload) ? $row->payload : (array) $row->payload;
+        $block = trim((string) ($payload['block'] ?? ''));
+
+        return $block !== '' ? $block : '';
     }
 
     public function show(CfaSubmission $cfa_submission): View

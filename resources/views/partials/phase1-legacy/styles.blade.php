@@ -44,6 +44,8 @@
     .p1l-stat--onboard-yes .p1l-stat__value { color: #047857; }
     .p1l-stat--onboard-no { border-color: #e2e8f0; background: linear-gradient(180deg, #f8fafc 0%, #fff 100%); }
     .p1l-stat--onboard-no .p1l-stat__value { color: #475569; }
+    .p1l-stat--geo { border-color: #c7d2fe; background: linear-gradient(180deg, #eef2ff 0%, #fff 100%); }
+    .p1l-stat--geo .p1l-stat__value { color: #4338ca; }
     .p1l-stat--onboard-fy { grid-column: span 1; min-width: 11rem; }
     @media (min-width: 720px) {
         .p1l-stat--onboard-fy { grid-column: span 2; }

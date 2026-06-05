@@ -1,7 +1,10 @@
 @php
-    $scope = $scopeCounts ?? ['total' => 0, 'onboarded' => 0, 'non_onboarded' => 0];
+    $scope = $scopeCounts ?? ['total' => 0, 'onboarded' => 0, 'non_onboarded' => 0, 'districts' => 0, 'blocks' => 0];
     $listed = method_exists($rows ?? null, 'total') ? (int) $rows->total() : 0;
     $fyOb = $fyOnboarding ?? null;
+    $filterActive = ($usesCfaFilters ?? false)
+        ? \App\Services\Cfa\CfaSubmissionListQuery::hasActiveFilters(request())
+        : \App\Services\LegacyPhase1\LegacyPhase1ListQuery::hasActiveFilters(request(), $countDistrictParam ?? true);
 @endphp
 
 <div class="p1l-stats">
@@ -36,11 +39,23 @@
         <div class="p1l-stat__value">{{ number_format($scope['non_onboarded']) }}</div>
         <div class="p1l-stat__hint">Empty or not yes</div>
     </div>
+    @if ($showGeoKpis ?? false)
+        <div class="p1l-stat p1l-stat--geo">
+            <div class="p1l-stat__label">Districts</div>
+            <div class="p1l-stat__value">{{ number_format((int) ($scope['districts'] ?? 0)) }}</div>
+            <div class="p1l-stat__hint">Unique districts with CFA</div>
+        </div>
+        <div class="p1l-stat p1l-stat--geo">
+            <div class="p1l-stat__label">Blocks</div>
+            <div class="p1l-stat__value">{{ number_format((int) ($scope['blocks'] ?? 0)) }}</div>
+            <div class="p1l-stat__hint">Unique blocks with CFA</div>
+        </div>
+    @endif
     <div class="p1l-stat">
         <div class="p1l-stat__label">This list</div>
         <div class="p1l-stat__value">{{ number_format($listed) }}</div>
         <div class="p1l-stat__hint">
-            @if (\App\Services\LegacyPhase1\LegacyPhase1ListQuery::hasActiveFilters(request(), $countDistrictParam ?? true))
+            @if ($filterActive)
                 After all filters
             @else
                 Matches scope total

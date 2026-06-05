@@ -25,6 +25,16 @@
         </div>
 
         <div class="p1l-field">
+            <label class="p1l-label" for="cfa-block">Block</label>
+            <select id="cfa-block" name="block" class="p1l-select">
+                <option value="">All blocks</option>
+                @foreach ($blocks ?? [] as $blockName)
+                    <option value="{{ $blockName }}" @selected(($filters['block'] ?? '') === $blockName)>{{ $blockName }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="p1l-field">
             <label class="p1l-label" for="cfa-sector">Sector</label>
             <select id="cfa-sector" name="sector" class="p1l-select">
                 <option value="">All sectors</option>

@@ -7,6 +7,7 @@ use App\Models\FiscalYear;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CfaSubmissionListQuery
 {
@@ -48,7 +49,7 @@ class CfaSubmissionListQuery
      */
     public static function filterParamNames(): array
     {
-        return ['name', 'application_no', 'district_id', 'sector', 'from', 'to', 'onboard'];
+        return ['name', 'application_no', 'district_id', 'block', 'sector', 'from', 'to', 'onboard'];
     }
 
     public static function hasActiveFilters(Request $request): bool
@@ -57,7 +58,7 @@ class CfaSubmissionListQuery
     }
 
     /**
-     * @param  array{name: string, application_no: string, district_id: int|null, sector: string, from: string, to: string, onboard: string}  $filters
+     * @param  array{name: string, application_no: string, district_id: int|null, block: string, sector: string, from: string, to: string, onboard: string}  $filters
      */
     public static function applyFilters(Builder $query, array $filters, bool $includeOnboard = true): Builder
     {
@@ -79,8 +80,12 @@ class CfaSubmissionListQuery
             })
             ->when(($filters['name'] ?? '') !== '', fn ($q) => $q->where('applicant_name', 'like', '%'.$filters['name'].'%'))
             ->when(! empty($filters['district_id']), fn ($q) => $q->where('district_id', (int) $filters['district_id']))
+            ->when(($filters['block'] ?? '') !== '', fn ($q) => $q->whereRaw(
+                self::payloadJsonExpr('$.block').' = ?',
+                [$filters['block']]
+            ))
             ->when(($filters['sector'] ?? '') !== '', fn ($q) => $q->whereRaw(
-                "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.business_category')) = ?",
+                self::payloadJsonExpr('$.business_category').' = ?',
                 [$filters['sector']]
             ))
             ->when(($filters['from'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '>=', $filters['from']))
@@ -97,7 +102,7 @@ class CfaSubmissionListQuery
     }
 
     /**
-     * @return array{total: int, onboarded: int, non_onboarded: int}
+     * @return array{total: int, onboarded: int, non_onboarded: int, districts: int, blocks: int}
      */
     public static function scopeCounts(array $filters): array
     {
@@ -109,11 +114,20 @@ class CfaSubmissionListQuery
 
         $total = (int) (clone $base)->count();
         $onboarded = (int) (clone $base)->whereHas('onboardingBatchMembership')->count();
+        $districts = (int) (clone $base)->whereNotNull('district_id')->distinct()->count('district_id');
+
+        $blockExpr = self::payloadJsonExpr('$.block');
+        $blocks = (int) (clone $base)
+            ->whereRaw('TRIM(COALESCE('.$blockExpr.", '')) <> ''")
+            ->distinct()
+            ->count(DB::raw($blockExpr));
 
         return [
             'total' => $total,
             'onboarded' => $onboarded,
             'non_onboarded' => max(0, $total - $onboarded),
+            'districts' => $districts,
+            'blocks' => $blocks,
         ];
     }
 
@@ -123,7 +137,19 @@ class CfaSubmissionListQuery
             ? 'onboarded'
             : 'non_onboarded';
         $row->onboard_label = $row->onboard_status === 'onboarded' ? 'Onboarded' : 'Non onboarded';
+        $payload = is_array($row->payload) ? $row->payload : [];
+        $block = trim((string) ($payload['block'] ?? ''));
+        $row->block_name = $block !== '' ? $block : '—';
 
         return $row;
+    }
+
+    public static function payloadJsonExpr(string $path, string $column = 'payload'): string
+    {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return "json_extract({$column}, '{$path}')";
+        }
+
+        return "JSON_UNQUOTE(JSON_EXTRACT({$column}, '{$path}'))";
     }
 }

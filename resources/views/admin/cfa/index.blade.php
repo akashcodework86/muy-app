@@ -35,11 +35,14 @@
         'totalLabel' => 'In scope',
         'totalHint' => 'Phase 3 FY filters (excl. onboard filter)',
         'countDistrictParam' => true,
+        'usesCfaFilters' => true,
+        'showGeoKpis' => true,
     ])
 
     @include('partials.phase3-cfa.filters', [
         'filters' => $filters,
         'districts' => $districts,
+        'blocks' => $blocks ?? [],
         'sectors' => $sectors,
     ])
 
@@ -76,6 +79,7 @@
                     <th>Applicant</th>
                     <th>Phone</th>
                     <th>District</th>
+                    <th>Block</th>
                     <th>Onboard status</th>
                     <th>Source / staff</th>
                     <th></th>
@@ -92,6 +96,7 @@
                         <td class="p1l-name">{{ $row->applicant_name }}</td>
                         <td style="white-space:nowrap;">{{ $row->phone }}</td>
                         <td>{{ $row->district?->name ?? '—' }}</td>
+                        <td>{{ $row->block_name ?? '—' }}</td>
                         <td>
                             @if (($row->onboard_status ?? '') === 'onboarded')
                                 <span class="p1l-pill p1l-pill--onboard-yes">{{ $row->onboard_label ?? 'Onboarded' }}</span>
@@ -117,7 +122,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="p1l-empty">No applications match your filters.</td>
+                        <td colspan="10" class="p1l-empty">No applications match your filters.</td>
                     </tr>
                 @endforelse
             </tbody>
