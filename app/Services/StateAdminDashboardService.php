@@ -9,6 +9,7 @@ use App\Models\FiscalYear;
 use App\Models\MentorshipRequest;
 use App\Models\ServiceCase;
 use App\Models\User;
+use App\Services\Cfa\CfaSubmissionListQuery;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -316,6 +317,19 @@ class StateAdminDashboardService
 
         $estimatedSavings = $this->estimatedSavingsMetrics($activeFy, $phase3FloorDate);
         $servicesDeliveredCounts = $this->servicesDeliveredCounts($activeFy, $phase3FloorDate);
+        $insights = $this->buildInsights(
+            $phase3Scope,
+            $phase3FloorDate,
+            $activeFyId,
+            $cfaDeliverableIds,
+            $activeFy,
+            [
+                'labels' => $cfaByDistrict->pluck('name')->all(),
+                'values' => $cfaByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
+            ],
+            $stateOnboardingAchieved,
+            $servicesDeliveredCounts['till_date'] ?? 0,
+        );
 
         return [
             'activeFy' => $activeFy,
@@ -382,7 +396,292 @@ class StateAdminDashboardService
             'heroSparkline30' => $heroSparkline30,
             'phase3FloorDateLabel' => $phase3FloorDateLabel,
             'estimatedSavings' => $estimatedSavings,
+            'insights' => $insights,
         ];
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<CfaSubmission>  $phase3Scope
+     * @param  list<int>  $cfaDeliverableIds
+     * @param  array{labels: list<string>, values: list<int>}  $cfaByDistrict
+     * @return array<string, mixed>
+     */
+    private function buildInsights(
+        $phase3Scope,
+        Carbon $phase3FloorDate,
+        int $activeFyId,
+        array $cfaDeliverableIds,
+        ?FiscalYear $activeFy,
+        array $cfaByDistrict,
+        int $onboardedCount,
+        int $servicesDelivered,
+    ): array {
+        $categoryMix = $this->payloadLabelCounts('$.category', $phase3FloorDate, $activeFyId, [
+            'individual' => 'Individual',
+            'shg' => 'SHG',
+            'cbo' => 'CBO',
+        ]);
+        $genderMix = $this->payloadLabelCounts('$.gender', $phase3FloorDate, $activeFyId);
+        $registrationMix = $this->payloadLabelCounts('$.is_registered', $phase3FloorDate, $activeFyId, [
+            'yes' => 'Registered',
+            'no' => 'Not registered',
+        ]);
+        $lakhpatiMix = $this->payloadLabelCounts('$.lakhpati', $phase3FloorDate, $activeFyId, [
+            'yes' => 'Lakhpati Yes',
+            'no' => 'Lakhpati No',
+        ]);
+        $sourceMix = $this->cfaSourceMix($phase3FloorDate, $activeFyId);
+        $topBlocks = $this->topBlocksMix($phase3FloorDate, $activeFyId, 12);
+        $districtTargetComparison = $this->districtCfaTargetComparison($cfaDeliverableIds, $activeFy, $cfaByDistrict);
+        $onboardingTrend = $this->onboardingDailyTrend14($phase3FloorDate);
+        $staffTopChart = $this->staffCfaTopChart($phase3FloorDate, $activeFyId, 10);
+
+        $geoDistricts = (int) (clone $phase3Scope)->whereNotNull('district_id')->distinct()->count('district_id');
+        $blockExpr = CfaSubmissionListQuery::payloadJsonExpr('$.block');
+        $geoBlocks = (int) (clone $phase3Scope)
+            ->whereRaw('TRIM(COALESCE('.$blockExpr.", '')) <> ''")
+            ->distinct()
+            ->count(DB::raw($blockExpr));
+
+        $cfaTotal = (int) (clone $phase3Scope)->count();
+
+        return [
+            'geo' => [
+                'districts' => $geoDistricts,
+                'blocks' => $geoBlocks,
+            ],
+            'funnel' => [
+                'labels' => ['CFA submitted', 'Onboarded', 'Services delivered'],
+                'values' => [$cfaTotal, $onboardedCount, $servicesDelivered],
+            ],
+            'categoryMix' => $this->attachChartColors($categoryMix),
+            'genderMix' => $this->attachChartColors($genderMix),
+            'registrationMix' => $this->attachChartColors($registrationMix),
+            'lakhpatiMix' => $this->attachChartColors($lakhpatiMix),
+            'sourceMix' => $this->attachChartColors($sourceMix),
+            'stageDonut' => $this->attachChartColors([
+                'labels' => ['Seed', 'Early', 'Growth'],
+                'values' => [
+                    (int) DB::table('cfa_submissions')
+                        ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
+                        ->whereRaw("LOWER(TRIM(".CfaSubmissionListQuery::payloadJsonExpr('$.form_stage').")) = 'seed'")
+                        ->count(),
+                    (int) DB::table('cfa_submissions')
+                        ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
+                        ->whereRaw("LOWER(TRIM(".CfaSubmissionListQuery::payloadJsonExpr('$.form_stage').")) = 'early'")
+                        ->count(),
+                    (int) DB::table('cfa_submissions')
+                        ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
+                        ->whereRaw("LOWER(TRIM(".CfaSubmissionListQuery::payloadJsonExpr('$.form_stage').")) = 'growth'")
+                        ->count(),
+                ],
+            ]),
+            'topBlocks' => $this->attachChartColors($topBlocks),
+            'districtTargetComparison' => $districtTargetComparison,
+            'onboardingTrend' => $onboardingTrend,
+            'staffTopChart' => $staffTopChart,
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $labelMap
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function payloadLabelCounts(
+        string $jsonPath,
+        Carbon $phase3FloorDate,
+        int $fiscalYearId,
+        array $labelMap = [],
+    ): array {
+        $expr = CfaSubmissionListQuery::payloadJsonExpr($jsonPath);
+        try {
+            $rows = DB::table('cfa_submissions')
+                ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
+                ->whereRaw('TRIM(COALESCE('.$expr.", '')) <> ''")
+                ->selectRaw($expr.' as label_key, COUNT(*) as total')
+                ->groupBy(DB::raw($expr))
+                ->orderByDesc('total')
+                ->get();
+        } catch (\Throwable) {
+            return ['labels' => [], 'values' => []];
+        }
+
+        $labels = [];
+        $values = [];
+        foreach ($rows as $row) {
+            $raw = trim((string) ($row->label_key ?? ''));
+            if ($raw === '') {
+                continue;
+            }
+            $key = strtolower($raw);
+            $labels[] = $labelMap[$key] ?? ucfirst($raw);
+            $values[] = (int) ($row->total ?? 0);
+        }
+
+        return ['labels' => $labels, 'values' => $values];
+    }
+
+    /**
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function cfaSourceMix(Carbon $phase3FloorDate, int $fiscalYearId): array
+    {
+        try {
+            $rows = DB::table('cfa_submissions')
+                ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
+                ->selectRaw('COALESCE(source, "") as src, COUNT(*) as total')
+                ->groupBy('src')
+                ->orderByDesc('total')
+                ->get();
+        } catch (\Throwable) {
+            return ['labels' => [], 'values' => []];
+        }
+
+        $labels = [];
+        $values = [];
+        foreach ($rows as $row) {
+            $src = strtolower(trim((string) ($row->src ?? '')));
+            $labels[] = match ($src) {
+                'public_form' => 'Public / walk-in',
+                'legacy_phase2', 'rbiphase2' => 'Legacy Phase 2',
+                '' => 'District staff',
+                default => ucfirst(str_replace('_', ' ', $src)),
+            };
+            $values[] = (int) ($row->total ?? 0);
+        }
+
+        return ['labels' => $labels, 'values' => $values];
+    }
+
+    /**
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function topBlocksMix(Carbon $phase3FloorDate, int $fiscalYearId, int $limit = 12): array
+    {
+        $expr = CfaSubmissionListQuery::payloadJsonExpr('$.block');
+        try {
+            $rows = DB::table('cfa_submissions')
+                ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
+                ->whereRaw('TRIM(COALESCE('.$expr.", '')) <> ''")
+                ->selectRaw($expr.' as block_name, COUNT(*) as total')
+                ->groupBy(DB::raw($expr))
+                ->orderByDesc('total')
+                ->limit($limit)
+                ->get();
+        } catch (\Throwable) {
+            return ['labels' => [], 'values' => []];
+        }
+
+        return [
+            'labels' => $rows->pluck('block_name')->map(fn ($v) => (string) $v)->all(),
+            'values' => $rows->pluck('total')->map(fn ($v) => (int) $v)->all(),
+        ];
+    }
+
+    /**
+     * @param  list<int>  $cfaDeliverableIds
+     * @param  array{labels: list<string>, values: list<int>}  $cfaByDistrict
+     * @return array{labels: list<string>, achieved: list<int>, targets: list<int>}
+     */
+    private function districtCfaTargetComparison(array $cfaDeliverableIds, ?FiscalYear $activeFy, array $cfaByDistrict): array
+    {
+        $labels = $cfaByDistrict['labels'] ?? [];
+        $achieved = $cfaByDistrict['values'] ?? [];
+        $targets = array_fill(0, count($labels), 0);
+
+        if ($activeFy === null || $cfaDeliverableIds === []) {
+            return compact('labels', 'achieved', 'targets');
+        }
+
+        try {
+            $targetRows = DB::table('district_deliverable_targets as ddt')
+                ->join('districts as d', 'd.id', '=', 'ddt.district_id')
+                ->where('ddt.fiscal_year_id', (int) $activeFy->id)
+                ->whereIn('ddt.deliverable_id', $cfaDeliverableIds)
+                ->selectRaw('d.name as district_name, SUM(ddt.target_total) as target_total')
+                ->groupBy('d.id', 'd.name')
+                ->pluck('target_total', 'district_name');
+        } catch (\Throwable) {
+            return compact('labels', 'achieved', 'targets');
+        }
+
+        foreach ($labels as $i => $name) {
+            $targets[$i] = (int) ($targetRows[$name] ?? 0);
+        }
+
+        return compact('labels', 'achieved', 'targets');
+    }
+
+    /**
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function onboardingDailyTrend14(Carbon $phase3FloorDate): array
+    {
+        $labels = [];
+        $values = [];
+        if (! Schema::hasTable('onboarding_batch_cfa') || ! Schema::hasTable('onboarding_batches')) {
+            return ['labels' => $labels, 'values' => $values];
+        }
+
+        for ($i = 13; $i >= 0; $i--) {
+            $day = Carbon::now()->subDays($i)->startOfDay();
+            $labels[] = $day->format('d M');
+            if ($day->lt($phase3FloorDate)) {
+                $values[] = 0;
+            } else {
+                $values[] = (int) DB::table('onboarding_batch_cfa as obc')
+                    ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                    ->where('ob.status', 'locked')
+                    ->whereNotNull('ob.locked_at')
+                    ->whereDate('ob.locked_at', $day->toDateString())
+                    ->count();
+            }
+        }
+
+        return ['labels' => $labels, 'values' => $values];
+    }
+
+    /**
+     * @return array{labels: list<string>, values: list<int>}
+     */
+    private function staffCfaTopChart(Carbon $phase3FloorDate, int $fiscalYearId, int $limit = 10): array
+    {
+        try {
+            $rows = DB::table('users')
+                ->leftJoin('cfa_submissions as cs', function ($join) use ($fiscalYearId, $phase3FloorDate): void {
+                    $join->on('cs.referral_user_id', '=', 'users.id')
+                        ->on('cs.district_id', '=', 'users.district_id');
+                    if ($fiscalYearId > 0) {
+                        $join->where('cs.fiscal_year_id', $fiscalYearId);
+                    } else {
+                        $join->where('cs.created_at', '>=', $phase3FloorDate);
+                    }
+                })
+                ->where('users.role', 'district_staff')
+                ->select('users.name', DB::raw('COUNT(cs.id) as total'))
+                ->groupBy('users.id', 'users.name')
+                ->orderByDesc('total')
+                ->limit($limit)
+                ->get();
+        } catch (\Throwable) {
+            return ['labels' => [], 'values' => []];
+        }
+
+        return [
+            'labels' => $rows->pluck('name')->map(fn ($v) => (string) $v)->all(),
+            'values' => $rows->pluck('total')->map(fn ($v) => (int) $v)->all(),
+        ];
+    }
+
+    /**
+     * @param  array{labels: list<string>, values: list<int>}  $chart
+     * @return array{labels: list<string>, values: list<int>, colors: list<string>}
+     */
+    private function attachChartColors(array $chart): array
+    {
+        $chart['colors'] = $this->chartColorsForLabels($chart['labels'] ?? []);
+
+        return $chart;
     }
 
     /**

@@ -9,12 +9,15 @@ use Illuminate\Support\Facades\Schema;
 use App\Services\HubAdminDashboardService;
 use App\Services\StaffDashboardService;
 use App\Services\StateAdminDashboardService;
+use App\Support\StateAdminDashboardTheme;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
     public function index(
+        Request $request,
         StateAdminDashboardService $stateDashboard,
         HubAdminDashboardService $hubDashboard,
         StaffDashboardService $staffDashboard,
@@ -26,7 +29,11 @@ class DashboardController extends Controller
         }
 
         if ($user?->role === 'state_admin') {
-            return view('dashboards.state-admin', $stateDashboard->metrics());
+            $dashboardTheme = StateAdminDashboardTheme::resolve($request);
+
+            return view('dashboards.state-admin', array_merge($stateDashboard->metrics(), [
+                'dashboardTheme' => $dashboardTheme,
+            ]));
         }
 
         if ($user?->role === 'state_staff') {

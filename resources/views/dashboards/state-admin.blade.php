@@ -14,31 +14,7 @@
         .admin-app-body--dashboard .admin-main {
             padding: 0.65rem clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
         }
-        :root {
-            --sad-text: #0f172a;
-            --sad-muted: #64748b;
-            --sad-border: #e2e8f0;
-            --sad-surface: #ffffff;
-            --sad-brand: #d04a02;
-            --sad-brand-deep: #a63d02;
-            --sad-brand-light: #fdeee6;
-            --sad-accent: #eb8c00;
-            --sad-accent-soft: #fff4e6;
-            --sad-green: #22c55e;
-            --sad-green-deep: #16a34a;
-            --sad-teal: #d04a02;
-            --sad-sky: #464646;
-            --sad-navy: #2d2d2d;
-            --sad-coral: #eb8c00;
-            --sad-saffron: #ffb600;
-            --sad-gold: #b45309;
-            --sad-radius: 12px;
-            --sad-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(208, 74, 2, 0.08);
-            --sad-brand-grad: linear-gradient(135deg, #a63d02 0%, #d04a02 55%, #eb8c00 100%);
-        }
-        .admin-app-body--state-premium {
-            background: #f7f5f2 !important;
-        }
+        @include('dashboards.state-admin._theme-styles')
         .sad {
             font-family: 'DM Sans', system-ui, sans-serif;
             color: var(--sad-text);
@@ -118,12 +94,12 @@
         }
         .sad-kpi-strip {
             display: grid;
-            grid-template-columns: repeat(6, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 0.5rem;
             margin-bottom: 0.6rem;
         }
         @media (max-width: 1200px) {
-            .sad-kpi-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .sad-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 640px) {
             .sad-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -726,7 +702,7 @@
         .sad-align-gaps li { margin: 0.2rem 0; line-height: 1.35; }
     </style>
 </head>
-<body class="admin-app-body admin-app-body--dashboard admin-app-body--state-premium">
+<body class="admin-app-body admin-app-body--dashboard admin-app-body--state-premium admin-app-body--state-theme-{{ $dashboardTheme ?? 'revamp' }}">
     @include('partials.admin-topbar')
     <main class="admin-main">
         @if (session('status'))
@@ -844,6 +820,10 @@
                     </p>
                 </div>
                 <div class="sad-masthead__meta">
+                    <a href="{{ \App\Support\StateAdminDashboardTheme::toggleUrl($dashboardTheme ?? 'revamp') }}" class="sad-theme-toggle" title="Switch dashboard colour theme">
+                        <i class="fa-solid fa-palette" aria-hidden="true"></i>
+                        {{ ($dashboardTheme ?? 'revamp') === 'legacy' ? 'New theme' : 'Classic theme' }}
+                    </a>
                     <span class="sad-badge"><i class="fa-solid fa-calendar" aria-hidden="true"></i> {{ $fyLabel }}</span>
                     <span class="sad-badge sad-badge--live"><i class="fa-solid fa-signal" aria-hidden="true"></i> {{ number_format((int) ($heroStaffOnlineNow ?? 0)) }} online</span>
                     <span class="sad-badge"><i class="fa-solid fa-users" aria-hidden="true"></i> {{ number_format($staffActive) }}/{{ number_format($staffTotal) }} staff</span>
@@ -910,6 +890,18 @@
                     </div>
                 </div>
                 <div class="sad-kpi">
+                    <div class="sad-kpi__icon sad-kpi__icon--indigo"><i class="fa-solid fa-map" aria-hidden="true"></i></div>
+                    <div class="sad-kpi__label">Districts w/ CFA</div>
+                    <div class="sad-kpi__value">{{ number_format((int) ($insights['geo']['districts'] ?? 0)) }}</div>
+                    <div class="sad-kpi__foot">of {{ number_format($districtsCount) }} districts</div>
+                </div>
+                <div class="sad-kpi">
+                    <div class="sad-kpi__icon sad-kpi__icon--teal2"><i class="fa-solid fa-map-pin" aria-hidden="true"></i></div>
+                    <div class="sad-kpi__label">Blocks w/ CFA</div>
+                    <div class="sad-kpi__value">{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</div>
+                    <div class="sad-kpi__foot">Unique blocks in scope</div>
+                </div>
+                <div class="sad-kpi">
                     <div class="sad-kpi__icon sad-kpi__icon--green"><i class="fa-solid fa-piggy-bank" aria-hidden="true"></i></div>
                     <div class="sad-kpi__label">Savings (FY est.)</div>
                     <div class="sad-kpi__value" style="font-size:0.95rem;">Rs {{ number_format($savingsTotalThisFy, 0) }}</div>
@@ -947,6 +939,9 @@
             <nav class="sad-nav" aria-label="Dashboard sections">
                 <button type="button" class="sad-nav__btn is-active" data-sad-tab="overview">
                     <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Overview
+                </button>
+                <button type="button" class="sad-nav__btn" data-sad-tab="insights">
+                    <i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Insights
                 </button>
                 <button type="button" class="sad-nav__btn" data-sad-tab="districts">
                     <i class="fa-solid fa-map" aria-hidden="true"></i> Districts
@@ -1086,8 +1081,8 @@
                             <svg class="sad-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                                 <defs>
                                     <linearGradient id="sadRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#a63d02"/>
-                                        <stop offset="100%" stop-color="#d04a02"/>
+                                        <stop offset="0%" stop-color="var(--sad-brand-deep)"/>
+                                        <stop offset="100%" stop-color="var(--sad-brand)"/>
                                     </linearGradient>
                                 </defs>
                                 <circle class="track" cx="50" cy="50" r="38"/>
@@ -1104,8 +1099,8 @@
                                         <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
                                             <defs>
                                                 <linearGradient id="sadSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stop-color="#d04a02" stop-opacity="0.45"/>
-                                                    <stop offset="100%" stop-color="#d04a02" stop-opacity="0"/>
+                                                    <stop offset="0%" stop-color="var(--sad-brand)" stop-opacity="0.45"/>
+                                                    <stop offset="100%" stop-color="var(--sad-brand)" stop-opacity="0"/>
                                                 </linearGradient>
                                             </defs>
                                             <polygon class="sad-spark__fill" points="{{ $sparkFill }}"/>
@@ -1172,6 +1167,8 @@
                 </div>
             </section>
 
+            @include('dashboards.state-admin._insights-panel')
+
             {{-- DISTRICTS --}}
             <section class="sad-panel" data-sad-panel="districts">
                 <div class="sad-district-cards">
@@ -1184,6 +1181,22 @@
                             <div class="sad-district-card__val">{{ number_format($d['total']) }}</div>
                         </div>
                     @endforeach
+                </div>
+                <div class="sad-grid sad-grid--2" style="margin-bottom:0.55rem;">
+                    <div class="sad-card">
+                        <h2 class="sad-card__title"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> District CFA vs target</h2>
+                        <p class="sad-card__hint">Achieved vs district CFA target (FY)</p>
+                        <div class="sad-chart-box sad-chart-box--tall">
+                            <canvas id="chartDistrictTarget"></canvas>
+                        </div>
+                    </div>
+                    <div class="sad-card">
+                        <h2 class="sad-card__title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Top blocks by CFA</h2>
+                        <p class="sad-card__hint">Top 12 blocks in Phase 3 scope</p>
+                        <div class="sad-chart-box sad-chart-box--tall">
+                            <canvas id="chartTopBlocks"></canvas>
+                        </div>
+                    </div>
                 </div>
                 <div class="sad-grid sad-grid--2">
                     <div class="sad-card">
@@ -1231,6 +1244,13 @@
 
             {{-- TEAM --}}
             <section class="sad-panel" data-sad-panel="team">
+                <div class="sad-card" style="margin-bottom:0.55rem;">
+                    <h2 class="sad-card__title"><i class="fa-solid fa-chart-bar" aria-hidden="true"></i> Top staff by CFA</h2>
+                    <p class="sad-card__hint">Referral-linked CFA · top 10</p>
+                    <div class="sad-chart-box sad-chart-box--tall">
+                        <canvas id="chartStaffTop"></canvas>
+                    </div>
+                </div>
                 <div class="sad-card">
                     <div class="sad-card__head">
                         <h2 class="sad-card__title"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> CFA by district staff</h2>
@@ -1347,137 +1367,7 @@
         </div>
     </main>
 
-<script>
-(function () {
-    const gridColor = 'rgba(148, 163, 184, 0.22)';
-
-    document.querySelectorAll('[data-sad-tab]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-sad-tab');
-            document.querySelectorAll('[data-sad-tab]').forEach((b) => {
-                b.classList.toggle('is-active', b === btn);
-            });
-            document.querySelectorAll('[data-sad-panel]').forEach((p) => {
-                p.classList.toggle('is-active', p.getAttribute('data-sad-panel') === id);
-            });
-        });
-    });
-
-    const trendLabels = @json($stateCfaTrend['labels'] ?? []);
-    const trendValues = @json($stateCfaTrend['values'] ?? []);
-    const stEl = document.getElementById('stateTrendCurveChart');
-    if (stEl && trendLabels.length) {
-        const cx = stEl.getContext('2d');
-        const dh = stEl.parentElement?.clientHeight || 168;
-        const dFill = cx.createLinearGradient(0, 0, 0, dh);
-        dFill.addColorStop(0, 'rgba(208, 74, 2, 0.24)');
-        dFill.addColorStop(1, 'rgba(208, 74, 2, 0.02)');
-        new Chart(stEl, {
-            type: 'line',
-            data: {
-                labels: trendLabels,
-                datasets: [{
-                    label: 'State CFA',
-                    data: trendValues,
-                    borderColor: '#d04a02',
-                    backgroundColor: dFill,
-                    fill: true,
-                    tension: 0.42,
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#64748b', maxRotation: 0 } },
-                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, font: { size: 9 } } }
-                }
-            }
-        });
-    }
-
-    const dLabels = @json($cfaByDistrict['labels']);
-    const dValues = @json($cfaByDistrict['values']);
-    const districtPalette = [
-        '#d04a02', '#eb8c00', '#ffb600', '#2d2d2d', '#464646',
-        '#a63d02', '#6b6b6b', '#22c55e', '#c75b12', '#b83d02',
-        '#8b8b8b', '#d97706', '#16a34a'
-    ];
-    const districtValueLabelsPlugin = {
-        id: 'districtValueLabelsPlugin',
-        afterDatasetsDraw(chart) {
-            const { ctx } = chart;
-            const meta = chart.getDatasetMeta(0);
-            const values = chart.data.datasets[0]?.data || [];
-            ctx.save();
-            ctx.font = '700 10px DM Sans, sans-serif';
-            ctx.fillStyle = '#0f172a';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            meta.data.forEach((bar, i) => {
-                const raw = Number(values[i] ?? 0);
-                ctx.fillText(raw.toLocaleString('en-IN'), bar.x + 6, bar.y);
-            });
-            ctx.restore();
-        }
-    };
-
-    const districtEl = document.getElementById('chartDistrictCfa');
-    if (districtEl) {
-        new Chart(districtEl, {
-            type: 'bar',
-            plugins: [districtValueLabelsPlugin],
-            data: {
-                labels: dLabels.length ? dLabels : ['No data'],
-                datasets: [{
-                    label: 'CFA',
-                    data: dLabels.length ? dValues : [0],
-                    backgroundColor: dLabels.length
-                        ? dValues.map((_, i) => districtPalette[i % districtPalette.length])
-                        : ['#e2e8f0'],
-                    borderRadius: 5
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: { padding: { right: 48 } },
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { beginAtZero: true, grid: { color: gridColor } },
-                    y: { grid: { display: false }, ticks: { font: { size: 9 } } }
-                }
-            }
-        });
-    }
-
-    const searchInput = document.getElementById('stateStaffCfaSearch');
-    const districtSelect = document.getElementById('stateStaffCfaDistrictFilter');
-    const staffRows = Array.from(document.querySelectorAll('#stateStaffCfaList .sad-staff-row'));
-    const noResults = document.getElementById('stateStaffCfaNoResults');
-
-    const applyStaffCfaFilters = () => {
-        if (!staffRows.length) return;
-        const q = (searchInput?.value || '').trim().toLowerCase();
-        const district = (districtSelect?.value || '').trim().toLowerCase();
-        let visible = 0;
-        staffRows.forEach((row) => {
-            const show = (q === '' || (row.dataset.name || '').includes(q))
-                && (district === '' || (row.dataset.district || '') === district);
-            row.style.display = show ? '' : 'none';
-            if (show) visible += 1;
-        });
-        if (noResults) noResults.style.display = visible === 0 ? '' : 'none';
-    };
-    searchInput?.addEventListener('input', applyStaffCfaFilters);
-    districtSelect?.addEventListener('change', applyStaffCfaFilters);
-})();
-</script>
+@include('dashboards.state-admin._chart-scripts')
 
 @include('partials.app-footer')
 </body>
