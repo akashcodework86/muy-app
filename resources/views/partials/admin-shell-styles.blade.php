@@ -119,7 +119,7 @@
         .admin-topbar__nav { justify-content: flex-start; margin-left: 1rem; }
     }
     @media (min-width: 1100px) {
-        .admin-topbar__nav--state-admin,
+        .admin-topbar__nav--state-admin:not(.admin-topbar__nav--staff),
         .admin-topbar__nav--hub-admin {
             flex-wrap: nowrap;
         }
@@ -147,7 +147,7 @@
     }
     @media (max-width: 1100px) {
         /* Let the nav wrap below the brand on small laptops/tablets */
-        .admin-topbar__nav--state-admin,
+        .admin-topbar__nav--state-admin:not(.admin-topbar__nav--staff),
         .admin-topbar__nav--hub-admin { flex-basis: 100%; order: 3; justify-content: flex-start; margin-left: 0; }
         .admin-topbar__right { margin-left: auto; }
     }
@@ -1470,6 +1470,182 @@
         }
     }
 
+    /* ---- District staff header — scrollable nav rail ---------------- */
+    .admin-topbar--staff {
+        overflow: visible;
+    }
+    .admin-topbar__inner--staff {
+        display: grid;
+        grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.65rem 0.85rem;
+        padding: 0.65rem 1rem;
+    }
+    @media (max-width: 1100px) {
+        .admin-topbar__inner--staff {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+        .admin-topbar__inner--staff .admin-topbar__nav-rail--staff {
+            grid-column: 1 / -1;
+            order: 3;
+        }
+    }
+    .admin-brand--staff {
+        gap: 0.65rem;
+        min-width: 0;
+        max-width: 11.5rem;
+    }
+    .admin-brand--staff .admin-brand__logo-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid #e8ecf1;
+        box-shadow: 0 2px 10px rgba(55, 71, 79, 0.1);
+        flex-shrink: 0;
+    }
+    .admin-brand--staff .admin-brand__img {
+        height: 32px;
+        max-width: 36px;
+        box-shadow: none;
+        border-radius: 8px;
+    }
+    .admin-brand--staff .admin-brand__text {
+        gap: 0.08rem;
+        min-width: 0;
+    }
+    .admin-brand--staff .admin-brand__eyebrow {
+        font-size: 0.56rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #78909c;
+        line-height: 1.2;
+    }
+    .admin-brand--staff .admin-brand__name {
+        font-size: 1.15rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+        color: #263238 !important;
+        -webkit-text-fill-color: #263238 !important;
+        background: none !important;
+        max-width: none;
+        overflow: visible;
+        text-overflow: unset;
+    }
+    .admin-brand--staff .admin-brand__hub {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+        overflow: hidden;
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.25;
+        color: #546e7a;
+        max-width: 10.5rem;
+    }
+    .admin-topbar__nav-rail--staff {
+        position: relative;
+        min-width: 0;
+        max-width: 100%;
+        padding: 0.24rem;
+        border-radius: 14px;
+        background: #eef2f6;
+        border: 1px solid #dde3ea;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+    .admin-topbar__nav-rail--staff::before,
+    .admin-topbar__nav-rail--staff::after {
+        content: '';
+        position: absolute;
+        top: 0.24rem;
+        bottom: 0.24rem;
+        width: 1.25rem;
+        pointer-events: none;
+        z-index: 2;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    .admin-topbar__nav-rail--staff::before {
+        left: 0.24rem;
+        border-radius: 12px 0 0 12px;
+        background: linear-gradient(90deg, #eef2f6 30%, rgba(238, 242, 246, 0));
+    }
+    .admin-topbar__nav-rail--staff::after {
+        right: 0.24rem;
+        border-radius: 0 12px 12px 0;
+        background: linear-gradient(270deg, #eef2f6 30%, rgba(238, 242, 246, 0));
+    }
+    .admin-topbar__nav-rail--staff.can-scroll-left::before,
+    .admin-topbar__nav-rail--staff.can-scroll-right::after {
+        opacity: 1;
+    }
+    .admin-topbar__nav-rail--staff {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .admin-topbar__nav-rail--staff::-webkit-scrollbar {
+        display: none;
+    }
+    .admin-topbar__nav--staff {
+        display: inline-flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.18rem;
+        width: max-content;
+        min-width: min(100%, max-content);
+        margin: 0;
+        padding: 0;
+        flex: none;
+        justify-content: flex-start;
+    }
+    .admin-topbar__nav--staff .admin-topbar__link,
+    .admin-topbar__nav--staff .admin-topbar__details {
+        flex: 0 0 auto;
+        flex-shrink: 0;
+    }
+    .admin-topbar__nav--staff .admin-topbar__link {
+        overflow: visible;
+        white-space: nowrap;
+        padding: 0.46rem 0.72rem;
+        font-size: 0.8rem;
+    }
+    .admin-topbar__nav--staff .admin-topbar__link-text {
+        overflow: visible;
+        text-overflow: unset;
+        max-width: none;
+    }
+    .admin-topbar--staff .admin-topbar__right {
+        gap: 0.4rem;
+        flex-shrink: 0;
+    }
+    .admin-topbar--staff .admin-topbar__theme-toggle {
+        font-size: 0.68rem;
+        padding: 0.32rem 0.5rem;
+        white-space: nowrap;
+    }
+    @media (max-width: 1280px) {
+        .admin-topbar--staff .admin-topbar__user-wrap {
+            display: none;
+        }
+        .admin-topbar--staff .admin-topbar__profile {
+            padding: 0.22rem;
+        }
+    }
+    @media (min-width: 1101px) {
+        .admin-app-body--staff-premium .admin-topbar__nav--staff {
+            flex-basis: auto;
+            order: unset;
+        }
+    }
+
     /* Reduce motion preference */
     @media (prefers-reduced-motion: reduce) {
         .admin-topbar::before,
@@ -1697,6 +1873,25 @@
             flex-wrap: wrap !important;
         }
         .admin-topbar__nav.is-open { display: flex; }
+
+        .admin-topbar__nav-rail--staff {
+            width: 100%;
+            flex-basis: 100%;
+            order: 6;
+            overflow: visible;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
+        }
+        .admin-topbar__nav-rail--staff::before,
+        .admin-topbar__nav-rail--staff::after {
+            display: none;
+        }
+        .admin-topbar__nav--staff {
+            width: 100%;
+            flex-wrap: wrap !important;
+        }
 
         /* Full-width pill links in mobile drawer */
         .admin-topbar__link {

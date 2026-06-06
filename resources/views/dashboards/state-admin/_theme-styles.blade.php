@@ -161,6 +161,49 @@
     color: #00695c !important;
 }
 
+/* District staff revamp — scroll rail + readable links */
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar--staff {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e8ecf1 !important;
+    box-shadow: 0 1px 8px rgba(55, 71, 79, 0.05) !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar--staff::before,
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar--staff::after {
+    display: none !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav-rail--staff {
+    background: #eef2f6 !important;
+    border-color: #dde3ea !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav-rail--staff::before {
+    background: linear-gradient(90deg, #eef2f6 30%, rgba(238, 242, 246, 0)) !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav-rail--staff::after {
+    background: linear-gradient(270deg, #eef2f6 30%, rgba(238, 242, 246, 0)) !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav--staff .admin-topbar__link {
+    color: #455a64 !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav--staff .admin-topbar__link-ico {
+    color: #607d8b !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav--staff .admin-topbar__link:hover {
+    color: #00897b !important;
+    background: #e0f2f1 !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav--staff .admin-topbar__link.is-active,
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav--staff .admin-topbar__link.is-active.admin-topbar__dropdown-trigger {
+    color: #1565c0 !important;
+    background: #e3f2fd !important;
+    box-shadow: none !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav--staff .admin-topbar__link.is-active .admin-topbar__link-ico {
+    color: #1976d2 !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-brand--staff .admin-brand__logo-wrap {
+    border-color: #e8ecf1 !important;
+}
+
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip__title {
     color: #fff;
 }

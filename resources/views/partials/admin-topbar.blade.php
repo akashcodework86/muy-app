@@ -200,9 +200,9 @@
     // Helper to render an icon as a labelled wrapper span (keeps markup short below).
     $i = fn ($key) => '<span class="admin-topbar__link-ico" aria-hidden="true">'.($ico[$key] ?? '').'</span>';
 @endphp
-<header class="admin-topbar @if ($showHubNav) admin-topbar--hub @endif">
-    <div class="admin-topbar__inner @if ($showHubNav) admin-topbar__inner--hub @endif">
-        <a href="{{ route('dashboard') }}" class="admin-brand @if ($showHubNav) admin-brand--hub @endif" title="Mukhyamantri Udyamshala Yojana">
+<header class="admin-topbar @if ($showHubNav) admin-topbar--hub @endif @if ($showStaffNav) admin-topbar--staff @endif">
+    <div class="admin-topbar__inner @if ($showHubNav) admin-topbar__inner--hub @endif @if ($showStaffNav) admin-topbar__inner--staff @endif">
+        <a href="{{ route('dashboard') }}" class="admin-brand @if ($showHubNav) admin-brand--hub @endif @if ($showStaffNav) admin-brand--staff @endif" title="Mukhyamantri Udyamshala Yojana">
             <span class="admin-brand__logo-wrap">
                 <img src="{{ $logoUrl }}" alt="MUY Logo" class="admin-brand__img">
             </span>
@@ -211,6 +211,14 @@
                     <span class="admin-brand__eyebrow">Hub command centre</span>
                     <span class="admin-brand__name">MUY</span>
                     <span class="admin-brand__hub" title="{{ $hubDisplayName }}">{{ $hubDisplayName }}</span>
+                @elseif ($showStaffNav)
+                    <span class="admin-brand__eyebrow">District staff portal</span>
+                    <span class="admin-brand__name">MUY</span>
+                    @if ($u->district?->name)
+                        <span class="admin-brand__hub" title="{{ $u->district->name }}">{{ $u->district->name }}</span>
+                    @else
+                        <span class="admin-brand__sub">{{ $brandSub }}</span>
+                    @endif
                 @else
                     <span class="admin-brand__name">Mukhyamantri Udyamshala Yojana</span>
                     <span class="admin-brand__sub">{{ $brandSub }}</span>
@@ -506,18 +514,19 @@
         @endif
 
         @if ($showStaffNav)
-        <nav class="admin-topbar__nav admin-topbar__nav--state-admin" aria-label="Staff">
-            <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif">
+        <div class="admin-topbar__nav-rail admin-topbar__nav-rail--staff" data-staff-nav-rail>
+        <nav class="admin-topbar__nav admin-topbar__nav--staff" aria-label="Staff">
+            <a href="{{ route('dashboard') }}" class="admin-topbar__link @if ($activeNav === 'dashboard') is-active @endif" title="Dashboard">
                 {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
             </a>
             @if ($showStaffDailyCheckInNav)
-            <a href="{{ route('staff-daily-check-in.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-daily-check-in') is-active @endif">
-                {!! $i('pin') !!}<span class="admin-topbar__link-text">Daily attendance</span>
+            <a href="{{ route('staff-daily-check-in.index') }}" class="admin-topbar__link @if ($activeNav === 'staff-daily-check-in') is-active @endif" title="Daily attendance">
+                {!! $i('pin') !!}<span class="admin-topbar__link-text">Attendance</span>
             </a>
             @endif
 
             <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffCfaGroupActive) is-active @endif">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffCfaGroupActive) is-active @endif" title="CFA">
                     {!! $i('cfa') !!}<span class="admin-topbar__link-text">CFA</span>
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
@@ -541,8 +550,8 @@
             </details>
 
             <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffTargetsGroupActive) is-active @endif">
-                    {!! $i('targets') !!}<span class="admin-topbar__link-text">Targets &amp; progress</span>
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffTargetsGroupActive) is-active @endif" title="Targets and progress">
+                    {!! $i('targets') !!}<span class="admin-topbar__link-text">Targets</span>
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Planning &amp; reporting</p>
@@ -576,10 +585,11 @@
             </details>
             @include('partials.staff-field-work-nav')
 
-            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
+            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif" title="Documents">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
             </a>
         </nav>
+        </div>
         @endif
 
         @if ($showIncubateeNav)
@@ -763,14 +773,33 @@
         });
     }
 
+    function initStaffNavRail() {
+        var rail = document.querySelector('[data-staff-nav-rail]');
+        if (!rail) return;
+        var sync = function () {
+            var maxScroll = rail.scrollWidth - rail.clientWidth;
+            if (maxScroll <= 2) {
+                rail.classList.remove('can-scroll-left', 'can-scroll-right');
+                return;
+            }
+            rail.classList.toggle('can-scroll-left', rail.scrollLeft > 2);
+            rail.classList.toggle('can-scroll-right', rail.scrollLeft < maxScroll - 2);
+        };
+        rail.addEventListener('scroll', sync, { passive: true });
+        window.addEventListener('resize', sync);
+        sync();
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             initTopbarDropdowns();
             initMobileMenu();
+            initStaffNavRail();
         });
     } else {
         initTopbarDropdowns();
         initMobileMenu();
+        initStaffNavRail();
     }
 }());
 </script>
