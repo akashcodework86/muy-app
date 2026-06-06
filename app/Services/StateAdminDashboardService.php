@@ -17,6 +17,10 @@ use Illuminate\Support\Facades\Schema;
 
 class StateAdminDashboardService
 {
+    public function __construct(
+        private readonly AdminDashboardInsightsService $insightsService,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -323,21 +327,23 @@ class StateAdminDashboardService
         $estimatedSavings = $this->estimatedSavingsMetrics($activeFy, $phase3FloorDate);
         $servicesDeliveredCounts = $this->servicesDeliveredCounts($activeFy, $phase3FloorDate);
         try {
-            $insights = $this->buildInsights(
-                $phase3Scope,
-                $phase3FloorDate,
-                $activeFyId,
-                $cfaDeliverableIds,
-                $activeFy,
-                [
+            $insights = $this->insightsService->build(
+                phase3Scope: $phase3Scope,
+                districtIds: [],
+                hubId: null,
+                phase3FloorDate: $phase3FloorDate,
+                activeFyId: $activeFyId,
+                cfaDeliverableIds: $cfaDeliverableIds,
+                activeFy: $activeFy,
+                cfaByDistrict: [
                     'labels' => $cfaByDistrict->pluck('name')->all(),
                     'values' => $cfaByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
                 ],
-                $stateOnboardingAchieved,
-                $servicesDeliveredCounts['till_date'] ?? 0,
+                onboardedCount: $stateOnboardingAchieved,
+                servicesDelivered: $servicesDeliveredCounts['till_date'] ?? 0,
             );
         } catch (\Throwable) {
-            $insights = $this->emptyInsights();
+            $insights = $this->insightsService->emptyInsights();
         }
 
         return [

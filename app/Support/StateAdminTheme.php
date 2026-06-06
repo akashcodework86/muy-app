@@ -11,6 +11,11 @@ class StateAdminTheme
     /** @var list<string> */
     public const ALLOWED = ['revamp', 'legacy'];
 
+    public static function appliesToRole(?string $role): bool
+    {
+        return in_array($role, ['state_admin', 'hub_admin'], true);
+    }
+
     public static function resolve(?Request $request = null): string
     {
         $request ??= request();

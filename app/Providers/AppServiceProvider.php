@@ -24,9 +24,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        View::composer(['layouts.admin', 'dashboards.state-admin'], function ($view): void {
+        View::composer(['layouts.admin', 'dashboards.state-admin', 'dashboards.hub-admin'], function ($view): void {
             $user = auth()->user();
-            if ($user?->role !== 'state_admin') {
+            if (! StateAdminTheme::appliesToRole($user?->role)) {
                 return;
             }
 
@@ -97,6 +97,9 @@ class AppServiceProvider extends ServiceProvider
             ]);
 
             if ($user->role === 'state_admin') {
+                $view->with('stateAdminTheme', StateAdminTheme::resolve(request()));
+            }
+            if ($user->role === 'hub_admin') {
                 $view->with('stateAdminTheme', StateAdminTheme::resolve(request()));
             }
         });

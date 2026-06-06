@@ -101,7 +101,9 @@ class DashboardController extends Controller
         }
 
         if ($user?->role === 'hub_admin') {
-            return view('dashboards.hub-admin', $hubDashboard->metrics($user));
+            return view('dashboards.hub-admin', array_merge($hubDashboard->metrics($user), [
+                'dashboardTheme' => StateAdminTheme::resolve($request),
+            ]));
         }
 
         if ($user?->role === 'district_staff') {

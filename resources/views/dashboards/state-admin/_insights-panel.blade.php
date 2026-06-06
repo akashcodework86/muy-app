@@ -8,7 +8,7 @@
         <div class="sad-card">
             <div class="sad-card__head">
                 <h2 class="sad-card__title"><i class="fa-solid fa-filter" aria-hidden="true"></i> CFA pipeline funnel</h2>
-                <span class="sad-card__tag">State level</span>
+                <span class="sad-card__tag">{{ $insightsScopeLabel ?? 'State level' }}</span>
             </div>
             <p class="sad-card__hint">Submitted → onboarded (locked) → services delivered</p>
             <div class="sad-chart-box--md">
@@ -68,7 +68,7 @@
         </div>
         <div class="sad-signal">
             <span>Total districts in MIS</span>
-            <strong>{{ number_format($districtsCount ?? 0) }}</strong>
+            <strong>{{ number_format($districtsCount ?? ($insightsDistrictTotal ?? 0)) }}</strong>
         </div>
         <div class="sad-signal">
             <span>Coverage</span>

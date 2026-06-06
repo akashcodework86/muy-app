@@ -20,6 +20,7 @@ class HubAdminDashboardService
     public function __construct(
         private readonly StaffCheckInService $staffCheckIns,
         private readonly StaffMonthlyTargetsDashboardService $staffTargetsDashboard,
+        private readonly AdminDashboardInsightsService $insightsService,
     ) {}
 
     /**
@@ -300,6 +301,38 @@ class HubAdminDashboardService
             }
         }
 
+        $phase3FloorDateLabel = $phase3FloorDate->format('d M Y');
+        $phase3Scope = CfaSubmission::query()
+            ->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds))
+            ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate));
+
+        $cfaDeliverableIds = $cfaDeliverable ? [(int) $cfaDeliverable->id] : [];
+
+        $insights = $this->insightsService->build(
+            phase3Scope: $phase3Scope,
+            districtIds: $districtIds,
+            hubId: $hubId,
+            phase3FloorDate: $phase3FloorDate,
+            activeFyId: $activeFyId,
+            cfaDeliverableIds: $cfaDeliverableIds,
+            activeFy: $activeFy,
+            cfaByDistrict: [
+                'labels' => $cfaByDistrict->pluck('name')->all(),
+                'values' => $cfaByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
+            ],
+            onboardedCount: (int) $hubOnboardingAchieved,
+            servicesDelivered: (int) ($servicesDeliveredCounts['till_date'] ?? 0),
+        );
+
+        $estimatedSavings = $this->insightsService->estimatedSavings($activeFy, $phase3FloorDate, $districtIds);
+        if (($businessMix['labels'] ?? []) !== []) {
+            $palette = ['#26a69a', '#42a5f5', '#ff8a65', '#ffca28', '#f06292', '#66bb6a', '#ab47bc', '#78909c'];
+            $businessMix['colors'] = array_map(
+                fn ($i) => $palette[$i % count($palette)],
+                array_keys($businessMix['labels'])
+            );
+        }
+
         return [
             'hub' => $hub,
             'districtsInHub' => count($districtIds),
@@ -360,6 +393,15 @@ class HubAdminDashboardService
             'hubOnboardingProgressPct' => $hubOnboardingProgressPct,
             'hubOnboardingByDistrict' => $hubOnboardingByDistrict,
             'attendance' => $this->staffCheckIns->hubAttendanceMetrics($hubId),
+            'insights' => $insights,
+            'estimatedSavings' => $estimatedSavings,
+            'phase3FloorDateLabel' => $phase3FloorDateLabel,
+            'stateCfaTrend' => [
+                'labels' => $trendLabels,
+                'values' => $trendValues,
+            ],
+            'districtsCount' => count($districtIds),
+            'deliverablesCount' => Deliverable::query()->where('is_active', true)->count(),
         ];
     }
 
