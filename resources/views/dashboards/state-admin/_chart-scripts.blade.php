@@ -1,12 +1,12 @@
 @php
     $ins = $insights ?? [];
     $isLegacyTheme = ($dashboardTheme ?? 'revamp') === 'legacy';
-    $chartPrimary = $isLegacyTheme ? '#d04a02' : '#166534';
-    $chartSecondary = $isLegacyTheme ? '#eb8c00' : '#c2410c';
-    $chartFill = $isLegacyTheme ? 'rgba(208, 74, 2, 0.24)' : 'rgba(15, 118, 110, 0.14)';
+    $chartPrimary = $isLegacyTheme ? '#d04a02' : '#26a69a';
+    $chartSecondary = $isLegacyTheme ? '#eb8c00' : '#42a5f5';
+    $chartFill = $isLegacyTheme ? 'rgba(208, 74, 2, 0.24)' : 'rgba(38, 166, 154, 0.12)';
     $districtPalette = $isLegacyTheme
         ? ['#d04a02', '#eb8c00', '#ffb600', '#2d2d2d', '#464646', '#a63d02', '#6b6b6b', '#22c55e', '#c75b12', '#b83d02', '#8b8b8b', '#d97706', '#16a34a']
-        : ['#166534', '#c2410c', '#b45309', '#be185d', '#a16207', '#15803d', '#9a3412', '#78716c', '#9d174d', '#ca8a04', '#57534e', '#4ade80', '#fb923c'];
+        : ['#26a69a', '#42a5f5', '#ff8a65', '#ffca28', '#f06292', '#66bb6a', '#ab47bc', '#78909c', '#4db6ac', '#64b5f6', '#ffb74d', '#81c784', '#ce93d8'];
 @endphp
 <script>
 (function () {

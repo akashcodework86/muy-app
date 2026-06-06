@@ -1,111 +1,108 @@
-{{-- Revamp v5: Warm earth — slate header, forest green brand, amber accent, settled KPI spectrum. --}}
+{{-- Revamp v6: EduLearn-inspired — light canvas, soft teal brand, pastel KPI accents. --}}
 .admin-app-body--state-theme-revamp,
 .admin-app-body--state-theme-revamp .sad {
-    --sad-text: #1c1917;
-    --sad-muted: #78716c;
-    --sad-border: #e7e5e4;
+    --sad-text: #37474f;
+    --sad-muted: #78909c;
+    --sad-border: #e8ecf1;
     --sad-surface: #ffffff;
-    --sad-brand: #166534;
-    --sad-brand-deep: #14532d;
-    --sad-brand-light: #f0fdf4;
-    --sad-accent: #c2410c;
-    --sad-accent-soft: #fff7ed;
-    --sad-green: #16a34a;
-    --sad-green-deep: #15803d;
-    --sad-teal: #b45309;
-    --sad-sky: #57534e;
-    --sad-navy: #292524;
-    --sad-coral: #be185d;
-    --sad-saffron: #d97706;
-    --sad-gold: #a16207;
-    --sad-radius: 14px;
-    --sad-shadow: 0 2px 8px rgba(28, 25, 23, 0.05), 0 8px 22px rgba(22, 101, 52, 0.07);
-    --sad-brand-grad: linear-gradient(135deg, #14532d 0%, #166534 45%, #b45309 100%);
-    --sad-chart-primary: #166534;
-    --sad-chart-secondary: #c2410c;
-    --sad-chart-fill: rgba(22, 101, 52, 0.14);
-    --sad-page-bg: #fafaf9;
-    --sad-nav-shadow: 0 3px 12px rgba(22, 101, 52, 0.22);
-    --sad-header-grad: linear-gradient(135deg, #292524 0%, #3f3f46 42%, #52525b 100%);
+    --sad-brand: #26a69a;
+    --sad-brand-deep: #00897b;
+    --sad-brand-light: #e0f2f1;
+    --sad-accent: #ff8a65;
+    --sad-accent-soft: #fff3e0;
+    --sad-green: #66bb6a;
+    --sad-green-deep: #43a047;
+    --sad-teal: #26a69a;
+    --sad-sky: #42a5f5;
+    --sad-navy: #263238;
+    --sad-coral: #f06292;
+    --sad-saffron: #ffca28;
+    --sad-gold: #ffb300;
+    --sad-radius: 16px;
+    --sad-shadow: 0 2px 12px rgba(55, 71, 79, 0.06), 0 8px 24px rgba(38, 166, 154, 0.06);
+    --sad-brand-grad: linear-gradient(135deg, #00897b 0%, #26a69a 50%, #4db6ac 100%);
+    --sad-chart-primary: #26a69a;
+    --sad-chart-secondary: #42a5f5;
+    --sad-chart-fill: rgba(38, 166, 154, 0.12);
+    --sad-page-bg: #f0f4f8;
+    --sad-nav-shadow: 0 4px 14px rgba(38, 166, 154, 0.22);
+    --sad-header-grad: #ffffff;
 }
 .admin-app-body--state-theme-revamp.admin-app-body--state-premium {
-    background:
-        radial-gradient(ellipse 70% 45% at 0% 0%, rgba(22, 101, 52, 0.05), transparent 55%),
-        radial-gradient(ellipse 55% 40% at 100% 0%, rgba(194, 65, 12, 0.04), transparent 50%),
-        var(--sad-page-bg) !important;
+    background: var(--sad-page-bg) !important;
 }
 
-/* Unified header — warm slate, not blue */
+/* Light topbar — clean like reference dashboard */
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar,
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar {
-    background: var(--sad-header-grad) !important;
-    border-bottom: none !important;
-    box-shadow: none !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e8ecf1 !important;
+    box-shadow: 0 1px 8px rgba(55, 71, 79, 0.05) !important;
 }
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip {
-    background: linear-gradient(135deg, #3f3f46 0%, #52525b 55%, #57534e 100%);
+    background: linear-gradient(120deg, #00897b 0%, #26a69a 45%, #4db6ac 100%);
     color: #fff;
-    border-bottom: 2px solid #b45309;
-    box-shadow: 0 6px 18px rgba(28, 25, 23, 0.12);
+    border-bottom: none;
+    box-shadow: 0 8px 24px rgba(38, 166, 154, 0.22);
 }
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-brand__name {
     background: none !important;
-    -webkit-text-fill-color: #fafaf9 !important;
-    color: #fafaf9 !important;
+    -webkit-text-fill-color: #263238 !important;
+    color: #263238 !important;
 }
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-brand__sub {
-    background: rgba(180, 83, 9, 0.28) !important;
-    border-color: rgba(251, 191, 36, 0.35) !important;
-    color: #fef3c7 !important;
+    background: #e0f2f1 !important;
+    border-color: #b2dfdb !important;
+    color: #00695c !important;
 }
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__nav--state-admin,
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__nav--hub-admin {
-    border-top-color: rgba(255, 255, 255, 0.1) !important;
+    border-top-color: #e8ecf1 !important;
 }
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link {
-    color: rgba(250, 250, 249, 0.9) !important;
+    color: #546e7a !important;
 }
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link:hover {
-    color: #fff !important;
-    background: rgba(255, 255, 255, 0.1) !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #26a69a !important;
+    background: #e0f2f1 !important;
+    border-color: #b2dfdb !important;
 }
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link.is-active,
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link.is-active.admin-topbar__dropdown-trigger {
-    color: #14532d !important;
-    background: #fef3c7 !important;
-    border-color: #fcd34d !important;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12) !important;
+    color: #1565c0 !important;
+    background: #e3f2fd !important;
+    border-color: #90caf9 !important;
+    box-shadow: none !important;
 }
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__notif-summary {
-    border-color: #e7e5e4 !important;
-    background: #fafaf9 !important;
-    color: #166534 !important;
+    border-color: #e8ecf1 !important;
+    background: #f5f7fa !important;
+    color: #26a69a !important;
 }
 
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip__title {
-    color: #fafaf9;
+    color: #fff;
 }
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip__sub {
-    color: rgba(250, 250, 249, 0.78);
+    color: rgba(255, 255, 255, 0.88);
 }
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip__sub strong {
-    color: #fcd34d;
+    color: #fff9c4;
 }
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-badge {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    color: #f5f5f4;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: #fff;
 }
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-theme-toggle {
-    background: #fffbeb;
-    border-color: #fde68a;
-    color: #b45309;
+    background: #fff;
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #00897b;
     font-weight: 800;
 }
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-theme-toggle:hover {
-    background: #fef3c7;
-    color: #92400e;
+    background: #e0f7fa;
+    color: #00695c;
 }
 
 /* Legacy unified strip */
@@ -133,14 +130,16 @@
     color: #a63d02;
 }
 
-/* KPI — settled multi-tone (no blue overload) */
+/* KPI — white cards + pastel icon blocks (reference style) */
 .admin-app-body--state-theme-revamp .sad-kpi {
-    border-radius: 14px;
-    padding: 0.75rem 0.85rem;
-    border: 1px solid #f5f5f4;
+    border-radius: 16px;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid #e8ecf1;
+    background: #fff;
     transition: transform 0.18s ease, box-shadow 0.18s ease;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 2px 10px rgba(55, 71, 79, 0.04);
 }
 .admin-app-body--state-theme-revamp .sad-kpi::before {
     content: '';
@@ -152,7 +151,7 @@
 }
 .admin-app-body--state-theme-revamp .sad-kpi:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 24px rgba(28, 25, 23, 0.08);
+    box-shadow: 0 12px 28px rgba(55, 71, 79, 0.09);
 }
 .admin-app-body--state-theme-revamp .sad-kpi__value {
     font-size: 1.32rem;
@@ -161,99 +160,99 @@
     color: var(--sad-navy);
 }
 .admin-app-body--state-theme-revamp .sad-kpi__icon {
-    width: 2.1rem;
-    height: 2.1rem;
-    border-radius: 11px;
-    font-size: 0.85rem;
-    box-shadow: 0 2px 6px rgba(28, 25, 23, 0.06);
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    box-shadow: none;
 }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-blue { background: linear-gradient(160deg, #f0fdf4 0%, #fff 100%); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-blue::before { background: linear-gradient(90deg, #166534, #4ade80); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-indigo { background: linear-gradient(160deg, #fff7ed 0%, #fff 100%); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-indigo::before { background: linear-gradient(90deg, #c2410c, #fb923c); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-amber { background: linear-gradient(160deg, #fffbeb 0%, #fff 100%); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-amber::before { background: linear-gradient(90deg, #b45309, #fbbf24); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-violet { background: linear-gradient(160deg, #fdf2f8 0%, #fff 100%); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-violet::before { background: linear-gradient(90deg, #9d174d, #f472b6); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-cyan { background: linear-gradient(160deg, #fef2f2 0%, #fff 100%); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-cyan::before { background: linear-gradient(90deg, #b91c1c, #f87171); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-slate { background: linear-gradient(160deg, #fafaf9 0%, #fff 100%); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-slate::before { background: linear-gradient(90deg, #57534e, #a8a29e); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-teal { background: linear-gradient(160deg, #fefce8 0%, #fff 100%); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-teal::before { background: linear-gradient(90deg, #a16207, #facc15); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-emerald { background: linear-gradient(160deg, #ecfdf5 0%, #fff 100%); }
-.admin-app-body--state-theme-revamp .sad-kpi--tone-emerald::before { background: linear-gradient(90deg, #15803d, #86efac); }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-blue { background: #fff; }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-blue::before { background: linear-gradient(90deg, #26a69a, #4db6ac); }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-indigo { background: #fff; }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-indigo::before { background: linear-gradient(90deg, #ff8a65, #ffab91); }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-amber { background: #fff; }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-amber::before { background: linear-gradient(90deg, #ffb300, #ffca28); }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-violet { background: #fff; }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-violet::before { background: linear-gradient(90deg, #f06292, #f48fb1); }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-cyan { background: #fff; }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-cyan::before { background: linear-gradient(90deg, #42a5f5, #90caf9); }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-slate { background: #fff; }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-slate::before { background: linear-gradient(90deg, #78909c, #b0bec5); }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-teal { background: #fff; }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-teal::before { background: linear-gradient(90deg, #66bb6a, #a5d6a7); }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-emerald { background: #fff; }
+.admin-app-body--state-theme-revamp .sad-kpi--tone-emerald::before { background: linear-gradient(90deg, #ab47bc, #ce93d8); }
 
-.admin-app-body--state-theme-revamp .sad-kpi__icon--green { background: #dcfce7; color: #166534; }
-.admin-app-body--state-theme-revamp .sad-kpi__icon--teal { background: #ffedd5; color: #c2410c; }
-.admin-app-body--state-theme-revamp .sad-kpi__icon--sky { background: #fef3c7; color: #b45309; }
-.admin-app-body--state-theme-revamp .sad-kpi__icon--amber { background: #fce7f3; color: #9d174d; }
-.admin-app-body--state-theme-revamp .sad-kpi__icon--rose { background: #fee2e2; color: #b91c1c; }
-.admin-app-body--state-theme-revamp .sad-kpi__icon--indigo { background: #f5f5f4; color: #57534e; }
-.admin-app-body--state-theme-revamp .sad-kpi__icon--teal2 { background: #fef9c3; color: #a16207; }
+.admin-app-body--state-theme-revamp .sad-kpi__icon--green { background: #e0f2f1; color: #00897b; }
+.admin-app-body--state-theme-revamp .sad-kpi__icon--teal { background: #fff3e0; color: #ef6c00; }
+.admin-app-body--state-theme-revamp .sad-kpi__icon--sky { background: #fff8e1; color: #f9a825; }
+.admin-app-body--state-theme-revamp .sad-kpi__icon--amber { background: #fce4ec; color: #d81b60; }
+.admin-app-body--state-theme-revamp .sad-kpi__icon--rose { background: #e3f2fd; color: #1e88e5; }
+.admin-app-body--state-theme-revamp .sad-kpi__icon--indigo { background: #eceff1; color: #546e7a; }
+.admin-app-body--state-theme-revamp .sad-kpi__icon--teal2 { background: #e8f5e9; color: #43a047; }
 
 /* Nav + cards */
 .admin-app-body--state-theme-revamp .sad-nav {
     background: #fff;
-    border: 1px solid #e7e5e4;
+    border: 1px solid #e8ecf1;
     border-radius: 999px;
     padding: 0.32rem;
-    box-shadow: 0 2px 12px rgba(28, 25, 23, 0.05);
+    box-shadow: 0 2px 12px rgba(55, 71, 79, 0.05);
 }
 .admin-app-body--state-theme-revamp .sad-nav__btn.is-active {
-    background: var(--sad-brand-grad);
+    background: linear-gradient(135deg, #26a69a, #4db6ac);
     color: #fff;
     box-shadow: var(--sad-nav-shadow);
 }
 .admin-app-body--state-theme-revamp .sad-card {
-    border-radius: 14px;
-    border-color: #e7e5e4;
-    box-shadow: 0 2px 8px rgba(28, 25, 23, 0.04);
+    border-radius: 16px;
+    border-color: #e8ecf1;
+    box-shadow: 0 2px 12px rgba(55, 71, 79, 0.05);
     background: #fff;
 }
 .admin-app-body--state-theme-revamp .sad-card__tag {
-    background: #f0fdf4;
-    color: #14532d;
-    border: 1px solid #bbf7d0;
+    background: #e0f2f1;
+    color: #00695c;
+    border: 1px solid #b2dfdb;
 }
 .admin-app-body--state-theme-revamp .sad-card__title i {
-    color: #166534;
+    color: #26a69a;
 }
 .admin-app-body--state-theme-revamp .sad-progress-fill--sky {
-    background: linear-gradient(90deg, #166534, #c2410c);
+    background: linear-gradient(90deg, #26a69a, #42a5f5);
 }
 .admin-app-body--state-theme-revamp .sad-district-card.is-top {
-    border-color: #fcd34d;
-    background: linear-gradient(180deg, #fffbeb 0%, #fff 100%);
+    border-color: #80cbc4;
+    background: linear-gradient(180deg, #e0f2f1 0%, #fff 100%);
 }
 .admin-app-body--state-theme-revamp .sad-alert--info {
-    background: #fff7ed;
-    border-color: #fdba74;
-    color: #9a3412;
+    background: #e3f2fd;
+    border-color: #90caf9;
+    color: #1565c0;
 }
 .admin-app-body--state-theme-revamp .sad-savings-tile--blue {
-    border-color: #fde68a;
-    background: #fffbeb;
+    border-color: #90caf9;
+    background: #e3f2fd;
 }
 .admin-app-body--state-theme-revamp .sad-savings-tile--blue .sad-savings-tile__lbl {
-    color: #92400e !important;
+    color: #1565c0 !important;
 }
 .admin-app-body--state-theme-revamp .sad-savings-tile--blue .sad-savings-tile__val {
-    color: #78350f !important;
+    color: #0d47a1 !important;
 }
 .admin-app-body--state-theme-revamp .sad-kpi__icon--sky {
-    background: #fef3c7 !important;
-    color: #b45309 !important;
+    background: #fff8e1 !important;
+    color: #f9a825 !important;
 }
 .admin-app-body--state-theme-revamp .sad-alert--ok {
-    background: #ecfdf5;
-    border-color: #6ee7b7;
-    color: #047857;
+    background: #e8f5e9;
+    border-color: #a5d6a7;
+    color: #2e7d32;
 }
 .admin-app-body--state-theme-revamp .sad-alert--warn {
-    background: #fffbeb;
-    border-color: #fcd34d;
-    color: #92400e;
+    background: #fff8e1;
+    border-color: #ffe082;
+    color: #f57f17;
 }
 
 .admin-app-body--state-theme-legacy,
