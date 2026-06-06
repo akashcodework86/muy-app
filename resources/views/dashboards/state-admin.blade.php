@@ -114,8 +114,8 @@
             transition: border-color 0.15s, box-shadow 0.15s;
         }
         .sad-kpi:hover {
-            border-color: #f5c4a8;
-            box-shadow: 0 4px 16px rgba(208, 74, 2, 0.12);
+            border-color: var(--sad-border);
+            box-shadow: var(--sad-shadow);
         }
         .sad-kpi__icon {
             width: 1.65rem;
@@ -221,9 +221,9 @@
         }
         .sad-nav__btn:hover { background: #f1f5f9; color: var(--sad-text); }
         .sad-nav__btn.is-active {
-            background: var(--sad-brand-grad);
+            background: var(--sad-brand);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(208, 74, 2, 0.28);
+            box-shadow: var(--sad-nav-shadow, 0 2px 8px rgba(15, 23, 42, 0.12));
         }
         .sad-panel { display: none; animation: sadFade 0.25s ease; }
         .sad-panel.is-active { display: block; }
@@ -813,10 +813,12 @@
         <div class="sad">
             <header class="sad-masthead">
                 <div>
-                    <div class="sad-masthead__eyebrow"><i class="fa-solid fa-mountain-sun" aria-hidden="true"></i> MUY State Command</div>
+                    <div class="sad-masthead__eyebrow"><i class="fa-solid fa-mountain-sun" aria-hidden="true"></i> MUY State Command · Phase 3</div>
                     <h1>Welcome, {{ auth()->user()->name }}</h1>
                     <p class="sad-masthead__sub">
-                        Unified Phase 3 intelligence across {{ number_format($districtsCount) }} districts — CFA from {{ $phaseLabel }}.
+                        Live intelligence across <strong>{{ number_format($districtsCount) }}</strong> districts
+                        · <strong>{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</strong> blocks with CFA
+                        · from {{ $phaseLabel }}.
                     </p>
                 </div>
                 <div class="sad-masthead__meta">
