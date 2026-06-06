@@ -79,6 +79,87 @@
     background: #f5f7fa !important;
     color: #26a69a !important;
 }
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link-ico {
+    color: #607d8b !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link:hover .admin-topbar__link-ico {
+    color: #26a69a !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link.is-active .admin-topbar__link-ico {
+    color: #1976d2 !important;
+}
+
+/* Hub admin revamp — light header; override orange hub shell (white links on white rail) */
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e8ecf1 !important;
+    box-shadow: 0 1px 8px rgba(55, 71, 79, 0.05) !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub::before,
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub::after {
+    display: none !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__nav-rail {
+    background: #eef2f6 !important;
+    border: 1px solid #dde3ea !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__link {
+    color: #455a64 !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__link-ico {
+    color: #607d8b !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__link:hover {
+    color: #00897b !important;
+    background: #e0f2f1 !important;
+    border-color: #b2dfdb !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__link:hover .admin-topbar__link-ico {
+    color: #26a69a !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__link.is-active,
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__link.is-active.admin-topbar__dropdown-trigger {
+    color: #1565c0 !important;
+    background: #e3f2fd !important;
+    border-color: #90caf9 !important;
+    box-shadow: none !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__link.is-active .admin-topbar__link-ico {
+    color: #1976d2 !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-brand--hub .admin-brand__logo-wrap {
+    background: #fff !important;
+    border-color: #e8ecf1 !important;
+    box-shadow: 0 2px 10px rgba(55, 71, 79, 0.1) !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-brand--hub .admin-brand__eyebrow {
+    color: #78909c !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-brand--hub .admin-brand__name {
+    color: #263238 !important;
+    -webkit-text-fill-color: #263238 !important;
+    background: none !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-brand--hub .admin-brand__hub {
+    color: #546e7a !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__notif-summary,
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__settings {
+    border-color: #e8ecf1 !important;
+    background: #f5f7fa !important;
+    color: #26a69a !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__theme-toggle {
+    border-color: #e8ecf1 !important;
+    background: #fff !important;
+    color: #00897b !important;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--hub-admin .admin-topbar--hub .admin-topbar__theme-toggle:hover {
+    background: #e0f2f1 !important;
+    border-color: #80cbc4 !important;
+    color: #00695c !important;
+}
 
 .admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip__title {
     color: #fff;
