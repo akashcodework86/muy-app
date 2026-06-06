@@ -1040,6 +1040,8 @@
             $phaseLabel = $phase3FloorDateLabel ?? '01 Apr 2026';
             $insightsScopeLabel = ($hub->name ?? 'Hub') . ' hub';
             $insightsDistrictTotal = (int) ($districtsInHub ?? 0);
+            $attDistrictChartLabels = collect($attDistrictToday)->pluck('district')->values()->all();
+            $attDistrictChartRates = collect($attDistrictToday)->pluck('rate_pct')->map(fn ($v) => (int) ($v ?? 0))->values()->all();
         @endphp
 
         <header class="sad-unified-strip" aria-label="Dashboard context">
@@ -1858,11 +1860,15 @@
 
 @include('dashboards.state-admin._chart-scripts')
 
+@php
+    $hubAttChartPrimary = ($dashboardTheme ?? 'revamp') === 'legacy' ? '#d04a02' : '#26a69a';
+    $hubAttChartFill = ($dashboardTheme ?? 'revamp') === 'legacy' ? 'rgba(208, 74, 2, 0.12)' : 'rgba(38, 166, 154, 0.12)';
+@endphp
 <script>
 (function () {
     const gridColor = 'rgba(148, 163, 184, 0.22)';
-    const chartPrimary = @json(($dashboardTheme ?? 'revamp') === 'legacy' ? '#d04a02' : '#26a69a');
-    const chartFill = @json(($dashboardTheme ?? 'revamp') === 'legacy' ? 'rgba(208, 74, 2, 0.12)' : 'rgba(38, 166, 154, 0.12)');
+    const chartPrimary = @json($hubAttChartPrimary);
+    const chartFill = @json($hubAttChartFill);
 
     const searchInput = document.getElementById('hubStaffCfaSearch');
     const districtSelect = document.getElementById('hubStaffCfaDistrictFilter');
@@ -1975,8 +1981,8 @@
         });
     }
 
-    const attDistrictLabels = @json(collect($attDistrictToday)->pluck('district')->values()->all());
-    const attDistrictRates = @json(collect($attDistrictToday)->pluck('rate_pct')->map(fn ($v) => (int) ($v ?? 0))->values()->all());
+    const attDistrictLabels = @json($attDistrictChartLabels);
+    const attDistrictRates = @json($attDistrictChartRates);
     const attDistrictEl = document.getElementById('hubAttDistrictChart');
     if (attDistrictEl && attDistrictLabels.length) {
         new Chart(attDistrictEl, {

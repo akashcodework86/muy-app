@@ -11,6 +11,7 @@ use App\Models\Hub;
 use App\Models\MentorshipRequest;
 use App\Models\ServiceCase;
 use App\Models\User;
+use App\Services\Cfa\CfaSubmissionListQuery;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -77,8 +78,9 @@ class HubAdminDashboardService
             ? (int) round((($cfaLast7 - $cfaPrev7) / $cfaPrev7) * 100)
             : ($cfaLast7 > 0 ? 100 : 0);
 
+        $stageExpr = CfaSubmissionListQuery::payloadJsonExpr('$.form_stage');
         $stageQuery = DB::table('cfa_submissions')
-            ->selectRaw("LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.form_stage')))) as stage_key")
+            ->selectRaw('LOWER(TRIM('.$stageExpr.')) as stage_key')
             ->selectRaw('COUNT(*) as total');
         if ($districtIds !== []) {
             $stageQuery->whereIn('district_id', $districtIds);
@@ -86,7 +88,11 @@ class HubAdminDashboardService
         if ($activeFyId > 0) {
             $stageQuery->where('fiscal_year_id', $activeFyId);
         }
-        $stageCounts = $stageQuery->groupBy('stage_key')->pluck('total', 'stage_key');
+        try {
+            $stageCounts = $stageQuery->groupByRaw('LOWER(TRIM('.$stageExpr.'))')->pluck('total', 'stage_key');
+        } catch (\Throwable) {
+            $stageCounts = collect();
+        }
 
         $cfaByDistrict = $districtIds === []
             ? collect()
@@ -308,21 +314,25 @@ class HubAdminDashboardService
 
         $cfaDeliverableIds = $cfaDeliverable ? [(int) $cfaDeliverable->id] : [];
 
-        $insights = $this->insightsService->build(
-            phase3Scope: $phase3Scope,
-            districtIds: $districtIds,
-            hubId: $hubId,
-            phase3FloorDate: $phase3FloorDate,
-            activeFyId: $activeFyId,
-            cfaDeliverableIds: $cfaDeliverableIds,
-            activeFy: $activeFy,
-            cfaByDistrict: [
-                'labels' => $cfaByDistrict->pluck('name')->all(),
-                'values' => $cfaByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
-            ],
-            onboardedCount: (int) $hubOnboardingAchieved,
-            servicesDelivered: (int) ($servicesDeliveredCounts['till_date'] ?? 0),
-        );
+        try {
+            $insights = $this->insightsService->build(
+                phase3Scope: $phase3Scope,
+                districtIds: $districtIds,
+                hubId: $hubId,
+                phase3FloorDate: $phase3FloorDate,
+                activeFyId: $activeFyId,
+                cfaDeliverableIds: $cfaDeliverableIds,
+                activeFy: $activeFy,
+                cfaByDistrict: [
+                    'labels' => $cfaByDistrict->pluck('name')->all(),
+                    'values' => $cfaByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
+                ],
+                onboardedCount: (int) $hubOnboardingAchieved,
+                servicesDelivered: (int) ($servicesDeliveredCounts['till_date'] ?? 0),
+            );
+        } catch (\Throwable) {
+            $insights = $this->insightsService->emptyInsights();
+        }
 
         $estimatedSavings = $this->insightsService->estimatedSavings($activeFy, $phase3FloorDate, $districtIds);
         if (($businessMix['labels'] ?? []) !== []) {
