@@ -833,13 +833,13 @@
             </header>
 
             <div class="sad-kpi-strip" role="group" aria-label="Key performance indicators">
-                <div class="sad-kpi" title="Phase 3 CFA submissions (all districts)">
+                <div class="sad-kpi sad-kpi--tone-blue" title="Phase 3 CFA submissions (all districts)">
                     <div class="sad-kpi__icon sad-kpi__icon--green"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i></div>
                     <div class="sad-kpi__label">CFA total</div>
                     <div class="sad-kpi__value">{{ number_format($cfaTotalN) }}</div>
                     <div class="sad-kpi__foot">{{ number_format((int) ($cfaLast30 ?? 0)) }} in last 30 days</div>
                 </div>
-                <div class="sad-kpi">
+                <div class="sad-kpi sad-kpi--tone-indigo">
                     <div class="sad-kpi__icon sad-kpi__icon--teal"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></div>
                     <div class="sad-kpi__label">Target progress</div>
                     <div class="sad-kpi__value">{{ $ringPct }}%</div>
@@ -851,7 +851,7 @@
                         @endif
                     </div>
                 </div>
-                <div class="sad-kpi">
+                <div class="sad-kpi sad-kpi--tone-amber">
                     <div class="sad-kpi__icon sad-kpi__icon--sky"><i class="fa-solid fa-sun" aria-hidden="true"></i></div>
                     <div class="sad-kpi__label">CFA today</div>
                     <div class="sad-kpi__value">{{ number_format($cfaTodayCount) }}</div>
@@ -865,7 +865,7 @@
                         @endif
                     </div>
                 </div>
-                <div class="sad-kpi">
+                <div class="sad-kpi sad-kpi--tone-violet">
                     <div class="sad-kpi__icon sad-kpi__icon--amber"><i class="fa-solid fa-user-check" aria-hidden="true"></i></div>
                     <div class="sad-kpi__label">Onboarding</div>
                     <div class="sad-kpi__value">
@@ -883,27 +883,27 @@
                         @endif
                     </div>
                 </div>
-                <div class="sad-kpi" title="Approved Phase 3 service cases (delivered) — all time">
-                    <div class="sad-kpi__icon sad-kpi__icon--teal"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
+                <div class="sad-kpi sad-kpi--tone-cyan" title="Approved Phase 3 service cases (delivered) — all time">
+                    <div class="sad-kpi__icon sad-kpi__icon--rose"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
                     <div class="sad-kpi__label">Services delivered till date</div>
                     <div class="sad-kpi__value">{{ number_format((int) ($servicesDeliveredTillDate ?? 0)) }}</div>
                     <div class="sad-kpi__foot">
                         Till date · {{ number_format((int) ($servicesDeliveredThisFy ?? 0)) }} this FY
                     </div>
                 </div>
-                <div class="sad-kpi">
+                <div class="sad-kpi sad-kpi--tone-slate">
                     <div class="sad-kpi__icon sad-kpi__icon--indigo"><i class="fa-solid fa-map" aria-hidden="true"></i></div>
                     <div class="sad-kpi__label">Districts w/ CFA</div>
                     <div class="sad-kpi__value">{{ number_format((int) ($insights['geo']['districts'] ?? 0)) }}</div>
                     <div class="sad-kpi__foot">of {{ number_format($districtsCount) }} districts</div>
                 </div>
-                <div class="sad-kpi">
+                <div class="sad-kpi sad-kpi--tone-teal">
                     <div class="sad-kpi__icon sad-kpi__icon--teal2"><i class="fa-solid fa-map-pin" aria-hidden="true"></i></div>
                     <div class="sad-kpi__label">Blocks w/ CFA</div>
                     <div class="sad-kpi__value">{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</div>
                     <div class="sad-kpi__foot">Unique blocks in scope</div>
                 </div>
-                <div class="sad-kpi">
+                <div class="sad-kpi sad-kpi--tone-emerald">
                     <div class="sad-kpi__icon sad-kpi__icon--green"><i class="fa-solid fa-piggy-bank" aria-hidden="true"></i></div>
                     <div class="sad-kpi__label">Savings (FY est.)</div>
                     <div class="sad-kpi__value" style="font-size:0.95rem;">Rs {{ number_format($savingsTotalThisFy, 0) }}</div>
