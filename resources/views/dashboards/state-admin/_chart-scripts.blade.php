@@ -8,6 +8,21 @@
         ? ['#d04a02', '#eb8c00', '#ffb600', '#2d2d2d', '#464646', '#a63d02', '#6b6b6b', '#22c55e', '#c75b12', '#b83d02', '#8b8b8b', '#d97706', '#16a34a']
         : ['#26a69a', '#42a5f5', '#ff8a65', '#ffca28', '#f06292', '#66bb6a', '#ab47bc', '#78909c', '#4db6ac', '#64b5f6', '#ffb74d', '#81c784', '#ce93d8'];
 @endphp
+@php
+    $dtComp = $insights['districtTargetComparison'] ?? ['labels' => [], 'achieved' => [], 'targets' => [], 'periods' => [], 'default_key' => 'fy'];
+    $dtPeriodsForChart = $dtComp['periods'] ?? [];
+    if ($dtPeriodsForChart === [] && ($dtComp['labels'] ?? []) !== []) {
+        $dtPeriodsForChart = [[
+            'key' => 'fy',
+            'label' => 'Full FY',
+            'subtitle' => 'Cumulative CFA achieved vs annual district target',
+            'achieved' => $dtComp['achieved'] ?? [],
+            'targets' => $dtComp['targets'] ?? [],
+        ]];
+    }
+    $dtChartLabels = $dtComp['labels'] ?? [];
+    $dtChartDefaultKey = (string) ($dtComp['default_key'] ?? 'fy');
+@endphp
 <script>
 (function () {
     const gridColor = 'rgba(148, 163, 184, 0.22)';
@@ -219,16 +234,36 @@
         });
     }
 
-    const dtComp = @json($insights['districtTargetComparison'] ?? ['labels' => [], 'achieved' => [], 'targets' => []]);
+    const dtLabels = @json($dtChartLabels);
+    const dtPeriods = @json($dtPeriodsForChart);
+    const dtDefaultKey = @json($dtChartDefaultKey);
     const dtEl = document.getElementById('chartDistrictTarget');
-    if (dtEl && (dtComp.labels || []).length) {
-        new Chart(dtEl, {
+    let dtChartInstance = null;
+
+    const renderDistrictTargetChart = (periodKey) => {
+        if (!dtEl || !dtLabels.length || !dtPeriods.length) {
+            return;
+        }
+        const period = dtPeriods.find((p) => p.key === periodKey) || dtPeriods.find((p) => p.key === dtDefaultKey) || dtPeriods[0];
+        const hintEl = document.querySelector('[data-sad-dt-hint]');
+        if (hintEl && period?.subtitle) {
+            hintEl.textContent = period.subtitle;
+        }
+        document.querySelectorAll('[data-sad-dt-tab]').forEach((btn) => {
+            const active = btn.getAttribute('data-sad-dt-tab') === period.key;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        if (dtChartInstance) {
+            dtChartInstance.destroy();
+        }
+        dtChartInstance = new Chart(dtEl, {
             type: 'bar',
             data: {
-                labels: dtComp.labels,
+                labels: dtLabels,
                 datasets: [
-                    { label: 'Achieved', data: dtComp.achieved, backgroundColor: chartPrimary, borderRadius: 4 },
-                    { label: 'Target', data: dtComp.targets, backgroundColor: '#cbd5e1', borderRadius: 4 }
+                    { label: 'Achieved', data: period.achieved || [], backgroundColor: chartPrimary, borderRadius: 4 },
+                    { label: 'Target', data: period.targets || [], backgroundColor: '#cbd5e1', borderRadius: 4 }
                 ]
             },
             options: {
@@ -240,6 +275,15 @@
                     y: { beginAtZero: true, grid: { color: gridColor } }
                 }
             }
+        });
+    };
+
+    if (dtEl && dtLabels.length && dtPeriods.length) {
+        renderDistrictTargetChart(dtDefaultKey);
+        document.querySelectorAll('[data-sad-dt-tab]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                renderDistrictTargetChart(btn.getAttribute('data-sad-dt-tab'));
+            });
         });
     }
 

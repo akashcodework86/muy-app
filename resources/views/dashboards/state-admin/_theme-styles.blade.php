@@ -585,5 +585,47 @@
 }
 .sad-chart-box--donut { height: 210px; position: relative; }
 .sad-chart-box--md { height: 230px; position: relative; }
+.sad-dt-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.3rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding-bottom: 0.3rem;
+    margin-bottom: 0.35rem;
+    -webkit-overflow-scrolling: touch;
+}
+.sad-dt-tab {
+    flex: 0 0 auto;
+    border: 1px solid var(--sad-border, #e8ecf1);
+    background: #f8fafc;
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem;
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--sad-muted, #78909c);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.sad-dt-tab:hover {
+    background: #eef2f6;
+    color: var(--sad-text, #37474f);
+}
+.sad-dt-tab.is-active {
+    background: var(--sad-brand-light, #e0f2f1);
+    border-color: var(--sad-brand, #26a69a);
+    color: var(--sad-brand-deep, #00897b);
+    box-shadow: 0 2px 8px rgba(38, 166, 154, 0.15);
+}
+.sad-dt-tab--fy {
+    font-weight: 800;
+}
+.sad-dt-hint {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    color: var(--sad-muted, #78909c);
+    line-height: 1.4;
+}
 .admin-app-body--state-theme-legacy .sad-kpi__icon--indigo { background: #eef2ff; color: #4338ca; }
 .admin-app-body--state-theme-legacy .sad-kpi__icon--teal2 { background: #ecfeff; color: #0891b2; }

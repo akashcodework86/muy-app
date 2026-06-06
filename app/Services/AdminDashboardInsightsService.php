@@ -47,7 +47,13 @@ class AdminDashboardInsightsService
             ]);
             $sourceMix = $this->cfaSourceMix($phase3FloorDate, $activeFyId, $districtIds);
             $topBlocks = $this->topBlocksMix($phase3FloorDate, $activeFyId, $districtIds, 12);
-            $districtTargetComparison = $this->districtCfaTargetComparison($cfaDeliverableIds, $activeFy, $cfaByDistrict, $districtIds);
+            $districtTargetComparison = $this->districtCfaTargetComparisonWithPeriods(
+                $cfaDeliverableIds,
+                $activeFy,
+                $cfaByDistrict,
+                $districtIds,
+                $activeFyId,
+            );
             $onboardingTrend = $this->onboardingDailyTrend14($phase3FloorDate, $districtIds);
             $staffTopChart = $this->staffCfaTopChart($phase3FloorDate, $activeFyId, $hubId, $districtIds, 10);
 
@@ -207,7 +213,7 @@ class AdminDashboardInsightsService
             'sourceMix' => $emptyChart,
             'stageDonut' => $emptyChart,
             'topBlocks' => $emptyChart,
-            'districtTargetComparison' => ['labels' => [], 'achieved' => [], 'targets' => []],
+            'districtTargetComparison' => ['labels' => [], 'achieved' => [], 'targets' => [], 'periods' => [], 'default_key' => 'fy'],
             'onboardingTrend' => ['labels' => [], 'values' => []],
             'staffTopChart' => ['labels' => [], 'values' => []],
         ];
@@ -353,6 +359,190 @@ class AdminDashboardInsightsService
         }
 
         return compact('labels', 'achieved', 'targets');
+    }
+
+    /**
+     * FY totals plus per fiscal-month slices for district target chart tabs.
+     *
+     * @param  list<int>  $cfaDeliverableIds
+     * @param  list<int>  $districtIds
+     * @param  array{labels: list<string>, values: list<int>}  $cfaByDistrict
+     * @return array{
+     *   labels: list<string>,
+     *   achieved: list<int>,
+     *   targets: list<int>,
+     *   default_key: string,
+     *   periods: list<array{key: string, label: string, subtitle: string, achieved: list<int>, targets: list<int>}>
+     * }
+     */
+    private function districtCfaTargetComparisonWithPeriods(
+        array $cfaDeliverableIds,
+        ?FiscalYear $activeFy,
+        array $cfaByDistrict,
+        array $districtIds,
+        int $activeFyId,
+    ): array {
+        $fy = $this->districtCfaTargetComparison($cfaDeliverableIds, $activeFy, $cfaByDistrict, $districtIds);
+        $labels = $fy['labels'] ?? [];
+        if ($labels === [] || $activeFy === null) {
+            return array_merge($fy, ['periods' => [], 'default_key' => 'fy']);
+        }
+
+        $cfaDeliverableId = (int) ($cfaDeliverableIds[0] ?? 0);
+        $currentMonth = $activeFy->fiscalMonthIndex(now()) ?? 1;
+        $defaultKey = 'm'.$currentMonth;
+
+        $periods = [[
+            'key' => 'fy',
+            'label' => 'Full FY',
+            'subtitle' => 'Cumulative CFA achieved vs annual district target',
+            'achieved' => $fy['achieved'] ?? [],
+            'targets' => $fy['targets'] ?? [],
+        ]];
+
+        $monthLabels = $this->fiscalMonthShortLabels($activeFy);
+        for ($m = 1; $m <= 12; $m++) {
+            [$rangeStart, $rangeEnd] = $this->fiscalMonthDateRange($activeFy, $m);
+            $achievedByDistrict = $this->districtCfaAchievedInRange($districtIds, $activeFyId, $rangeStart, $rangeEnd);
+            $targetsByDistrict = $this->districtCfaMonthlyTargets($activeFy, $cfaDeliverableId, $districtIds, $m, $fy['targets'] ?? [], $labels);
+
+            $achieved = [];
+            $targets = [];
+            foreach ($labels as $i => $name) {
+                $achieved[] = (int) ($achievedByDistrict[$name] ?? 0);
+                $targets[] = (int) ($targetsByDistrict[$name] ?? 0);
+            }
+
+            $periods[] = [
+                'key' => 'm'.$m,
+                'label' => $monthLabels[$m] ?? ('M'.$m),
+                'subtitle' => 'CFA in '.$rangeStart->format('M Y').' vs monthly staff target roll-up',
+                'achieved' => $achieved,
+                'targets' => $targets,
+            ];
+        }
+
+        return [
+            'labels' => $labels,
+            'achieved' => $fy['achieved'] ?? [],
+            'targets' => $fy['targets'] ?? [],
+            'default_key' => $defaultKey,
+            'periods' => $periods,
+        ];
+    }
+
+    /**
+     * @return array<int, string> 1..12 => M3 Jul
+     */
+    private function fiscalMonthShortLabels(FiscalYear $fy): array
+    {
+        $start = Carbon::parse($fy->starts_on)->startOfMonth();
+        $out = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $out[$m] = 'M'.$m.' '.$start->copy()->addMonths($m - 1)->format('M');
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function fiscalMonthDateRange(FiscalYear $fy, int $monthNumber): array
+    {
+        $monthNumber = max(1, min(12, $monthNumber));
+        $fyStart = Carbon::parse($fy->starts_on)->startOfDay();
+        $fyEnd = Carbon::parse($fy->ends_on)->endOfDay();
+        $start = Carbon::parse($fy->starts_on)->startOfMonth()->addMonths($monthNumber - 1)->startOfDay();
+        $end = $start->copy()->endOfMonth()->endOfDay();
+        if ($start->lt($fyStart)) {
+            $start = $fyStart->copy();
+        }
+        if ($end->gt($fyEnd)) {
+            $end = $fyEnd->copy();
+        }
+
+        return [$start, $end];
+    }
+
+    /**
+     * @param  list<int>  $districtIds
+     * @return array<string, int> district name => count
+     */
+    private function districtCfaAchievedInRange(
+        array $districtIds,
+        int $activeFyId,
+        Carbon $rangeStart,
+        Carbon $rangeEnd,
+    ): array {
+        try {
+            $rows = DB::table('cfa_submissions as cs')
+                ->join('districts as d', 'd.id', '=', 'cs.district_id')
+                ->when($districtIds !== [], fn ($q) => $q->whereIn('cs.district_id', $districtIds))
+                ->when($activeFyId > 0, fn ($q) => $q->where('cs.fiscal_year_id', $activeFyId))
+                ->whereBetween('cs.created_at', [$rangeStart, $rangeEnd])
+                ->selectRaw('d.name as district_name, COUNT(*) as total')
+                ->groupBy('d.id', 'd.name')
+                ->pluck('total', 'district_name');
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return $rows->map(fn ($v) => (int) $v)->all();
+    }
+
+    /**
+     * @param  list<int>  $districtIds
+     * @param  list<int>  $fyTargetsByIndex parallel to $labels order — for pro-rate fallback
+     * @param  list<string>  $labels
+     * @return array<string, int>
+     */
+    private function districtCfaMonthlyTargets(
+        FiscalYear $activeFy,
+        int $cfaDeliverableId,
+        array $districtIds,
+        int $monthNumber,
+        array $fyTargetsByIndex,
+        array $labels,
+    ): array {
+        if ($cfaDeliverableId <= 0) {
+            return [];
+        }
+
+        $monthly = [];
+        if (Schema::hasTable('staff_monthly_targets')) {
+            try {
+                $monthly = DB::table('staff_monthly_targets as smt')
+                    ->join('users as u', 'u.id', '=', 'smt.user_id')
+                    ->join('districts as d', 'd.id', '=', 'u.district_id')
+                    ->where('smt.fiscal_year_id', (int) $activeFy->id)
+                    ->where('smt.deliverable_id', $cfaDeliverableId)
+                    ->where('smt.month_number', $monthNumber)
+                    ->where('u.role', 'district_staff')
+                    ->when($districtIds !== [], fn ($q) => $q->whereIn('u.district_id', $districtIds))
+                    ->selectRaw('d.name as district_name, SUM(smt.target_count) as target_total')
+                    ->groupBy('d.id', 'd.name')
+                    ->pluck('target_total', 'district_name')
+                    ->map(fn ($v) => (int) $v)
+                    ->all();
+            } catch (\Throwable) {
+                $monthly = [];
+            }
+        }
+
+        $out = [];
+        foreach ($labels as $i => $name) {
+            $monthTarget = (int) ($monthly[$name] ?? 0);
+            if ($monthTarget <= 0) {
+                $fyTarget = (int) ($fyTargetsByIndex[$i] ?? 0);
+                if ($fyTarget > 0) {
+                    $monthTarget = (int) max(1, round($fyTarget / 12));
+                }
+            }
+            $out[$name] = $monthTarget;
+        }
+
+        return $out;
     }
 
     /**

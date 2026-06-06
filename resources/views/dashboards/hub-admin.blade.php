@@ -1427,13 +1427,7 @@
                     @endforeach
                 </div>
                 <div class="sad-grid sad-grid--2" style="margin-bottom:0.55rem;">
-                    <div class="sad-card">
-                        <h2 class="sad-card__title"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> District CFA vs target</h2>
-                        <p class="sad-card__hint">Achieved vs district CFA target (FY)</p>
-                        <div class="sad-chart-box sad-chart-box--tall">
-                            <canvas id="chartDistrictTarget"></canvas>
-                        </div>
-                    </div>
+                    @include('dashboards.state-admin._district-target-chart', ['insights' => $insights ?? []])
                     <div class="sad-card">
                         <h2 class="sad-card__title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Top blocks by CFA</h2>
                         <p class="sad-card__hint">Top blocks in hub districts</p>
