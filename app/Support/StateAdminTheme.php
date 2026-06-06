@@ -13,7 +13,7 @@ class StateAdminTheme
 
     public static function appliesToRole(?string $role): bool
     {
-        return in_array($role, ['state_admin', 'hub_admin'], true);
+        return in_array($role, ['state_admin', 'hub_admin', 'district_staff'], true);
     }
 
     public static function resolve(?Request $request = null): string

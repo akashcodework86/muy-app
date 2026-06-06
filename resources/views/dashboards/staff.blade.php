@@ -8,7 +8,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     @include('partials.admin-shell-styles')
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
     <style>
+        .admin-app-body--dashboard .admin-main {
+            padding: 0.65rem clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
+        }
+        @include('dashboards.state-admin._theme-styles')
+        @include('dashboards.state-admin._sad-layout-styles')
         .staff-info-card {
             background: #fff;
             border: 1px solid #e2e8f0;
@@ -2277,12 +2284,8 @@
             }
         }
     </style>
-    @if (isset($cfaTotal))
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
-    @endif
 </head>
-<body class="admin-app-body admin-app-body--dashboard">
+<body class="admin-app-body admin-app-body--dashboard admin-app-body--dash-unified admin-app-body--staff-premium admin-app-body--state-theme-{{ $dashboardTheme ?? 'revamp' }}">
     @include('partials.admin-topbar')
     <main class="admin-main">
     @include('partials.flash-profile-photo-reminder')
@@ -2302,6 +2305,54 @@
             </form>
         </div>
     @else
+        @php
+            $fyLabel = $activeFy?->name ?? 'FY';
+            $phaseLabel = $phase3FloorDateLabel ?? '01 Apr 2026';
+            $insightsScopeLabel = ($staff->district?->name ?? 'District').' district';
+            $savingsTotalThisFy = (float) ($estimatedSavings['total_this_fy'] ?? 0);
+        @endphp
+
+        <header class="sad-unified-strip" aria-label="Dashboard context">
+            <div class="sad-unified-strip__left">
+                <h1 class="sad-unified-strip__title">Welcome, {{ $staff->name }}</h1>
+                <p class="sad-unified-strip__sub">
+                    {{ $staff->district?->name ?? 'District' }}
+                    @if ($staff->hub?->name)
+                        · {{ $staff->hub->name }}
+                    @endif
+                    @if ($staff->designationRecord?->name)
+                        · {{ $staff->designationRecord->name }}
+                    @endif
+                    · from {{ $phaseLabel }}
+                </p>
+            </div>
+            <div class="sad-unified-strip__meta">
+                <a href="{{ \App\Support\StateAdminTheme::toggleUrl(request(), $dashboardTheme ?? 'revamp') }}" class="sad-theme-toggle" title="Switch colour theme">
+                    <i class="fa-solid fa-palette" aria-hidden="true"></i>
+                    {{ ($dashboardTheme ?? 'revamp') === 'legacy' ? 'New theme' : 'Classic theme' }}
+                </a>
+                <span class="sad-badge"><i class="fa-solid fa-calendar" aria-hidden="true"></i> {{ $fyLabel }}</span>
+                @if ($districtCfaTarget !== null)
+                    <span class="sad-badge"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> Target {{ number_format((int) $districtCfaTarget) }}</span>
+                @endif
+                <span class="sad-badge sad-badge--live"><i class="fa-solid fa-signal" aria-hidden="true"></i> {{ number_format((int) ($heroDistrictOnlineNow ?? 0)) }} online</span>
+            </div>
+        </header>
+
+        <div class="sad">
+            <nav class="sad-nav" aria-label="Dashboard sections">
+                <button type="button" class="sad-nav__btn is-active" data-sad-tab="overview">
+                    <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Overview
+                </button>
+                <button type="button" class="sad-nav__btn" data-sad-tab="insights">
+                    <i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Insights
+                </button>
+                <button type="button" class="sad-nav__btn" data-sad-tab="activity">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i> Activity &amp; charts
+                </button>
+            </nav>
+
+            <section class="sad-panel is-active" data-sad-panel="overview">
         <div class="dashboard-shell">
         
         @if ($staff->district_id && $activeFy)
@@ -3092,6 +3143,19 @@
             </div>
         </div>
 
+            </section>
+
+            <section class="sad-panel" data-sad-panel="insights">
+                @include('dashboards.state-admin._insights-panel', [
+                    'insightsScopeLabel' => $insightsScopeLabel,
+                    'districtsCount' => 1,
+                    'insightsDistrictTotal' => 1,
+                ])
+            </section>
+
+            <section class="sad-panel" data-sad-panel="activity">
+        <div class="dashboard-shell">
+
         {{-- Old sections - hidden for now --}}
         <div style="display: none;">
         {{-- Insight Cards Grid - Moved up for better visual flow --}}
@@ -3556,6 +3620,10 @@
 
         <p class="staff-note">To change CFA monthly targets, designation, or account status, contact your <strong>state admin</strong>. Open <strong>Applications</strong> in the top bar to view, print, or edit submissions from your referral link.</p>
         </div>
+            </section>
+        </div>
+
+        @include('dashboards.state-admin._chart-scripts')
 
         @php
             $chartColors = ['#4f46e5', '#0d9488', '#ea580c', '#7c3aed', '#0891b2', '#db2777', '#ca8a04', '#16a34a'];

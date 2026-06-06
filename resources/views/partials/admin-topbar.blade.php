@@ -651,7 +651,7 @@
             </details>
             @endif
 
-            @if ($showAdminNav || $showHubNav)
+            @if ($showAdminNav || $showHubNav || $showStaffNav)
                 @php($stateTheme = $stateAdminTheme ?? 'revamp')
                 <a href="{{ \App\Support\StateAdminTheme::toggleUrl(request(), $stateTheme) }}" class="admin-topbar__theme-toggle sad-theme-toggle" title="Switch colour theme">
                     <i class="fa-solid fa-palette" aria-hidden="true"></i>

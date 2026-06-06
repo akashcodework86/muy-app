@@ -6,6 +6,7 @@ use App\Models\CfaSubmission;
 use App\Models\Deliverable;
 use App\Models\FiscalYear;
 use App\Models\MentorshipRequest;
+use App\Models\ServiceCase;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -16,6 +17,7 @@ class StaffDashboardService
 {
     public function __construct(
         private StaffDeliverableMonthlyTargetService $monthlyTargets,
+        private AdminDashboardInsightsService $insightsService,
     ) {}
 
     /**
@@ -304,6 +306,39 @@ class StaffDashboardService
 
         $heroSparkline30 = $this->staffDailyCfaSparkline((int) $user->id, 30, $activeFyId);
 
+        $phase3FloorDate = Carbon::create(2026, 4, 1)->startOfDay();
+        $districtId = (int) ($user->district_id ?? 0);
+        $districtIds = $districtId > 0 ? [$districtId] : [];
+        $hubId = $user->hub_id ? (int) $user->hub_id : null;
+        $phase3Scope = CfaSubmission::query()
+            ->when($districtIds !== [], fn ($q) => $q->whereIn('district_id', $districtIds))
+            ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate));
+        $cfaDeliverableIds = $cfaDeliverable ? [(int) $cfaDeliverable->id] : [];
+        $cfaByDistrict = [
+            'labels' => $user->district?->name ? [(string) $user->district->name] : [],
+            'values' => $districtCfaTotal !== null ? [(int) $districtCfaTotal] : [],
+        ];
+        $servicesDelivered = $this->districtServicesDeliveredCount($districtIds);
+
+        try {
+            $insights = $this->insightsService->build(
+                phase3Scope: $phase3Scope,
+                districtIds: $districtIds,
+                hubId: $hubId,
+                phase3FloorDate: $phase3FloorDate,
+                activeFyId: $activeFyId,
+                cfaDeliverableIds: $cfaDeliverableIds,
+                activeFy: $activeFy,
+                cfaByDistrict: $cfaByDistrict,
+                onboardedCount: $districtOnboardingAchieved,
+                servicesDelivered: $servicesDelivered,
+            );
+        } catch (\Throwable) {
+            $insights = $this->insightsService->emptyInsights();
+        }
+
+        $estimatedSavings = $this->insightsService->estimatedSavings($activeFy, $phase3FloorDate, $districtIds);
+
         return [
             'staff' => $user,
             'activeFy' => $activeFy,
@@ -365,7 +400,28 @@ class StaffDashboardService
             'heroMentorshipPending' => $heroMentorshipPending,
             'heroDistrictOnlineNow' => $heroDistrictOnlineNow,
             'heroSparkline30' => $heroSparkline30,
+            'insights' => $insights,
+            'estimatedSavings' => $estimatedSavings,
+            'stateCfaTrend' => $districtCfaTrend,
+            'cfaByDistrict' => $cfaByDistrict,
+            'phase3FloorDateLabel' => $phase3FloorDate->format('d M Y'),
+            'districtsCount' => 1,
         ];
+    }
+
+    /**
+     * @param  list<int>  $districtIds
+     */
+    private function districtServicesDeliveredCount(array $districtIds): int
+    {
+        if ($districtIds === [] || ! Schema::hasTable('service_cases') || ! Schema::hasColumn('service_cases', 'status')) {
+            return 0;
+        }
+
+        return (int) ServiceCase::query()
+            ->where('status', ServiceCase::STATUS_APPROVED)
+            ->whereHas('cfaSubmission', fn ($q) => $q->whereIn('district_id', $districtIds))
+            ->count();
     }
 
     /**

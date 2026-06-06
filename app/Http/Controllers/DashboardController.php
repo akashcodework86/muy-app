@@ -107,7 +107,9 @@ class DashboardController extends Controller
         }
 
         if ($user?->role === 'district_staff') {
-            return view('dashboards.staff', $staffDashboard->metrics($user));
+            return view('dashboards.staff', array_merge($staffDashboard->metrics($user), [
+                'dashboardTheme' => StateAdminTheme::resolve($request),
+            ]));
         }
 
         abort(403, 'No dashboard for this account type.');
