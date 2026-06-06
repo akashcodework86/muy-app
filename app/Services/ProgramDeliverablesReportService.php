@@ -529,7 +529,7 @@ class ProgramDeliverablesReportService
     private function targetForSource(array $source, string $indicatorName = ''): ?int
     {
         $target = match ($source['type'] ?? 'none') {
-            'deliverable' => $this->resolveStateTargetForCodes([
+            'deliverable', 'service' => $this->resolveStateTargetForCodes([
                 (string) ($source['code'] ?? ''),
             ]),
             'services' => $this->resolveStateTargetForCodes(

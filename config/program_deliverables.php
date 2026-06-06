@@ -221,7 +221,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'Spoke & Hub',
-                    'source' => ['type' => 'target_name', 'match' => 'specialized mentorship'],
+                    'source' => ['type' => 'service', 'code' => 'specialized_mentorship_support'],
                 ],
                 [
                     'name' => 'Mentorship Support through online portal',
@@ -355,12 +355,8 @@ return [
                     'indicator_type' => 'Non-Key',
                     'level' => 'Spoke & Hub',
                     'source' => [
-                        'type' => 'services',
-                        'codes' => [
-                            'packaging_support', 'packaging_designing', 'labelling_support', 'logo_designing',
-                            'product_testing', 'catalogue_development', 'photoshoot', 'product_diversification',
-                            'content_writing', 'business_plan',
-                        ],
+                        'type' => 'service',
+                        'code' => 'other_support_services_labelling_packaging_logo_designing_etc',
                     ],
                 ],
             ],

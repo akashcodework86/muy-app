@@ -1030,6 +1030,157 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(2, $row['achievement']);
     }
 
+    public function test_specialized_mentorship_achievement_counts_approved_service_cases(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'mentorship-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'mentorship-district',
+            'name' => 'Mentorship District',
+            'sort_order' => 1,
+        ]);
+
+        $child = ServiceCategory::query()->create(['slug' => 'mentorship_services', 'name' => 'Services', 'sort_order' => 1]);
+        $svcDeliverable = Deliverable::query()->create([
+            'sort_order' => 56,
+            'code' => 'svc_specialized_mentorship_support',
+            'name' => 'Specialized Mentorship Support',
+            'mis_entry_label' => 'Specialized Mentorship Support',
+            'is_active' => true,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcDeliverable->id,
+            'code' => 'specialized_mentorship_support',
+            'name' => 'Specialized Mentorship Support',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $svcDeliverable->id,
+            'target_total' => 650,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Mentorship Applicant',
+            'phone' => '9999999904',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-MENTOR-1',
+            'submitted_at' => '2026-05-10 09:00:00',
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_PENDING_APPROVAL,
+            'reference_number' => 'SC-MENTOR-PENDING',
+            'submitted_at' => '2026-05-11 09:00:00',
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '5.1');
+
+        $this->assertNotNull($row);
+        $this->assertSame(650, $row['target']);
+        $this->assertSame(1, $row['achievement']);
+    }
+
+    public function test_other_support_services_achievement_counts_approved_service_cases(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'other-support-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'other-support-district',
+            'name' => 'Other Support District',
+            'sort_order' => 1,
+        ]);
+
+        $child = ServiceCategory::query()->create(['slug' => 'other_support_services', 'name' => 'Services', 'sort_order' => 1]);
+        $svcDeliverable = Deliverable::query()->create([
+            'sort_order' => 57,
+            'code' => 'svc_other_support_services_labelling',
+            'name' => 'Other Support Services - Labelling, Packaging, Logo Designing etc.',
+            'mis_entry_label' => 'Other Support Services - Labelling, Packaging, Logo Designing etc.',
+            'is_active' => true,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcDeliverable->id,
+            'code' => 'other_support_services_labelling_packaging_logo_designing_etc',
+            'name' => 'Other Support Services - Labelling, Packaging, Logo Designing etc.',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Other Support Applicant',
+            'phone' => '9999999905',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-OTHER-1',
+            'submitted_at' => '2026-06-01 10:00:00',
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_COMPLETED,
+            'reference_number' => 'SC-OTHER-2',
+            'submitted_at' => '2026-06-02 10:00:00',
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '9.2');
+
+        $this->assertNotNull($row);
+        $this->assertSame(2, $row['achievement']);
+    }
+
     public function test_deliverables_breakdown_returns_json_for_bmc(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
