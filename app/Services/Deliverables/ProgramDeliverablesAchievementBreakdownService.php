@@ -3,19 +3,21 @@
 namespace App\Services\Deliverables;
 
 use App\Models\Deliverable;
+use App\Models\District;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\FiscalYear;
 use App\Models\MarketLinkageSubmission;
-use App\Models\District;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\ServiceTargetDeliverableSyncService;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\TechnicalTrainingPotentialLakhpatiSupport;
-use Illuminate\Support\Collection;
 use Carbon\Carbon;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -35,6 +37,7 @@ class ProgramDeliverablesAchievementBreakdownService
     public function __construct(
         private readonly ServiceTargetDeliverableSyncService $serviceTargetDeliverables,
         private readonly LegacyApplicationServiceCaseSupport $legacyServiceCases,
+        private readonly MarketLinkagePartnerCatalogService $marketLinkagePartners,
     ) {}
 
     /** @var array<int, ?District> */
@@ -387,7 +390,6 @@ class ProgramDeliverablesAchievementBreakdownService
     }
 
     /**
-     * @param  object  $row
      * @param  array<string, string>  $overrides
      * @return array<string, mixed>
      */
@@ -902,7 +904,7 @@ class ProgramDeliverablesAchievementBreakdownService
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyBlockWorkshopBreakdownScope($query): void
     {
@@ -1154,7 +1156,7 @@ class ProgramDeliverablesAchievementBreakdownService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     * @param  Collection<int, object>  $rows
      * @param  list<array<string, mixed>>  $records
      * @return array<string, mixed>
      */
@@ -1266,7 +1268,7 @@ class ProgramDeliverablesAchievementBreakdownService
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      * @return array<int, array{applied: float, sanctioned: float}>
      */
     private function amountTotalsByServiceIdFromServiceCaseQuery($query): array
@@ -1415,7 +1417,7 @@ class ProgramDeliverablesAchievementBreakdownService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     * @param  Collection<int, object>  $rows
      */
     private function hubForDistrictName($rows, string $districtName): string
     {
@@ -1671,52 +1673,102 @@ class ProgramDeliverablesAchievementBreakdownService
             ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id')
             ->join('districts as d', 'd.id', '=', 'mls.district_id')
             ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
-            ->selectRaw('d.name as district_name, h.name as hub_name, mlp.partner_name, mlp.linkage_mode, mlp.linkage_date, mlp.link_url, mls.incubatee_name, mls.application_no');
+            ->selectRaw('
+                mlp.partner_name,
+                mlp.linkage_mode,
+                mlp.linkage_date,
+                mlp.link_url,
+                mls.incubatee_name,
+                mls.application_no,
+                d.name as district_name,
+                h.name as hub_name
+            ');
 
         $this->applyMarketLinkageApprovedScope($query);
         $this->applyDistrictScope($query, 'mls.district_id');
-        $this->applyMarketLinkagePartnerDateScope($query);
 
-        $records = $query
-            ->orderByDesc('mlp.linkage_date')
-            ->orderBy('mlp.partner_name')
-            ->limit(500)
-            ->get()
-            ->unique(fn ($row) => strtolower(trim((string) ($row->partner_name ?? ''))))
+        $grouped = [];
+        foreach ($query->get() as $row) {
+            $partnerName = trim((string) ($row->partner_name ?? ''));
+            if ($partnerName === '') {
+                continue;
+            }
+
+            $key = $this->marketLinkagePartners->normalizePartnerKey($partnerName);
+            if ($key === '') {
+                continue;
+            }
+
+            if (! isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'partner_name' => $this->marketLinkagePartners->displayLabelFor($partnerName),
+                    'linkage_mode' => (string) $row->linkage_mode,
+                    'linkage_date' => $row->linkage_date,
+                    'link_url' => (string) ($row->link_url ?? ''),
+                    'incubatee_name' => (string) $row->incubatee_name,
+                    'application_no' => (string) ($row->application_no ?? ''),
+                    'district_name' => (string) $row->district_name,
+                    'hub_name' => (string) ($row->hub_name ?? ''),
+                    'partner_count' => 0,
+                ];
+            }
+
+            $grouped[$key]['partner_count']++;
+            if ($row->linkage_date && (
+                ! $grouped[$key]['linkage_date']
+                || Carbon::parse($row->linkage_date)->gt(Carbon::parse($grouped[$key]['linkage_date']))
+            )) {
+                $grouped[$key]['linkage_date'] = $row->linkage_date;
+            }
+        }
+
+        $records = collect($grouped)
+            ->sortBy('partner_name', SORT_NATURAL | SORT_FLAG_CASE)
             ->values()
-            ->take(10)
-            ->map(fn ($row) => [
-                'reference' => (string) ($row->application_no ?? '—'),
-                'applicant' => (string) ($row->incubatee_name ?: '—'),
-                'service' => (string) ($row->partner_name ?: '—'),
-                'date' => $row->linkage_date ? Carbon::parse($row->linkage_date)->format('d M Y') : '—',
-                'district' => (string) $row->district_name,
-                'hub' => (string) ($row->hub_name ?? ''),
-                'partner_name' => (string) $row->partner_name,
-                'linkage_mode' => (string) $row->linkage_mode,
-                'linkage_date' => (string) $row->linkage_date,
-                'link_url' => (string) ($row->link_url ?? ''),
-                'incubatee_name' => (string) $row->incubatee_name,
-                'application_no' => (string) ($row->application_no ?? ''),
+            ->map(fn (array $row) => [
+                'reference' => (string) ($row['application_no'] ?: '—'),
+                'applicant' => (string) ($row['incubatee_name'] ?: '—'),
+                'service' => (string) ($row['partner_name'] ?: '—'),
+                'date' => $row['linkage_date'] ? Carbon::parse($row['linkage_date'])->format('d M Y') : '—',
+                'district' => (string) $row['district_name'],
+                'hub' => (string) ($row['hub_name'] ?? ''),
+                'partner_name' => (string) $row['partner_name'],
+                'linkage_mode' => (string) $row['linkage_mode'],
+                'linkage_date' => (string) ($row['linkage_date'] ?? ''),
+                'link_url' => (string) ($row['link_url'] ?? ''),
+                'incubatee_name' => (string) $row['incubatee_name'],
+                'application_no' => (string) ($row['application_no'] ?? ''),
             ])
             ->all();
 
         $byDistrict = DB::table('market_linkage_partners as mlp')
             ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id')
             ->join('districts as d', 'd.id', '=', 'mls.district_id')
-            ->selectRaw('d.name as label, COUNT(DISTINCT LOWER(TRIM(mlp.partner_name))) as total');
+            ->selectRaw('d.name as label, mlp.partner_name');
         $this->applyMarketLinkageApprovedScope($byDistrict);
         $this->applyDistrictScope($byDistrict, 'mls.district_id');
-        $this->applyMarketLinkagePartnerDateScope($byDistrict);
-        $byDistrictRows = $byDistrict->groupBy('d.name')->orderByDesc('total')->get()
-            ->map(fn ($r) => ['label' => (string) $r->label, 'total' => (int) $r->total])->all();
+        $byDistrictCounts = [];
+        foreach ($byDistrict->get() as $row) {
+            $label = (string) ($row->label ?? '');
+            $key = $this->marketLinkagePartners->normalizePartnerKey((string) ($row->partner_name ?? ''));
+            if ($label === '' || $key === '') {
+                continue;
+            }
+            $byDistrictCounts[$label][$key] = true;
+        }
+        $byDistrictRows = collect($byDistrictCounts)
+            ->map(fn (array $keys, string $label) => ['label' => $label, 'total' => count($keys)])
+            ->sortByDesc('total')
+            ->values()
+            ->all();
 
         $totalQuery = DB::table('market_linkage_partners as mlp')
             ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id');
         $this->applyMarketLinkageApprovedScope($totalQuery);
         $this->applyDistrictScope($totalQuery, 'mls.district_id');
-        $this->applyMarketLinkagePartnerDateScope($totalQuery);
-        $total = (int) $totalQuery->selectRaw('COUNT(DISTINCT LOWER(TRIM(mlp.partner_name))) as aggregate')->value('aggregate');
+        $total = $this->marketLinkagePartners->countUniquePartnerKeys(
+            $totalQuery->distinct()->pluck('mlp.partner_name')
+        );
 
         $byDistrictCounts = [];
         foreach ($byDistrictRows as $row) {
@@ -1765,14 +1817,12 @@ SQL;
                 $sub->select(DB::raw('1'))
                     ->from('market_linkage_partners as mlp')
                     ->whereColumn('mlp.market_linkage_submission_id', 'mls.id');
-                $this->applyMarketLinkagePartnerDateScope($sub);
             })
             ->selectRaw("{$incubateeKeySql} as incubatee_key, mls.incubatee_name, mls.application_no, d.name as district_name, h.name as hub_name, COUNT(mlp.id) as partner_count")
             ->join('market_linkage_partners as mlp', 'mlp.market_linkage_submission_id', '=', 'mls.id');
 
         $this->applyMarketLinkageApprovedScope($query);
         $this->applyDistrictScope($query, 'mls.district_id');
-        $this->applyMarketLinkagePartnerDateScope($query, 'mlp.linkage_date');
 
         $records = $query
             ->groupBy('incubatee_key', 'mls.incubatee_name', 'mls.application_no', 'd.name', 'h.name')
@@ -1797,7 +1847,6 @@ SQL;
                 $sub->select(DB::raw('1'))
                     ->from('market_linkage_partners as mlp')
                     ->whereColumn('mlp.market_linkage_submission_id', 'mls.id');
-                $this->applyMarketLinkagePartnerDateScope($sub);
             });
         $this->applyMarketLinkageApprovedScope($totalQuery);
         $this->applyDistrictScope($totalQuery, 'mls.district_id');
@@ -1814,7 +1863,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyMarketLinkageApprovedScope($query): void
     {
@@ -1824,7 +1873,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyMarketLinkagePartnerDateScope($query, string $column = 'mlp.linkage_date'): void
     {
@@ -1851,7 +1900,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyDistrictScope($query, string $column): void
     {
@@ -1869,7 +1918,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FieldCoordinatorAttendanceReport>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder<FieldCoordinatorAttendanceReport>  $query
      */
     private function applyFieldWorkAchievementScope($query): void
     {
@@ -1902,7 +1951,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FieldCoordinatorAttendanceReport>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder<FieldCoordinatorAttendanceReport>  $query
      */
     private function applyDistrictScopeOnModel($query, string $column): void
     {
@@ -1920,7 +1969,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applySocialMediaPostsAchievementScope($query, string $postedOnColumn = 'posted_on'): void
     {
@@ -1940,7 +1989,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyPeriodFilter($query, string $column): void
     {
@@ -1955,7 +2004,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyServiceCaseDateScope($query, string $dateExpr): void
     {
@@ -1972,7 +2021,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyCfaAchievementScope($query): void
     {
@@ -2001,7 +2050,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyOnboardingAchievementScope($query): void
     {
@@ -2020,7 +2069,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyBstMonthSessionPeriod($query): void
     {
@@ -2065,5 +2114,4 @@ SQL;
             default => "DATE_FORMAT({$columnExpression}, '%Y-%m')",
         };
     }
-
 }

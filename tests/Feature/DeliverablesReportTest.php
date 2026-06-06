@@ -5,24 +5,26 @@ namespace Tests\Feature;
 use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\DistrictDeliverableTarget;
-use App\Models\StaffMonthlyTarget;
+use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
-use App\Models\TrainingPackage;
-use App\Models\TrainingPackageMonthSession;
 use App\Models\Service;
 use App\Models\ServiceCase;
-use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\ServiceCategory;
+use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
+use App\Models\TrainingPackage;
+use App\Models\TrainingPackageMonthSession;
 use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
+use App\Services\Deliverables\ProgramDeliverablesActivityGuideService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\ProgramDeliverablesReportService;
+use Dompdf\Dompdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -355,7 +357,7 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame(350, $row['target']);
 
-        $guide = app(\App\Services\Deliverables\ProgramDeliverablesActivityGuideService::class)
+        $guide = app(ProgramDeliverablesActivityGuideService::class)
             ->build($report['rows'], 'state_admin', $fy->id);
         $guideRow = collect($guide['rows'])->firstWhere('serial', '4.2.4');
         $this->assertNotNull($guideRow);
@@ -403,7 +405,7 @@ class DeliverablesReportTest extends TestCase
         $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
         $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
 
-        $guide = app(\App\Services\Deliverables\ProgramDeliverablesActivityGuideService::class)
+        $guide = app(ProgramDeliverablesActivityGuideService::class)
             ->build($report['rows'], 'state_admin', $fy->id);
         $guideRow = collect($guide['rows'])->firstWhere('serial', '4.2.4');
 
@@ -1662,7 +1664,7 @@ class DeliverablesReportTest extends TestCase
 
     public function test_deliverables_breakdown_export_pdf_for_cfa(): void
     {
-        if (! class_exists(\Dompdf\Dompdf::class)) {
+        if (! class_exists(Dompdf::class)) {
             $this->markTestSkipped('Dompdf is not installed.');
         }
 
@@ -1957,6 +1959,153 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($incubateesDistrict);
         $this->assertSame(2, $partnersDistrict['achievement']);
         $this->assertSame(1, $incubateesDistrict['achievement']);
+    }
+
+    public function test_market_linkage_incubatee_deliverable_counts_all_approved_linkages_regardless_of_linkage_date(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ml-date-hub', 'name' => 'ML Date Hub', 'sort_order' => 99]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-date-dist', 'name' => 'ML Date District', 'sort_order' => 99]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-DATE-001',
+            'applicant_name' => 'Legacy Link Incubatee',
+            'phone' => '9000000099',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $submissionId = (int) DB::table('market_linkage_submissions')->insertGetId([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => $staff->name,
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'cfa_submission_id' => $cfaId,
+            'incubatee_name' => 'Legacy Link Incubatee',
+            'application_no' => 'ML-DATE-001',
+            'status' => 'approved',
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $staff->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('market_linkage_partners')->insert([
+            'market_linkage_submission_id' => $submissionId,
+            'partner_name' => 'Pre Phase3 Partner',
+            'linkage_mode' => 'offline',
+            'linkage_date' => '2025-12-01',
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $report = app(ProgramDeliverablesReportService::class)->build(
+            $filter,
+            ProgramDeliverablesScope::forUser($staff)
+        );
+
+        $incubatees = collect($report['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
+        $this->assertNotNull($incubatees);
+        $this->assertSame(1, $incubatees['achievement']);
+    }
+
+    public function test_market_linkage_partner_deliverable_counts_all_unique_names_regardless_of_linkage_date(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ml-partner-hub', 'name' => 'ML Partner Hub', 'sort_order' => 98]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-partner-dist', 'name' => 'ML Partner District', 'sort_order' => 98]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-PARTNER-001',
+            'applicant_name' => 'Partner Test Incubatee',
+            'phone' => '9000000088',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $submissionId = (int) DB::table('market_linkage_submissions')->insertGetId([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => $staff->name,
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'cfa_submission_id' => $cfaId,
+            'incubatee_name' => 'Partner Test Incubatee',
+            'application_no' => 'ML-PARTNER-001',
+            'status' => 'approved',
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $staff->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('market_linkage_partners')->insert([
+            [
+                'market_linkage_submission_id' => $submissionId,
+                'partner_name' => 'Old Date Partner',
+                'linkage_mode' => 'offline',
+                'linkage_date' => '2025-11-01',
+                'sort_order' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'market_linkage_submission_id' => $submissionId,
+                'partner_name' => 'old date partner',
+                'linkage_mode' => 'online',
+                'linkage_date' => '2026-05-01',
+                'sort_order' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $report = app(ProgramDeliverablesReportService::class)->build(
+            $filter,
+            ProgramDeliverablesScope::forUser($staff)
+        );
+
+        $partners = collect($report['rows'])->firstWhere('name', 'No of Partners outreach');
+        $this->assertNotNull($partners);
+        $this->assertSame(1, $partners['achievement']);
     }
 
     /**

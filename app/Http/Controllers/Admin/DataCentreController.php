@@ -15,9 +15,10 @@ class DataCentreController extends Controller
         private readonly ProgramDataCentreService $service,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        $data = $this->service->build();
+        $viewMode = $request->query('view') === 'rbiphase3' ? 'rbiphase3' : 'all';
+        $data = $this->service->build($viewMode);
 
         return view('admin.data-centre.index', $data);
     }
@@ -29,7 +30,9 @@ class DataCentreController extends Controller
     {
         $this->service->bustCache();
 
-        return redirect()->route('admin.data-centre.index')
+        $viewMode = $request->input('view') === 'rbiphase3' ? 'rbiphase3' : 'all';
+
+        return redirect()->route('admin.data-centre.index', $viewMode === 'rbiphase3' ? ['view' => 'rbiphase3'] : [])
             ->with('flash_success', 'Data refreshed — latest counts loaded from the database.');
     }
 
@@ -43,7 +46,7 @@ class DataCentreController extends Controller
             abort(404, 'Unknown section.');
         }
 
-        $rows     = $this->service->csvForSection($section);
+        $rows = $this->service->csvForSection($section);
         $filename = 'data-centre-'.$section.'-'.now()->format('Ymd_His').'.csv';
 
         return response()->streamDownload(function () use ($rows): void {
@@ -65,16 +68,16 @@ class DataCentreController extends Controller
     public function exportAll(): StreamedResponse
     {
         $districts = [];
-        $data      = $this->service->build();
-        $filename  = 'data-centre-all-sections-'.now()->format('Ymd_His').'.csv';
+        $data = $this->service->build();
+        $filename = 'data-centre-all-sections-'.now()->format('Ymd_His').'.csv';
 
         $sections = [
-            'Program Summary'               => 'summary',
-            'CFA Applications by District'  => 'cfa-by-district',
-            'Gender - State Totals'         => 'gender-state',
-            'Gender - By District'          => 'gender-district',
-            'Education - State Totals'      => 'education-state',
-            'Education - By District'       => 'education-district',
+            'Program Summary' => 'summary',
+            'CFA Applications by District' => 'cfa-by-district',
+            'Gender - State Totals' => 'gender-state',
+            'Gender - By District' => 'gender-district',
+            'Education - State Totals' => 'education-state',
+            'Education - By District' => 'education-district',
         ];
 
         return response()->streamDownload(function () use ($sections): void {

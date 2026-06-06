@@ -11,6 +11,33 @@ class MarketLinkagePartnerCatalogServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_normalize_partner_key_merges_compound_fresh_point_variants(): void
+    {
+        $service = app(MarketLinkagePartnerCatalogService::class);
+
+        $short = 'Fresh Point Distribution Company Haldwani';
+        $long = 'Fresh Point Distribution Company Haldwani and Supreme mart Haldwani store linkage';
+
+        $this->assertSame(
+            $service->normalizePartnerKey($short),
+            $service->normalizePartnerKey($long)
+        );
+    }
+
+    public function test_count_unique_partner_keys_treats_similar_names_as_one(): void
+    {
+        $service = app(MarketLinkagePartnerCatalogService::class);
+
+        $count = $service->countUniquePartnerKeys([
+            'Fresh Point Distribution Company Haldwani',
+            'Fresh Point Distribution Company Haldwani and Supreme mart Haldwani store linkage',
+            'Amazon India',
+            'amazon india',
+        ]);
+
+        $this->assertSame(2, $count);
+    }
+
     public function test_options_include_whatsapp_business_canonical_label(): void
     {
         if (! $this->legacyReady()) {

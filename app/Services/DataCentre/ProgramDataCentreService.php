@@ -2,7 +2,9 @@
 
 namespace App\Services\DataCentre;
 
+use App\Models\FiscalYear;
 use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -67,25 +69,49 @@ class ProgramDataCentreService
     }
 
     /** Master build: returns all section data arrays (cached for CACHE_TTL seconds). */
-    public function build(): array
+    public function build(string $viewMode = 'all'): array
     {
-        return Cache::remember('data_centre_build_v1', self::CACHE_TTL, function () {
+        $viewMode = $viewMode === 'rbiphase3' ? 'rbiphase3' : 'all';
+        $cacheKey = 'data_centre_build_v2_'.$viewMode;
+
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode) {
             $districts = $this->canonicalDistricts();
+            $phase3Only = $viewMode === 'rbiphase3';
+
+            $meta = [
+                'generated_at' => now()->timezone('Asia/Kolkata')->format('d M Y, g:i A \I\S\T'),
+                'phase1_available' => $this->legacyPhase1Ok,
+                'phase2_available' => $this->legacyPhase2Ok,
+                'phase3_total' => $this->phase3Count(),
+                'phase3_fy' => FiscalYear::phase3Default()?->name ?? 'FY 2026-27',
+                'cache_ttl' => self::CACHE_TTL,
+                'view_mode' => $viewMode,
+            ];
+
+            if ($phase3Only) {
+                return [
+                    'meta' => $meta,
+                    'view_mode' => $viewMode,
+                    'summary' => $this->stateSummaryPhase3Only(),
+                    'cfa_by_district' => $this->cfaByDistrictPhase3Only($districts),
+                    'gender_state' => $this->genderStatePhase3Only($districts),
+                    'gender_district' => $this->genderByDistrictPhase3Only($districts),
+                    'education_state' => $this->educationStatePhase3Only($districts),
+                    'education_district' => $this->educationByDistrictPhase3Only($districts),
+                    'application_analysis' => $this->phase3ApplicationAnalysis(),
+                ];
+            }
 
             return [
-                'meta' => [
-                    'generated_at' => now()->timezone('Asia/Kolkata')->format('d M Y, g:i A \I\S\T'),
-                    'phase1_available' => $this->legacyPhase1Ok,
-                    'phase2_available' => $this->legacyPhase2Ok,
-                    'phase3_total' => $this->phase3Count(),
-                    'cache_ttl' => self::CACHE_TTL,
-                ],
+                'meta' => $meta,
+                'view_mode' => $viewMode,
                 'summary' => $this->stateSummary($districts),
                 'cfa_by_district' => $this->cfaByDistrict($districts),
                 'gender_state' => $this->genderState($districts),
                 'gender_district' => $this->genderByDistrict($districts),
                 'education_state' => $this->educationState($districts),
                 'education_district' => $this->educationByDistrict($districts),
+                'application_analysis' => null,
             ];
         });
     }
@@ -93,7 +119,234 @@ class ProgramDataCentreService
     /** Bust the page-level cache (used by the "Refresh Data" button). */
     public function bustCache(): void
     {
-        Cache::forget('data_centre_build_v1');
+        Cache::forget('data_centre_build_v2_all');
+        Cache::forget('data_centre_build_v2_rbiphase3');
+    }
+
+    /**
+     * @return array{
+     *   total: int,
+     *   entrepreneur: list<array{label: string, count: int, pct: float}>,
+     *   sectors: list<array{sector: string, count: int, pct: float}>,
+     *   business_stats: list<array{label: string, count: int, pct: float}>,
+     *   accuracy_checks: list<array{label: string, expected: int, actual: int, pass: bool}>
+     * }
+     */
+    public function phase3ApplicationAnalysis(): array
+    {
+        $total = $this->phase3Count();
+        if ($total === 0 || ! $this->hasCfaTable()) {
+            return [
+                'total' => 0,
+                'entrepreneur' => [],
+                'sectors' => [],
+                'business_stats' => [],
+                'accuracy_checks' => [],
+            ];
+        }
+
+        $pct = fn (int $n): float => round($n * 100 / $total, 1);
+
+        $female = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.gender')) = 'Female'")
+            ->count();
+        $seed = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.form_stage')) = 'Seed'")
+            ->count();
+        $early = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.form_stage')) = 'Early'")
+            ->count();
+        $growth = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.form_stage')) = 'Growth'")
+            ->count();
+        $cbo = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')) = 'CBO'")
+            ->count();
+
+        $sectorRows = (clone $this->phase3BaseQuery())
+            ->selectRaw("COALESCE(NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.business_category'))), ''), 'Not specified') as sector, COUNT(*) as count")
+            ->groupBy('sector')
+            ->orderByDesc('count')
+            ->get();
+
+        $sectors = [];
+        foreach ($sectorRows as $row) {
+            $count = (int) $row->count;
+            $sectors[] = [
+                'sector' => (string) $row->sector,
+                'count' => $count,
+                'pct' => $pct($count),
+            ];
+        }
+
+        $noCredit = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.loan_taken')) = 'No'")
+            ->count();
+        $unorganized = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.is_registered')) = 'No'")
+            ->count();
+        $turnoverLt5L = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("CAST(REPLACE(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.turnover_last_fy')), ',', '') AS DECIMAL(15,2)) < 500000")
+            ->count();
+        $turnoverGte5L = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("CAST(REPLACE(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.turnover_last_fy')), ',', '') AS DECIMAL(15,2)) >= 500000")
+            ->count();
+        $loanYes = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.loan_taken')) = 'Yes'")
+            ->count();
+        $registeredYes = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.is_registered')) = 'Yes'")
+            ->count();
+        $male = (int) (clone $this->phase3BaseQuery())
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.gender')) = 'Male'")
+            ->count();
+        $genderOther = $total - $female - $male;
+
+        $sectorSum = array_sum(array_column($sectors, 'count'));
+
+        $checks = [
+            ['label' => 'Seed + Early + Growth', 'expected' => $total, 'actual' => $seed + $early + $growth],
+            ['label' => 'All sectors sum', 'expected' => $total, 'actual' => $sectorSum],
+            ['label' => 'Loan No + Yes', 'expected' => $total, 'actual' => $noCredit + $loanYes],
+            ['label' => 'Registered No + Yes', 'expected' => $total, 'actual' => $unorganized + $registeredYes],
+            ['label' => 'Turnover <5L + ≥5L', 'expected' => $total, 'actual' => $turnoverLt5L + $turnoverGte5L],
+            ['label' => 'Female + Male + Other/NA', 'expected' => $total, 'actual' => $female + $male + $genderOther],
+        ];
+
+        $accuracyChecks = array_map(static function (array $check): array {
+            return [
+                'label' => $check['label'],
+                'expected' => $check['expected'],
+                'actual' => $check['actual'],
+                'pass' => $check['expected'] === $check['actual'],
+            ];
+        }, $checks);
+
+        return [
+            'total' => $total,
+            'entrepreneur' => [
+                ['label' => 'Women Entrepreneurs', 'count' => $female, 'pct' => $pct($female)],
+                ['label' => 'Seed-Stage Entrepreneurs', 'count' => $seed, 'pct' => $pct($seed)],
+                ['label' => 'Early-Stage Entrepreneurs', 'count' => $early, 'pct' => $pct($early)],
+                ['label' => 'Growth-Stage Entrepreneurs', 'count' => $growth, 'pct' => $pct($growth)],
+                ['label' => 'CBOs', 'count' => $cbo, 'pct' => $pct($cbo)],
+            ],
+            'sectors' => $sectors,
+            'business_stats' => [
+                ['label' => 'No Credit History', 'count' => $noCredit, 'pct' => $pct($noCredit)],
+                ['label' => 'Businesses are unorganized', 'count' => $unorganized, 'pct' => $pct($unorganized)],
+                ['label' => 'Income < INR 5 Lakh', 'count' => $turnoverLt5L, 'pct' => $pct($turnoverLt5L)],
+            ],
+            'accuracy_checks' => $accuracyChecks,
+        ];
+    }
+
+    /** @return list<array{phase: string, source: string, count: int}> */
+    public function stateSummaryPhase3Only(): array
+    {
+        $p3 = $this->phase3Count();
+        $fy = FiscalYear::phase3Default()?->name ?? 'FY 2026-27';
+
+        return [
+            ['phase' => 'Phase 3 ('.$fy.')', 'source' => 'Live MIS – cfa_submissions (rbiphase3)', 'count' => $p3],
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function cfaByDistrictPhase3Only(array $districts): array
+    {
+        $rows = [];
+        $totP3 = 0;
+
+        foreach ($districts as $name) {
+            $p3 = $this->p3DistrictCount($name);
+            $rows[] = ['name' => $name, 'p3' => $p3];
+            $totP3 += $p3;
+        }
+
+        $rows[] = ['name' => 'Total', 'p3' => $totP3, '_is_total' => true];
+
+        return $rows;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function genderStatePhase3Only(array $districts): array
+    {
+        $s3 = $this->genderBuckets('p3', $districts);
+        $cats = ['Male', 'Female', 'NA', 'NA/Blank', 'Other'];
+        $row = ['phase' => 'Phase 3 (FY 2026–27)'];
+        foreach ($cats as $g) {
+            $row[$g] = $s3[$g] ?? 0;
+        }
+        $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
+
+        return [$row];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function genderByDistrictPhase3Only(array $districts): array
+    {
+        $cats = ['Male', 'Female', 'NA', 'NA/Blank', 'Other'];
+        $rows = [];
+        $total = array_fill_keys($cats, 0);
+
+        foreach ($districts as $name) {
+            $b = $this->genderBucketsForDistrictPhase($name, 'p3');
+            $row = ['name' => $name];
+            foreach ($cats as $g) {
+                $v = $b[$g] ?? 0;
+                $row[$g] = $v;
+                $total[$g] += $v;
+            }
+            $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
+            $rows[] = $row;
+        }
+
+        $totRow = ['name' => 'Total', '_is_total' => true] + $total;
+        $totRow['total'] = array_sum(array_intersect_key($total, array_flip($cats)));
+        $rows[] = $totRow;
+
+        return $rows;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function educationStatePhase3Only(array $districts): array
+    {
+        $s3 = $this->educationBuckets('p3', $districts);
+        $cats = ['10th pass', 'Below 10th', 'Above 10th / Other', 'NA', 'NA/Blank'];
+        $row = ['phase' => 'Phase 3 (FY 2026–27)'];
+        foreach ($cats as $k) {
+            $row[$k] = $s3[$k] ?? 0;
+        }
+        $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
+
+        return [$row];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function educationByDistrictPhase3Only(array $districts): array
+    {
+        $cats = ['10th pass', 'Below 10th', 'Above 10th / Other', 'NA', 'NA/Blank'];
+        $rows = [];
+        $total = array_fill_keys($cats, 0);
+
+        foreach ($districts as $name) {
+            $b = $this->educationBucketsForDistrictPhase($name, 'p3');
+            $row = ['name' => $name];
+            foreach ($cats as $k) {
+                $v = $b[$k] ?? 0;
+                $row[$k] = $v;
+                $total[$k] += $v;
+            }
+            $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
+            $rows[] = $row;
+        }
+
+        $totRow = ['name' => 'Total', '_is_total' => true] + $total;
+        $totRow['total'] = array_sum(array_intersect_key($total, array_flip($cats)));
+        $rows[] = $totRow;
+
+        return $rows;
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -466,9 +719,7 @@ class ProgramDataCentreService
         foreach (DB::table('cfa_submissions as cs')
             ->join('districts as d', 'd.id', '=', 'cs.district_id')
             ->selectRaw('LOWER(d.name) as dist, COUNT(*) as c')
-            ->where(function ($q): void {
-                $q->whereNull('cs.source')->orWhere('cs.source', '<>', 'legacy_phase2');
-            })
+            ->whereIn('cs.id', $this->phase3BaseQuery()->select('cs.id'))
             ->groupByRaw('LOWER(d.name)')
             ->get() as $r) {
             $this->p3Counts[(string) $r->dist] = (int) $r->c;
@@ -491,9 +742,7 @@ class ProgramDataCentreService
         foreach (DB::table('cfa_submissions as cs')
             ->join('districts as d', 'd.id', '=', 'cs.district_id')
             ->selectRaw("LOWER(d.name) as dist, JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.gender')) as gender, COUNT(*) as c")
-            ->where(function ($q): void {
-                $q->whereNull('cs.source')->orWhere('cs.source', '<>', 'legacy_phase2');
-            })
+            ->whereIn('cs.id', $this->phase3BaseQuery()->select('cs.id'))
             ->groupByRaw("LOWER(d.name), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.gender'))")
             ->get() as $r) {
             $g = ($r->gender === 'null' || $r->gender === null) ? '' : (string) $r->gender;
@@ -517,9 +766,7 @@ class ProgramDataCentreService
         foreach (DB::table('cfa_submissions as cs')
             ->join('districts as d', 'd.id', '=', 'cs.district_id')
             ->selectRaw("LOWER(d.name) as dist, JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.education')) as education, COUNT(*) as c")
-            ->where(function ($q): void {
-                $q->whereNull('cs.source')->orWhere('cs.source', '<>', 'legacy_phase2');
-            })
+            ->whereIn('cs.id', $this->phase3BaseQuery()->select('cs.id'))
             ->groupByRaw("LOWER(d.name), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.education'))")
             ->get() as $r) {
             $e = ($r->education === 'null' || $r->education === null) ? '' : (string) $r->education;
@@ -716,11 +963,23 @@ class ProgramDataCentreService
             return 0;
         }
 
-        return (int) DB::table('cfa_submissions')
-            ->where(function ($q): void {
-                $q->whereNull('source')->orWhere('source', '<>', 'legacy_phase2');
-            })
-            ->count();
+        return (int) $this->phase3BaseQuery()->count();
+    }
+
+    private function phase3FiscalYearId(): int
+    {
+        return (int) (FiscalYear::phase3Default()?->id ?? 0);
+    }
+
+    private function phase3BaseQuery(): Builder
+    {
+        $fyId = $this->phase3FiscalYearId();
+
+        return DB::table('cfa_submissions as cs')
+            ->when($fyId > 0, fn (Builder $q) => $q->where('cs.fiscal_year_id', $fyId))
+            ->where(function (Builder $q): void {
+                $q->whereNull('cs.source')->orWhere('cs.source', '<>', 'legacy_phase2');
+            });
     }
 
     // ────────────────────────────────────────────────────────────────────────

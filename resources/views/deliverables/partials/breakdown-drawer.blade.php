@@ -551,7 +551,7 @@
         const isBst = _sourceType === 'bst_participants';
         const isPartners = _sourceType === 'market_linkage_unique_partners';
         if (isPartners) {
-            return `Partner names <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">top 10 unique</span>`;
+            return `Partner names <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">${fmt(total)} unique</span>`;
         }
         if (isFP) {
             return `Female Participants <span style="font-weight:400;font-size:0.78rem;color:#be185d;margin-left:0.4rem;">${fmt(total)} entries</span>`;

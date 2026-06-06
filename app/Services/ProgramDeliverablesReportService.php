@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Models\Deliverable;
 use App\Models\DistrictDeliverableTarget;
-use App\Models\FiscalYear;
 use App\Models\FieldCoordinatorAttendanceReport;
+use App\Models\FiscalYear;
 use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
@@ -18,8 +18,8 @@ use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\TechnicalTrainingPotentialLakhpatiSupport;
-use App\Services\LegacyApplicationServiceCaseSupport;
 use Carbon\Carbon;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -28,6 +28,7 @@ class ProgramDeliverablesReportService
     public function __construct(
         private readonly ServiceTargetDeliverableSyncService $serviceTargetDeliverables,
         private readonly LegacyApplicationServiceCaseSupport $legacyServiceCases,
+        private readonly MarketLinkagePartnerCatalogService $marketLinkagePartners,
     ) {}
 
     /** @var array<string, int> */
@@ -876,9 +877,10 @@ class ProgramDeliverablesReportService
 
         $this->applyMarketLinkageApprovedScope($query);
         $this->applyDistrictScope($query, 'mls.district_id');
-        $this->applyMarketLinkagePartnerDateScope($query);
 
-        return (int) $query->selectRaw('COUNT(DISTINCT LOWER(TRIM(mlp.partner_name))) as aggregate')->value('aggregate');
+        $names = $query->distinct()->pluck('mlp.partner_name');
+
+        return $this->marketLinkagePartners->countUniquePartnerKeys($names);
     }
 
     private function marketLinkageIncubateesCount(): int
@@ -900,7 +902,6 @@ SQL;
                 $sub->select(DB::raw('1'))
                     ->from('market_linkage_partners as mlp')
                     ->whereColumn('mlp.market_linkage_submission_id', 'mls.id');
-                $this->applyMarketLinkagePartnerDateScope($sub);
             });
 
         $this->applyMarketLinkageApprovedScope($query);
@@ -910,7 +911,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyMarketLinkageApprovedScope($query): void
     {
@@ -920,7 +921,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyMarketLinkagePartnerDateScope($query, string $column = 'mlp.linkage_date'): void
     {
@@ -942,7 +943,7 @@ SQL;
     /**
      * State-level log: count posts by `posted_on` within the active fiscal / filter window.
      *
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applySocialMediaPostsAchievementScope($query): void
     {
@@ -1002,7 +1003,7 @@ SQL;
      * Align with state dashboard: CFA achievement = submissions tagged to the FY (`fiscal_year_id`),
      * not every row whose `created_at` falls in the FY calendar window.
      *
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyCfaAchievementScope($query): void
     {
@@ -1031,7 +1032,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyOnboardingAchievementScope($query): void
     {
@@ -1105,7 +1106,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     * @param  \Illuminate\Database\Eloquent\Builder|Builder  $query
      */
     private function sumFemaleParticipants($query, string $table): int
     {
@@ -1119,7 +1120,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyBlockWorkshopCountScope($query): void
     {
@@ -1149,7 +1150,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FieldCoordinatorAttendanceReport>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder<FieldCoordinatorAttendanceReport>  $query
      */
     private function applyFieldWorkAchievementScope($query): void
     {
@@ -1270,7 +1271,7 @@ SQL;
     private ?FiscalYear $activeFiscalYear = null;
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyDistrictScope($query, string $column): void
     {
@@ -1288,7 +1289,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FieldCoordinatorAttendanceReport>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder<FieldCoordinatorAttendanceReport>  $query
      */
     private function applyDistrictScopeOnModel($query, string $column): void
     {
@@ -1306,7 +1307,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyPeriodFilter($query, string $column): void
     {
@@ -1321,7 +1322,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\FieldCoordinatorAttendanceReport>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder<FieldCoordinatorAttendanceReport>  $query
      */
     private function applyPeriodFilterOnModel($query, string $column): void
     {
@@ -1336,7 +1337,7 @@ SQL;
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  Builder  $query
      */
     private function applyBstMonthSessionPeriod($query): void
     {

@@ -6,18 +6,20 @@ use App\Models\CfaSubmission;
 use App\Models\District;
 use App\Models\MarketLinkagePartner;
 use App\Models\MarketLinkageSubmission;
-use App\Models\User;
 use App\Models\ServiceCase;
+use App\Models\User;
 use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\MarketLinkageWorkflowService;
 use App\Support\MarketLinkageAccess;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -435,7 +437,7 @@ class MarketLinkageController extends Controller
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<CfaSubmission>
+     * @return Builder<CfaSubmission>
      */
     private function eligibleSubmissions(User $staff)
     {
@@ -450,7 +452,7 @@ class MarketLinkageController extends Controller
         return $q;
     }
 
-    private function legacyRowsForStaff(User $staff): \Illuminate\Support\Collection
+    private function legacyRowsForStaff(User $staff): Collection
     {
         try {
             return $this->legacyApplications->eligibleLegacyApplicationsForStaff($staff);
@@ -557,7 +559,7 @@ class MarketLinkageController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<MarketLinkageSubmission>  $query
+     * @param  Builder<MarketLinkageSubmission>  $query
      */
     public static function applyApprovedScopeIfSupported($query)
     {
@@ -592,7 +594,7 @@ class MarketLinkageController extends Controller
      *   legacy_application_id: ?int,
      *   partner_count: int,
      *   submission_count: int,
-     *   last_recorded_at: ?\Illuminate\Support\Carbon,
+     *   last_recorded_at: ?Carbon,
      *   partners: list<array<string, mixed>>
      * }>
      */
@@ -780,7 +782,10 @@ class MarketLinkageController extends Controller
 
                 $hasMatchingPartner = true;
                 $partnerRecords++;
-                $uniquePartners[strtolower(trim((string) $partner->partner_name))] = true;
+                $partnerKey = $this->partnerCatalog->normalizePartnerKey((string) $partner->partner_name);
+                if ($partnerKey !== '') {
+                    $uniquePartners[$partnerKey] = true;
+                }
 
                 if ($partner->linkage_mode === MarketLinkageSubmission::LINKAGE_ONLINE) {
                     $onlinePartners++;

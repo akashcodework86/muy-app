@@ -150,6 +150,18 @@ class MarketLinkagePartnerCatalogService
         'linked with nitya spices' => 'nitya spices',
         'connect with nitya spices and cresta ngo' => 'nitya spices',
         'offline linkage with saras haldwani nitya spices' => 'nitya spices',
+        'fresh point distribution company haldwani and supreme mart haldwani store linkage' => 'fresh point distribution company haldwani',
+    ];
+
+    /** @var list<string> */
+    private const COMPOUND_SUFFIXES = [
+        ' store linkage',
+        ' store linkages',
+        ' market linkage',
+        ' offline linkage',
+        ' online linkage',
+        ' offline connect',
+        ' offline partner',
     ];
 
     /** @var list<string> */
@@ -205,6 +217,65 @@ class MarketLinkagePartnerCatalogService
     }
 
     /**
+     * Normalize a raw partner name for deduplication (case/spelling/compound variants).
+     */
+    public function normalizePartnerKey(string $name): string
+    {
+        $key = $this->normalizeKey($name);
+        if ($key === '') {
+            return '';
+        }
+
+        foreach (self::COMPOUND_SUFFIXES as $suffix) {
+            if (str_ends_with($key, $suffix)) {
+                $key = trim(substr($key, 0, -strlen($suffix)));
+            }
+        }
+
+        if (str_contains($key, ' and ')) {
+            $primary = trim(explode(' and ', $key, 2)[0]);
+            if ($primary !== '' && strlen($primary) >= 8) {
+                $key = $this->normalizeKey($primary);
+            }
+        }
+
+        return $key;
+    }
+
+    /**
+     * @param  iterable<string>  $rawNames
+     */
+    public function countUniquePartnerKeys(iterable $rawNames): int
+    {
+        $keys = [];
+
+        foreach ($rawNames as $rawName) {
+            $key = $this->normalizePartnerKey((string) $rawName);
+            if ($key === '' || in_array($key, self::NOISE_KEYS, true)) {
+                continue;
+            }
+            $keys[$key] = true;
+        }
+
+        return count($keys);
+    }
+
+    /**
+     * Preferred display label for a raw partner name after normalization.
+     */
+    public function displayLabelFor(string $rawName): string
+    {
+        $rawName = trim($rawName);
+        if ($rawName === '') {
+            return '';
+        }
+
+        $key = $this->normalizePartnerKey($rawName);
+
+        return self::CANONICAL_LABELS[$key] ?? $rawName;
+    }
+
+    /**
      * Persist unique partner display names for future dropdowns.
      *
      * @param  list<string>  $names
@@ -221,12 +292,12 @@ class MarketLinkagePartnerCatalogService
                 continue;
             }
 
-            $key = $this->normalizeKey($name);
+            $key = $this->normalizePartnerKey($name);
             if ($key === '' || in_array($key, self::NOISE_KEYS, true)) {
                 continue;
             }
 
-            $display = self::CANONICAL_LABELS[$key] ?? $name;
+            $display = $this->displayLabelFor($name);
 
             MarketLinkagePartnerName::query()->updateOrCreate(
                 ['normalized_key' => $key],
@@ -264,7 +335,7 @@ class MarketLinkagePartnerCatalogService
             return;
         }
 
-        $key = $this->normalizeKey($rawName);
+        $key = $this->normalizePartnerKey($rawName);
         if (! isset($groups[$key])) {
             $groups[$key] = ['variants' => [], 'score' => 0];
         }

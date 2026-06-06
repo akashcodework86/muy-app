@@ -78,10 +78,50 @@
 
 /* ── Flash message ─────────────────────────────────────────── */
 .dc-flash { display:flex; align-items:center; gap:.5rem; font-size:.82rem; color:#166534; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:.5rem; padding:.5rem 1rem; margin-bottom:1rem; }
+
+/* ── View toggle ───────────────────────────────────────────── */
+.dc-view-toggle { display:inline-flex; border:1px solid #e2e8f0; border-radius:.65rem; overflow:hidden; background:#f8fafc; margin-bottom:1.25rem; }
+.dc-view-toggle__btn { display:inline-flex; align-items:center; gap:.35rem; padding:.45rem 1rem; font-size:.78rem; font-weight:700; color:#64748b; text-decoration:none; border-right:1px solid #e2e8f0; transition:background .15s,color .15s; }
+.dc-view-toggle__btn:last-child { border-right:none; }
+.dc-view-toggle__btn:hover { background:#fff; color:#334155; }
+.dc-view-toggle__btn.is-active { background:#4f46e5; color:#fff; }
+
+/* ── Application Analysis (slide-style) ────────────────────── */
+.dc-analysis { background:#fff; border:1px solid #e2e8f0; border-radius:1rem; padding:1.25rem 1.5rem 1.5rem; margin-bottom:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.dc-analysis__head { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.25rem; padding-bottom:1rem; border-bottom:2px solid #f1f5f9; }
+.dc-analysis__title { font-size:1.05rem; font-weight:800; color:#ea580c; letter-spacing:.01em; }
+.dc-analysis__subtitle { display:inline-block; margin-top:.35rem; font-size:.78rem; font-weight:700; color:#fff; background:#ea580c; padding:.25rem .65rem; border-radius:.35rem; }
+.dc-analysis__total { text-align:right; }
+.dc-analysis__total-label { font-size:.72rem; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
+.dc-analysis__total-value { font-size:2.4rem; font-weight:900; color:#ea580c; line-height:1.1; font-variant-numeric:tabular-nums; }
+.dc-analysis__grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem; }
+@media (max-width:960px) { .dc-analysis__grid { grid-template-columns:1fr; } }
+.dc-analysis__col { border-left:2px dotted #cbd5e1; padding-left:1rem; }
+.dc-analysis__col:first-child { border-left:none; padding-left:0; }
+.dc-analysis__col-title { font-size:.72rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem; }
+.dc-analysis__row { display:grid; grid-template-columns:1fr auto auto; gap:.5rem 1rem; align-items:center; padding:.45rem 0; border-bottom:1px solid #f8fafc; font-size:.84rem; color:#334155; }
+.dc-analysis__row:last-child { border-bottom:none; }
+.dc-analysis__row strong { font-weight:800; color:#991b1b; font-variant-numeric:tabular-nums; text-align:right; }
+.dc-analysis__row span.dc-analysis__pct { font-weight:700; color:#991b1b; font-variant-numeric:tabular-nums; text-align:right; min-width:3rem; }
+.dc-analysis__stats { display:flex; flex-direction:column; gap:1.25rem; justify-content:center; height:100%; }
+.dc-analysis__stat { text-align:center; }
+.dc-analysis__stat-pct { font-size:2rem; font-weight:900; color:#991b1b; line-height:1; font-variant-numeric:tabular-nums; }
+.dc-analysis__stat-label { font-size:.78rem; font-weight:600; color:#334155; margin-top:.35rem; line-height:1.35; }
+.dc-analysis__checks { margin-top:1.25rem; padding-top:1rem; border-top:1px solid #e2e8f0; }
+.dc-analysis__checks-title { font-size:.72rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.5rem; }
+.dc-analysis__checks-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.45rem .75rem; }
+.dc-analysis__check { display:flex; align-items:center; gap:.4rem; font-size:.75rem; color:#475569; }
+.dc-analysis__check-dot { width:.55rem; height:.55rem; border-radius:50%; flex-shrink:0; }
+.dc-analysis__check-dot--pass { background:#22c55e; }
+.dc-analysis__check-dot--fail { background:#ef4444; }
 </style>
 @endpush
 
 @section('content')
+@php
+    $viewMode = $view_mode ?? 'all';
+    $isPhase3View = $viewMode === 'rbiphase3';
+@endphp
 <div class="dc-page">
 
     {{-- ── Flash message ── --}}
@@ -92,10 +132,31 @@
         </div>
     @endif
 
+    {{-- ── View toggle ── --}}
+    <div class="dc-view-toggle" role="tablist" aria-label="Data centre view">
+        <a href="{{ route('admin.data-centre.index') }}"
+           class="dc-view-toggle__btn {{ ! $isPhase3View ? 'is-active' : '' }}"
+           role="tab"
+           aria-selected="{{ ! $isPhase3View ? 'true' : 'false' }}">
+            All Phases
+        </a>
+        <a href="{{ route('admin.data-centre.index', ['view' => 'rbiphase3']) }}"
+           class="dc-view-toggle__btn {{ $isPhase3View ? 'is-active' : '' }}"
+           role="tab"
+           aria-selected="{{ $isPhase3View ? 'true' : 'false' }}">
+            rbiphase3
+        </a>
+    </div>
+
     {{-- ── Top bar ── --}}
     <div class="dc-topbar">
         <div>
-            <div class="dc-topbar__title">Program Data Centre</div>
+            <div class="dc-topbar__title">
+                Program Data Centre
+                @if ($isPhase3View)
+                    <span style="font-size:.85rem;font-weight:600;color:#4f46e5;margin-left:.35rem;">· rbiphase3 only</span>
+                @endif
+            </div>
             <div class="dc-topbar__meta">
                 Generated: {{ $meta['generated_at'] }}
                 &nbsp;·&nbsp;
@@ -116,6 +177,9 @@
         <div class="dc-topbar__right">
             <form method="POST" action="{{ route('admin.data-centre.refresh') }}" style="display:inline;">
                 @csrf
+                @if ($isPhase3View)
+                    <input type="hidden" name="view" value="rbiphase3">
+                @endif
                 <button type="submit" class="dc-btn dc-btn--refresh">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Refresh Data
@@ -127,6 +191,87 @@
             </a>
         </div>
     </div>
+
+    {{-- ── Application Analysis (rbiphase3 only) ── --}}
+    @if ($isPhase3View && ! empty($application_analysis))
+        @php
+            $analysis = $application_analysis;
+            $allChecksPass = collect($analysis['accuracy_checks'] ?? [])->every(fn ($c) => ! empty($c['pass']));
+        @endphp
+        <section class="dc-analysis" aria-labelledby="dc-analysis-title">
+            <div class="dc-analysis__head">
+                <div>
+                    <div class="dc-analysis__title" id="dc-analysis-title">Call for Applications</div>
+                    <div class="dc-analysis__subtitle">Application Analysis — rbiphase3 ({{ $meta['phase3_fy'] ?? 'FY 2026-27' }})</div>
+                </div>
+                <div class="dc-analysis__total">
+                    <div class="dc-analysis__total-label">Total Number of Applications</div>
+                    <div class="dc-analysis__total-value">{{ number_format($analysis['total']) }}</div>
+                </div>
+            </div>
+
+            <div class="dc-analysis__grid">
+                {{-- Entrepreneur categories --}}
+                <div class="dc-analysis__col">
+                    <div class="dc-analysis__col-title">Entrepreneur Categories</div>
+                    @foreach ($analysis['entrepreneur'] as $row)
+                        <div class="dc-analysis__row">
+                            <span>{{ $row['label'] }}</span>
+                            <strong>{{ number_format($row['count']) }}</strong>
+                            <span class="dc-analysis__pct">{{ number_format($row['pct'], 1) }}%</span>
+                        </div>
+                    @endforeach
+                </div>
+
+                {{-- Sector-wise breakup --}}
+                <div class="dc-analysis__col">
+                    <div class="dc-analysis__col-title">Sector-wise Breakup</div>
+                    @foreach ($analysis['sectors'] as $row)
+                        <div class="dc-analysis__row">
+                            <span>{{ $row['sector'] }}</span>
+                            <strong>{{ number_format($row['count']) }}</strong>
+                            <span class="dc-analysis__pct">{{ number_format($row['pct'], 1) }}%</span>
+                        </div>
+                    @endforeach
+                </div>
+
+                {{-- Business statistics --}}
+                <div class="dc-analysis__col">
+                    <div class="dc-analysis__col-title">Business Statistics</div>
+                    <div class="dc-analysis__stats">
+                        @foreach ($analysis['business_stats'] as $row)
+                            <div class="dc-analysis__stat">
+                                <div class="dc-analysis__stat-pct">{{ number_format($row['pct'], 1) }}%</div>
+                                <div class="dc-analysis__stat-label">{{ $row['label'] }}</div>
+                                <div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem;">{{ number_format($row['count']) }} applications</div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
+            @if (! empty($analysis['accuracy_checks']))
+                <div class="dc-analysis__checks">
+                    <div class="dc-analysis__checks-title">
+                        Accuracy checks
+                        @if ($allChecksPass)
+                            <span style="color:#166534;font-weight:600;"> — all pass</span>
+                        @else
+                            <span style="color:#991b1b;font-weight:600;"> — review needed</span>
+                        @endif
+                    </div>
+                    <div class="dc-analysis__checks-grid">
+                        @foreach ($analysis['accuracy_checks'] as $check)
+                            <div class="dc-analysis__check">
+                                <span class="dc-analysis__check-dot {{ ! empty($check['pass']) ? 'dc-analysis__check-dot--pass' : 'dc-analysis__check-dot--fail' }}"></span>
+                                <span>{{ $check['label'] }}: {{ number_format($check['actual']) }} / {{ number_format($check['expected']) }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </section>
+    @endif
 
     {{-- ── Summary cards ── --}}
     <div class="dc-cards">
@@ -155,7 +300,13 @@
                     </div>
                     <div>
                         <div class="dc-section__name">CFA Applications — District-wise</div>
-                        <div class="dc-section__desc">Phase 1 + Phase 2 + Phase 3 counts per district and combined total</div>
+                        <div class="dc-section__desc">
+                            @if ($isPhase3View)
+                                Phase 3 (rbiphase3) counts per district — FY 2026–27 only
+                            @else
+                                Phase 1 + Phase 2 + Phase 3 counts per district and combined total
+                            @endif
+                        </div>
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
@@ -171,34 +322,62 @@
                     <thead>
                         <tr>
                             <th>District</th>
-                            <th class="_num">Phase 1 (FY 24–25)</th>
-                            <th class="_num">Phase 2 (FY 25–26)</th>
-                            <th class="_num">Phase 3 (FY 26–27)</th>
-                            <th class="_num">Combined</th>
-                            <th class="_num">% of State</th>
+                            @if ($isPhase3View)
+                                <th class="_num">Phase 3 (FY 26–27)</th>
+                                <th class="_num">% of State</th>
+                            @else
+                                <th class="_num">Phase 1 (FY 24–25)</th>
+                                <th class="_num">Phase 2 (FY 25–26)</th>
+                                <th class="_num">Phase 3 (FY 26–27)</th>
+                                <th class="_num">Combined</th>
+                                <th class="_num">% of State</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody>
-                        @php $stateTotal = collect($cfa_by_district)->where('_is_total', true)->first()['c'] ?? 1; @endphp
+                        @php
+                            if ($isPhase3View) {
+                                $stateTotal = collect($cfa_by_district)->where('_is_total', true)->first()['p3'] ?? 1;
+                            } else {
+                                $stateTotal = collect($cfa_by_district)->where('_is_total', true)->first()['c'] ?? 1;
+                            }
+                        @endphp
                         @foreach ($cfa_by_district as $row)
                             <tr class="{{ !empty($row['_is_total']) ? '_total' : '' }}">
                                 <td>{{ $row['name'] }}</td>
-                                <td class="_num">{{ number_format($row['p1']) }}</td>
-                                <td class="_num">{{ number_format($row['p2']) }}</td>
-                                <td class="_num">{{ number_format($row['p3']) }}</td>
-                                <td class="_num">{{ number_format($row['c']) }}</td>
-                                <td class="_num">
-                                    @if (empty($row['_is_total']))
-                                        {{ number_format($stateTotal > 0 ? ($row['c'] / $stateTotal) * 100 : 0, 1) }}%
-                                    @else
-                                        100%
-                                    @endif
-                                </td>
+                                @if ($isPhase3View)
+                                    <td class="_num">{{ number_format($row['p3']) }}</td>
+                                    <td class="_num">
+                                        @if (empty($row['_is_total']))
+                                            {{ number_format($stateTotal > 0 ? ($row['p3'] / $stateTotal) * 100 : 0, 1) }}%
+                                        @else
+                                            100%
+                                        @endif
+                                    </td>
+                                @else
+                                    <td class="_num">{{ number_format($row['p1']) }}</td>
+                                    <td class="_num">{{ number_format($row['p2']) }}</td>
+                                    <td class="_num">{{ number_format($row['p3']) }}</td>
+                                    <td class="_num">{{ number_format($row['c']) }}</td>
+                                    <td class="_num">
+                                        @if (empty($row['_is_total']))
+                                            {{ number_format($stateTotal > 0 ? ($row['c'] / $stateTotal) * 100 : 0, 1) }}%
+                                        @else
+                                            100%
+                                        @endif
+                                    </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
-                <p class="dc-note">Phase 3 is live from MIS. Phase 1 district = <code>FatherName</code> field. Phase 2 FY 2025–26 only.</p>
+                <p class="dc-note">
+                    @if ($isPhase3View)
+                        Phase 3 live MIS only. Excludes <code>source = legacy_phase2</code> imports. Fiscal year: {{ $meta['phase3_fy'] ?? 'FY 2026-27' }}.
+                    @else
+                        Phase 3 is live from MIS. Phase 1 district = <code>FatherName</code> field. Phase 2 FY 2025–26 only.
+                    @endif
+                </p>
             </div>
         </details>
 
@@ -211,7 +390,13 @@
                     </div>
                     <div>
                         <div class="dc-section__name">Gender Breakdown — State Totals</div>
-                        <div class="dc-section__desc">Male / Female / NA / NA-Blank counts per phase and combined</div>
+                        <div class="dc-section__desc">
+                            @if ($isPhase3View)
+                                Male / Female / NA breakdown — Phase 3 (rbiphase3) state totals
+                            @else
+                                Male / Female / NA / NA-Blank counts per phase and combined
+                            @endif
+                        </div>
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
@@ -251,7 +436,13 @@
                         @endforeach
                     </tbody>
                 </table>
-                <p class="dc-note">Phase 2 has {{ number_format(collect($gender_state)->firstWhere('phase', 'Phase 2 (FY 2025–26)')['NA/Blank'] ?? 0) }} rows with no gender in legacy data (shown as NA/Blank).</p>
+                <p class="dc-note">
+                    @if ($isPhase3View)
+                        Phase 3 CFA submissions only ({{ number_format($meta['phase3_total'] ?? 0) }} total).
+                    @else
+                        Phase 2 has {{ number_format(collect($gender_state)->firstWhere('phase', 'Phase 2 (FY 2025–26)')['NA/Blank'] ?? 0) }} rows with no gender in legacy data (shown as NA/Blank).
+                    @endif
+                </p>
             </div>
         </details>
 
@@ -264,7 +455,13 @@
                     </div>
                     <div>
                         <div class="dc-section__name">Gender Breakdown — By District (Combined)</div>
-                        <div class="dc-section__desc">Male / Female / NA breakdown per district across all three phases</div>
+                        <div class="dc-section__desc">
+                            @if ($isPhase3View)
+                                Male / Female / NA breakdown per district — Phase 3 only
+                            @else
+                                Male / Female / NA breakdown per district across all three phases
+                            @endif
+                        </div>
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
@@ -316,7 +513,13 @@
                     </div>
                     <div>
                         <div class="dc-section__name">Education Level — State Totals</div>
-                        <div class="dc-section__desc">10th pass / Below 10th / Above 10th / NA per phase and combined</div>
+                        <div class="dc-section__desc">
+                            @if ($isPhase3View)
+                                10th pass / Below 10th / Above 10th — Phase 3 state totals
+                            @else
+                                10th pass / Below 10th / Above 10th / NA per phase and combined
+                            @endif
+                        </div>
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
@@ -354,7 +557,13 @@
                         @endforeach
                     </tbody>
                 </table>
-                <p class="dc-note">Phase 1 uses <code>10th</code> label (1,973 rows) counted as 10th pass. Below 10th includes: Below 8th, 8th pass, 8th, 5th, 9th, Non Matric.</p>
+                <p class="dc-note">
+                    @if ($isPhase3View)
+                        Education from Phase 3 CFA form payload.
+                    @else
+                        Phase 1 uses <code>10th</code> label (1,973 rows) counted as 10th pass. Below 10th includes: Below 8th, 8th pass, 8th, 5th, 9th, Non Matric.
+                    @endif
+                </p>
             </div>
         </details>
 
@@ -367,7 +576,13 @@
                     </div>
                     <div>
                         <div class="dc-section__name">Education Level — By District (Combined)</div>
-                        <div class="dc-section__desc">10th pass / Below 10th breakdown per district across all three phases</div>
+                        <div class="dc-section__desc">
+                            @if ($isPhase3View)
+                                10th pass / Below 10th breakdown per district — Phase 3 only
+                            @else
+                                10th pass / Below 10th breakdown per district across all three phases
+                            @endif
+                        </div>
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
@@ -416,7 +631,10 @@
         <ul>
             <li><strong>Phase 1 (FY 2024–25):</strong> Reads <code>ukrbiin_rbi.tblapplication</code>. District = <code>FatherName</code> column (aliases: <code>US_Nagar</code> → Udham Singh Nagar, <code>Tehri_Garhwal</code> → Tehri Garhwal, <code>Pauri</code> → Pauri Garhwal).</li>
             <li><strong>Phase 2 (FY 2025–26):</strong> Reads <code>rbiphase2.rbi_applications</code> joined with <code>rbi_applicant_details</code>. Filtered by <code>submission_date</code> between 2025-04-02 and 2026-04-01. District from <code>d.district</code>.</li>
-            <li><strong>Phase 3 (FY 2026–27 — live):</strong> Reads <code>muy.cfa_submissions</code>. Excludes rows with <code>source = 'legacy_phase2'</code> to avoid double-counting Phase 2 applicants imported into this MIS.</li>
+            <li><strong>Phase 3 (FY 2026–27 — live):</strong> Reads <code>cfa_submissions</code> for fiscal year {{ $meta['phase3_fy'] ?? 'FY 2026-27' }}. Excludes rows with <code>source = 'legacy_phase2'</code> to avoid double-counting Phase 2 applicants imported into this MIS.</li>
+            @if ($isPhase3View)
+                <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. Application Analysis uses live payload fields: <code>gender</code>, <code>form_stage</code>, <code>category</code>, <code>business_category</code>, <code>loan_taken</code>, <code>is_registered</code>, <code>turnover_last_fy</code>.</li>
+            @endif
             <li><strong>No double-counting:</strong> Phase 3 new-only count + Phase 2 = no overlap. 4,414 Phase 2 rows were imported into cfa_submissions and are excluded from Phase 3 counts.</li>
             <li><strong>10th pass (Phase 1):</strong> Legacy DB uses label <code>10th</code> (not <code>10th pass</code>). Both are counted as "10th pass".</li>
             <li><strong>Gender NA/Blank:</strong> Phase 2 legacy data has many blank gender fields — these appear as NA/Blank, not 0.</li>
