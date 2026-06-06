@@ -1476,10 +1476,11 @@
     }
     .admin-topbar__inner--staff {
         display: grid;
-        grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+        grid-template-columns: auto 1fr auto;
         align-items: center;
         gap: 0.65rem 0.85rem;
         padding: 0.65rem 1rem;
+        overflow: visible;
     }
     @media (max-width: 1100px) {
         .admin-topbar__inner--staff {
@@ -1552,64 +1553,41 @@
         position: relative;
         min-width: 0;
         max-width: 100%;
-        padding: 0.24rem;
+        padding: 0.28rem 0.32rem;
         border-radius: 14px;
         background: #eef2f6;
         border: 1px solid #dde3ea;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
-    }
-    .admin-topbar__nav-rail--staff::before,
-    .admin-topbar__nav-rail--staff::after {
-        content: '';
-        position: absolute;
-        top: 0.24rem;
-        bottom: 0.24rem;
-        width: 1.25rem;
-        pointer-events: none;
-        z-index: 2;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-    }
-    .admin-topbar__nav-rail--staff::before {
-        left: 0.24rem;
-        border-radius: 12px 0 0 12px;
-        background: linear-gradient(90deg, #eef2f6 30%, rgba(238, 242, 246, 0));
-    }
-    .admin-topbar__nav-rail--staff::after {
-        right: 0.24rem;
-        border-radius: 0 12px 12px 0;
-        background: linear-gradient(270deg, #eef2f6 30%, rgba(238, 242, 246, 0));
-    }
-    .admin-topbar__nav-rail--staff.can-scroll-left::before,
-    .admin-topbar__nav-rail--staff.can-scroll-right::after {
-        opacity: 1;
-    }
-    .admin-topbar__nav-rail--staff {
-        overflow-x: auto;
-        overflow-y: hidden;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-        -webkit-overflow-scrolling: touch;
-    }
-    .admin-topbar__nav-rail--staff::-webkit-scrollbar {
-        display: none;
+        overflow: visible;
+        align-self: center;
     }
     .admin-topbar__nav--staff {
-        display: inline-flex;
-        flex-wrap: nowrap;
+        display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 0.18rem;
-        width: max-content;
-        min-width: min(100%, max-content);
+        justify-content: center;
+        gap: 0.2rem;
+        width: 100%;
+        max-width: 100%;
         margin: 0;
         padding: 0;
-        flex: none;
-        justify-content: flex-start;
+        overflow: visible;
     }
     .admin-topbar__nav--staff .admin-topbar__link,
     .admin-topbar__nav--staff .admin-topbar__details {
         flex: 0 0 auto;
         flex-shrink: 0;
+    }
+    .admin-topbar__nav--staff .admin-topbar__details {
+        position: relative;
+    }
+    .admin-topbar__nav--staff .admin-topbar__details[open] {
+        z-index: 420;
+    }
+    .admin-topbar__nav--staff .admin-topbar__dropdown-panel {
+        z-index: 430;
+        left: 0;
+        top: calc(100% + 0.35rem);
     }
     .admin-topbar__nav--staff .admin-topbar__link {
         overflow: visible;

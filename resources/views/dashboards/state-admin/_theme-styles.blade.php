@@ -174,12 +174,7 @@
 .admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav-rail--staff {
     background: #eef2f6 !important;
     border-color: #dde3ea !important;
-}
-.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav-rail--staff::before {
-    background: linear-gradient(90deg, #eef2f6 30%, rgba(238, 242, 246, 0)) !important;
-}
-.admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav-rail--staff::after {
-    background: linear-gradient(270deg, #eef2f6 30%, rgba(238, 242, 246, 0)) !important;
+    overflow: visible !important;
 }
 .admin-app-body--state-theme-revamp.admin-app-body--staff-premium .admin-topbar__nav--staff .admin-topbar__link {
     color: #455a64 !important;

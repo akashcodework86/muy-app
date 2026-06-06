@@ -773,33 +773,14 @@
         });
     }
 
-    function initStaffNavRail() {
-        var rail = document.querySelector('[data-staff-nav-rail]');
-        if (!rail) return;
-        var sync = function () {
-            var maxScroll = rail.scrollWidth - rail.clientWidth;
-            if (maxScroll <= 2) {
-                rail.classList.remove('can-scroll-left', 'can-scroll-right');
-                return;
-            }
-            rail.classList.toggle('can-scroll-left', rail.scrollLeft > 2);
-            rail.classList.toggle('can-scroll-right', rail.scrollLeft < maxScroll - 2);
-        };
-        rail.addEventListener('scroll', sync, { passive: true });
-        window.addEventListener('resize', sync);
-        sync();
-    }
-
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             initTopbarDropdowns();
             initMobileMenu();
-            initStaffNavRail();
         });
     } else {
         initTopbarDropdowns();
         initMobileMenu();
-        initStaffNavRail();
     }
 }());
 </script>
