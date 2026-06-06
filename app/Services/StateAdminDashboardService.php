@@ -187,12 +187,17 @@ class StateAdminDashboardService
         $seedCount = 0;
         $earlyCount = 0;
         $growthCount = 0;
-        $stageCounts = DB::table('cfa_submissions')
-            ->selectRaw("LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.form_stage')))) as stage_key")
-            ->selectRaw('COUNT(*) as total')
-            ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
-            ->groupBy('stage_key')
-            ->pluck('total', 'stage_key');
+        $stageExpr = CfaSubmissionListQuery::payloadJsonExpr('$.form_stage');
+        try {
+            $stageCounts = DB::table('cfa_submissions')
+                ->selectRaw('LOWER(TRIM('.$stageExpr.')) as stage_key')
+                ->selectRaw('COUNT(*) as total')
+                ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
+                ->groupBy(DB::raw('LOWER(TRIM('.$stageExpr.'))'))
+                ->pluck('total', 'stage_key');
+        } catch (\Throwable) {
+            $stageCounts = collect();
+        }
         $seedCount = (int) ($stageCounts['seed'] ?? 0);
         $earlyCount = (int) ($stageCounts['early'] ?? 0);
         $growthCount = (int) ($stageCounts['growth'] ?? 0);
@@ -317,19 +322,23 @@ class StateAdminDashboardService
 
         $estimatedSavings = $this->estimatedSavingsMetrics($activeFy, $phase3FloorDate);
         $servicesDeliveredCounts = $this->servicesDeliveredCounts($activeFy, $phase3FloorDate);
-        $insights = $this->buildInsights(
-            $phase3Scope,
-            $phase3FloorDate,
-            $activeFyId,
-            $cfaDeliverableIds,
-            $activeFy,
-            [
-                'labels' => $cfaByDistrict->pluck('name')->all(),
-                'values' => $cfaByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
-            ],
-            $stateOnboardingAchieved,
-            $servicesDeliveredCounts['till_date'] ?? 0,
-        );
+        try {
+            $insights = $this->buildInsights(
+                $phase3Scope,
+                $phase3FloorDate,
+                $activeFyId,
+                $cfaDeliverableIds,
+                $activeFy,
+                [
+                    'labels' => $cfaByDistrict->pluck('name')->all(),
+                    'values' => $cfaByDistrict->pluck('total')->map(fn ($v) => (int) $v)->all(),
+                ],
+                $stateOnboardingAchieved,
+                $servicesDeliveredCounts['till_date'] ?? 0,
+            );
+        } catch (\Throwable) {
+            $insights = $this->emptyInsights();
+        }
 
         return [
             'activeFy' => $activeFy,
@@ -438,12 +447,28 @@ class StateAdminDashboardService
 
         $geoDistricts = (int) (clone $phase3Scope)->whereNotNull('district_id')->distinct()->count('district_id');
         $blockExpr = CfaSubmissionListQuery::payloadJsonExpr('$.block');
-        $geoBlocks = (int) (clone $phase3Scope)
-            ->whereRaw('TRIM(COALESCE('.$blockExpr.", '')) <> ''")
-            ->distinct()
-            ->count(DB::raw($blockExpr));
+        try {
+            $geoBlocks = (int) (clone $phase3Scope)
+                ->whereRaw('TRIM(COALESCE('.$blockExpr.", '')) <> ''")
+                ->selectRaw('COUNT(DISTINCT '.$blockExpr.') as block_count')
+                ->value('block_count');
+        } catch (\Throwable) {
+            $geoBlocks = 0;
+        }
 
         $cfaTotal = (int) (clone $phase3Scope)->count();
+        $stageExpr = CfaSubmissionListQuery::payloadJsonExpr('$.form_stage');
+        $stageValues = [0, 0, 0];
+        foreach (['seed' => 0, 'early' => 1, 'growth' => 2] as $stageName => $idx) {
+            try {
+                $stageValues[$idx] = (int) DB::table('cfa_submissions')
+                    ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
+                    ->whereRaw('LOWER(TRIM('.$stageExpr.')) = ?', [$stageName])
+                    ->count();
+            } catch (\Throwable) {
+                $stageValues[$idx] = 0;
+            }
+        }
 
         return [
             'geo' => [
@@ -461,25 +486,38 @@ class StateAdminDashboardService
             'sourceMix' => $this->attachChartColors($sourceMix),
             'stageDonut' => $this->attachChartColors([
                 'labels' => ['Seed', 'Early', 'Growth'],
-                'values' => [
-                    (int) DB::table('cfa_submissions')
-                        ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
-                        ->whereRaw("LOWER(TRIM(".CfaSubmissionListQuery::payloadJsonExpr('$.form_stage').")) = 'seed'")
-                        ->count(),
-                    (int) DB::table('cfa_submissions')
-                        ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
-                        ->whereRaw("LOWER(TRIM(".CfaSubmissionListQuery::payloadJsonExpr('$.form_stage').")) = 'early'")
-                        ->count(),
-                    (int) DB::table('cfa_submissions')
-                        ->when($activeFyId > 0, fn ($q) => $q->where('fiscal_year_id', $activeFyId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
-                        ->whereRaw("LOWER(TRIM(".CfaSubmissionListQuery::payloadJsonExpr('$.form_stage').")) = 'growth'")
-                        ->count(),
-                ],
+                'values' => $stageValues,
             ]),
             'topBlocks' => $this->attachChartColors($topBlocks),
             'districtTargetComparison' => $districtTargetComparison,
             'onboardingTrend' => $onboardingTrend,
             'staffTopChart' => $staffTopChart,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyInsights(): array
+    {
+        $emptyChart = ['labels' => [], 'values' => [], 'colors' => []];
+
+        return [
+            'geo' => ['districts' => 0, 'blocks' => 0],
+            'funnel' => [
+                'labels' => ['CFA submitted', 'Onboarded', 'Services delivered'],
+                'values' => [0, 0, 0],
+            ],
+            'categoryMix' => $emptyChart,
+            'genderMix' => $emptyChart,
+            'registrationMix' => $emptyChart,
+            'lakhpatiMix' => $emptyChart,
+            'sourceMix' => $emptyChart,
+            'stageDonut' => $emptyChart,
+            'topBlocks' => $emptyChart,
+            'districtTargetComparison' => ['labels' => [], 'achieved' => [], 'targets' => []],
+            'onboardingTrend' => ['labels' => [], 'values' => []],
+            'staffTopChart' => ['labels' => [], 'values' => []],
         ];
     }
 
@@ -499,7 +537,7 @@ class StateAdminDashboardService
                 ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
                 ->whereRaw('TRIM(COALESCE('.$expr.", '')) <> ''")
                 ->selectRaw($expr.' as label_key, COUNT(*) as total')
-                ->groupBy(DB::raw($expr))
+                ->groupByRaw($expr)
                 ->orderByDesc('total')
                 ->get();
         } catch (\Throwable) {
@@ -564,7 +602,7 @@ class StateAdminDashboardService
                 ->when($fiscalYearId > 0, fn ($q) => $q->where('fiscal_year_id', $fiscalYearId), fn ($q) => $q->where('created_at', '>=', $phase3FloorDate))
                 ->whereRaw('TRIM(COALESCE('.$expr.", '')) <> ''")
                 ->selectRaw($expr.' as block_name, COUNT(*) as total')
-                ->groupBy(DB::raw($expr))
+                ->groupByRaw($expr)
                 ->orderByDesc('total')
                 ->limit($limit)
                 ->get();
