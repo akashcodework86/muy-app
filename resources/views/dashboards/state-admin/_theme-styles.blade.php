@@ -34,7 +34,18 @@
         var(--sad-page-bg) !important;
 }
 
-/* Professional indigo topbar */
+/* Single header: topbar + unified strip (no double card) */
+.admin-app-body--dash-unified.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 38%, #4338ca 72%, #4f46e5 100%) !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+}
+.admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip {
+    background: linear-gradient(135deg, #312e81 0%, #4338ca 48%, #4f46e5 100%);
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 8px 24px rgba(30, 27, 75, 0.22);
+}
 .admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar {
     background: linear-gradient(135deg, #1e1b4b 0%, #312e81 38%, #4338ca 72%, #4f46e5 100%) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -75,69 +86,55 @@
     color: #4f46e5 !important;
 }
 
-/* Hero masthead */
-.admin-app-body--state-theme-revamp .sad-masthead {
-    border: none;
-    border-radius: 16px;
-    background: linear-gradient(125deg, #1e1b4b 0%, #3730a3 42%, #4f46e5 78%, #6366f1 100%);
-    box-shadow: 0 8px 32px rgba(49, 46, 129, 0.35);
-    padding: 1.25rem 1.4rem;
+.admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip__title {
     color: #fff;
-    position: relative;
-    overflow: hidden;
 }
-.admin-app-body--state-theme-revamp .sad-masthead::after {
-    content: '';
-    position: absolute;
-    top: -40%;
-    right: -8%;
-    width: 280px;
-    height: 280px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 68%);
-    pointer-events: none;
-}
-.admin-app-body--state-theme-revamp .sad-masthead h1 {
-    color: #fff;
-    position: relative;
-    z-index: 1;
-}
-.admin-app-body--state-theme-revamp .sad-masthead__sub {
+.admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip__sub {
     color: rgba(255, 255, 255, 0.82);
-    position: relative;
-    z-index: 1;
 }
-.admin-app-body--state-theme-revamp .sad-masthead__sub strong {
+.admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-unified-strip__sub strong {
     color: #c7d2fe;
 }
-.admin-app-body--state-theme-revamp .sad-masthead__eyebrow {
-    color: #e0e7ff;
+.admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-badge {
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.22);
-    padding: 0.22rem 0.6rem;
-    border-radius: 6px;
-    position: relative;
-    z-index: 1;
-}
-.admin-app-body--state-theme-revamp .sad-masthead__meta {
-    position: relative;
-    z-index: 1;
-}
-.admin-app-body--state-theme-revamp .sad-badge {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.22);
     color: #f8fafc;
     backdrop-filter: blur(4px);
 }
-.admin-app-body--state-theme-revamp .sad-theme-toggle {
+.admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-theme-toggle {
     background: rgba(255, 255, 255, 0.95);
     border-color: rgba(255, 255, 255, 0.5);
     color: #4338ca;
     font-weight: 800;
 }
-.admin-app-body--state-theme-revamp .sad-theme-toggle:hover {
+.admin-app-body--dash-unified.admin-app-body--state-theme-revamp .sad-theme-toggle:hover {
     background: #fff;
     color: #3730a3;
+}
+
+/* Legacy: unified strip matches orange topbar */
+.admin-app-body--dash-unified.admin-app-body--state-theme-legacy.admin-app-body--dashboard .admin-topbar {
+    border-bottom: none !important;
+    box-shadow: none !important;
+}
+.admin-app-body--dash-unified.admin-app-body--state-theme-legacy .sad-unified-strip {
+    background: linear-gradient(135deg, #a63d02 0%, #d04a02 55%, #eb8c00 100%);
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 6px 20px rgba(208, 74, 2, 0.2);
+}
+.admin-app-body--dash-unified.admin-app-body--state-theme-legacy .sad-unified-strip__title,
+.admin-app-body--dash-unified.admin-app-body--state-theme-legacy .sad-unified-strip__sub {
+    color: rgba(255, 255, 255, 0.92);
+}
+.admin-app-body--dash-unified.admin-app-body--state-theme-legacy .sad-badge {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.28);
+    color: #fff;
+}
+.admin-app-body--dash-unified.admin-app-body--state-theme-legacy .sad-theme-toggle {
+    background: #fff;
+    color: #a63d02;
 }
 
 /* KPI tone cards */

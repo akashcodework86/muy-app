@@ -14,6 +14,53 @@
         .admin-app-body--dashboard .admin-main {
             padding: 0.65rem clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
         }
+        .admin-app-body--dash-unified .admin-main {
+            padding: 0 clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
+        }
+        .sad-unified-strip {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.55rem 1rem;
+            margin: 0 calc(-1 * clamp(0.75rem, 2vw, 1.35rem)) 0.65rem;
+            padding: 0.55rem clamp(0.75rem, 2vw, 1.35rem);
+        }
+        .sad-unified-strip__left {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.35rem 0.65rem;
+            min-width: 0;
+        }
+        .sad-unified-strip__title {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .sad-unified-strip__sub {
+            margin: 0;
+            font-size: 0.72rem;
+            line-height: 1.35;
+            opacity: 0.88;
+        }
+        .sad-unified-strip__sub strong {
+            font-weight: 700;
+        }
+        .sad-unified-strip__meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        @media (max-width: 720px) {
+            .sad-unified-strip__left { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
+            .sad-unified-strip__title { white-space: normal; }
+        }
         @include('dashboards.state-admin._theme-styles')
         .sad {
             font-family: 'DM Sans', system-ui, sans-serif;
@@ -702,7 +749,7 @@
         .sad-align-gaps li { margin: 0.2rem 0; line-height: 1.35; }
     </style>
 </head>
-<body class="admin-app-body admin-app-body--dashboard admin-app-body--state-premium admin-app-body--state-theme-{{ $dashboardTheme ?? 'revamp' }}">
+<body class="admin-app-body admin-app-body--dashboard admin-app-body--dash-unified admin-app-body--state-premium admin-app-body--state-theme-{{ $dashboardTheme ?? 'revamp' }}">
     @include('partials.admin-topbar')
     <main class="admin-main">
         @if (session('status'))
@@ -810,28 +857,27 @@
             $planMisaligned = $plan['misaligned'] ?? [];
         @endphp
 
-        <div class="sad">
-            <header class="sad-masthead">
-                <div>
-                    <div class="sad-masthead__eyebrow"><i class="fa-solid fa-mountain-sun" aria-hidden="true"></i> MUY State Command · Phase 3</div>
-                    <h1>Welcome, {{ auth()->user()->name }}</h1>
-                    <p class="sad-masthead__sub">
-                        Live intelligence across <strong>{{ number_format($districtsCount) }}</strong> districts
-                        · <strong>{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</strong> blocks with CFA
-                        · from {{ $phaseLabel }}.
-                    </p>
-                </div>
-                <div class="sad-masthead__meta">
-                    <a href="{{ route('dashboard', ['theme' => ($dashboardTheme ?? 'revamp') === 'legacy' ? 'revamp' : 'legacy']) }}" class="sad-theme-toggle" title="Switch dashboard colour theme">
-                        <i class="fa-solid fa-palette" aria-hidden="true"></i>
-                        {{ ($dashboardTheme ?? 'revamp') === 'legacy' ? 'New theme' : 'Classic theme' }}
-                    </a>
-                    <span class="sad-badge"><i class="fa-solid fa-calendar" aria-hidden="true"></i> {{ $fyLabel }}</span>
-                    <span class="sad-badge sad-badge--live"><i class="fa-solid fa-signal" aria-hidden="true"></i> {{ number_format((int) ($heroStaffOnlineNow ?? 0)) }} online</span>
-                    <span class="sad-badge"><i class="fa-solid fa-users" aria-hidden="true"></i> {{ number_format($staffActive) }}/{{ number_format($staffTotal) }} staff</span>
-                </div>
-            </header>
+        <header class="sad-unified-strip" aria-label="Dashboard context">
+            <div class="sad-unified-strip__left">
+                <h1 class="sad-unified-strip__title">Welcome, {{ auth()->user()->name }}</h1>
+                <p class="sad-unified-strip__sub">
+                    Phase 3 · <strong>{{ number_format($districtsCount) }}</strong> districts
+                    · <strong>{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</strong> blocks
+                    · from {{ $phaseLabel }}
+                </p>
+            </div>
+            <div class="sad-unified-strip__meta">
+                <a href="{{ route('dashboard', ['theme' => ($dashboardTheme ?? 'revamp') === 'legacy' ? 'revamp' : 'legacy']) }}" class="sad-theme-toggle" title="Switch dashboard colour theme">
+                    <i class="fa-solid fa-palette" aria-hidden="true"></i>
+                    {{ ($dashboardTheme ?? 'revamp') === 'legacy' ? 'New theme' : 'Classic theme' }}
+                </a>
+                <span class="sad-badge"><i class="fa-solid fa-calendar" aria-hidden="true"></i> {{ $fyLabel }}</span>
+                <span class="sad-badge sad-badge--live"><i class="fa-solid fa-signal" aria-hidden="true"></i> {{ number_format((int) ($heroStaffOnlineNow ?? 0)) }} online</span>
+                <span class="sad-badge"><i class="fa-solid fa-users" aria-hidden="true"></i> {{ number_format($staffActive) }}/{{ number_format($staffTotal) }} staff</span>
+            </div>
+        </header>
 
+        <div class="sad">
             <div class="sad-kpi-strip" role="group" aria-label="Key performance indicators">
                 <div class="sad-kpi sad-kpi--tone-blue" title="Phase 3 CFA submissions (all districts)">
                     <div class="sad-kpi__icon sad-kpi__icon--green"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i></div>
