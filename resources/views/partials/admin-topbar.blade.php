@@ -651,6 +651,14 @@
             </details>
             @endif
 
+            @if ($showAdminNav)
+                @php($stateTheme = $stateAdminTheme ?? 'revamp')
+                <a href="{{ \App\Support\StateAdminTheme::toggleUrl(request(), $stateTheme) }}" class="admin-topbar__theme-toggle sad-theme-toggle" title="Switch colour theme">
+                    <i class="fa-solid fa-palette" aria-hidden="true"></i>
+                    {{ $stateTheme === 'legacy' ? 'New theme' : 'Classic' }}
+                </a>
+            @endif
+
             <details class="admin-topbar__details admin-topbar__details--profile">
                 <summary class="admin-topbar__profile-summary" aria-label="Account menu">
                     <div class="admin-topbar__profile" title="{{ $u->email }}">

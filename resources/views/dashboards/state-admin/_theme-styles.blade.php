@@ -255,6 +255,152 @@
     color: #f57f17;
 }
 
+/* ---- Shell pages (all state-admin routes via layouts.admin) ---- */
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__inner {
+    padding: 0.6rem 1.15rem;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-brand::before {
+    display: none;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-brand:hover {
+    background: transparent;
+    transform: none;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-brand__img {
+    box-shadow: 0 2px 10px rgba(55, 71, 79, 0.12);
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link:hover::before {
+    opacity: 0;
+    animation: none;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link.is-active:not(.admin-topbar__dropdown-trigger)::after {
+    display: none;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__notif-summary:hover {
+    transform: none;
+    border-color: #b2dfdb;
+    box-shadow: 0 4px 12px rgba(38, 166, 154, 0.12);
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__details--notifications[open] .admin-topbar__notif-summary {
+    color: #00897b;
+    background: #fff;
+    border-color: #b2dfdb;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__profile {
+    background: #fff;
+    border-color: #e8ecf1;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__profile-summary:hover .admin-topbar__profile {
+    transform: none;
+    border-color: #b2dfdb;
+    box-shadow: 0 4px 14px rgba(55, 71, 79, 0.08);
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__details--profile[open] .admin-topbar__profile {
+    background: #fff;
+    border-color: #b2dfdb;
+    box-shadow: 0 4px 14px rgba(55, 71, 79, 0.1);
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__user {
+    color: #37474f;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__user-role {
+    color: #78909c;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__avatar {
+    background: linear-gradient(135deg, #26a69a, #4db6ac);
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(38, 166, 154, 0.25);
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__settings {
+    background: #f5f7fa;
+    border-color: #e8ecf1;
+    color: #37474f;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__settings:hover,
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__settings.is-active {
+    background: #e0f2f1;
+    color: #00897b;
+    border-color: #b2dfdb;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__hamburger {
+    border-color: #e8ecf1;
+    background: #f5f7fa;
+    color: #37474f;
+}
+.admin-app-body--state-theme-revamp .admin-page-head h1 {
+    color: #263238;
+    font-weight: 800;
+}
+.admin-app-body--state-theme-revamp .admin-page-head .admin-page-meta {
+    color: #78909c;
+}
+.admin-app-body--state-theme-revamp .admin-page-head .pill {
+    background: #e0f2f1;
+    color: #00695c;
+    border: 1px solid #b2dfdb;
+}
+.admin-app-body--state-theme-revamp .admin-main .banner:not(.banner--warning) {
+    background: #e8f5e9;
+    border-color: #a5d6a7;
+    color: #2e7d32;
+}
+
+/* Phase 1/2/3 list pages (p1l-* partials) */
+.admin-app-body--state-theme-revamp .p1l-page {
+    --p1l-indigo: #26a69a;
+}
+.admin-app-body--state-theme-revamp .p1l-hero {
+    border-color: #e8ecf1;
+    background: linear-gradient(135deg, #e0f2f1 0%, #f0f4f8 55%, #fff 100%);
+}
+.admin-app-body--state-theme-revamp .p1l-badge--fy {
+    background: #00897b;
+    color: #e0f2f1;
+}
+.admin-app-body--state-theme-revamp .p1l-badge--district {
+    border-color: #b2dfdb;
+    color: #00695c;
+}
+.admin-app-body--state-theme-revamp .p1l-stat--geo {
+    border-color: #b2dfdb;
+    background: linear-gradient(180deg, #e0f2f1 0%, #fff 100%);
+}
+.admin-app-body--state-theme-revamp .p1l-stat--geo .p1l-stat__value {
+    color: #00897b;
+}
+.admin-app-body--state-theme-revamp .p1l-appno {
+    color: #00897b;
+}
+.admin-app-body--state-theme-revamp .p1l-input:focus,
+.admin-app-body--state-theme-revamp .p1l-select:focus {
+    border-color: #26a69a;
+    box-shadow: 0 0 0 3px rgba(38, 166, 154, 0.15);
+}
+.admin-app-body--state-theme-revamp .p1l-btn--primary {
+    background: linear-gradient(135deg, #00897b, #26a69a);
+}
+.admin-app-body--state-theme-revamp .p1l-btn--primary:hover {
+    background: linear-gradient(135deg, #00695c, #00897b);
+}
+.admin-app-body--state-theme-revamp .p1l-pagination .page-item.active .page-link {
+    background: #26a69a;
+    border-color: #26a69a;
+}
+.admin-app-body--state-theme-revamp .p1l-pill--region-kumaon {
+    background: #e0f2f1;
+    color: #00695c;
+}
+
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__theme-toggle {
+    margin-right: 0.35rem;
+    font-size: 0.68rem;
+    padding: 0.32rem 0.55rem;
+}
+.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__theme-toggle:hover {
+    background: #e0f2f1;
+    border-color: #80cbc4;
+    color: #00695c;
+}
+
 .admin-app-body--state-theme-legacy,
 .admin-app-body--state-theme-legacy .sad {
     --sad-text: #0f172a;

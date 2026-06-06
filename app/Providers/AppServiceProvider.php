@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\NotificationReminderService;
 use App\Services\StaffCheckInService;
+use App\Support\StateAdminTheme;
 use App\Support\StaffDailyCheckInAccess;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +24,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        View::composer(['layouts.admin', 'dashboards.state-admin'], function ($view): void {
+            $user = auth()->user();
+            if ($user?->role !== 'state_admin') {
+                return;
+            }
+
+            $theme = StateAdminTheme::resolve(request());
+            $view->with('stateAdminTheme', $theme);
+            $view->with('dashboardTheme', $theme);
+        });
+
         View::composer('partials.staff-daily-check-in-reminder', function ($view): void {
             $user = auth()->user();
             $show = $user && app(StaffCheckInService::class)->shouldShowReminder($user);
@@ -83,6 +95,10 @@ class AppServiceProvider extends ServiceProvider
                 'dbUnreadNotificationCount' => $dbUnread,
                 'showNotificationBell' => true,
             ]);
+
+            if ($user->role === 'state_admin') {
+                $view->with('stateAdminTheme', StateAdminTheme::resolve(request()));
+            }
         });
     }
 }

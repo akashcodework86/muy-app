@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Services\HubAdminDashboardService;
 use App\Services\StaffDashboardService;
 use App\Services\StateAdminDashboardService;
+use App\Support\StateAdminTheme;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -29,7 +30,7 @@ class DashboardController extends Controller
 
         if ($user?->role === 'state_admin') {
             return view('dashboards.state-admin', array_merge($stateDashboard->metrics(), [
-                'dashboardTheme' => $this->resolveStateAdminDashboardTheme($request),
+                'dashboardTheme' => StateAdminTheme::resolve($request),
             ]));
         }
 
@@ -110,26 +111,4 @@ class DashboardController extends Controller
         abort(403, 'No dashboard for this account type.');
     }
 
-    private function resolveStateAdminDashboardTheme(Request $request): string
-    {
-        $allowed = ['revamp', 'legacy'];
-
-        if ($request->has('theme')) {
-            $candidate = strtolower(trim((string) $request->query('theme', '')));
-            if (in_array($candidate, $allowed, true)) {
-                session(['state_admin_dashboard_theme' => $candidate]);
-
-                return $candidate;
-            }
-        }
-
-        $session = session('state_admin_dashboard_theme');
-        if (is_string($session) && in_array($session, $allowed, true)) {
-            return $session;
-        }
-
-        $configured = strtolower(trim((string) config('dashboard.state_admin_theme', 'revamp')));
-
-        return in_array($configured, $allowed, true) ? $configured : 'revamp';
-    }
 }

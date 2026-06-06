@@ -20,12 +20,27 @@ class StateAdminDashboardTest extends TestCase
             ->assertSee('Welcome');
     }
 
-    public function test_state_admin_dashboard_theme_toggle_query(): void
+    public function test_state_admin_cfa_index_uses_revamp_theme(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.cfa.index'))
+            ->assertOk()
+            ->assertSee('admin-app-body--state-theme-revamp', false);
+    }
+
+    public function test_state_admin_theme_persists_on_admin_pages(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
 
         $this->actingAs($admin)
             ->get(route('dashboard', ['theme' => 'legacy']))
             ->assertOk();
+
+        $this->actingAs($admin)
+            ->get(route('admin.cfa.index'))
+            ->assertOk()
+            ->assertSee('admin-app-body--state-theme-legacy', false);
     }
 }

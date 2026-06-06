@@ -867,7 +867,7 @@
                 </p>
             </div>
             <div class="sad-unified-strip__meta">
-                <a href="{{ route('dashboard', ['theme' => ($dashboardTheme ?? 'revamp') === 'legacy' ? 'revamp' : 'legacy']) }}" class="sad-theme-toggle" title="Switch dashboard colour theme">
+                <a href="{{ \App\Support\StateAdminTheme::toggleUrl(request(), $dashboardTheme ?? 'revamp') }}" class="sad-theme-toggle" title="Switch dashboard colour theme">
                     <i class="fa-solid fa-palette" aria-hidden="true"></i>
                     {{ ($dashboardTheme ?? 'revamp') === 'legacy' ? 'New theme' : 'Classic theme' }}
                 </a>
