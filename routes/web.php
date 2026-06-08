@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\DocumentRepositoryController;
 use App\Http\Controllers\Admin\BlockWorkshopAdminController;
 use App\Http\Controllers\Admin\FieldCoordinatorAttendanceAdminController;
 use App\Http\Controllers\Admin\StaffCheckInAdminController;
+use App\Http\Controllers\Admin\StateLiveMapController;
 use App\Http\Controllers\Admin\GramPanchayatImportController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
@@ -722,6 +723,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('staff-check-ins/export', [StaffCheckInAdminController::class, 'export'])
             ->middleware('throttle:15,1')
             ->name('staff-check-ins.export');
+        Route::get('live-map', [StateLiveMapController::class, 'index'])->name('live-map.index');
+        Route::get('live-map/data', [StateLiveMapController::class, 'data'])
+            ->middleware('throttle:60,1')
+            ->name('live-map.data');
         Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
         Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
         Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');

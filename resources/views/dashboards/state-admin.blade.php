@@ -1398,6 +1398,7 @@
                     <a class="sad-dock__link" href="{{ route('admin.staff.index') }}"><i class="fa-solid fa-user-tie"></i> Staff</a>
                     <a class="sad-dock__link" href="{{ route('admin.attendance.index') }}"><i class="fa-solid fa-calendar-check"></i> Field attendance</a>
                     <a class="sad-dock__link" href="{{ route('admin.staff-check-ins.index') }}"><i class="fa-solid fa-location-dot"></i> Staff check-ins</a>
+                    <a class="sad-dock__link" href="{{ route('admin.live-map.index') }}"><i class="fa-solid fa-map-location-dot"></i> Live map</a>
                     <a class="sad-dock__link" href="{{ route('admin.data-centre.index') }}"><i class="fa-solid fa-database"></i> Data centre</a>
                     <a class="sad-dock__link" href="{{ route('admin.deliverables.index') }}"><i class="fa-solid fa-chart-column"></i> Deliverables</a>
                     <a class="sad-dock__link" href="{{ route('admin.onboarded.index') }}"><i class="fa-solid fa-user-check"></i> Onboarded</a>

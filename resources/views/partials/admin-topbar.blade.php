@@ -65,6 +65,7 @@
         str_starts_with($r, 'team.') => 'team-directory',
         str_starts_with($r, 'admin.attendance') => 'attendance',
         str_starts_with($r, 'admin.staff-check-ins') => 'staff-daily-check-ins',
+        str_starts_with($r, 'admin.live-map') => 'live-map',
         str_starts_with($r, 'staff-daily-check-in') => 'staff-daily-check-in',
         str_starts_with($r, 'admin.field-coordinator-reports') => 'field-coordinator-report',
         str_starts_with($r, 'hub.field-coordinator-reports') => 'field-coordinator-report',
@@ -189,6 +190,7 @@
         'database'    => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
         'flag'        => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V4"/><path d="M4 4h12l-2 4 2 4H4"/></svg>',
         'pin'         => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>',
+        'map'         => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18 3 21V6l6-3 6 3 6-3v15l-6 3-6-3Z"/><path d="M9 3v15M15 6v15"/></svg>',
         'users'       => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3.3"/><path d="M2 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.8"/><path d="M15 20a4 4 0 0 1 7 0"/></svg>',
         'bars'        => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><rect x="6" y="12" width="3" height="7"/><rect x="11" y="8" width="3" height="11"/><rect x="16" y="4" width="3" height="15"/></svg>',
         'badge'       => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8 17a4 4 0 0 1 8 0"/></svg>',
@@ -305,6 +307,9 @@
                     </a>
                     <a href="{{ route('admin.staff-check-ins.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-daily-check-ins') is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Staff daily attendance</span>
+                    </a>
+                    <a href="{{ route('admin.live-map.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'live-map') is-active @endif" role="menuitem">
+                        {!! $i('map') !!}<span>Live map</span>
                     </a>
                     <a href="{{ route('admin.field-coordinator-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-coordinator-report') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Field coordinator report</span>
