@@ -205,7 +205,22 @@
         background: linear-gradient(180deg, #ecfdf5 0%, #fff 100%);
         border-bottom-color: #ccfbf1;
     }
-    .slm-side.is-district .slm-side__title { color: #115e59; }
+    .slm-side.is-staff .slm-side__head {
+        background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
+        border-bottom-color: #bfdbfe;
+    }
+    .slm-side.is-staff .slm-side__title { color: #1e40af; }
+    .slm-side__maps-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-top: 0.65rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #0d9488;
+        text-decoration: none;
+    }
+    .slm-side__maps-link:hover { text-decoration: underline; }
     .slm-popup { font-size: 0.8rem; line-height: 1.45; }
     .slm-popup strong { display: block; font-size: 0.9rem; margin-bottom: 0.15rem; }
     .slm-popup a { color: #0d9488; font-weight: 700; }
@@ -252,7 +267,7 @@
             <div class="slm-side__head">
                 <p class="slm-side__eyebrow" id="slm-side-eyebrow">Uttarakhand overview</p>
                 <h2 class="slm-side__title" id="slm-side-title">Hover a district</h2>
-                <p class="slm-side__sub" id="slm-side-sub">Move your mouse over any district on the map to see CFA, services and staff check-ins.</p>
+                <p class="slm-side__sub" id="slm-side-sub">Move mouse on the map — district or staff pin — details update here instantly.</p>
             </div>
             <div class="slm-side__body" id="slm-side-body">
                 <div class="slm-empty">State-wide summary loads after map data is ready.</div>
@@ -288,13 +303,22 @@
 
     let districtLayer = null;
     let bubbleLayer = null;
-    let markerCluster = L.markerClusterGroup({ maxClusterRadius: 42, spiderfyOnMaxZoom: true });
+    let markerCluster = L.markerClusterGroup({
+        maxClusterRadius: 42,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: false
+    });
     map.addLayer(markerCluster);
 
     const districtMetrics = {};
+    const districtLayerByName = {};
     let livePayload = null;
-    let hoveredLayer = null;
+    let staffPins = [];
+    let hoveredDistrictName = null;
+    let hoveredPinId = null;
     let refreshTimer = null;
+    let moveRaf = null;
 
     const fmt = (n) => Number(n || 0).toLocaleString();
     const pct = (part, total) => total > 0 ? Math.round((part / total) * 100) : 0;
@@ -329,8 +353,11 @@
     };
 
     const renderOverviewPanel = () => {
+        hoveredDistrictName = null;
+        hoveredPinId = null;
+        resetDistrictHighlight();
         const s = livePayload?.summary || {};
-        sideEl.classList.remove('is-district');
+        sideEl.classList.remove('is-district', 'is-staff');
         sideEyebrowEl.textContent = 'Uttarakhand overview';
         sideTitleEl.textContent = 'All districts';
         sideSubEl.textContent = (livePayload?.date_label || 'Today') + ' · ' + (livePayload?.fiscal_year?.name || 'FY') + ' · hover a district for detail';
@@ -350,9 +377,53 @@
         `;
     };
 
+            <p class="slm-empty">Move mouse over a district or staff pin on the map.</p>
+        `;
+    };
+
+    const renderStaffPanel = (pin) => {
+        if (!pin) return;
+        hoveredPinId = pin.user_id;
+        sideEl.classList.remove('is-district');
+        sideEl.classList.add('is-staff');
+        sideEyebrowEl.textContent = pin.district + ' · ' + pin.hub;
+        sideTitleEl.textContent = pin.name;
+        const acc = pin.accuracy_m ? ' · GPS ±' + Math.round(pin.accuracy_m) + 'm' : '';
+        sideSubEl.textContent = pin.role_label + ' · ' + pin.designation + ' · check-in ' + pin.marked_at + acc;
+
+        const dm = districtMetrics[pin.district] || null;
+        const districtBlock = dm ? `
+            <div class="slm-section" style="margin-top:0.85rem;padding-top:0.75rem;border-top:1px solid #f1f5f9;">
+                <p class="slm-section__label">${dm.name} district (today)</p>
+                <div class="slm-kpis" style="margin-bottom:0;">
+                    <div class="slm-kpi"><span>CFA</span><strong>${fmt(dm.cfa_today)}</strong><small>FY ${fmt(dm.cfa_fy)}</small></div>
+                    <div class="slm-kpi"><span>Services</span><strong>${fmt(dm.services_today)}</strong><small>FY ${fmt(dm.services_fy)}</small></div>
+                </div>
+            </div>
+        ` : '';
+
+        sideBodyEl.innerHTML = `
+            <div class="slm-kpis">
+                <div class="slm-kpi"><span>Role</span><strong style="font-size:0.95rem;">${pin.role_label}</strong></div>
+                <div class="slm-kpi"><span>Check-in</span><strong style="font-size:0.95rem;">${pin.marked_at}</strong></div>
+            </div>
+            <p class="slm-empty" style="padding-top:0;">Assigned: <strong>${pin.district}</strong> · ${pin.hub}</p>
+            <a class="slm-side__maps-link" href="${pin.maps_url}" target="_blank" rel="noopener">Open location in Google Maps →</a>
+            ${districtBlock}
+        `;
+
+        if (pin.district && districtMetrics[pin.district]) {
+            highlightDistrictByName(pin.district);
+        }
+    };
+
     const renderDistrictPanel = (m) => {
         if (!m) return;
+        hoveredPinId = null;
+        hoveredDistrictName = m.name;
+        sideEl.classList.remove('is-staff');
         sideEl.classList.add('is-district');
+        highlightDistrictByName(m.name);
         sideEyebrowEl.textContent = m.hub || 'District';
         sideTitleEl.textContent = m.name;
         sideSubEl.textContent = `${m.cfa_fy_share_pct}% of state CFA FY · ${m.staff_present} staff checked in today`;
@@ -392,6 +463,102 @@
         `;
     };
 
+    const resetDistrictHighlight = () => {
+        Object.values(districtLayerByName).forEach((layer) => {
+            if (districtLayer) districtLayer.resetStyle(layer);
+        });
+    };
+
+    const highlightDistrictByName = (name) => {
+        if (!name || !districtLayerByName[name]) return;
+        resetDistrictHighlight();
+        const layer = districtLayerByName[name];
+        layer.setStyle({
+            fillColor: districtFill(name, true),
+            weight: 2.5,
+            color: '#0d9488',
+            fillOpacity: 0.92
+        });
+        layer.bringToFront();
+    };
+
+    const pointInRing = (lat, lng, ring) => {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const yi = ring[i].lat;
+            const xi = ring[i].lng;
+            const yj = ring[j].lat;
+            const xj = ring[j].lng;
+            const intersect = ((yi > lat) !== (yj > lat))
+                && (lng < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    };
+
+    const pointInLayer = (latlng, layer) => {
+        if (!layer.getBounds().contains(latlng)) return false;
+        const geom = layer.getLatLngs();
+        const testRing = (ring) => pointInRing(latlng.lat, latlng.lng, ring);
+        const testRings = (rings) => {
+            if (!rings || !rings.length) return false;
+            if (rings[0] && typeof rings[0].lat === 'number') return testRing(rings);
+            if (Array.isArray(rings[0]) && rings[0][0] && typeof rings[0][0].lat === 'number') return testRing(rings[0]);
+            return false;
+        };
+        if (layer instanceof L.MultiPolygon) {
+            return geom.some((poly) => testRings(poly));
+        }
+        return testRings(geom);
+    };
+
+    const districtNameAt = (latlng) => {
+        for (const name of Object.keys(districtLayerByName)) {
+            if (pointInLayer(latlng, districtLayerByName[name])) return name;
+        }
+        return null;
+    };
+
+    const pinHoverRadiusM = () => {
+        const z = map.getZoom();
+        if (z >= 11) return 1500;
+        if (z >= 10) return 3000;
+        if (z >= 9) return 6000;
+        return 11000;
+    };
+
+    const nearestPinAt = (latlng) => {
+        let best = null;
+        let bestDist = Infinity;
+        const maxDist = pinHoverRadiusM();
+        staffPins.forEach((pin) => {
+            const d = map.distance(latlng, L.latLng(pin.lat, pin.lng));
+            if (d <= maxDist && d < bestDist) {
+                bestDist = d;
+                best = pin;
+            }
+        });
+        return best;
+    };
+
+    const handleMapHover = (latlng) => {
+        const pin = nearestPinAt(latlng);
+        if (pin) {
+            if (hoveredPinId !== pin.user_id) renderStaffPanel(pin);
+            return;
+        }
+        const districtName = districtNameAt(latlng);
+        if (districtName && districtMetrics[districtName]) {
+            if (hoveredDistrictName !== districtName || hoveredPinId !== null) {
+                renderDistrictPanel(districtMetrics[districtName]);
+            }
+            return;
+        }
+        if (hoveredDistrictName !== null || hoveredPinId !== null) {
+            renderOverviewPanel();
+        }
+    };
+
     const styleDistrict = (feature) => {
         const name = feature?.properties?.district || '';
         return {
@@ -403,38 +570,18 @@
         };
     };
 
-    const highlightDistrict = (layer, name) => {
-        if (hoveredLayer && hoveredLayer !== layer) {
-            districtLayer.resetStyle(hoveredLayer);
-        }
-        hoveredLayer = layer;
-        layer.setStyle({
-            fillColor: districtFill(name, true),
-            weight: 2.5,
-            color: '#0d9488',
-            fillOpacity: 0.92
-        });
-        layer.bringToFront();
-    };
-
     const bindDistrictLayer = (geojson) => {
         if (districtLayer) map.removeLayer(districtLayer);
         if (bubbleLayer) map.removeLayer(bubbleLayer);
+        Object.keys(districtLayerByName).forEach((k) => delete districtLayerByName[k]);
 
-        bubbleLayer = L.layerGroup();
+        bubbleLayer = L.layerGroup([], { interactive: false });
         districtLayer = L.geoJSON(geojson, {
+            interactive: false,
             style: styleDistrict,
             onEachFeature: (feature, layer) => {
                 const name = feature?.properties?.district || '';
-                layer.on('mouseover', () => {
-                    highlightDistrict(layer, name);
-                    renderDistrictPanel(districtMetrics[name]);
-                });
-                layer.on('mouseout', () => {
-                    districtLayer.resetStyle(layer);
-                    if (hoveredLayer === layer) hoveredLayer = null;
-                });
-                layer.on('click', () => renderDistrictPanel(districtMetrics[name]));
+                if (name) districtLayerByName[name] = layer;
 
                 try {
                     const center = layer.getBounds().getCenter();
@@ -447,7 +594,8 @@
                             fillColor: '#14b8a6',
                             color: '#0f766e',
                             weight: 1,
-                            fillOpacity: 0.28
+                            fillOpacity: 0.28,
+                            interactive: false
                         }).addTo(bubbleLayer);
                     }
                 } catch (e) { /* ignore */ }
@@ -461,8 +609,9 @@
     };
 
     const renderPins = (pins) => {
+        staffPins = pins || [];
         markerCluster.clearLayers();
-        pins.forEach((pin) => {
+        staffPins.forEach((pin) => {
             const marker = L.circleMarker([pin.lat, pin.lng], {
                 radius: 8,
                 fillColor: pinColor(pin),
@@ -470,14 +619,7 @@
                 weight: 2,
                 fillOpacity: 0.95
             });
-            const acc = pin.accuracy_m ? ' · ±' + Math.round(pin.accuracy_m) + ' m' : '';
-            marker.bindPopup(`<div class="slm-popup">
-                <strong>${pin.name}</strong>
-                ${pin.role_label} · ${pin.designation}<br>
-                ${pin.hub} / ${pin.district}<br>
-                Check-in: ${pin.marked_at}${acc}<br>
-                <a href="${pin.maps_url}" target="_blank" rel="noopener">Open in Google Maps</a>
-            </div>`);
+            marker.on('mouseover', () => renderStaffPanel(pin));
             markerCluster.addLayer(marker);
         });
     };
@@ -491,9 +633,9 @@
             districtLayer.setStyle(styleDistrict);
             if (bubbleLayer) {
                 map.removeLayer(bubbleLayer);
-                bubbleLayer = L.layerGroup();
-                districtLayer.eachLayer((layer) => {
-                    const name = layer.feature?.properties?.district || '';
+                bubbleLayer = L.layerGroup([], { interactive: false });
+                Object.keys(districtLayerByName).forEach((name) => {
+                    const layer = districtLayerByName[name];
                     try {
                         const center = layer.getBounds().getCenter();
                         const m = districtMetrics[name];
@@ -505,7 +647,8 @@
                                 fillColor: '#14b8a6',
                                 color: '#0f766e',
                                 weight: 1,
-                                fillOpacity: 0.28
+                                fillOpacity: 0.28,
+                                interactive: false
                             }).addTo(bubbleLayer);
                         }
                     } catch (e) { /* ignore */ }
@@ -515,17 +658,25 @@
         }
 
         renderPins(payload.staff_pins || []);
-        if (!sideEl.classList.contains('is-district') || !hoveredLayer) {
-            renderOverviewPanel();
+
+        if (hoveredPinId !== null) {
+            const pin = staffPins.find((p) => p.user_id === hoveredPinId);
+            if (pin) renderStaffPanel(pin);
+            else if (hoveredDistrictName && districtMetrics[hoveredDistrictName]) {
+                renderDistrictPanel(districtMetrics[hoveredDistrictName]);
+            } else {
+                renderOverviewPanel();
+            }
+        } else if (hoveredDistrictName && districtMetrics[hoveredDistrictName]) {
+            renderDistrictPanel(districtMetrics[hoveredDistrictName]);
         } else {
-            const name = hoveredLayer.feature?.properties?.district || '';
-            if (districtMetrics[name]) renderDistrictPanel(districtMetrics[name]);
+            renderOverviewPanel();
         }
 
         staffCountEl.innerHTML = 'Staff on map: <strong>' + (payload.summary?.staff_on_map ?? 0) + '</strong>';
         const updated = payload.updated_at ? new Date(payload.updated_at) : new Date();
         updatedEl.innerHTML = 'Updated: <strong>' + updated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</strong>';
-        statusEl.textContent = payload.date_label + ' · hover district → details on the right';
+        statusEl.textContent = payload.date_label + ' · move mouse on map → side panel updates';
     };
 
     const loadData = async () => {
@@ -555,6 +706,11 @@
         scheduleRefresh();
     });
     autoRefreshEl.addEventListener('change', scheduleRefresh);
+
+    map.on('mousemove', (e) => {
+        if (moveRaf) cancelAnimationFrame(moveRaf);
+        moveRaf = requestAnimationFrame(() => handleMapHover(e.latlng));
+    });
 
     (async function init() {
         try {
