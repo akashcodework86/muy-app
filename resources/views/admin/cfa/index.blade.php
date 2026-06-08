@@ -44,6 +44,7 @@
         'districts' => $districts,
         'blocks' => $blocks ?? [],
         'sectors' => $sectors,
+        'designations' => $designations ?? [],
     ])
 
     @php

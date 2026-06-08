@@ -49,7 +49,7 @@ class CfaSubmissionListQuery
      */
     public static function filterParamNames(): array
     {
-        return ['name', 'application_no', 'district_id', 'block', 'sector', 'from', 'to', 'onboard'];
+        return ['name', 'application_no', 'district_id', 'block', 'sector', 'designation_id', 'from', 'to', 'onboard'];
     }
 
     public static function hasActiveFilters(Request $request): bool
@@ -58,7 +58,7 @@ class CfaSubmissionListQuery
     }
 
     /**
-     * @param  array{name: string, application_no: string, district_id: int|null, block: string, sector: string, from: string, to: string, onboard: string}  $filters
+     * @param  array{name: string, application_no: string, district_id: int|null, block: string, sector: string, designation_id: int|null, from: string, to: string, onboard: string}  $filters
      */
     public static function applyFilters(Builder $query, array $filters, bool $includeOnboard = true): Builder
     {
@@ -87,6 +87,10 @@ class CfaSubmissionListQuery
             ->when(($filters['sector'] ?? '') !== '', fn ($q) => $q->whereRaw(
                 self::payloadJsonExpr('$.business_category').' = ?',
                 [$filters['sector']]
+            ))
+            ->when(! empty($filters['designation_id']), fn ($q) => $q->whereHas(
+                'referralUser',
+                fn (Builder $userQuery) => $userQuery->where('designation_id', (int) $filters['designation_id'])
             ))
             ->when(($filters['from'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '>=', $filters['from']))
             ->when(($filters['to'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '<=', $filters['to']));

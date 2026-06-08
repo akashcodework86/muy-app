@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CfaSubmission;
+use App\Models\Designation;
 use App\Models\District;
 use App\Models\DistrictBlock;
 use App\Services\Cfa\CfaFyOnboardingStatsService;
@@ -40,6 +41,7 @@ class CfaSubmissionController extends Controller
             'districts' => $districts,
             'blocks' => $this->blocksForFilter($filters['district_id'] ?? null),
             'sectors' => config('cfa.business_categories'),
+            'designations' => Designation::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'filters' => $filters,
             'scopeCounts' => $scopeCounts,
             'fyOnboarding' => $fyOnboarding,
@@ -161,7 +163,7 @@ class CfaSubmissionController extends Controller
     }
 
     /**
-     * @return array{name: string, application_no: string, district_id: int|null, block: string, sector: string, from: string, to: string, onboard: string}
+     * @return array{name: string, application_no: string, district_id: int|null, block: string, sector: string, designation_id: int|null, from: string, to: string, onboard: string}
      */
     private function extractFilters(Request $request): array
     {
@@ -170,6 +172,7 @@ class CfaSubmissionController extends Controller
         $districtId = $request->query('district_id');
         $block = trim((string) $request->query('block', ''));
         $sector = trim((string) $request->query('sector', ''));
+        $designationId = $request->query('designation_id');
         $from = trim((string) $request->query('from', ''));
         $to = trim((string) $request->query('to', ''));
         $onboard = CfaSubmissionListQuery::normalizeOnboardParam($request);
@@ -192,6 +195,7 @@ class CfaSubmissionController extends Controller
             'district_id' => $districtId ? (int) $districtId : null,
             'block' => $block,
             'sector' => $sector,
+            'designation_id' => $designationId ? (int) $designationId : null,
             'from' => $from,
             'to' => $to,
             'onboard' => $onboard,

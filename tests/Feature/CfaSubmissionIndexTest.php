@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Designation;
 use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\Hub;
@@ -61,6 +62,68 @@ class CfaSubmissionIndexTest extends TestCase
             ->assertOk()
             ->assertSee('4010101X')
             ->assertSee('Old Scope Applicant');
+    }
+
+    public function test_designation_filter_limits_list_to_matching_referral_staff(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $district = $this->createDistrict();
+
+        $imDesignation = Designation::query()->create(['name' => 'Incubation Manager', 'sort_order' => 1]);
+        $fcDesignation = Designation::query()->create(['name' => 'Field Coordinator', 'sort_order' => 2]);
+
+        $imStaff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'designation_id' => $imDesignation->id,
+            'is_active' => true,
+        ]);
+        $fcStaff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'designation_id' => $fcDesignation->id,
+            'is_active' => true,
+        ]);
+
+        $activeFy = FiscalYear::query()->create([
+            'code' => 'FY2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+            'is_phase3_default' => true,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $activeFy->id,
+                'referral_user_id' => $imStaff->id,
+                'application_no' => 'IM-001',
+                'applicant_name' => 'IM Applicant',
+                'phone' => '9000000101',
+                'payload' => json_encode([]),
+                'created_at' => '2026-05-01',
+                'updated_at' => now(),
+            ],
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $activeFy->id,
+                'referral_user_id' => $fcStaff->id,
+                'application_no' => 'FC-001',
+                'applicant_name' => 'FC Applicant',
+                'phone' => '9000000102',
+                'payload' => json_encode([]),
+                'created_at' => '2026-05-01',
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.cfa.index', ['designation_id' => $imDesignation->id]))
+            ->assertOk()
+            ->assertSee('IM Applicant')
+            ->assertDontSee('FC Applicant');
     }
 
     private function createDistrict(): District

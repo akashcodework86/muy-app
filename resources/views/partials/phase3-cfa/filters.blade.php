@@ -45,6 +45,16 @@
         </div>
 
         <div class="p1l-field">
+            <label class="p1l-label" for="cfa-designation">Designation</label>
+            <select id="cfa-designation" name="designation_id" class="p1l-select">
+                <option value="">All designations</option>
+                @foreach ($designations ?? [] as $designation)
+                    <option value="{{ $designation->id }}" @selected((int) ($filters['designation_id'] ?? 0) === (int) $designation->id)>{{ $designation->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="p1l-field">
             <label class="p1l-label" for="cfa-onboard">Onboard status</label>
             <select id="cfa-onboard" name="onboard" class="p1l-select">
                 <option value="">All</option>
