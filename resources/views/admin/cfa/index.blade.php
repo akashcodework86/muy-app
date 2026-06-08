@@ -82,6 +82,7 @@
                     <th>Block</th>
                     <th>Onboard status</th>
                     <th>Source / staff</th>
+                    <th>Designation</th>
                     <th></th>
                 </tr>
             </thead>
@@ -116,13 +117,20 @@
                                 {{ $row->referralUser?->name ?? $row->source ?? '—' }}
                             @endif
                         </td>
+                        <td class="p1l-muted" style="font-size:0.8rem;">
+                            @if ($row->source === 'public_form')
+                                —
+                            @else
+                                {{ $row->referralUser?->designationRecord?->name ?? '—' }}
+                            @endif
+                        </td>
                         <td>
                             <a href="{{ route('admin.cfa.show', $row) }}" class="p1l-btn p1l-btn--primary" style="padding:0.35rem 0.65rem;font-size:0.75rem;">View</a>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10" class="p1l-empty">No applications match your filters.</td>
+                        <td colspan="11" class="p1l-empty">No applications match your filters.</td>
                     </tr>
                 @endforelse
             </tbody>

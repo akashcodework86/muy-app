@@ -29,7 +29,7 @@ class CfaSubmissionController extends Controller
         );
 
         $submissions = CfaSubmissionListQuery::applyFilters(CfaSubmission::query(), $filters)
-            ->with(['district', 'referralUser', 'fiscalYear', 'onboardingBatchMembership'])
+            ->with(['district', 'referralUser.designationRecord', 'fiscalYear', 'onboardingBatchMembership'])
             ->orderByDesc('created_at')
             ->paginate(25)
             ->withQueryString()
@@ -50,7 +50,7 @@ class CfaSubmissionController extends Controller
     {
         $filters = $this->extractFilters($request);
         $query = CfaSubmissionListQuery::applyFilters(CfaSubmission::query(), $filters)
-            ->with(['district:id,name', 'referralUser:id,name', 'fiscalYear:id,code,name']);
+            ->with(['district:id,name', 'referralUser:id,name,designation_id', 'referralUser.designationRecord:id,name', 'fiscalYear:id,code,name']);
 
         $payloadColumnsMap = $this->discoverPayloadColumns((clone $query)->reorder());
         $payloadHeaders = array_keys($payloadColumnsMap);
@@ -67,6 +67,7 @@ class CfaSubmissionController extends Controller
             'lgd_block_code',
             'source',
             'referral_staff',
+            'referral_designation',
             'fiscal_year',
         ];
         $headers = array_merge($baseHeaders, $payloadHeaders);
@@ -99,6 +100,7 @@ class CfaSubmissionController extends Controller
                         $row->lgd_block_code ?? '',
                         $row->source ?? '',
                         $row->referralUser?->name ?? '',
+                        $row->referralUser?->designationRecord?->name ?? '',
                         $row->fiscalYear?->code ?? $row->fiscalYear?->name ?? '',
                     ];
                     foreach ($payloadColumnsMap as $originalPayloadKey) {
