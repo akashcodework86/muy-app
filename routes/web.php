@@ -727,6 +727,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('live-map/data', [StateLiveMapController::class, 'data'])
             ->middleware('throttle:60,1')
             ->name('live-map.data');
+        Route::get('live-map/geojson', [StateLiveMapController::class, 'geojson'])->name('live-map.geojson');
         Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
         Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
         Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');

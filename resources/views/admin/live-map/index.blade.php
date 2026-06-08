@@ -282,10 +282,15 @@
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
 <script>
 (function () {
+    const statusEl = document.getElementById('slm-status');
+    if (typeof L === 'undefined') {
+        if (statusEl) statusEl.textContent = 'Map library failed to load (CDN blocked).';
+        return;
+    }
+
     const geoJsonUrl = @json($geoJsonUrl);
     const dataUrl = @json($dataUrl);
     const dateInput = document.getElementById('slm-date');
-    const statusEl = document.getElementById('slm-status');
     const staffCountEl = document.getElementById('slm-staff-count');
     const updatedEl = document.getElementById('slm-updated');
     const autoRefreshEl = document.getElementById('slm-auto');
@@ -373,10 +378,6 @@
                 ${barRow('Staff on map', s.staff_on_map || 0, Math.max(s.staff_on_map || 0, 1), 'linear-gradient(90deg,#14b8a6,#0d9488)')}
                 ${barRow('Districts active', s.districts_with_check_ins || 0, s.district_count || 13, 'linear-gradient(90deg,#60a5fa,#2563eb)')}
             </div>
-            <p class="slm-empty">Hover any district boundary to open its breakdown here.</p>
-        `;
-    };
-
             <p class="slm-empty">Move mouse over a district or staff pin on the map.</p>
         `;
     };
@@ -714,12 +715,14 @@
 
     (async function init() {
         try {
-            const geoRes = await fetch(geoJsonUrl);
+            const geoRes = await fetch(geoJsonUrl, { headers: { 'Accept': 'application/geo+json, application/json' } });
+            if (!geoRes.ok) throw new Error('GeoJSON HTTP ' + geoRes.status);
             bindDistrictLayer(await geoRes.json());
+            map.invalidateSize();
             await loadData();
             scheduleRefresh();
         } catch (err) {
-            statusEl.textContent = 'Failed to load map boundaries.';
+            statusEl.textContent = 'Failed to load map: ' + (err.message || 'unknown error');
             console.error(err);
         }
     })();

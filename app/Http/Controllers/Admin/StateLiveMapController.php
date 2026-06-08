@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class StateLiveMapController extends Controller
 {
@@ -25,8 +26,19 @@ class StateLiveMapController extends Controller
 
         return view('admin.live-map.index', [
             'activeFy' => $activeFy,
-            'geoJsonUrl' => asset('geo/uttarakhand-districts.geojson'),
+            'geoJsonUrl' => route('admin.live-map.geojson'),
             'dataUrl' => route('admin.live-map.data'),
+        ]);
+    }
+
+    public function geojson(): BinaryFileResponse
+    {
+        $path = public_path('geo/uttarakhand-districts.geojson');
+        abort_unless(is_file($path), 404, 'District map file missing on server.');
+
+        return response()->file($path, [
+            'Content-Type' => 'application/geo+json',
+            'Cache-Control' => 'public, max-age=86400',
         ]);
     }
 
