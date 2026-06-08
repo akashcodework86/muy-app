@@ -37,25 +37,44 @@ class StateLiveMapService
         $staffTotals = $this->staffTotalsByDistrict($districtIds);
         $staffPresent = $this->staffPresentByDistrict($date, $districtIds);
 
-        $districts = $districtRows->map(function ($row) use ($cfaFy, $cfaToday, $servicesFy, $servicesToday, $staffTotals, $staffPresent): array {
+        $staffPins = $this->staffPinsForDate($date);
+        $pinsByDistrict = collect($staffPins)->groupBy('district_id');
+
+        $stateCfaFy = array_sum($cfaFy);
+        $stateServicesFy = array_sum($servicesFy);
+
+        $districts = $districtRows->map(function ($row) use ($cfaFy, $cfaToday, $servicesFy, $servicesToday, $staffTotals, $staffPresent, $pinsByDistrict, $stateCfaFy, $stateServicesFy): array {
             $id = (int) $row->id;
             $name = (string) $row->name;
+            $cfaFyCount = (int) ($cfaFy[$id] ?? 0);
+            $servicesFyCount = (int) ($servicesFy[$id] ?? 0);
 
             return [
                 'id' => $id,
                 'name' => $name,
                 'slug' => (string) $row->slug,
                 'hub' => (string) ($row->hub_name ?? ''),
-                'cfa_fy' => (int) ($cfaFy[$id] ?? 0),
+                'cfa_fy' => $cfaFyCount,
                 'cfa_today' => (int) ($cfaToday[$id] ?? 0),
-                'services_fy' => (int) ($servicesFy[$id] ?? 0),
+                'services_fy' => $servicesFyCount,
                 'services_today' => (int) ($servicesToday[$id] ?? 0),
                 'staff_present' => (int) ($staffPresent[$id] ?? 0),
                 'staff_total' => (int) ($staffTotals[$id] ?? 0),
+                'activity_fy' => $cfaFyCount + $servicesFyCount,
+                'cfa_fy_share_pct' => $stateCfaFy > 0 ? round(($cfaFyCount / $stateCfaFy) * 100, 1) : 0,
+                'services_fy_share_pct' => $stateServicesFy > 0 ? round(($servicesFyCount / $stateServicesFy) * 100, 1) : 0,
+                'staff_today' => $pinsByDistrict->get($id, collect())
+                    ->map(fn (array $pin): array => [
+                        'name' => $pin['name'],
+                        'role_label' => $pin['role_label'],
+                        'designation' => $pin['designation'],
+                        'marked_at' => $pin['marked_at'],
+                        'is_field_coordinator' => $pin['is_field_coordinator'],
+                    ])
+                    ->values()
+                    ->all(),
             ];
         })->values()->all();
-
-        $staffPins = $this->staffPinsForDate($date);
 
         return [
             'date' => $date->toDateString(),
@@ -71,7 +90,10 @@ class StateLiveMapService
                 'staff_on_map' => count($staffPins),
                 'districts_with_check_ins' => collect($districts)->filter(fn (array $d) => $d['staff_present'] > 0)->count(),
                 'cfa_today_state' => array_sum($cfaToday),
+                'cfa_fy_state' => $stateCfaFy,
                 'services_today_state' => array_sum($servicesToday),
+                'services_fy_state' => $stateServicesFy,
+                'district_count' => count($districts),
             ],
         ];
     }
@@ -231,6 +253,7 @@ class StateLiveMapService
 
                 return [
                     'user_id' => (int) $user->id,
+                    'district_id' => (int) ($user->district_id ?? 0),
                     'name' => (string) $user->name,
                     'role' => (string) $user->role,
                     'role_label' => $roleLabels[$user->role] ?? (string) $user->role,

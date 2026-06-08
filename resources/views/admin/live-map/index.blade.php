@@ -49,27 +49,169 @@
     .slm-legend i {
         width: 0.65rem; height: 0.65rem; border-radius: 999px; display: inline-block; border: 1px solid rgba(15,23,42,0.15);
     }
-    .slm-map-shell {
-        flex: 1; min-height: 520px; position: relative;
-        border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;
-        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+    .slm-layout {
+        flex: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+        gap: 0.75rem;
+        min-height: 560px;
     }
-    #slm-map { width: 100%; height: 100%; min-height: 520px; background: #eef2f6; }
+    .slm-map-shell {
+        position: relative;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+        min-height: 560px;
+    }
+    #slm-map { width: 100%; height: 100%; min-height: 560px; background: #f8fafc; }
     .slm-status {
         position: absolute; left: 0.75rem; bottom: 0.75rem; z-index: 500;
         padding: 0.4rem 0.65rem; border-radius: 8px; background: rgba(255,255,255,0.92);
         border: 1px solid #e2e8f0; font-size: 0.72rem; color: #475569; font-weight: 600;
         box-shadow: 0 2px 8px rgba(15,23,42,0.08);
     }
-    .slm-tooltip { font-size: 0.78rem; line-height: 1.45; min-width: 11rem; }
-    .slm-tooltip h3 { margin: 0 0 0.35rem; font-size: 0.88rem; color: #0f172a; }
-    .slm-tooltip dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.65rem; }
-    .slm-tooltip dt { color: #64748b; font-weight: 600; }
-    .slm-tooltip dd { margin: 0; font-weight: 700; color: #0f172a; text-align: right; }
+    .slm-side {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+        display: flex;
+        flex-direction: column;
+        min-height: 560px;
+        max-height: calc(100vh - 11rem);
+        overflow: hidden;
+    }
+    .slm-side__head {
+        padding: 1rem 1.1rem 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+    }
+    .slm-side__eyebrow {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin: 0 0 0.25rem;
+    }
+    .slm-side__title {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #0f172a;
+        line-height: 1.15;
+    }
+    .slm-side__sub {
+        margin: 0.35rem 0 0;
+        font-size: 0.78rem;
+        color: #64748b;
+        line-height: 1.45;
+    }
+    .slm-side__body {
+        padding: 0.85rem 1.1rem 1.1rem;
+        overflow-y: auto;
+        flex: 1;
+    }
+    .slm-kpis {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.55rem;
+        margin-bottom: 0.85rem;
+    }
+    .slm-kpi {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.65rem 0.75rem;
+    }
+    .slm-kpi span {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 0.15rem;
+    }
+    .slm-kpi strong {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.1;
+    }
+    .slm-kpi small {
+        display: block;
+        margin-top: 0.15rem;
+        font-size: 0.68rem;
+        color: #94a3b8;
+        font-weight: 600;
+    }
+    .slm-section {
+        margin-bottom: 0.85rem;
+    }
+    .slm-section__label {
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin: 0 0 0.45rem;
+    }
+    .slm-bar-row {
+        display: grid;
+        grid-template-columns: 4.5rem 1fr auto;
+        gap: 0.45rem;
+        align-items: center;
+        margin-bottom: 0.35rem;
+        font-size: 0.76rem;
+    }
+    .slm-bar-row span:first-child { color: #475569; font-weight: 600; }
+    .slm-bar-row strong { color: #0f172a; font-size: 0.78rem; min-width: 2rem; text-align: right; }
+    .slm-bar {
+        height: 0.55rem;
+        background: #e2e8f0;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+    .slm-bar > i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #14b8a6, #0d9488);
+    }
+    .slm-list { list-style: none; margin: 0; padding: 0; }
+    .slm-list li {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.65rem;
+        align-items: baseline;
+        padding: 0.38rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.78rem;
+    }
+    .slm-list li:last-child { border-bottom: none; }
+    .slm-list__name { color: #334155; font-weight: 600; min-width: 0; }
+    .slm-list__meta { color: #94a3b8; font-size: 0.68rem; display: block; margin-top: 0.1rem; }
+    .slm-list__val { color: #0d9488; font-weight: 800; white-space: nowrap; }
+    .slm-empty {
+        font-size: 0.8rem;
+        color: #94a3b8;
+        padding: 0.75rem 0;
+        line-height: 1.45;
+    }
+    .slm-side.is-district .slm-side__head {
+        background: linear-gradient(180deg, #ecfdf5 0%, #fff 100%);
+        border-bottom-color: #ccfbf1;
+    }
+    .slm-side.is-district .slm-side__title { color: #115e59; }
     .slm-popup { font-size: 0.8rem; line-height: 1.45; }
     .slm-popup strong { display: block; font-size: 0.9rem; margin-bottom: 0.15rem; }
     .slm-popup a { color: #0d9488; font-weight: 700; }
-    @media (max-width: 768px) {
+    @media (max-width: 960px) {
+        .slm-layout { grid-template-columns: 1fr; }
+        .slm-side { max-height: none; min-height: auto; }
         .slm-map-shell, #slm-map { min-height: 420px; }
     }
 </style>
@@ -100,9 +242,22 @@
         </div>
     </div>
 
-    <div class="slm-map-shell">
-        <div id="slm-map" role="application" aria-label="Uttarakhand district live map"></div>
-        <div class="slm-status" id="slm-status">Loading map…</div>
+    <div class="slm-layout">
+        <div class="slm-map-shell">
+            <div id="slm-map" role="application" aria-label="Uttarakhand district live map"></div>
+            <div class="slm-status" id="slm-status">Loading map…</div>
+        </div>
+
+        <aside class="slm-side" id="slm-side" aria-live="polite">
+            <div class="slm-side__head">
+                <p class="slm-side__eyebrow" id="slm-side-eyebrow">Uttarakhand overview</p>
+                <h2 class="slm-side__title" id="slm-side-title">Hover a district</h2>
+                <p class="slm-side__sub" id="slm-side-sub">Move your mouse over any district on the map to see CFA, services and staff check-ins.</p>
+            </div>
+            <div class="slm-side__body" id="slm-side-body">
+                <div class="slm-empty">State-wide summary loads after map data is ready.</div>
+            </div>
+        </aside>
     </div>
 </div>
 @endsection
@@ -119,19 +274,30 @@
     const staffCountEl = document.getElementById('slm-staff-count');
     const updatedEl = document.getElementById('slm-updated');
     const autoRefreshEl = document.getElementById('slm-auto');
+    const sideEl = document.getElementById('slm-side');
+    const sideEyebrowEl = document.getElementById('slm-side-eyebrow');
+    const sideTitleEl = document.getElementById('slm-side-title');
+    const sideSubEl = document.getElementById('slm-side-sub');
+    const sideBodyEl = document.getElementById('slm-side-body');
 
-    const map = L.map('slm-map', { scrollWheelZoom: true }).setView([30.0668, 79.0193], 8);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '&copy; OpenStreetMap'
+    const map = L.map('slm-map', { scrollWheelZoom: true, zoomControl: true }).setView([30.0668, 79.0193], 8);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(map);
 
     let districtLayer = null;
+    let bubbleLayer = null;
     let markerCluster = L.markerClusterGroup({ maxClusterRadius: 42, spiderfyOnMaxZoom: true });
     map.addLayer(markerCluster);
 
     const districtMetrics = {};
+    let livePayload = null;
+    let hoveredLayer = null;
     let refreshTimer = null;
+
+    const fmt = (n) => Number(n || 0).toLocaleString();
+    const pct = (part, total) => total > 0 ? Math.round((part / total) * 100) : 0;
 
     const pinColor = (pin) => {
         if (pin.is_field_coordinator) return '#ea580c';
@@ -140,11 +306,12 @@
         return '#0d9488';
     };
 
-    const districtFill = (name) => {
+    const districtFill = (name, active) => {
         const m = districtMetrics[name];
-        if (!m) return '#e2e8f0';
+        if (!m) return active ? '#99f6e4' : '#e2e8f0';
         const activity = (m.cfa_today || 0) + (m.services_today || 0);
         const staff = m.staff_present || 0;
+        if (active) return '#2dd4bf';
         if (staff > 0 && activity > 0) return '#5eead4';
         if (staff > 0) return '#99f6e4';
         if (activity > 0) return '#fde68a';
@@ -152,48 +319,142 @@
         return '#e2e8f0';
     };
 
-    const tooltipHtml = (m) => {
-        if (!m) return '<div class="slm-tooltip">No data</div>';
-        return `<div class="slm-tooltip">
-            <h3>${m.name}</h3>
-            <dl>
-                <dt>Staff today</dt><dd>${m.staff_present} / ${m.staff_total}</dd>
-                <dt>CFA today</dt><dd>${Number(m.cfa_today).toLocaleString()}</dd>
-                <dt>CFA FY</dt><dd>${Number(m.cfa_fy).toLocaleString()}</dd>
-                <dt>Services today</dt><dd>${Number(m.services_today).toLocaleString()}</dd>
-                <dt>Services FY</dt><dd>${Number(m.services_fy).toLocaleString()}</dd>
-            </dl>
+    const barRow = (label, value, max, color) => {
+        const width = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0;
+        return `<div class="slm-bar-row">
+            <span>${label}</span>
+            <div class="slm-bar"><i style="width:${width}%;background:${color};"></i></div>
+            <strong>${fmt(value)}</strong>
         </div>`;
+    };
+
+    const renderOverviewPanel = () => {
+        const s = livePayload?.summary || {};
+        sideEl.classList.remove('is-district');
+        sideEyebrowEl.textContent = 'Uttarakhand overview';
+        sideTitleEl.textContent = 'All districts';
+        sideSubEl.textContent = (livePayload?.date_label || 'Today') + ' · ' + (livePayload?.fiscal_year?.name || 'FY') + ' · hover a district for detail';
+        sideBodyEl.innerHTML = `
+            <div class="slm-kpis">
+                <div class="slm-kpi"><span>CFA today</span><strong>${fmt(s.cfa_today_state)}</strong><small>State total</small></div>
+                <div class="slm-kpi"><span>CFA FY</span><strong>${fmt(s.cfa_fy_state)}</strong><small>State total</small></div>
+                <div class="slm-kpi"><span>Services today</span><strong>${fmt(s.services_today_state)}</strong><small>Approved</small></div>
+                <div class="slm-kpi"><span>Services FY</span><strong>${fmt(s.services_fy_state)}</strong><small>Approved</small></div>
+            </div>
+            <div class="slm-section">
+                <p class="slm-section__label">Field activity</p>
+                ${barRow('Staff on map', s.staff_on_map || 0, Math.max(s.staff_on_map || 0, 1), 'linear-gradient(90deg,#14b8a6,#0d9488)')}
+                ${barRow('Districts active', s.districts_with_check_ins || 0, s.district_count || 13, 'linear-gradient(90deg,#60a5fa,#2563eb)')}
+            </div>
+            <p class="slm-empty">Hover any district boundary to open its breakdown here.</p>
+        `;
+    };
+
+    const renderDistrictPanel = (m) => {
+        if (!m) return;
+        sideEl.classList.add('is-district');
+        sideEyebrowEl.textContent = m.hub || 'District';
+        sideTitleEl.textContent = m.name;
+        sideSubEl.textContent = `${m.cfa_fy_share_pct}% of state CFA FY · ${m.staff_present} staff checked in today`;
+
+        const attendancePct = pct(m.staff_present, m.staff_total);
+        const activityMax = Math.max(m.cfa_today, m.services_today, m.cfa_fy, m.services_fy, 1);
+        const staffList = (m.staff_today || []).map((s) => `
+            <li>
+                <div class="slm-list__name">${s.name}<span class="slm-list__meta">${s.role_label}${s.is_field_coordinator ? ' · FC' : ''}</span></div>
+                <span class="slm-list__val">${s.marked_at}</span>
+            </li>
+        `).join('');
+
+        sideBodyEl.innerHTML = `
+            <div class="slm-kpis">
+                <div class="slm-kpi"><span>CFA today</span><strong>${fmt(m.cfa_today)}</strong><small>FY: ${fmt(m.cfa_fy)}</small></div>
+                <div class="slm-kpi"><span>Services today</span><strong>${fmt(m.services_today)}</strong><small>FY: ${fmt(m.services_fy)}</small></div>
+                <div class="slm-kpi"><span>Staff today</span><strong>${fmt(m.staff_present)}</strong><small>Of ${fmt(m.staff_total)} active</small></div>
+                <div class="slm-kpi"><span>Activity FY</span><strong>${fmt(m.activity_fy)}</strong><small>CFA + services</small></div>
+            </div>
+            <div class="slm-section">
+                <p class="slm-section__label">Today vs FY</p>
+                ${barRow('CFA today', m.cfa_today, activityMax, 'linear-gradient(90deg,#14b8a6,#0d9488)')}
+                ${barRow('CFA FY', m.cfa_fy, activityMax, 'linear-gradient(90deg,#5eead4,#14b8a6)')}
+                ${barRow('Services today', m.services_today, activityMax, 'linear-gradient(90deg,#fb923c,#ea580c)')}
+                ${barRow('Services FY', m.services_fy, activityMax, 'linear-gradient(90deg,#fdba74,#fb923c)')}
+            </div>
+            <div class="slm-section">
+                <p class="slm-section__label">Attendance today</p>
+                ${barRow('Present', m.staff_present, Math.max(m.staff_total, 1), 'linear-gradient(90deg,#4ade80,#16a34a)')}
+                <p class="slm-empty" style="padding-top:0.25rem;">${attendancePct}% of assigned district staff checked in.</p>
+            </div>
+            <div class="slm-section">
+                <p class="slm-section__label">Staff checked in</p>
+                ${staffList ? `<ul class="slm-list">${staffList}</ul>` : '<p class="slm-empty">No check-ins from this district yet today.</p>'}
+            </div>
+        `;
     };
 
     const styleDistrict = (feature) => {
         const name = feature?.properties?.district || '';
         return {
-            fillColor: districtFill(name),
-            weight: 1.5,
+            fillColor: districtFill(name, false),
+            weight: 1.25,
             opacity: 1,
-            color: '#64748b',
-            fillOpacity: 0.72
+            color: '#94a3b8',
+            fillOpacity: 0.78
         };
     };
 
-    const bindDistrictLayer = (geojson) => {
-        if (districtLayer) {
-            map.removeLayer(districtLayer);
+    const highlightDistrict = (layer, name) => {
+        if (hoveredLayer && hoveredLayer !== layer) {
+            districtLayer.resetStyle(hoveredLayer);
         }
+        hoveredLayer = layer;
+        layer.setStyle({
+            fillColor: districtFill(name, true),
+            weight: 2.5,
+            color: '#0d9488',
+            fillOpacity: 0.92
+        });
+        layer.bringToFront();
+    };
+
+    const bindDistrictLayer = (geojson) => {
+        if (districtLayer) map.removeLayer(districtLayer);
+        if (bubbleLayer) map.removeLayer(bubbleLayer);
+
+        bubbleLayer = L.layerGroup();
         districtLayer = L.geoJSON(geojson, {
             style: styleDistrict,
             onEachFeature: (feature, layer) => {
                 const name = feature?.properties?.district || '';
-                layer.bindTooltip(() => tooltipHtml(districtMetrics[name]), {
-                    sticky: true,
-                    direction: 'top',
-                    className: 'slm-tooltip-wrap'
+                layer.on('mouseover', () => {
+                    highlightDistrict(layer, name);
+                    renderDistrictPanel(districtMetrics[name]);
                 });
-                layer.on('mouseover', () => layer.setStyle({ weight: 2.5, color: '#0d9488', fillOpacity: 0.88 }));
-                layer.on('mouseout', () => districtLayer.resetStyle(layer));
+                layer.on('mouseout', () => {
+                    districtLayer.resetStyle(layer);
+                    if (hoveredLayer === layer) hoveredLayer = null;
+                });
+                layer.on('click', () => renderDistrictPanel(districtMetrics[name]));
+
+                try {
+                    const center = layer.getBounds().getCenter();
+                    const m = districtMetrics[name];
+                    const score = m ? (m.cfa_today + m.services_today + m.staff_present) : 0;
+                    if (score > 0) {
+                        const radius = Math.min(28, 8 + Math.sqrt(score) * 4);
+                        L.circleMarker(center, {
+                            radius,
+                            fillColor: '#14b8a6',
+                            color: '#0f766e',
+                            weight: 1,
+                            fillOpacity: 0.28
+                        }).addTo(bubbleLayer);
+                    }
+                } catch (e) { /* ignore */ }
             }
         }).addTo(map);
+        bubbleLayer.addTo(map);
+
         try {
             map.fitBounds(districtLayer.getBounds(), { padding: [24, 24] });
         } catch (e) { /* ignore */ }
@@ -209,7 +470,7 @@
                 weight: 2,
                 fillOpacity: 0.95
             });
-            const acc = pin.accuracy_m ? ` · ±${Math.round(pin.accuracy_m)} m` : '';
+            const acc = pin.accuracy_m ? ' · ±' + Math.round(pin.accuracy_m) + ' m' : '';
             marker.bindPopup(`<div class="slm-popup">
                 <strong>${pin.name}</strong>
                 ${pin.role_label} · ${pin.designation}<br>
@@ -222,16 +483,49 @@
     };
 
     const applyMetrics = (payload) => {
+        livePayload = payload;
         Object.keys(districtMetrics).forEach((k) => delete districtMetrics[k]);
         (payload.districts || []).forEach((d) => { districtMetrics[d.name] = d; });
+
         if (districtLayer) {
             districtLayer.setStyle(styleDistrict);
+            if (bubbleLayer) {
+                map.removeLayer(bubbleLayer);
+                bubbleLayer = L.layerGroup();
+                districtLayer.eachLayer((layer) => {
+                    const name = layer.feature?.properties?.district || '';
+                    try {
+                        const center = layer.getBounds().getCenter();
+                        const m = districtMetrics[name];
+                        const score = m ? (m.cfa_today + m.services_today + m.staff_present) : 0;
+                        if (score > 0) {
+                            const radius = Math.min(28, 8 + Math.sqrt(score) * 4);
+                            L.circleMarker(center, {
+                                radius,
+                                fillColor: '#14b8a6',
+                                color: '#0f766e',
+                                weight: 1,
+                                fillOpacity: 0.28
+                            }).addTo(bubbleLayer);
+                        }
+                    } catch (e) { /* ignore */ }
+                });
+                bubbleLayer.addTo(map);
+            }
         }
+
         renderPins(payload.staff_pins || []);
+        if (!sideEl.classList.contains('is-district') || !hoveredLayer) {
+            renderOverviewPanel();
+        } else {
+            const name = hoveredLayer.feature?.properties?.district || '';
+            if (districtMetrics[name]) renderDistrictPanel(districtMetrics[name]);
+        }
+
         staffCountEl.innerHTML = 'Staff on map: <strong>' + (payload.summary?.staff_on_map ?? 0) + '</strong>';
         const updated = payload.updated_at ? new Date(payload.updated_at) : new Date();
         updatedEl.innerHTML = 'Updated: <strong>' + updated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</strong>';
-        statusEl.textContent = payload.date_label + ' · ' + (payload.fiscal_year?.name || 'FY') + ' · hover district for CFA & services';
+        statusEl.textContent = payload.date_label + ' · hover district → details on the right';
     };
 
     const loadData = async () => {
@@ -242,19 +536,16 @@
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
-            const payload = await res.json();
-            applyMetrics(payload);
+            applyMetrics(await res.json());
         } catch (err) {
-            statusEl.textContent = 'Could not load live data. Retry or check connection.';
+            statusEl.textContent = 'Could not load live data.';
             console.error(err);
         }
     };
 
     const scheduleRefresh = () => {
         if (refreshTimer) clearInterval(refreshTimer);
-        if (autoRefreshEl.checked) {
-            refreshTimer = setInterval(loadData, 60000);
-        }
+        if (autoRefreshEl.checked) refreshTimer = setInterval(loadData, 60000);
     };
 
     document.getElementById('slm-apply').addEventListener('click', () => { loadData(); scheduleRefresh(); });
@@ -268,12 +559,11 @@
     (async function init() {
         try {
             const geoRes = await fetch(geoJsonUrl);
-            const geojson = await geoRes.json();
-            bindDistrictLayer(geojson);
+            bindDistrictLayer(await geoRes.json());
             await loadData();
             scheduleRefresh();
         } catch (err) {
-            statusEl.textContent = 'Failed to load Uttarakhand district boundaries.';
+            statusEl.textContent = 'Failed to load map boundaries.';
             console.error(err);
         }
     })();
