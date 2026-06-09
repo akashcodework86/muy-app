@@ -19,6 +19,8 @@ class StateAdminDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('Welcome')
             ->assertSee('sadGroundTicker', false)
+            ->assertSee('sad-stat-chips', false)
+            ->assertSee('CFA', false)
             ->assertDontSee('Classic theme')
             ->assertDontSee('FY 2026-27');
     }

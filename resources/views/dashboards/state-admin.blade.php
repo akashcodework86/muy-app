@@ -169,70 +169,52 @@
             0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45); }
             50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
         }
-        .sad-kpi-strip {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.5rem;
+        .sad-stat-chips {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 0.4rem;
             margin-bottom: 0.6rem;
+            overflow-x: auto;
+            padding-bottom: 0.1rem;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
         }
-        @media (max-width: 1200px) {
-            .sad-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 640px) {
-            .sad-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        .sad-kpi {
+        .sad-stat-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.38rem;
+            padding: 0.4rem 0.72rem;
+            border-radius: 999px;
             background: var(--sad-surface);
             border: 1px solid var(--sad-border);
-            border-radius: var(--sad-radius);
-            padding: 0.55rem 0.65rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-size: 0.8rem;
+            line-height: 1.2;
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-            min-width: 0;
-            transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .sad-kpi:hover {
-            border-color: var(--sad-border);
-            box-shadow: var(--sad-shadow);
-        }
-        .sad-kpi__icon {
-            width: 1.65rem;
-            height: 1.65rem;
-            border-radius: 8px;
+        .sad-stat-chip__ico {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75rem;
-            margin-bottom: 0.35rem;
+            font-size: 0.72rem;
+            opacity: 0.9;
         }
-        .sad-kpi__icon--green { background: #ecfdf5; color: var(--sad-green-deep); }
-        .sad-kpi__icon--sky { background: #eff6ff; color: var(--sad-sky); }
-        .sad-kpi__icon--teal { background: var(--sad-brand-light); color: var(--sad-brand-deep); }
-        .sad-kpi__icon--amber { background: var(--sad-accent-soft); color: var(--sad-accent); }
-        .sad-kpi__icon--rose { background: #f1f5f9; color: #64748b; }
-        .sad-kpi__label {
-            font-size: 0.58rem;
+        .sad-stat-chip__label {
+            font-size: 0.65rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.05em;
             color: var(--sad-muted);
-            line-height: 1.2;
         }
-        .sad-kpi__value {
-            font-size: 1.15rem;
+        .sad-stat-chip__val {
             font-weight: 800;
             letter-spacing: -0.02em;
-            margin-top: 0.12rem;
-            line-height: 1.1;
+            color: var(--sad-text);
         }
-        .sad-kpi__foot {
-            font-size: 0.62rem;
-            color: var(--sad-muted);
-            margin-top: 0.2rem;
-            font-weight: 600;
-        }
-        .sad-kpi__foot.is-up { color: var(--sad-green-deep); }
-        .sad-kpi__foot.is-down { color: #b45309; }
-        .sad-kpi__foot.is-warn { color: #b45309; }
+        .sad-stat-chip.is-up .sad-stat-chip__val { color: var(--sad-green-deep); }
+        .sad-stat-chip.is-down .sad-stat-chip__val { color: #b45309; }
         .sad-alerts {
             display: flex;
             flex-wrap: wrap;
@@ -929,82 +911,46 @@
         </script>
 
         <div class="sad">
-            <div class="sad-kpi-strip" role="group" aria-label="Key performance indicators">
-                <div class="sad-kpi sad-kpi--tone-blue" title="Phase 3 CFA submissions (all districts)">
-                    <div class="sad-kpi__icon sad-kpi__icon--green"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i></div>
-                    <div class="sad-kpi__label">CFA total</div>
-                    <div class="sad-kpi__value">{{ number_format($cfaTotalN) }}</div>
-                    <div class="sad-kpi__foot">{{ number_format((int) ($cfaLast30 ?? 0)) }} in last 30 days</div>
+            <div class="sad-stat-chips" role="group" aria-label="Key performance indicators">
+                <div class="sad-stat-chip sad-stat-chip--cfa" title="Phase 3 CFA submissions — {{ number_format((int) ($cfaLast30 ?? 0)) }} in last 30 days">
+                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-file-circle-plus"></i></span>
+                    <span class="sad-stat-chip__label">CFA</span>
+                    <span class="sad-stat-chip__val">{{ number_format($cfaTotalN) }}</span>
                 </div>
-                <div class="sad-kpi sad-kpi--tone-indigo">
-                    <div class="sad-kpi__icon sad-kpi__icon--teal"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></div>
-                    <div class="sad-kpi__label">Target progress</div>
-                    <div class="sad-kpi__value">{{ $ringPct }}%</div>
-                    <div class="sad-kpi__foot">
-                        @if ($cfaTargetN !== null)
-                            {{ number_format($cfaTotalN) }} / {{ number_format($cfaTargetN) }}
-                        @else
-                            No state target set
-                        @endif
-                    </div>
+                <div class="sad-stat-chip sad-stat-chip--target" title="@if ($cfaTargetN !== null){{ number_format($cfaTotalN) }} / {{ number_format($cfaTargetN) }} toward state target@else No state CFA target set @endif">
+                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></span>
+                    <span class="sad-stat-chip__label">Target</span>
+                    <span class="sad-stat-chip__val">{{ $ringPct }}%</span>
                 </div>
-                <div class="sad-kpi sad-kpi--tone-amber">
-                    <div class="sad-kpi__icon sad-kpi__icon--sky"><i class="fa-solid fa-sun" aria-hidden="true"></i></div>
-                    <div class="sad-kpi__label">CFA today</div>
-                    <div class="sad-kpi__value">{{ number_format($cfaTodayCount) }}</div>
-                    <div class="sad-kpi__foot @if ($todayDelta > 0) is-up @elseif ($todayDelta < 0) is-down @endif">
-                        @if ($todayDelta > 0)
-                            +{{ number_format($todayDelta) }} vs yesterday ({{ number_format($cfaYesterdayCount) }})
-                        @elseif ($todayDelta < 0)
-                            {{ number_format(abs($todayDelta)) }} fewer vs yesterday ({{ number_format($cfaYesterdayCount) }})
-                        @else
-                            Same as yesterday ({{ number_format($cfaYesterdayCount) }})
-                        @endif
-                    </div>
+                <div class="sad-stat-chip sad-stat-chip--today @if ($todayDelta > 0) is-up @elseif ($todayDelta < 0) is-down @endif" title="@if ($todayDelta > 0)+{{ number_format($todayDelta) }} vs yesterday ({{ number_format($cfaYesterdayCount) }})@elseif ($todayDelta < 0){{ number_format(abs($todayDelta)) }} fewer vs yesterday ({{ number_format($cfaYesterdayCount) }})@else Same as yesterday ({{ number_format($cfaYesterdayCount) }})@endif">
+                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-sun"></i></span>
+                    <span class="sad-stat-chip__label">Today</span>
+                    <span class="sad-stat-chip__val">{{ number_format($cfaTodayCount) }}</span>
                 </div>
-                <div class="sad-kpi sad-kpi--tone-violet">
-                    <div class="sad-kpi__icon sad-kpi__icon--amber"><i class="fa-solid fa-user-check" aria-hidden="true"></i></div>
-                    <div class="sad-kpi__label">Onboarding</div>
-                    <div class="sad-kpi__value">
-                        @if ($onbTarget > 0)
-                            {{ $onbPct }}%
-                        @else
-                            {{ number_format($onbAchieved) }}
-                        @endif
-                    </div>
-                    <div class="sad-kpi__foot">
-                        @if ($onbTarget > 0)
-                            {{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }} locked
-                        @else
-                            Locked hub members (Phase 3)
-                        @endif
-                    </div>
+                <div class="sad-stat-chip sad-stat-chip--onboard" title="@if ($onbTarget > 0){{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }} locked hub members@else Locked hub members (Phase 3)@endif">
+                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-user-check"></i></span>
+                    <span class="sad-stat-chip__label">Onboard</span>
+                    <span class="sad-stat-chip__val">@if ($onbTarget > 0){{ $onbPct }}%@else{{ number_format($onbAchieved) }}@endif</span>
                 </div>
-                <div class="sad-kpi sad-kpi--tone-cyan" title="Approved Phase 3 service cases (delivered) — all time">
-                    <div class="sad-kpi__icon sad-kpi__icon--rose"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
-                    <div class="sad-kpi__label">Services delivered till date</div>
-                    <div class="sad-kpi__value">{{ number_format((int) ($servicesDeliveredTillDate ?? 0)) }}</div>
-                    <div class="sad-kpi__foot">
-                        Till date · {{ number_format((int) ($servicesDeliveredThisFy ?? 0)) }} this FY
-                    </div>
+                <div class="sad-stat-chip sad-stat-chip--services" title="Approved services till date — {{ number_format((int) ($servicesDeliveredThisFy ?? 0)) }} this FY">
+                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></span>
+                    <span class="sad-stat-chip__label">Services</span>
+                    <span class="sad-stat-chip__val">{{ number_format((int) ($servicesDeliveredTillDate ?? 0)) }}</span>
                 </div>
-                <div class="sad-kpi sad-kpi--tone-slate">
-                    <div class="sad-kpi__icon sad-kpi__icon--indigo"><i class="fa-solid fa-map" aria-hidden="true"></i></div>
-                    <div class="sad-kpi__label">Districts w/ CFA</div>
-                    <div class="sad-kpi__value">{{ number_format((int) ($insights['geo']['districts'] ?? 0)) }}</div>
-                    <div class="sad-kpi__foot">of {{ number_format($districtsCount) }} districts</div>
+                <div class="sad-stat-chip sad-stat-chip--districts" title="{{ number_format((int) ($insights['geo']['districts'] ?? 0)) }} of {{ number_format($districtsCount) }} districts with CFA">
+                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-map"></i></span>
+                    <span class="sad-stat-chip__label">Districts</span>
+                    <span class="sad-stat-chip__val">{{ number_format((int) ($insights['geo']['districts'] ?? 0)) }}/{{ number_format($districtsCount) }}</span>
                 </div>
-                <div class="sad-kpi sad-kpi--tone-teal">
-                    <div class="sad-kpi__icon sad-kpi__icon--teal2"><i class="fa-solid fa-map-pin" aria-hidden="true"></i></div>
-                    <div class="sad-kpi__label">Blocks w/ CFA</div>
-                    <div class="sad-kpi__value">{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</div>
-                    <div class="sad-kpi__foot">Unique blocks in scope</div>
+                <div class="sad-stat-chip sad-stat-chip--blocks" title="{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }} unique blocks with CFA in scope">
+                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-map-pin"></i></span>
+                    <span class="sad-stat-chip__label">Blocks</span>
+                    <span class="sad-stat-chip__val">{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</span>
                 </div>
-                <div class="sad-kpi sad-kpi--tone-emerald">
-                    <div class="sad-kpi__icon sad-kpi__icon--green"><i class="fa-solid fa-piggy-bank" aria-hidden="true"></i></div>
-                    <div class="sad-kpi__label">Savings (FY est.)</div>
-                    <div class="sad-kpi__value" style="font-size:0.95rem;">Rs {{ number_format($savingsTotalThisFy, 0) }}</div>
-                    <div class="sad-kpi__foot">Approved services impact</div>
+                <div class="sad-stat-chip sad-stat-chip--savings" title="Estimated savings from approved services this FY">
+                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-piggy-bank"></i></span>
+                    <span class="sad-stat-chip__label">Savings</span>
+                    <span class="sad-stat-chip__val">Rs {{ number_format($savingsTotalThisFy, 0) }}</span>
                 </div>
             </div>
 

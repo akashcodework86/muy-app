@@ -249,6 +249,29 @@
     color: #a63d02;
 }
 
+/* Stat chips — single-row KPI bar */
+.admin-app-body--state-theme-revamp .sad-stat-chip {
+    background: #fff;
+    border-color: #e8ecf1;
+    box-shadow: 0 1px 6px rgba(55, 71, 79, 0.05);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.admin-app-body--state-theme-revamp .sad-stat-chip:hover {
+    box-shadow: 0 4px 14px rgba(55, 71, 79, 0.08);
+    border-color: #cfd8dc;
+}
+.admin-app-body--state-theme-revamp .sad-stat-chip__val {
+    color: #263238;
+}
+.admin-app-body--state-theme-revamp .sad-stat-chip--cfa .sad-stat-chip__ico { color: #00897b; }
+.admin-app-body--state-theme-revamp .sad-stat-chip--target .sad-stat-chip__ico { color: #ef6c00; }
+.admin-app-body--state-theme-revamp .sad-stat-chip--today .sad-stat-chip__ico { color: #f9a825; }
+.admin-app-body--state-theme-revamp .sad-stat-chip--onboard .sad-stat-chip__ico { color: #d81b60; }
+.admin-app-body--state-theme-revamp .sad-stat-chip--services .sad-stat-chip__ico { color: #1e88e5; }
+.admin-app-body--state-theme-revamp .sad-stat-chip--districts .sad-stat-chip__ico { color: #546e7a; }
+.admin-app-body--state-theme-revamp .sad-stat-chip--blocks .sad-stat-chip__ico { color: #43a047; }
+.admin-app-body--state-theme-revamp .sad-stat-chip--savings .sad-stat-chip__ico { color: #8e24aa; }
+
 /* KPI — white cards + pastel icon blocks (reference style) */
 .admin-app-body--state-theme-revamp .sad-kpi {
     border-radius: 16px;
