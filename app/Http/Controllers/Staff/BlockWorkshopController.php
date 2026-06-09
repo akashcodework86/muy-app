@@ -928,21 +928,11 @@ class BlockWorkshopController extends Controller
         $block = DistrictBlock::query()->findOrFail($blockId);
         abort_unless((int) $block->district_id === (int) ($user->district_id ?: 0), 403);
 
-        $search = trim((string) $request->query('q', ''));
-
-        $query = GramPanchayat::query()
-            ->where('district_block_id', $blockId)
-            ->orderBy('name');
-
-        if ($search !== '') {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
-            $query->where('name', 'like', $like);
-        }
+        $items = GramPanchayat::listForBlock($blockId, (string) $request->query('q', ''));
 
         return response()->json([
-            'items' => $query->limit(100)->get(['id', 'name'])
-                ->map(fn ($gp) => ['id' => $gp->id, 'name' => $gp->name])
-                ->values(),
+            'items' => $items,
+            'total' => $items->count(),
         ]);
     }
 

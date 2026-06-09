@@ -227,6 +227,53 @@ class FieldCoordinatorFieldVisitTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_gram_panchayat_api_returns_all_entries_for_block_not_capped_at_100(): void
+    {
+        $district = $this->createDistrict('bageshwar-gp', 'Bageshwar');
+        $designation = Designation::query()->create(['name' => 'Field Coordinator', 'sort_order' => 1]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'designation_id' => $designation->id,
+            'is_active' => true,
+        ]);
+        $block = DistrictBlock::query()->create([
+            'district_id' => $district->id,
+            'name' => 'Garur',
+        ]);
+
+        for ($i = 1; $i <= 101; $i++) {
+            GramPanchayat::query()->create([
+                'district_id' => $district->id,
+                'district_block_id' => $block->id,
+                'name' => sprintf('GP %03d', $i),
+            ]);
+        }
+        GramPanchayat::query()->create([
+            'district_id' => $district->id,
+            'district_block_id' => $block->id,
+            'name' => 'Thandangoli',
+        ]);
+
+        $response = $this->actingAs($staff)
+            ->getJson(route('staff.attendance.gram-panchayats', ['district_block_id' => $block->id]))
+            ->assertOk()
+            ->assertJsonPath('total', 102);
+
+        $names = collect($response->json('items'))->pluck('name')->all();
+        $this->assertContains('Thandangoli', $names);
+        $this->assertContains('GP 101', $names);
+
+        $this->actingAs($staff)
+            ->getJson(route('staff.attendance.gram-panchayats', [
+                'district_block_id' => $block->id,
+                'q' => 'Thandangoli',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('items.0.name', 'Thandangoli');
+    }
+
     private function createDistrict(string $slug, string $name): District
     {
         $hub = Hub::query()->firstOrCreate(

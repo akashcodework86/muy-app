@@ -445,7 +445,15 @@
             if (oldGpId && Number(i.id) === oldGpId) opt.selected = true;
             gpSelect.appendChild(opt);
         });
-        if (gpHint) gpHint.textContent = filtered.length ? filtered.length + ' gram panchayat(s)' : 'No match — try another search';
+        if (gpHint) {
+            if (q === '') {
+                gpHint.textContent = items.length ? items.length + ' gram panchayat(s)' : '';
+            } else {
+                gpHint.textContent = filtered.length
+                    ? filtered.length + ' of ' + items.length + ' gram panchayat(s)'
+                    : 'No match — try another search';
+            }
+        }
     }
 
     async function loadGramPanchayats(blockId) {
@@ -466,6 +474,10 @@
             gpSelect.disabled = allItems.length === 0;
             gpSearch.disabled = allItems.length === 0;
             renderGpOptions(allItems);
+            if (gpHint && !gpSearch?.value?.trim()) {
+                const total = typeof data.total === 'number' ? data.total : allItems.length;
+                gpHint.textContent = total ? total + ' gram panchayat(s)' : '';
+            }
         } catch (e) {
             gpSelect.innerHTML = '<option value="">Could not load list</option>';
             if (gpHint) gpHint.textContent = 'Network error — try again';
