@@ -70,38 +70,215 @@
     const trendLabels = @json($stateCfaTrend['labels'] ?? []);
     const trendValues = @json($stateCfaTrend['values'] ?? []);
     const onbTrendValues = @json($insights['onboardingTrend']['values'] ?? []);
+    const paceChart = @json($stateFyPaceChart ?? []);
+    const paceTargetLine = 100;
     const stEl = document.getElementById('stateTrendCurveChart');
-    if (stEl && trendLabels.length) {
-        const cx = stEl.getContext('2d');
-        const dh = stEl.parentElement?.clientHeight || 168;
-        const dFill = cx.createLinearGradient(0, 0, 0, dh);
-        dFill.addColorStop(0, chartFill);
-        dFill.addColorStop(1, chartFill.replace(/[\d.]+\)$/, '0.02)'));
-        new Chart(stEl, {
-            type: 'line',
-            data: {
-                labels: trendLabels,
-                datasets: [{
-                    label: 'State CFA',
-                    data: trendValues,
+    let pulseChartInstance = null;
+
+    const pulseLineOpts = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, usePointStyle: true } },
+            tooltip: {
+                callbacks: {
+                    label(ctx) {
+                        const v = ctx.parsed.y;
+                        if (v === null || v === undefined) return ctx.dataset.label + ': —';
+                        if (ctx.dataset.yAxisID === 'yPct' || ctx.dataset.label === 'On-pace (100%)') {
+                            return ctx.dataset.label + ': ' + v + '%';
+                        }
+                        return ctx.dataset.label + ': ' + Number(v).toLocaleString('en-IN');
+                    }
+                }
+            }
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#64748b', maxRotation: 0 } },
+            y: { beginAtZero: true, grid: { color: gridColor }, ticks: { font: { size: 9 } } }
+        }
+    };
+
+    const renderPulseChart = (mode) => {
+        if (!stEl) return;
+        const labels = paceChart.labels || [];
+        const hasMonthly = labels.length > 0;
+        const dailyLabels = paceChart.daily?.labels || trendLabels;
+        const hintEl = document.querySelector('[data-sad-pulse-hint]');
+
+        document.querySelectorAll('[data-sad-pulse-tab]').forEach((btn) => {
+            const active = btn.getAttribute('data-sad-pulse-tab') === mode;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+
+        if (pulseChartInstance) {
+            pulseChartInstance.destroy();
+            pulseChartInstance = null;
+        }
+
+        let datasets = [];
+        let options = JSON.parse(JSON.stringify(pulseLineOpts));
+
+        if (mode === 'pace' && hasMonthly) {
+            if (hintEl) {
+                hintEl.textContent = 'Cumulative achievement vs prorated FY target — 100% dashed line means on pace.'
+                    + (paceChart.cfa_target ? ' CFA target ' + Number(paceChart.cfa_target).toLocaleString('en-IN') + '.' : '')
+                    + (paceChart.onboarding_target ? ' Onboard target ' + Number(paceChart.onboarding_target).toLocaleString('en-IN') + '.' : '');
+            }
+            const onPaceLine = labels.map(() => paceTargetLine);
+            datasets = [
+                {
+                    label: 'CFA pace',
+                    data: paceChart.cfa_pace_pct || [],
+                    borderColor: chartPrimary,
+                    backgroundColor: chartFill.replace(/[\d.]+\)$/, '0.08)'),
+                    fill: true,
+                    tension: 0.35,
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    spanGaps: true,
+                },
+                {
+                    label: 'Onboarding pace',
+                    data: paceChart.onboarding_pace_pct || [],
+                    borderColor: chartSecondary,
+                    backgroundColor: 'transparent',
+                    tension: 0.35,
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    spanGaps: true,
+                },
+                {
+                    label: 'On-pace (100%)',
+                    data: onPaceLine,
+                    borderColor: '#ef4444',
+                    borderDash: [6, 4],
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                },
+            ];
+            options.scales.y = {
+                beginAtZero: true,
+                suggestedMax: Math.max(120, ...onPaceLine, ...(paceChart.cfa_pace_pct || []), ...(paceChart.onboarding_pace_pct || []).filter(v => v != null)),
+                grid: { color: gridColor },
+                ticks: {
+                    font: { size: 9 },
+                    callback: (v) => v + '%',
+                },
+                title: { display: true, text: 'Pace of target', font: { size: 9 }, color: '#64748b' },
+            };
+        } else if (mode === 'cfa' && hasMonthly) {
+            if (hintEl) hintEl.textContent = 'Monthly cumulative CFA vs prorated state target (straight pace line).';
+            datasets = [
+                {
+                    label: 'CFA cumulative',
+                    data: paceChart.cfa_cumulative || [],
+                    borderColor: chartPrimary,
+                    backgroundColor: chartFill,
+                    fill: true,
+                    tension: 0.35,
+                    borderWidth: 2,
+                    pointRadius: 2,
+                },
+            ];
+            if ((paceChart.cfa_pace_expected || []).some(v => v > 0)) {
+                datasets.push({
+                    label: 'CFA target pace',
+                    data: paceChart.cfa_pace_expected || [],
+                    borderColor: '#94a3b8',
+                    borderDash: [5, 4],
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                });
+            }
+            options.scales.x = { ...options.scales.x, ticks: { ...options.scales.x.ticks, maxRotation: 45, minRotation: 0 } };
+        } else if (mode === 'onboarding' && hasMonthly) {
+            if (hintEl) hintEl.textContent = 'Monthly cumulative onboarding vs prorated state target (straight pace line).';
+            datasets = [
+                {
+                    label: 'Onboarding cumulative',
+                    data: paceChart.onboarding_cumulative || [],
+                    borderColor: chartSecondary,
+                    backgroundColor: 'rgba(66, 165, 245, 0.12)',
+                    fill: true,
+                    tension: 0.35,
+                    borderWidth: 2,
+                    pointRadius: 2,
+                },
+            ];
+            if ((paceChart.onboarding_pace_expected || []).some(v => v > 0)) {
+                datasets.push({
+                    label: 'Onboarding target pace',
+                    data: paceChart.onboarding_pace_expected || [],
+                    borderColor: '#94a3b8',
+                    borderDash: [5, 4],
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                });
+            }
+            options.scales.x = { ...options.scales.x, ticks: { ...options.scales.x.ticks, maxRotation: 45, minRotation: 0 } };
+        } else {
+            if (hintEl) hintEl.textContent = 'Daily new CFA and onboarding entries — last 14 days.';
+            const cx = stEl.getContext('2d');
+            const dh = stEl.parentElement?.clientHeight || 180;
+            const dFill = cx.createLinearGradient(0, 0, 0, dh);
+            dFill.addColorStop(0, chartFill);
+            dFill.addColorStop(1, chartFill.replace(/[\d.]+\)$/, '0.02)'));
+            datasets = [
+                {
+                    label: 'CFA per day',
+                    data: paceChart.daily?.cfa || trendValues,
                     borderColor: chartPrimary,
                     backgroundColor: dFill,
                     fill: true,
                     tension: 0.42,
                     borderWidth: 2,
                     pointRadius: 0,
-                    pointHoverRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#64748b', maxRotation: 0 } },
-                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1, font: { size: 9 } } }
-                }
-            }
+                    pointHoverRadius: 4,
+                },
+                {
+                    label: 'Onboarding per day',
+                    data: paceChart.daily?.onboarding || onbTrendValues,
+                    borderColor: chartSecondary,
+                    backgroundColor: 'transparent',
+                    tension: 0.35,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                },
+            ];
+            options.plugins.legend = { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10 } };
+        }
+
+        const chartLabels = mode === 'daily'
+            ? dailyLabels
+            : (paceChart.labels || []);
+
+        if (!chartLabels.length) return;
+
+        pulseChartInstance = new Chart(stEl, {
+            type: 'line',
+            data: { labels: chartLabels, datasets },
+            options,
+        });
+    };
+
+    if (stEl && ((paceChart.labels || []).length || trendLabels.length)) {
+        renderPulseChart('pace');
+        document.querySelectorAll('[data-sad-pulse-tab]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                renderPulseChart(btn.getAttribute('data-sad-pulse-tab'));
+            });
         });
     }
 

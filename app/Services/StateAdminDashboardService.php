@@ -365,6 +365,16 @@ class StateAdminDashboardService
             cfaLast30: $cfaLast30,
         );
 
+        $stateFyPaceChart = $this->stateFyPaceChart(
+            $activeFy,
+            $phase3FloorDate,
+            $activeFyId,
+            $stateCfaTarget,
+            $stateOnboardingTarget,
+            $stateCfaTrend,
+            $insights['onboardingTrend'] ?? ['labels' => [], 'values' => []],
+        );
+
         return [
             'activeFy' => $activeFy,
             'cfaDeliverable' => $cfaDeliverable,
@@ -432,6 +442,7 @@ class StateAdminDashboardService
             'estimatedSavings' => $estimatedSavings,
             'insights' => $insights,
             'groundActivityTicker' => $groundActivityTicker,
+            'stateFyPaceChart' => $stateFyPaceChart,
         ];
     }
 
@@ -1071,6 +1082,209 @@ class StateAdminDashboardService
         }
 
         return ['labels' => $labels, 'values' => $values];
+    }
+
+    /**
+     * FY month-wise cumulative achievement vs prorated state targets (for State pulse tabs).
+     *
+     * @param  array{labels: list<string>, values: list<int>}  $dailyCfaTrend
+     * @param  array{labels: list<string>, values: list<int>}  $dailyOnboardingTrend
+     * @return array{
+     *   labels: list<string>,
+     *   cfa_cumulative: list<int>,
+     *   onboarding_cumulative: list<int>,
+     *   cfa_pace_expected: list<int>,
+     *   onboarding_pace_expected: list<int>,
+     *   cfa_pace_pct: list<float|null>,
+     *   onboarding_pace_pct: list<float|null>,
+     *   cfa_target: int|null,
+     *   onboarding_target: int|null,
+     *   daily: array{labels: list<string>, cfa: list<int>, onboarding: list<int>}
+     * }
+     */
+    private function stateFyPaceChart(
+        ?FiscalYear $activeFy,
+        Carbon $phase3FloorDate,
+        int $fiscalYearId,
+        ?int $cfaTarget,
+        ?int $onboardingTarget,
+        array $dailyCfaTrend,
+        array $dailyOnboardingTrend,
+    ): array {
+        $empty = [
+            'labels' => [],
+            'cfa_cumulative' => [],
+            'onboarding_cumulative' => [],
+            'cfa_pace_expected' => [],
+            'onboarding_pace_expected' => [],
+            'cfa_pace_pct' => [],
+            'onboarding_pace_pct' => [],
+            'cfa_target' => $cfaTarget,
+            'onboarding_target' => $onboardingTarget,
+            'daily' => [
+                'labels' => $dailyCfaTrend['labels'] ?? [],
+                'cfa' => $dailyCfaTrend['values'] ?? [],
+                'onboarding' => $dailyOnboardingTrend['values'] ?? [],
+            ],
+        ];
+
+        $fyStart = $activeFy?->starts_on
+            ? Carbon::parse($activeFy->starts_on)->startOfDay()
+            : $phase3FloorDate->copy();
+        $fyEnd = $activeFy?->ends_on
+            ? Carbon::parse($activeFy->ends_on)->endOfDay()
+            : now()->endOfDay();
+        $reportThrough = now()->endOfDay()->lt($fyEnd) ? now()->endOfDay() : $fyEnd;
+
+        if ($reportThrough->lt($fyStart)) {
+            return $empty;
+        }
+
+        $monthKeys = [];
+        $labels = [];
+        $cursor = $fyStart->copy()->startOfMonth();
+        while ($cursor->lte($reportThrough)) {
+            $monthEnd = $cursor->copy()->endOfMonth();
+            if ($monthEnd->gt($fyEnd)) {
+                $monthEnd = $fyEnd->copy();
+            }
+            if ($monthEnd->gt($reportThrough)) {
+                $monthEnd = $reportThrough->copy();
+            }
+            if ($monthEnd->gte($fyStart)) {
+                $labels[] = $cursor->format('M y');
+                $monthKeys[] = $cursor->format('Y-m');
+            }
+            $cursor->addMonth();
+        }
+
+        if ($monthKeys === []) {
+            return $empty;
+        }
+
+        $cfaMonthly = $this->monthlyCountMap('cfa_submissions', 'created_at', $fyStart, $reportThrough, $fiscalYearId);
+        $onboardingMonthly = $this->monthlyOnboardingCountMap($fyStart, $reportThrough);
+
+        $cfaCumulative = [];
+        $onboardingCumulative = [];
+        $cfaPaceExpected = [];
+        $onboardingPaceExpected = [];
+        $cfaPacePct = [];
+        $onboardingPacePct = [];
+        $runningCfa = 0;
+        $runningOnb = 0;
+
+        foreach ($monthKeys as $i => $ym) {
+            $runningCfa += (int) ($cfaMonthly[$ym] ?? 0);
+            $runningOnb += (int) ($onboardingMonthly[$ym] ?? 0);
+            $cfaCumulative[] = $runningCfa;
+            $onboardingCumulative[] = $runningOnb;
+
+            $monthIndex = $i + 1;
+            $cfaExpected = ($cfaTarget !== null && $cfaTarget > 0)
+                ? (int) round($cfaTarget * $monthIndex / 12)
+                : 0;
+            $onbExpected = ($onboardingTarget !== null && $onboardingTarget > 0)
+                ? (int) round($onboardingTarget * $monthIndex / 12)
+                : 0;
+
+            $cfaPaceExpected[] = $cfaExpected;
+            $onboardingPaceExpected[] = $onbExpected;
+
+            $cfaPacePct[] = $cfaExpected > 0
+                ? round(($runningCfa / $cfaExpected) * 100, 1)
+                : null;
+            $onboardingPacePct[] = $onbExpected > 0
+                ? round(($runningOnb / $onbExpected) * 100, 1)
+                : null;
+        }
+
+        return [
+            'labels' => $labels,
+            'cfa_cumulative' => $cfaCumulative,
+            'onboarding_cumulative' => $onboardingCumulative,
+            'cfa_pace_expected' => $cfaPaceExpected,
+            'onboarding_pace_expected' => $onboardingPaceExpected,
+            'cfa_pace_pct' => $cfaPacePct,
+            'onboarding_pace_pct' => $onboardingPacePct,
+            'cfa_target' => $cfaTarget,
+            'onboarding_target' => $onboardingTarget,
+            'daily' => [
+                'labels' => $dailyCfaTrend['labels'] ?? [],
+                'cfa' => $dailyCfaTrend['values'] ?? [],
+                'onboarding' => $dailyOnboardingTrend['values'] ?? [],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function monthlyCountMap(
+        string $table,
+        string $dateColumn,
+        Carbon $from,
+        Carbon $to,
+        int $fiscalYearId = 0,
+    ): array {
+        if (! Schema::hasTable($table)) {
+            return [];
+        }
+
+        $monthExpr = $this->monthKeySql($dateColumn);
+        try {
+            $query = DB::table($table)
+                ->whereBetween($dateColumn, [$from, $to]);
+
+            if ($table === 'cfa_submissions' && $fiscalYearId > 0) {
+                $query->where('fiscal_year_id', $fiscalYearId);
+            }
+
+            return $query
+                ->selectRaw($monthExpr.' as ym, COUNT(*) as total')
+                ->groupBy('ym')
+                ->pluck('total', 'ym')
+                ->map(fn ($v) => (int) $v)
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function monthlyOnboardingCountMap(Carbon $from, Carbon $to): array
+    {
+        if (! Schema::hasTable('onboarding_batch_cfa') || ! Schema::hasTable('onboarding_batches')) {
+            return [];
+        }
+
+        $monthExpr = $this->monthKeySql('ob.locked_at');
+
+        try {
+            return DB::table('onboarding_batch_cfa as obc')
+                ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                ->where('ob.status', 'locked')
+                ->whereNotNull('ob.locked_at')
+                ->whereBetween('ob.locked_at', [$from, $to])
+                ->selectRaw($monthExpr.' as ym, COUNT(*) as total')
+                ->groupBy('ym')
+                ->pluck('total', 'ym')
+                ->map(fn ($v) => (int) $v)
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function monthKeySql(string $columnExpression): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', {$columnExpression})",
+            'pgsql' => "to_char({$columnExpression}, 'YYYY-MM')",
+            default => "DATE_FORMAT({$columnExpression}, '%Y-%m')",
+        };
     }
 
     /**

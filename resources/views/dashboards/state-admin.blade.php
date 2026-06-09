@@ -489,6 +489,40 @@
             font-weight: 600;
         }
         .sad-chart-box { height: 168px; position: relative; }
+        .sad-chart-box--pulse { height: 180px; }
+        .sad-pulse-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin: 0.45rem 0 0.35rem;
+        }
+        .sad-pulse-tab {
+            border: 1px solid var(--sad-border);
+            background: #f8fafc;
+            border-radius: 999px;
+            padding: 0.3rem 0.62rem;
+            font-family: inherit;
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--sad-muted);
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .sad-pulse-tab:hover {
+            background: #f1f5f9;
+            color: var(--sad-text);
+        }
+        .sad-pulse-tab.is-active {
+            background: var(--sad-brand);
+            border-color: var(--sad-brand);
+            color: #fff;
+        }
+        .sad-pulse-hint {
+            margin: 0 0 0.35rem;
+            font-size: 0.68rem;
+            color: var(--sad-muted);
+            line-height: 1.35;
+        }
         .sad-chart-box--tall { height: min(420px, 55vh); }
         .sad-stage-row {
             display: grid;
@@ -1172,7 +1206,7 @@
                     <div class="sad-card">
                         <div class="sad-card__head">
                             <h2 class="sad-card__title"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> State pulse</h2>
-                            <span class="sad-card__tag">14-day intake</span>
+                            <span class="sad-card__tag">FY pace</span>
                         </div>
                         <div class="sad-ring-wrap">
                             <svg class="sad-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
@@ -1210,8 +1244,25 @@
                                 @endif
                             </div>
                         </div>
-                        <div class="sad-chart-box" style="margin-top:0.5rem;">
-                            <canvas id="stateTrendCurveChart" aria-label="CFA per day, all districts"></canvas>
+                        @php
+                            $paceChart = $stateFyPaceChart ?? [];
+                            $paceCfaTarget = $paceChart['cfa_target'] ?? null;
+                            $paceOnbTarget = $paceChart['onboarding_target'] ?? null;
+                        @endphp
+                        <div class="sad-pulse-tabs" role="tablist" aria-label="State pulse chart views">
+                            <button type="button" class="sad-pulse-tab is-active" data-sad-pulse-tab="pace" aria-selected="true">Pace %</button>
+                            <button type="button" class="sad-pulse-tab" data-sad-pulse-tab="cfa" aria-selected="false">CFA</button>
+                            <button type="button" class="sad-pulse-tab" data-sad-pulse-tab="onboarding" aria-selected="false">Onboarding</button>
+                            <button type="button" class="sad-pulse-tab" data-sad-pulse-tab="daily" aria-selected="false">Daily 14d</button>
+                        </div>
+                        <p class="sad-pulse-hint" data-sad-pulse-hint>
+                            Cumulative achievement vs prorated FY target — 100% line means on pace.
+                            @if ($paceCfaTarget)
+                                CFA target {{ number_format((int) $paceCfaTarget) }}@if ($paceOnbTarget) · Onboard target {{ number_format((int) $paceOnbTarget) }}@endif.
+                            @endif
+                        </p>
+                        <div class="sad-chart-box sad-chart-box--pulse" style="margin-top:0.15rem;">
+                            <canvas id="stateTrendCurveChart" aria-label="CFA and onboarding pace chart"></canvas>
                         </div>
                         <p class="sad-card__hint" style="margin-top:0.45rem;margin-bottom:0.35rem;">Stage mix (saved forms)</p>
                         <div class="sad-stage-row">

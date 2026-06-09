@@ -20,6 +20,8 @@ class StateAdminDashboardTest extends TestCase
             ->assertSee('Welcome')
             ->assertSee('sadGroundTicker', false)
             ->assertSee('sad-stat-chips', false)
+            ->assertSee('data-sad-pulse-tab="pace"', false)
+            ->assertSee('Daily 14d')
             ->assertSee('CFA', false)
             ->assertDontSee('Classic theme')
             ->assertDontSee('FY 2026-27');

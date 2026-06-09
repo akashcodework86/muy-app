@@ -263,6 +263,12 @@
     color: #263238;
 }
 
+.admin-app-body--state-theme-revamp .sad-pulse-tab.is-active {
+    background: #26a69a;
+    border-color: #26a69a;
+    color: #fff;
+}
+
 /* KPI — white cards + pastel icon blocks (reference style) */
 .admin-app-body--state-theme-revamp .sad-kpi {
     border-radius: 16px;
