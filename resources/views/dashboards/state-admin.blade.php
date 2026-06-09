@@ -56,6 +56,41 @@
             gap: 0.35rem;
             justify-content: flex-end;
             align-items: center;
+            flex: 1;
+            min-width: 0;
+        }
+        .sad-ground-ticker {
+            flex: 1 1 14rem;
+            min-width: 0;
+            max-width: 36rem;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.28rem 0.65rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            font-size: 0.72rem;
+            line-height: 1.35;
+            overflow: hidden;
+        }
+        .sad-ground-ticker__icon {
+            flex-shrink: 0;
+            opacity: 0.85;
+            font-size: 0.68rem;
+        }
+        .sad-ground-ticker__text {
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: opacity 0.35s ease;
+        }
+        .sad-ground-ticker__text.is-fading {
+            opacity: 0;
+        }
+        @media (max-width: 900px) {
+            .sad-ground-ticker { flex-basis: 100%; max-width: none; order: 3; }
         }
         @media (max-width: 720px) {
             .sad-unified-strip__left { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
@@ -867,15 +902,43 @@
                 </p>
             </div>
             <div class="sad-unified-strip__meta">
-                <a href="{{ \App\Support\StateAdminTheme::toggleUrl(request(), $dashboardTheme ?? 'revamp') }}" class="sad-theme-toggle" title="Switch dashboard colour theme">
-                    <i class="fa-solid fa-palette" aria-hidden="true"></i>
-                    {{ ($dashboardTheme ?? 'revamp') === 'legacy' ? 'New theme' : 'Classic theme' }}
-                </a>
-                <span class="sad-badge"><i class="fa-solid fa-calendar" aria-hidden="true"></i> {{ $fyLabel }}</span>
+                <div class="sad-ground-ticker" id="sadGroundTicker" aria-live="polite" aria-atomic="true">
+                    <i class="fa-solid fa-bullhorn sad-ground-ticker__icon" aria-hidden="true"></i>
+                    <span class="sad-ground-ticker__text" id="sadGroundTickerText"></span>
+                </div>
                 <span class="sad-badge sad-badge--live"><i class="fa-solid fa-signal" aria-hidden="true"></i> {{ number_format((int) ($heroStaffOnlineNow ?? 0)) }} online</span>
                 <span class="sad-badge"><i class="fa-solid fa-users" aria-hidden="true"></i> {{ number_format($staffActive) }}/{{ number_format($staffTotal) }} staff</span>
             </div>
         </header>
+
+        <script>
+        (function () {
+            var messages = @json($groundActivityTicker ?? []);
+            var el = document.getElementById('sadGroundTickerText');
+            if (!el || !messages.length) return;
+
+            for (var i = messages.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var tmp = messages[i];
+                messages[i] = messages[j];
+                messages[j] = tmp;
+            }
+
+            var idx = 0;
+            function showNext() {
+                el.classList.add('is-fading');
+                setTimeout(function () {
+                    el.textContent = messages[idx];
+                    el.classList.remove('is-fading');
+                    idx = (idx + 1) % messages.length;
+                }, 320);
+            }
+
+            el.textContent = messages[0];
+            idx = 1;
+            setInterval(showNext, 4500);
+        })();
+        </script>
 
         <div class="sad">
             <div class="sad-kpi-strip" role="group" aria-label="Key performance indicators">

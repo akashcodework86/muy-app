@@ -666,14 +666,6 @@
             </details>
             @endif
 
-            @if ($showAdminNav || $showHubNav || $showStaffNav)
-                @php($stateTheme = $stateAdminTheme ?? 'revamp')
-                <a href="{{ \App\Support\StateAdminTheme::toggleUrl(request(), $stateTheme) }}" class="admin-topbar__theme-toggle sad-theme-toggle" title="Switch colour theme">
-                    <i class="fa-solid fa-palette" aria-hidden="true"></i>
-                    {{ $stateTheme === 'legacy' ? 'New theme' : 'Classic' }}
-                </a>
-            @endif
-
             <details class="admin-topbar__details admin-topbar__details--profile">
                 <summary class="admin-topbar__profile-summary" aria-label="Account menu">
                     <div class="admin-topbar__profile" title="{{ $u->email }}">
@@ -706,6 +698,13 @@
                     @if ($showAdminNav)
                         <a href="{{ route('admin.audit.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'audit') is-active @endif" role="menuitem">
                             {!! $i('shield') !!}<span>Audit log</span>
+                        </a>
+                    @endif
+                    @if ($showAdminNav || $showHubNav || $showStaffNav)
+                        @php($stateTheme = $stateAdminTheme ?? $dashboardTheme ?? 'revamp')
+                        <a href="{{ \App\Support\StateAdminTheme::toggleUrl(request(), $stateTheme) }}" class="admin-topbar__dropdown-item" role="menuitem">
+                            <span class="admin-topbar__link-ico" aria-hidden="true"><i class="fa-solid fa-palette"></i></span>
+                            <span>{{ $stateTheme === 'legacy' ? 'Switch to new theme' : 'Switch to classic theme' }}</span>
                         </a>
                     @endif
                     <form method="post" action="{{ route('logout') }}" class="admin-topbar__dropdown-logout">

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CfaSubmission;
 use App\Models\Deliverable;
 use App\Models\District;
+use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\FiscalYear;
 use App\Models\MentorshipRequest;
 use App\Models\ServiceCase;
@@ -346,6 +347,24 @@ class StateAdminDashboardService
             $insights = $this->insightsService->emptyInsights();
         }
 
+        $groundActivityTicker = $this->groundActivityTickerMessages(
+            cfaTotal: $cfaTotal,
+            heroCfaToday: $heroCfaToday,
+            servicesDeliveredTillDate: $servicesDeliveredCounts['till_date'],
+            topServices: $estimatedSavings['top_services'] ?? [],
+            stateOnboardingAchieved: $stateOnboardingAchieved,
+            heroStaffOnlineNow: $heroStaffOnlineNow,
+            todayTopDistrict: $todayTopDistrict ? [
+                'name' => (string) $todayTopDistrict->name,
+                'count' => (int) $todayTopDistrict->total,
+            ] : null,
+            districtsCount: (int) District::query()->count(),
+            blocksCount: (int) ($insights['geo']['blocks'] ?? 0),
+            staffActive: $staffActive,
+            staffTotal: $staffTotal,
+            cfaLast30: $cfaLast30,
+        );
+
         return [
             'activeFy' => $activeFy,
             'cfaDeliverable' => $cfaDeliverable,
@@ -412,6 +431,7 @@ class StateAdminDashboardService
             'phase3FloorDateLabel' => $phase3FloorDateLabel,
             'estimatedSavings' => $estimatedSavings,
             'insights' => $insights,
+            'groundActivityTicker' => $groundActivityTicker,
         ];
     }
 
@@ -1181,5 +1201,197 @@ class StateAdminDashboardService
         }
 
         return $out;
+    }
+
+    /**
+     * Rotating headline lines for the state dashboard welcome strip.
+     *
+     * @param  list<array{name: string, avg_price: float, approved_count: int, savings: float}>  $topServices
+     * @param  array{name: string, count: int}|null  $todayTopDistrict
+     * @return list<string>
+     */
+    private function groundActivityTickerMessages(
+        int $cfaTotal,
+        int $heroCfaToday,
+        int $servicesDeliveredTillDate,
+        array $topServices,
+        int $stateOnboardingAchieved,
+        int $heroStaffOnlineNow,
+        ?array $todayTopDistrict,
+        int $districtsCount,
+        int $blocksCount,
+        int $staffActive,
+        int $staffTotal,
+        int $cfaLast30,
+    ): array {
+        $messages = [];
+        $fmt = fn (int $n): string => number_format($n);
+
+        if ($cfaTotal > 0) {
+            $messages[] = 'We have reached '.$fmt($cfaTotal).' CFA applications till date — the scheme is active on the ground.';
+        }
+
+        if ($heroCfaToday > 0) {
+            $messages[] = $fmt($heroCfaToday).' new CFA applications received today across Uttarakhand.';
+        }
+
+        if ($cfaLast30 > 0) {
+            $messages[] = $fmt($cfaLast30).' CFA applications in the last 30 days — steady outreach across districts.';
+        }
+
+        if ($servicesDeliveredTillDate > 0) {
+            $messages[] = $fmt($servicesDeliveredTillDate).' approved services delivered to incubatees till date.';
+        }
+
+        foreach (array_slice($topServices, 0, 4) as $service) {
+            $name = trim((string) ($service['name'] ?? ''));
+            $count = (int) ($service['approved_count'] ?? 0);
+            if ($name === '' || $count <= 0) {
+                continue;
+            }
+            $messages[] = $name.' — delivered to '.$fmt($count).' entrepreneurs through MUY support.';
+        }
+
+        if ($stateOnboardingAchieved > 0) {
+            $messages[] = $fmt($stateOnboardingAchieved).' incubatees onboarded through hub batches — building the pipeline block by block.';
+        }
+
+        $fieldToday = $this->todayFieldActivitySnapshot(now()->toDateString());
+        if ($fieldToday['blocks'] !== []) {
+            $messages[] = 'Today field teams are active in '.$this->formatTickerBlockList($fieldToday['blocks']).' — outreach continues at block level.';
+        }
+
+        if ($fieldToday['visit_count'] > 0) {
+            $messages[] = $fmt($fieldToday['visit_count']).' field visit and workshop reports submitted today from blocks across the state.';
+        }
+
+        if ($fieldToday['participants'] > 0) {
+            $messages[] = $fmt($fieldToday['participants']).' participants reached in today\'s field programmes.';
+        }
+
+        if ($heroStaffOnlineNow > 0) {
+            $messages[] = $fmt($heroStaffOnlineNow).' district staff active on the portal right now — teams are on the move.';
+        }
+
+        if ($staffTotal > 0) {
+            $messages[] = $fmt($staffActive).' of '.$fmt($staffTotal).' district staff active — statewide field network in place.';
+        }
+
+        if ($todayTopDistrict !== null && ($todayTopDistrict['count'] ?? 0) > 0) {
+            $messages[] = $todayTopDistrict['name'].' leads today\'s CFA count with '.$fmt((int) $todayTopDistrict['count']).' applications.';
+        }
+
+        if ($districtsCount > 0 && $blocksCount > 0) {
+            $messages[] = 'MUY Phase 3 covers '.$fmt($districtsCount).' districts and '.$fmt($blocksCount).' blocks — the scheme is working at ground level.';
+        }
+
+        if ($messages === []) {
+            $messages[] = 'MUY Phase 3 — building entrepreneurs across Uttarakhand, village by village.';
+        }
+
+        return array_values(array_unique($messages));
+    }
+
+    /**
+     * @return array{blocks: list<string>, visit_count: int, participants: int}
+     */
+    private function todayFieldActivitySnapshot(string $today): array
+    {
+        $blocks = collect();
+        $visitCount = 0;
+        $participants = 0;
+
+        if (Schema::hasTable('field_coordinator_attendance_reports')) {
+            $query = DB::table('field_coordinator_attendance_reports')
+                ->whereDate('visit_date', $today);
+
+            if (FieldCoordinatorAttendanceReport::supportsDraftWorkflow()) {
+                $query->where(function ($q): void {
+                    $q->where('status', FieldCoordinatorAttendanceReport::STATUS_SUBMITTED)
+                        ->orWhereNull('status');
+                });
+            }
+
+            $rows = $query->get([
+                'block',
+                'participants_total',
+                'participants_male_count',
+                'participants_female_count',
+            ]);
+
+            foreach ($rows as $row) {
+                $visitCount++;
+                $blockName = trim((string) ($row->block ?? ''));
+                if ($blockName !== '') {
+                    $blocks->push($blockName);
+                }
+                $participants += $this->resolveParticipantTotal($row);
+            }
+        }
+
+        if (Schema::hasTable('block_workshops')) {
+            $query = DB::table('block_workshops as bw')
+                ->leftJoin('district_blocks as db', 'db.id', '=', 'bw.district_block_id')
+                ->whereDate('bw.visit_date', $today);
+
+            if (Schema::hasColumn('block_workshops', 'status')) {
+                $query->where(function ($q): void {
+                    $q->where('bw.status', 'submitted')
+                        ->orWhereNull('bw.status');
+                });
+            }
+
+            $rows = $query->get([
+                'bw.block',
+                'db.name as district_block_name',
+                'bw.participants_total',
+                'bw.participants_male_count',
+                'bw.participants_female_count',
+            ]);
+
+            foreach ($rows as $row) {
+                $visitCount++;
+                $blockName = trim((string) ($row->district_block_name ?? $row->block ?? ''));
+                if ($blockName !== '') {
+                    $blocks->push($blockName);
+                }
+                $participants += $this->resolveParticipantTotal($row);
+            }
+        }
+
+        return [
+            'blocks' => $blocks->filter()->unique()->values()->all(),
+            'visit_count' => $visitCount,
+            'participants' => $participants,
+        ];
+    }
+
+    private function resolveParticipantTotal(object $row): int
+    {
+        $total = (int) ($row->participants_total ?? 0);
+        if ($total > 0) {
+            return $total;
+        }
+
+        return max(0, (int) ($row->participants_male_count ?? 0) + (int) ($row->participants_female_count ?? 0));
+    }
+
+    /**
+     * @param  list<string>  $blocks
+     */
+    private function formatTickerBlockList(array $blocks, int $maxShown = 4): string
+    {
+        $blocks = array_values(array_filter(array_map('trim', $blocks)));
+        if ($blocks === []) {
+            return 'multiple blocks';
+        }
+
+        if (count($blocks) <= $maxShown) {
+            return implode(', ', $blocks);
+        }
+
+        $shown = array_slice($blocks, 0, $maxShown);
+
+        return implode(', ', $shown).' and '.(count($blocks) - $maxShown).' more blocks';
     }
 }

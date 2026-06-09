@@ -17,7 +17,20 @@ class StateAdminDashboardTest extends TestCase
         $this->actingAs($admin)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Welcome');
+            ->assertSee('Welcome')
+            ->assertSee('sadGroundTicker', false)
+            ->assertDontSee('Classic theme')
+            ->assertDontSee('FY 2026-27');
+    }
+
+    public function test_state_admin_theme_toggle_is_in_profile_menu(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Switch to classic theme');
     }
 
     public function test_state_admin_cfa_index_uses_revamp_theme(): void
