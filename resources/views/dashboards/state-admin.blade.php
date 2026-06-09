@@ -533,15 +533,103 @@
             font-weight: 700;
             margin-bottom: 0.35rem;
         }
+        .sad-stage-mix {
+            margin-top: 0.45rem;
+            padding-top: 0.45rem;
+            border-top: 1px solid var(--sad-border);
+        }
+        .sad-stage-mix__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.45rem;
+            flex-wrap: wrap;
+        }
+        .sad-stage-mix__title {
+            margin: 0;
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--sad-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .sad-stage-mix__badge {
+            font-size: 0.62rem;
+            font-weight: 700;
+            padding: 0.18rem 0.5rem;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .sad-stage-mix__badge--ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+        .sad-stage-mix__badge--warn { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+        .sad-stage-mix__row { margin-bottom: 0.42rem; }
+        .sad-stage-mix__row:last-child { margin-bottom: 0; }
+        .sad-stage-mix__label-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.35rem;
+            margin-bottom: 0.18rem;
+            font-size: 0.68rem;
+            font-weight: 700;
+        }
+        .sad-stage-mix__nums {
+            font-size: 0.62rem;
+            font-weight: 600;
+            color: var(--sad-muted);
+        }
         .sad-stage-track {
-            height: 6px;
+            position: relative;
+            height: 8px;
             border-radius: 999px;
             background: #e2e8f0;
-            overflow: hidden;
+            overflow: visible;
         }
-        .sad-stage-fill--seed { background: #d97706; height: 100%; border-radius: 999px; }
-        .sad-stage-fill--early { background: #eb8c00; height: 100%; border-radius: 999px; }
-        .sad-stage-fill--growth { background: var(--sad-brand); height: 100%; border-radius: 999px; }
+        .sad-stage-track__fill {
+            height: 100%;
+            border-radius: 999px;
+            max-width: 100%;
+        }
+        .sad-stage-track__target {
+            position: absolute;
+            top: -3px;
+            bottom: -3px;
+            width: 2px;
+            border-radius: 1px;
+            background: #334155;
+            opacity: 0.9;
+            z-index: 2;
+            transform: translateX(-50%);
+        }
+        .sad-stage-mix__legend {
+            margin: 0 0 0.4rem;
+            font-size: 0.6rem;
+            color: var(--sad-muted);
+        }
+        .sad-stage-mix__legend-tick {
+            display: inline-block;
+            width: 2px;
+            height: 0.65rem;
+            background: #334155;
+            vertical-align: middle;
+            margin: 0 0.2rem;
+        }
+        .sad-stage-mix__foot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.14rem;
+            font-size: 0.6rem;
+            color: var(--sad-muted);
+        }
+        .sad-stage-mix__delta { font-weight: 700; }
+        .sad-stage-mix__delta.is-ok { color: #047857; }
+        .sad-stage-mix__delta.is-high { color: #b45309; }
+        .sad-stage-mix__delta.is-low { color: #dc2626; }
+        .sad-stage-fill--seed { background: #d97706; }
+        .sad-stage-fill--early { background: #eb8c00; }
+        .sad-stage-fill--growth { background: var(--sad-brand); }
         .sad-biz-row {
             display: grid;
             grid-template-columns: auto 1fr auto;
@@ -878,6 +966,30 @@
                 'EARLY' => $sStageSum > 0 ? (int) round(($sStageTotals['EARLY'] / $sStageSum) * 100) : 0,
                 'GROWTH' => $sStageSum > 0 ? (int) round(($sStageTotals['GROWTH'] / $sStageSum) * 100) : 0,
             ];
+            $stagePolicyTargets = ['EARLY' => 60, 'SEED' => 30, 'GROWTH' => 10];
+            $stagePolicyOrder = ['EARLY', 'SEED', 'GROWTH'];
+            $stagePolicyRows = [];
+            $stagePolicyDeviationTotal = 0;
+            $stagePolicyWithinTolerance = $sStageSum > 0;
+            foreach ($stagePolicyOrder as $stageKey) {
+                $actual = (int) ($sStagePct[$stageKey] ?? 0);
+                $target = (int) ($stagePolicyTargets[$stageKey] ?? 0);
+                $delta = $actual - $target;
+                $absDelta = abs($delta);
+                $stagePolicyDeviationTotal += $absDelta;
+                if ($absDelta > 5) {
+                    $stagePolicyWithinTolerance = false;
+                }
+                $stagePolicyRows[] = [
+                    'key' => $stageKey,
+                    'label' => ucfirst(strtolower($stageKey)),
+                    'actual' => $actual,
+                    'target' => $target,
+                    'delta' => $delta,
+                    'count' => (int) ($sStageTotals[$stageKey] ?? 0),
+                    'status' => $absDelta <= 5 ? 'ok' : ($delta > 0 ? 'high' : 'low'),
+                ];
+            }
 
             $onbTarget = (int) ($stateOnboardingTarget ?? 0);
             $onbAchieved = (int) ($stateOnboardingAchieved ?? 0);
@@ -1264,21 +1376,48 @@
                         <div class="sad-chart-box sad-chart-box--pulse" style="margin-top:0.15rem;">
                             <canvas id="stateTrendCurveChart" aria-label="CFA and onboarding pace chart"></canvas>
                         </div>
-                        <p class="sad-card__hint" style="margin-top:0.45rem;margin-bottom:0.35rem;">Stage mix (saved forms)</p>
-                        <div class="sad-stage-row">
-                            <span>Seed</span>
-                            <div class="sad-stage-track"><div class="sad-stage-fill--seed" style="width: {{ $sStagePct['SEED'] }}%;"></div></div>
-                            <span>{{ $sStagePct['SEED'] }}%</span>
-                        </div>
-                        <div class="sad-stage-row">
-                            <span>Early</span>
-                            <div class="sad-stage-track"><div class="sad-stage-fill--early" style="width: {{ $sStagePct['EARLY'] }}%;"></div></div>
-                            <span>{{ $sStagePct['EARLY'] }}%</span>
-                        </div>
-                        <div class="sad-stage-row">
-                            <span>Growth</span>
-                            <div class="sad-stage-track"><div class="sad-stage-fill--growth" style="width: {{ $sStagePct['GROWTH'] }}%;"></div></div>
-                            <span>{{ $sStagePct['GROWTH'] }}%</span>
+                        <div class="sad-stage-mix">
+                            <div class="sad-stage-mix__head">
+                                <p class="sad-stage-mix__title">Stage mix vs policy (Early 60 · Seed 30 · Growth 10)</p>
+                                @if ($sStageSum > 0)
+                                    <span class="sad-stage-mix__badge {{ $stagePolicyWithinTolerance ? 'sad-stage-mix__badge--ok' : 'sad-stage-mix__badge--warn' }}">
+                                        @if ($stagePolicyWithinTolerance)
+                                            <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Within policy mix
+                                        @else
+                                            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Mix drift · {{ $stagePolicyDeviationTotal }}pp off
+                                        @endif
+                                    </span>
+                                @endif
+                            </div>
+                            @if ($sStageSum <= 0)
+                                <div class="sad-empty" style="padding:0.5rem 0;">No stage data yet</div>
+                            @else
+                                <p class="sad-stage-mix__legend"><span class="sad-stage-mix__legend-tick" aria-hidden="true"></span> Dark tick = policy target · Coloured bar = actual share</p>
+                                @foreach ($stagePolicyRows as $stageRow)
+                                    <div class="sad-stage-mix__row">
+                                        <div class="sad-stage-mix__label-row">
+                                            <span>{{ $stageRow['label'] }}</span>
+                                            <span class="sad-stage-mix__nums">{{ $stageRow['actual'] }}% actual · {{ $stageRow['target'] }}% target</span>
+                                        </div>
+                                        <div class="sad-stage-track" title="{{ $stageRow['label'] }}: {{ $stageRow['actual'] }}% actual vs {{ $stageRow['target'] }}% policy target">
+                                            <div class="sad-stage-track__fill sad-stage-fill--{{ strtolower($stageRow['key']) }}" style="width: {{ min(100, max(0, $stageRow['actual'])) }}%;"></div>
+                                            <span class="sad-stage-track__target" style="left: {{ $stageRow['target'] }}%;" aria-hidden="true"></span>
+                                        </div>
+                                        <div class="sad-stage-mix__foot">
+                                            <span>{{ number_format($stageRow['count']) }} forms</span>
+                                            <span class="sad-stage-mix__delta is-{{ $stageRow['status'] }}">
+                                                @if ($stageRow['status'] === 'ok')
+                                                    On target (±5pp)
+                                                @elseif ($stageRow['delta'] > 0)
+                                                    +{{ $stageRow['delta'] }}pp above target
+                                                @else
+                                                    {{ $stageRow['delta'] }}pp below target
+                                                @endif
+                                            </span>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            @endif
                         </div>
                     </div>
                 </div>
