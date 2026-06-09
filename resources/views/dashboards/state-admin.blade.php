@@ -19,19 +19,21 @@
         }
         .sad-unified-strip {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.55rem 1rem;
+            justify-content: flex-start;
+            gap: 0.65rem 1rem;
             margin: 0 calc(-1 * clamp(0.75rem, 2vw, 1.35rem)) 0.65rem;
             padding: 0.55rem clamp(0.75rem, 2vw, 1.35rem);
         }
         .sad-unified-strip__left {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: baseline;
             gap: 0.35rem 0.65rem;
+            flex: 0 0 auto;
             min-width: 0;
+            white-space: nowrap;
         }
         .sad-unified-strip__title {
             margin: 0;
@@ -40,12 +42,14 @@
             letter-spacing: -0.02em;
             line-height: 1.2;
             white-space: nowrap;
+            flex-shrink: 0;
         }
         .sad-unified-strip__sub {
             margin: 0;
             font-size: 0.72rem;
             line-height: 1.35;
             opacity: 0.88;
+            white-space: nowrap;
         }
         .sad-unified-strip__sub strong {
             font-weight: 700;
@@ -58,9 +62,9 @@
         }
         .sad-ground-ticker {
             width: 100%;
+            min-width: 0;
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 0.55rem;
             padding: 0.42rem 0.9rem;
             border-radius: 10px;
@@ -69,6 +73,7 @@
             font-size: 0.95rem;
             font-weight: 500;
             line-height: 1.45;
+            overflow: hidden;
         }
         .sad-ground-ticker__icon {
             flex-shrink: 0;
@@ -78,19 +83,13 @@
         .sad-ground-ticker__text {
             flex: 1;
             min-width: 0;
-            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             transition: opacity 0.35s ease;
         }
         .sad-ground-ticker__text.is-fading {
             opacity: 0;
-        }
-        @media (max-width: 900px) {
-            .sad-unified-strip { flex-direction: column; align-items: stretch; }
-            .sad-unified-strip__meta { width: 100%; }
-        }
-        @media (max-width: 720px) {
-            .sad-unified-strip__left { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
-            .sad-unified-strip__title { white-space: normal; }
         }
         @include('dashboards.state-admin._theme-styles')
         .sad {
