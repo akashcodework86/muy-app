@@ -62,22 +62,23 @@
         .sad-ground-ticker {
             flex: 1 1 14rem;
             min-width: 0;
-            max-width: 36rem;
+            max-width: 42rem;
             display: flex;
             align-items: center;
-            gap: 0.45rem;
-            padding: 0.28rem 0.65rem;
+            gap: 0.5rem;
+            padding: 0.38rem 0.75rem;
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.12);
             border: 1px solid rgba(255, 255, 255, 0.18);
-            font-size: 0.72rem;
-            line-height: 1.35;
+            font-size: 0.88rem;
+            font-weight: 500;
+            line-height: 1.4;
             overflow: hidden;
         }
         .sad-ground-ticker__icon {
             flex-shrink: 0;
             opacity: 0.85;
-            font-size: 0.68rem;
+            font-size: 0.82rem;
         }
         .sad-ground-ticker__text {
             min-width: 0;
@@ -936,7 +937,7 @@
 
             el.textContent = messages[0];
             idx = 1;
-            setInterval(showNext, 4500);
+            setInterval(showNext, 7000);
         })();
         </script>
 
