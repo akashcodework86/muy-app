@@ -890,11 +890,6 @@
         <header class="sad-unified-strip" aria-label="Dashboard context">
             <div class="sad-unified-strip__left">
                 <h1 class="sad-unified-strip__title">Welcome, {{ auth()->user()->name }}</h1>
-                <p class="sad-unified-strip__sub">
-                    Phase 3 · <strong>{{ number_format($districtsCount) }}</strong> districts
-                    · <strong>{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</strong> blocks
-                    · from {{ $phaseLabel }}
-                </p>
             </div>
             <div class="sad-unified-strip__meta">
                 <div class="sad-ground-ticker" id="sadGroundTicker" aria-live="polite" aria-atomic="true">
