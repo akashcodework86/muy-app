@@ -52,46 +52,41 @@
         }
         .sad-unified-strip__meta {
             display: flex;
-            flex-wrap: wrap;
-            gap: 0.35rem;
-            justify-content: flex-end;
-            align-items: center;
-            flex: 1;
+            flex: 1 1 auto;
             min-width: 0;
+            align-items: center;
         }
         .sad-ground-ticker {
-            flex: 1 1 14rem;
-            min-width: 0;
-            max-width: 42rem;
+            width: 100%;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.38rem 0.75rem;
-            border-radius: 999px;
+            justify-content: center;
+            gap: 0.55rem;
+            padding: 0.42rem 0.9rem;
+            border-radius: 10px;
             background: rgba(255, 255, 255, 0.12);
             border: 1px solid rgba(255, 255, 255, 0.18);
-            font-size: 0.88rem;
+            font-size: 0.95rem;
             font-weight: 500;
-            line-height: 1.4;
-            overflow: hidden;
+            line-height: 1.45;
         }
         .sad-ground-ticker__icon {
             flex-shrink: 0;
-            opacity: 0.85;
-            font-size: 0.82rem;
+            opacity: 0.9;
+            font-size: 0.88rem;
         }
         .sad-ground-ticker__text {
+            flex: 1;
             min-width: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            text-align: center;
             transition: opacity 0.35s ease;
         }
         .sad-ground-ticker__text.is-fading {
             opacity: 0;
         }
         @media (max-width: 900px) {
-            .sad-ground-ticker { flex-basis: 100%; max-width: none; order: 3; }
+            .sad-unified-strip { flex-direction: column; align-items: stretch; }
+            .sad-unified-strip__meta { width: 100%; }
         }
         @media (max-width: 720px) {
             .sad-unified-strip__left { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
@@ -907,8 +902,6 @@
                     <i class="fa-solid fa-bullhorn sad-ground-ticker__icon" aria-hidden="true"></i>
                     <span class="sad-ground-ticker__text" id="sadGroundTickerText"></span>
                 </div>
-                <span class="sad-badge sad-badge--live"><i class="fa-solid fa-signal" aria-hidden="true"></i> {{ number_format((int) ($heroStaffOnlineNow ?? 0)) }} online</span>
-                <span class="sad-badge"><i class="fa-solid fa-users" aria-hidden="true"></i> {{ number_format($staffActive) }}/{{ number_format($staffTotal) }} staff</span>
             </div>
         </header>
 

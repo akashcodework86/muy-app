@@ -1228,19 +1228,19 @@ class StateAdminDashboardService
         $fmt = fn (int $n): string => number_format($n);
 
         if ($cfaTotal > 0) {
-            $messages[] = 'We have reached '.$fmt($cfaTotal).' CFA applications till date — the scheme is active on the ground.';
+            $messages[] = 'We have reached '.$fmt($cfaTotal).' CFA applications till date across Uttarakhand — Mukhyamantri Udyamshala Yojana is actively supporting entrepreneurs at block and gram panchayat level.';
         }
 
         if ($heroCfaToday > 0) {
-            $messages[] = $fmt($heroCfaToday).' new CFA applications received today across Uttarakhand.';
+            $messages[] = $fmt($heroCfaToday).' new CFA applications received today statewide — field teams and district staff are driving registrations on the ground every day.';
         }
 
         if ($cfaLast30 > 0) {
-            $messages[] = $fmt($cfaLast30).' CFA applications in the last 30 days — steady outreach across districts.';
+            $messages[] = $fmt($cfaLast30).' CFA applications recorded in the last 30 days — consistent outreach and awareness activities are running across all districts under Phase 3.';
         }
 
         if ($servicesDeliveredTillDate > 0) {
-            $messages[] = $fmt($servicesDeliveredTillDate).' approved services delivered to incubatees till date.';
+            $messages[] = $fmt($servicesDeliveredTillDate).' approved business support services delivered to incubatees till date — registration, marketing, mentorship and more reaching beneficiaries at village level.';
         }
 
         foreach (array_slice($topServices, 0, 4) as $service) {
@@ -1249,44 +1249,42 @@ class StateAdminDashboardService
             if ($name === '' || $count <= 0) {
                 continue;
             }
-            $messages[] = $name.' — delivered to '.$fmt($count).' entrepreneurs through MUY support.';
+            $messages[] = $name.' support delivered to '.$fmt($count).' entrepreneurs through MUY — scheme services are reaching incubatees where they live and work.';
         }
 
         if ($stateOnboardingAchieved > 0) {
-            $messages[] = $fmt($stateOnboardingAchieved).' incubatees onboarded through hub batches — building the pipeline block by block.';
+            $messages[] = $fmt($stateOnboardingAchieved).' incubatees onboarded through hub batches till date — building a strong pipeline from CFA to handholding, block by block across the state.';
         }
 
         $fieldToday = $this->todayFieldActivitySnapshot(now()->toDateString());
         if ($fieldToday['blocks'] !== []) {
-            $messages[] = 'Today field teams are active in '.$this->formatTickerBlockList($fieldToday['blocks']).' — outreach continues at block level.';
+            $messages[] = 'Today field teams are active in '.$this->formatTickerBlockList($fieldToday['blocks'], 6).' — workshops, visits and outreach continue at ground level under Phase 3.';
         }
 
         if ($fieldToday['visit_count'] > 0) {
-            $messages[] = $fmt($fieldToday['visit_count']).' field visit and workshop reports submitted today from blocks across the state.';
+            $messages[] = $fmt($fieldToday['visit_count']).' field visit and workshop reports submitted today from blocks across Uttarakhand — daily evidence that the scheme is working on the ground.';
         }
 
         if ($fieldToday['participants'] > 0) {
-            $messages[] = $fmt($fieldToday['participants']).' participants reached in today\'s field programmes.';
+            $messages[] = $fmt($fieldToday['participants']).' participants reached in today\'s field programmes — entrepreneurs and community members engaged through block-level activities today.';
         }
 
         if ($heroStaffOnlineNow > 0) {
-            $messages[] = $fmt($heroStaffOnlineNow).' district staff active on the portal right now — teams are on the move.';
-        }
-
-        if ($staffTotal > 0) {
-            $messages[] = $fmt($staffActive).' of '.$fmt($staffTotal).' district staff active — statewide field network in place.';
+            $messages[] = $fmt($heroStaffOnlineNow).' district staff active on the portal right now, with '.$fmt($staffActive).' of '.$fmt($staffTotal).' field staff deployed statewide — teams are on the move.';
+        } elseif ($staffTotal > 0) {
+            $messages[] = $fmt($staffActive).' of '.$fmt($staffTotal).' district staff active across Uttarakhand — a statewide field network delivering MUY at block and village level.';
         }
 
         if ($todayTopDistrict !== null && ($todayTopDistrict['count'] ?? 0) > 0) {
-            $messages[] = $todayTopDistrict['name'].' leads today\'s CFA count with '.$fmt((int) $todayTopDistrict['count']).' applications.';
+            $messages[] = $todayTopDistrict['name'].' district leads today\'s CFA registrations with '.$fmt((int) $todayTopDistrict['count']).' applications — strong momentum on the ground in this district today.';
         }
 
         if ($districtsCount > 0 && $blocksCount > 0) {
-            $messages[] = 'MUY Phase 3 covers '.$fmt($districtsCount).' districts and '.$fmt($blocksCount).' blocks — the scheme is working at ground level.';
+            $messages[] = 'MUY Phase 3 covers '.$fmt($districtsCount).' districts and '.$fmt($blocksCount).' blocks in Uttarakhand — the scheme is delivering entrepreneurship support at scale, village by village.';
         }
 
         if ($messages === []) {
-            $messages[] = 'MUY Phase 3 — building entrepreneurs across Uttarakhand, village by village.';
+            $messages[] = 'Mukhyamantri Udyamshala Yojana Phase 3 — building entrepreneurs across Uttarakhand through CFA, services, and field outreach at block and gram panchayat level.';
         }
 
         return array_values(array_unique($messages));
