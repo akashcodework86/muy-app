@@ -170,49 +170,101 @@
             50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
         }
         .sad-stat-chips {
-            display: flex;
-            flex-wrap: nowrap;
-            align-items: center;
-            gap: 0.4rem;
+            display: grid;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+            gap: 0.28rem;
+            width: 100%;
             margin-bottom: 0.6rem;
-            overflow-x: auto;
-            padding-bottom: 0.1rem;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
+        }
+        @media (max-width: 900px) {
+            .sad-stat-chips {
+                display: flex;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                gap: 0.28rem;
+                padding-bottom: 0.15rem;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+            }
+            .sad-stat-chip {
+                flex: 0 0 calc(25% - 0.3rem);
+                min-width: 6.5rem;
+            }
         }
         .sad-stat-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.38rem;
-            padding: 0.4rem 0.72rem;
-            border-radius: 999px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 0.2rem;
+            padding: 0.5rem 0.55rem;
+            min-width: 0;
+            border-radius: 10px;
             background: var(--sad-surface);
             border: 1px solid var(--sad-border);
-            white-space: nowrap;
-            flex-shrink: 0;
-            font-size: 0.8rem;
-            line-height: 1.2;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.16s ease, box-shadow 0.16s ease;
+        }
+        .sad-stat-chip::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--sad-border);
+        }
+        .sad-stat-chip:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.09), 0 2px 4px rgba(15, 23, 42, 0.05);
         }
         .sad-stat-chip__ico {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.72rem;
-            opacity: 0.9;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 7px;
+            font-size: 0.68rem;
+            margin-top: 0.15rem;
         }
         .sad-stat-chip__label {
-            font-size: 0.65rem;
+            font-size: 0.58rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.06em;
             color: var(--sad-muted);
+            line-height: 1.15;
         }
         .sad-stat-chip__val {
+            font-size: clamp(0.78rem, 0.95vw, 0.92rem);
             font-weight: 800;
             letter-spacing: -0.02em;
             color: var(--sad-text);
+            line-height: 1.1;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
+        .sad-stat-chip--cfa::before { background: linear-gradient(90deg, #26a69a, #4db6ac); }
+        .sad-stat-chip--cfa .sad-stat-chip__ico { background: #e0f2f1; color: #00897b; }
+        .sad-stat-chip--target::before { background: linear-gradient(90deg, #ff8a65, #ffab91); }
+        .sad-stat-chip--target .sad-stat-chip__ico { background: #fff3e0; color: #ef6c00; }
+        .sad-stat-chip--today::before { background: linear-gradient(90deg, #ffb300, #ffca28); }
+        .sad-stat-chip--today .sad-stat-chip__ico { background: #fff8e1; color: #f9a825; }
+        .sad-stat-chip--onboard::before { background: linear-gradient(90deg, #f06292, #f48fb1); }
+        .sad-stat-chip--onboard .sad-stat-chip__ico { background: #fce4ec; color: #d81b60; }
+        .sad-stat-chip--services::before { background: linear-gradient(90deg, #42a5f5, #90caf9); }
+        .sad-stat-chip--services .sad-stat-chip__ico { background: #e3f2fd; color: #1e88e5; }
+        .sad-stat-chip--districts::before { background: linear-gradient(90deg, #78909c, #b0bec5); }
+        .sad-stat-chip--districts .sad-stat-chip__ico { background: #eceff1; color: #546e7a; }
+        .sad-stat-chip--blocks::before { background: linear-gradient(90deg, #66bb6a, #a5d6a7); }
+        .sad-stat-chip--blocks .sad-stat-chip__ico { background: #e8f5e9; color: #43a047; }
+        .sad-stat-chip--savings::before { background: linear-gradient(90deg, #ab47bc, #ce93d8); }
+        .sad-stat-chip--savings .sad-stat-chip__ico { background: #f3e5f5; color: #8e24aa; }
         .sad-stat-chip.is-up .sad-stat-chip__val { color: var(--sad-green-deep); }
         .sad-stat-chip.is-down .sad-stat-chip__val { color: #b45309; }
         .sad-alerts {
@@ -367,7 +419,7 @@
         .sad-progress-foot {
             font-size: 0.68rem;
             color: var(--sad-muted);
-            margin-top: 0.28rem;
+            margin-top: 0.35rem;
             line-height: 1.35;
         }
         .sad-signals {
@@ -445,7 +497,7 @@
             align-items: center;
             font-size: 0.68rem;
             font-weight: 700;
-            margin-bottom: 0.28rem;
+            margin-bottom: 0.35rem;
         }
         .sad-stage-track {
             height: 6px;
@@ -914,7 +966,7 @@
             <div class="sad-stat-chips" role="group" aria-label="Key performance indicators">
                 <div class="sad-stat-chip sad-stat-chip--cfa" title="Phase 3 CFA submissions — {{ number_format((int) ($cfaLast30 ?? 0)) }} in last 30 days">
                     <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-file-circle-plus"></i></span>
-                    <span class="sad-stat-chip__label">CFA</span>
+                    <span class="sad-stat-chip__label">CFA total</span>
                     <span class="sad-stat-chip__val">{{ number_format($cfaTotalN) }}</span>
                 </div>
                 <div class="sad-stat-chip sad-stat-chip--target" title="@if ($cfaTargetN !== null){{ number_format($cfaTotalN) }} / {{ number_format($cfaTargetN) }} toward state target@else No state CFA target set @endif">
@@ -924,12 +976,12 @@
                 </div>
                 <div class="sad-stat-chip sad-stat-chip--today @if ($todayDelta > 0) is-up @elseif ($todayDelta < 0) is-down @endif" title="@if ($todayDelta > 0)+{{ number_format($todayDelta) }} vs yesterday ({{ number_format($cfaYesterdayCount) }})@elseif ($todayDelta < 0){{ number_format(abs($todayDelta)) }} fewer vs yesterday ({{ number_format($cfaYesterdayCount) }})@else Same as yesterday ({{ number_format($cfaYesterdayCount) }})@endif">
                     <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-sun"></i></span>
-                    <span class="sad-stat-chip__label">Today</span>
+                    <span class="sad-stat-chip__label">CFA today</span>
                     <span class="sad-stat-chip__val">{{ number_format($cfaTodayCount) }}</span>
                 </div>
                 <div class="sad-stat-chip sad-stat-chip--onboard" title="@if ($onbTarget > 0){{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }} locked hub members@else Locked hub members (Phase 3)@endif">
                     <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-user-check"></i></span>
-                    <span class="sad-stat-chip__label">Onboard</span>
+                    <span class="sad-stat-chip__label">Onboarding</span>
                     <span class="sad-stat-chip__val">@if ($onbTarget > 0){{ $onbPct }}%@else{{ number_format($onbAchieved) }}@endif</span>
                 </div>
                 <div class="sad-stat-chip sad-stat-chip--services" title="Approved services till date — {{ number_format((int) ($servicesDeliveredThisFy ?? 0)) }} this FY">
@@ -949,7 +1001,7 @@
                 </div>
                 <div class="sad-stat-chip sad-stat-chip--savings" title="Estimated savings from approved services this FY">
                     <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-piggy-bank"></i></span>
-                    <span class="sad-stat-chip__label">Savings</span>
+                    <span class="sad-stat-chip__label">Savings FY</span>
                     <span class="sad-stat-chip__val">Rs {{ number_format($savingsTotalThisFy, 0) }}</span>
                 </div>
             </div>
