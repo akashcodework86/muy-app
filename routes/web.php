@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Admin\TrainingPackageMonthPlanController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
+use App\Http\Controllers\CommunityOrganizationOutreachController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DistrictWorkshopSessionAttendanceController;
 use App\Http\Controllers\EapEdpSessionAttendanceController;
@@ -797,6 +798,15 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
             ->name('market-linkages.document');
 
+        Route::get('community-org-outreach/dashboard', [CommunityOrganizationOutreachController::class, 'dashboard'])->name('community-org-outreach.dashboard');
+        Route::get('community-org-outreach/export', [CommunityOrganizationOutreachController::class, 'export'])->name('community-org-outreach.export');
+        Route::get('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'show'])->name('community-org-outreach.show');
+        Route::get('community-org-outreach/{communityOrgOutreach}/document', [CommunityOrganizationOutreachController::class, 'downloadDocument'])->name('community-org-outreach.document');
+        Route::get('community-org-outreach/{communityOrgOutreach}/photo', [CommunityOrganizationOutreachController::class, 'downloadPhoto'])->name('community-org-outreach.photo');
+        Route::delete('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.destroy');
+
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
         Route::get('batches/legacy/{legacy_batch}', [BatchReadOnlyController::class, 'showLegacy'])
@@ -835,6 +845,18 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('staff-performance', [HubStaffPerformanceController::class, 'index'])->name('staff-performance.index');
         Route::get('pending-actions', [HubPendingActionsController::class, 'index'])->name('pending-actions.index');
         Route::get('onboarding-insight', [HubOnboardingInsightController::class, 'index'])->name('onboarding-insight.index');
+        Route::get('community-org-outreach/create', [CommunityOrganizationOutreachController::class, 'create'])->name('community-org-outreach.create');
+        Route::post('community-org-outreach', [CommunityOrganizationOutreachController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.store');
+        Route::get('community-org-outreach/dashboard', [CommunityOrganizationOutreachController::class, 'dashboard'])->name('community-org-outreach.dashboard');
+        Route::get('community-org-outreach/export', [CommunityOrganizationOutreachController::class, 'export'])->name('community-org-outreach.export');
+        Route::get('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'show'])->name('community-org-outreach.show');
+        Route::get('community-org-outreach/{communityOrgOutreach}/document', [CommunityOrganizationOutreachController::class, 'downloadDocument'])->name('community-org-outreach.document');
+        Route::get('community-org-outreach/{communityOrgOutreach}/photo', [CommunityOrganizationOutreachController::class, 'downloadPhoto'])->name('community-org-outreach.photo');
+        Route::delete('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.destroy');
         Route::post('batches/api', [HubBatchController::class, 'api'])->name('batches.api');
         Route::post('batches/upload-cdo', [HubBatchController::class, 'uploadCdo'])->name('batches.upload-cdo');
         Route::get('cfa-applications/{cfa_submission}', [HubBatchController::class, 'showCfaSubmission'])->name('batches.cfa.show');

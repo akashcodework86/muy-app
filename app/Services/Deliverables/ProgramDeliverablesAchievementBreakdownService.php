@@ -83,6 +83,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'technical_training_potential_lakhpati_participations' => $this->technicalTrainingPotentialLakhpatiParticipationsBreakdown(),
             'market_linkage_unique_partners' => $this->marketLinkagePartnersBreakdown(),
             'market_linkage_incubatees' => $this->marketLinkageIncubateesBreakdown(),
+            'community_org_outreach_count' => $this->communityOrgOutreachBreakdown(),
             default => ['total' => 0, 'by_district' => [], 'by_hub' => [], 'by_month' => [], 'by_service' => [], 'records' => []],
         };
 
@@ -163,6 +164,61 @@ class ProgramDeliverablesAchievementBreakdownService
                 'spoc' => '—',
                 'status' => 'Logged',
                 'date' => $row->posted_on ? Carbon::parse($row->posted_on)->format('d M Y') : '—',
+            ])
+            ->all();
+
+        return $this->aggregateGroupedRows($rows, includeService: false, records: $records);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function communityOrgOutreachBreakdown(): array
+    {
+        if (! Schema::hasTable('community_organization_outreach_visits')) {
+            return $this->emptyBreakdown();
+        }
+
+        $query = DB::table('community_organization_outreach_visits as v')
+            ->join('districts as d', 'd.id', '=', 'v.district_id')
+            ->leftJoin('hubs as h', 'h.id', '=', 'v.hub_id');
+        $this->applyDistrictScope($query, 'v.district_id');
+        $this->applyPeriodFilter($query, 'v.visit_date');
+        $monthExpr = $this->monthKeySql('v.visit_date');
+
+        $rows = (clone $query)
+            ->selectRaw("
+                d.id as district_id,
+                d.name as district_name,
+                h.name as hub_name,
+                {$monthExpr} as month_key,
+                COUNT(*) as total
+            ")
+            ->groupBy('d.id', 'd.name', 'h.name', DB::raw($monthExpr))
+            ->get();
+
+        $records = (clone $query)
+            ->select([
+                'v.id',
+                'v.visit_date',
+                'v.organization_name',
+                'v.district_name',
+                'v.hub_name',
+                'v.submitted_by_name',
+            ])
+            ->orderByDesc('v.visit_date')
+            ->limit(100)
+            ->get()
+            ->map(fn ($row) => [
+                'id' => (int) $row->id,
+                'reference' => 'Visit #'.$row->id,
+                'applicant' => (string) ($row->organization_name ?: '—'),
+                'district' => (string) ($row->district_name ?: '—'),
+                'hub' => (string) ($row->hub_name ?: '—'),
+                'service' => 'Community outreach',
+                'spoc' => (string) ($row->submitted_by_name ?: '—'),
+                'status' => 'Logged',
+                'date' => $row->visit_date ? Carbon::parse($row->visit_date)->format('d M Y') : '—',
             ])
             ->all();
 
@@ -1652,6 +1708,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'technical_training_potential_lakhpati_participations' => 'Potential Lakhpati technical-training participations',
             'market_linkage_unique_partners' => 'Market linkage partners',
             'market_linkage_incubatees' => 'Market linkage incubatees',
+            'community_org_outreach_count' => 'Community organization outreach visits',
             default => 'Achievement records',
         };
     }

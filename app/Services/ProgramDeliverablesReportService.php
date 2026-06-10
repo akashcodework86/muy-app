@@ -660,6 +660,7 @@ class ProgramDeliverablesReportService
             'technical_training_potential_lakhpati_participations' => $this->technicalTrainingPotentialLakhpatiParticipationsCount(),
             'market_linkage_unique_partners' => $this->marketLinkageUniquePartnersCount(),
             'market_linkage_incubatees' => $this->marketLinkageIncubateesCount(),
+            'community_org_outreach_count' => $this->communityOrgOutreachVisitsCount(),
             default => 0,
         };
     }
@@ -1336,6 +1337,19 @@ SQL;
             : (Schema::hasColumn('district_workshop_sessions', 'session_date') ? 'session_date' : 'created_at');
         $this->applyDistrictScope($query, 'district_id');
         $this->applyPeriodFilter($query, $dateCol);
+
+        return (int) $query->count();
+    }
+
+    private function communityOrgOutreachVisitsCount(): int
+    {
+        if (! Schema::hasTable('community_organization_outreach_visits')) {
+            return 0;
+        }
+
+        $query = DB::table('community_organization_outreach_visits');
+        $this->applyDistrictScope($query, 'district_id');
+        $this->applyPeriodFilter($query, 'visit_date');
 
         return (int) $query->count();
     }
