@@ -58,6 +58,22 @@
 </div>
 @endif
 
+@if ($staffNavTechnicalTraining)
+<div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard'], true)) is-active @endif">
+    <span class="admin-topbar__dropdown-subtrigger">
+        {!! $i('calendar') !!}<span>{{ \App\Models\LakhpatiTechnicalTraining::MODULE_LABEL }}</span>
+    </span>
+    <div class="admin-topbar__dropdown-subpanel" role="menu">
+        <a href="{{ route('staff.lakhpati-technical-trainings.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-lakhpati-technical-trainings-submit') is-active @endif" role="menuitem">
+            {!! $i('doc') !!}<span>Submit session</span>
+        </a>
+        <a href="{{ route('staff.lakhpati-technical-trainings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-lakhpati-technical-trainings-dashboard') is-active @endif" role="menuitem">
+            {!! $i('bars') !!}<span>View dashboard</span>
+        </a>
+    </div>
+</div>
+@endif
+
 @if ($staffNavEapEdp)
 <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard'], true)) is-active @endif">
     <span class="admin-topbar__dropdown-subtrigger">

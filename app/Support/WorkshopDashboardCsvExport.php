@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\BlockWorkshop;
 use App\Models\DistrictWorkshopSession;
 use App\Models\EapEdpSession;
+use App\Models\LakhpatiTechnicalTraining;
 use App\Models\TechnicalTraining;
 use App\Models\TrainingPackage;
 use Illuminate\Support\Collection;
@@ -479,5 +480,59 @@ class WorkshopDashboardCsvExport
         }
 
         return '—';
+    }
+
+    /**
+     * @param  Collection<int, LakhpatiTechnicalTraining>  $rows
+     */
+    public static function lakhpatiTechnicalTrainings(Collection $rows, string $filename): StreamedResponse
+    {
+        $headers = [
+            'Sr. No.',
+            'Date of Session',
+            'Session Taken By',
+            'District',
+            'Block',
+            'Gram panchayat',
+            'Venue',
+            'Workshop mode',
+            'Requesting agency',
+            'Title',
+            'Brief',
+            'Male',
+            'Female',
+            'Total',
+            'Attendance files',
+            'Workshop photos',
+        ];
+
+        $dataRows = [];
+        $sr = 0;
+        foreach ($rows as $entry) {
+            if (! $entry instanceof LakhpatiTechnicalTraining) {
+                continue;
+            }
+            $sr++;
+            $dataRows[] = [
+                (string) $sr,
+                (string) ($entry->session_date?->format('d M Y') ?? 'NA'),
+                (string) $entry->submitted_by_name,
+                (string) ($entry->district_name ?: ($entry->district?->name ?? 'NA')),
+                (string) ($entry->block ?? '—'),
+                (string) ($entry->gramPanchayat?->name ?? '—'),
+                (string) ($entry->area ?? '—'),
+                (string) $entry->formattedWorkshopMode(),
+                (string) $entry->agencyTypeLabel(),
+                (string) $entry->session_title,
+                (string) ($entry->session_brief ?? ''),
+                (string) (int) ($entry->male_participants ?? 0),
+                (string) (int) ($entry->female_participants ?? 0),
+                (string) $entry->totalParticipantCount(),
+                (string) self::mediaFileCount((array) $entry->attendance_media_json),
+                (string) self::mediaFileCount((array) $entry->workshop_photos_json),
+            ];
+        }
+
+        return self::download($headers, $dataRows, $filename);
     }
 }

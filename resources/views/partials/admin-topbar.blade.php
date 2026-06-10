@@ -112,6 +112,14 @@
         str_starts_with($r, 'spoc.technical-trainings.show') => 'staff-technical-trainings-dashboard',
         str_starts_with($r, 'admin.technical-trainings.dashboard') => 'staff-technical-trainings-dashboard',
         str_starts_with($r, 'admin.technical-trainings.show') => 'staff-technical-trainings-dashboard',
+        str_starts_with($r, 'staff.lakhpati-technical-trainings.create') => 'staff-lakhpati-technical-trainings-submit',
+        str_starts_with($r, 'staff.lakhpati-technical-trainings.edit') => 'staff-lakhpati-technical-trainings-submit',
+        str_starts_with($r, 'staff.lakhpati-technical-trainings.dashboard') => 'staff-lakhpati-technical-trainings-dashboard',
+        str_starts_with($r, 'staff.lakhpati-technical-trainings.show') => 'staff-lakhpati-technical-trainings-dashboard',
+        str_starts_with($r, 'spoc.lakhpati-technical-trainings.dashboard') => 'staff-lakhpati-technical-trainings-dashboard',
+        str_starts_with($r, 'spoc.lakhpati-technical-trainings.show') => 'staff-lakhpati-technical-trainings-dashboard',
+        str_starts_with($r, 'admin.lakhpati-technical-trainings.dashboard') => 'staff-lakhpati-technical-trainings-dashboard',
+        str_starts_with($r, 'admin.lakhpati-technical-trainings.show') => 'staff-lakhpati-technical-trainings-dashboard',
         str_starts_with($r, 'staff.eap-edp-sessions.create') => 'staff-eap-edp-sessions-submit',
         str_starts_with($r, 'staff.eap-edp-sessions.edit') => 'staff-eap-edp-sessions-submit',
         str_starts_with($r, 'staff.eap-edp-sessions.dashboard') => 'staff-eap-edp-sessions-dashboard',
@@ -156,12 +164,13 @@
     };
     $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'targets-district-hub-monthly', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
         'staff-training-packages-submit', 'staff-training-packages-dashboard',
         'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard',
+        'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard',
         'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard',
         'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard',
     ];
@@ -354,7 +363,7 @@
                             </a>
                         </div>
                     </div>
-                        <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard'], true)) is-active @endif">
+                        <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('calendar') !!}<span>Training and Capacity Building</span>
                         </span>
@@ -364,6 +373,9 @@
                             </a>
                             <a href="{{ route('admin.technical-trainings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-technical-trainings-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>Technical training to incubatees</span>
+                            </a>
+                            <a href="{{ route('admin.lakhpati-technical-trainings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-lakhpati-technical-trainings-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>{{ \App\Models\LakhpatiTechnicalTraining::MODULE_LABEL }}</span>
                             </a>
                             <a href="{{ route('admin.eap-edp-sessions.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-eap-edp-sessions-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>EAP / EDP sessions</span>

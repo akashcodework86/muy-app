@@ -20,7 +20,7 @@ use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\BstTrainingMonthPlanTargetSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
-use App\Support\TechnicalTrainingPotentialLakhpatiSupport;
+use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -657,7 +657,7 @@ class ProgramDeliverablesReportService
             'bst_sessions' => $this->bstSessionsCount(),
             'bst_participants' => $this->bstParticipantsCount(),
             'technical_training_sessions' => $this->technicalTrainingSessionsCount(),
-            'technical_training_potential_lakhpati_participations' => $this->technicalTrainingPotentialLakhpatiParticipationsCount(),
+            'technical_training_potential_lakhpati_sessions' => $this->technicalTrainingPotentialLakhpatiSessionsCount(),
             'market_linkage_unique_partners' => $this->marketLinkageUniquePartnersCount(),
             'market_linkage_incubatees' => $this->marketLinkageIncubateesCount(),
             'community_org_outreach_count' => $this->communityOrgOutreachVisitsCount(),
@@ -679,7 +679,7 @@ class ProgramDeliverablesReportService
                 sumServiceTargets: true,
             ),
             'bst_sessions' => $this->bstSessionsPlannedTargetCount(),
-            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_participations' => $this->resolveStateTargetForCodes([
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
             'none' => ($source['deliverable_code'] ?? '') !== ''
@@ -1427,9 +1427,9 @@ SQL;
         return 0;
     }
 
-    private function technicalTrainingPotentialLakhpatiParticipationsCount(): int
+    private function technicalTrainingPotentialLakhpatiSessionsCount(): int
     {
-        return TechnicalTrainingPotentialLakhpatiSupport::countEligibleParticipations(
+        return PotentialLakhpatiTechnicalTrainingDeliverablesSupport::countSessions(
             $this->districtIds,
             $this->periodFrom,
             $this->periodTo,

@@ -47,6 +47,7 @@ use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Hub\HubOnboardingInsightController;
 use App\Http\Controllers\Hub\HubPendingActionsController;
 use App\Http\Controllers\Hub\HubStaffPerformanceController;
+use App\Http\Controllers\LakhpatiTechnicalTrainingController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
 use App\Http\Controllers\Incubatee\MentorshipRequestController;
 use App\Http\Controllers\LiveOpsController;
@@ -384,6 +385,22 @@ Route::middleware(['auth', 'active'])->group(function () {
                 ->name('technical-trainings.update');
             Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
                 ->name('technical-trainings.attachment');
+
+            Route::get('lakhpati-technical-trainings', [LakhpatiTechnicalTrainingController::class, 'create'])->name('lakhpati-technical-trainings.create');
+            Route::post('lakhpati-technical-trainings', [LakhpatiTechnicalTrainingController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('lakhpati-technical-trainings.store');
+            Route::get('lakhpati-technical-trainings/dashboard', [LakhpatiTechnicalTrainingController::class, 'dashboard'])->name('lakhpati-technical-trainings.dashboard');
+            Route::get('lakhpati-technical-trainings/export', [LakhpatiTechnicalTrainingController::class, 'export'])->name('lakhpati-technical-trainings.export');
+            Route::get('lakhpati-technical-trainings/gram-panchayats', [LakhpatiTechnicalTrainingController::class, 'workshopGramPanchayats'])->name('lakhpati-technical-trainings.gram-panchayats');
+            Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'show'])->name('lakhpati-technical-trainings.show');
+            Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/export', [LakhpatiTechnicalTrainingController::class, 'exportSingle'])->name('lakhpati-technical-trainings.export-single');
+            Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/edit', [LakhpatiTechnicalTrainingController::class, 'edit'])->name('lakhpati-technical-trainings.edit');
+            Route::put('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'update'])
+                ->middleware('throttle:30,1')
+                ->name('lakhpati-technical-trainings.update');
+            Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/attachment', [LakhpatiTechnicalTrainingController::class, 'downloadAttachment'])
+                ->name('lakhpati-technical-trainings.attachment');
         });
 
         Route::middleware('staff_phase3_attendance_nav:eap_edp_session')->group(function (): void {
@@ -534,6 +551,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('technical-trainings/{technicalTraining}/export', [TechnicalTrainingAttendanceController::class, 'exportSingle'])->name('technical-trainings.export-single');
         Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
             ->name('technical-trainings.attachment');
+        Route::get('lakhpati-technical-trainings/dashboard', [LakhpatiTechnicalTrainingController::class, 'dashboard'])->name('lakhpati-technical-trainings.dashboard');
+        Route::get('lakhpati-technical-trainings/export', [LakhpatiTechnicalTrainingController::class, 'export'])->name('lakhpati-technical-trainings.export');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'show'])->name('lakhpati-technical-trainings.show');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/export', [LakhpatiTechnicalTrainingController::class, 'exportSingle'])->name('lakhpati-technical-trainings.export-single');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/attachment', [LakhpatiTechnicalTrainingController::class, 'downloadAttachment'])
+            ->name('lakhpati-technical-trainings.attachment');
         Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
         Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
         Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');
@@ -764,6 +787,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('technical-trainings/{technicalTraining}/export', [TechnicalTrainingAttendanceController::class, 'exportSingle'])->name('technical-trainings.export-single');
         Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
             ->name('technical-trainings.attachment');
+        Route::get('lakhpati-technical-trainings/dashboard', [LakhpatiTechnicalTrainingController::class, 'dashboard'])->name('lakhpati-technical-trainings.dashboard');
+        Route::get('lakhpati-technical-trainings/export', [LakhpatiTechnicalTrainingController::class, 'export'])->name('lakhpati-technical-trainings.export');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'show'])->name('lakhpati-technical-trainings.show');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/export', [LakhpatiTechnicalTrainingController::class, 'exportSingle'])->name('lakhpati-technical-trainings.export-single');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/attachment', [LakhpatiTechnicalTrainingController::class, 'downloadAttachment'])
+            ->name('lakhpati-technical-trainings.attachment');
         Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
         Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
         Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');

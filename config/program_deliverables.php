@@ -124,7 +124,7 @@ return [
                             'indicator_type' => 'Non-Key',
                             'level' => 'Spoke & Hub',
                             'source' => [
-                                'type' => 'technical_training_potential_lakhpati_participations',
+                                'type' => 'technical_training_potential_lakhpati_sessions',
                                 'deliverable_code' => 'technical_training_potential_lakhpati',
                             ],
                         ],
@@ -536,7 +536,7 @@ return [
             'serial' => '3.3.1',
             'code' => 'technical_training_potential_lakhpati',
             'name' => 'Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
-            'mis_entry_label' => 'Technical training (Lakhpati subset)',
+            'mis_entry_label' => 'Technical training sessions (Lakhpati / SHG / CBO)',
             'scope' => 'district',
             'sort_order' => 96,
         ],

@@ -14,7 +14,7 @@ use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\ServiceTargetDeliverableSyncService;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
-use App\Support\TechnicalTrainingPotentialLakhpatiSupport;
+use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -80,7 +80,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'bst_sessions' => $this->bstSessionsBreakdown(),
             'bst_participants' => $this->bstParticipantsBreakdown(),
             'technical_training_sessions' => $this->technicalTrainingBreakdown(),
-            'technical_training_potential_lakhpati_participations' => $this->technicalTrainingPotentialLakhpatiParticipationsBreakdown(),
+            'technical_training_potential_lakhpati_sessions' => $this->technicalTrainingPotentialLakhpatiSessionsBreakdown(),
             'market_linkage_unique_partners' => $this->marketLinkagePartnersBreakdown(),
             'market_linkage_incubatees' => $this->marketLinkageIncubateesBreakdown(),
             'community_org_outreach_count' => $this->communityOrgOutreachBreakdown(),
@@ -1126,9 +1126,9 @@ class ProgramDeliverablesAchievementBreakdownService
     /**
      * @return array<string, mixed>
      */
-    private function technicalTrainingPotentialLakhpatiParticipationsBreakdown(): array
+    private function technicalTrainingPotentialLakhpatiSessionsBreakdown(): array
     {
-        $data = TechnicalTrainingPotentialLakhpatiSupport::eligibleParticipationsBreakdown(
+        $data = PotentialLakhpatiTechnicalTrainingDeliverablesSupport::sessionsBreakdown(
             $this->districtIds,
             $this->periodFrom,
             $this->periodTo,
@@ -1705,7 +1705,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'bst_sessions' => 'Business skills training sessions (conducted)',
             'bst_participants' => 'Unique BST participants',
             'technical_training_sessions' => 'Technical training sessions',
-            'technical_training_potential_lakhpati_participations' => 'Potential Lakhpati technical-training participations',
+            'technical_training_potential_lakhpati_sessions' => '3.3.1 Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
             'market_linkage_unique_partners' => 'Market linkage partners',
             'market_linkage_incubatees' => 'Market linkage incubatees',
             'community_org_outreach_count' => 'Community organization outreach visits',
