@@ -112,6 +112,15 @@
             color: #374151;
             white-space: nowrap;
         }
+        .svc-table th.svc-table__sr,
+        .svc-table td.svc-table__sr {
+            width: 2.5rem;
+            text-align: center;
+            color: #6b7280;
+            font-weight: 600;
+            padding-left: 0.45rem;
+            padding-right: 0.45rem;
+        }
         .svc-table td {
             padding: 0.62rem 0.75rem;
             border-bottom: 1px solid #f1f5f9;
@@ -407,6 +416,7 @@
                 <table class="svc-table" id="servicesTable">
                     <thead>
                         <tr>
+                            <th class="svc-table__sr">Sr No</th>
                             <th>Incubatee</th>
                             <th>Service</th>
                             <th>Assigned by</th>
@@ -419,6 +429,9 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php
+                            $listSrNo = (int) ($cases->firstItem() ?? 1);
+                        @endphp
                         @foreach ($cases as $row)
                             @php
                                 $rowType = is_array($row) ? (string) ($row['type'] ?? '') : 'service_case';
@@ -461,6 +474,7 @@
                                 ));
                             @endphp
                             <tr class="svc-row" data-search="{{ $searchText }}">
+                                <td class="svc-table__sr">{{ $listSrNo }}</td>
                                 <td>
                                     <strong>{{ $ml->incubatee_name }}</strong>
                                     @if ($ml->application_no)
@@ -510,6 +524,7 @@
                                     </div>
                                 </td>
                             </tr>
+                            @php $listSrNo++; @endphp
                             @elseif ($case)
                             @php
                                 $lip = $case->legacyIncubateePreview ?? null;
@@ -552,6 +567,7 @@
                                 ));
                             @endphp
                             <tr class="svc-row" data-search="{{ $searchText }}">
+                                <td class="svc-table__sr">{{ $listSrNo }}</td>
                                 <td>
                                     <strong>{{ $case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '—') : '—') }}</strong>
                                     @if ($case->cfaSubmission?->application_no)
@@ -616,6 +632,7 @@
                                     </div>
                                 </td>
                             </tr>
+                            @php $listSrNo++; @endphp
                             @endif
                         @endforeach
                     </tbody>
