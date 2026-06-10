@@ -341,6 +341,36 @@ class TrainingPackageMonthSessionService
         return TrainingPackage::query()->where('month_session_id', $slotId)->exists();
     }
 
+    /**
+     * @return array{deleted:int, had_attendance:int}
+     */
+    public function clearAllSessionsForMonth(int $calendarYear, int $calendarMonth): array
+    {
+        $slots = TrainingPackageMonthSession::query()
+            ->with('trainingPackage:id,month_session_id')
+            ->where('calendar_year', $calendarYear)
+            ->where('calendar_month', $calendarMonth)
+            ->orderBy('id')
+            ->get();
+
+        $deleted = 0;
+        $hadAttendance = 0;
+
+        foreach ($slots as $slot) {
+            if ($slot->trainingPackage !== null) {
+                $hadAttendance++;
+            }
+
+            $this->deleteMonthSession($slot);
+            $deleted++;
+        }
+
+        return [
+            'deleted' => $deleted,
+            'had_attendance' => $hadAttendance,
+        ];
+    }
+
     public function deleteMonthSession(TrainingPackageMonthSession $slot): void
     {
         DB::transaction(function () use ($slot): void {

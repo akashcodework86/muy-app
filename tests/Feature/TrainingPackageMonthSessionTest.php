@@ -17,13 +17,37 @@ class TrainingPackageMonthSessionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_non_manager_state_admin_cannot_access_month_plans(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'email' => 'other.admin@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.training-package-month-plans.index'))
+            ->assertForbidden();
+    }
+
+    public function test_manager_state_staff_can_access_month_plans(): void
+    {
+        $spoc = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'aadil.ishrat@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($spoc)
+            ->get(route('admin.training-package-month-plans.index'))
+            ->assertOk()
+            ->assertSee('Business Skills Training Sessions Target');
+    }
+
     public function test_admin_can_sync_named_sessions_for_a_district_month(): void
     {
         $district = $this->createDistrict();
-        $admin = User::factory()->create([
-            'role' => 'state_admin',
-            'is_active' => true,
-        ]);
+        $admin = $this->monthPlanManager();
 
         $response = $this->actingAs($admin)->post(route('admin.training-package-month-plans.store'), [
             'calendar_year' => 2026,
@@ -61,7 +85,7 @@ class TrainingPackageMonthSessionTest extends TestCase
     public function test_sync_does_not_delete_filled_slots(): void
     {
         $district = $this->createDistrict();
-        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $admin = $this->monthPlanManager();
         $service = app(TrainingPackageMonthSessionService::class);
 
         $service->syncMonthPlan(2026, 5, [[
@@ -292,7 +316,7 @@ class TrainingPackageMonthSessionTest extends TestCase
     public function test_sync_month_plan_preserves_extra_slots(): void
     {
         $district = $this->createDistrict();
-        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $admin = $this->monthPlanManager();
         $staff = User::factory()->create([
             'role' => 'district_staff',
             'district_id' => $district->id,
@@ -326,7 +350,7 @@ class TrainingPackageMonthSessionTest extends TestCase
     public function test_admin_can_rename_extra_session_name(): void
     {
         $district = $this->createDistrict();
-        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $admin = $this->monthPlanManager();
         $staff = User::factory()->create([
             'role' => 'district_staff',
             'district_id' => $district->id,
@@ -462,7 +486,7 @@ class TrainingPackageMonthSessionTest extends TestCase
     public function test_admin_can_delete_open_month_session(): void
     {
         $district = $this->createDistrict();
-        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $admin = $this->monthPlanManager();
         $service = app(TrainingPackageMonthSessionService::class);
 
         $service->syncMonthPlan(2026, 5, [[
@@ -488,7 +512,7 @@ class TrainingPackageMonthSessionTest extends TestCase
     public function test_admin_can_delete_filled_month_session_and_attendance(): void
     {
         $district = $this->createDistrict();
-        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $admin = $this->monthPlanManager();
         $staff = User::factory()->create([
             'role' => 'district_staff',
             'district_id' => $district->id,
@@ -541,10 +565,7 @@ class TrainingPackageMonthSessionTest extends TestCase
     {
         $districtOne = $this->createDistrict('district-one', 'District One');
         $districtTwo = $this->createDistrict('district-two', 'District Two');
-        $admin = User::factory()->create([
-            'role' => 'state_admin',
-            'is_active' => true,
-        ]);
+        $admin = $this->monthPlanManager();
 
         $response = $this->actingAs($admin)->post(route('admin.training-package-month-plans.assign-default-sessions'), [
             'calendar_year' => 2026,
@@ -577,13 +598,49 @@ class TrainingPackageMonthSessionTest extends TestCase
         }
     }
 
+    public function test_admin_can_clear_all_sessions_for_a_month(): void
+    {
+        $districtOne = $this->createDistrict('clear-one', 'Clear One');
+        $districtTwo = $this->createDistrict('clear-two', 'Clear Two');
+        $admin = $this->monthPlanManager();
+        $service = app(TrainingPackageMonthSessionService::class);
+
+        $service->syncMonthPlan(2026, 5, [
+            [
+                'district_id' => $districtOne->id,
+                'sessions' => [
+                    ['session_name' => 'Session A'],
+                ],
+            ],
+            [
+                'district_id' => $districtTwo->id,
+                'sessions' => [
+                    ['session_name' => 'Session B'],
+                ],
+            ],
+        ], (int) $admin->id);
+
+        $response = $this->actingAs($admin)->post(route('admin.training-package-month-plans.clear-all-sessions'), [
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+        ]);
+
+        $response->assertRedirect(route('admin.training-package-month-plans.index', [
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+        ]));
+        $response->assertSessionHas('status', 'Removed 2 session(s) for this month.');
+
+        $this->assertDatabaseMissing('training_package_month_sessions', [
+            'calendar_year' => 2026,
+            'calendar_month' => 5,
+        ]);
+    }
+
     public function test_assign_default_sessions_skips_districts_with_existing_required_slots(): void
     {
         $district = $this->createDistrict();
-        $admin = User::factory()->create([
-            'role' => 'state_admin',
-            'is_active' => true,
-        ]);
+        $admin = $this->monthPlanManager();
         $service = app(TrainingPackageMonthSessionService::class);
 
         $service->syncMonthPlan(2026, 5, [[
@@ -648,6 +705,15 @@ class TrainingPackageMonthSessionTest extends TestCase
         ]);
 
         return $cfaId;
+    }
+
+    private function monthPlanManager(array $overrides = []): User
+    {
+        return User::factory()->create(array_merge([
+            'role' => 'state_admin',
+            'email' => 'aadil.ishrat@pwc.com',
+            'is_active' => true,
+        ], $overrides));
     }
 
     private function createDistrict(string $slug = 'test-district', string $name = 'Test District'): District

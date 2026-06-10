@@ -18,6 +18,7 @@ use App\Services\Deliverables\ProgramDeliverableReportingTier;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Support\BstTrainingDeliverablesSupport;
+use App\Support\BstTrainingMonthPlanTargetSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\TechnicalTrainingPotentialLakhpatiSupport;
 use Carbon\Carbon;
@@ -676,7 +677,8 @@ class ProgramDeliverablesReportService
                 array_map('strval', (array) ($source['codes'] ?? [])),
                 sumServiceTargets: true,
             ),
-            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_participations' => $this->resolveStateTargetForCodes([
+            'bst_sessions' => $this->bstSessionsPlannedTargetCount(),
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_participations' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
             'none' => ($source['deliverable_code'] ?? '') !== ''
@@ -1366,6 +1368,15 @@ SQL;
             $this->periodFrom,
             $this->periodTo,
         )->count();
+    }
+
+    private function bstSessionsPlannedTargetCount(): int
+    {
+        return BstTrainingMonthPlanTargetSupport::plannedRequiredSessionCount(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        );
     }
 
     private function bstParticipantsCount(): int

@@ -1413,6 +1413,72 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(1, $child['achievement']);
     }
 
+    public function test_bst_sessions_target_uses_planned_month_sessions_sum_for_fy_and_filters(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'bst-target-hub', 'name' => 'BST Target Hub', 'sort_order' => 1]);
+        $districtA = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bst-target-a',
+            'name' => 'BST Target A',
+            'sort_order' => 1,
+        ]);
+        $districtB = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bst-target-b',
+            'name' => 'BST Target B',
+            'sort_order' => 2,
+        ]);
+
+        foreach ([
+            [$districtA->id, 2026, 5, 1, 'A May 1'],
+            [$districtA->id, 2026, 5, 2, 'A May 2'],
+            [$districtA->id, 2026, 6, 1, 'A Jun 1'],
+            [$districtB->id, 2026, 5, 1, 'B May 1'],
+        ] as [$districtId, $year, $month, $sortOrder, $name]) {
+            TrainingPackageMonthSession::query()->create([
+                'district_id' => $districtId,
+                'calendar_year' => $year,
+                'calendar_month' => $month,
+                'sort_order' => $sortOrder,
+                'session_name' => $name,
+                'is_extra' => false,
+            ]);
+        }
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+
+        $fullFyReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, null, null, null, null),
+            $scope,
+        );
+        $fullFyRow = collect($fullFyReport['rows'])->firstWhere('serial', '3.1');
+        $this->assertSame(4, $fullFyRow['target']);
+
+        $mayReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, 5, 2026, null, null),
+            $scope,
+        );
+        $mayRow = collect($mayReport['rows'])->firstWhere('serial', '3.1');
+        $this->assertSame(3, $mayRow['target']);
+
+        $districtMayReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, (int) $districtA->id, 5, 2026, null, null),
+            $scope,
+        );
+        $districtMayRow = collect($districtMayReport['rows'])->firstWhere('serial', '3.1');
+        $this->assertSame(2, $districtMayRow['target']);
+    }
+
     public function test_program_deliverables_3_1_and_3_2_count_bst_sessions_and_unique_participants(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
@@ -1477,6 +1543,7 @@ class DeliverablesReportTest extends TestCase
 
         $this->assertNotNull($sessions);
         $this->assertNotNull($participants);
+        $this->assertSame(1, $sessions['target']);
         $this->assertSame(2, $sessions['achievement']);
         $this->assertSame(3, $participants['achievement']);
 

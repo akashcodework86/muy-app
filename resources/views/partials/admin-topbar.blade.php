@@ -17,6 +17,7 @@
     $staffNavEapEdp = $appSettings->isEnabled('staff_nav.eap_edp_session.visible');
     $staffNavDistrictWorkshop = $appSettings->isEnabled('staff_nav.district_workshop.visible');
     $canSubmitSocialMediaPost = $u && \App\Support\SocialMediaPostAccess::canSubmit($u);
+    $canManageTrainingPackageMonthPlans = $u && \App\Support\TrainingPackageMonthPlanAccess::canManage($u);
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
         'district_staff' => 'District staff',
@@ -172,6 +173,7 @@
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents'], true);
+    $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
@@ -282,9 +284,11 @@
                     <a href="{{ route('admin.targets.district-hub-monthly') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'targets-district-hub-monthly') is-active @endif" role="menuitem">
                         {!! $i('calendar') !!}<span>Monthly targets (district / hub)</span>
                     </a>
-                    <a href="{{ route('admin.training-package-month-plans.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'training-package-month-plans') is-active @endif" role="menuitem">
-                        {!! $i('calendar') !!}<span>Training package session targets</span>
-                    </a>
+                    @if ($canManageTrainingPackageMonthPlans)
+                        <a href="{{ route('admin.training-package-month-plans.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'training-package-month-plans') is-active @endif" role="menuitem">
+                            {!! $i('calendar') !!}<span>Business Skills Training Sessions Target</span>
+                        </a>
+                    @endif
                     <a href="{{ route('admin.staff.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff') is-active @endif" role="menuitem">
                         {!! $i('users') !!}<span>District staff</span>
                     </a>
@@ -440,6 +444,19 @@
             <a href="{{ route('spoc.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
             </a>
+            @if ($canManageTrainingPackageMonthPlans)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocAssignTargetActive) is-active @endif">
+                    {!! $i('targets') !!}<span class="admin-topbar__link-text">Assign target</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">MIS planning</p>
+                    <a href="{{ route('admin.training-package-month-plans.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'training-package-month-plans') is-active @endif" role="menuitem">
+                        {!! $i('calendar') !!}<span>Business Skills Training Sessions Target</span>
+                    </a>
+                </div>
+            </details>
+            @endif
             <a href="{{ route('spoc.field-coordinator-reports.index') }}" class="admin-topbar__link @if ($activeNav === 'field-coordinator-report') is-active @endif">
                 {!! $i('calendar') !!}<span class="admin-topbar__link-text">Field coordinator report</span>
             </a>

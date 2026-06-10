@@ -158,6 +158,25 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('mentorship-requests.store');
     });
 
+    Route::middleware('training_package_month_plan_manager')
+        ->prefix('admin')
+        ->name('admin.')
+        ->group(function (): void {
+            Route::get('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'index'])->name('training-package-month-plans.index');
+            Route::post('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('training-package-month-plans.store');
+            Route::post('training-package-month-plans/assign-default-sessions', [TrainingPackageMonthPlanController::class, 'assignDefaultSessions'])
+                ->middleware('throttle:30,1')
+                ->name('training-package-month-plans.assign-default-sessions');
+            Route::post('training-package-month-plans/clear-all-sessions', [TrainingPackageMonthPlanController::class, 'clearAllSessions'])
+                ->middleware('throttle:30,1')
+                ->name('training-package-month-plans.clear-all-sessions');
+            Route::delete('training-package-month-plans/sessions/{trainingPackageMonthSession}', [TrainingPackageMonthPlanController::class, 'destroySession'])
+                ->middleware('throttle:30,1')
+                ->name('training-package-month-plans.sessions.destroy');
+        });
+
     Route::prefix('account')->name('account.')->group(function () {
         /** Serves file from disk so images work even if public/storage symlink is missing */
         Route::get('avatar', [ProfileController::class, 'showAvatar'])
@@ -609,17 +628,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('targets/district-hub-monthly/preset', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'applyDistrictPreset'])->name('targets.district-hub-monthly.preset');
         Route::post('targets/district-hub-monthly/district', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'updateDistrict'])->name('targets.district-hub-monthly.district');
         Route::post('targets/district-hub-monthly/hub', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'updateHub'])->name('targets.district-hub-monthly.hub');
-        Route::get('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'index'])->name('training-package-month-plans.index');
-        Route::post('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'store'])
-            ->middleware('throttle:30,1')
-            ->name('training-package-month-plans.store');
-        Route::post('training-package-month-plans/assign-default-sessions', [TrainingPackageMonthPlanController::class, 'assignDefaultSessions'])
-            ->middleware('throttle:30,1')
-            ->name('training-package-month-plans.assign-default-sessions');
-        Route::delete('training-package-month-plans/sessions/{trainingPackageMonthSession}', [TrainingPackageMonthPlanController::class, 'destroySession'])
-            ->middleware('throttle:30,1')
-            ->name('training-package-month-plans.sessions.destroy');
-
         Route::get('service-catalog', [ServiceCategoryController::class, 'index'])->name('service-catalog.index');
         Route::get('service-catalog/categories/create', [ServiceCategoryController::class, 'create'])->name('service-catalog.categories.create');
         Route::post('service-catalog/categories', [ServiceCategoryController::class, 'store'])->name('service-catalog.categories.store');
