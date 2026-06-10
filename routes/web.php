@@ -605,6 +605,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('targets/district', [TargetController::class, 'districtUpdate'])->name('targets.district.update');
         Route::get('targets/allocate-by-service', [ServiceTargetAllocationController::class, 'index'])->name('targets.allocate-by-service');
         Route::post('targets/allocate-by-service', [ServiceTargetAllocationController::class, 'apply'])->name('targets.allocate-by-service.apply');
+        Route::get('targets/district-hub-monthly', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'index'])->name('targets.district-hub-monthly');
+        Route::post('targets/district-hub-monthly/preset', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'applyDistrictPreset'])->name('targets.district-hub-monthly.preset');
+        Route::post('targets/district-hub-monthly/district', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'updateDistrict'])->name('targets.district-hub-monthly.district');
+        Route::post('targets/district-hub-monthly/hub', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'updateHub'])->name('targets.district-hub-monthly.hub');
         Route::get('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'index'])->name('training-package-month-plans.index');
         Route::post('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'store'])
             ->middleware('throttle:30,1')

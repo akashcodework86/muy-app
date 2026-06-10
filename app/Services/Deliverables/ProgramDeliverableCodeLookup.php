@@ -63,7 +63,9 @@ class ProgramDeliverableCodeLookup
             'services' => array_map('strval', (array) ($source['codes'] ?? [])),
             'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count',
             'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants',
+            'field_work_workshops', 'field_work_participants', 'technical_training_sessions',
             'technical_training_potential_lakhpati_participations' => array_filter([(string) ($source['deliverable_code'] ?? '')]),
+            'none' => array_filter([(string) ($source['deliverable_code'] ?? '')]),
             default => [],
         };
     }

@@ -43,14 +43,14 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Key Indicator',
                     'level' => 'Spoke & Hub',
-                    'source' => ['type' => 'field_work_workshops'],
+                    'source' => ['type' => 'field_work_workshops', 'deliverable_code' => 'field_work_workshops'],
                     'children' => [
                         [
                             'name' => 'Participants in Awareness cum Outreach activities',
                             'row_type' => 'leaf',
                             'indicator_type' => 'Non-Key',
                             'level' => 'Spoke & Hub',
-                            'source' => ['type' => 'field_work_participants'],
+                            'source' => ['type' => 'field_work_participants', 'deliverable_code' => 'field_work_participants'],
                         ],
                     ],
                 ],
@@ -115,14 +115,17 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'Spoke & Hub',
-                    'source' => ['type' => 'technical_training_sessions'],
+                    'source' => ['type' => 'technical_training_sessions', 'deliverable_code' => 'technical_training_sessions'],
                     'children' => [
                         [
                             'name' => 'Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
                             'row_type' => 'leaf',
                             'indicator_type' => 'Non-Key',
                             'level' => 'Spoke & Hub',
-                            'source' => ['type' => 'technical_training_potential_lakhpati_participations'],
+                            'source' => [
+                                'type' => 'technical_training_potential_lakhpati_participations',
+                                'deliverable_code' => 'technical_training_potential_lakhpati',
+                            ],
                         ],
                     ],
                 ],
@@ -131,7 +134,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Key Indicator',
                     'level' => 'State',
-                    'source' => ['type' => 'none'],
+                    'source' => ['type' => 'none', 'deliverable_code' => 'capacity_building_stakeholders'],
                 ],
             ],
         ],
@@ -446,6 +449,11 @@ return [
 
     'level_by_deliverable_code' => [
         'awareness_district' => 'State',
+        'field_work_workshops' => 'Spoke & Hub',
+        'field_work_participants' => 'Spoke & Hub',
+        'technical_training_sessions' => 'Spoke & Hub',
+        'technical_training_potential_lakhpati' => 'Spoke & Hub',
+        'capacity_building_stakeholders' => 'State',
         'cfa' => 'Spoke & Hub',
         'onboarding' => 'Spoke & Hub',
         'lakhpati_block' => 'Spoke & Hub',
@@ -472,6 +480,74 @@ return [
     ],
 
     'default_level' => 'Spoke & Hub',
+
+    /*
+    |--------------------------------------------------------------------------
+    | District / hub monthly target page — allowed MIS indicators only
+    |--------------------------------------------------------------------------
+    |
+    | scope: district = Hub & Spoke tab (13 districts × M1–M12)
+    |         hub      = Hub only tab (Kumaon / Garhwal × M1–M12)
+    |
+    */
+    'district_hub_monthly_indicators' => [
+        [
+            'serial' => '1.3',
+            'code' => 'field_work_workshops',
+            'name' => 'No. of Awareness cum Outreach activities for SHG members/Potential Lakhpati Didis/ SHGs/CBOs etc.',
+            'mis_entry_label' => 'Awareness cum Outreach activities (count)',
+            'scope' => 'district',
+            'sort_order' => 91,
+        ],
+        [
+            'serial' => '1.3.1',
+            'code' => 'field_work_participants',
+            'name' => 'Participants in Awareness cum Outreach activities',
+            'mis_entry_label' => 'Outreach participants (female)',
+            'scope' => 'district',
+            'sort_order' => 92,
+        ],
+        [
+            'serial' => '3.1',
+            'code' => 'bst_sessions',
+            'name' => 'Business Skills Training Sessions',
+            'mis_entry_label' => 'BST sessions conducted',
+            'scope' => 'district',
+            'sort_order' => 93,
+        ],
+        [
+            'serial' => '3.2',
+            'code' => 'bst_participations',
+            'name' => 'Incubatees taken Part in Business Modules Training',
+            'mis_entry_label' => 'BST unique participants',
+            'scope' => 'district',
+            'sort_order' => 94,
+        ],
+        [
+            'serial' => '3.3',
+            'code' => 'technical_training_sessions',
+            'name' => 'Technical Trainings to Incubatees',
+            'mis_entry_label' => 'Technical training sessions',
+            'scope' => 'district',
+            'sort_order' => 95,
+        ],
+        [
+            'serial' => '3.3.1',
+            'code' => 'technical_training_potential_lakhpati',
+            'name' => 'Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
+            'mis_entry_label' => 'Technical training (Lakhpati subset)',
+            'scope' => 'district',
+            'sort_order' => 96,
+        ],
+        [
+            'serial' => '3.4',
+            'code' => 'capacity_building_stakeholders',
+            'name' => 'Capacity Building of stakeholders (REAP, USRLM, Other Line department staff)',
+            'mis_entry_label' => 'Capacity building of stakeholders',
+            'scope' => 'hub',
+            'sort_order' => 97,
+        ],
+    ],
 
     /*
     | MIS deliverable code => service catalog code(s) used on State targets (svc_* rows).

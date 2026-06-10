@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Deliverable;
 use App\Models\DistrictDeliverableTarget;
+use App\Models\DistrictMonthlyTarget;
+use App\Models\HubMonthlyTarget;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\FiscalYear;
 use App\Models\MarketLinkageSubmission;
@@ -29,6 +31,7 @@ class ProgramDeliverablesReportService
         private readonly ServiceTargetDeliverableSyncService $serviceTargetDeliverables,
         private readonly LegacyApplicationServiceCaseSupport $legacyServiceCases,
         private readonly MarketLinkagePartnerCatalogService $marketLinkagePartners,
+        private readonly DistrictHubMonthlyTargetsService $districtHubMonthlyTargets,
     ) {}
 
     /** @var array<string, int> */
@@ -148,6 +151,8 @@ class ProgramDeliverablesReportService
                 $targets[(int) $deliverableId] = $value;
             }
 
+            $targets = $this->mergeStateScopedMonthlyTargets($fiscalYear, $targets, $periodInfo);
+
             $this->buildTargetIndexesFromTotals($targets);
 
             return $targets;
@@ -228,7 +233,140 @@ class ProgramDeliverablesReportService
             }
         }
 
+        $targets = $this->mergeDistrictScopedMonthlyTargets($fiscalYear, $targets, $periodInfo);
+
         $this->buildTargetIndexesFromTotals($targets);
+
+        return $targets;
+    }
+
+    /**
+     * Prefer hub / district monthly plan totals on the state-wide deliverables view when present.
+     *
+     * @param  array<int, int>  $targets
+     * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
+     * @return array<int, int>
+     */
+    private function mergeStateScopedMonthlyTargets(FiscalYear $fiscalYear, array $targets, array $periodInfo): array
+    {
+        if (! Schema::hasTable('hub_monthly_targets') && ! Schema::hasTable('district_monthly_targets')) {
+            return $targets;
+        }
+
+        $deliverables = Deliverable::query()
+            ->whereIn('id', array_keys($targets))
+            ->get(['id', 'code'])
+            ->keyBy('id');
+
+        if (Schema::hasTable('hub_monthly_targets')) {
+            $hubQuery = HubMonthlyTarget::query()->where('fiscal_year_id', $fiscalYear->id);
+            if ($periodInfo['has_narrowing'] && $periodInfo['weights'] !== []) {
+                $hubQuery->whereIn('month_number', array_keys($periodInfo['weights']));
+            }
+            $hubRows = $hubQuery->get(['deliverable_id', 'month_number', 'target_count']);
+
+            $hubTotals = [];
+            foreach ($hubRows as $row) {
+                $deliverableId = (int) $row->deliverable_id;
+                $weight = $periodInfo['has_narrowing']
+                    ? ($periodInfo['weights'][(int) $row->month_number] ?? 0.0)
+                    : 1.0;
+                if ($periodInfo['has_narrowing'] && $weight <= 0) {
+                    continue;
+                }
+                $hubTotals[$deliverableId] = ($hubTotals[$deliverableId] ?? 0.0)
+                    + ((int) $row->target_count) * ($periodInfo['has_narrowing'] ? $weight : 1.0);
+            }
+
+            foreach ($hubTotals as $deliverableId => $total) {
+                $deliverable = $deliverables->get((int) $deliverableId);
+                if (! $deliverable || $this->districtHubMonthlyTargets->resolveScopeForDeliverable($deliverable) !== DistrictHubMonthlyTargetsService::SCOPE_HUB) {
+                    continue;
+                }
+                $value = $periodInfo['has_narrowing']
+                    ? (int) round($total)
+                    : (int) round($total);
+                if ($value > 0) {
+                    $targets[(int) $deliverableId] = $value;
+                }
+            }
+        }
+
+        if (Schema::hasTable('district_monthly_targets')) {
+            $districtQuery = DistrictMonthlyTarget::query()->where('fiscal_year_id', $fiscalYear->id);
+            if ($periodInfo['has_narrowing'] && $periodInfo['weights'] !== []) {
+                $districtQuery->whereIn('month_number', array_keys($periodInfo['weights']));
+            }
+            $districtRows = $districtQuery->get(['deliverable_id', 'month_number', 'target_count']);
+
+            $districtTotals = [];
+            foreach ($districtRows as $row) {
+                $deliverableId = (int) $row->deliverable_id;
+                $weight = $periodInfo['has_narrowing']
+                    ? ($periodInfo['weights'][(int) $row->month_number] ?? 0.0)
+                    : 1.0;
+                if ($periodInfo['has_narrowing'] && $weight <= 0) {
+                    continue;
+                }
+                $districtTotals[$deliverableId] = ($districtTotals[$deliverableId] ?? 0.0)
+                    + ((int) $row->target_count) * ($periodInfo['has_narrowing'] ? $weight : 1.0);
+            }
+
+            foreach ($districtTotals as $deliverableId => $total) {
+                $deliverable = $deliverables->get((int) $deliverableId);
+                if (! $deliverable || $this->districtHubMonthlyTargets->resolveScopeForDeliverable($deliverable) !== DistrictHubMonthlyTargetsService::SCOPE_DISTRICT) {
+                    continue;
+                }
+                $value = (int) round($total);
+                if ($value > 0) {
+                    $targets[(int) $deliverableId] = $value;
+                }
+            }
+        }
+
+        return $targets;
+    }
+
+    /**
+     * @param  array<int, int>  $targets
+     * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
+     * @return array<int, int>
+     */
+    private function mergeDistrictScopedMonthlyTargets(FiscalYear $fiscalYear, array $targets, array $periodInfo): array
+    {
+        if ($this->districtIds === null || $this->districtIds === [] || ! Schema::hasTable('district_monthly_targets')) {
+            return $targets;
+        }
+
+        $query = DistrictMonthlyTarget::query()
+            ->where('fiscal_year_id', $fiscalYear->id)
+            ->whereIn('district_id', $this->districtIds);
+
+        if ($periodInfo['has_narrowing'] && $periodInfo['weights'] !== []) {
+            $query->whereIn('month_number', array_keys($periodInfo['weights']));
+        }
+
+        $rows = $query->get(['deliverable_id', 'month_number', 'target_count']);
+        $totals = [];
+
+        foreach ($rows as $row) {
+            $deliverableId = (int) $row->deliverable_id;
+            $weight = $periodInfo['has_narrowing']
+                ? ($periodInfo['weights'][(int) $row->month_number] ?? 0.0)
+                : 1.0;
+            if ($periodInfo['has_narrowing'] && $weight <= 0) {
+                continue;
+            }
+            $totals[$deliverableId] = ($totals[$deliverableId] ?? 0.0)
+                + ((int) $row->target_count) * ($periodInfo['has_narrowing'] ? $weight : 1.0);
+        }
+
+        foreach ($totals as $deliverableId => $total) {
+            $value = (int) round($total);
+            if ($value > 0) {
+                $targets[(int) $deliverableId] = $value;
+            }
+        }
 
         return $targets;
     }
@@ -305,6 +443,8 @@ class ProgramDeliverablesReportService
                 $targets[$deliverableId] = (int) round($fyTotal * $periodInfo['year_fraction']);
             }
         }
+
+        $targets = $this->mergeDistrictScopedMonthlyTargets($fiscalYear, $targets, $periodInfo);
 
         $this->buildTargetIndexesFromTotals($targets);
 
@@ -536,9 +676,12 @@ class ProgramDeliverablesReportService
                 array_map('strval', (array) ($source['codes'] ?? [])),
                 sumServiceTargets: true,
             ),
-            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants', 'technical_training_potential_lakhpati_participations' => $this->resolveStateTargetForCodes([
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_participations' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
+            'none' => ($source['deliverable_code'] ?? '') !== ''
+                ? $this->resolveStateTargetForCodes([(string) $source['deliverable_code']])
+                : null,
             'target_name' => $this->resolveStateTargetByNameKeyword((string) ($source['match'] ?? '')),
             default => null,
         };
