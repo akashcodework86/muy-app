@@ -68,6 +68,9 @@
             width: min(840px, 96vw); max-height: 92vh; overflow: auto; background: #fff;
             border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28);
         }
+        .sq-modal-card--doc-image {
+            width: min(1120px, 98vw);
+        }
         .sq-modal-head {
             padding: 0.7rem 0.9rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;
         }
@@ -397,8 +400,10 @@
         </div>
     </div>
 
+    @include('partials.muy-doc-image-zoom')
+
     <div id="sqDocModal" class="sq-modal" aria-hidden="true">
-        <div class="sq-modal-card" role="dialog" aria-modal="true" aria-label="Document preview">
+        <div id="sqDocModalCard" class="sq-modal-card" role="dialog" aria-modal="true" aria-label="Document preview">
             <div class="sq-modal-head">
                 <div id="sqDocTitle" class="sq-modal-title">Document</div>
                 <button type="button" id="sqDocClose" class="sq-modal-close">Close</button>
@@ -438,6 +443,7 @@
             const openButtons = Array.from(document.querySelectorAll('.js-review-open'));
             const docButtons = Array.from(document.querySelectorAll('.js-doc-open'));
             const docModal = document.getElementById('sqDocModal');
+            const docModalCard = document.getElementById('sqDocModalCard');
             const docClose = document.getElementById('sqDocClose');
             const docBody = document.getElementById('sqDocBody');
             const docTitle = document.getElementById('sqDocTitle');
@@ -485,6 +491,9 @@
             function renderDoc(url, name) {
                 docTitle.textContent = name || 'Document';
                 docBody.innerHTML = '';
+                if (docModalCard) {
+                    docModalCard.classList.remove('sq-modal-card--doc-image');
+                }
                 const lower = (name || url || '').toLowerCase();
                 if (lower.endsWith('.pdf')) {
                     const frame = document.createElement('iframe');
@@ -495,16 +504,23 @@
                     frame.style.borderRadius = '10px';
                     docBody.appendChild(frame);
                 } else if (/\.(png|jpg|jpeg|webp|gif)$/i.test(lower)) {
-                    const img = document.createElement('img');
-                    img.src = url;
-                    img.alt = name || 'Document image';
-                    img.style.maxWidth = '100%';
-                    img.style.maxHeight = '72vh';
-                    img.style.margin = '0 auto';
-                    img.style.display = 'block';
-                    img.style.border = '1px solid #e2e8f0';
-                    img.style.borderRadius = '10px';
-                    docBody.appendChild(img);
+                    if (docModalCard) {
+                        docModalCard.classList.add('sq-modal-card--doc-image');
+                    }
+                    if (typeof window.muyMountDocImageZoom === 'function') {
+                        window.muyMountDocImageZoom(docBody, url, name);
+                    } else {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.alt = name || 'Document image';
+                        img.style.maxWidth = '100%';
+                        img.style.maxHeight = '72vh';
+                        img.style.margin = '0 auto';
+                        img.style.display = 'block';
+                        img.style.border = '1px solid #e2e8f0';
+                        img.style.borderRadius = '10px';
+                        docBody.appendChild(img);
+                    }
                 } else {
                     const fallback = document.createElement('div');
                     fallback.style.fontSize = '0.86rem';

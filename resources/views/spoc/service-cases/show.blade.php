@@ -90,6 +90,9 @@
             border-radius: 10px;
             background: #fff;
         }
+        .spoc-doc-modal__card--doc-image {
+            width: min(1120px, 98vw);
+        }
     </style>
 
     <p style="margin:0 0 1rem;">
@@ -229,8 +232,10 @@
         </div>
     @endif
 
+    @include('partials.muy-doc-image-zoom')
+
     <div id="spocDocModal" class="spoc-doc-modal" aria-hidden="true">
-        <div class="spoc-doc-modal__card" role="dialog" aria-modal="true" aria-label="Document preview">
+        <div id="spocDocModalCard" class="spoc-doc-modal__card" role="dialog" aria-modal="true" aria-label="Document preview">
             <div class="spoc-doc-modal__head">
                 <div id="spocDocTitle" class="spoc-doc-modal__title">Document</div>
                 <button type="button" id="spocDocClose" class="spoc-doc-modal__close">Close</button>
@@ -242,6 +247,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var modal = document.getElementById('spocDocModal');
+            var modalCard = document.getElementById('spocDocModalCard');
             var modalBody = document.getElementById('spocDocBody');
             var modalTitle = document.getElementById('spocDocTitle');
             var closeBtn = document.getElementById('spocDocClose');
@@ -256,6 +262,9 @@
             function openModal(url, name) {
                 modalTitle.textContent = name || 'Document';
                 modalBody.innerHTML = '';
+                if (modalCard) {
+                    modalCard.classList.remove('spoc-doc-modal__card--doc-image');
+                }
 
                 var lower = (name || url || '').toLowerCase();
                 if (lower.endsWith('.pdf')) {
@@ -265,11 +274,18 @@
                     frame.title = name || 'Document';
                     modalBody.appendChild(frame);
                 } else if (/\.(png|jpg|jpeg|webp|gif)$/i.test(lower)) {
-                    var img = document.createElement('img');
-                    img.className = 'spoc-doc-modal__img';
-                    img.alt = name || 'Document image';
-                    img.src = url;
-                    modalBody.appendChild(img);
+                    if (modalCard) {
+                        modalCard.classList.add('spoc-doc-modal__card--doc-image');
+                    }
+                    if (typeof window.muyMountDocImageZoom === 'function') {
+                        window.muyMountDocImageZoom(modalBody, url, name);
+                    } else {
+                        var img = document.createElement('img');
+                        img.className = 'spoc-doc-modal__img';
+                        img.alt = name || 'Document image';
+                        img.src = url;
+                        modalBody.appendChild(img);
+                    }
                 } else {
                     var fallback = document.createElement('div');
                     fallback.style.fontSize = '0.86rem';
