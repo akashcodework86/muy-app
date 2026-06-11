@@ -58,6 +58,9 @@
         .sq-btn--warn { border-color: #fdba74; background: #fff7ed; color: #9a3412; }
         .sq-btn--danger { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
         .sq-btn--doc { border-color: #cbd5e1; background: #f8fafc; color: #0f172a; }
+        .sq-bulk-bar { display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.5rem; }
+        .sq-bulk-hint { font-size: 0.78rem; color: #64748b; }
+        .sq-check { width: 1rem; height: 1rem; cursor: pointer; }
 
         .sq-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(15,23,42,0.55); z-index: 80; padding: 1rem; }
         .sq-modal.is-open { display: flex; }
@@ -174,11 +177,30 @@
                     <button type="submit" class="sq-btn">Apply</button>
                 </form>
                 <input id="sqSearch" type="text" class="sq-search" placeholder="Search incubatee, app no, service, submitter, status">
+                @if ($canBulkApprove ?? false)
+                    <form id="sqBulkForm" method="post" action="{{ route('spoc.service-cases.bulk-approve') }}" style="display:none;">
+                        @csrf
+                        <input type="hidden" name="redirect_to" value="{{ request()->fullUrl() }}">
+                    </form>
+                    <div class="sq-bulk-bar">
+                        <label style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.82rem;font-weight:700;color:#334155;">
+                            <input type="checkbox" id="sqBulkSelectAll" class="sq-check" aria-label="Select all pending on this page">
+                            Select pending on page
+                        </label>
+                        <button type="submit" form="sqBulkForm" class="sq-btn sq-btn--ok" id="sqBulkSubmit" disabled>
+                            Approve selected (<span id="sqBulkCount">0</span>)
+                        </button>
+                        <span class="sq-bulk-hint">Tick pending service cases, then approve in one go.</span>
+                    </div>
+                @endif
             </div>
             <div class="sq-table-wrap">
             <table class="sq-table">
                 <thead>
                     <tr>
+                        @if ($canBulkApprove ?? false)
+                            <th style="width:2.4rem;"></th>
+                        @endif
                         <th>Incubatee</th>
                         <th>Service</th>
                         <th>District</th>
@@ -210,6 +232,9 @@
                             $isPending = $ml->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL;
                         @endphp
                         <tr data-search="{{ $search }}" style="background:#faf5ff;">
+                            @if ($canBulkApprove ?? false)
+                                <td></td>
+                            @endif
                             <td>
                                 <strong>{{ $ml->incubatee_name }}</strong>
                                 @if ($ml->application_no)
@@ -246,6 +271,20 @@
                             $isPending = $case->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL;
                         @endphp
                         <tr data-search="{{ $search }}">
+                            @if ($canBulkApprove ?? false)
+                                <td>
+                                    @if ($isPending)
+                                        <input
+                                            type="checkbox"
+                                            form="sqBulkForm"
+                                            name="case_ids[]"
+                                            value="{{ (int) $case->id }}"
+                                            class="sq-check js-bulk-case"
+                                            aria-label="Select case {{ $case->cfaSubmission?->application_no ?? $case->id }}"
+                                        >
+                                    @endif
+                                </td>
+                            @endif
                             <td>
                                 <strong>{{ $case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '—') : '—') }}</strong>
                                 @if ($case->cfaSubmission?->application_no)
@@ -486,6 +525,62 @@
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') setDocModal(false);
             });
+
+            @if ($canBulkApprove ?? false)
+            (function () {
+                const bulkForm = document.getElementById('sqBulkForm');
+                const bulkChecks = Array.from(document.querySelectorAll('.js-bulk-case'));
+                const bulkSelectAll = document.getElementById('sqBulkSelectAll');
+                const bulkSubmit = document.getElementById('sqBulkSubmit');
+                const bulkCount = document.getElementById('sqBulkCount');
+
+                function visibleBulkChecks() {
+                    return bulkChecks.filter(function (cb) {
+                        const row = cb.closest('tr');
+                        return row && row.style.display !== 'none';
+                    });
+                }
+
+                function refreshBulkUi() {
+                    if (!bulkSubmit || !bulkCount) return;
+                    const selected = bulkChecks.filter(function (cb) { return cb.checked; }).length;
+                    bulkCount.textContent = String(selected);
+                    bulkSubmit.disabled = selected === 0;
+                    if (bulkSelectAll) {
+                        const visible = visibleBulkChecks();
+                        bulkSelectAll.checked = visible.length > 0 && visible.every(function (cb) { return cb.checked; });
+                        bulkSelectAll.indeterminate = visible.some(function (cb) { return cb.checked; }) && !bulkSelectAll.checked;
+                    }
+                }
+
+                bulkChecks.forEach(function (cb) {
+                    cb.addEventListener('change', refreshBulkUi);
+                });
+
+                bulkSelectAll && bulkSelectAll.addEventListener('change', function () {
+                    const checked = bulkSelectAll.checked;
+                    visibleBulkChecks().forEach(function (cb) { cb.checked = checked; });
+                    refreshBulkUi();
+                });
+
+                if (search) {
+                    search.addEventListener('input', refreshBulkUi);
+                }
+
+                bulkForm && bulkForm.addEventListener('submit', function (e) {
+                    const selected = bulkChecks.filter(function (cb) { return cb.checked; }).length;
+                    if (selected === 0) {
+                        e.preventDefault();
+                        return;
+                    }
+                    if (!confirm('Approve ' + selected + ' selected case' + (selected === 1 ? '' : 's') + '?')) {
+                        e.preventDefault();
+                    }
+                });
+
+                refreshBulkUi();
+            })();
+            @endif
         })();
     </script>
 @endsection

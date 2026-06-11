@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Notifications\ServiceCaseWorkflowNotification;
 use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Support\SpocBulkApproveAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -194,6 +195,7 @@ class SpocServiceCaseController extends Controller
             'districtOptions' => $districtOptions,
             'batchOptions' => $batchOptions,
             'tabCounts' => $tabCounts,
+            'canBulkApprove' => SpocBulkApproveAccess::canBulkApprove($spoc),
         ]);
     }
 
@@ -297,28 +299,78 @@ class SpocServiceCaseController extends Controller
             throw ValidationException::withMessages(['status' => 'Only pending approval cases can be approved.']);
         }
 
-        DB::transaction(function () use ($service_case, $spoc): void {
-            $service_case->status = ServiceCase::STATUS_APPROVED;
-            $service_case->approved_at = now();
-            $service_case->approved_by = (int) $spoc->id;
-            $service_case->completed_at = now();
-            $service_case->sent_back_note = null;
-            $service_case->rejected_at = null;
-            $service_case->rejected_by = null;
-            $service_case->rejected_note = null;
-            $service_case->save();
-
-            ServiceCaseEvent::query()->create([
-                'service_case_id' => $service_case->id,
-                'user_id' => (int) $spoc->id,
-                'action' => 'spoc_approved',
-                'meta' => null,
-            ]);
-        });
-        $this->notifyDistrictStaff($service_case, $spoc, 'approved');
+        $this->approvePendingCase($service_case, $spoc);
 
         return $this->redirectToQueue($request)
             ->with('status', 'Case approved.');
+    }
+
+    public function bulkApprove(Request $request): RedirectResponse
+    {
+        $this->ensureModuleOn();
+        $spoc = $this->spocOrAbort($request);
+        abort_unless(SpocBulkApproveAccess::canBulkApprove($spoc), 403);
+
+        $validated = $request->validate([
+            'case_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'case_ids.*' => ['integer', 'min:1'],
+        ]);
+
+        $caseIds = collect($validated['case_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $cases = ServiceCase::query()
+            ->whereIn('id', $caseIds)
+            ->get()
+            ->keyBy('id');
+
+        $approved = 0;
+        $skipped = 0;
+
+        foreach ($caseIds as $caseId) {
+            $case = $cases->get($caseId);
+            if (! $case instanceof ServiceCase) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                $this->assertCaseInSpocDistrict($case, (int) $spoc->id);
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpException) {
+                $skipped++;
+
+                continue;
+            }
+
+            if ($case->status !== ServiceCase::STATUS_PENDING_APPROVAL) {
+                $skipped++;
+
+                continue;
+            }
+
+            $this->approvePendingCase($case, $spoc);
+            $approved++;
+        }
+
+        if ($approved === 0) {
+            throw ValidationException::withMessages([
+                'case_ids' => 'No pending cases could be approved from your selection.',
+            ]);
+        }
+
+        $message = $approved === 1
+            ? '1 case approved.'
+            : $approved.' cases approved.';
+
+        if ($skipped > 0) {
+            $message .= ' '.$skipped.' skipped (not pending or not in your districts).';
+        }
+
+        return $this->redirectToQueue($request)->with('status', $message);
     }
 
     public function sendBack(Request $request, ServiceCase $service_case): RedirectResponse
@@ -533,6 +585,34 @@ class SpocServiceCaseController extends Controller
         }
 
         return array_values(array_unique($out));
+    }
+
+    private function approvePendingCase(ServiceCase $serviceCase, User $spoc): void
+    {
+        if ($serviceCase->status !== ServiceCase::STATUS_PENDING_APPROVAL) {
+            throw ValidationException::withMessages(['status' => 'Only pending approval cases can be approved.']);
+        }
+
+        DB::transaction(function () use ($serviceCase, $spoc): void {
+            $serviceCase->status = ServiceCase::STATUS_APPROVED;
+            $serviceCase->approved_at = now();
+            $serviceCase->approved_by = (int) $spoc->id;
+            $serviceCase->completed_at = now();
+            $serviceCase->sent_back_note = null;
+            $serviceCase->rejected_at = null;
+            $serviceCase->rejected_by = null;
+            $serviceCase->rejected_note = null;
+            $serviceCase->save();
+
+            ServiceCaseEvent::query()->create([
+                'service_case_id' => $serviceCase->id,
+                'user_id' => (int) $spoc->id,
+                'action' => 'spoc_approved',
+                'meta' => null,
+            ]);
+        });
+
+        $this->notifyDistrictStaff($serviceCase, $spoc, 'approved');
     }
 
     private function notifyDistrictStaff(ServiceCase $serviceCase, User $spoc, string $action): void

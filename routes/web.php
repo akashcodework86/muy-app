@@ -467,6 +467,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('state-tasks.attachments.download');
 
         Route::get('service-cases', [SpocServiceCaseController::class, 'index'])->name('service-cases.index');
+        Route::post('service-cases/bulk-approve', [SpocServiceCaseController::class, 'bulkApprove'])
+            ->middleware('throttle:30,1')
+            ->name('service-cases.bulk-approve');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
         Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
