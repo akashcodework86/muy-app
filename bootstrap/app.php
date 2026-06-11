@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureHubAdmin;
 use App\Http\Middleware\EnsureIncubatee;
 use App\Http\Middleware\EnsureStateAdmin;
 use App\Http\Middleware\EnsureStateStaff;
+use App\Http\Middleware\EnsureTrainingPackageMonthPlanManager;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\TrackUserPresence;
 use Illuminate\Foundation\Application;
@@ -35,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'incubatee' => EnsureIncubatee::class,
             'staff_daily_check_in' => EnsureStaffDailyCheckInUser::class,
             'active' => EnsureUserIsActive::class,
+            'training_package_month_plan_manager' => EnsureTrainingPackageMonthPlanManager::class,
         ]);
 
         $middleware->appendToGroup('web', TrackUserPresence::class);

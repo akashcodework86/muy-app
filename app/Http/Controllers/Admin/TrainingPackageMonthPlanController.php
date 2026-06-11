@@ -7,6 +7,7 @@ use App\Models\District;
 use App\Models\TrainingPackageMonthSession;
 use App\Services\AdminAuditLogger;
 use App\Services\TrainingPackageMonthSessionService;
+use App\Support\TrainingPackageMonthPlanAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -22,6 +23,7 @@ class TrainingPackageMonthPlanController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorizeManager($request);
         $calendarYear = (int) $request->query('calendar_year', now()->year);
         $calendarMonth = (int) $request->query('calendar_month', now()->month);
         $calendarMonth = max(1, min(12, $calendarMonth));
@@ -57,6 +59,7 @@ class TrainingPackageMonthPlanController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorizeManager($request);
         abort_unless(Schema::hasTable('training_package_month_sessions'), 422, 'Training package month sessions table is missing.');
 
         $validated = $request->validate([
@@ -113,6 +116,7 @@ class TrainingPackageMonthPlanController extends Controller
 
     public function assignDefaultSessions(Request $request): RedirectResponse
     {
+        $this->authorizeManager($request);
         abort_unless(Schema::hasTable('training_package_month_sessions'), 422, 'Training package month sessions table is missing.');
 
         $validated = $request->validate([
@@ -154,8 +158,55 @@ class TrainingPackageMonthPlanController extends Controller
             ->with('status', $status);
     }
 
+    public function clearAllSessions(Request $request): RedirectResponse
+    {
+        $this->authorizeManager($request);
+        abort_unless(Schema::hasTable('training_package_month_sessions'), 422, 'Training package month sessions table is missing.');
+
+        $validated = $request->validate([
+            'calendar_year' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'calendar_month' => ['required', 'integer', 'min:1', 'max:12'],
+        ]);
+
+        $calendarYear = (int) $validated['calendar_year'];
+        $calendarMonth = (int) $validated['calendar_month'];
+        $result = $this->monthSessions->clearAllSessionsForMonth($calendarYear, $calendarMonth);
+
+        $this->auditLogger->record(
+            $request,
+            'training_package_month_plan.clear_all',
+            District::class,
+            null,
+            null,
+            [
+                'calendar_year' => $calendarYear,
+                'calendar_month' => $calendarMonth,
+                'deleted_count' => (int) ($result['deleted'] ?? 0),
+                'had_attendance_count' => (int) ($result['had_attendance'] ?? 0),
+            ],
+            'Cleared all training package month sessions for the month.'
+        );
+
+        $deleted = (int) ($result['deleted'] ?? 0);
+        $status = $deleted > 0
+            ? 'Removed '.$deleted.' session(s) for this month.'
+            : 'No sessions to remove for this month.';
+
+        if ((int) ($result['had_attendance'] ?? 0) > 0) {
+            $status .= ' Linked attendance for '.$result['had_attendance'].' filled session(s) was also deleted.';
+        }
+
+        return redirect()
+            ->route('admin.training-package-month-plans.index', [
+                'calendar_year' => $calendarYear,
+                'calendar_month' => $calendarMonth,
+            ])
+            ->with('status', $status);
+    }
+
     public function destroySession(Request $request, TrainingPackageMonthSession $trainingPackageMonthSession): RedirectResponse
     {
+        $this->authorizeManager($request);
         abort_unless(Schema::hasTable('training_package_month_sessions'), 422, 'Training package month sessions table is missing.');
 
         $calendarYear = (int) $trainingPackageMonthSession->calendar_year;
@@ -187,5 +238,10 @@ class TrainingPackageMonthPlanController extends Controller
                 'calendar_month' => $calendarMonth,
             ])
             ->with('status', 'Session deleted.');
+    }
+
+    private function authorizeManager(Request $request): void
+    {
+        abort_unless(TrainingPackageMonthPlanAccess::canManage($request->user()), 403);
     }
 }

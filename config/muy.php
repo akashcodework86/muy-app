@@ -24,4 +24,18 @@ return [
     */
     'migration_run_secret' => env('MIGRATION_RUN_SECRET'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Training package monthly session plan managers
+    |--------------------------------------------------------------------------
+    |
+    | Only these state admin / state staff emails can open and edit Training
+    | package session targets (admin/training-package-month-plans). Their planned required
+    | sessions feed the BST target on the Deliverables page.
+    |
+    */
+    'training_package_month_plan_managers' => [
+        'aadil.ishrat@pwc.com',
+    ],
+
 ];

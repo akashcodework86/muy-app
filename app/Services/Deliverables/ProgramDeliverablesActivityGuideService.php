@@ -378,7 +378,8 @@ class ProgramDeliverablesActivityGuideService
             'district_workshop_sessions' => $pick('district-workshop-sessions.dashboard', 'Field work → District workshop', 'District-level workshops.'),
             'edp_sessions' => $pick('eap-edp-sessions.dashboard', 'Field work → EAP / EDP', 'EAP/EDP session attendance.'),
             'bst_sessions', 'bst_participants' => $pick('training-packages.dashboard', 'Field work → Training package', 'BST sessions & participants.'),
-            'technical_training_sessions', 'technical_training_potential_lakhpati_participations' => $pick('technical-trainings.dashboard', 'Field work → Technical training', 'Technical training sessions.'),
+            'technical_training_sessions' => $pick('technical-trainings.dashboard', 'Field work → Technical training', 'Technical training to incubatees (3.3).'),
+            'technical_training_potential_lakhpati_sessions' => $pick('lakhpati-technical-trainings.dashboard', '3.3.1 Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs', 'Partner-requested technical training sessions.'),
             'deliverable', 'service', 'services' => $pick('services.index', 'Service → Service cases', 'Approved service cases count toward achievement.', 'phase3-services.index'),
             'market_linkage_unique_partners', 'market_linkage_incubatees' => $pick('market-linkages.dashboard', 'Service → Market linkage', 'Market linkage partners & incubatees.'),
             default => [
@@ -403,7 +404,7 @@ class ProgramDeliverablesActivityGuideService
             'bst_sessions' => 'BST sessions conducted',
             'bst_participants' => 'BST unique participants',
             'technical_training_sessions' => 'Technical training sessions',
-            'technical_training_potential_lakhpati_participations' => 'Technical training (Lakhpati subset)',
+            'technical_training_potential_lakhpati_sessions' => '3.3.1 Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
             'market_linkage_unique_partners' => 'Market linkage partners',
             'market_linkage_incubatees' => 'Market-linked incubatees',
             'none' => 'Not wired',

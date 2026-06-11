@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Admin\TrainingPackageMonthPlanController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
+use App\Http\Controllers\CommunityOrganizationOutreachController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DistrictWorkshopSessionAttendanceController;
 use App\Http\Controllers\EapEdpSessionAttendanceController;
@@ -46,6 +47,7 @@ use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Hub\HubOnboardingInsightController;
 use App\Http\Controllers\Hub\HubPendingActionsController;
 use App\Http\Controllers\Hub\HubStaffPerformanceController;
+use App\Http\Controllers\LakhpatiTechnicalTrainingController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
 use App\Http\Controllers\Incubatee\MentorshipRequestController;
 use App\Http\Controllers\LiveOpsController;
@@ -157,6 +159,25 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:15,1')
             ->name('mentorship-requests.store');
     });
+
+    Route::middleware('training_package_month_plan_manager')
+        ->prefix('admin')
+        ->name('admin.')
+        ->group(function (): void {
+            Route::get('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'index'])->name('training-package-month-plans.index');
+            Route::post('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('training-package-month-plans.store');
+            Route::post('training-package-month-plans/assign-default-sessions', [TrainingPackageMonthPlanController::class, 'assignDefaultSessions'])
+                ->middleware('throttle:30,1')
+                ->name('training-package-month-plans.assign-default-sessions');
+            Route::post('training-package-month-plans/clear-all-sessions', [TrainingPackageMonthPlanController::class, 'clearAllSessions'])
+                ->middleware('throttle:30,1')
+                ->name('training-package-month-plans.clear-all-sessions');
+            Route::delete('training-package-month-plans/sessions/{trainingPackageMonthSession}', [TrainingPackageMonthPlanController::class, 'destroySession'])
+                ->middleware('throttle:30,1')
+                ->name('training-package-month-plans.sessions.destroy');
+        });
 
     Route::prefix('account')->name('account.')->group(function () {
         /** Serves file from disk so images work even if public/storage symlink is missing */
@@ -364,6 +385,22 @@ Route::middleware(['auth', 'active'])->group(function () {
                 ->name('technical-trainings.update');
             Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
                 ->name('technical-trainings.attachment');
+
+            Route::get('lakhpati-technical-trainings', [LakhpatiTechnicalTrainingController::class, 'create'])->name('lakhpati-technical-trainings.create');
+            Route::post('lakhpati-technical-trainings', [LakhpatiTechnicalTrainingController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('lakhpati-technical-trainings.store');
+            Route::get('lakhpati-technical-trainings/dashboard', [LakhpatiTechnicalTrainingController::class, 'dashboard'])->name('lakhpati-technical-trainings.dashboard');
+            Route::get('lakhpati-technical-trainings/export', [LakhpatiTechnicalTrainingController::class, 'export'])->name('lakhpati-technical-trainings.export');
+            Route::get('lakhpati-technical-trainings/gram-panchayats', [LakhpatiTechnicalTrainingController::class, 'workshopGramPanchayats'])->name('lakhpati-technical-trainings.gram-panchayats');
+            Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'show'])->name('lakhpati-technical-trainings.show');
+            Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/export', [LakhpatiTechnicalTrainingController::class, 'exportSingle'])->name('lakhpati-technical-trainings.export-single');
+            Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/edit', [LakhpatiTechnicalTrainingController::class, 'edit'])->name('lakhpati-technical-trainings.edit');
+            Route::put('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'update'])
+                ->middleware('throttle:30,1')
+                ->name('lakhpati-technical-trainings.update');
+            Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/attachment', [LakhpatiTechnicalTrainingController::class, 'downloadAttachment'])
+                ->name('lakhpati-technical-trainings.attachment');
         });
 
         Route::middleware('staff_phase3_attendance_nav:eap_edp_session')->group(function (): void {
@@ -517,6 +554,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('technical-trainings/{technicalTraining}/export', [TechnicalTrainingAttendanceController::class, 'exportSingle'])->name('technical-trainings.export-single');
         Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
             ->name('technical-trainings.attachment');
+        Route::get('lakhpati-technical-trainings/dashboard', [LakhpatiTechnicalTrainingController::class, 'dashboard'])->name('lakhpati-technical-trainings.dashboard');
+        Route::get('lakhpati-technical-trainings/export', [LakhpatiTechnicalTrainingController::class, 'export'])->name('lakhpati-technical-trainings.export');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'show'])->name('lakhpati-technical-trainings.show');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/export', [LakhpatiTechnicalTrainingController::class, 'exportSingle'])->name('lakhpati-technical-trainings.export-single');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/attachment', [LakhpatiTechnicalTrainingController::class, 'downloadAttachment'])
+            ->name('lakhpati-technical-trainings.attachment');
         Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
         Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
         Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');
@@ -608,17 +651,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('targets/district', [TargetController::class, 'districtUpdate'])->name('targets.district.update');
         Route::get('targets/allocate-by-service', [ServiceTargetAllocationController::class, 'index'])->name('targets.allocate-by-service');
         Route::post('targets/allocate-by-service', [ServiceTargetAllocationController::class, 'apply'])->name('targets.allocate-by-service.apply');
-        Route::get('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'index'])->name('training-package-month-plans.index');
-        Route::post('training-package-month-plans', [TrainingPackageMonthPlanController::class, 'store'])
-            ->middleware('throttle:30,1')
-            ->name('training-package-month-plans.store');
-        Route::post('training-package-month-plans/assign-default-sessions', [TrainingPackageMonthPlanController::class, 'assignDefaultSessions'])
-            ->middleware('throttle:30,1')
-            ->name('training-package-month-plans.assign-default-sessions');
-        Route::delete('training-package-month-plans/sessions/{trainingPackageMonthSession}', [TrainingPackageMonthPlanController::class, 'destroySession'])
-            ->middleware('throttle:30,1')
-            ->name('training-package-month-plans.sessions.destroy');
-
+        Route::get('targets/district-hub-monthly', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'index'])->name('targets.district-hub-monthly');
+        Route::post('targets/district-hub-monthly/preset', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'applyDistrictPreset'])->name('targets.district-hub-monthly.preset');
+        Route::post('targets/district-hub-monthly/district', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'updateDistrict'])->name('targets.district-hub-monthly.district');
+        Route::post('targets/district-hub-monthly/hub', [\App\Http\Controllers\Admin\DistrictHubMonthlyTargetsController::class, 'updateHub'])->name('targets.district-hub-monthly.hub');
         Route::get('service-catalog', [ServiceCategoryController::class, 'index'])->name('service-catalog.index');
         Route::get('service-catalog/categories/create', [ServiceCategoryController::class, 'create'])->name('service-catalog.categories.create');
         Route::post('service-catalog/categories', [ServiceCategoryController::class, 'store'])->name('service-catalog.categories.store');
@@ -754,6 +790,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('technical-trainings/{technicalTraining}/export', [TechnicalTrainingAttendanceController::class, 'exportSingle'])->name('technical-trainings.export-single');
         Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
             ->name('technical-trainings.attachment');
+        Route::get('lakhpati-technical-trainings/dashboard', [LakhpatiTechnicalTrainingController::class, 'dashboard'])->name('lakhpati-technical-trainings.dashboard');
+        Route::get('lakhpati-technical-trainings/export', [LakhpatiTechnicalTrainingController::class, 'export'])->name('lakhpati-technical-trainings.export');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'show'])->name('lakhpati-technical-trainings.show');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/export', [LakhpatiTechnicalTrainingController::class, 'exportSingle'])->name('lakhpati-technical-trainings.export-single');
+        Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/attachment', [LakhpatiTechnicalTrainingController::class, 'downloadAttachment'])
+            ->name('lakhpati-technical-trainings.attachment');
         Route::get('eap-edp-sessions/dashboard', [EapEdpSessionAttendanceController::class, 'dashboard'])->name('eap-edp-sessions.dashboard');
         Route::get('eap-edp-sessions/export', [EapEdpSessionAttendanceController::class, 'export'])->name('eap-edp-sessions.export');
         Route::get('eap-edp-sessions/{eapEdpSession}', [EapEdpSessionAttendanceController::class, 'show'])->name('eap-edp-sessions.show');
@@ -787,6 +829,15 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
         Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
             ->name('market-linkages.document');
+
+        Route::get('community-org-outreach/dashboard', [CommunityOrganizationOutreachController::class, 'dashboard'])->name('community-org-outreach.dashboard');
+        Route::get('community-org-outreach/export', [CommunityOrganizationOutreachController::class, 'export'])->name('community-org-outreach.export');
+        Route::get('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'show'])->name('community-org-outreach.show');
+        Route::get('community-org-outreach/{communityOrgOutreach}/document', [CommunityOrganizationOutreachController::class, 'downloadDocument'])->name('community-org-outreach.document');
+        Route::get('community-org-outreach/{communityOrgOutreach}/photo', [CommunityOrganizationOutreachController::class, 'downloadPhoto'])->name('community-org-outreach.photo');
+        Route::delete('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.destroy');
 
         /** Read-only batches view for state admin (all hubs/districts, filterable) */
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
@@ -826,6 +877,18 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('staff-performance', [HubStaffPerformanceController::class, 'index'])->name('staff-performance.index');
         Route::get('pending-actions', [HubPendingActionsController::class, 'index'])->name('pending-actions.index');
         Route::get('onboarding-insight', [HubOnboardingInsightController::class, 'index'])->name('onboarding-insight.index');
+        Route::get('community-org-outreach/create', [CommunityOrganizationOutreachController::class, 'create'])->name('community-org-outreach.create');
+        Route::post('community-org-outreach', [CommunityOrganizationOutreachController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.store');
+        Route::get('community-org-outreach/dashboard', [CommunityOrganizationOutreachController::class, 'dashboard'])->name('community-org-outreach.dashboard');
+        Route::get('community-org-outreach/export', [CommunityOrganizationOutreachController::class, 'export'])->name('community-org-outreach.export');
+        Route::get('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'show'])->name('community-org-outreach.show');
+        Route::get('community-org-outreach/{communityOrgOutreach}/document', [CommunityOrganizationOutreachController::class, 'downloadDocument'])->name('community-org-outreach.document');
+        Route::get('community-org-outreach/{communityOrgOutreach}/photo', [CommunityOrganizationOutreachController::class, 'downloadPhoto'])->name('community-org-outreach.photo');
+        Route::delete('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.destroy');
         Route::post('batches/api', [HubBatchController::class, 'api'])->name('batches.api');
         Route::post('batches/upload-cdo', [HubBatchController::class, 'uploadCdo'])->name('batches.upload-cdo');
         Route::get('cfa-applications/{cfa_submission}', [HubBatchController::class, 'showCfaSubmission'])->name('batches.cfa.show');
