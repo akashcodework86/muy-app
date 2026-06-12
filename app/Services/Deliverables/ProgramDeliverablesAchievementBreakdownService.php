@@ -91,6 +91,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'marketing_partner_onboarded_count' => $this->marketingPartnerOnboardedBreakdown(),
             'business_acceleration_partners_outreach_count' => $this->businessAccelerationPartnersOutreachBreakdown(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsBreakdown(),
+            'reap_support_services' => $this->reapSupportServicesBreakdown(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsBreakdown(),
             'pitch_deck_combined' => $this->pitchDeckCombinedBreakdown(),
             default => ['total' => 0, 'by_district' => [], 'by_hub' => [], 'by_month' => [], 'by_service' => [], 'records' => []],
@@ -282,6 +283,7 @@ class ProgramDeliverablesAchievementBreakdownService
             return $this->emptyBreakdown();
         }
 
+        $sourceType = (string) ($source['type'] ?? '');
         $dateExpr = $this->serviceCaseAchievementDateExpression();
         $monthExpr = $this->monthKeySql($dateExpr);
         $statuses = [ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_COMPLETED];
@@ -298,6 +300,9 @@ class ProgramDeliverablesAchievementBreakdownService
 
         $this->applyDistrictScope($cfaQuery, 'cs.district_id');
         $this->applyServiceCaseDateScope($cfaQuery, $dateExpr);
+        if ($sourceType === 'reap_support_services') {
+            \App\Support\ConvergenceReapSupport::applyThroughReapPayloadScope($cfaQuery);
+        }
 
         $cfaRows = (clone $cfaQuery)
             ->selectRaw("
@@ -338,6 +343,7 @@ class ProgramDeliverablesAchievementBreakdownService
             $dateExpr,
             $monthExpr,
             $statuses,
+            $sourceType === 'reap_support_services',
         );
 
         $rows = $this->mergeServiceCaseAggregateRows($cfaRows, $legacyRows);
@@ -367,6 +373,7 @@ class ProgramDeliverablesAchievementBreakdownService
         string $dateExpr,
         string $monthExpr,
         array $statuses,
+        bool $filterThroughReap = false,
     ): array {
         if (! ServiceCase::supportsLegacyApplicationLink()) {
             return [collect(), [], []];
@@ -397,6 +404,9 @@ class ProgramDeliverablesAchievementBreakdownService
         }
 
         $this->applyServiceCaseDateScope($query, $dateExpr);
+        if ($filterThroughReap) {
+            \App\Support\ConvergenceReapSupport::applyThroughReapPayloadScope($query);
+        }
         $amountTotalsByServiceId = $this->amountTotalsByServiceIdFromServiceCaseQuery($query);
 
         $cases = (clone $query)
@@ -1203,6 +1213,14 @@ class ProgramDeliverablesAchievementBreakdownService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function reapSupportServicesBreakdown(): array
+    {
+        return $this->serviceCaseBreakdown(['type' => 'reap_support_services']);
+    }
+
     private function pitchDeckPreparationsBreakdown(): array
     {
         $data = \App\Support\PitchDeckPreparationsDeliverablesSupport::preparationsBreakdown(
@@ -1224,8 +1242,7 @@ class ProgramDeliverablesAchievementBreakdownService
     private function pitchDeckCombinedBreakdown(): array
     {
         $service = $this->serviceCaseBreakdown([
-            'type' => 'deliverable',
-            'code' => 'pitch_deck_prep',
+            'type' => 'reap_support_services',
         ]);
 
         $data = \App\Support\PitchDeckCombinedDeliverablesSupport::combinedBreakdownFromParts(
@@ -1660,6 +1677,8 @@ class ProgramDeliverablesAchievementBreakdownService
             foreach ((array) ($source['codes'] ?? []) as $code) {
                 $ids = array_merge($ids, $this->serviceIdsForServiceCode((string) $code));
             }
+        } elseif ($type === 'reap_support_services') {
+            $ids = \App\Support\ConvergenceReapSupportDeliverablesSupport::convergenceServiceIds();
         }
 
         return array_values(array_unique(array_filter(array_map('intval', $ids))));
@@ -1820,6 +1839,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'marketing_partner_onboarded_count' => 'Marketing partners onboarded (LoA/LoI/MoU)',
             'business_acceleration_partners_outreach_count' => '7.1 BA partners outreach (unique)',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
+            'reap_support_services' => 'Support to MUY Incubatee through Reap',
             'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation',
             default => 'Achievement records',
         };

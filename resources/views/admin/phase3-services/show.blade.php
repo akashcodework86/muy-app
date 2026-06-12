@@ -90,6 +90,20 @@
             border-radius: 10px;
             background: #fff;
         }
+        .svc-through-reap-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 0.35rem;
+            padding: 0.16rem 0.5rem;
+            border-radius: 999px;
+            border: 1px solid #fdba74;
+            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+            color: #9a3412;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            vertical-align: middle;
+        }
     </style>
 
     <p style="margin:0 0 1rem;">
@@ -107,7 +121,10 @@
     @endphp
 
     <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:52rem;margin-bottom:1rem;">
-        <h2 style="margin:0 0 0.35rem;font-size:1.05rem;">{{ $case->service?->name ?? 'Service' }}</h2>
+        <h2 style="margin:0 0 0.35rem;font-size:1.05rem;">
+            {{ $case->service?->name ?? 'Service' }}
+            @include('staff.services.partials.through-reap-badge', ['case' => $case])
+        </h2>
         <p style="margin:0;font-size:0.85rem;color:#52525b;">
             <strong>Category:</strong> {{ $case->service?->category?->name ?? '—' }}
             · <strong>Status:</strong> {{ $statusLabel }}
@@ -188,6 +205,22 @@
                     </div>
                 @endforeach
             </dl>
+        </div>
+    @endif
+
+    @if ($case->isConvergenceServiceCase())
+        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:52rem;margin-bottom:1rem;">
+            <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">REAP route</h3>
+            @if ($case->isMarkedThroughReap())
+                <p style="margin:0;font-size:0.88rem;">
+                    <span class="svc-through-reap-badge">Through REAP</span>
+                    <span style="display:block;margin-top:0.45rem;color:#52525b;font-size:0.82rem;">
+                        Counts toward MIS <strong>8.2</strong> and <strong>8.3</strong> when approved.
+                    </span>
+                </p>
+            @else
+                <p style="margin:0;font-size:0.88rem;color:#71717a;">Not marked Through REAP.</p>
+            @endif
         </div>
     @endif
 

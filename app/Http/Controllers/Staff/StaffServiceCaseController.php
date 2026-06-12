@@ -8,16 +8,21 @@ use App\Models\MarketLinkagePartner;
 use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
+use App\Models\ServiceCaseAttachment;
 use App\Models\User;
 use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Services\SchemaValidator;
 use App\Services\ServiceCaseRecorder;
+use App\Support\ConvergenceReapSupport;
 use App\Support\ServiceFieldTypes;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -337,6 +342,8 @@ class StaffServiceCaseController extends Controller
                 'id' => $s->id,
                 'name' => $s->name,
                 'category_name' => $s->category?->name ?? 'Other',
+                'category_slug' => $s->category?->slug ?? '',
+                'is_convergence' => ConvergenceReapSupport::categoryIsConvergence($s->category),
                 'requires_document' => (bool) $s->requires_document,
                 'requires_approval' => (bool) $s->requires_approval,
                 'allows_multiple' => (bool) $s->allows_multiple,
@@ -426,6 +433,8 @@ class StaffServiceCaseController extends Controller
             }
         }
 
+        $payload = $this->normalizeConvergencePayload($service, $payload);
+
         try {
             if ($cfaId > 0) {
                 $submission = CfaSubmission::query()->findOrFail($cfaId);
@@ -498,6 +507,7 @@ class StaffServiceCaseController extends Controller
             'schema' => ServiceFieldTypes::normalizeSchema($service_case->service?->field_schema ?? []),
             'payload' => is_array($service_case->payload) ? $service_case->payload : [],
             'legacyIncubateePreview' => $legacyIncubateePreview,
+            'isConvergenceService' => ConvergenceReapSupport::serviceIsConvergence($service_case->service),
         ]);
     }
 
@@ -542,8 +552,18 @@ class StaffServiceCaseController extends Controller
             }
         }
 
+        $payload = $this->normalizeConvergencePayload($service, $payload);
+
         try {
-            // Allow editing from any staff-visible state by reopening into sent_back flow.
+            if ($service_case->status === ServiceCase::STATUS_APPROVED) {
+                $this->updateApprovedCase($service_case, $service, $payload, $validated, $uploads, (int) $staff->id);
+
+                return redirect()
+                    ->route('staff.services.index')
+                    ->with('status', 'Service case updated.');
+            }
+
+            // Allow editing from any other staff-visible state by reopening into sent_back flow.
             if (! in_array($service_case->status, [ServiceCase::STATUS_DRAFT, ServiceCase::STATUS_SENT_BACK], true)) {
                 $service_case->status = ServiceCase::STATUS_SENT_BACK;
                 $service_case->save();
@@ -803,5 +823,82 @@ class StaffServiceCaseController extends Controller
                 ->map(fn (Collection $rows) => $rows->map($format)->values()->all())
                 ->all(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function normalizeConvergencePayload(Service $service, array $payload): array
+    {
+        return ConvergenceReapSupport::mergeThroughReapIntoPayload($service, $payload, $payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @param  list<UploadedFile>  $uploads
+     */
+    private function updateApprovedCase(
+        ServiceCase $case,
+        Service $service,
+        array $payload,
+        array $validated,
+        array $uploads,
+        int $actorId,
+    ): void {
+        $schema = ServiceFieldTypes::normalizeSchema($service->field_schema ?? []);
+        $validatedPayload = $schema === []
+            ? []
+            : app(SchemaValidator::class)->validate($schema, $payload);
+        $validatedPayload = ConvergenceReapSupport::mergeThroughReapIntoPayload($service, $validatedPayload, $payload);
+
+        $existingFiles = $case->attachments()->count();
+        if ($existingFiles + count($uploads) > 3) {
+            throw ValidationException::withMessages([
+                'attachments' => 'Maximum 3 documents per case.',
+            ]);
+        }
+
+        if ($service->requires_document && $existingFiles + count($uploads) < 1) {
+            throw ValidationException::withMessages([
+                'attachments' => 'This service requires at least one document.',
+            ]);
+        }
+
+        DB::transaction(function () use ($case, $service, $validatedPayload, $validated, $uploads, $actorId): void {
+            foreach ($uploads as $file) {
+                if (! $file instanceof UploadedFile || ! $file->isValid()) {
+                    throw ValidationException::withMessages(['attachments' => 'Invalid upload.']);
+                }
+            }
+
+            foreach ($uploads as $file) {
+                $dir = 'service-case-attachments/'.$case->id;
+                $path = $file->store($dir, 'local');
+                ServiceCaseAttachment::query()->create([
+                    'service_case_id' => $case->id,
+                    'disk' => 'local',
+                    'path' => $path,
+                    'original_name' => $file->getClientOriginalName() ?: 'upload',
+                    'mime_type' => $file->getMimeType(),
+                    'size_bytes' => (int) $file->getSize(),
+                    'uploaded_by' => $actorId,
+                ]);
+            }
+
+            if ($service->requires_document && $case->attachments()->count() < 1) {
+                throw ValidationException::withMessages([
+                    'attachments' => 'This service requires at least one document.',
+                ]);
+            }
+
+            $case->payload = $validatedPayload === [] ? null : $validatedPayload;
+            ConvergenceReapSupport::syncThroughReapColumn($case, $validatedPayload);
+            $case->reference_number = $validated['reference_number'] ?? $case->reference_number;
+            if (! $service->requires_approval && ! empty($validated['delivered_on'])) {
+                $case->delivered_on = Carbon::parse((string) $validated['delivered_on'])->startOfDay();
+            }
+            $case->save();
+        });
     }
 }

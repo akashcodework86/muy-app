@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ConvergenceReapSupport;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -55,6 +56,7 @@ class ServiceCase extends Model
         'service_id',
         'status',
         'payload',
+        'through_reap',
         'reference_number',
         'delivered_on',
         'completed_at',
@@ -77,6 +79,7 @@ class ServiceCase extends Model
     {
         return [
             'payload' => 'array',
+            'through_reap' => 'boolean',
             'approval_snapshot' => 'array',
             'delivered_on' => 'date',
             'completed_at' => 'datetime',
@@ -85,6 +88,23 @@ class ServiceCase extends Model
             'rejected_at' => 'datetime',
             'sla_deadline_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (ServiceCase $case): void {
+            if (! Schema::hasColumn($case->getTable(), 'through_reap') || ! $case->isDirty('payload')) {
+                return;
+            }
+
+            $case->loadMissing('service.category');
+            $payload = is_array($case->payload) ? $case->payload : [];
+            if (ConvergenceReapSupport::serviceIsConvergence($case->service)) {
+                ConvergenceReapSupport::syncThroughReapColumn($case, $payload);
+            } else {
+                $case->through_reap = false;
+            }
+        });
     }
 
     public function cfaSubmission(): BelongsTo
@@ -154,5 +174,25 @@ class ServiceCase extends Model
             self::STATUS_APPROVED,
             self::STATUS_REJECTED,
         ], true);
+    }
+
+    public function isConvergenceServiceCase(): bool
+    {
+        $this->loadMissing('service.category');
+
+        return ConvergenceReapSupport::serviceIsConvergence($this->service);
+    }
+
+    public function isMarkedThroughReap(): bool
+    {
+        if (Schema::hasColumn($this->getTable(), 'through_reap') && $this->through_reap) {
+            return true;
+        }
+
+        $payload = is_array($this->payload) ? $this->payload : [];
+
+        return ConvergenceReapSupport::payloadValueIsThroughReap(
+            $payload[ConvergenceReapSupport::PAYLOAD_KEY] ?? null,
+        );
     }
 }

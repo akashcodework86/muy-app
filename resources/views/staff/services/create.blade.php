@@ -229,6 +229,7 @@
         <script>
             (function () {
                 const SERVICES = @json($servicesJson);
+                const OLD_PAYLOAD = @json(old('payload', []));
                 const EXISTING_NON_MULTIPLE = new Set(@json($existingNonMultiplePairs ?? []));
                 const LEGACY_PRIOR = @json($legacyPriorJson ?? []);
                 const PRIOR_CASES = @json($priorCasesJson ?? ['cfa' => [], 'legacy' => []]);
@@ -383,6 +384,22 @@
                     return d.innerHTML;
                 }
 
+                function appendThroughReapField(container) {
+                    const wrap = document.createElement('div');
+                    wrap.style.cssText = 'padding:0.65rem 0.75rem;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;';
+                    wrap.innerHTML =
+                        '<label style="display:flex;align-items:flex-start;gap:0.45rem;cursor:pointer;margin:0;">' +
+                        '<input type="hidden" name="payload[through_reap]" value="0">' +
+                        '<input type="checkbox" name="payload[through_reap]" value="1" id="payload_through_reap" style="margin-top:0.15rem;width:1rem;height:1rem;accent-color:#ea580c;">' +
+                        '<span><strong style="font-size:0.84rem;color:#7c2d12;">Through REAP</strong>' +
+                        '<span style="display:block;font-size:0.76rem;color:#9a3412;margin-top:0.12rem;">Tick for MIS 8.2 and 8.3 after SPOC approval.</span></span>' +
+                        '</label>';
+                    container.appendChild(wrap);
+                    const checked = OLD_PAYLOAD && (OLD_PAYLOAD.through_reap === '1' || OLD_PAYLOAD.through_reap === 1 || OLD_PAYLOAD.through_reap === true || OLD_PAYLOAD.through_reap === 'true');
+                    const cb = wrap.querySelector('#payload_through_reap');
+                    if (cb && checked) cb.checked = true;
+                }
+
                 function render() {
                     const id = parseInt(selSvc.value || '0', 10);
                     const subId = parseInt(selSub ? (selSub.value || '0') : '0', 10);
@@ -428,12 +445,18 @@
                         wrapAtt.style.display = 'block';
                     }
 
+                    if (svc.is_convergence) {
+                        appendThroughReapField(box);
+                    }
+
                     const schema = svc.schema || [];
                     if (schema.length === 0) {
-                        const p = document.createElement('p');
-                        p.style.cssText = 'margin:0;font-size:0.82rem;color:#71717a;';
-                        p.textContent = 'No extra fields configured for this service.';
-                        box.appendChild(p);
+                        if (!svc.is_convergence) {
+                            const p = document.createElement('p');
+                            p.style.cssText = 'margin:0;font-size:0.82rem;color:#71717a;';
+                            p.textContent = 'No extra fields configured for this service.';
+                            box.appendChild(p);
+                        }
                         return;
                     }
 

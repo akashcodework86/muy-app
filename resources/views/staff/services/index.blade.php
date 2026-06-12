@@ -335,6 +335,20 @@
             color: #4338ca;
             font-weight: 700;
         }
+        .svc-through-reap-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 0.28rem;
+            padding: 0.16rem 0.5rem;
+            border-radius: 999px;
+            border: 1px solid #fdba74;
+            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+            color: #9a3412;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
     </style>
 
     <p class="svc-page-actions">
@@ -559,6 +573,7 @@
                                     ($case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '') : '')).' '.
                                     ($case->cfaSubmission?->application_no ?? (is_array($lip) ? ($lip['application_no'] ?? '') : '')).' '.
                                     ($case->service?->name ?? '').' '.
+                                    ($case->isMarkedThroughReap() ? 'through reap ' : '').
                                     ($assignedByName ?? '').' '.
                                     str_replace('_', ' ', (string) $case->status).' '.
                                     ($case->spoc?->name ?? '').' '.
@@ -576,7 +591,10 @@
                                         <div class="svc-muted">{{ $lip['application_no'] }} <span style="color:#94a3b8;">(legacy)</span></div>
                                     @endif
                                 </td>
-                                <td>{{ $case->service?->name ?? '—' }}</td>
+                                <td>
+                                    {{ $case->service?->name ?? '—' }}
+                                    @include('staff.services.partials.through-reap-badge', ['case' => $case])
+                                </td>
                                 <td>{{ $assignedByName }}</td>
                                 <td>
                                     <span class="svc-spoc-pill {{ $case->spoc?->name ? '' : 'svc-spoc-pill--empty' }}">

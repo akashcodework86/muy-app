@@ -11,6 +11,7 @@ use App\Models\ServiceCaseEvent;
 use App\Models\User;
 use App\Notifications\ServiceCaseWorkflowNotification;
 use App\Support\BusinessDays;
+use App\Support\ConvergenceReapSupport;
 use App\Support\ServiceFieldTypes;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
@@ -40,7 +41,9 @@ class ServiceCaseRecorder
             $payload = $schema === []
                 ? []
                 : $this->schemaValidator->validate($schema, $rawPayload);
+            $payload = ConvergenceReapSupport::mergeThroughReapIntoPayload($service, $payload, $rawPayload);
             $case->payload = $payload === [] ? null : $payload;
+            ConvergenceReapSupport::syncThroughReapColumn($case, $payload);
             $case->save();
         }
 
@@ -161,6 +164,7 @@ class ServiceCaseRecorder
         $payload = $schema === []
             ? []
             : $this->schemaValidator->validate($schema, $rawPayload);
+        $payload = ConvergenceReapSupport::mergeThroughReapIntoPayload($service, $payload, $rawPayload);
 
         $requiresApproval = (bool) $service->requires_approval;
         $districtId = $this->districtIdForCase($case);
@@ -212,6 +216,7 @@ class ServiceCaseRecorder
             }
 
             $case->payload = $payload === [] ? null : $payload;
+            ConvergenceReapSupport::syncThroughReapColumn($case, is_array($case->payload) ? $case->payload : []);
             $case->reference_number = $attributes['reference_number'] ?? $case->reference_number;
             $case->delivered_on = $deliveredOn ? Carbon::parse((string) $deliveredOn)->startOfDay() : null;
             $case->submitted_at = now();

@@ -317,7 +317,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'Spoke & Hub',
-                    'source' => ['type' => 'none'],
+                    'source' => ['type' => 'reap_support_services'],
                 ],
                 [
                     'name' => 'Incubatees Pitch Deck Preparation',

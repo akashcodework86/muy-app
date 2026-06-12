@@ -326,13 +326,14 @@ class PitchDeckPreparationTest extends TestCase
         Storage::fake();
 
         [$district, , $cfaId] = $this->createOnboardedCfa();
-        $service = $this->createPitchDeckService();
+        $convergenceService = $this->createConvergenceService();
 
         ServiceCase::query()->create([
             'cfa_submission_id' => $cfaId,
-            'service_id' => $service->id,
+            'service_id' => $convergenceService->id,
             'status' => ServiceCase::STATUS_APPROVED,
             'approved_at' => '2026-05-18 10:00:00',
+            'payload' => ['through_reap' => '1'],
         ]);
 
         $govind = User::factory()->create([
@@ -472,6 +473,23 @@ class PitchDeckPreparationTest extends TestCase
         ]);
 
         return [$district, $batch, $cfaId];
+    }
+
+    private function createConvergenceService(): Service
+    {
+        $category = ServiceCategory::query()->create([
+            'slug' => 'convergence-with-line-departments',
+            'name' => 'Schematic Convergence',
+            'sort_order' => 99,
+        ]);
+
+        return Service::query()->create([
+            'service_category_id' => $category->id,
+            'code' => 'p_m_e_g_p',
+            'name' => 'PMEGP',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
     }
 
     private function createPitchDeckService(): Service

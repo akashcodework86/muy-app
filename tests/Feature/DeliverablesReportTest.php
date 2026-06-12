@@ -2461,4 +2461,268 @@ class DeliverablesReportTest extends TestCase
             'selected_incubatees_snapshot' => [],
         ], $overrides));
     }
+
+    public function test_reap_support_achievement_counts_only_flagged_convergence_services(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'reap-hub', 'name' => 'Hub', 'sort_order' => 99]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'reap-district',
+            'name' => 'Reap District',
+            'sort_order' => 99,
+        ]);
+
+        $convergenceCategory = ServiceCategory::query()->create([
+            'slug' => 'convergence-with-line-departments',
+            'name' => 'Schematic Convergence',
+            'sort_order' => 99,
+        ]);
+
+        $throughReapService = Service::query()->create([
+            'service_category_id' => $convergenceCategory->id,
+            'code' => 'p_m_e_g_p',
+            'name' => 'PMEGP',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $plainService = Service::query()->create([
+            'service_category_id' => $convergenceCategory->id,
+            'code' => 'm_s_y_2_0',
+            'name' => 'MSY 2.0',
+            'sort_order' => 2,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Reap Applicant',
+            'phone' => '9999999911',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $throughReapService->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-REAP-1',
+            'submitted_at' => '2026-05-10 09:00:00',
+            'payload' => ['through_reap' => '1'],
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $plainService->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-REAP-2',
+            'submitted_at' => '2026-05-11 09:00:00',
+            'payload' => ['through_reap' => '0'],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '8.2');
+
+        $this->assertNotNull($row);
+        $this->assertSame(1, $row['achievement']);
+    }
+
+    public function test_convergence_through_reap_store_show_badge_and_deliverables_count(): void
+    {
+        app(\App\Services\AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'reap-flow-hub', 'name' => 'Hub', 'sort_order' => 98]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'reap-flow-district',
+            'name' => 'Reap Flow District',
+            'sort_order' => 98,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $convergenceCategory = ServiceCategory::query()->create([
+            'slug' => 'convergence-with-line-departments',
+            'name' => 'Schematic Convergence',
+            'sort_order' => 98,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $convergenceCategory->id,
+            'code' => 'p_m_e_g_p_flow',
+            'name' => 'PMEGP Flow',
+            'sort_order' => 1,
+            'is_active' => true,
+            'requires_approval' => false,
+            'field_schema' => [
+                ['key' => 'scheme_name', 'label' => 'Scheme', 'type' => 'text', 'required' => true],
+                ['key' => 'scheme_registration_date', 'label' => 'Date', 'type' => 'date', 'required' => true],
+            ],
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Reap Flow Applicant',
+            'phone' => '9999999922',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $batchId = (int) DB::table('onboarding_batches')->insertGetId([
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'name' => 'Flow batch',
+            'target_size' => 1,
+            'status' => 'locked',
+            'locked_at' => now(),
+            'onboarding_date' => '2026-05-01',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('onboarding_batch_cfa')->insert([
+            'onboarding_batch_id' => $batchId,
+            'cfa_submission_id' => $cfaId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($staff)
+            ->post(route('staff.services.store'), [
+                'cfa_submission_id' => $cfaId,
+                'service_id' => $service->id,
+                'payload' => [
+                    'through_reap' => '1',
+                    'scheme_name' => 'PMEGP Flow',
+                    'scheme_registration_date' => '2026-05-12',
+                ],
+            ])
+            ->assertRedirect(route('staff.services.index'));
+
+        $case = ServiceCase::query()->where('service_id', $service->id)->latest('id')->firstOrFail();
+        $this->assertSame('1', $case->payload['through_reap'] ?? null);
+        $this->assertTrue((bool) $case->through_reap);
+
+        $this->actingAs($staff)
+            ->get(route('staff.services.show', $case))
+            ->assertOk()
+            ->assertSee('Through REAP', false);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, $district->id, null, null);
+        $scope = ProgramDeliverablesScope::forUser($staff);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $row82 = collect($report['rows'])->firstWhere('serial', '8.2');
+        $row83 = collect($report['rows'])->firstWhere('serial', '8.3');
+
+        $this->assertNotNull($row82);
+        $this->assertNotNull($row83);
+        $this->assertSame(1, $row82['achievement']);
+        $this->assertSame(1, $row83['achievement']);
+    }
+
+    public function test_approved_convergence_case_can_toggle_through_reap_without_reapproval(): void
+    {
+        app(\App\Services\AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+
+        $hub = Hub::query()->create(['slug' => 'reap-edit-hub', 'name' => 'Hub', 'sort_order' => 97]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'reap-edit-district',
+            'name' => 'Reap Edit District',
+            'sort_order' => 97,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $convergenceCategory = ServiceCategory::query()->create([
+            'slug' => 'convergence-with-line-departments',
+            'name' => 'Schematic Convergence',
+            'sort_order' => 97,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $convergenceCategory->id,
+            'code' => 'p_m_e_g_p_edit',
+            'name' => 'PMEGP Edit',
+            'sort_order' => 1,
+            'is_active' => true,
+            'requires_approval' => true,
+            'field_schema' => [
+                ['key' => 'scheme_name', 'label' => 'Scheme', 'type' => 'text', 'required' => true],
+                ['key' => 'scheme_registration_date', 'label' => 'Date', 'type' => 'date', 'required' => true],
+            ],
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Reap Edit Applicant',
+            'phone' => '9999999933',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $case = ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'approved_at' => '2026-05-15 10:00:00',
+            'submitted_at' => '2026-05-14 10:00:00',
+            'submitted_by' => $staff->id,
+            'created_by' => $staff->id,
+            'payload' => [
+                'scheme_name' => 'PMEGP Edit',
+                'scheme_registration_date' => '2026-05-10',
+                'through_reap' => '0',
+            ],
+        ]);
+
+        $this->actingAs($staff)
+            ->patch(route('staff.services.update', $case), [
+                'payload' => [
+                    'through_reap' => '1',
+                    'scheme_name' => 'PMEGP Edit',
+                    'scheme_registration_date' => '2026-05-10',
+                ],
+            ])
+            ->assertRedirect(route('staff.services.index'));
+
+        $case->refresh();
+        $this->assertSame(ServiceCase::STATUS_APPROVED, $case->status);
+        $this->assertSame('1', $case->payload['through_reap'] ?? null);
+        $this->assertTrue((bool) $case->through_reap);
+    }
 }

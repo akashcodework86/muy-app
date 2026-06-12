@@ -90,6 +90,20 @@
             border-radius: 10px;
             background: #fff;
         }
+        .svc-through-reap-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 0.35rem;
+            padding: 0.16rem 0.5rem;
+            border-radius: 999px;
+            border: 1px solid #fdba74;
+            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+            color: #9a3412;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            vertical-align: middle;
+        }
     </style>
 
     <p style="margin:0 0 1rem;">
@@ -116,7 +130,10 @@
     @endphp
 
     <div style="background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);border:1px solid #e4e4e7;border-radius:14px;padding:1rem 1.1rem;max-width:48rem;margin-bottom:1rem;box-shadow:0 8px 22px -18px rgba(15,23,42,0.3);">
-        <h2 style="margin:0 0 0.4rem;font-size:1.15rem;">{{ $case->service?->name ?? 'Service' }}</h2>
+        <h2 style="margin:0 0 0.4rem;font-size:1.15rem;">
+            {{ $case->service?->name ?? 'Service' }}
+            @include('staff.services.partials.through-reap-badge', ['case' => $case])
+        </h2>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.45rem;font-size:0.85rem;color:#52525b;">
             <span style="display:inline-flex;align-items:center;padding:0.15rem 0.55rem;border-radius:999px;border:1px solid {{ $statusStyles['bd'] }};background:{{ $statusStyles['bg'] }};color:{{ $statusStyles['fg'] }};font-weight:700;">
                 {{ $statusLabel }}
@@ -178,6 +195,22 @@
                     </div>
                 @endforeach
             </dl>
+        </div>
+    @endif
+
+    @if ($case->isConvergenceServiceCase())
+        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:48rem;margin-bottom:1rem;box-shadow:0 8px 22px -18px rgba(15,23,42,0.3);">
+            <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">REAP route</h3>
+            @if ($case->isMarkedThroughReap())
+                <p style="margin:0;font-size:0.88rem;">
+                    <span class="svc-through-reap-badge">Through REAP</span>
+                    <span style="display:block;margin-top:0.45rem;color:#52525b;font-size:0.82rem;">
+                        This convergence case counts toward MIS <strong>8.2</strong> and <strong>8.3</strong> after SPOC approval.
+                    </span>
+                </p>
+            @else
+                <p style="margin:0;font-size:0.88rem;color:#71717a;">Not marked Through REAP.</p>
+            @endif
         </div>
     @endif
 

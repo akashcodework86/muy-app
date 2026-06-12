@@ -56,9 +56,12 @@
 
         <fieldset style="margin:0 0 1rem;padding:0.75rem 0.9rem;border:1px solid #e4e4e7;border-radius:8px;">
             <legend style="font-size:0.85rem;font-weight:600;">Service details</legend>
-            @if ($schema === [])
+            @if ($isConvergenceService ?? false)
+                @include('staff.services.partials.through-reap-field')
+            @endif
+            @if ($schema === [] && ! ($isConvergenceService ?? false))
                 <p style="margin:0;font-size:0.82rem;color:#71717a;">No extra fields configured for this service.</p>
-            @else
+            @elseif ($schema !== [])
                 <div style="display:flex;flex-direction:column;gap:0.65rem;">
                     @foreach ($schema as $field)
                         @php

@@ -673,7 +673,7 @@ class Phase3ServiceCasesController extends Controller
 
         return $query
             ->with([
-                'service.category:id,name',
+                'service.category:id,name,slug',
                 'cfaSubmission:id,application_no,applicant_name,district_id,phone,payload',
                 'cfaSubmission.district:id,name',
                 'submitter:id,name',

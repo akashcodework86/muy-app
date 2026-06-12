@@ -205,6 +205,7 @@
                                     </span>
                                 </div>
                             @endif
+                            @include('staff.services.partials.through-reap-badge', ['case' => $case])
                         </td>
                         <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
                             <span style="font-size:0.75rem;padding:0.12rem 0.4rem;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">

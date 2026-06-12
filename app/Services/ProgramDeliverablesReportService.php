@@ -19,6 +19,7 @@ use App\Services\Deliverables\ProgramDeliverableReportingTier;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Support\BusinessAccelerationPartnersOutreachDeliverablesSupport;
+use App\Support\ConvergenceReapSupportDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
 use App\Support\PitchDeckPreparationsDeliverablesSupport;
@@ -726,6 +727,7 @@ class ProgramDeliverablesReportService
             'business_acceleration_partners_outreach_count' => $this->businessAccelerationPartnersOutreachCount(),
             'community_org_outreach_count' => $this->communityOrgOutreachVisitsCount(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsCount(),
+            'reap_support_services' => $this->reapSupportServicesCount(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsCount(),
             'pitch_deck_combined' => $this->pitchDeckCombinedCount(),
             default => 0,
@@ -1535,6 +1537,15 @@ SQL;
         );
     }
 
+    private function reapSupportServicesCount(): int
+    {
+        return ConvergenceReapSupportDeliverablesSupport::countCases(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
     private function pitchDeckPreparationsCount(): int
     {
         return PitchDeckPreparationsDeliverablesSupport::countPreparations(
@@ -1546,12 +1557,15 @@ SQL;
 
     private function pitchDeckCombinedCount(): int
     {
-        return $this->achievementForDeliverableCode('pitch_deck_prep')
-            + PitchDeckPreparationsDeliverablesSupport::countPreparations(
-                $this->periodFrom,
-                $this->periodTo,
-                $this->districtIds,
-            );
+        return ConvergenceReapSupportDeliverablesSupport::countCases(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        ) + PitchDeckPreparationsDeliverablesSupport::countPreparations(
+            $this->periodFrom,
+            $this->periodTo,
+            $this->districtIds,
+        );
     }
 
     private ?FiscalYear $activeFiscalYear = null;
