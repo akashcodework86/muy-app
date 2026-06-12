@@ -61,7 +61,8 @@ use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\LegacyPhase2IncubateeProfileController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Http\Controllers\StaffCheckInController;
-use App\Http\Controllers\MarketLinkageController;
+use App\Http\Controllers\MarketingPartnerOutreachController;
+use App\Http\Controllers\PartnerOutreachLandingController;
 use App\Http\Controllers\CapacityBuildingStakeholdersLandingController;
 use App\Http\Controllers\PitchDeckPreparationController;
 use App\Http\Controllers\PitchDeckPreparationLandingController;
@@ -597,6 +598,23 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:30,1')
             ->name('social-media-posts.destroy');
 
+        Route::get('partner-outreach/create', [MarketingPartnerOutreachController::class, 'create'])->name('partner-outreach.create');
+        Route::post('partner-outreach', [MarketingPartnerOutreachController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('partner-outreach.store');
+        Route::get('partner-outreach', PartnerOutreachLandingController::class)->name('partner-outreach.index');
+        Route::get('partner-outreach/dashboard', [MarketingPartnerOutreachController::class, 'dashboard'])->name('partner-outreach.dashboard');
+        Route::get('partner-outreach/export', [MarketingPartnerOutreachController::class, 'export'])->name('partner-outreach.export');
+        Route::patch('partner-outreach/{partnerOutreach}/status', [MarketingPartnerOutreachController::class, 'updateStatus'])
+            ->middleware('throttle:30,1')
+            ->name('partner-outreach.update-status');
+        Route::get('partner-outreach/{partnerOutreach}/document', [MarketingPartnerOutreachController::class, 'downloadDocument'])
+            ->name('partner-outreach.document');
+        Route::get('partner-outreach/{partnerOutreach}', [MarketingPartnerOutreachController::class, 'show'])->name('partner-outreach.show');
+        Route::delete('partner-outreach/{partnerOutreach}', [MarketingPartnerOutreachController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('partner-outreach.destroy');
+
         Route::get('capacity-building-stakeholders/create', [StakeholderCapacityBuildingSessionController::class, 'create'])->name('capacity-building-stakeholders.create');
         Route::post('capacity-building-stakeholders', [StakeholderCapacityBuildingSessionController::class, 'store'])
             ->middleware('throttle:30,1')
@@ -872,6 +890,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('social-media-posts/{socialMediaPost}', [SocialMediaPostController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('social-media-posts.destroy');
+
+        Route::get('partner-outreach/dashboard', [MarketingPartnerOutreachController::class, 'dashboard'])->name('partner-outreach.dashboard');
+        Route::get('partner-outreach', PartnerOutreachLandingController::class)->name('partner-outreach.index');
+        Route::get('partner-outreach/export', [MarketingPartnerOutreachController::class, 'export'])->name('partner-outreach.export');
+        Route::get('partner-outreach/{partnerOutreach}/document', [MarketingPartnerOutreachController::class, 'downloadDocument'])
+            ->name('partner-outreach.document');
+        Route::get('partner-outreach/{partnerOutreach}', [MarketingPartnerOutreachController::class, 'show'])->name('partner-outreach.show');
 
         Route::get('capacity-building-stakeholders/dashboard', [StakeholderCapacityBuildingSessionController::class, 'dashboard'])->name('capacity-building-stakeholders.dashboard');
         Route::get('capacity-building-stakeholders', CapacityBuildingStakeholdersLandingController::class)->name('capacity-building-stakeholders.index');

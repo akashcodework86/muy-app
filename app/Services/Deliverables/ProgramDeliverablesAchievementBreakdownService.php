@@ -12,6 +12,7 @@ use App\Models\ServiceCase;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\ServiceTargetDeliverableSyncService;
+use App\Support\MarketingPartnerOutreachDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
@@ -85,6 +86,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'market_linkage_unique_partners' => $this->marketLinkagePartnersBreakdown(),
             'market_linkage_incubatees' => $this->marketLinkageIncubateesBreakdown(),
             'community_org_outreach_count' => $this->communityOrgOutreachBreakdown(),
+            'marketing_partner_outreach_count' => $this->marketingPartnerOutreachBreakdown(),
+            'marketing_partner_onboarded_count' => $this->marketingPartnerOnboardedBreakdown(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsBreakdown(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsBreakdown(),
             'pitch_deck_combined' => $this->pitchDeckCombinedBreakdown(),
@@ -227,6 +230,28 @@ class ProgramDeliverablesAchievementBreakdownService
             ->all();
 
         return $this->aggregateGroupedRows($rows, includeService: false, records: $records);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function marketingPartnerOutreachBreakdown(): array
+    {
+        return MarketingPartnerOutreachDeliverablesSupport::outreachBreakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function marketingPartnerOnboardedBreakdown(): array
+    {
+        return MarketingPartnerOutreachDeliverablesSupport::onboardedBreakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
     }
 
     /**
@@ -1778,6 +1803,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'market_linkage_unique_partners' => 'Market linkage partners',
             'market_linkage_incubatees' => 'Market linkage incubatees',
             'community_org_outreach_count' => 'Community organization outreach visits',
+            'marketing_partner_outreach_count' => 'Marketing partner outreach entries',
+            'marketing_partner_onboarded_count' => 'Marketing partners onboarded (LoA/LoI/MoU)',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
             'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation',
             default => 'Achievement records',

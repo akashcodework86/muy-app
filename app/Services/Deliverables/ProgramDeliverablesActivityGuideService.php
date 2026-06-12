@@ -384,6 +384,7 @@ class ProgramDeliverablesActivityGuideService
             'pitch_deck_preparations', 'pitch_deck_combined' => $pick('pitch-deck-preparations.dashboard', '8.3 Incubatees Pitch Deck Preparation', 'Pitch decks from district services and state team entries (combined).', 'pitch-deck-preparations.dashboard'),
             'deliverable', 'service', 'services' => $pick('services.index', 'Service → Service cases', 'Approved service cases count toward achievement.', 'phase3-services.index'),
             'market_linkage_unique_partners', 'market_linkage_incubatees' => $pick('market-linkages.dashboard', 'Service → Market linkage', 'Market linkage partners & incubatees.'),
+            'marketing_partner_outreach_count', 'marketing_partner_onboarded_count' => $pick('partner-outreach.dashboard', 'Partner outreach (6.1 / 6.2)', 'Sanjna logs partner outreach; onboard via LoA/LoI/MoU on detail page.', 'partner-outreach.dashboard'),
             default => [
                 'label' => 'Achievement records',
                 'route' => Route::has($prefix.'deliverables.index') ? $prefix.'deliverables.index' : null,
@@ -411,6 +412,8 @@ class ProgramDeliverablesActivityGuideService
             'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation (services + state team)',
             'market_linkage_unique_partners' => 'Market linkage partners',
             'market_linkage_incubatees' => 'Market-linked incubatees',
+            'marketing_partner_outreach_count' => 'Marketing partner outreach entries',
+            'marketing_partner_onboarded_count' => 'Marketing partners onboarded (LoA/LoI/MoU)',
             'none' => 'Not wired',
             'target_name' => 'Name-matched deliverable target',
             default => 'System achievement count',

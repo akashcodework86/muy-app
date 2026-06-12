@@ -2171,7 +2171,7 @@ class DeliverablesReportTest extends TestCase
         $incubateesState = collect($stateReport['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
         $this->assertNotNull($partnersState);
         $this->assertNotNull($incubateesState);
-        $this->assertSame(3, $partnersState['achievement']);
+        $this->assertSame(0, $partnersState['achievement']);
         $this->assertSame(2, $incubateesState['achievement']);
 
         $districtReport = app(ProgramDeliverablesReportService::class)->build(
@@ -2182,7 +2182,7 @@ class DeliverablesReportTest extends TestCase
         $incubateesDistrict = collect($districtReport['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
         $this->assertNotNull($partnersDistrict);
         $this->assertNotNull($incubateesDistrict);
-        $this->assertSame(2, $partnersDistrict['achievement']);
+        $this->assertSame(0, $partnersDistrict['achievement']);
         $this->assertSame(1, $incubateesDistrict['achievement']);
     }
 
@@ -2254,7 +2254,79 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(1, $incubatees['achievement']);
     }
 
-    public function test_market_linkage_partner_deliverable_counts_all_unique_names_regardless_of_linkage_date(): void
+    public function test_partner_outreach_deliverable_counts_outreach_and_onboarded_separately(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $sanjna = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        DB::table('marketing_partner_outreach_entries')->insert([
+            'outreach_date' => '2026-05-10',
+            'partner_name' => 'Himalayan Foods Pvt Ltd',
+            'partner_designation' => 'Procurement Head',
+            'partner_link' => null,
+            'cohort_or_sector' => 'food_processing',
+            'cohort_or_sector_other' => null,
+            'poc_name' => 'Ravi',
+            'poc_phone' => '9876543210',
+            'remarks' => null,
+            'status' => 'outreach',
+            'onboarding_date' => null,
+            'submitted_by_user_id' => $sanjna->id,
+            'submitted_by_name' => $sanjna->name,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('marketing_partner_outreach_entries')->insert([
+            'outreach_date' => '2026-05-12',
+            'partner_name' => 'Uttarakhand Handloom Co',
+            'partner_designation' => 'Director',
+            'partner_link' => null,
+            'cohort_or_sector' => 'handloom_handicraft',
+            'cohort_or_sector_other' => null,
+            'poc_name' => 'Meera',
+            'poc_phone' => '9876543211',
+            'remarks' => null,
+            'status' => 'onboarded_mou',
+            'onboarding_date' => '2026-05-20',
+            'submitted_by_user_id' => $sanjna->id,
+            'submitted_by_name' => $sanjna->name,
+            'status_updated_by_user_id' => $sanjna->id,
+            'status_updated_by_name' => $sanjna->name,
+            'status_updated_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $report = app(ProgramDeliverablesReportService::class)->build(
+            $filter,
+            ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']))
+        );
+
+        $outreach = collect($report['rows'])->firstWhere('name', 'No of Partners outreach');
+        $onboarded = collect($report['rows'])->firstWhere('name', 'Marketing Partners Onboarded through (LoA/LoI/MoU)');
+
+        $this->assertNotNull($outreach);
+        $this->assertNotNull($onboarded);
+        $this->assertSame(2, $outreach['achievement']);
+        $this->assertSame(1, $onboarded['achievement']);
+    }
+
+    public function test_market_linkage_partner_names_no_longer_count_toward_partner_outreach_deliverable(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
             ['code' => '2026-27'],
@@ -2330,7 +2402,7 @@ class DeliverablesReportTest extends TestCase
 
         $partners = collect($report['rows'])->firstWhere('name', 'No of Partners outreach');
         $this->assertNotNull($partners);
-        $this->assertSame(1, $partners['achievement']);
+        $this->assertSame(0, $partners['achievement']);
     }
 
     /**

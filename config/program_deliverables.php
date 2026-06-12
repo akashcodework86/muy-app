@@ -15,6 +15,8 @@ return [
     |   potential_lakhpati_onboarding_count (2.1.1 — Phase 3 SHG/CBO/member; Legacy Lakhpati+member Yes),
     |   field_work_workshops (1.3), field_work_participants (1.3.1) — staff Field work visits,
     |   community_org_outreach_count (1.5) — hub Community organization outreach visits,
+    |   marketing_partner_outreach_count (6.1) — state Marketing partner outreach log,
+    |   marketing_partner_onboarded_count (6.2) — onboarded partners (LoA/LoI/MoU),
     |   district_workshop_sessions,
     |   edp_sessions, bst_sessions, bst_participants, technical_training_sessions,
     |   none (placeholder — target/achievement 0 unless deliverable mapped)
@@ -242,14 +244,14 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'State',
-                    'source' => ['type' => 'market_linkage_unique_partners'],
+                    'source' => ['type' => 'marketing_partner_outreach_count', 'deliverable_code' => 'partners_outreach'],
                 ],
                 [
                     'name' => 'Marketing Partners Onboarded through (LoA/LoI/MoU)',
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'State',
-                    'source' => ['type' => 'none'],
+                    'source' => ['type' => 'marketing_partner_onboarded_count', 'deliverable_code' => 'marketing_partners_onboarded'],
                 ],
                 [
                     'name' => 'Incubatees linked to online/offline Market',
@@ -269,7 +271,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'State',
-                    'source' => ['type' => 'market_linkage_unique_partners'],
+                    'source' => ['type' => 'marketing_partner_outreach_count', 'deliverable_code' => 'partners_outreach'],
                 ],
                 [
                     'name' => 'Initiation of acceleration and co-incubation services',
@@ -335,7 +337,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'State',
-                    'source' => ['type' => 'market_linkage_unique_partners'],
+                    'source' => ['type' => 'marketing_partner_outreach_count', 'deliverable_code' => 'partners_outreach'],
                 ],
             ],
         ],

@@ -17,6 +17,8 @@
     $staffNavEapEdp = $appSettings->isEnabled('staff_nav.eap_edp_session.visible');
     $staffNavDistrictWorkshop = $appSettings->isEnabled('staff_nav.district_workshop.visible');
     $canSubmitSocialMediaPost = $u && \App\Support\SocialMediaPostAccess::canSubmit($u);
+    $canSubmitPartnerOutreach = $u && \App\Support\PartnerOutreachAccess::canSubmit($u);
+    $canViewPartnerOutreach = $u && \App\Support\PartnerOutreachAccess::canViewDashboard($u);
     $canManageCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canSubmit($u);
     $canViewCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canViewDashboard($u);
     $canSubmitPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canSubmit($u);
@@ -149,6 +151,14 @@
         str_starts_with($r, 'spoc.social-media-posts.show') => 'social-media-posts-dashboard',
         str_starts_with($r, 'admin.social-media-posts.dashboard') => 'social-media-posts-dashboard',
         str_starts_with($r, 'admin.social-media-posts.show') => 'social-media-posts-dashboard',
+        str_starts_with($r, 'spoc.partner-outreach.create') => 'partner-outreach-submit',
+        str_starts_with($r, 'spoc.partner-outreach.index') => 'partner-outreach-submit',
+        str_starts_with($r, 'spoc.partner-outreach.store') => 'partner-outreach-submit',
+        str_starts_with($r, 'spoc.partner-outreach.dashboard') => 'partner-outreach-dashboard',
+        str_starts_with($r, 'spoc.partner-outreach.show') => 'partner-outreach-dashboard',
+        str_starts_with($r, 'spoc.partner-outreach.update-status') => 'partner-outreach-dashboard',
+        str_starts_with($r, 'admin.partner-outreach.dashboard') => 'partner-outreach-dashboard',
+        str_starts_with($r, 'admin.partner-outreach.show') => 'partner-outreach-dashboard',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.create') => 'capacity-building-stakeholders-submit',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.index') => 'capacity-building-stakeholders-submit',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.store') => 'capacity-building-stakeholders-submit',
@@ -193,7 +203,7 @@
     $targetsAllocationActive = in_array($activeNav, ['state', 'district', 'targets-state-monthly', 'targets-district-hub-monthly', 'targets-allocate', 'training-package-month-plans'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -221,6 +231,7 @@
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
     $spocPitchDeckActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true);
+    $spocPartnerOutreachActive = in_array($activeNav, ['partner-outreach-submit', 'partner-outreach-dashboard'], true);
     $fundingSchematicActive = $activeNav === 'pitch-deck-preparations-dashboard';
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
 
@@ -465,7 +476,7 @@
                         </div>
                     </div>
                     @endif
-                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'market-linkage-dashboard') is-active @endif">
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['market-linkage-dashboard', 'partner-outreach-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('pin') !!}<span>Forward Linkages</span>
                         </span>
@@ -473,6 +484,11 @@
                             <a href="{{ route('admin.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>Market Linkage</span>
                             </a>
+                            @if ($canViewPartnerOutreach)
+                            <a href="{{ route('admin.partner-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'partner-outreach-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Partner outreach (6.1 / 6.2)</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -560,6 +576,21 @@
             <a href="{{ route('spoc.social-media-posts.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard'], true)) is-active @endif">
                 {!! $i('doc') !!}<span class="admin-topbar__link-text">Social media</span>
             </a>
+            @endif
+            @if ($canSubmitPartnerOutreach)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocPartnerOutreachActive) is-active @endif">
+                    {!! $i('pin') !!}<span class="admin-topbar__link-text">Partner outreach (6.1)</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <a href="{{ route('spoc.partner-outreach.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'partner-outreach-submit') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>New outreach entry</span>
+                    </a>
+                    <a href="{{ route('spoc.partner-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'partner-outreach-dashboard') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>View dashboard</span>
+                    </a>
+                </div>
+            </details>
             @endif
             @if ($canManageCapacityBuildingStakeholders)
             <details class="admin-topbar__details">
