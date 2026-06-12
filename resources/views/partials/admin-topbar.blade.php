@@ -19,6 +19,8 @@
     $canSubmitSocialMediaPost = $u && \App\Support\SocialMediaPostAccess::canSubmit($u);
     $canSubmitPartnerOutreach = $u && \App\Support\PartnerOutreachAccess::canSubmit($u);
     $canViewPartnerOutreach = $u && \App\Support\PartnerOutreachAccess::canViewDashboard($u);
+    $canSubmitBaPartnersOutreach = $u && \App\Support\BusinessAccelerationPartnersOutreachAccess::canSubmit($u);
+    $canViewBaPartnersOutreach = $u && \App\Support\BusinessAccelerationPartnersOutreachAccess::canViewDashboard($u);
     $canManageCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canSubmit($u);
     $canViewCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canViewDashboard($u);
     $canSubmitPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canSubmit($u);
@@ -159,6 +161,13 @@
         str_starts_with($r, 'spoc.partner-outreach.update-status') => 'partner-outreach-dashboard',
         str_starts_with($r, 'admin.partner-outreach.dashboard') => 'partner-outreach-dashboard',
         str_starts_with($r, 'admin.partner-outreach.show') => 'partner-outreach-dashboard',
+        str_starts_with($r, 'spoc.business-acceleration-partners-outreach.create') => 'ba-partners-outreach-submit',
+        str_starts_with($r, 'spoc.business-acceleration-partners-outreach.index') => 'ba-partners-outreach-submit',
+        str_starts_with($r, 'spoc.business-acceleration-partners-outreach.store') => 'ba-partners-outreach-submit',
+        str_starts_with($r, 'spoc.business-acceleration-partners-outreach.dashboard') => 'ba-partners-outreach-dashboard',
+        str_starts_with($r, 'spoc.business-acceleration-partners-outreach.show') => 'ba-partners-outreach-dashboard',
+        str_starts_with($r, 'admin.business-acceleration-partners-outreach.dashboard') => 'ba-partners-outreach-dashboard',
+        str_starts_with($r, 'admin.business-acceleration-partners-outreach.show') => 'ba-partners-outreach-dashboard',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.create') => 'capacity-building-stakeholders-submit',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.index') => 'capacity-building-stakeholders-submit',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.store') => 'capacity-building-stakeholders-submit',
@@ -203,7 +212,7 @@
     $targetsAllocationActive = in_array($activeNav, ['state', 'district', 'targets-state-monthly', 'targets-district-hub-monthly', 'targets-allocate', 'training-package-month-plans'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -232,6 +241,7 @@
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
     $spocPitchDeckActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true);
     $spocPartnerOutreachActive = in_array($activeNav, ['partner-outreach-submit', 'partner-outreach-dashboard'], true);
+    $spocBaPartnersOutreachActive = in_array($activeNav, ['ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $fundingSchematicActive = $activeNav === 'pitch-deck-preparations-dashboard';
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
 
@@ -489,6 +499,11 @@
                                 {!! $i('bars') !!}<span>Partner outreach (6.1 / 6.2)</span>
                             </a>
                             @endif
+                            @if ($canViewBaPartnersOutreach)
+                            <a href="{{ route('admin.business-acceleration-partners-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'ba-partners-outreach-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>BA partners outreach (7.1)</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -587,6 +602,21 @@
                         {!! $i('doc') !!}<span>New outreach entry</span>
                     </a>
                     <a href="{{ route('spoc.partner-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'partner-outreach-dashboard') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>View dashboard</span>
+                    </a>
+                </div>
+            </details>
+            @endif
+            @if ($canSubmitBaPartnersOutreach)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocBaPartnersOutreachActive) is-active @endif">
+                    {!! $i('pin') !!}<span class="admin-topbar__link-text">BA partners outreach (7.1)</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <a href="{{ route('spoc.business-acceleration-partners-outreach.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'ba-partners-outreach-submit') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>New outreach</span>
+                    </a>
+                    <a href="{{ route('spoc.business-acceleration-partners-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'ba-partners-outreach-dashboard') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>View dashboard</span>
                     </a>
                 </div>

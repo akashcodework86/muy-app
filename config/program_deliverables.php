@@ -17,6 +17,7 @@ return [
     |   community_org_outreach_count (1.5) — hub Community organization outreach visits,
     |   marketing_partner_outreach_count (6.1) — state Marketing partner outreach log,
     |   marketing_partner_onboarded_count (6.2) — onboarded partners (LoA/LoI/MoU),
+    |   business_acceleration_partners_outreach_count (7.1) — BA partner outreach (Ankur Rawat),
     |   district_workshop_sessions,
     |   edp_sessions, bst_sessions, bst_participants, technical_training_sessions,
     |   none (placeholder — target/achievement 0 unless deliverable mapped)
@@ -271,7 +272,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'State',
-                    'source' => ['type' => 'marketing_partner_outreach_count', 'deliverable_code' => 'partners_outreach'],
+                    'source' => ['type' => 'business_acceleration_partners_outreach_count', 'deliverable_code' => 'business_acceleration_partners_outreach'],
                 ],
                 [
                     'name' => 'Initiation of acceleration and co-incubation services',
@@ -475,6 +476,7 @@ return [
         'pitchathon_demo' => 'State',
         'bmc' => 'Spoke & Hub',
         'acceleration_services' => 'Spoke & Hub',
+        'business_acceleration_partners_outreach' => 'State',
         'social_media' => 'State',
         'case_studies' => 'State',
         'buyer_seller_meets' => 'State',
@@ -591,6 +593,13 @@ return [
             'name' => 'Mentorship Support through online portal',
             'mis_entry_label' => 'Mentorship support (online portal)',
             'sort_order' => 121,
+        ],
+        [
+            'serial' => '7.1',
+            'code' => 'business_acceleration_partners_outreach',
+            'name' => 'No of Partners outreach (Business Acceleration Services)',
+            'mis_entry_label' => 'BA partners outreach',
+            'sort_order' => 125,
         ],
         [
             'serial' => '7.2',

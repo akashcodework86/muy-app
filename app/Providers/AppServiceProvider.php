@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\BusinessAccelerationPartnerOutreachEntry;
 use App\Models\StakeholderCapacityBuildingSession;
 use App\Services\NotificationReminderService;
 use App\Services\StaffCheckInService;
@@ -27,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::bind('cbsSession', fn (string $value) => StakeholderCapacityBuildingSession::query()->findOrFail($value));
+        Route::bind('baPartnerOutreach', fn (string $value) => BusinessAccelerationPartnerOutreachEntry::query()->findOrFail($value));
 
         View::composer(['layouts.admin', 'dashboards.state-admin', 'dashboards.hub-admin'], function ($view): void {
             $user = auth()->user();

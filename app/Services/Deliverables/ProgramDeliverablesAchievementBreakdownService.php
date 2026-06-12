@@ -13,6 +13,7 @@ use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\ServiceTargetDeliverableSyncService;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
+use App\Support\BusinessAccelerationPartnersOutreachDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
@@ -88,6 +89,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'community_org_outreach_count' => $this->communityOrgOutreachBreakdown(),
             'marketing_partner_outreach_count' => $this->marketingPartnerOutreachBreakdown(),
             'marketing_partner_onboarded_count' => $this->marketingPartnerOnboardedBreakdown(),
+            'business_acceleration_partners_outreach_count' => $this->businessAccelerationPartnersOutreachBreakdown(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsBreakdown(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsBreakdown(),
             'pitch_deck_combined' => $this->pitchDeckCombinedBreakdown(),
@@ -249,6 +251,17 @@ class ProgramDeliverablesAchievementBreakdownService
     private function marketingPartnerOnboardedBreakdown(): array
     {
         return MarketingPartnerOutreachDeliverablesSupport::onboardedBreakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function businessAccelerationPartnersOutreachBreakdown(): array
+    {
+        return BusinessAccelerationPartnersOutreachDeliverablesSupport::breakdown(
             $this->periodFrom,
             $this->periodTo,
         );
@@ -1805,6 +1818,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'community_org_outreach_count' => 'Community organization outreach visits',
             'marketing_partner_outreach_count' => 'Marketing partner outreach entries',
             'marketing_partner_onboarded_count' => 'Marketing partners onboarded (LoA/LoI/MoU)',
+            'business_acceleration_partners_outreach_count' => '7.1 BA partners outreach (unique)',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
             'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation',
             default => 'Achievement records',

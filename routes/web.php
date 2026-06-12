@@ -61,6 +61,8 @@ use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\LegacyPhase2IncubateeProfileController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Http\Controllers\StaffCheckInController;
+use App\Http\Controllers\BusinessAccelerationPartnerOutreachController;
+use App\Http\Controllers\BusinessAccelerationPartnersOutreachLandingController;
 use App\Http\Controllers\MarketingPartnerOutreachController;
 use App\Http\Controllers\PartnerOutreachLandingController;
 use App\Http\Controllers\CapacityBuildingStakeholdersLandingController;
@@ -615,6 +617,18 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:30,1')
             ->name('partner-outreach.destroy');
 
+        Route::get('business-acceleration-partners-outreach/create', [BusinessAccelerationPartnerOutreachController::class, 'create'])->name('business-acceleration-partners-outreach.create');
+        Route::post('business-acceleration-partners-outreach', [BusinessAccelerationPartnerOutreachController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('business-acceleration-partners-outreach.store');
+        Route::get('business-acceleration-partners-outreach', BusinessAccelerationPartnersOutreachLandingController::class)->name('business-acceleration-partners-outreach.index');
+        Route::get('business-acceleration-partners-outreach/dashboard', [BusinessAccelerationPartnerOutreachController::class, 'dashboard'])->name('business-acceleration-partners-outreach.dashboard');
+        Route::get('business-acceleration-partners-outreach/export', [BusinessAccelerationPartnerOutreachController::class, 'export'])->name('business-acceleration-partners-outreach.export');
+        Route::get('business-acceleration-partners-outreach/{baPartnerOutreach}', [BusinessAccelerationPartnerOutreachController::class, 'show'])->name('business-acceleration-partners-outreach.show');
+        Route::delete('business-acceleration-partners-outreach/{baPartnerOutreach}', [BusinessAccelerationPartnerOutreachController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('business-acceleration-partners-outreach.destroy');
+
         Route::get('capacity-building-stakeholders/create', [StakeholderCapacityBuildingSessionController::class, 'create'])->name('capacity-building-stakeholders.create');
         Route::post('capacity-building-stakeholders', [StakeholderCapacityBuildingSessionController::class, 'store'])
             ->middleware('throttle:30,1')
@@ -897,6 +911,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('partner-outreach/{partnerOutreach}/document', [MarketingPartnerOutreachController::class, 'downloadDocument'])
             ->name('partner-outreach.document');
         Route::get('partner-outreach/{partnerOutreach}', [MarketingPartnerOutreachController::class, 'show'])->name('partner-outreach.show');
+
+        Route::get('business-acceleration-partners-outreach/dashboard', [BusinessAccelerationPartnerOutreachController::class, 'dashboard'])->name('business-acceleration-partners-outreach.dashboard');
+        Route::get('business-acceleration-partners-outreach', BusinessAccelerationPartnersOutreachLandingController::class)->name('business-acceleration-partners-outreach.index');
+        Route::get('business-acceleration-partners-outreach/export', [BusinessAccelerationPartnerOutreachController::class, 'export'])->name('business-acceleration-partners-outreach.export');
+        Route::get('business-acceleration-partners-outreach/{baPartnerOutreach}', [BusinessAccelerationPartnerOutreachController::class, 'show'])->name('business-acceleration-partners-outreach.show');
 
         Route::get('capacity-building-stakeholders/dashboard', [StakeholderCapacityBuildingSessionController::class, 'dashboard'])->name('capacity-building-stakeholders.dashboard');
         Route::get('capacity-building-stakeholders', CapacityBuildingStakeholdersLandingController::class)->name('capacity-building-stakeholders.index');
