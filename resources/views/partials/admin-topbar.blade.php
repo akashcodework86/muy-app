@@ -166,12 +166,8 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-<<<<<<< HEAD
-    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'targets-district-hub-monthly', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'field-coordinator-report'], true);
-=======
     $targetsAllocationActive = in_array($activeNav, ['state', 'district', 'targets-state-monthly', 'targets-district-hub-monthly', 'targets-allocate', 'training-package-month-plans'], true);
-    $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
->>>>>>> 4870be8c46d3ec69c2326985d987438de0ffc4b4
+    $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
