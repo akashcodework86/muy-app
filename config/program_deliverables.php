@@ -207,10 +207,7 @@ return [
                             'row_type' => 'leaf',
                             'indicator_type' => 'Non-Key',
                             'level' => 'Spoke & Hub',
-                            'source' => [
-                                'type' => 'services',
-                                'codes' => ['other_licensing', 'legal_vetting', 'fire_noc', 'ayush_licence', 'ipr_support'],
-                            ],
+                            'source' => ['type' => 'deliverable', 'code' => 'advance_licensing_support'],
                         ],
                     ],
                 ],
@@ -232,7 +229,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'State',
-                    'source' => ['type' => 'target_name', 'match' => 'mentorship support through online'],
+                    'source' => ['type' => 'deliverable', 'code' => 'mentorship_online_portal'],
                 ],
             ],
         ],
@@ -471,6 +468,8 @@ return [
         'market_link' => 'Spoke & Hub',
         'access_to_finance' => 'Spoke & Hub',
         'pitch_deck_prep' => 'Spoke & Hub',
+        'mentorship_online_portal' => 'State',
+        'advance_licensing_support' => 'Spoke & Hub',
         'pitchathon_demo' => 'State',
         'bmc' => 'Spoke & Hub',
         'acceleration_services' => 'Spoke & Hub',
@@ -551,10 +550,75 @@ return [
     ],
 
     /*
+    |--------------------------------------------------------------------------
+    | State monthly target page — allowed MIS indicators only (M1–M12 at state)
+    |--------------------------------------------------------------------------
+    */
+    'state_monthly_indicators' => [
+        [
+            'serial' => '3.3',
+            'code' => 'technical_training_sessions',
+            'name' => 'Technical Trainings to Incubatees',
+            'mis_entry_label' => 'Technical training sessions',
+            'sort_order' => 95,
+        ],
+        [
+            'serial' => '3.3.1',
+            'code' => 'technical_training_potential_lakhpati',
+            'name' => 'Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
+            'mis_entry_label' => 'Technical training sessions (Lakhpati / SHG / CBO)',
+            'sort_order' => 96,
+        ],
+        [
+            'serial' => '3.4',
+            'code' => 'capacity_building_stakeholders',
+            'name' => 'Capacity Building of stakeholders (REAP, USRLM, Other Line department staff)',
+            'mis_entry_label' => 'Capacity building of stakeholders',
+            'sort_order' => 97,
+        ],
+        [
+            'serial' => '8.3',
+            'code' => 'pitch_deck_prep',
+            'name' => 'Incubatees Pitch Deck Preparation',
+            'mis_entry_label' => 'Pitch deck preparations',
+            'sort_order' => 120,
+        ],
+        [
+            'serial' => '5.2',
+            'code' => 'mentorship_online_portal',
+            'name' => 'Mentorship Support through online portal',
+            'mis_entry_label' => 'Mentorship support (online portal)',
+            'sort_order' => 121,
+        ],
+        [
+            'serial' => '7.2',
+            'code' => 'acceleration_services',
+            'name' => 'Initiation of acceleration and co-incubation services',
+            'mis_entry_label' => 'Acceleration / co-incubation initiation',
+            'sort_order' => 122,
+        ],
+        [
+            'serial' => '9.2',
+            'service_code' => 'other_support_services_labelling_packaging_logo_designing_etc',
+            'name' => 'Other Support Services - Labelling, Packaging, Logo Designing etc.',
+            'mis_entry_label' => 'Labelling, packaging, logo designing',
+            'sort_order' => 123,
+        ],
+        [
+            'serial' => '4.2.7',
+            'code' => 'advance_licensing_support',
+            'name' => 'Advance Licensing Support (Mandi Licensing, Lab Test etc.)',
+            'mis_entry_label' => 'Advance licensing support',
+            'sort_order' => 124,
+        ],
+    ],
+
+    /*
     | MIS deliverable code => service catalog code(s) used on State targets (svc_* rows).
     */
     'target_code_aliases' => [
         'pitch_deck_prep' => ['pitch_deck'],
+        'advance_licensing_support' => ['other_licensing', 'legal_vetting', 'fire_noc', 'ayush_licence', 'ipr_support'],
         'pitchathon_demo' => ['demo_days'],
         'market_link' => ['market_link', 'offline_connect'],
         'bmc' => ['bmc_canvas', 'business_model_canvas', 'bmc'],

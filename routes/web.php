@@ -645,6 +645,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::get('targets/state-monthly', [\App\Http\Controllers\Admin\StateMonthlyTargetsController::class, 'index'])->name('targets.state-monthly');
+        Route::post('targets/state-monthly', [\App\Http\Controllers\Admin\StateMonthlyTargetsController::class, 'update'])->name('targets.state-monthly.update');
         Route::get('targets/state', [TargetController::class, 'stateForm'])->name('targets.state');
         Route::post('targets/state', [TargetController::class, 'stateUpdate'])->name('targets.state.update');
         Route::get('targets/district', [TargetController::class, 'districtForm'])->name('targets.district');

@@ -1631,6 +1631,7 @@
                 <div class="sad-dock__links">
                     <a class="sad-dock__link" href="{{ route('admin.cfa.index') }}"><i class="fa-solid fa-clipboard-list"></i> CFA</a>
                     <a class="sad-dock__link" href="{{ route('admin.targets.state') }}"><i class="fa-solid fa-bullseye"></i> State targets</a>
+                    <a class="sad-dock__link" href="{{ route('admin.targets.state-monthly') }}"><i class="fa-solid fa-calendar-days"></i> State monthly</a>
                     <a class="sad-dock__link" href="{{ route('admin.targets.district') }}"><i class="fa-solid fa-map-location-dot"></i> District targets</a>
                     <a class="sad-dock__link" href="{{ route('admin.targets.allocate-by-service') }}"><i class="fa-solid fa-sliders"></i> Allocate by service</a>
                     <a class="sad-dock__link" href="{{ route('admin.state-tasks.index') }}"><i class="fa-solid fa-list-check"></i> State tasks</a>
