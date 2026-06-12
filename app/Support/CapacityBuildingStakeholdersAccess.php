@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\StakeholderCapacityBuildingSession;
 use App\Models\User;
 
 final class CapacityBuildingStakeholdersAccess
@@ -44,5 +45,19 @@ final class CapacityBuildingStakeholdersAccess
         }
 
         return self::canSubmit($user);
+    }
+
+    public static function canEdit(?User $user, StakeholderCapacityBuildingSession $row): bool
+    {
+        if (! $user || ! self::canSubmit($user)) {
+            return false;
+        }
+
+        return (int) $row->submitted_by_user_id === (int) $user->id;
+    }
+
+    public static function canDelete(?User $user, StakeholderCapacityBuildingSession $row): bool
+    {
+        return self::canEdit($user, $row);
     }
 }

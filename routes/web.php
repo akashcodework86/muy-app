@@ -599,6 +599,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('capacity-building-stakeholders', [StakeholderCapacityBuildingSessionController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('capacity-building-stakeholders.store');
+        Route::get('capacity-building-stakeholders/{cbsSession}/edit', [StakeholderCapacityBuildingSessionController::class, 'edit'])->name('capacity-building-stakeholders.edit');
+        Route::put('capacity-building-stakeholders/{cbsSession}', [StakeholderCapacityBuildingSessionController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('capacity-building-stakeholders.update');
+        Route::delete('capacity-building-stakeholders/{cbsSession}', [StakeholderCapacityBuildingSessionController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('capacity-building-stakeholders.destroy');
         Route::get('capacity-building-stakeholders', CapacityBuildingStakeholdersLandingController::class)->name('capacity-building-stakeholders.index');
         Route::get('capacity-building-stakeholders/dashboard', [StakeholderCapacityBuildingSessionController::class, 'dashboard'])->name('capacity-building-stakeholders.dashboard');
         Route::get('capacity-building-stakeholders/export', [StakeholderCapacityBuildingSessionController::class, 'export'])->name('capacity-building-stakeholders.export');

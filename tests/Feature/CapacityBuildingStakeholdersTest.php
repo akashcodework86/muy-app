@@ -63,6 +63,40 @@ class CapacityBuildingStakeholdersTest extends TestCase
         $this->assertSame(18, (int) $row->staff_trained_total);
     }
 
+    public function test_aadil_can_store_session_with_workshop_photos(): void
+    {
+        Storage::fake();
+
+        $aadil = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'aadil.ishrat@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($aadil)
+            ->post(route('spoc.capacity-building-stakeholders.store'), [
+                'session_date' => '2026-05-15',
+                'workshop_mode' => 'physical',
+                'venue' => 'Dehradun state office',
+                'stakeholder_type' => 'reap',
+                'session_title' => 'Session with photos',
+                'staff_trained_total' => 10,
+                'attendance_media' => [
+                    UploadedFile::fake()->create('attendance.pdf', 100, 'application/pdf'),
+                ],
+                'workshop_photos' => [
+                    UploadedFile::fake()->image('workshop-1.jpg'),
+                    UploadedFile::fake()->image('workshop-2.png'),
+                ],
+            ])
+            ->assertRedirect(route('spoc.capacity-building-stakeholders.dashboard'));
+
+        $row = StakeholderCapacityBuildingSession::query()->firstOrFail();
+        $this->assertCount(2, (array) $row->workshop_photos_json);
+        $this->assertTrue(Storage::exists((string) $row->workshop_photos_json[0]['path']));
+        $this->assertTrue(Storage::exists((string) $row->workshop_photos_json[1]['path']));
+    }
+
     public function test_other_stakeholder_type_requires_specify_field_and_department(): void
     {
         Storage::fake();
@@ -116,6 +150,119 @@ class CapacityBuildingStakeholdersTest extends TestCase
             ->get(route('admin.capacity-building-stakeholders.dashboard'))
             ->assertOk()
             ->assertSee('3.4');
+    }
+
+    public function test_aadil_can_edit_own_session_without_reuploading_attendance(): void
+    {
+        Storage::fake();
+
+        $aadil = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'aadil.ishrat@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $row = StakeholderCapacityBuildingSession::query()->create([
+            'submitted_by_user_id' => $aadil->id,
+            'submitted_by_name' => $aadil->name,
+            'session_date' => '2026-05-10',
+            'workshop_mode' => 'physical',
+            'venue' => 'Dehradun',
+            'stakeholder_type' => 'reap',
+            'session_title' => 'Original title',
+            'staff_trained_total' => 12,
+            'attendance_media_json' => [['path' => 'cbs/attendance.pdf', 'original_name' => 'a.pdf', 'mime' => 'application/pdf', 'type' => 'document']],
+        ]);
+
+        $this->actingAs($aadil)
+            ->get(route('spoc.capacity-building-stakeholders.edit', $row))
+            ->assertOk()
+            ->assertSee('Edit session');
+
+        $this->actingAs($aadil)
+            ->put(route('spoc.capacity-building-stakeholders.update', $row), [
+                'session_date' => '2026-05-11',
+                'workshop_mode' => 'virtual',
+                'venue' => 'Online',
+                'stakeholder_type' => 'reap',
+                'session_title' => 'Updated title',
+                'staff_trained_total' => 15,
+            ])
+            ->assertRedirect(route('spoc.capacity-building-stakeholders.dashboard'))
+            ->assertSessionHas('status');
+
+        $row->refresh();
+        $this->assertSame('Updated title', $row->session_title);
+        $this->assertSame(15, (int) $row->staff_trained_total);
+        $this->assertSame('virtual', $row->workshop_mode);
+        $this->assertCount(1, (array) $row->attendance_media_json);
+    }
+
+    public function test_aadil_can_delete_own_session(): void
+    {
+        Storage::fake();
+        Storage::put('cbs/attendance.pdf', 'fake');
+
+        $aadil = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'aadil.ishrat@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $row = StakeholderCapacityBuildingSession::query()->create([
+            'submitted_by_user_id' => $aadil->id,
+            'submitted_by_name' => $aadil->name,
+            'session_date' => '2026-05-10',
+            'workshop_mode' => 'physical',
+            'venue' => 'Dehradun',
+            'stakeholder_type' => 'reap',
+            'session_title' => 'To delete',
+            'staff_trained_total' => 5,
+            'attendance_media_json' => [['path' => 'cbs/attendance.pdf', 'original_name' => 'a.pdf', 'mime' => 'application/pdf', 'type' => 'document']],
+        ]);
+
+        $this->actingAs($aadil)
+            ->delete(route('spoc.capacity-building-stakeholders.destroy', $row))
+            ->assertRedirect(route('spoc.capacity-building-stakeholders.dashboard'))
+            ->assertSessionHas('status');
+
+        $this->assertDatabaseMissing('stakeholder_capacity_building_sessions', ['id' => $row->id]);
+        Storage::assertMissing('cbs/attendance.pdf');
+    }
+
+    public function test_non_owner_cannot_edit_or_delete_session(): void
+    {
+        $aadil = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'aadil.ishrat@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $other = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'other.staff@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $row = StakeholderCapacityBuildingSession::query()->create([
+            'submitted_by_user_id' => $aadil->id,
+            'submitted_by_name' => $aadil->name,
+            'session_date' => '2026-05-10',
+            'workshop_mode' => 'physical',
+            'venue' => 'Dehradun',
+            'stakeholder_type' => 'reap',
+            'session_title' => 'Protected',
+            'staff_trained_total' => 5,
+            'attendance_media_json' => [['path' => 'cbs/attendance.pdf', 'original_name' => 'a.pdf', 'mime' => 'application/pdf', 'type' => 'document']],
+        ]);
+
+        $this->actingAs($other)
+            ->get(route('spoc.capacity-building-stakeholders.edit', $row))
+            ->assertForbidden();
+
+        $this->actingAs($other)
+            ->delete(route('spoc.capacity-building-stakeholders.destroy', $row))
+            ->assertForbidden();
     }
 
     public function test_program_deliverables_counts_submitted_sessions_for_indicator_3_4(): void

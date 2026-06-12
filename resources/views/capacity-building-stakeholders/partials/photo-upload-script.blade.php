@@ -27,102 +27,113 @@
         return /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name || '');
     }
 
-    const input = document.getElementById('cbsPhotosInput');
-    const preview = document.getElementById('cbsPhotosPreview');
-    if (!input || !preview) return;
+    function initPhotoPicker(inputId, previewId) {
+        const input = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+        if (!input || !preview) return;
 
-    const maxPhotos = 3;
-    const bucket = new DataTransfer();
-    const urls = new Map();
+        const maxPhotos = 3;
+        const bucket = new DataTransfer();
+        const urls = new Map();
 
-    function key(file) {
-        return [file.name, file.size, file.lastModified].join('::');
-    }
+        function key(file) {
+            return [file.name, file.size, file.lastModified].join('::');
+        }
 
-    function syncToInput() {
-        try {
-            input.files = bucket.files;
-        } catch (err) {
-            console.warn('Could not sync photo files to input', err);
+        function syncToInput() {
+            try {
+                input.files = bucket.files;
+            } catch (err) {
+                console.warn('Could not sync photo files to input', err);
+            }
+        }
+
+        function render() {
+            urls.forEach(function (u) { URL.revokeObjectURL(u); });
+            urls.clear();
+            preview.innerHTML = '';
+
+            const files = Array.from(bucket.files);
+            if (!files.length) return;
+
+            const grid = document.createElement('div');
+            grid.className = 'cbs-photo-grid';
+            preview.appendChild(grid);
+
+            files.forEach(function (file) {
+                const k = key(file);
+                const objectUrl = URL.createObjectURL(file);
+                urls.set(k, objectUrl);
+
+                const wrap = document.createElement('div');
+                wrap.className = 'cbs-photo-tile-wrap';
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'cbs-photo-remove';
+                removeBtn.textContent = '×';
+                removeBtn.setAttribute('aria-label', 'Remove photo');
+                removeBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const next = new DataTransfer();
+                    Array.from(bucket.files).forEach(function (f) {
+                        if (key(f) !== k) next.items.add(f);
+                    });
+                    bucket.items.clear();
+                    Array.from(next.files).forEach(function (f) { bucket.items.add(f); });
+                    syncToInput();
+                    render();
+                });
+
+                const openBtn = document.createElement('button');
+                openBtn.type = 'button';
+                openBtn.className = 'tt-media-tile js-tt-media-open';
+                openBtn.setAttribute('data-view-url', objectUrl);
+                openBtn.setAttribute('data-download-url', objectUrl);
+                openBtn.setAttribute('data-media-kind', 'image');
+                openBtn.setAttribute('data-media-name', file.name || 'Photo');
+
+                const img = document.createElement('img');
+                img.className = 'tt-media-tile__thumb';
+                img.src = objectUrl;
+                img.alt = file.name || 'Photo';
+                openBtn.appendChild(img);
+
+                wrap.appendChild(removeBtn);
+                wrap.appendChild(openBtn);
+                grid.appendChild(wrap);
+            });
+        }
+
+        input.addEventListener('change', function () {
+            Array.from(input.files || []).forEach(function (file) {
+                if (!isLikelyImage(file)) return;
+                if (bucket.files.length >= maxPhotos) return;
+                const k = key(file);
+                const exists = Array.from(bucket.files).some(function (f) { return key(f) === k; });
+                if (!exists) bucket.items.add(file);
+            });
+            syncToInput();
+            render();
+        });
+
+        const form = input.closest('form');
+        if (form) {
+            form.addEventListener('submit', function () {
+                syncToInput();
+            }, true);
         }
     }
 
-    function render() {
-        urls.forEach(function (u) { URL.revokeObjectURL(u); });
-        urls.clear();
-        preview.innerHTML = '';
-
-        const files = Array.from(bucket.files);
-        if (!files.length) return;
-
-        const grid = document.createElement('div');
-        grid.className = 'cbs-photo-grid';
-        preview.appendChild(grid);
-
-        files.forEach(function (file) {
-            const k = key(file);
-            const objectUrl = URL.createObjectURL(file);
-            urls.set(k, objectUrl);
-
-            const wrap = document.createElement('div');
-            wrap.className = 'cbs-photo-tile-wrap';
-
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'cbs-photo-remove';
-            removeBtn.textContent = '×';
-            removeBtn.setAttribute('aria-label', 'Remove photo');
-            removeBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                const next = new DataTransfer();
-                Array.from(bucket.files).forEach(function (f) {
-                    if (key(f) !== k) next.items.add(f);
-                });
-                bucket.items.clear();
-                Array.from(next.files).forEach(function (f) { bucket.items.add(f); });
-                syncToInput();
-                render();
-            });
-
-            const openBtn = document.createElement('button');
-            openBtn.type = 'button';
-            openBtn.className = 'tt-media-tile js-tt-media-open';
-            openBtn.setAttribute('data-view-url', objectUrl);
-            openBtn.setAttribute('data-download-url', objectUrl);
-            openBtn.setAttribute('data-media-kind', 'image');
-            openBtn.setAttribute('data-media-name', file.name || 'Photo');
-
-            const img = document.createElement('img');
-            img.className = 'tt-media-tile__thumb';
-            img.src = objectUrl;
-            img.alt = file.name || 'Photo';
-            openBtn.appendChild(img);
-
-            wrap.appendChild(removeBtn);
-            wrap.appendChild(openBtn);
-            grid.appendChild(wrap);
-        });
+    function boot() {
+        initPhotoPicker('cbsPhotosInput', 'cbsPhotosPreview');
     }
 
-    input.addEventListener('change', function () {
-        Array.from(input.files || []).forEach(function (file) {
-            if (!isLikelyImage(file)) return;
-            if (bucket.files.length >= maxPhotos) return;
-            const k = key(file);
-            const exists = Array.from(bucket.files).some(function (f) { return key(f) === k; });
-            if (!exists) bucket.items.add(file);
-        });
-        syncToInput();
-        render();
-        input.value = '';
-    });
-
-    const form = input.closest('form');
-    if (form) {
-        form.addEventListener('submit', function () {
-            syncToInput();
-        }, true);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
     }
 })();
 </script>

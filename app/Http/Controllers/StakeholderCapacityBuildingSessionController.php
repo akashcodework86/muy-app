@@ -168,7 +168,113 @@ class StakeholderCapacityBuildingSessionController extends Controller
         return view('capacity-building-stakeholders.show', [
             'row' => $cbsSession,
             'currentRole' => (string) $user->role,
+            'canEdit' => CapacityBuildingStakeholdersAccess::canEdit($user, $cbsSession),
+            'canDelete' => CapacityBuildingStakeholdersAccess::canDelete($user, $cbsSession),
         ]);
+    }
+
+    public function edit(Request $request, StakeholderCapacityBuildingSession $cbsSession): View
+    {
+        $user = $request->user();
+        abort_unless(CapacityBuildingStakeholdersAccess::canEdit($user, $cbsSession), 403);
+
+        return view('capacity-building-stakeholders.form', [
+            'user' => $user,
+            'row' => $cbsSession,
+            'migrationMissing' => ! Schema::hasTable('stakeholder_capacity_building_sessions'),
+            'storeRoute' => 'spoc.capacity-building-stakeholders.update',
+            'dashboardRoute' => 'spoc.capacity-building-stakeholders.dashboard',
+            'stakeholderTypes' => StakeholderCapacityBuildingSession::STAKEHOLDER_TYPES,
+        ]);
+    }
+
+    public function update(Request $request, StakeholderCapacityBuildingSession $cbsSession): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless(CapacityBuildingStakeholdersAccess::canEdit($user, $cbsSession), 403);
+
+        if ($uploadErrors = array_merge(
+            $this->attendanceMediaUploadErrors($request),
+            $this->workshopPhotosUploadErrors($request),
+        )) {
+            return back()->withInput()->withErrors($uploadErrors);
+        }
+
+        $hasExistingAttendance = $cbsSession->hasAttendanceSheet();
+        $validated = $this->validateSubmission($request, requireAttendance: ! $hasExistingAttendance);
+
+        $newAttendance = array_values(array_filter((array) $request->file('attendance_media', [])));
+        if ($newAttendance === [] && ! $hasExistingAttendance) {
+            return back()->withInput()->withErrors([
+                'attendance_media' => 'Upload at least one attendance sheet.',
+            ]);
+        }
+
+        if ($newAttendance !== []) {
+            $existingMedia = collect((array) $cbsSession->attendance_media_json)
+                ->filter(fn ($item): bool => is_array($item))
+                ->values();
+            $combinedCount = $existingMedia->count() + count($newAttendance);
+            if ($combinedCount > 5) {
+                return back()->withInput()->withErrors([
+                    'attendance_media' => 'You can upload up to 5 attendance files per session.',
+                ]);
+            }
+
+            $cbsSession->attendance_media_json = $existingMedia
+                ->merge($this->storeUploadedMedia($newAttendance))
+                ->values()
+                ->all();
+        }
+
+        $newPhotos = array_values(array_filter((array) $request->file('workshop_photos', [])));
+        if ($newPhotos !== []) {
+            $existingPhotos = collect((array) $cbsSession->workshop_photos_json)
+                ->filter(fn ($item): bool => is_array($item))
+                ->values();
+            $combinedPhotoCount = $existingPhotos->count() + count($newPhotos);
+            if ($combinedPhotoCount > 3) {
+                return back()->withInput()->withErrors([
+                    'workshop_photos' => 'You can upload up to 3 workshop photos per session.',
+                ]);
+            }
+
+            $cbsSession->workshop_photos_json = $existingPhotos
+                ->merge($this->storeUploadedPhotos($newPhotos))
+                ->values()
+                ->all();
+        }
+
+        $cbsSession->fill([
+            'session_date' => $validated['session_date'],
+            'workshop_mode' => (string) $validated['workshop_mode'],
+            'venue' => trim((string) $validated['venue']),
+            'stakeholder_type' => (string) $validated['stakeholder_type'],
+            'stakeholder_type_other' => $this->resolvedStakeholderTypeOther($validated),
+            'department_name' => $this->resolvedDepartmentName($validated),
+            'session_title' => trim((string) $validated['session_title']),
+            'topics_covered' => trim((string) ($validated['topics_covered'] ?? '')) ?: null,
+            'staff_trained_total' => (int) $validated['staff_trained_total'],
+        ]);
+        $cbsSession->save();
+
+        return redirect()
+            ->route('spoc.capacity-building-stakeholders.dashboard')
+            ->with('status', 'Capacity building session updated.');
+    }
+
+    public function destroy(Request $request, StakeholderCapacityBuildingSession $cbsSession): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless(CapacityBuildingStakeholdersAccess::canDelete($user, $cbsSession), 403);
+
+        $this->deleteStoredMediaFiles((array) $cbsSession->attendance_media_json);
+        $this->deleteStoredMediaFiles((array) $cbsSession->workshop_photos_json);
+        $cbsSession->delete();
+
+        return redirect()
+            ->route('spoc.capacity-building-stakeholders.dashboard')
+            ->with('status', 'Capacity building session deleted.');
     }
 
     public function export(Request $request): StreamedResponse
@@ -414,5 +520,22 @@ class StakeholderCapacityBuildingSessionController extends Controller
             'state_admin' => 'admin.capacity-building-stakeholders.export',
             default => 'spoc.capacity-building-stakeholders.export',
         };
+    }
+
+    /**
+     * @param  list<array<string, mixed>|mixed>  $items
+     */
+    private function deleteStoredMediaFiles(array $items): void
+    {
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $path = (string) ($item['path'] ?? '');
+            if ($path !== '' && Storage::exists($path)) {
+                Storage::delete($path);
+            }
+        }
     }
 }

@@ -63,6 +63,8 @@
         default => 'spoc.capacity-building-stakeholders.attachment',
     };
     $createRoute = 'spoc.capacity-building-stakeholders.create';
+    $editRoute = 'spoc.capacity-building-stakeholders.edit';
+    $destroyRoute = 'spoc.capacity-building-stakeholders.destroy';
 @endphp
 <div class="cbs-shell">
     @if (!empty($migrationMissing))
@@ -157,7 +159,22 @@
                         ])
                     </td>
                     <td>{{ $row->submitted_by_name }}</td>
-                    <td><a class="cbs-btn cbs-btn--secondary" style="padding:0.35rem 0.65rem;font-size:0.78rem;" href="{{ route($showRoute, $row) }}">View</a></td>
+                    <td style="white-space:nowrap;">
+                        <a class="cbs-btn cbs-btn--secondary" style="padding:0.35rem 0.65rem;font-size:0.78rem;" href="{{ route($showRoute, $row) }}">View</a>
+                        @if (\App\Support\CapacityBuildingStakeholdersAccess::canEdit(auth()->user(), $row))
+                            <a class="cbs-btn cbs-btn--secondary" style="padding:0.35rem 0.65rem;font-size:0.78rem;margin-left:0.25rem;" href="{{ route($editRoute, $row) }}">Edit</a>
+                            <form
+                                method="post"
+                                action="{{ route($destroyRoute, $row) }}"
+                                style="display:inline;margin-left:0.25rem;"
+                                onsubmit="return confirm('Delete this session permanently?');"
+                            >
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="cbs-btn cbs-btn--secondary" style="padding:0.35rem 0.65rem;font-size:0.78rem;color:#b91c1c;border-color:#fecaca;">Delete</button>
+                            </form>
+                        @endif
+                    </td>
                 </tr>
             @empty
                 <tr><td colspan="10" class="cbs-empty">No sessions yet.</td></tr>

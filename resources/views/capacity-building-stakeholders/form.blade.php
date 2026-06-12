@@ -40,6 +40,11 @@
 @endpush
 
 @section('content')
+@php
+    $isEdit = isset($row);
+    $stakeholderType = old('stakeholder_type', $isEdit ? $row->stakeholder_type : '');
+    $hasExistingAttendance = $isEdit && $row->hasAttendanceSheet();
+@endphp
 <div class="cbs-shell">
     @if (!empty($migrationMissing))
         <div class="cbs-alert cbs-alert--warning">
@@ -63,9 +68,12 @@
     </div>
 
     <div class="cbs-card">
-        <h3 class="cbs-card__title">New session</h3>
-        <form id="cbsForm" method="post" action="{{ route($storeRoute) }}" enctype="multipart/form-data">
+        <h3 class="cbs-card__title">{{ $isEdit ? 'Edit session' : 'New session' }}</h3>
+        <form id="cbsForm" method="post" action="{{ route($storeRoute, $isEdit ? $row : []) }}" enctype="multipart/form-data">
             @csrf
+            @if ($isEdit)
+                @method('PUT')
+            @endif
             <p class="cbs-section__label">Session</p>
             <div class="cbs-grid">
                 <div class="cbs-field">
@@ -74,12 +82,12 @@
                 </div>
                 <div class="cbs-field">
                     <label>Session date <span class="cbs-req">*</span></label>
-                    <input type="date" name="session_date" value="{{ old('session_date') }}" required>
+                    <input type="date" name="session_date" value="{{ old('session_date', $isEdit ? $row->session_date?->format('Y-m-d') : '') }}" required>
                 </div>
-                @include('staff.district-workshop-sessions.partials.workshop-mode-field', ['selected' => old('workshop_mode', 'physical')])
+                @include('staff.district-workshop-sessions.partials.workshop-mode-field', ['selected' => old('workshop_mode', $isEdit ? $row->workshop_mode : 'physical')])
                 <div class="cbs-field cbs-field--full">
                     <label>Venue / location <span class="cbs-req">*</span></label>
-                    <input type="text" name="venue" value="{{ old('venue') }}" maxlength="191" required placeholder="Office, city, or venue name">
+                    <input type="text" name="venue" value="{{ old('venue', $isEdit ? $row->venue : '') }}" maxlength="191" required placeholder="Office, city, or venue name">
                 </div>
             </div>
 
@@ -88,19 +96,19 @@
                 <div class="cbs-field cbs-field--full">
                     <label for="stakeholder_type">Stakeholder type <span class="cbs-req">*</span></label>
                     <select id="stakeholder_type" name="stakeholder_type" required data-cbs-stakeholder-type>
-                        <option value="" disabled @selected(old('stakeholder_type') === '' || old('stakeholder_type') === null)>— Select —</option>
+                        <option value="" disabled @selected($stakeholderType === '' || $stakeholderType === null)>— Select —</option>
                         @foreach ($stakeholderTypes as $value => $label)
-                            <option value="{{ $value }}" @selected(old('stakeholder_type') === $value)>{{ $label }}</option>
+                            <option value="{{ $value }}" @selected($stakeholderType === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>
-                <div class="cbs-field cbs-field--full cbs-conditional" id="cbsOtherTypeWrap" @if(old('stakeholder_type') !== 'other') hidden @endif>
+                <div class="cbs-field cbs-field--full cbs-conditional" id="cbsOtherTypeWrap" @if($stakeholderType !== 'other') hidden @endif>
                     <label for="stakeholder_type_other">Specify stakeholder type <span class="cbs-req">*</span></label>
-                    <input type="text" id="stakeholder_type_other" name="stakeholder_type_other" value="{{ old('stakeholder_type_other') }}" maxlength="191" placeholder="e.g. NGO partner">
+                    <input type="text" id="stakeholder_type_other" name="stakeholder_type_other" value="{{ old('stakeholder_type_other', $isEdit ? $row->stakeholder_type_other : '') }}" maxlength="191" placeholder="e.g. NGO partner">
                 </div>
-                <div class="cbs-field cbs-field--full cbs-conditional" id="cbsDeptWrap" @if(!in_array(old('stakeholder_type'), ['line_department', 'other'], true)) hidden @endif>
+                <div class="cbs-field cbs-field--full cbs-conditional" id="cbsDeptWrap" @if(!in_array($stakeholderType, ['line_department', 'other'], true)) hidden @endif>
                     <label for="department_name">Department / agency name <span class="cbs-req">*</span></label>
-                    <input type="text" id="department_name" name="department_name" value="{{ old('department_name') }}" maxlength="191" placeholder="e.g. Agriculture, Tourism">
+                    <input type="text" id="department_name" name="department_name" value="{{ old('department_name', $isEdit ? $row->department_name : '') }}" maxlength="191" placeholder="e.g. Agriculture, Tourism">
                 </div>
             </div>
 
@@ -108,35 +116,64 @@
             <div class="cbs-grid">
                 <div class="cbs-field cbs-field--full">
                     <label>Training title <span class="cbs-req">*</span></label>
-                    <input type="text" name="session_title" value="{{ old('session_title') }}" maxlength="191" required>
+                    <input type="text" name="session_title" value="{{ old('session_title', $isEdit ? $row->session_title : '') }}" maxlength="191" required>
                 </div>
                 <div class="cbs-field cbs-field--full">
                     <label>Topics covered</label>
-                    <textarea name="topics_covered" maxlength="5000" placeholder="Optional short summary">{{ old('topics_covered') }}</textarea>
+                    <textarea name="topics_covered" maxlength="5000" placeholder="Optional short summary">{{ old('topics_covered', $isEdit ? $row->topics_covered : '') }}</textarea>
                 </div>
                 <div class="cbs-field">
                     <label>Staff trained (total) <span class="cbs-req">*</span></label>
-                    <input type="number" name="staff_trained_total" value="{{ old('staff_trained_total') }}" min="1" step="1" required>
+                    <input type="number" name="staff_trained_total" value="{{ old('staff_trained_total', $isEdit ? $row->staff_trained_total : '') }}" min="1" step="1" required>
                 </div>
             </div>
 
             <p class="cbs-section__label" style="margin-top:1.25rem;">Proof</p>
             <div class="cbs-grid">
                 <div class="cbs-field cbs-field--full">
-                    <label>Attendance sheet <span class="cbs-req">*</span></label>
-                    <input type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.xls,.xlsx" required>
-                    <p class="cbs-field-hint">PDF, image, or Excel. At least one file required.</p>
+                    <label>Attendance sheet @if (! $hasExistingAttendance)<span class="cbs-req">*</span>@endif</label>
+                    <input type="file" name="attendance_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,.xls,.xlsx" @if (! $hasExistingAttendance) required @endif>
+                    <p class="cbs-field-hint">
+                        @if ($hasExistingAttendance)
+                            Upload only to add more files (existing files are kept). PDF, image, or Excel.
+                        @else
+                            PDF, image, or Excel. At least one file required.
+                        @endif
+                    </p>
+                    @if ($hasExistingAttendance)
+                        @include('staff.technical-trainings.partials.attendance-media-preview', [
+                            'mediaItems' => (array) $row->attendance_media_json,
+                            'attachmentRoute' => 'spoc.capacity-building-stakeholders.attachment',
+                            'record' => $row,
+                            'showEmptyMessage' => false,
+                        ])
+                    @endif
                 </div>
                 <div class="cbs-field cbs-field--full">
                     <label>Workshop photos</label>
                     <input id="cbsPhotosInput" type="file" name="workshop_photos[]" accept=".jpg,.jpeg,.png,.webp,image/*" multiple>
-                    <p class="cbs-field-hint">Optional — up to 3 JPG/PNG photos. Preview appears below; click × to remove before submit.</p>
+                    <p class="cbs-field-hint">
+                        @if ($isEdit && $row->hasWorkshopPhotos())
+                            Upload only to add more (up to 3 total). New selections preview below; click × to remove before submit.
+                        @else
+                            Optional — up to 3 JPG/PNG photos. Preview appears below; click × to remove before submit.
+                        @endif
+                    </p>
+                    @if ($isEdit && $row->hasWorkshopPhotos())
+                        @include('staff.technical-trainings.partials.attendance-media-preview', [
+                            'mediaItems' => $row->workshopPhotoItems(),
+                            'attachmentRoute' => 'spoc.capacity-building-stakeholders.attachment',
+                            'attachmentQuery' => ['collection' => 'photos'],
+                            'record' => $row,
+                            'showEmptyMessage' => false,
+                        ])
+                    @endif
                     <div id="cbsPhotosPreview" class="cbs-media-preview"></div>
                 </div>
             </div>
 
             <div class="cbs-actions">
-                <button class="cbs-submit" type="submit">Submit session</button>
+                <button class="cbs-submit" type="submit">{{ $isEdit ? 'Save changes' : 'Submit session' }}</button>
                 <a class="cbs-link" href="{{ route($dashboardRoute) }}">View dashboard</a>
             </div>
         </form>

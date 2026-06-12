@@ -14,6 +14,7 @@
     .cbs-show-field--full { grid-column:1 / -1; }
     .cbs-show-actions { margin-top:1rem; display:flex; flex-wrap:wrap; gap:0.65rem; }
     .cbs-show-btn { display:inline-flex; padding:0.55rem 0.95rem; border-radius:9px; font-weight:700; text-decoration:none; font-size:0.84rem; background:#fff; color:#334155; border:1px solid #cbd5e1; }
+    .cbs-show-btn--danger { color:#b91c1c; border-color:#fecaca; cursor:pointer; font-family:inherit; }
 </style>
 @endpush
 
@@ -69,6 +70,21 @@
 
         <div class="cbs-show-actions">
             <a class="cbs-show-btn" href="{{ route($dashboardRoute) }}">Back to dashboard</a>
+            @if (!empty($canEdit))
+                <a class="cbs-show-btn" href="{{ route('spoc.capacity-building-stakeholders.edit', $row) }}">Edit</a>
+            @endif
+            @if (!empty($canDelete))
+                <form
+                    method="post"
+                    action="{{ route('spoc.capacity-building-stakeholders.destroy', $row) }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Delete this session permanently?');"
+                >
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="cbs-show-btn cbs-show-btn--danger">Delete</button>
+                </form>
+            @endif
         </div>
     </div>
 </div>
