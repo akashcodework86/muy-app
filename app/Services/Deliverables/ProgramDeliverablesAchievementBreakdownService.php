@@ -86,6 +86,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'market_linkage_incubatees' => $this->marketLinkageIncubateesBreakdown(),
             'community_org_outreach_count' => $this->communityOrgOutreachBreakdown(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsBreakdown(),
+            'pitch_deck_preparations' => $this->pitchDeckPreparationsBreakdown(),
+            'pitch_deck_combined' => $this->pitchDeckCombinedBreakdown(),
             default => ['total' => 0, 'by_district' => [], 'by_hub' => [], 'by_month' => [], 'by_service' => [], 'records' => []],
         };
 
@@ -1163,6 +1165,50 @@ class ProgramDeliverablesAchievementBreakdownService
         ];
     }
 
+    private function pitchDeckPreparationsBreakdown(): array
+    {
+        $data = \App\Support\PitchDeckPreparationsDeliverablesSupport::preparationsBreakdown(
+            $this->periodFrom,
+            $this->periodTo,
+            $this->districtIds,
+        );
+
+        return [
+            'total' => (int) ($data['total'] ?? 0),
+            'by_district' => $data['by_district'] ?? [],
+            'by_hub' => $data['by_hub'] ?? [],
+            'by_month' => $data['by_month'] ?? [],
+            'by_service' => [],
+            'records' => $data['records'] ?? [],
+        ];
+    }
+
+    private function pitchDeckCombinedBreakdown(): array
+    {
+        $service = $this->serviceCaseBreakdown([
+            'type' => 'deliverable',
+            'code' => 'pitch_deck_prep',
+        ]);
+
+        $data = \App\Support\PitchDeckCombinedDeliverablesSupport::combinedBreakdownFromParts(
+            $service,
+            \App\Support\PitchDeckPreparationsDeliverablesSupport::preparationsBreakdown(
+                $this->periodFrom,
+                $this->periodTo,
+                $this->districtIds,
+            ),
+        );
+
+        return [
+            'total' => (int) ($data['total'] ?? 0),
+            'by_district' => $data['by_district'] ?? [],
+            'by_hub' => $data['by_hub'] ?? [],
+            'by_month' => $data['by_month'] ?? [],
+            'by_service' => $data['by_service'] ?? [],
+            'records' => $data['records'] ?? [],
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -1373,7 +1419,11 @@ class ProgramDeliverablesAchievementBreakdownService
 
     private function serviceCasePayloadAmountSql(string $key): string
     {
-        $jsonExtract = "JSON_UNQUOTE(JSON_EXTRACT(sc.payload, '$.\"{$key}\"'))";
+        $jsonExtract = match (DB::connection()->getDriverName()) {
+            'sqlite' => "json_extract(sc.payload, '$.\"{$key}\"')",
+            'pgsql' => "sc.payload::jsonb ->> '{$key}'",
+            default => "JSON_UNQUOTE(JSON_EXTRACT(sc.payload, '$.\"{$key}\"'))",
+        };
         $normalized = "REPLACE(REPLACE(REPLACE({$jsonExtract}, ',', ''), '₹', ''), ' ', '')";
 
         return "COALESCE(CAST(NULLIF({$normalized}, '') AS DECIMAL(18,2)), 0)";
@@ -1729,6 +1779,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'market_linkage_incubatees' => 'Market linkage incubatees',
             'community_org_outreach_count' => 'Community organization outreach visits',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
+            'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation',
             default => 'Achievement records',
         };
     }

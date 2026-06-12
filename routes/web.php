@@ -63,6 +63,8 @@ use App\Http\Controllers\Staff\StaffPortalController;
 use App\Http\Controllers\StaffCheckInController;
 use App\Http\Controllers\MarketLinkageController;
 use App\Http\Controllers\CapacityBuildingStakeholdersLandingController;
+use App\Http\Controllers\PitchDeckPreparationController;
+use App\Http\Controllers\PitchDeckPreparationLandingController;
 use App\Http\Controllers\SocialMediaPostLandingController;
 use App\Http\Controllers\SocialMediaPostController;
 use App\Http\Controllers\StakeholderCapacityBuildingSessionController;
@@ -612,6 +614,26 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('capacity-building-stakeholders/{cbsSession}', [StakeholderCapacityBuildingSessionController::class, 'show'])->name('capacity-building-stakeholders.show');
         Route::get('capacity-building-stakeholders/{cbsSession}/attachment', [StakeholderCapacityBuildingSessionController::class, 'downloadAttachment'])
             ->name('capacity-building-stakeholders.attachment');
+
+        Route::get('pitch-deck-preparations/incubatees/search', [PitchDeckPreparationController::class, 'searchIncubatees'])
+            ->name('pitch-deck-preparations.incubatees.search');
+        Route::get('pitch-deck-preparations/create', [PitchDeckPreparationController::class, 'create'])->name('pitch-deck-preparations.create');
+        Route::post('pitch-deck-preparations', [PitchDeckPreparationController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('pitch-deck-preparations.store');
+        Route::get('pitch-deck-preparations', PitchDeckPreparationLandingController::class)->name('pitch-deck-preparations.index');
+        Route::get('pitch-deck-preparations/dashboard', [PitchDeckPreparationController::class, 'dashboard'])->name('pitch-deck-preparations.dashboard');
+        Route::get('pitch-deck-preparations/export', [PitchDeckPreparationController::class, 'export'])->name('pitch-deck-preparations.export');
+        Route::get('pitch-deck-preparations/{pitchDeckPreparation}/edit', [PitchDeckPreparationController::class, 'edit'])->name('pitch-deck-preparations.edit');
+        Route::put('pitch-deck-preparations/{pitchDeckPreparation}', [PitchDeckPreparationController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('pitch-deck-preparations.update');
+        Route::delete('pitch-deck-preparations/{pitchDeckPreparation}', [PitchDeckPreparationController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('pitch-deck-preparations.destroy');
+        Route::get('pitch-deck-preparations/{pitchDeckPreparation}/deck', [PitchDeckPreparationController::class, 'downloadDeck'])
+            ->name('pitch-deck-preparations.deck');
+        Route::get('pitch-deck-preparations/{pitchDeckPreparation}', [PitchDeckPreparationController::class, 'show'])->name('pitch-deck-preparations.show');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -857,6 +879,16 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('capacity-building-stakeholders/{cbsSession}', [StakeholderCapacityBuildingSessionController::class, 'show'])->name('capacity-building-stakeholders.show');
         Route::get('capacity-building-stakeholders/{cbsSession}/attachment', [StakeholderCapacityBuildingSessionController::class, 'downloadAttachment'])
             ->name('capacity-building-stakeholders.attachment');
+
+        Route::get('pitch-deck-preparations/dashboard', [PitchDeckPreparationController::class, 'dashboard'])->name('pitch-deck-preparations.dashboard');
+        Route::get('pitch-deck-preparations', PitchDeckPreparationLandingController::class)->name('pitch-deck-preparations.index');
+        Route::get('pitch-deck-preparations/export', [PitchDeckPreparationController::class, 'export'])->name('pitch-deck-preparations.export');
+        Route::delete('pitch-deck-preparations/{pitchDeckPreparation}', [PitchDeckPreparationController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('pitch-deck-preparations.destroy');
+        Route::get('pitch-deck-preparations/{pitchDeckPreparation}/deck', [PitchDeckPreparationController::class, 'downloadDeck'])
+            ->name('pitch-deck-preparations.deck');
+        Route::get('pitch-deck-preparations/{pitchDeckPreparation}', [PitchDeckPreparationController::class, 'show'])->name('pitch-deck-preparations.show');
 
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');

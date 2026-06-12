@@ -215,6 +215,11 @@
         background: rgba(99, 102, 241, 0.16);
         color: #1e1b4b;
     }
+    .admin-topbar__dropdown-item--placeholder {
+        opacity: 0.55;
+        cursor: default;
+        pointer-events: none;
+    }
     .admin-topbar__dropdown-item:focus-visible {
         outline: 2px solid rgba(99, 102, 241, 0.45);
         outline-offset: 2px;

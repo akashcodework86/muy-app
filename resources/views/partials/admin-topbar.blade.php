@@ -19,6 +19,8 @@
     $canSubmitSocialMediaPost = $u && \App\Support\SocialMediaPostAccess::canSubmit($u);
     $canManageCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canSubmit($u);
     $canViewCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canViewDashboard($u);
+    $canSubmitPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canSubmit($u);
+    $canViewPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canViewDashboard($u);
     $canManageTrainingPackageMonthPlans = $u && \App\Support\TrainingPackageMonthPlanAccess::canManage($u);
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
@@ -157,6 +159,15 @@
         str_starts_with($r, 'spoc.capacity-building-stakeholders.show') => 'capacity-building-stakeholders-dashboard',
         str_starts_with($r, 'admin.capacity-building-stakeholders.dashboard') => 'capacity-building-stakeholders-dashboard',
         str_starts_with($r, 'admin.capacity-building-stakeholders.show') => 'capacity-building-stakeholders-dashboard',
+        str_starts_with($r, 'spoc.pitch-deck-preparations.create') => 'pitch-deck-preparations-submit',
+        str_starts_with($r, 'spoc.pitch-deck-preparations.index') => 'pitch-deck-preparations-submit',
+        str_starts_with($r, 'spoc.pitch-deck-preparations.store') => 'pitch-deck-preparations-submit',
+        str_starts_with($r, 'spoc.pitch-deck-preparations.edit') => 'pitch-deck-preparations-submit',
+        str_starts_with($r, 'spoc.pitch-deck-preparations.update') => 'pitch-deck-preparations-submit',
+        str_starts_with($r, 'spoc.pitch-deck-preparations.dashboard') => 'pitch-deck-preparations-dashboard',
+        str_starts_with($r, 'spoc.pitch-deck-preparations.show') => 'pitch-deck-preparations-dashboard',
+        str_starts_with($r, 'admin.pitch-deck-preparations.dashboard') => 'pitch-deck-preparations-dashboard',
+        str_starts_with($r, 'admin.pitch-deck-preparations.show') => 'pitch-deck-preparations-dashboard',
         str_starts_with($r, 'staff.market-linkages.create') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.store') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.dashboard') => 'market-linkages-dashboard',
@@ -182,7 +193,7 @@
     $targetsAllocationActive = in_array($activeNav, ['state', 'district', 'targets-state-monthly', 'targets-district-hub-monthly', 'targets-allocate', 'training-package-month-plans'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -209,6 +220,8 @@
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents'], true);
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
+    $spocPitchDeckActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true);
+    $fundingSchematicActive = $activeNav === 'pitch-deck-preparations-dashboard';
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
@@ -440,6 +453,18 @@
                             </a>
                         </div>
                     </div>
+                    @if ($canViewPitchDeckPreparation)
+                    <div class="admin-topbar__dropdown-subgroup @if ($fundingSchematicActive) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('targets') !!}<span>Funding &amp; Schematic Convergence</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('admin.pitch-deck-preparations.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pitch-deck-preparations-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Incubatees Pitch Deck Preparation (8.3)</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                     <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'market-linkage-dashboard') is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('pin') !!}<span>Forward Linkages</span>
@@ -546,6 +571,21 @@
                         {!! $i('doc') !!}<span>New session</span>
                     </a>
                     <a href="{{ route('spoc.capacity-building-stakeholders.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'capacity-building-stakeholders-dashboard') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>View dashboard</span>
+                    </a>
+                </div>
+            </details>
+            @endif
+            @if ($canSubmitPitchDeckPreparation)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocPitchDeckActive) is-active @endif">
+                    {!! $i('doc') !!}<span class="admin-topbar__link-text">Pitch deck (8.3)</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <a href="{{ route('spoc.pitch-deck-preparations.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pitch-deck-preparations-submit') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>New entry</span>
+                    </a>
+                    <a href="{{ route('spoc.pitch-deck-preparations.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pitch-deck-preparations-dashboard') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>View dashboard</span>
                     </a>
                 </div>

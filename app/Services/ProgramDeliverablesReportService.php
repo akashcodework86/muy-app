@@ -19,6 +19,7 @@ use App\Services\Deliverables\ProgramDeliverableReportingTier;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
+use App\Support\PitchDeckPreparationsDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\BstTrainingMonthPlanTargetSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
@@ -720,6 +721,8 @@ class ProgramDeliverablesReportService
             'market_linkage_incubatees' => $this->marketLinkageIncubateesCount(),
             'community_org_outreach_count' => $this->communityOrgOutreachVisitsCount(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsCount(),
+            'pitch_deck_preparations' => $this->pitchDeckPreparationsCount(),
+            'pitch_deck_combined' => $this->pitchDeckCombinedCount(),
             default => 0,
         };
     }
@@ -738,7 +741,7 @@ class ProgramDeliverablesReportService
                 sumServiceTargets: true,
             ),
             'bst_sessions' => $this->bstSessionsPlannedTargetCount(),
-            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions' => $this->resolveStateTargetForCodes([
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'pitch_deck_preparations', 'pitch_deck_combined' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
             'none' => ($source['deliverable_code'] ?? '') !== ''
@@ -1501,6 +1504,25 @@ SQL;
             $this->periodFrom,
             $this->periodTo,
         );
+    }
+
+    private function pitchDeckPreparationsCount(): int
+    {
+        return PitchDeckPreparationsDeliverablesSupport::countPreparations(
+            $this->periodFrom,
+            $this->periodTo,
+            $this->districtIds,
+        );
+    }
+
+    private function pitchDeckCombinedCount(): int
+    {
+        return $this->achievementForDeliverableCode('pitch_deck_prep')
+            + PitchDeckPreparationsDeliverablesSupport::countPreparations(
+                $this->periodFrom,
+                $this->periodTo,
+                $this->districtIds,
+            );
     }
 
     private ?FiscalYear $activeFiscalYear = null;

@@ -321,7 +321,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Key Indicator',
                     'level' => 'Spoke & Hub',
-                    'source' => ['type' => 'deliverable', 'code' => 'pitch_deck_prep'],
+                    'source' => ['type' => 'pitch_deck_combined', 'deliverable_code' => 'pitch_deck_prep'],
                 ],
                 [
                     'name' => 'Demo Days',
@@ -617,7 +617,7 @@ return [
     | MIS deliverable code => service catalog code(s) used on State targets (svc_* rows).
     */
     'target_code_aliases' => [
-        'pitch_deck_prep' => ['pitch_deck'],
+        'pitch_deck_prep' => ['pitch_deck', 'pitch_decks'],
         'advance_licensing_support' => ['mandi_license', 'seed_license', 'pan_card', 'lab_testing'],
         'pitchathon_demo' => ['demo_days'],
         'market_link' => ['market_link', 'offline_connect'],
@@ -638,6 +638,7 @@ return [
     | Match approved service cases to MIS rows when catalog code differs (name / label fallback).
     */
     'achievement_deliverable_keywords' => [
+        'pitch_deck_prep' => ['pitch deck'],
         'fssai' => ['fssai'],
         'gst' => ['gst'],
         'bmc' => ['business model canvas', 'bmc'],

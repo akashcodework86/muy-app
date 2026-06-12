@@ -576,6 +576,7 @@
         const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
         const isBst = _sourceType === 'bst_participants';
         const isPartners = _sourceType === 'market_linkage_unique_partners';
+        const isPitchDeckCombined = _sourceType === 'pitch_deck_combined';
 
         const isFPPage = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const pageSize = (isFPPage || isBst) ? PAGE_SIZE_PARTICIPANTS : PAGE_SIZE_DEFAULT;
@@ -686,6 +687,26 @@
                     <th>Partner name</th>
                 </tr></thead>
                 <tbody>${rowsHtml || '<tr><td colspan="2">No partner names found.</td></tr>'}</tbody>
+            </table>`;
+        } else if (isPitchDeckCombined) {
+            const rowsHtml = pageRecords.map((row, i) => {
+                const sr = globalOffset + i + 1;
+                return `<tr>
+                    <td style="text-align:center;color:#94a3b8;font-weight:700;font-size:0.75rem;">${sr}</td>
+                    <td>${escapeHtml(row.reference)}</td>
+                    <td>${escapeHtml(row.applicant)}</td>
+                    <td>${escapeHtml(row.district)}</td>
+                    <td>${escapeHtml(row.service)}</td>
+                    <td>${escapeHtml(row.filled_by && row.filled_by !== row.service ? row.filled_by : '—')}</td>
+                    <td>${escapeHtml(row.date)}</td>
+                </tr>`;
+            }).join('');
+            tableHtml = `<table class="dlv-table">
+                <thead><tr>
+                    <th style="width:2rem;text-align:center;">#</th>
+                    <th>Reference</th><th>Incubatee</th><th>District</th><th>Source</th><th>Filled by</th><th>Date</th>
+                </tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="7">No records found.</td></tr>'}</tbody>
             </table>`;
         } else {
             const rowsHtml = pageRecords.map((row, i) => {

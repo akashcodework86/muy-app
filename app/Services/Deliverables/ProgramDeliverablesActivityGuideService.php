@@ -381,6 +381,7 @@ class ProgramDeliverablesActivityGuideService
             'technical_training_sessions' => $pick('technical-trainings.dashboard', 'Field work → Technical training', 'Technical training to incubatees (3.3).'),
             'technical_training_potential_lakhpati_sessions' => $pick('lakhpati-technical-trainings.dashboard', '3.3.1 Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs', 'Partner-requested technical training sessions.'),
             'capacity_building_stakeholder_sessions' => $pick('capacity-building-stakeholders.dashboard', '3.4 Capacity building of stakeholders', 'Stakeholder capacity-building sessions (REAP, USRLM, line dept).', 'capacity-building-stakeholders.dashboard'),
+            'pitch_deck_preparations', 'pitch_deck_combined' => $pick('pitch-deck-preparations.dashboard', '8.3 Incubatees Pitch Deck Preparation', 'Pitch decks from district services and state team entries (combined).', 'pitch-deck-preparations.dashboard'),
             'deliverable', 'service', 'services' => $pick('services.index', 'Service → Service cases', 'Approved service cases count toward achievement.', 'phase3-services.index'),
             'market_linkage_unique_partners', 'market_linkage_incubatees' => $pick('market-linkages.dashboard', 'Service → Market linkage', 'Market linkage partners & incubatees.'),
             default => [
@@ -407,6 +408,7 @@ class ProgramDeliverablesActivityGuideService
             'technical_training_sessions' => 'Technical training sessions',
             'technical_training_potential_lakhpati_sessions' => '3.3.1 Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
+            'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation (services + state team)',
             'market_linkage_unique_partners' => 'Market linkage partners',
             'market_linkage_incubatees' => 'Market-linked incubatees',
             'none' => 'Not wired',
