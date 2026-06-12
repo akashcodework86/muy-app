@@ -155,6 +155,8 @@
         str_starts_with($r, 'hub.community-org-outreach.store') => 'community-org-outreach-submit',
         str_starts_with($r, 'hub.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'hub.community-org-outreach.show') => 'community-org-outreach-dashboard',
+        str_starts_with($r, 'hub.market-linkages.dashboard') => 'market-linkage-dashboard',
+        str_starts_with($r, 'hub.market-linkages.show') => 'market-linkage-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.show') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'account.') => 'account',
@@ -189,7 +191,7 @@
 
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
-    $hubServiceGroupActive = in_array($activeNav, ['community-org-outreach-submit', 'community-org-outreach-dashboard'], true);
+    $hubServiceGroupActive = in_array($activeNav, ['community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents'], true);
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
@@ -581,6 +583,16 @@
                                 {!! $i('doc') !!}<span>Submit</span>
                             </a>
                             <a href="{{ route('hub.community-org-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'community-org-outreach-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'market-linkage-dashboard') is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('pin') !!}<span>Market linkage</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('hub.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>View dashboard</span>
                             </a>
                         </div>

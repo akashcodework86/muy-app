@@ -295,13 +295,14 @@ class MarketLinkageController extends Controller
 
         $isAdmin = $user->role === 'state_admin';
         $staffListRoute = $user->role === 'district_staff' ? 'staff.services.index' : null;
+        $routes = $this->marketLinkageRoutes($user);
 
         return view('market-linkages.show', [
             'submission' => $marketLinkage,
             'currentRole' => (string) $user->role,
-            'dashboardRoute' => $isAdmin ? 'admin.market-linkages.dashboard' : 'staff.market-linkages.dashboard',
+            'dashboardRoute' => $routes['dashboard'],
             'createRoute' => MarketLinkageAccess::canSubmit($user) ? 'staff.market-linkages.create' : null,
-            'documentRoutePrefix' => $isAdmin ? 'admin.market-linkages.document' : 'staff.market-linkages.document',
+            'documentRoutePrefix' => $routes['document'],
             'staffListRoute' => $staffListRoute,
             'editRoute' => MarketLinkageAccess::canSubmit($user) && $marketLinkage->canBeEditedByStaff()
                 && (int) $marketLinkage->submitted_by_user_id === (int) $user->id
@@ -555,7 +556,73 @@ class MarketLinkageController extends Controller
     {
         if ($user->role === 'district_staff') {
             $query->where('district_id', (int) ($user->district_id ?: 0));
+
+            return;
         }
+
+        if ($user->role === 'hub_admin') {
+            $districtIds = $this->hubDistrictIds((int) ($user->hub_id ?: 0));
+            if ($districtIds === []) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $query->whereIn('district_id', $districtIds);
+        }
+    }
+
+    /** @return list<int> */
+    private function hubDistrictIds(int $hubId): array
+    {
+        if ($hubId <= 0) {
+            return [];
+        }
+
+        return District::query()
+            ->where('hub_id', $hubId)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /** @return Collection<int, District> */
+    private function hubDistricts(int $hubId): Collection
+    {
+        return District::query()
+            ->where('hub_id', $hubId)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    /**
+     * @return array{dashboard: string, export: string, show: string, document: string}
+     */
+    private function marketLinkageRoutes(User $user): array
+    {
+        return match ($user->role) {
+            'state_admin' => [
+                'dashboard' => 'admin.market-linkages.dashboard',
+                'export' => 'admin.market-linkages.export',
+                'show' => 'admin.market-linkages.show',
+                'document' => 'admin.market-linkages.document',
+            ],
+            'hub_admin' => [
+                'dashboard' => 'hub.market-linkages.dashboard',
+                'export' => 'hub.market-linkages.export',
+                'show' => 'hub.market-linkages.show',
+                'document' => 'hub.market-linkages.document',
+            ],
+            default => [
+                'dashboard' => 'staff.market-linkages.dashboard',
+                'export' => 'staff.market-linkages.export',
+                'show' => 'staff.market-linkages.show',
+                'document' => 'staff.market-linkages.document',
+            ],
+        };
     }
 
     /**
@@ -600,8 +667,9 @@ class MarketLinkageController extends Controller
      */
     private function groupSubmissionsByIncubatee(Collection $submissions, array $filters, User $user): Collection
     {
-        $showRoute = $user->role === 'state_admin' ? 'admin.market-linkages.show' : 'staff.market-linkages.show';
-        $documentRoute = $user->role === 'state_admin' ? 'admin.market-linkages.document' : 'staff.market-linkages.document';
+        $routes = $this->marketLinkageRoutes($user);
+        $showRoute = $routes['show'];
+        $documentRoute = $routes['document'];
         $groups = [];
 
         foreach ($submissions as $submission) {
@@ -704,7 +772,14 @@ class MarketLinkageController extends Controller
      */
     private function validatedFilters(Request $request): array
     {
+        $user = $request->user();
         $districtId = (int) $request->query('district_id', 0);
+        if ($user?->role === 'hub_admin' && $districtId > 0) {
+            $allowed = $this->hubDistrictIds((int) ($user->hub_id ?: 0));
+            if (! in_array($districtId, $allowed, true)) {
+                $districtId = 0;
+            }
+        }
         $linkageMode = (string) $request->query('linkage_mode', '');
         if (! in_array($linkageMode, ['', MarketLinkageSubmission::LINKAGE_ONLINE, MarketLinkageSubmission::LINKAGE_OFFLINE], true)) {
             $linkageMode = '';
@@ -741,6 +816,9 @@ class MarketLinkageController extends Controller
     ): View {
         $user = $request->user();
         $isAdmin = $user->role === 'state_admin';
+        $isHubAdmin = $user->role === 'hub_admin';
+        $showDistrictScope = $isAdmin || $isHubAdmin;
+        $routes = $this->marketLinkageRoutes($user);
 
         return view('market-linkages.dashboard', [
             'rows' => $rows,
@@ -748,14 +826,17 @@ class MarketLinkageController extends Controller
             'migrationMissing' => $migrationMissing,
             'isPaginated' => ! $migrationMissing,
             'isAdminView' => $isAdmin,
+            'showDistrictScope' => $showDistrictScope,
             'filters' => $filters,
             'districtCounts' => $districtCounts,
-            'districts' => $isAdmin ? District::query()->orderBy('name')->get(['id', 'name']) : collect(),
-            'dashboardRoute' => $isAdmin ? 'admin.market-linkages.dashboard' : 'staff.market-linkages.dashboard',
-            'exportRoute' => $isAdmin ? 'admin.market-linkages.export' : 'staff.market-linkages.export',
-            'showRoute' => $isAdmin ? 'admin.market-linkages.show' : 'staff.market-linkages.show',
+            'districts' => $isAdmin
+                ? District::query()->orderBy('name')->get(['id', 'name'])
+                : ($isHubAdmin ? $this->hubDistricts((int) ($user->hub_id ?: 0)) : collect()),
+            'dashboardRoute' => $routes['dashboard'],
+            'exportRoute' => $routes['export'],
+            'showRoute' => $routes['show'],
             'createRoute' => MarketLinkageAccess::canSubmit($user) ? 'staff.market-linkages.create' : null,
-            'documentRoutePrefix' => $isAdmin ? 'admin.market-linkages.document' : 'staff.market-linkages.document',
+            'documentRoutePrefix' => $routes['document'],
         ]);
     }
 
@@ -827,11 +908,13 @@ class MarketLinkageController extends Controller
      */
     private function districtCounts(User $user, array $filters): array
     {
-        if ($user->role !== 'state_admin') {
+        if (! in_array($user->role, ['state_admin', 'hub_admin'], true)) {
             return [];
         }
 
         $query = MarketLinkageSubmission::query()->approved();
+        $this->scopeDashboardQuery($query, $user);
+
         if ($filters['q'] !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']).'%';
             $query->where(function ($q) use ($like): void {
@@ -845,8 +928,12 @@ class MarketLinkageController extends Controller
             ->groupBy('district_id')
             ->map(fn (Collection $rows) => $rows->unique(fn (MarketLinkageSubmission $s) => $this->incubateeKey($s))->count());
 
-        return District::query()
-            ->orderBy('name')
+        $districtQuery = District::query()->orderBy('sort_order')->orderBy('name');
+        if ($user->role === 'hub_admin') {
+            $districtQuery->where('hub_id', (int) ($user->hub_id ?: 0));
+        }
+
+        return $districtQuery
             ->get(['id', 'name'])
             ->map(fn (District $d) => [
                 'id' => (int) $d->id,
