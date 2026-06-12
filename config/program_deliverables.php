@@ -618,7 +618,7 @@ return [
     */
     'target_code_aliases' => [
         'pitch_deck_prep' => ['pitch_deck'],
-        'advance_licensing_support' => ['other_licensing', 'legal_vetting', 'fire_noc', 'ayush_licence', 'ipr_support'],
+        'advance_licensing_support' => ['mandi_license', 'seed_license', 'pan_card', 'lab_testing'],
         'pitchathon_demo' => ['demo_days'],
         'market_link' => ['market_link', 'offline_connect'],
         'bmc' => ['bmc_canvas', 'business_model_canvas', 'bmc'],
