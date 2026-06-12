@@ -319,6 +319,7 @@
                                             data-approve-url="{{ route('spoc.service-cases.approve', $case) }}"
                                             data-send-back-url="{{ route('spoc.service-cases.send-back', $case) }}"
                                             data-reject-url="{{ route('spoc.service-cases.reject', $case) }}"
+                                            data-case-id="{{ (int) $case->id }}"
                                         >Quick review</button>
                                     @endif
                                     @if ($case->attachments->isNotEmpty())
@@ -328,6 +329,7 @@
                                             class="sq-btn sq-btn--doc js-doc-open"
                                             data-doc-url="{{ route('spoc.service-cases.attachments.download', [$case, $doc]) }}"
                                             data-doc-name="{{ $doc->original_name }}"
+                                            data-case-id="{{ (int) $case->id }}"
                                         >View document</button>
                                     @endif
                                     <a href="{{ route('spoc.service-cases.show', $case) }}" class="sq-btn">Open full</a>
@@ -402,6 +404,13 @@
 
     @include('partials.muy-doc-image-zoom')
 
+    <script>
+        window.muySpocReviewTelemetryUrl = function (caseId) {
+            return @json(url('spoc/service-cases')) + '/' + caseId + '/review-telemetry';
+        };
+    </script>
+    @include('partials.muy-spoc-review-telemetry')
+
     <div id="sqDocModal" class="sq-modal" aria-hidden="true">
         <div id="sqDocModalCard" class="sq-modal-card" role="dialog" aria-modal="true" aria-label="Document preview">
             <div class="sq-modal-head">
@@ -447,6 +456,7 @@
             const docClose = document.getElementById('sqDocClose');
             const docBody = document.getElementById('sqDocBody');
             const docTitle = document.getElementById('sqDocTitle');
+            let activeReviewCaseId = 0;
 
             function setModal(open) {
                 if (!modal) return;
@@ -456,6 +466,11 @@
 
             openButtons.forEach(function (btn) {
                 btn.addEventListener('click', function () {
+                    activeReviewCaseId = parseInt(btn.dataset.caseId || '0', 10) || 0;
+                    if (activeReviewCaseId && window.muySpocReview) {
+                        window.muySpocReview.markQuickReviewOpened(activeReviewCaseId);
+                        window.muySpocReview.attachApproveFields(approveForm, activeReviewCaseId, 'queue_quick_review');
+                    }
                     applicant.textContent = btn.dataset.applicant || '—';
                     appNo.textContent = btn.dataset.appNo || '—';
                     service.textContent = btn.dataset.service || '—';
@@ -534,6 +549,9 @@
                     renderDoc(btn.dataset.docUrl || '', btn.dataset.docName || 'Document');
                 });
             });
+            if (window.muySpocReview) {
+                window.muySpocReview.bindDocButtons('.js-doc-open', 'queue_modal');
+            }
             docClose && docClose.addEventListener('click', function () { setDocModal(false); });
             docModal && docModal.addEventListener('click', function (e) {
                 if (e.target === docModal) setDocModal(false);

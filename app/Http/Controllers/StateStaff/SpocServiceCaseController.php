@@ -14,7 +14,9 @@ use App\Models\User;
 use App\Notifications\ServiceCaseWorkflowNotification;
 use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Services\SpocServiceCaseReviewTelemetryService;
 use App\Support\SpocBulkApproveAccess;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -30,6 +32,7 @@ class SpocServiceCaseController extends Controller
     public function __construct(
         private AppSettingsService $settings,
         private LegacyApplicationServiceCaseSupport $legacyApplications,
+        private SpocServiceCaseReviewTelemetryService $reviewTelemetry,
     ) {}
 
     public function index(Request $request): View
@@ -299,10 +302,51 @@ class SpocServiceCaseController extends Controller
             throw ValidationException::withMessages(['status' => 'Only pending approval cases can be approved.']);
         }
 
-        $this->approvePendingCase($service_case, $spoc);
+        $approvalMeta = $this->reviewTelemetry->snapshotForApproval(
+            $service_case,
+            (int) $spoc->id,
+            $this->resolveApprovalChannel($request),
+            (int) $request->input('client_review_seconds', 0),
+        );
+
+        $this->approvePendingCase($service_case, $spoc, $approvalMeta);
+        $this->reviewTelemetry->clear((int) $spoc->id, (int) $service_case->id);
 
         return $this->redirectToQueue($request)
             ->with('status', 'Case approved.');
+    }
+
+    public function recordReviewTelemetry(Request $request, ServiceCase $service_case): JsonResponse
+    {
+        $this->ensureModuleOn();
+        $spoc = $this->spocOrAbort($request);
+        $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
+
+        $validated = $request->validate([
+            'event' => ['required', 'string', 'in:document_viewed,full_page_visited,quick_review_opened,heartbeat'],
+            'source' => ['nullable', 'string', 'max:64'],
+            'seconds' => ['nullable', 'integer', 'min:0', 'max:7200'],
+        ]);
+
+        $spocId = (int) $spoc->id;
+        $caseId = (int) $service_case->id;
+
+        match ($validated['event']) {
+            'document_viewed' => $this->reviewTelemetry->markDocumentViewed(
+                $spocId,
+                $caseId,
+                (string) ($validated['source'] ?? 'ui')
+            ),
+            'full_page_visited' => $this->reviewTelemetry->markFullPageVisited($spocId, $caseId),
+            'quick_review_opened' => $this->reviewTelemetry->markQuickReviewOpened($spocId, $caseId),
+            'heartbeat' => $this->reviewTelemetry->addReviewSeconds(
+                $spocId,
+                $caseId,
+                (int) ($validated['seconds'] ?? 0)
+            ),
+        };
+
+        return response()->json(['ok' => true]);
     }
 
     public function bulkApprove(Request $request): RedirectResponse
@@ -352,7 +396,12 @@ class SpocServiceCaseController extends Controller
                 continue;
             }
 
-            $this->approvePendingCase($case, $spoc);
+            $this->approvePendingCase(
+                $case,
+                $spoc,
+                $this->reviewTelemetry->snapshotForApproval($case, (int) $spoc->id, 'bulk')
+            );
+            $this->reviewTelemetry->clear((int) $spoc->id, (int) $case->id);
             $approved++;
         }
 
@@ -452,6 +501,7 @@ class SpocServiceCaseController extends Controller
         $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
+        $this->reviewTelemetry->markDocumentViewed((int) $spoc->id, (int) $service_case->id, 'download');
         $attachmentRecord = $service_case->attachments()->whereKey($attachment)->firstOrFail();
 
         $disk = Storage::disk((string) $attachmentRecord->disk);
@@ -587,13 +637,13 @@ class SpocServiceCaseController extends Controller
         return array_values(array_unique($out));
     }
 
-    private function approvePendingCase(ServiceCase $serviceCase, User $spoc): void
+    private function approvePendingCase(ServiceCase $serviceCase, User $spoc, array $approvalMeta = []): void
     {
         if ($serviceCase->status !== ServiceCase::STATUS_PENDING_APPROVAL) {
             throw ValidationException::withMessages(['status' => 'Only pending approval cases can be approved.']);
         }
 
-        DB::transaction(function () use ($serviceCase, $spoc): void {
+        DB::transaction(function () use ($serviceCase, $spoc, $approvalMeta): void {
             $serviceCase->status = ServiceCase::STATUS_APPROVED;
             $serviceCase->approved_at = now();
             $serviceCase->approved_by = (int) $spoc->id;
@@ -608,11 +658,26 @@ class SpocServiceCaseController extends Controller
                 'service_case_id' => $serviceCase->id,
                 'user_id' => (int) $spoc->id,
                 'action' => 'spoc_approved',
-                'meta' => null,
+                'meta' => $approvalMeta !== [] ? $approvalMeta : null,
             ]);
         });
 
         $this->notifyDistrictStaff($serviceCase, $spoc, 'approved');
+    }
+
+    private function resolveApprovalChannel(Request $request): string
+    {
+        $channel = trim((string) $request->input('approval_channel', ''));
+        if (in_array($channel, ['queue_quick_review', 'full_page', 'bulk'], true)) {
+            return $channel;
+        }
+
+        $redirect = trim((string) $request->input('redirect_to', ''));
+        if ($redirect !== '' && str_contains($redirect, '/spoc/service-cases') && ! str_contains($redirect, '/service-cases/')) {
+            return 'queue_quick_review';
+        }
+
+        return 'full_page';
     }
 
     private function notifyDistrictStaff(ServiceCase $serviceCase, User $spoc, string $action): void

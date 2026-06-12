@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\OnboardedApplicantController;
 use App\Http\Controllers\Admin\PendingActionsController;
+use App\Http\Controllers\Admin\SpocApprovalAuditController;
 use App\Http\Controllers\Admin\Phase3ServiceCasesController;
 use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
@@ -519,6 +520,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('service-cases/{service_case}', [SpocServiceCaseController::class, 'show'])->name('service-cases.show');
+        Route::post('service-cases/{service_case}/review-telemetry', [SpocServiceCaseController::class, 'recordReviewTelemetry'])
+            ->middleware('throttle:120,1')
+            ->name('service-cases.review-telemetry');
         Route::post('service-cases/{service_case}/approve', [SpocServiceCaseController::class, 'approve'])
             ->middleware('throttle:60,1')
             ->name('service-cases.approve');
@@ -708,6 +712,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('service-spocs', [DistrictSpocController::class, 'update'])->name('service-spocs.update');
         Route::put('service-spocs/by-spoc', [DistrictSpocController::class, 'updateForSpoc'])->name('service-spocs.update-for-spoc');
         Route::get('pending-actions', [PendingActionsController::class, 'index'])->name('pending-actions.index');
+        Route::get('spoc-approval-audit', [SpocApprovalAuditController::class, 'index'])->name('spoc-approval-audit.index');
 
         Route::get('state-tasks', [AdminStateTaskController::class, 'index'])->name('state-tasks.index');
         Route::get('state-tasks/create', [AdminStateTaskController::class, 'create'])->name('state-tasks.create');

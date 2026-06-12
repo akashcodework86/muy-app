@@ -197,6 +197,7 @@
                             class="spoc-doc-btn js-doc-open"
                             data-doc-url="{{ route('spoc.service-cases.attachments.download', [$case, $att]) }}"
                             data-doc-name="{{ $att->original_name }}"
+                            data-case-id="{{ (int) $case->id }}"
                         >
                             View document
                         </button>
@@ -233,6 +234,13 @@
     @endif
 
     @include('partials.muy-doc-image-zoom')
+
+    <script>
+        window.muySpocReviewTelemetryUrl = function (caseId) {
+            return @json(url('spoc/service-cases')) + '/' + caseId + '/review-telemetry';
+        };
+    </script>
+    @include('partials.muy-spoc-review-telemetry')
 
     <div id="spocDocModal" class="spoc-doc-modal" aria-hidden="true">
         <div id="spocDocModalCard" class="spoc-doc-modal__card" role="dialog" aria-modal="true" aria-label="Document preview">
@@ -317,6 +325,13 @@
                     closeModal();
                 }
             });
+
+            if (window.muySpocReview) {
+                window.muySpocReview.startHeartbeat(@json((int) $case->id));
+                window.muySpocReview.bindDocButtons('.js-doc-open', 'full_page_modal');
+                var approveForm = document.querySelector('form[action="{{ route('spoc.service-cases.approve', $case) }}"]');
+                window.muySpocReview.attachApproveFields(approveForm, @json((int) $case->id), 'full_page');
+            }
         });
     </script>
 @endsection

@@ -61,6 +61,7 @@
         str_starts_with($r, 'admin.state-staff') => 'state-staff',
         str_starts_with($r, 'admin.service-spocs') => 'service-spocs',
         str_starts_with($r, 'admin.pending-actions') => 'pending-actions',
+        str_starts_with($r, 'admin.spoc-approval-audit') => 'spoc-approval-audit',
         str_starts_with($r, 'admin.state-tasks') => 'state-tasks',
         str_starts_with($r, 'spoc.') => 'spoc-queue',
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
@@ -162,7 +163,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'targets-district-hub-monthly', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'field-coordinator-report'], true);
+    $targetsStaffActive = in_array($activeNav, ['deliverables', 'state', 'district', 'targets-allocate', 'targets-district-hub-monthly', 'training-package-month-plans', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
@@ -316,6 +317,9 @@
                     </a>
                     <a href="{{ route('admin.pending-actions.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pending-actions') is-active @endif" role="menuitem">
                         {!! $i('inbox') !!}<span>Pending actions</span>
+                    </a>
+                    <a href="{{ route('admin.spoc-approval-audit.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'spoc-approval-audit') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>SPOC approval audit</span>
                     </a>
                     <a href="{{ route('admin.state-tasks.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'state-tasks') is-active @endif" role="menuitem">
                         {!! $i('doc') !!}<span>State tasks</span>
