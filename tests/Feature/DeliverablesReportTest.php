@@ -15,6 +15,8 @@ use App\Models\ServiceCase;
 use App\Models\ServiceCategory;
 use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
+use App\Models\StateMonthlyTarget;
+use App\Services\StateMonthlyTargetIndicatorBootstrapService;
 use App\Models\TrainingPackage;
 use App\Models\TrainingPackageMonthSession;
 use App\Models\User;
@@ -581,6 +583,40 @@ class DeliverablesReportTest extends TestCase
 
         $this->assertNotNull($districtRow);
         $this->assertSame(42, $districtRow['target']);
+    }
+
+    public function test_state_monthly_targets_reflect_on_deliverables_report_without_annual_row(): void
+    {
+        app(StateMonthlyTargetIndicatorBootstrapService::class)->ensureDeliverables();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $deliverable = Deliverable::query()->where('code', 'technical_training_sessions')->firstOrFail();
+
+        foreach (range(1, 12) as $month) {
+            StateMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'deliverable_id' => $deliverable->id,
+                'month_number' => $month,
+                'target_count' => 1,
+            ]);
+        }
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '3.3');
+
+        $this->assertNotNull($row);
+        $this->assertSame(12, $row['target']);
     }
 
     public function test_state_target_resolves_via_service_catalog_for_pitch_deck(): void

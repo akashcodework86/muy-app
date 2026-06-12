@@ -470,6 +470,83 @@ class MarketLinkageTest extends TestCase
         $this->assertSame(0, MarketLinkagePartner::query()->where('market_linkage_submission_id', $submission->id)->count());
     }
 
+    public function test_hub_admin_can_view_market_linkage_dashboard_with_district_breakdown(): void
+    {
+        [$hub, $district, $hubAdmin] = $this->seedHubFixtures('kumaon', 'Almora');
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $cfaId = $this->seedOnboardedApplicant($district, 'APP-ML-HUB-1', 'Hub View Test');
+
+        $this->actingAs($staff)->post(route('staff.market-linkages.store'), [
+            'cfa_submission_id' => $cfaId,
+            'partners' => [
+                ['partner_name' => 'Meesho', 'linkage_mode' => 'online', 'linkage_date' => '2026-05-15', 'link_url' => 'https://www.meesho.com/seller'],
+                ['partner_name' => 'Local Buyer', 'linkage_mode' => 'offline', 'linkage_date' => '2026-05-16'],
+            ],
+        ]);
+        $this->approveAllMarketLinkages($staff);
+
+        $this->actingAs($hubAdmin)
+            ->get(route('hub.market-linkages.dashboard'))
+            ->assertOk()
+            ->assertSee('District-wise linked incubatees', false)
+            ->assertSee('Almora', false)
+            ->assertSee('Hub View Test', false)
+            ->assertSee('Meesho', false)
+            ->assertSee('Local Buyer', false)
+            ->assertSee('>2<', false);
+    }
+
+    public function test_hub_admin_dashboard_is_scoped_to_own_hub(): void
+    {
+        [$hubA, $districtA, $hubAdminA] = $this->seedHubFixtures('hub-a', 'District A');
+        [$hubB, $districtB] = $this->seedHubFixtures('hub-b', 'District B');
+
+        $staffA = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hubA->id,
+            'district_id' => $districtA->id,
+            'is_active' => true,
+        ]);
+        $staffB = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hubB->id,
+            'district_id' => $districtB->id,
+            'is_active' => true,
+        ]);
+
+        $cfaA = $this->seedOnboardedApplicant($districtA, 'APP-ML-HUB-A', 'Incubatee A');
+        $cfaB = $this->seedOnboardedApplicant($districtB, 'APP-ML-HUB-B', 'Incubatee B');
+
+        $this->actingAs($staffA)->post(route('staff.market-linkages.store'), [
+            'cfa_submission_id' => $cfaA,
+            'partners' => [
+                ['partner_name' => 'Partner A', 'linkage_mode' => 'online', 'linkage_date' => '2026-05-10', 'link_url' => 'https://example.com/a'],
+            ],
+        ]);
+        $this->actingAs($staffB)->post(route('staff.market-linkages.store'), [
+            'cfa_submission_id' => $cfaB,
+            'partners' => [
+                ['partner_name' => 'Partner B', 'linkage_mode' => 'online', 'linkage_date' => '2026-05-11', 'link_url' => 'https://example.com/b'],
+            ],
+        ]);
+        $this->approveAllMarketLinkages($staffA);
+
+        $this->actingAs($hubAdminA)
+            ->get(route('hub.market-linkages.dashboard'))
+            ->assertOk()
+            ->assertSee('Incubatee A', false)
+            ->assertSee('Partner A', false)
+            ->assertSee('District A', false)
+            ->assertDontSee('Incubatee B')
+            ->assertDontSee('Partner B')
+            ->assertDontSee('District B');
+    }
+
     public function test_pending_market_linkage_not_counted_on_dashboard_until_approved(): void
     {
         $district = $this->createDistrict();
@@ -508,6 +585,35 @@ class MarketLinkageTest extends TestCase
             'approved_at' => now(),
             'approved_by' => $approver->id,
         ]);
+    }
+
+    /**
+     * @return array{0: Hub, 1: District, 2: User}
+     */
+    private function seedHubFixtures(string $hubSlug = 'kumaon', string $districtName = 'Almora'): array
+    {
+        $hub = Hub::query()->create([
+            'slug' => $hubSlug,
+            'name' => ucfirst(str_replace('-', ' ', $hubSlug)).' Region',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => strtolower(str_replace(' ', '-', $districtName)),
+            'name' => $districtName,
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $admin = User::factory()->create([
+            'role' => 'hub_admin',
+            'hub_id' => $hub->id,
+            'is_active' => true,
+        ]);
+
+        return [$hub, $district, $admin];
     }
 
     private function createDistrict(string $slug = 'dehradun', string $name = 'Dehradun'): District

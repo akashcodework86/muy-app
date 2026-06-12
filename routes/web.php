@@ -649,6 +649,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::get('targets/state-monthly', [\App\Http\Controllers\Admin\StateMonthlyTargetsController::class, 'index'])->name('targets.state-monthly');
+        Route::post('targets/state-monthly', [\App\Http\Controllers\Admin\StateMonthlyTargetsController::class, 'update'])->name('targets.state-monthly.update');
         Route::get('targets/state', [TargetController::class, 'stateForm'])->name('targets.state');
         Route::post('targets/state', [TargetController::class, 'stateUpdate'])->name('targets.state.update');
         Route::get('targets/district', [TargetController::class, 'districtForm'])->name('targets.district');
@@ -894,6 +896,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('community-org-outreach.destroy');
+        Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
+        Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
+        Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
+        Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
+            ->name('market-linkages.document');
         Route::post('batches/api', [HubBatchController::class, 'api'])->name('batches.api');
         Route::post('batches/upload-cdo', [HubBatchController::class, 'uploadCdo'])->name('batches.upload-cdo');
         Route::get('cfa-applications/{cfa_submission}', [HubBatchController::class, 'showCfaSubmission'])->name('batches.cfa.show');

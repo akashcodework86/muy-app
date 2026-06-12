@@ -13,6 +13,7 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
+use App\Models\StateMonthlyTarget;
 use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverableReportingTier;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
@@ -33,6 +34,7 @@ class ProgramDeliverablesReportService
         private readonly LegacyApplicationServiceCaseSupport $legacyServiceCases,
         private readonly MarketLinkagePartnerCatalogService $marketLinkagePartners,
         private readonly DistrictHubMonthlyTargetsService $districtHubMonthlyTargets,
+        private readonly StateMonthlyTargetIndicatorBootstrapService $stateMonthlyIndicators,
     ) {}
 
     /** @var array<string, int> */
@@ -250,7 +252,9 @@ class ProgramDeliverablesReportService
      */
     private function mergeStateScopedMonthlyTargets(FiscalYear $fiscalYear, array $targets, array $periodInfo): array
     {
-        if (! Schema::hasTable('hub_monthly_targets') && ! Schema::hasTable('district_monthly_targets')) {
+        if (! Schema::hasTable('hub_monthly_targets')
+            && ! Schema::hasTable('district_monthly_targets')
+            && ! Schema::hasTable('state_monthly_targets')) {
             return $targets;
         }
 
@@ -258,6 +262,21 @@ class ProgramDeliverablesReportService
             ->whereIn('id', array_keys($targets))
             ->get(['id', 'code'])
             ->keyBy('id');
+
+        $this->stateMonthlyIndicators->ensureDeliverables();
+        $stateMonthlyCodes = array_flip($this->stateMonthlyIndicators->allowedDeliverableCodes());
+
+        $stateMonthlyDeliverables = $stateMonthlyCodes === []
+            ? collect()
+            : Deliverable::query()
+                ->whereIn('code', array_keys($stateMonthlyCodes))
+                ->get(['id', 'code'])
+                ->keyBy('id');
+
+        /** @var array<int, int> */
+        $stateMonthlyDeliverableIds = array_flip(
+            $stateMonthlyDeliverables->keys()->map(fn ($id) => (int) $id)->all(),
+        );
 
         if (Schema::hasTable('hub_monthly_targets')) {
             $hubQuery = HubMonthlyTarget::query()->where('fiscal_year_id', $fiscalYear->id);
@@ -280,6 +299,9 @@ class ProgramDeliverablesReportService
             }
 
             foreach ($hubTotals as $deliverableId => $total) {
+                if (isset($stateMonthlyDeliverableIds[(int) $deliverableId])) {
+                    continue;
+                }
                 $deliverable = $deliverables->get((int) $deliverableId);
                 if (! $deliverable || $this->districtHubMonthlyTargets->resolveScopeForDeliverable($deliverable) !== DistrictHubMonthlyTargetsService::SCOPE_HUB) {
                     continue;
@@ -314,10 +336,45 @@ class ProgramDeliverablesReportService
             }
 
             foreach ($districtTotals as $deliverableId => $total) {
+                if (isset($stateMonthlyDeliverableIds[(int) $deliverableId])) {
+                    continue;
+                }
                 $deliverable = $deliverables->get((int) $deliverableId);
                 if (! $deliverable || $this->districtHubMonthlyTargets->resolveScopeForDeliverable($deliverable) !== DistrictHubMonthlyTargetsService::SCOPE_DISTRICT) {
                     continue;
                 }
+                $value = (int) round($total);
+                if ($value > 0) {
+                    $targets[(int) $deliverableId] = $value;
+                }
+            }
+        }
+
+        if (Schema::hasTable('state_monthly_targets') && $stateMonthlyDeliverables->isNotEmpty()) {
+            $stateQuery = StateMonthlyTarget::query()->where('fiscal_year_id', $fiscalYear->id);
+            if ($periodInfo['has_narrowing'] && $periodInfo['weights'] !== []) {
+                $stateQuery->whereIn('month_number', array_keys($periodInfo['weights']));
+            }
+            $stateRows = $stateQuery->get(['deliverable_id', 'month_number', 'target_count']);
+
+            $stateTotals = [];
+            foreach ($stateRows as $row) {
+                $deliverableId = (int) $row->deliverable_id;
+                $deliverable = $stateMonthlyDeliverables->get($deliverableId);
+                if (! $deliverable) {
+                    continue;
+                }
+                $weight = $periodInfo['has_narrowing']
+                    ? ($periodInfo['weights'][(int) $row->month_number] ?? 0.0)
+                    : 1.0;
+                if ($periodInfo['has_narrowing'] && $weight <= 0) {
+                    continue;
+                }
+                $stateTotals[$deliverableId] = ($stateTotals[$deliverableId] ?? 0.0)
+                    + ((int) $row->target_count) * ($periodInfo['has_narrowing'] ? $weight : 1.0);
+            }
+
+            foreach ($stateTotals as $deliverableId => $total) {
                 $value = (int) round($total);
                 if ($value > 0) {
                     $targets[(int) $deliverableId] = $value;

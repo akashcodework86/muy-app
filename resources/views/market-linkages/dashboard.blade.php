@@ -266,6 +266,25 @@
             background: #fff7ed;
             color: #9a3412;
         }
+        .ml-dash-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.28rem;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #4f46e5;
+            text-decoration: none;
+        }
+        .ml-dash-link:hover { text-decoration: underline; }
+        .ml-dash-link svg {
+            width: 0.82rem;
+            height: 0.82rem;
+            flex-shrink: 0;
+        }
+        .ml-dash-link--muted {
+            color: #64748b;
+            font-weight: 600;
+        }
     </style>
     @endpush
 
@@ -318,7 +337,7 @@
             </div>
         </div>
 
-        @if (!empty($isAdminView) && count($districtCounts ?? []) > 0)
+        @if (!empty($showDistrictScope ?? $isAdminView) && count($districtCounts ?? []) > 0)
             <div class="ml-card">
                 <h3 class="ml-card__title">
                     District-wise linked incubatees
@@ -347,7 +366,7 @@
                     <label>Search</label>
                     <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Incubatee / partner / staff">
                 </div>
-                @if (!empty($isAdminView))
+                @if (!empty($showDistrictScope ?? $isAdminView))
                     <div>
                         <label>District</label>
                         <select name="district_id">
@@ -386,7 +405,7 @@
                 <thead>
                     <tr>
                         <th class="ml-table__num">#</th>
-                        @if (!empty($isAdminView))
+                        @if (!empty($showDistrictScope ?? $isAdminView))
                             <th>District</th>
                         @endif
                         <th>Incubatee</th>
@@ -401,7 +420,7 @@
                         @php $rowNum = $rowOffset + $loop->iteration; @endphp
                         <tr>
                             <td class="ml-table__num">{{ $rowNum }}</td>
-                            @if (!empty($isAdminView))
+                            @if (!empty($showDistrictScope ?? $isAdminView))
                                 <td>{{ $row->district_name ?? '—' }}</td>
                             @endif
                             <td style="min-width:10rem;">
@@ -421,12 +440,18 @@
                                     @foreach ($row->partners as $p)
                                         <div class="ml-dash-partner">
                                             <span class="ml-dash-partner__name">{{ $p['partner_name'] }}</span>
-                                            <span class="ml-dash-partner__meta" style="word-break:break-all;">
+                                            <span class="ml-dash-partner__meta">
                                                 @if (!empty($p['link_url']))
                                                     @if (!empty($p['link_href']))
-                                                        <a href="{{ $p['link_href'] }}" target="_blank" rel="noopener noreferrer" style="font-weight:600;color:#4f46e5;">{{ $p['link_url'] }}</a>
+                                                        <a href="{{ $p['link_href'] }}" class="ml-dash-link" target="_blank" rel="noopener noreferrer" title="{{ $p['link_url'] }}">
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                                            <span>Link</span>
+                                                        </a>
                                                     @else
-                                                        <span style="word-break:break-all;">{{ $p['link_url'] }}</span>
+                                                        <span class="ml-dash-link ml-dash-link--muted" title="{{ $p['link_url'] }}">
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                                            <span>Link</span>
+                                                        </span>
                                                     @endif
                                                 @else
                                                     <span style="color:#94a3b8;">No link</span>
@@ -463,7 +488,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ !empty($isAdminView) ? 7 : 6 }}" style="padding:1.25rem;color:#64748b;text-align:center;">
+                            <td colspan="{{ !empty($showDistrictScope ?? $isAdminView) ? 7 : 6 }}" style="padding:1.25rem;color:#64748b;text-align:center;">
                                 No market linkage records for this scope.
                             </td>
                         </tr>

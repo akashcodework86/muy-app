@@ -75,9 +75,15 @@
                         <td style="padding:0.6rem 0.7rem;border-bottom:1px solid #f1f5f9;max-width:14rem;">
                             @if ($partner->link_url)
                                 @if ($partner->linkHref())
-                                    <a href="{{ $partner->linkHref() }}" target="_blank" rel="noopener noreferrer" style="word-break:break-all;font-weight:600;">{{ $partner->link_url }}</a>
+                                    <a href="{{ $partner->linkHref() }}" target="_blank" rel="noopener noreferrer" title="{{ $partner->link_url }}" style="display:inline-flex;align-items:center;gap:0.28rem;font-weight:700;color:#4f46e5;text-decoration:none;">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                        <span>Link</span>
+                                    </a>
                                 @else
-                                    <span style="word-break:break-all;">{{ $partner->link_url }}</span>
+                                    <span title="{{ $partner->link_url }}" style="display:inline-flex;align-items:center;gap:0.28rem;color:#64748b;font-weight:600;">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                        <span>Link</span>
+                                    </span>
                                 @endif
                             @else
                                 <span style="color:#94a3b8;">—</span>
