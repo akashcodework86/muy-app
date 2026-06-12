@@ -775,6 +775,9 @@
                         <a href="{{ route('admin.audit.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'audit') is-active @endif" role="menuitem">
                             {!! $i('shield') !!}<span>Audit log</span>
                         </a>
+                        <a href="{{ route('admin.spoc-approval-audit.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'spoc-approval-audit') is-active @endif" role="menuitem">
+                            {!! $i('doc') !!}<span>SPOC approval audit</span>
+                        </a>
                     @endif
                     @if ($showAdminNav || $showHubNav || $showStaffNav)
                         @php($stateTheme = $stateAdminTheme ?? $dashboardTheme ?? 'revamp')
