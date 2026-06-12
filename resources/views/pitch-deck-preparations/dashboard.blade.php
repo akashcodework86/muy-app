@@ -67,7 +67,7 @@
     $editRoute = 'spoc.pitch-deck-preparations.edit';
     $serviceShowRoute = match ($currentRole ?? '') {
         'state_admin' => 'admin.phase3-services.show',
-        default => 'spoc.services.show',
+        default => 'spoc.service-cases.show',
     };
     $dashboardRoute = ($currentRole ?? '') === 'state_admin'
         ? 'admin.pitch-deck-preparations.dashboard'
