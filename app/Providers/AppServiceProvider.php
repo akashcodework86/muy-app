@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\StakeholderCapacityBuildingSession;
 use App\Services\NotificationReminderService;
 use App\Services\StaffCheckInService;
 use App\Support\StateAdminTheme;
 use App\Support\StaffDailyCheckInAccess;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,6 +26,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Route::bind('cbsSession', fn (string $value) => StakeholderCapacityBuildingSession::query()->findOrFail($value));
+
         View::composer(['layouts.admin', 'dashboards.state-admin', 'dashboards.hub-admin'], function ($view): void {
             $user = auth()->user();
             if (! StateAdminTheme::appliesToRole($user?->role)) {

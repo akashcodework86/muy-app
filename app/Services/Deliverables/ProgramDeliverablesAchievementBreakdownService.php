@@ -12,6 +12,7 @@ use App\Models\ServiceCase;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\ServiceTargetDeliverableSyncService;
+use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
@@ -84,6 +85,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'market_linkage_unique_partners' => $this->marketLinkagePartnersBreakdown(),
             'market_linkage_incubatees' => $this->marketLinkageIncubateesBreakdown(),
             'community_org_outreach_count' => $this->communityOrgOutreachBreakdown(),
+            'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsBreakdown(),
             default => ['total' => 0, 'by_district' => [], 'by_hub' => [], 'by_month' => [], 'by_service' => [], 'records' => []],
         };
 
@@ -1144,6 +1146,23 @@ class ProgramDeliverablesAchievementBreakdownService
         ];
     }
 
+    private function capacityBuildingStakeholderSessionsBreakdown(): array
+    {
+        $data = CapacityBuildingStakeholdersDeliverablesSupport::sessionsBreakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+
+        return [
+            'total' => (int) ($data['total'] ?? 0),
+            'by_district' => $data['by_district'] ?? [],
+            'by_hub' => $data['by_hub'] ?? [],
+            'by_month' => $data['by_month'] ?? [],
+            'by_service' => [],
+            'records' => $data['records'] ?? [],
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -1709,6 +1728,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'market_linkage_unique_partners' => 'Market linkage partners',
             'market_linkage_incubatees' => 'Market linkage incubatees',
             'community_org_outreach_count' => 'Community organization outreach visits',
+            'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
             default => 'Achievement records',
         };
     }

@@ -62,8 +62,10 @@ use App\Http\Controllers\Staff\LegacyPhase2IncubateeProfileController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Http\Controllers\StaffCheckInController;
 use App\Http\Controllers\MarketLinkageController;
+use App\Http\Controllers\CapacityBuildingStakeholdersLandingController;
 use App\Http\Controllers\SocialMediaPostLandingController;
 use App\Http\Controllers\SocialMediaPostController;
+use App\Http\Controllers\StakeholderCapacityBuildingSessionController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
 use App\Http\Controllers\StateStaff\SpocMarketLinkageController;
 use App\Http\Controllers\Spoc\StateTaskController as SpocStateTaskController;
@@ -592,6 +594,17 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('social-media-posts/{socialMediaPost}', [SocialMediaPostController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('social-media-posts.destroy');
+
+        Route::get('capacity-building-stakeholders/create', [StakeholderCapacityBuildingSessionController::class, 'create'])->name('capacity-building-stakeholders.create');
+        Route::post('capacity-building-stakeholders', [StakeholderCapacityBuildingSessionController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('capacity-building-stakeholders.store');
+        Route::get('capacity-building-stakeholders', CapacityBuildingStakeholdersLandingController::class)->name('capacity-building-stakeholders.index');
+        Route::get('capacity-building-stakeholders/dashboard', [StakeholderCapacityBuildingSessionController::class, 'dashboard'])->name('capacity-building-stakeholders.dashboard');
+        Route::get('capacity-building-stakeholders/export', [StakeholderCapacityBuildingSessionController::class, 'export'])->name('capacity-building-stakeholders.export');
+        Route::get('capacity-building-stakeholders/{cbsSession}', [StakeholderCapacityBuildingSessionController::class, 'show'])->name('capacity-building-stakeholders.show');
+        Route::get('capacity-building-stakeholders/{cbsSession}/attachment', [StakeholderCapacityBuildingSessionController::class, 'downloadAttachment'])
+            ->name('capacity-building-stakeholders.attachment');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -830,6 +843,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('social-media-posts/{socialMediaPost}', [SocialMediaPostController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('social-media-posts.destroy');
+
+        Route::get('capacity-building-stakeholders/dashboard', [StakeholderCapacityBuildingSessionController::class, 'dashboard'])->name('capacity-building-stakeholders.dashboard');
+        Route::get('capacity-building-stakeholders', CapacityBuildingStakeholdersLandingController::class)->name('capacity-building-stakeholders.index');
+        Route::get('capacity-building-stakeholders/export', [StakeholderCapacityBuildingSessionController::class, 'export'])->name('capacity-building-stakeholders.export');
+        Route::get('capacity-building-stakeholders/{cbsSession}', [StakeholderCapacityBuildingSessionController::class, 'show'])->name('capacity-building-stakeholders.show');
+        Route::get('capacity-building-stakeholders/{cbsSession}/attachment', [StakeholderCapacityBuildingSessionController::class, 'downloadAttachment'])
+            ->name('capacity-building-stakeholders.attachment');
 
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');

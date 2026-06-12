@@ -38,4 +38,17 @@ return [
         'aadil.ishrat@pwc.com',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | MIS 3.4 — Capacity building of stakeholders (session entry)
+    |--------------------------------------------------------------------------
+    |
+    | Only these state staff emails can submit stakeholder capacity-building
+    | sessions. State admin can view the dashboard (read-only).
+    |
+    */
+    'capacity_building_stakeholder_submitters' => [
+        'aadil.ishrat@pwc.com',
+    ],
+
 ];

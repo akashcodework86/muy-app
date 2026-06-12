@@ -135,7 +135,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Key Indicator',
                     'level' => 'State',
-                    'source' => ['type' => 'none', 'deliverable_code' => 'capacity_building_stakeholders'],
+                    'source' => ['type' => 'capacity_building_stakeholder_sessions', 'deliverable_code' => 'capacity_building_stakeholders'],
                 ],
             ],
         ],

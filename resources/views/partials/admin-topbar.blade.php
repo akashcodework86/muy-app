@@ -17,6 +17,8 @@
     $staffNavEapEdp = $appSettings->isEnabled('staff_nav.eap_edp_session.visible');
     $staffNavDistrictWorkshop = $appSettings->isEnabled('staff_nav.district_workshop.visible');
     $canSubmitSocialMediaPost = $u && \App\Support\SocialMediaPostAccess::canSubmit($u);
+    $canManageCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canSubmit($u);
+    $canViewCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canViewDashboard($u);
     $canManageTrainingPackageMonthPlans = $u && \App\Support\TrainingPackageMonthPlanAccess::canManage($u);
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
@@ -64,7 +66,6 @@
         str_starts_with($r, 'admin.pending-actions') => 'pending-actions',
         str_starts_with($r, 'admin.spoc-approval-audit') => 'spoc-approval-audit',
         str_starts_with($r, 'admin.state-tasks') => 'state-tasks',
-        str_starts_with($r, 'spoc.') => 'spoc-queue',
         str_starts_with($r, 'admin.team-performance') => 'team-performance',
         str_starts_with($r, 'team.') => 'team-directory',
         str_starts_with($r, 'admin.attendance') => 'attendance',
@@ -146,6 +147,13 @@
         str_starts_with($r, 'spoc.social-media-posts.show') => 'social-media-posts-dashboard',
         str_starts_with($r, 'admin.social-media-posts.dashboard') => 'social-media-posts-dashboard',
         str_starts_with($r, 'admin.social-media-posts.show') => 'social-media-posts-dashboard',
+        str_starts_with($r, 'spoc.capacity-building-stakeholders.create') => 'capacity-building-stakeholders-submit',
+        str_starts_with($r, 'spoc.capacity-building-stakeholders.index') => 'capacity-building-stakeholders-submit',
+        str_starts_with($r, 'spoc.capacity-building-stakeholders.store') => 'capacity-building-stakeholders-submit',
+        str_starts_with($r, 'spoc.capacity-building-stakeholders.dashboard') => 'capacity-building-stakeholders-dashboard',
+        str_starts_with($r, 'spoc.capacity-building-stakeholders.show') => 'capacity-building-stakeholders-dashboard',
+        str_starts_with($r, 'admin.capacity-building-stakeholders.dashboard') => 'capacity-building-stakeholders-dashboard',
+        str_starts_with($r, 'admin.capacity-building-stakeholders.show') => 'capacity-building-stakeholders-dashboard',
         str_starts_with($r, 'staff.market-linkages.create') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.store') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.dashboard') => 'market-linkages-dashboard',
@@ -160,6 +168,8 @@
         str_starts_with($r, 'hub.market-linkages.show') => 'market-linkage-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.show') => 'community-org-outreach-dashboard',
+        str_starts_with($r, 'spoc.service-cases') => 'spoc-queue',
+        str_starts_with($r, 'spoc.market-linkages') => 'spoc-queue',
         str_starts_with($r, 'account.') => 'account',
         str_starts_with($r, 'incubatee.documents') => 'documents',
         str_starts_with($r, 'incubatee.') => 'incubatee',
@@ -169,7 +179,7 @@
     $targetsAllocationActive = in_array($activeNav, ['state', 'district', 'targets-state-monthly', 'targets-district-hub-monthly', 'targets-allocate', 'training-package-month-plans'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -195,6 +205,7 @@
     $hubServiceGroupActive = in_array($activeNav, ['community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents'], true);
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
+    $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
@@ -386,7 +397,7 @@
                             </a>
                         </div>
                     </div>
-                        <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-training-packages-dashboard', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard'], true)) is-active @endif">
+                        <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('calendar') !!}<span>Training and Capacity Building</span>
                         </span>
@@ -409,6 +420,11 @@
                             <a href="{{ route('admin.block-workshops.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'block-workshops-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('users') !!}<span>Block level workshop</span>
                             </a>
+                            @if ($canViewCapacityBuildingStakeholders)
+                            <a href="{{ route('admin.capacity-building-stakeholders.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'capacity-building-stakeholders-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Capacity building (3.4)</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                     <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'social-media-posts-dashboard') is-active @endif">
@@ -516,6 +532,21 @@
             <a href="{{ route('spoc.social-media-posts.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard'], true)) is-active @endif">
                 {!! $i('doc') !!}<span class="admin-topbar__link-text">Social media</span>
             </a>
+            @endif
+            @if ($canManageCapacityBuildingStakeholders)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocCapacityBuildingActive) is-active @endif">
+                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">Capacity building (3.4)</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <a href="{{ route('spoc.capacity-building-stakeholders.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'capacity-building-stakeholders-submit') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>New session</span>
+                    </a>
+                    <a href="{{ route('spoc.capacity-building-stakeholders.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'capacity-building-stakeholders-dashboard') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>View dashboard</span>
+                    </a>
+                </div>
+            </details>
             @endif
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
