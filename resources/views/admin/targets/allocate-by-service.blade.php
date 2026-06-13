@@ -136,6 +136,29 @@
                     <div style="padding:0.65rem 0.85rem; background:#f8fafc; border-bottom:1px solid #e4e4e7; font-weight:700; font-size:0.9rem;">
                         Preview — per staff (edit M1–M12 before apply)
                     </div>
+                    <p style="margin:0; padding:0.5rem 0.85rem 0; font-size:0.82rem; color:#64748b;">
+                        Paste M1–M12 below to fill every staff row at once, or edit one row and use <strong>→ All</strong> to copy it.
+                    </p>
+                    <div style="padding:0.65rem 0.85rem 0.5rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:flex-end; border-bottom:1px solid #f4f4f5;">
+                        <div style="flex:1; min-width:16rem;">
+                            <label for="paste-months-input" style="display:block; font-size:0.75rem; font-weight:600; color:#475569; margin-bottom:0.3rem;">
+                                Paste M1–M12 targets (tab, space, or comma separated)
+                            </label>
+                            <input
+                                type="text"
+                                id="paste-months-input"
+                                placeholder="87  105  140  70  35  35  70  53  28  32  27  18"
+                                autocomplete="off"
+                                style="width:100%; padding:0.45rem 0.55rem; border:1px solid #d4d4d8; border-radius:8px; font-size:0.82rem; font-family:ui-monospace, monospace;"
+                            >
+                        </div>
+                        <button
+                            type="button"
+                            id="paste-months-apply"
+                            style="background:#1d4ed8; color:#fff; border:none; padding:0.5rem 0.85rem; border-radius:8px; font-weight:600; font-size:0.82rem; cursor:pointer; white-space:nowrap;"
+                        >Apply to all staff</button>
+                        <span id="paste-months-status" style="font-size:0.8rem; color:#64748b; min-width:8rem;"></span>
+                    </div>
                     <div style="overflow-x:auto;">
                         <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:48rem;">
                             <thead>
@@ -146,6 +169,7 @@
                                     @for ($m = 1; $m <= 12; $m++)
                                         <th style="padding:0.5rem 0.55rem; border-bottom:1px solid #e4e4e7; text-align:right; white-space:nowrap; font-size:0.78rem;">M{{ $m }}</th>
                                     @endfor
+                                    <th style="padding:0.5rem 0.55rem; border-bottom:1px solid #e4e4e7; text-align:center; white-space:nowrap; font-size:0.78rem;">To all</th>
                                 </tr>
                             </thead>
                             <tbody id="preview-tbody"></tbody>
@@ -185,11 +209,122 @@
                 const previewEmpty = document.getElementById('preview-empty');
                 const staffTotalEl = document.getElementById('staff-total');
                 const staffTotalStatusEl = document.getElementById('staff-total-status');
+                const pasteMonthsInput = document.getElementById('paste-months-input');
+                const pasteMonthsApplyBtn = document.getElementById('paste-months-apply');
+                const pasteMonthsStatus = document.getElementById('paste-months-status');
                 if (!inputs.length || !sumEl || !remEl) return;
 
                 const cellStyle = 'padding:0.45rem 0.55rem; border-bottom:1px solid #f4f4f5;';
                 const monthCellStyle = cellStyle + ' text-align:right;';
                 const inputStyle = 'width:2.75rem; padding:0.25rem 0.2rem; border:1px solid #d4d4d8; border-radius:6px; text-align:right; font-size:0.78rem;';
+                const copyBtnStyle = 'background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:0.25rem 0.45rem; border-radius:6px; font-size:0.72rem; font-weight:600; cursor:pointer; white-space:nowrap;';
+
+                function parsePastedMonths(text) {
+                    const parts = String(text || '')
+                        .trim()
+                        .split(/[\s,\t]+/)
+                        .filter(function (part) { return part !== ''; });
+                    if (parts.length === 0) {
+                        return { ok: false, message: 'Paste 12 numbers for M1–M12.' };
+                    }
+                    if (parts.length !== 12) {
+                        return { ok: false, message: 'Need exactly 12 values (got ' + parts.length + ').' };
+                    }
+                    const months = {};
+                    let annual = 0;
+                    for (let i = 0; i < 12; i++) {
+                        const value = parseInt(parts[i], 10);
+                        if (!Number.isFinite(value) || value < 0) {
+                            return { ok: false, message: 'Invalid number at position ' + (i + 1) + '.' };
+                        }
+                        months[i + 1] = value;
+                        annual += value;
+                    }
+                    return { ok: true, months: months, annual: annual };
+                }
+
+                function setPasteStatus(message, tone) {
+                    if (!pasteMonthsStatus) return;
+                    pasteMonthsStatus.textContent = message;
+                    pasteMonthsStatus.style.color = tone === 'error' ? '#b91c1c' : (tone === 'ok' ? '#047857' : '#64748b');
+                }
+
+                function applyMonthsObjectToAllRows(months) {
+                    if (!previewTbody) return false;
+                    const rows = previewTbody.querySelectorAll('tr');
+                    if (rows.length === 0) {
+                        setPasteStatus('Load staff preview first (set designation %).', 'error');
+                        return false;
+                    }
+                    rows.forEach(function (tr) {
+                        tr.querySelectorAll('.js-month-input').forEach(function (input) {
+                            const match = input.name.match(/\[(\d+)\]$/);
+                            if (!match) return;
+                            const month = parseInt(match[1], 10);
+                            input.value = months[month] ?? 0;
+                        });
+                    });
+                    preferSaved = false;
+                    useOldMonths = false;
+                    updateStaffTotal();
+                    return true;
+                }
+
+                function readMonthsFromRow(tr) {
+                    const months = {};
+                    tr.querySelectorAll('.js-month-input').forEach(function (input) {
+                        const match = input.name.match(/\[(\d+)\]$/);
+                        if (!match) return;
+                        const month = parseInt(match[1], 10);
+                        const value = parseInt(input.value, 10);
+                        months[month] = Number.isFinite(value) ? Math.max(0, value) : 0;
+                    });
+                    return months;
+                }
+
+                function applyMonthsToAllRows(sourceTr) {
+                    const months = readMonthsFromRow(sourceTr);
+                    applyMonthsObjectToAllRows(months);
+                }
+
+                function applyPastedMonths() {
+                    if (!pasteMonthsInput) return;
+                    const parsed = parsePastedMonths(pasteMonthsInput.value);
+                    if (!parsed.ok) {
+                        setPasteStatus(parsed.message, 'error');
+                        return;
+                    }
+                    if (!applyMonthsObjectToAllRows(parsed.months)) {
+                        return;
+                    }
+                    const rowCount = previewTbody ? previewTbody.querySelectorAll('tr').length : 0;
+                    setPasteStatus(
+                        'Applied — ' + formatNum(parsed.annual) + ' per staff × ' + rowCount + ' staff',
+                        'ok'
+                    );
+                }
+
+                if (pasteMonthsApplyBtn) {
+                    pasteMonthsApplyBtn.addEventListener('click', applyPastedMonths);
+                }
+                if (pasteMonthsInput) {
+                    pasteMonthsInput.addEventListener('keydown', function (event) {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            applyPastedMonths();
+                        }
+                    });
+                }
+
+                function bindCopyToAllButtons() {
+                    if (!previewTbody) return;
+                    previewTbody.querySelectorAll('.js-copy-months-to-all').forEach(function (btn) {
+                        btn.addEventListener('click', function () {
+                            const tr = btn.closest('tr');
+                            if (tr) applyMonthsToAllRows(tr);
+                        });
+                    });
+                }
 
                 function splitInteger(total, parts) {
                     if (parts <= 0) return [];
@@ -346,13 +481,21 @@
                             html += '<input type="number" min="0" step="1" class="js-month-input" name="months[' + row.user_id + '][' + m + ']" value="' + value + '" style="' + inputStyle + '">';
                             html += '</td>';
                         }
+                        html += '<td style="' + cellStyle + ' text-align:center;">';
+                        html += '<button type="button" class="js-copy-months-to-all" title="Apply this row\'s M1–M12 to all staff" style="' + copyBtnStyle + '">→ All</button>';
+                        html += '</td>';
                         tr.innerHTML = html;
                         previewTbody.appendChild(tr);
                     });
 
                     previewTbody.querySelectorAll('.js-month-input').forEach(function (input) {
-                        input.addEventListener('input', updateStaffTotal);
+                        input.addEventListener('input', function () {
+                            preferSaved = false;
+                            useOldMonths = false;
+                            updateStaffTotal();
+                        });
                     });
+                    bindCopyToAllButtons();
                     updateStaffTotal();
                     useOldMonths = false;
                 }

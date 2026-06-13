@@ -455,6 +455,17 @@ class ProgramDeliverablesReportService
         $weightedMonthly = [];
         $deliverablesWithMonthlyData = [];
 
+        if ($hasStaffMonthly) {
+            $deliverablesWithMonthlyData = StaffMonthlyTarget::query()
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->whereIn('user_id', $staffUserIds)
+                ->where('target_count', '>', 0)
+                ->distinct()
+                ->pluck('deliverable_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
         if ($hasStaffMonthly && $periodInfo['weights'] !== []) {
             $rows = StaffMonthlyTarget::query()
                 ->where('fiscal_year_id', $fiscalYear->id)
@@ -470,15 +481,6 @@ class ProgramDeliverablesReportService
                 $weightedMonthly[$deliverableId] = ($weightedMonthly[$deliverableId] ?? 0.0)
                     + ((int) $row->total) * $weight;
             }
-
-            $deliverablesWithMonthlyData = StaffMonthlyTarget::query()
-                ->where('fiscal_year_id', $fiscalYear->id)
-                ->whereIn('user_id', $staffUserIds)
-                ->where('target_count', '>', 0)
-                ->distinct()
-                ->pluck('deliverable_id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
         }
 
         $monthlyDataSet = array_flip($deliverablesWithMonthlyData);
@@ -537,6 +539,34 @@ class ProgramDeliverablesReportService
             return ['weights' => [], 'year_fraction' => 1.0, 'has_narrowing' => false];
         }
 
+        $fyStart = $fiscalYear->starts_on->copy()->startOfDay();
+        $fyEnd = $fiscalYear->ends_on->copy()->startOfDay();
+        $daysInFy = (int) $fyStart->diffInDays($fyEnd) + 1;
+
+        // Month dropdown: map calendar month → fiscal M# at full weight (matches staff_monthly_targets).
+        if ($this->filter?->month !== null
+            && $this->filter->month >= 1
+            && $this->filter->month <= 12
+        ) {
+            $year = $this->filter->year ?? (int) ($fiscalYear->starts_on->year ?? now()->year);
+            $anchor = Carbon::create($year, $this->filter->month, 15)->startOfDay();
+            $fyMonthIdx = $fiscalYear->fiscalMonthIndex($anchor);
+            if ($fyMonthIdx !== null) {
+                $fromDate = $this->periodFrom->copy()->startOfDay();
+                $toDate = $this->periodTo->copy()->startOfDay();
+                $overlapDays = $fromDate->lte($toDate)
+                    ? (int) $fromDate->diffInDays($toDate) + 1
+                    : 0;
+                $yearFraction = $daysInFy > 0 ? min(1.0, $overlapDays / $daysInFy) : 0.0;
+
+                return [
+                    'weights' => [$fyMonthIdx => 1.0],
+                    'year_fraction' => $yearFraction,
+                    'has_narrowing' => true,
+                ];
+            }
+        }
+
         $fromDate = $this->periodFrom->copy()->startOfDay();
         $toDate = $this->periodTo->copy()->startOfDay();
 
@@ -558,7 +588,8 @@ class ProgramDeliverablesReportService
                 $daysInMonth = $cursor->daysInMonth;
                 $weight = $daysInMonth > 0 ? $overlapDays / $daysInMonth : 0.0;
 
-                $fyMonthIdx = $fiscalYear->fiscalMonthIndex($monthFirst->copy()->startOfDay());
+                // Use overlap start (inside FY), not month start — FY may begin mid-month.
+                $fyMonthIdx = $fiscalYear->fiscalMonthIndex($overlapStart->copy()->startOfDay());
                 if ($fyMonthIdx !== null) {
                     $weights[$fyMonthIdx] = ($weights[$fyMonthIdx] ?? 0.0) + $weight;
                 }
@@ -568,10 +599,6 @@ class ProgramDeliverablesReportService
 
             $cursor->addMonth();
         }
-
-        $fyStart = $fiscalYear->starts_on->copy()->startOfDay();
-        $fyEnd = $fiscalYear->ends_on->copy()->startOfDay();
-        $daysInFy = (int) $fyStart->diffInDays($fyEnd) + 1;
 
         $yearFraction = $daysInFy > 0 ? min(1.0, $totalOverlapDays / $daysInFy) : 0.0;
 

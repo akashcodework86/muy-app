@@ -254,7 +254,7 @@ class ServiceTargetAllocationController extends Controller
         }
 
         DB::transaction(function () use ($fyId, $districtId, $deliverableId, $allocations, $percents): void {
-            $this->allocation->applyAllocations($fyId, $deliverableId, $allocations);
+            $this->allocation->applyAllocations($fyId, $districtId, $deliverableId, $allocations);
             $this->allocation->saveDesignationPercents($fyId, $districtId, $deliverableId, $percents);
         });
 

@@ -282,6 +282,11 @@ class DeliverablesReportController extends Controller
             dateTo: $filter->dateTo,
         );
 
+        $fiscalYears = FiscalYear::forUiDropdown();
+        [$resolvedFyId] = FiscalYear::resolveIdForUi($safeFilter->fiscalYearId);
+        $fiscalYear = $fiscalYears->firstWhere('id', $resolvedFyId);
+        $safeFilter = $safeFilter->withDerivedDates($fiscalYear);
+
         return [
             'user' => $user,
             'scope' => $scope,

@@ -6,14 +6,15 @@
 @section('content')
     @php
         $queryParams = $filter->queryParams();
+        $formDates = $filter->formDates($fiscalYear ?? null);
     @endphp
 
-    <form method="get" action="{{ route($indexRoute) }}" style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:flex-end;margin-bottom:1rem;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.9rem;">
+    <form method="get" action="{{ route($indexRoute) }}" id="deliverables-filter-form" style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:flex-end;margin-bottom:1rem;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.9rem;">
         <div style="display:flex;flex-direction:column;gap:0.25rem;">
             <label for="fiscal_year_id" style="font-size:0.75rem;font-weight:600;color:#475569;">Fiscal year</label>
             <select name="fiscal_year_id" id="fiscal_year_id" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:10rem;">
                 @foreach ($fiscalYears as $fy)
-                    <option value="{{ $fy->id }}" @selected((int) $fiscalYearId === (int) $fy->id)>{{ $fy->name }}</option>
+                    <option value="{{ $fy->id }}" data-start-year="{{ $fy->starts_on?->year }}" @selected((int) $fiscalYearId === (int) $fy->id)>{{ $fy->name }}</option>
                 @endforeach
             </select>
         </div>
@@ -39,15 +40,15 @@
         </div>
         <div style="display:flex;flex-direction:column;gap:0.25rem;">
             <label for="year" style="font-size:0.75rem;font-weight:600;color:#475569;">Year</label>
-            <input type="number" name="year" id="year" value="{{ $filter->year }}" min="2020" max="2040" placeholder="e.g. 2025" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;width:6.5rem;">
+            <input type="number" name="year" id="year" value="{{ $formDates['year'] ?? $filter->year }}" min="2020" max="2040" placeholder="e.g. 2025" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;width:6.5rem;">
         </div>
         <div style="display:flex;flex-direction:column;gap:0.25rem;">
             <label for="date_from" style="font-size:0.75rem;font-weight:600;color:#475569;">From</label>
-            <input type="date" name="date_from" id="date_from" value="{{ $filter->dateFrom }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
+            <input type="date" name="date_from" id="date_from" value="{{ $formDates['dateFrom'] ?? $filter->dateFrom }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
         </div>
         <div style="display:flex;flex-direction:column;gap:0.25rem;">
             <label for="date_to" style="font-size:0.75rem;font-weight:600;color:#475569;">To</label>
-            <input type="date" name="date_to" id="date_to" value="{{ $filter->dateTo }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
+            <input type="date" name="date_to" id="date_to" value="{{ $formDates['dateTo'] ?? $filter->dateTo }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
         </div>
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;cursor:pointer;">Apply</button>
         <a href="{{ route($indexRoute) }}" style="padding:0.48rem 0.75rem;border:1px solid #d4d4d8;border-radius:8px;text-decoration:none;color:#334155;font-size:0.88rem;">Reset</a>
@@ -113,4 +114,53 @@
     </div>
 
     @include('deliverables.partials.breakdown-drawer')
+
+    @push('scripts')
+        <script>
+            (function () {
+                const monthEl = document.getElementById('month');
+                const yearEl = document.getElementById('year');
+                const fyEl = document.getElementById('fiscal_year_id');
+                const dateFromEl = document.getElementById('date_from');
+                const dateToEl = document.getElementById('date_to');
+                if (!monthEl || !yearEl || !fyEl || !dateFromEl || !dateToEl) return;
+
+                function pad2(n) {
+                    return String(n).padStart(2, '0');
+                }
+
+                function defaultYear() {
+                    const parsed = parseInt(yearEl.value, 10);
+                    if (!Number.isNaN(parsed) && parsed > 0) {
+                        return parsed;
+                    }
+                    const fyOpt = fyEl.options[fyEl.selectedIndex];
+                    const startYear = fyOpt ? parseInt(fyOpt.dataset.startYear || '', 10) : NaN;
+                    return !Number.isNaN(startYear) && startYear > 0 ? startYear : new Date().getFullYear();
+                }
+
+                function syncDatesFromMonth() {
+                    const month = parseInt(monthEl.value, 10);
+                    if (!month || month < 1 || month > 12) {
+                        dateFromEl.value = '';
+                        dateToEl.value = '';
+                        return;
+                    }
+
+                    const year = defaultYear();
+                    yearEl.value = year;
+                    const lastDay = new Date(year, month, 0).getDate();
+                    dateFromEl.value = year + '-' + pad2(month) + '-01';
+                    dateToEl.value = year + '-' + pad2(month) + '-' + pad2(lastDay);
+                }
+
+                monthEl.addEventListener('change', syncDatesFromMonth);
+                fyEl.addEventListener('change', function () {
+                    if (monthEl.value) {
+                        syncDatesFromMonth();
+                    }
+                });
+            })();
+        </script>
+    @endpush
 @endsection

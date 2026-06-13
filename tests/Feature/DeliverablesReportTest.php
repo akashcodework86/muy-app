@@ -524,6 +524,79 @@ class DeliverablesReportTest extends TestCase
         $this->assertContains('Paras singhal', $applicants);
     }
 
+    public function test_district_month_filter_uses_staff_monthly_targets_when_fy_starts_mid_month(): void
+    {
+        $fy = FiscalYear::query()->updateOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-02',
+                'ends_on' => '2027-04-01',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'cfa-month-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'cfa-month-district',
+            'name' => 'CFA Month District',
+            'sort_order' => 1,
+        ]);
+
+        $cfa = Deliverable::query()->firstOrCreate(
+            ['code' => 'cfa'],
+            [
+                'sort_order' => 3,
+                'name' => 'Call for Application',
+                'mis_entry_label' => 'Call for Application',
+                'is_active' => true,
+            ]
+        );
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $cfa->id,
+            'target_total' => 2100,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        foreach ([1 => 70, 2 => 105] as $month => $count) {
+            StaffMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'user_id' => $staff->id,
+                'deliverable_id' => $cfa->id,
+                'month_number' => $month,
+                'target_count' => $count,
+            ]);
+        }
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+
+        $aprilReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, $district->id, 4, 2026, null, null),
+            $scope,
+        );
+        $aprilRow = collect($aprilReport['rows'])->firstWhere('serial', '1.1');
+        $this->assertNotNull($aprilRow);
+        $this->assertSame(70, $aprilRow['target']);
+
+        $mayReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, $district->id, 5, 2026, null, null),
+            $scope,
+        );
+        $mayRow = collect($mayReport['rows'])->firstWhere('serial', '1.1');
+        $this->assertNotNull($mayRow);
+        $this->assertSame(105, $mayRow['target']);
+    }
+
     public function test_state_admin_sees_district_target_when_district_filter_applied(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

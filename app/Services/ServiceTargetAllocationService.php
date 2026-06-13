@@ -175,8 +175,30 @@ class ServiceTargetAllocationService
     /**
      * @param  list<array{user_id: int, user_name: string, designation_name: string, annual_total: int, months: array<int, int>}>  $allocations
      */
-    public function applyAllocations(int $fiscalYearId, int $deliverableId, array $allocations): int
+    public function applyAllocations(int $fiscalYearId, int $districtId, int $deliverableId, array $allocations): int
     {
+        $allocatedUserIds = collect($allocations)
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $districtStaffIds = User::query()
+            ->where('district_id', $districtId)
+            ->where('role', 'district_staff')
+            ->where('is_active', true)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $toClear = array_values(array_diff($districtStaffIds, $allocatedUserIds));
+        if ($toClear !== []) {
+            StaffMonthlyTarget::query()
+                ->where('fiscal_year_id', $fiscalYearId)
+                ->where('deliverable_id', $deliverableId)
+                ->whereIn('user_id', $toClear)
+                ->update(['target_count' => 0]);
+        }
+
         $updated = 0;
 
         foreach ($allocations as $row) {

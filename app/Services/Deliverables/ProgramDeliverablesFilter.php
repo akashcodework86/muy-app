@@ -71,6 +71,72 @@ class ProgramDeliverablesFilter
     }
 
     /**
+     * Date inputs for the filter form — when a calendar month is selected, show the
+     * resolved from/to range (clamped to fiscal year when applicable).
+     *
+     * @return array{dateFrom: ?string, dateTo: ?string, year: ?int}
+     */
+    public function formDates(?FiscalYear $fiscalYear): array
+    {
+        if ($this->dateFrom !== null && $this->dateTo !== null) {
+            return [
+                'dateFrom' => $this->dateFrom,
+                'dateTo' => $this->dateTo,
+                'year' => $this->year,
+            ];
+        }
+
+        if ($this->month !== null && $this->month >= 1 && $this->month <= 12) {
+            $year = $this->year ?? (int) ($fiscalYear?->starts_on?->year ?? now()->year);
+            $filter = new self(
+                fiscalYearId: $this->fiscalYearId,
+                districtId: $this->districtId,
+                month: $this->month,
+                year: $year,
+                dateFrom: null,
+                dateTo: null,
+            );
+            [$from, $to] = $filter->resolvePeriod($fiscalYear);
+
+            if ($from !== null && $to !== null) {
+                return [
+                    'dateFrom' => $from->toDateString(),
+                    'dateTo' => $to->toDateString(),
+                    'year' => $year,
+                ];
+            }
+        }
+
+        return [
+            'dateFrom' => $this->dateFrom,
+            'dateTo' => $this->dateTo,
+            'year' => $this->year,
+        ];
+    }
+
+    /** Fill date (and year) fields from month selection when not manually provided. */
+    public function withDerivedDates(?FiscalYear $fiscalYear): self
+    {
+        if ($this->month === null || ($this->dateFrom !== null && $this->dateTo !== null)) {
+            return $this;
+        }
+
+        $dates = $this->formDates($fiscalYear);
+        if ($dates['dateFrom'] === null || $dates['dateTo'] === null) {
+            return $this;
+        }
+
+        return new self(
+            fiscalYearId: $this->fiscalYearId,
+            districtId: $this->districtId,
+            month: $this->month,
+            year: $dates['year'],
+            dateFrom: $dates['dateFrom'],
+            dateTo: $dates['dateTo'],
+        );
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function queryParams(): array
