@@ -17,6 +17,8 @@
     $staffNavEapEdp = $appSettings->isEnabled('staff_nav.eap_edp_session.visible');
     $staffNavDistrictWorkshop = $appSettings->isEnabled('staff_nav.district_workshop.visible');
     $canSubmitSocialMediaPost = $u && \App\Support\SocialMediaPostAccess::canSubmit($u);
+    $canSubmitBrandingCommunication = $u && \App\Support\BrandingCommunicationAccess::canSubmit($u);
+    $canViewBrandingCommunication = $u && \App\Support\BrandingCommunicationAccess::canViewDashboard($u);
     $canSubmitPartnerOutreach = $u && \App\Support\PartnerOutreachAccess::canSubmit($u);
     $canViewPartnerOutreach = $u && \App\Support\PartnerOutreachAccess::canViewDashboard($u);
     $canSubmitBaPartnersOutreach = $u && \App\Support\BusinessAccelerationPartnersOutreachAccess::canSubmit($u);
@@ -155,6 +157,27 @@
         str_starts_with($r, 'spoc.social-media-posts.show') => 'social-media-posts-dashboard',
         str_starts_with($r, 'admin.social-media-posts.dashboard') => 'social-media-posts-dashboard',
         str_starts_with($r, 'admin.social-media-posts.show') => 'social-media-posts-dashboard',
+        str_starts_with($r, 'spoc.case-study-entries.create') => 'case-study-entries-submit',
+        str_starts_with($r, 'spoc.case-study-entries.index') => 'case-study-entries-submit',
+        str_starts_with($r, 'spoc.case-study-entries.store') => 'case-study-entries-submit',
+        str_starts_with($r, 'spoc.case-study-entries.dashboard') => 'case-study-entries-dashboard',
+        str_starts_with($r, 'spoc.case-study-entries.show') => 'case-study-entries-dashboard',
+        str_starts_with($r, 'admin.case-study-entries.dashboard') => 'case-study-entries-dashboard',
+        str_starts_with($r, 'admin.case-study-entries.show') => 'case-study-entries-dashboard',
+        str_starts_with($r, 'spoc.muy-newsletters.create') => 'muy-newsletters-submit',
+        str_starts_with($r, 'spoc.muy-newsletters.index') => 'muy-newsletters-submit',
+        str_starts_with($r, 'spoc.muy-newsletters.store') => 'muy-newsletters-submit',
+        str_starts_with($r, 'spoc.muy-newsletters.dashboard') => 'muy-newsletters-dashboard',
+        str_starts_with($r, 'spoc.muy-newsletters.show') => 'muy-newsletters-dashboard',
+        str_starts_with($r, 'admin.muy-newsletters.dashboard') => 'muy-newsletters-dashboard',
+        str_starts_with($r, 'admin.muy-newsletters.show') => 'muy-newsletters-dashboard',
+        str_starts_with($r, 'spoc.media-campaigns.create') => 'media-campaigns-submit',
+        str_starts_with($r, 'spoc.media-campaigns.index') => 'media-campaigns-submit',
+        str_starts_with($r, 'spoc.media-campaigns.store') => 'media-campaigns-submit',
+        str_starts_with($r, 'spoc.media-campaigns.dashboard') => 'media-campaigns-dashboard',
+        str_starts_with($r, 'spoc.media-campaigns.show') => 'media-campaigns-dashboard',
+        str_starts_with($r, 'admin.media-campaigns.dashboard') => 'media-campaigns-dashboard',
+        str_starts_with($r, 'admin.media-campaigns.show') => 'media-campaigns-dashboard',
         str_starts_with($r, 'spoc.partner-outreach.create') => 'partner-outreach-submit',
         str_starts_with($r, 'spoc.partner-outreach.index') => 'partner-outreach-submit',
         str_starts_with($r, 'spoc.partner-outreach.store') => 'partner-outreach-submit',
@@ -228,7 +251,7 @@
     $targetsAllocationActive = in_array($activeNav, ['state', 'district', 'targets-state-monthly', 'targets-district-hub-monthly', 'targets-allocate', 'training-package-month-plans'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -258,6 +281,7 @@
     $spocPitchDeckActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true);
     $spocFundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard', 'demo-days-submit', 'demo-days-dashboard', 'funding-partners-outreach-submit', 'funding-partners-outreach-dashboard'], true);
     $spocPartnerOutreachActive = in_array($activeNav, ['partner-outreach-submit', 'partner-outreach-dashboard'], true);
+    $spocBrandingCommunicationActive = in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard'], true);
     $spocBaPartnersOutreachActive = in_array($activeNav, ['ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $fundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-dashboard', 'demo-days-dashboard', 'funding-partners-outreach-dashboard'], true);
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
@@ -481,14 +505,25 @@
                             @endif
                         </div>
                     </div>
-                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'social-media-posts-dashboard') is-active @endif">
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['social-media-posts-dashboard', 'case-study-entries-dashboard', 'muy-newsletters-dashboard', 'media-campaigns-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('book') !!}<span>Branding, Communication &amp; Knowledge Management</span>
                         </span>
                         <div class="admin-topbar__dropdown-subpanel" role="menu">
                             <a href="{{ route('admin.social-media-posts.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'social-media-posts-dashboard') is-active @endif" role="menuitem">
-                                {!! $i('bars') !!}<span>Social Media Post</span>
+                                {!! $i('bars') !!}<span>Social Media Post (10.1)</span>
                             </a>
+                            @if ($canViewBrandingCommunication)
+                            <a href="{{ route('admin.case-study-entries.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'case-study-entries-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Case Studies &amp; Testimonials (10.2)</span>
+                            </a>
+                            <a href="{{ route('admin.muy-newsletters.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'muy-newsletters-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>MUY Newsletter (10.3)</span>
+                            </a>
+                            <a href="{{ route('admin.media-campaigns.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'media-campaigns-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Newspaper / Radio campaigns (10.4)</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                     @if ($canViewPitchDeckPreparation || $canViewFundingSchematic)
@@ -614,10 +649,30 @@
             <a href="{{ route('spoc.field-coordinator-reports.index') }}" class="admin-topbar__link @if ($activeNav === 'field-coordinator-report') is-active @endif">
                 {!! $i('calendar') !!}<span class="admin-topbar__link-text">Field coordinator report</span>
             </a>
-            @if ($canSubmitSocialMediaPost)
-            <a href="{{ route('spoc.social-media-posts.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard'], true)) is-active @endif">
-                {!! $i('doc') !!}<span class="admin-topbar__link-text">Social media</span>
-            </a>
+            @if ($canSubmitSocialMediaPost || $canSubmitBrandingCommunication)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocBrandingCommunicationActive) is-active @endif">
+                    {!! $i('doc') !!}<span class="admin-topbar__link-text">Branding (10.x)</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    @if ($canSubmitSocialMediaPost)
+                    <a href="{{ route('spoc.social-media-posts.index') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard'], true)) is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Social media post</span>
+                    </a>
+                    @endif
+                    @if ($canSubmitBrandingCommunication)
+                    <a href="{{ route('spoc.case-study-entries.create') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['case-study-entries-submit', 'case-study-entries-dashboard'], true)) is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Case studies (10.2)</span>
+                    </a>
+                    <a href="{{ route('spoc.muy-newsletters.create') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['muy-newsletters-submit', 'muy-newsletters-dashboard'], true)) is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>MUY newsletter (10.3)</span>
+                    </a>
+                    <a href="{{ route('spoc.media-campaigns.create') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['media-campaigns-submit', 'media-campaigns-dashboard'], true)) is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Ads / Radio (10.4)</span>
+                    </a>
+                    @endif
+                </div>
+            </details>
             @endif
             @if ($canSubmitPartnerOutreach)
             <details class="admin-topbar__details">

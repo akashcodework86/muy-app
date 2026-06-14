@@ -369,6 +369,16 @@ class ProgramDeliverablesActivityGuideService
             return ['label' => $label, 'route' => $route, 'note' => $note];
         };
 
+        if ($sourceType === 'deliverable') {
+            $code = strtolower(trim((string) ($source['code'] ?? '')));
+            if ($code === 'case_studies') {
+                return $pick('case-study-entries.dashboard', '10.2 Case Studies & Testimonials', 'Sanjna Mishra logs case studies / testimonials with incubatee search.', 'case-study-entries.dashboard');
+            }
+            if ($code === 'social_media') {
+                return $pick('social-media-posts.dashboard', 'Social Media Post', 'Sanjna Mishra logs social media posts.', 'social-media-posts.dashboard');
+            }
+        }
+
         return match ($sourceType) {
             'cfa_count' => $pick('applications', 'CFA → Applications', 'Referral-linked CFA applications.', 'cfa.index'),
             'onboarding_count' => $pick('batches.index', 'CFA → Batches', 'Lock onboarding batches.', 'onboarded.index'),
@@ -389,6 +399,8 @@ class ProgramDeliverablesActivityGuideService
             'business_acceleration_partners_outreach_count' => $pick('business-acceleration-partners-outreach.dashboard', '7.1 BA Partners outreach', 'Ankur Rawat logs acceleration partner outreach (unique partners count).', 'business-acceleration-partners-outreach.dashboard'),
             'demo_days_count' => $pick('demo-days.dashboard', '8.4 Demo Days', 'Govind Singh Dhami logs demo day events (onboarded incubatee + audience counts).', 'demo-days.dashboard'),
             'funding_schematic_partners_outreach_count' => $pick('funding-partners-outreach.dashboard', '8.5 Partners outreach (Funding)', 'Govind Singh Dhami logs funding / schematic partner outreach.', 'funding-partners-outreach.dashboard'),
+            'muy_newsletter_count' => $pick('muy-newsletters.dashboard', '10.3 MUY Newsletter', 'Sanjna Mishra logs newsletter issues with PDF or link.', 'muy-newsletters.dashboard'),
+            'media_campaigns_count' => $pick('media-campaigns.dashboard', '10.4 Newspaper / Radio campaigns', 'Sanjna Mishra logs newspaper ads and radio promotions with document + multimedia proof.', 'media-campaigns.dashboard'),
             default => [
                 'label' => 'Achievement records',
                 'route' => Route::has($prefix.'deliverables.index') ? $prefix.'deliverables.index' : null,
@@ -422,6 +434,8 @@ class ProgramDeliverablesActivityGuideService
             'business_acceleration_partners_outreach_count' => '7.1 BA partners outreach (unique)',
             'demo_days_count' => '8.4 Demo Days (state team)',
             'funding_schematic_partners_outreach_count' => '8.5 Funding partners outreach (unique)',
+            'muy_newsletter_count' => 'MUY newsletter entries (state team)',
+            'media_campaigns_count' => 'Newspaper / radio campaign entries (state team)',
             'none' => 'Not wired',
             'target_name' => 'Name-matched deliverable target',
             default => 'System achievement count',

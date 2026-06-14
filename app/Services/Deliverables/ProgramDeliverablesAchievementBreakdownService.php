@@ -94,6 +94,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'business_acceleration_partners_outreach_count' => $this->businessAccelerationPartnersOutreachBreakdown(),
             'demo_days_count' => $this->demoDaysBreakdown(),
             'funding_schematic_partners_outreach_count' => $this->fundingSchematicPartnersOutreachBreakdown(),
+            'muy_newsletter_count' => $this->muyNewsletterEntriesBreakdown(),
+            'media_campaigns_count' => $this->mediaCampaignEntriesBreakdown(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsBreakdown(),
             'reap_support_services' => $this->reapSupportServicesBreakdown(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsBreakdown(),
@@ -134,6 +136,10 @@ class ProgramDeliverablesAchievementBreakdownService
     {
         if (strtolower(trim((string) ($source['code'] ?? ''))) === 'social_media') {
             return $this->socialMediaPostsBreakdown();
+        }
+
+        if (strtolower(trim((string) ($source['code'] ?? ''))) === 'case_studies') {
+            return $this->caseStudyEntriesBreakdown();
         }
 
         return $this->serviceCaseBreakdown($source);
@@ -182,6 +188,39 @@ class ProgramDeliverablesAchievementBreakdownService
             ->all();
 
         return $this->aggregateGroupedRows($rows, includeService: false, records: $records);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function caseStudyEntriesBreakdown(): array
+    {
+        return \App\Support\CaseStudyEntriesDeliverablesSupport::breakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function muyNewsletterEntriesBreakdown(): array
+    {
+        return \App\Support\MuyNewsletterEntriesDeliverablesSupport::breakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mediaCampaignEntriesBreakdown(): array
+    {
+        return \App\Support\MediaCampaignEntriesDeliverablesSupport::breakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
     }
 
     /**
@@ -1839,6 +1878,10 @@ class ProgramDeliverablesAchievementBreakdownService
             return 'Logged social media posts';
         }
 
+        if ($type === 'deliverable' && strtolower(trim((string) ($source['code'] ?? ''))) === 'case_studies') {
+            return 'Logged case studies & testimonials';
+        }
+
         return match ($type) {
             'deliverable', 'service', 'services' => 'Approved service cases',
             'cfa_count' => 'CFA submissions',
@@ -1860,6 +1903,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'business_acceleration_partners_outreach_count' => '7.1 BA partners outreach (unique)',
             'demo_days_count' => '8.4 Demo Days (state team)',
             'funding_schematic_partners_outreach_count' => '8.5 Funding partners outreach (unique)',
+            'muy_newsletter_count' => '10.3 MUY Newsletter entries',
+            'media_campaigns_count' => '10.4 Newspaper / Radio campaigns',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
             'reap_support_services' => 'Support to MUY Incubatee through Reap',
             'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation',

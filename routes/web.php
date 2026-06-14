@@ -72,6 +72,12 @@ use App\Http\Controllers\CapacityBuildingStakeholdersLandingController;
 use App\Http\Controllers\PitchDeckPreparationController;
 use App\Http\Controllers\PitchDeckPreparationLandingController;
 use App\Http\Controllers\SocialMediaPostLandingController;
+use App\Http\Controllers\CaseStudyEntryController;
+use App\Http\Controllers\CaseStudyEntryLandingController;
+use App\Http\Controllers\MediaCampaignController;
+use App\Http\Controllers\MediaCampaignLandingController;
+use App\Http\Controllers\MuyNewsletterController;
+use App\Http\Controllers\MuyNewsletterLandingController;
 use App\Http\Controllers\SocialMediaPostController;
 use App\Http\Controllers\StakeholderCapacityBuildingSessionController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
@@ -603,6 +609,35 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:30,1')
             ->name('social-media-posts.destroy');
 
+        Route::get('case-study-entries/incubatees/search', [CaseStudyEntryController::class, 'searchIncubatees'])->name('case-study-entries.incubatees.search');
+        Route::get('case-study-entries/create', [CaseStudyEntryController::class, 'create'])->name('case-study-entries.create');
+        Route::post('case-study-entries', [CaseStudyEntryController::class, 'store'])->middleware('throttle:30,1')->name('case-study-entries.store');
+        Route::get('case-study-entries', CaseStudyEntryLandingController::class)->name('case-study-entries.index');
+        Route::get('case-study-entries/dashboard', [CaseStudyEntryController::class, 'dashboard'])->name('case-study-entries.dashboard');
+        Route::get('case-study-entries/export', [CaseStudyEntryController::class, 'export'])->name('case-study-entries.export');
+        Route::get('case-study-entries/{caseStudyEntry}/document', [CaseStudyEntryController::class, 'downloadDocument'])->name('case-study-entries.document');
+        Route::get('case-study-entries/{caseStudyEntry}', [CaseStudyEntryController::class, 'show'])->name('case-study-entries.show');
+        Route::delete('case-study-entries/{caseStudyEntry}', [CaseStudyEntryController::class, 'destroy'])->middleware('throttle:30,1')->name('case-study-entries.destroy');
+
+        Route::get('muy-newsletters/create', [MuyNewsletterController::class, 'create'])->name('muy-newsletters.create');
+        Route::post('muy-newsletters', [MuyNewsletterController::class, 'store'])->middleware('throttle:30,1')->name('muy-newsletters.store');
+        Route::get('muy-newsletters', MuyNewsletterLandingController::class)->name('muy-newsletters.index');
+        Route::get('muy-newsletters/dashboard', [MuyNewsletterController::class, 'dashboard'])->name('muy-newsletters.dashboard');
+        Route::get('muy-newsletters/export', [MuyNewsletterController::class, 'export'])->name('muy-newsletters.export');
+        Route::get('muy-newsletters/{muyNewsletter}/document', [MuyNewsletterController::class, 'downloadDocument'])->name('muy-newsletters.document');
+        Route::get('muy-newsletters/{muyNewsletter}', [MuyNewsletterController::class, 'show'])->name('muy-newsletters.show');
+        Route::delete('muy-newsletters/{muyNewsletter}', [MuyNewsletterController::class, 'destroy'])->middleware('throttle:30,1')->name('muy-newsletters.destroy');
+
+        Route::get('media-campaigns/create', [MediaCampaignController::class, 'create'])->name('media-campaigns.create');
+        Route::post('media-campaigns', [MediaCampaignController::class, 'store'])->middleware('throttle:30,1')->name('media-campaigns.store');
+        Route::get('media-campaigns', MediaCampaignLandingController::class)->name('media-campaigns.index');
+        Route::get('media-campaigns/dashboard', [MediaCampaignController::class, 'dashboard'])->name('media-campaigns.dashboard');
+        Route::get('media-campaigns/export', [MediaCampaignController::class, 'export'])->name('media-campaigns.export');
+        Route::get('media-campaigns/{mediaCampaign}/document', [MediaCampaignController::class, 'downloadDocument'])->name('media-campaigns.document');
+        Route::get('media-campaigns/{mediaCampaign}/attachment', [MediaCampaignController::class, 'downloadAttachment'])->name('media-campaigns.attachment');
+        Route::get('media-campaigns/{mediaCampaign}', [MediaCampaignController::class, 'show'])->name('media-campaigns.show');
+        Route::delete('media-campaigns/{mediaCampaign}', [MediaCampaignController::class, 'destroy'])->middleware('throttle:30,1')->name('media-campaigns.destroy');
+
         Route::get('partner-outreach/create', [MarketingPartnerOutreachController::class, 'create'])->name('partner-outreach.create');
         Route::post('partner-outreach', [MarketingPartnerOutreachController::class, 'store'])
             ->middleware('throttle:30,1')
@@ -928,6 +963,25 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('social-media-posts/{socialMediaPost}', [SocialMediaPostController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('social-media-posts.destroy');
+
+        Route::get('case-study-entries/dashboard', [CaseStudyEntryController::class, 'dashboard'])->name('case-study-entries.dashboard');
+        Route::get('case-study-entries', CaseStudyEntryLandingController::class)->name('case-study-entries.index');
+        Route::get('case-study-entries/export', [CaseStudyEntryController::class, 'export'])->name('case-study-entries.export');
+        Route::get('case-study-entries/{caseStudyEntry}/document', [CaseStudyEntryController::class, 'downloadDocument'])->name('case-study-entries.document');
+        Route::get('case-study-entries/{caseStudyEntry}', [CaseStudyEntryController::class, 'show'])->name('case-study-entries.show');
+
+        Route::get('muy-newsletters/dashboard', [MuyNewsletterController::class, 'dashboard'])->name('muy-newsletters.dashboard');
+        Route::get('muy-newsletters', MuyNewsletterLandingController::class)->name('muy-newsletters.index');
+        Route::get('muy-newsletters/export', [MuyNewsletterController::class, 'export'])->name('muy-newsletters.export');
+        Route::get('muy-newsletters/{muyNewsletter}/document', [MuyNewsletterController::class, 'downloadDocument'])->name('muy-newsletters.document');
+        Route::get('muy-newsletters/{muyNewsletter}', [MuyNewsletterController::class, 'show'])->name('muy-newsletters.show');
+
+        Route::get('media-campaigns/dashboard', [MediaCampaignController::class, 'dashboard'])->name('media-campaigns.dashboard');
+        Route::get('media-campaigns', MediaCampaignLandingController::class)->name('media-campaigns.index');
+        Route::get('media-campaigns/export', [MediaCampaignController::class, 'export'])->name('media-campaigns.export');
+        Route::get('media-campaigns/{mediaCampaign}/document', [MediaCampaignController::class, 'downloadDocument'])->name('media-campaigns.document');
+        Route::get('media-campaigns/{mediaCampaign}/attachment', [MediaCampaignController::class, 'downloadAttachment'])->name('media-campaigns.attachment');
+        Route::get('media-campaigns/{mediaCampaign}', [MediaCampaignController::class, 'show'])->name('media-campaigns.show');
 
         Route::get('partner-outreach/dashboard', [MarketingPartnerOutreachController::class, 'dashboard'])->name('partner-outreach.dashboard');
         Route::get('partner-outreach', PartnerOutreachLandingController::class)->name('partner-outreach.index');

@@ -756,6 +756,8 @@ class ProgramDeliverablesReportService
             'business_acceleration_partners_outreach_count' => $this->businessAccelerationPartnersOutreachCount(),
             'demo_days_count' => $this->demoDaysCount(),
             'funding_schematic_partners_outreach_count' => $this->fundingSchematicPartnersOutreachCount(),
+            'muy_newsletter_count' => $this->muyNewsletterEntriesCount(),
+            'media_campaigns_count' => $this->mediaCampaignEntriesCount(),
             'community_org_outreach_count' => $this->communityOrgOutreachVisitsCount(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsCount(),
             'reap_support_services' => $this->reapSupportServicesCount(),
@@ -779,7 +781,7 @@ class ProgramDeliverablesReportService
                 sumServiceTargets: true,
             ),
             'bst_sessions' => $this->bstSessionsPlannedTargetCount(),
-            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'demo_days_count', 'funding_schematic_partners_outreach_count' => $this->resolveStateTargetForCodes([
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'demo_days_count', 'funding_schematic_partners_outreach_count', 'muy_newsletter_count', 'media_campaigns_count' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
             'none' => ($source['deliverable_code'] ?? '') !== ''
@@ -1014,6 +1016,10 @@ class ProgramDeliverablesReportService
             return $this->socialMediaPostsCount();
         }
 
+        if ($code === 'case_studies') {
+            return $this->caseStudyEntriesCount();
+        }
+
         foreach ($this->candidateCodesForLookup($code) as $candidate) {
             $keys = [$candidate];
             if (str_starts_with($candidate, 'svc_')) {
@@ -1105,6 +1111,30 @@ class ProgramDeliverablesReportService
         $this->applySocialMediaPostsAchievementScope($query);
 
         return (int) $query->count();
+    }
+
+    private function caseStudyEntriesCount(): int
+    {
+        return \App\Support\CaseStudyEntriesDeliverablesSupport::countEntries(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    private function muyNewsletterEntriesCount(): int
+    {
+        return \App\Support\MuyNewsletterEntriesDeliverablesSupport::countEntries(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    private function mediaCampaignEntriesCount(): int
+    {
+        return \App\Support\MediaCampaignEntriesDeliverablesSupport::countEntries(
+            $this->periodFrom,
+            $this->periodTo,
+        );
     }
 
     private function marketLinkageTablesReady(): bool

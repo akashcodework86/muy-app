@@ -3,8 +3,11 @@
 namespace App\Providers;
 
 use App\Models\BusinessAccelerationPartnerOutreachEntry;
+use App\Models\CaseStudyEntry;
 use App\Models\DemoDay;
 use App\Models\FundingSchematicPartnerOutreachEntry;
+use App\Models\MediaCampaignEntry;
+use App\Models\MuyNewsletterEntry;
 use App\Models\StakeholderCapacityBuildingSession;
 use App\Services\NotificationReminderService;
 use App\Services\StaffCheckInService;
@@ -33,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
         Route::bind('baPartnerOutreach', fn (string $value) => BusinessAccelerationPartnerOutreachEntry::query()->findOrFail($value));
         Route::bind('demoDay', fn (string $value) => DemoDay::query()->findOrFail($value));
         Route::bind('fundingPartnerOutreach', fn (string $value) => FundingSchematicPartnerOutreachEntry::query()->findOrFail($value));
+        Route::bind('caseStudyEntry', fn (string $value) => CaseStudyEntry::query()->findOrFail($value));
+        Route::bind('muyNewsletter', fn (string $value) => MuyNewsletterEntry::query()->findOrFail($value));
+        Route::bind('mediaCampaign', fn (string $value) => MediaCampaignEntry::query()->findOrFail($value));
 
         View::composer(['layouts.admin', 'dashboards.state-admin', 'dashboards.hub-admin'], function ($view): void {
             $user = auth()->user();
