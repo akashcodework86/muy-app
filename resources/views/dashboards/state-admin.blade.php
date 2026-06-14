@@ -11,76 +11,87 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
     @include('partials.admin-shell-styles')
     <style>
+        /* =====================================================
+           COGNIFY-INSPIRED DESIGN SYSTEM — State Admin Dashboard
+           ===================================================== */
+        :root {
+            --cg-bg: #eef0f5;
+            --cg-card: #ffffff;
+            --cg-radius: 20px;
+            --cg-radius-sm: 12px;
+            --cg-shadow: 0 2px 20px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+            --cg-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.06);
+            --cg-text: #1c1c1e;
+            --cg-sub: #3c3c43;
+            --cg-muted: #8e8e93;
+            --cg-border: #e5e5ea;
+            --cg-green: #34c759;
+            --cg-green-bg: #e8faf0;
+            --cg-blue: #007aff;
+            --cg-blue-bg: #e5f1ff;
+            --cg-pink: #ff2d55;
+            --cg-pink-bg: #ffe5ea;
+            --cg-orange: #ff9500;
+            --cg-orange-bg: #fff3e0;
+            --cg-purple: #af52de;
+            --cg-purple-bg: #f5e6ff;
+            --cg-teal: #26a69a;
+            --cg-teal-bg: #e0f2f1;
+        }
+
         .admin-app-body--dashboard .admin-main {
-            padding: 0.65rem clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
+            padding: 0.85rem clamp(0.75rem, 2vw, 1.5rem) 2rem;
+            background: var(--cg-bg);
         }
-        .admin-app-body--dash-unified .admin-main {
-            padding: 0 clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
-        }
-        .sad-unified-strip {
+
+        /* === TICKER STRIP === */
+        .cg-ticker-strip {
             display: flex;
             flex-wrap: nowrap;
             align-items: center;
-            justify-content: flex-start;
             gap: 0.65rem 1rem;
-            margin: 0 calc(-1 * clamp(0.75rem, 2vw, 1.35rem)) 0.65rem;
-            padding: 0.55rem clamp(0.75rem, 2vw, 1.35rem);
+            margin: 0 0 1rem;
+            padding: 0.6rem 1rem;
+            border-radius: var(--cg-radius-sm);
+            background: #ffffff;
+            color: #1c1c1e;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
         }
-        .sad-unified-strip__left {
+        .cg-ticker-strip__left {
             display: flex;
-            flex-wrap: nowrap;
             align-items: baseline;
             gap: 0.35rem 0.65rem;
             flex: 0 0 auto;
-            min-width: 0;
             white-space: nowrap;
         }
-        .sad-unified-strip__title {
+        .cg-ticker-strip__title {
             margin: 0;
-            font-size: 1.05rem;
+            font-size: 1rem;
             font-weight: 800;
             letter-spacing: -0.02em;
-            line-height: 1.2;
-            white-space: nowrap;
-            flex-shrink: 0;
+            color: #1c1c1e;
         }
-        .sad-unified-strip__sub {
-            margin: 0;
-            font-size: 0.72rem;
-            line-height: 1.35;
-            opacity: 0.88;
-            white-space: nowrap;
-        }
-        .sad-unified-strip__sub strong {
-            font-weight: 700;
-        }
-        .sad-unified-strip__meta {
-            display: flex;
+        .cg-ticker-strip__meta {
             flex: 1 1 auto;
             min-width: 0;
-            align-items: center;
         }
-        .sad-ground-ticker {
-            width: 100%;
-            min-width: 0;
+        .cg-ticker-box {
             display: flex;
             align-items: center;
             gap: 0.55rem;
-            padding: 0.42rem 0.9rem;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            font-size: 0.95rem;
+            padding: 0.38rem 0.85rem;
+            border-radius: 999px;
+            background: #f2f2f7;
+            border: 1px solid #e5e7eb;
+            font-size: 0.82rem;
             font-weight: 500;
-            line-height: 1.45;
             overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }
-        .sad-ground-ticker__icon {
-            flex-shrink: 0;
-            opacity: 0.9;
-            font-size: 0.88rem;
-        }
-        .sad-ground-ticker__text {
+        .cg-ticker-box__icon { flex-shrink: 0; opacity: 0.9; font-size: 0.82rem; }
+        .cg-ticker-box__text {
             flex: 1;
             min-width: 0;
             white-space: nowrap;
@@ -88,851 +99,888 @@
             text-overflow: ellipsis;
             transition: opacity 0.35s ease;
         }
-        .sad-ground-ticker__text.is-fading {
-            opacity: 0;
-        }
-        @include('dashboards.state-admin._theme-styles')
-        .sad {
-            font-family: 'DM Sans', system-ui, sans-serif;
-            color: var(--sad-text);
-            max-width: 100%;
-        }
-        .sad-masthead {
+        .cg-ticker-box__text.is-fading { opacity: 0; }
+
+        /* === PAGE HEADER === */
+        .cg-page-head {
             display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
+            align-items: flex-start;
             justify-content: space-between;
-            gap: 0.75rem 1.25rem;
-            padding: 1rem 1.15rem;
-            border-radius: var(--sad-radius);
-            background: var(--sad-surface);
-            color: var(--sad-text);
-            border: 1px solid var(--sad-border);
-            border-top: 3px solid var(--sad-brand);
-            box-shadow: var(--sad-shadow);
-            margin-bottom: 0.65rem;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
         }
-        .sad-masthead__eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.68rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--sad-brand-deep);
-            margin-bottom: 0.35rem;
-        }
-        .sad-masthead h1 {
-            margin: 0;
-            font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+        .cg-page-title {
+            margin: 0 0 0.2rem;
+            font-size: clamp(1.35rem, 2.5vw, 1.75rem);
             font-weight: 800;
             letter-spacing: -0.03em;
+            color: var(--cg-text);
             line-height: 1.1;
         }
-        .sad-masthead__sub {
-            margin: 0.35rem 0 0;
+        .cg-page-sub {
+            margin: 0;
             font-size: 0.82rem;
-            color: var(--sad-muted);
-            max-width: 36rem;
-            line-height: 1.4;
+            color: var(--cg-muted);
         }
-        .sad-masthead__meta {
+        .cg-page-head-right {
             display: flex;
-            flex-wrap: wrap;
+            align-items: center;
             gap: 0.45rem;
-            justify-content: flex-end;
+            flex-wrap: wrap;
         }
-        .sad-badge {
+
+        /* === ALERT PILLS === */
+        .cg-alert {
             display: inline-flex;
             align-items: center;
             gap: 0.35rem;
-            padding: 0.38rem 0.65rem;
+            padding: 0.38rem 0.7rem;
             border-radius: 999px;
-            background: #f8fafc;
-            border: 1px solid var(--sad-border);
             font-size: 0.72rem;
             font-weight: 600;
-            color: #334155;
+            border: 1px solid transparent;
             white-space: nowrap;
         }
-        .sad-badge--live::before {
-            content: '';
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #22c55e;
-            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
-            animation: sadPulse 1.6s ease-in-out infinite;
-        }
-        @keyframes sadPulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45); }
-            50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
-        }
-        .sad-stat-chips {
+        .cg-alert--warn { background: #fff8e1; border-color: #ffe082; color: #e65100; }
+        .cg-alert--ok   { background: var(--cg-green-bg); border-color: #a5d6a7; color: #1b5e20; }
+        .cg-alert--info { background: var(--cg-blue-bg); border-color: #90caf9; color: #0d47a1; }
+
+        /* === HERO KPI CARDS (3 large, like reference) === */
+        .cg-hero-row {
             display: grid;
-            grid-template-columns: repeat(8, minmax(0, 1fr));
-            gap: 0.28rem;
-            width: 100%;
-            margin-bottom: 0.6rem;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.85rem;
+            margin-bottom: 0.85rem;
         }
-        @media (max-width: 900px) {
-            .sad-stat-chips {
-                display: flex;
-                flex-wrap: nowrap;
-                overflow-x: auto;
-                gap: 0.28rem;
-                padding-bottom: 0.15rem;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: thin;
-            }
-            .sad-stat-chip {
-                flex: 0 0 calc(25% - 0.3rem);
-                min-width: 6.5rem;
-            }
-        }
-        .sad-stat-chip {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: center;
-            gap: 0.2rem;
-            padding: 0.5rem 0.55rem;
-            min-width: 0;
-            border-radius: 10px;
-            background: var(--sad-surface);
-            border: 1px solid var(--sad-border);
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+        @media (max-width: 900px) { .cg-hero-row { grid-template-columns: 1fr; } }
+        @media (min-width: 601px) and (max-width: 900px) { .cg-hero-row { grid-template-columns: 1fr 1fr; } }
+
+        .cg-hero-card {
+            background: var(--cg-card);
+            border-radius: var(--cg-radius);
+            padding: 1.1rem 1.25rem 1rem;
+            box-shadow: var(--cg-shadow);
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
             position: relative;
             overflow: hidden;
-            transition: transform 0.16s ease, box-shadow 0.16s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
         }
-        .sad-stat-chip::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--sad-border);
+        .cg-hero-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--cg-shadow-hover);
         }
-        .sad-stat-chip:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.09), 0 2px 4px rgba(15, 23, 42, 0.05);
+        .cg-hero-card__top {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.75rem;
         }
-        .sad-stat-chip__ico {
+        .cg-hero-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 1.5rem;
-            height: 1.5rem;
-            border-radius: 7px;
-            font-size: 0.68rem;
-            margin-top: 0.15rem;
+            font-size: 1rem;
+            flex-shrink: 0;
         }
-        .sad-stat-chip__label {
-            font-size: 0.58rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--sad-muted);
-            line-height: 1.15;
+        .cg-hero-icon--green  { background: var(--cg-green-bg);  color: var(--cg-green);  }
+        .cg-hero-icon--blue   { background: var(--cg-blue-bg);   color: var(--cg-blue);   }
+        .cg-hero-icon--pink   { background: var(--cg-pink-bg);   color: var(--cg-pink);   }
+        .cg-hero-icon--orange { background: var(--cg-orange-bg); color: var(--cg-orange); }
+        .cg-hero-icon--purple { background: var(--cg-purple-bg); color: var(--cg-purple); }
+        .cg-hero-icon--teal   { background: var(--cg-teal-bg);   color: var(--cg-teal);   }
+
+        .cg-hero-card__label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--cg-sub);
+            flex: 1;
         }
-        .sad-stat-chip__val {
-            font-size: clamp(0.78rem, 0.95vw, 0.92rem);
+        .cg-hero-card__arrow {
+            width: 1.85rem;
+            height: 1.85rem;
+            border-radius: 50%;
+            background: #f2f2f7;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--cg-muted);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.15s;
+            text-decoration: none;
+        }
+        .cg-hero-card__arrow:hover { background: #e5e5ea; color: var(--cg-text); }
+
+        .cg-hero-card__val {
+            font-size: clamp(1.85rem, 3.5vw, 2.35rem);
             font-weight: 800;
-            letter-spacing: -0.02em;
-            color: var(--sad-text);
-            line-height: 1.1;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            letter-spacing: -0.04em;
+            color: var(--cg-text);
+            line-height: 1;
+            margin-bottom: 0.3rem;
         }
-        .sad-stat-chip--cfa::before { background: linear-gradient(90deg, #26a69a, #4db6ac); }
-        .sad-stat-chip--cfa .sad-stat-chip__ico { background: #e0f2f1; color: #00897b; }
-        .sad-stat-chip--target::before { background: linear-gradient(90deg, #ff8a65, #ffab91); }
-        .sad-stat-chip--target .sad-stat-chip__ico { background: #fff3e0; color: #ef6c00; }
-        .sad-stat-chip--today::before { background: linear-gradient(90deg, #ffb300, #ffca28); }
-        .sad-stat-chip--today .sad-stat-chip__ico { background: #fff8e1; color: #f9a825; }
-        .sad-stat-chip--onboard::before { background: linear-gradient(90deg, #f06292, #f48fb1); }
-        .sad-stat-chip--onboard .sad-stat-chip__ico { background: #fce4ec; color: #d81b60; }
-        .sad-stat-chip--services::before { background: linear-gradient(90deg, #42a5f5, #90caf9); }
-        .sad-stat-chip--services .sad-stat-chip__ico { background: #e3f2fd; color: #1e88e5; }
-        .sad-stat-chip--districts::before { background: linear-gradient(90deg, #78909c, #b0bec5); }
-        .sad-stat-chip--districts .sad-stat-chip__ico { background: #eceff1; color: #546e7a; }
-        .sad-stat-chip--blocks::before { background: linear-gradient(90deg, #66bb6a, #a5d6a7); }
-        .sad-stat-chip--blocks .sad-stat-chip__ico { background: #e8f5e9; color: #43a047; }
-        .sad-stat-chip--savings::before { background: linear-gradient(90deg, #ab47bc, #ce93d8); }
-        .sad-stat-chip--savings .sad-stat-chip__ico { background: #f3e5f5; color: #8e24aa; }
-        .sad-stat-chip.is-up .sad-stat-chip__val { color: var(--sad-green-deep); }
-        .sad-stat-chip.is-down .sad-stat-chip__val { color: #b45309; }
-        .sad-alerts {
+        .cg-hero-card__val-total {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--cg-muted);
+            letter-spacing: 0;
+        }
+        .cg-hero-card__trend {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+        .cg-hero-card__trend--up   { color: var(--cg-green); }
+        .cg-hero-card__trend--down { color: var(--cg-pink); }
+        .cg-hero-card__trend--flat { color: var(--cg-muted); }
+
+        .cg-hero-card__foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: auto;
+            padding-top: 0.65rem;
+            border-top: 1px solid #f2f2f7;
+            font-size: 0.72rem;
+            color: var(--cg-muted);
+        }
+        .cg-hero-card__pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.22rem 0.55rem;
+            border-radius: 999px;
+            background: #f2f2f7;
+            color: var(--cg-sub);
+            font-size: 0.68rem;
+            font-weight: 700;
+        }
+
+        /* === SECONDARY CHIP ROW (5 smaller KPIs) === */
+        .cg-chips-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.65rem;
+            margin-bottom: 0.85rem;
+        }
+        @media (max-width: 900px) {
+            .cg-chips-row {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        @media (max-width: 600px) {
+            .cg-chips-row {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .cg-chip {
+            background: var(--cg-card);
+            border-radius: var(--cg-radius-sm);
+            padding: 0.75rem 0.85rem;
+            box-shadow: var(--cg-shadow);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .cg-chip::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            border-radius: 3px 3px 0 0;
+        }
+        .cg-chip:hover { transform: translateY(-1px); box-shadow: var(--cg-shadow-hover); }
+        .cg-chip--today::before   { background: linear-gradient(90deg, #ff9500, #ffca28); }
+        .cg-chip--onboard::before { background: linear-gradient(90deg, #ff2d55, #f48fb1); }
+        .cg-chip--target::before  { background: linear-gradient(90deg, #ff8a65, #ffab91); }
+        .cg-chip--blocks::before  { background: linear-gradient(90deg, #34c759, #a5d6a7); }
+        .cg-chip--savings::before { background: linear-gradient(90deg, #af52de, #ce93d8); }
+
+        .cg-chip-ico {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            flex-shrink: 0;
+        }
+        .cg-chip-ico--yellow { background: #fff3e0; color: #ff9500; }
+        .cg-chip-ico--rose   { background: var(--cg-pink-bg); color: var(--cg-pink); }
+        .cg-chip-ico--amber  { background: #fff3e0; color: #ef6c00; }
+        .cg-chip-ico--green  { background: var(--cg-green-bg); color: #1b5e20; }
+        .cg-chip-ico--purple { background: var(--cg-purple-bg); color: var(--cg-purple); }
+
+        .cg-chip-body { min-width: 0; }
+        .cg-chip-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cg-muted); line-height: 1.2; }
+        .cg-chip-val { font-size: 0.95rem; font-weight: 800; color: var(--cg-text); letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cg-chip-val.is-up   { color: var(--cg-green); }
+        .cg-chip-val.is-down { color: var(--cg-pink); }
+
+        /* === ALERTS ROW === */
+        .cg-alerts-row {
             display: flex;
             flex-wrap: wrap;
             gap: 0.4rem;
-            margin-bottom: 0.55rem;
+            margin-bottom: 0.85rem;
         }
-        .sad-alert {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            padding: 0.32rem 0.6rem;
-            border-radius: 999px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            border: 1px solid transparent;
-        }
-        .sad-alert--warn {
-            background: #fffbeb;
-            border-color: #fcd34d;
-            color: #92400e;
-        }
-        .sad-alert--info {
-            background: #f0f9ff;
-            border-color: #bae6fd;
-            color: #0369a1;
-        }
-        .sad-alert--ok {
-            background: #ecfdf5;
-            border-color: #6ee7b7;
-            color: var(--sad-green-deep);
-        }
-        .sad-nav {
+
+        /* === TAB NAVIGATION (pill style like reference) === */
+        .cg-tabs {
             display: flex;
-            flex-wrap: wrap;
-            gap: 0.35rem;
-            margin-bottom: 0.6rem;
-            padding: 0.35rem;
-            background: var(--sad-surface);
-            border: 1px solid var(--sad-border);
-            border-radius: var(--sad-radius);
-            position: sticky;
-            top: 0.5rem;
-            z-index: 20;
-            box-shadow: var(--sad-shadow);
+            align-items: center;
+            gap: 0.25rem;
+            margin-bottom: 0.85rem;
+            padding: 0.3rem;
+            background: var(--cg-card);
+            border-radius: 999px;
+            box-shadow: var(--cg-shadow);
+            width: fit-content;
+            max-width: 100%;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
         }
-        .sad-nav__btn {
-            flex: 1;
-            min-width: 7rem;
+        .cg-tabs::-webkit-scrollbar { display: none; }
+        .cg-tab {
+            flex: 0 0 auto;
             border: none;
             background: transparent;
             font-family: inherit;
-            font-size: 0.78rem;
+            font-size: 0.8rem;
             font-weight: 700;
-            color: var(--sad-muted);
-            padding: 0.5rem 0.65rem;
+            color: var(--cg-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 999px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: background 0.15s, color 0.15s;
+            white-space: nowrap;
+        }
+        .cg-tab:hover { background: #f2f2f7; color: var(--cg-text); }
+        .cg-tab.is-active {
+            background: var(--cg-text);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+        }
+
+        /* === PANELS === */
+        .cg-panel { display: none; animation: cgFade 0.25s ease; }
+        .cg-panel.is-active { display: block; }
+        @keyframes cgFade {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* === MAIN 3-COLUMN ROW (like reference) === */
+        .cg-main-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.85rem;
+            margin-bottom: 0.85rem;
+        }
+        @media (max-width: 1200px) { .cg-main-row { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 900px)  { .cg-main-row { grid-template-columns: 1fr; } }
+
+        /* === CARDS === */
+        .cg-card {
+            background: var(--cg-card);
+            border-radius: var(--cg-radius);
+            padding: 1.1rem 1.2rem;
+            box-shadow: var(--cg-shadow);
+            min-width: 0;
+        }
+        .cg-card--full { width: 100%; }
+        .cg-card__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.85rem;
+        }
+        .cg-card__title {
+            font-size: 0.92rem;
+            font-weight: 800;
+            color: var(--cg-text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .cg-card__title i { color: var(--cg-teal); font-size: 0.88rem; }
+        .cg-card__tag {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.22rem 0.5rem;
+            border-radius: 6px;
+            background: var(--cg-teal-bg);
+            color: #00695c;
+        }
+        .cg-card__hint {
+            font-size: 0.72rem;
+            color: var(--cg-muted);
+            margin: -0.5rem 0 0.65rem;
+            line-height: 1.4;
+        }
+        .cg-card-btn-group {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .cg-icon-btn {
+            width: 1.85rem;
+            height: 1.85rem;
             border-radius: 8px;
+            border: 1px solid var(--cg-border);
+            background: #f2f2f7;
+            color: var(--cg-muted);
+            font-size: 0.72rem;
+            font-weight: 700;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.4rem;
-            transition: background 0.15s, color 0.15s;
+            transition: background 0.15s;
         }
-        .sad-nav__btn:hover { background: #f1f5f9; color: var(--sad-text); }
-        .sad-nav__btn.is-active {
-            background: var(--sad-brand);
-            color: #fff;
-            box-shadow: var(--sad-nav-shadow, 0 2px 8px rgba(15, 23, 42, 0.12));
-        }
-        .sad-panel { display: none; animation: sadFade 0.25s ease; }
-        .sad-panel.is-active { display: block; }
-        @keyframes sadFade {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .sad-grid {
-            display: grid;
-            gap: 0.55rem;
-        }
-        .sad-grid--2 { grid-template-columns: 1fr 1fr; }
-        .sad-grid--3 { grid-template-columns: 1.1fr 1fr 1fr; }
-        @media (max-width: 1100px) {
-            .sad-grid--2, .sad-grid--3 { grid-template-columns: 1fr; }
-        }
-        .sad-card {
-            background: var(--sad-surface);
-            border: 1px solid var(--sad-border);
-            border-radius: var(--sad-radius);
-            padding: 0.75rem 0.85rem;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-            min-width: 0;
-        }
-        .sad-card__head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            margin-bottom: 0.55rem;
-        }
-        .sad-card__title {
-            font-size: 0.82rem;
+        .cg-icon-btn:hover { background: var(--cg-border); color: var(--cg-text); }
+
+        /* === BIG PERCENTAGE (Task Progress style) === */
+        .cg-prog-big {
+            font-size: 2.5rem;
             font-weight: 800;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
+            letter-spacing: -0.04em;
+            color: var(--cg-text);
+            line-height: 1;
+            margin-bottom: 0.2rem;
         }
-        .sad-card__title i { color: var(--sad-brand); font-size: 0.85rem; }
-        .sad-card__hint {
-            font-size: 0.68rem;
-            color: var(--sad-muted);
-            margin: -0.35rem 0 0.5rem;
-            line-height: 1.35;
+        .cg-prog-sub {
+            font-size: 0.78rem;
+            color: var(--cg-muted);
+            margin-bottom: 0.85rem;
+            font-weight: 500;
         }
-        .sad-card__tag {
-            font-size: 0.62rem;
-            font-weight: 700;
-            padding: 0.2rem 0.45rem;
-            border-radius: 6px;
-            background: var(--sad-brand-light);
-            color: var(--sad-brand-deep);
-        }
-        .sad-progress-block { margin-bottom: 0.65rem; }
-        .sad-progress-block:last-child { margin-bottom: 0; }
-        .sad-progress-top {
+
+        /* === PROGRESS BARS === */
+        .cg-progress { margin-bottom: 0.65rem; }
+        .cg-progress:last-child { margin-bottom: 0; }
+        .cg-progress__top {
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            gap: 0.5rem;
             font-size: 0.75rem;
             font-weight: 600;
             margin-bottom: 0.3rem;
+            color: var(--cg-sub);
         }
-        .sad-progress-top strong { font-size: 0.95rem; font-weight: 800; }
-        .sad-progress-track {
+        .cg-progress__top strong { font-size: 0.88rem; font-weight: 800; color: var(--cg-text); }
+        .cg-progress__track {
             height: 8px;
             border-radius: 999px;
-            background: #e2e8f0;
+            background: #f2f2f7;
             overflow: hidden;
         }
-        .sad-progress-fill {
+        .cg-progress__fill {
             height: 100%;
             border-radius: 999px;
-            background: var(--sad-brand-grad);
             transition: width 0.6s ease;
         }
-        .sad-progress-fill--sky {
-            background: linear-gradient(90deg, #eb8c00, #ffb600);
+        .cg-progress__fill--green  { background: linear-gradient(90deg, var(--cg-green), #a5d6a7); }
+        .cg-progress__fill--blue   { background: linear-gradient(90deg, var(--cg-blue), #90caf9); }
+        .cg-progress__fill--orange { background: linear-gradient(90deg, var(--cg-orange), #ffca28); }
+        .cg-progress__fill--pink   { background: linear-gradient(90deg, var(--cg-pink), #f48fb1); }
+        .cg-progress__fill--teal   { background: linear-gradient(90deg, var(--cg-teal), #4db6ac); }
+        .cg-progress__foot {
+            font-size: 0.67rem;
+            color: var(--cg-muted);
+            margin-top: 0.3rem;
         }
-        .sad-progress-foot {
-            font-size: 0.68rem;
-            color: var(--sad-muted);
-            margin-top: 0.35rem;
-            line-height: 1.35;
-        }
-        .sad-signals {
+        .cg-progress__foot a { color: var(--cg-teal); }
+
+        /* === SIGNAL GRID === */
+        .cg-signals {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0.4rem;
+            gap: 0.45rem;
+            margin-top: 0.65rem;
         }
-        .sad-signal {
-            padding: 0.45rem 0.5rem;
-            border-radius: 10px;
-            background: #f8fafc;
-            border: 1px solid var(--sad-border);
+        .cg-signal {
+            padding: 0.5rem 0.6rem;
+            border-radius: var(--cg-radius-sm);
+            background: #f8f8fb;
+            border: 1px solid #ececf1;
         }
-        .sad-signal span {
-            display: block;
-            font-size: 0.62rem;
-            color: var(--sad-muted);
-            font-weight: 600;
-        }
-        .sad-signal strong {
-            font-size: 0.88rem;
-            margin-top: 0.15rem;
-            display: block;
-        }
-        .sad-chip {
+        .cg-signal span { display: block; font-size: 0.62rem; color: var(--cg-muted); font-weight: 600; margin-bottom: 0.15rem; }
+        .cg-signal strong { font-size: 0.9rem; font-weight: 800; color: var(--cg-text); display: block; }
+        .cg-chip-badge {
             display: inline-block;
             font-size: 0.68rem;
             font-weight: 700;
-            padding: 0.15rem 0.4rem;
+            padding: 0.15rem 0.42rem;
             border-radius: 6px;
         }
-        .sad-chip.up { background: #ecfdf5; color: var(--sad-green-deep); }
-        .sad-chip.down { background: #fffbeb; color: #b45309; }
-        .sad-chip.flat { background: #f1f5f9; color: #64748b; }
-        .sad-ring-wrap {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 0.75rem;
+        .cg-chip-badge.up   { background: var(--cg-green-bg); color: #1b5e20; }
+        .cg-chip-badge.down { background: var(--cg-pink-bg);  color: #880e4f; }
+        .cg-chip-badge.flat { background: #f2f2f7; color: var(--cg-muted); }
+
+        /* === RING CHART WRAPPER === */
+        .cg-ring-wrap {
+            display: flex;
+            flex-direction: column;
             align-items: center;
+            position: relative;
+            margin: 0.25rem 0 1rem;
         }
-        .sad-ring-svg { width: 88px; height: 88px; }
-        .sad-ring-svg .track { fill: none; stroke: #e2e8f0; stroke-width: 8; }
-        .sad-ring-svg .bar {
+        .cg-ring-svg { width: 140px; height: 140px; }
+        .cg-ring-svg .cg-track { fill: none; stroke: #f2f2f7; stroke-width: 10; }
+        .cg-ring-svg .cg-bar {
             fill: none;
-            stroke: url(#sadRingGrad);
-            stroke-width: 8;
+            stroke: url(#cgRingGrad);
+            stroke-width: 10;
             stroke-linecap: round;
             transform: rotate(-90deg);
             transform-origin: 50% 50%;
         }
-        .sad-ring-svg .pct {
+        .cg-ring-svg .cg-pct {
             font-family: 'DM Sans', sans-serif;
             font-weight: 800;
-            fill: var(--sad-text);
-            font-size: 18px;
+            fill: var(--cg-text);
+            font-size: 20px;
         }
-        .sad-ring-meta__big {
-            font-size: 1.35rem;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-            line-height: 1;
-        }
-        .sad-ring-meta__lbl {
-            font-size: 0.68rem;
-            color: var(--sad-muted);
-            margin-top: 0.2rem;
+        .cg-ring-svg .cg-pct-sub {
+            font-family: 'DM Sans', sans-serif;
             font-weight: 600;
+            fill: var(--cg-muted);
+            font-size: 10px;
         }
-        .sad-chart-box { height: 168px; position: relative; }
-        .sad-chart-box--pulse { height: 180px; }
-        .sad-pulse-tabs {
+
+        /* === BREAKDOWN ROWS (below ring, like reference) === */
+        .cg-breakdown { margin-top: 0.5rem; }
+        .cg-breakdown-row {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.35rem 0;
+            border-bottom: 1px solid #f5f5f7;
+            font-size: 0.75rem;
+        }
+        .cg-breakdown-row:last-child { border-bottom: none; }
+        .cg-breakdown-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .cg-breakdown-dot--green  { background: var(--cg-green); }
+        .cg-breakdown-dot--blue   { background: var(--cg-blue); }
+        .cg-breakdown-dot--orange { background: var(--cg-orange); }
+        .cg-breakdown-label { flex: 1; font-weight: 600; color: var(--cg-sub); }
+        .cg-breakdown-bar-wrap { flex: 2; }
+        .cg-breakdown-bar-track {
+            height: 5px;
+            border-radius: 999px;
+            background: #f2f2f7;
+            overflow: hidden;
+        }
+        .cg-breakdown-bar-fill { height: 100%; border-radius: 999px; }
+        .cg-breakdown-val { font-weight: 800; color: var(--cg-text); min-width: 2rem; text-align: right; }
+
+        /* === SPARKLINE === */
+        .cg-spark { height: 28px; margin-top: 0.35rem; }
+        .cg-spark svg { width: 100%; height: 100%; display: block; overflow: visible; }
+        .cg-spark__fill { fill: url(#cgSparkGrad); opacity: 0.35; }
+        .cg-spark__line { fill: none; stroke: var(--cg-teal); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+        .cg-spark__dot  { fill: var(--cg-teal); }
+
+        /* === PULSE TABS === */
+        .cg-pulse-tabs {
             display: flex;
             flex-wrap: wrap;
             gap: 0.3rem;
-            margin: 0.45rem 0 0.35rem;
+            margin: 0.6rem 0 0.45rem;
         }
-        .sad-pulse-tab {
-            border: 1px solid var(--sad-border);
-            background: #f8fafc;
+        .cg-pulse-tab {
+            border: 1px solid var(--cg-border);
+            background: #f8f8fb;
             border-radius: 999px;
-            padding: 0.3rem 0.62rem;
+            padding: 0.28rem 0.6rem;
             font-family: inherit;
             font-size: 0.68rem;
             font-weight: 700;
-            color: var(--sad-muted);
+            color: var(--cg-muted);
             cursor: pointer;
-            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
         }
-        .sad-pulse-tab:hover {
-            background: #f1f5f9;
-            color: var(--sad-text);
-        }
-        .sad-pulse-tab.is-active {
-            background: var(--sad-brand);
-            border-color: var(--sad-brand);
-            color: #fff;
-        }
-        .sad-pulse-hint {
-            margin: 0 0 0.35rem;
-            font-size: 0.68rem;
-            color: var(--sad-muted);
-            line-height: 1.35;
-        }
-        .sad-chart-box--tall { height: min(420px, 55vh); }
-        .sad-stage-row {
+        .cg-pulse-tab:hover { background: #ececf1; color: var(--cg-text); }
+        .cg-pulse-tab.is-active { background: var(--cg-teal); border-color: var(--cg-teal); color: #fff; }
+
+        .cg-pulse-hint { margin: 0 0 0.35rem; font-size: 0.67rem; color: var(--cg-muted); line-height: 1.4; }
+
+        /* === PULSE TOTALS (bottom of trend card, like reference) === */
+        .cg-pulse-totals {
             display: grid;
-            grid-template-columns: 1.4rem 1fr 2.2rem;
-            gap: 0.35rem;
-            align-items: center;
-            font-size: 0.68rem;
-            font-weight: 700;
-            margin-bottom: 0.35rem;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.45rem;
+            padding-top: 0.65rem;
+            border-top: 1px solid #f5f5f7;
+            margin-top: 0.65rem;
         }
-        .sad-stage-mix {
-            margin-top: 0.45rem;
-            padding-top: 0.45rem;
-            border-top: 1px solid var(--sad-border);
-        }
-        .sad-stage-mix__head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            margin-bottom: 0.45rem;
-            flex-wrap: wrap;
-        }
-        .sad-stage-mix__title {
-            margin: 0;
-            font-size: 0.68rem;
-            font-weight: 700;
-            color: var(--sad-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .sad-stage-mix__badge {
-            font-size: 0.62rem;
-            font-weight: 700;
-            padding: 0.18rem 0.5rem;
-            border-radius: 999px;
-            white-space: nowrap;
-        }
-        .sad-stage-mix__badge--ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-        .sad-stage-mix__badge--warn { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-        .sad-stage-mix__row { margin-bottom: 0.42rem; }
-        .sad-stage-mix__row:last-child { margin-bottom: 0; }
-        .sad-stage-mix__label-row {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 0.35rem;
-            margin-bottom: 0.18rem;
-            font-size: 0.68rem;
-            font-weight: 700;
-        }
-        .sad-stage-mix__nums {
-            font-size: 0.62rem;
-            font-weight: 600;
-            color: var(--sad-muted);
-        }
-        .sad-stage-track {
-            position: relative;
-            height: 8px;
-            border-radius: 999px;
-            background: #e2e8f0;
-            overflow: visible;
-        }
-        .sad-stage-track__fill {
-            height: 100%;
-            border-radius: 999px;
-            max-width: 100%;
-        }
-        .sad-stage-track__target {
-            position: absolute;
-            top: -3px;
-            bottom: -3px;
-            width: 2px;
-            border-radius: 1px;
-            background: #334155;
-            opacity: 0.9;
-            z-index: 2;
-            transform: translateX(-50%);
-        }
-        .sad-stage-mix__legend {
-            margin: 0 0 0.4rem;
-            font-size: 0.6rem;
-            color: var(--sad-muted);
-        }
-        .sad-stage-mix__legend-tick {
-            display: inline-block;
-            width: 2px;
-            height: 0.65rem;
-            background: #334155;
-            vertical-align: middle;
-            margin: 0 0.2rem;
-        }
-        .sad-stage-mix__foot {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 0.14rem;
-            font-size: 0.6rem;
-            color: var(--sad-muted);
-        }
-        .sad-stage-mix__delta { font-weight: 700; }
-        .sad-stage-mix__delta.is-ok { color: #047857; }
-        .sad-stage-mix__delta.is-high { color: #b45309; }
-        .sad-stage-mix__delta.is-low { color: #dc2626; }
-        .sad-stage-fill--seed { background: #d97706; }
-        .sad-stage-fill--early { background: #eb8c00; }
-        .sad-stage-fill--growth { background: var(--sad-brand); }
-        .sad-biz-row {
+        .cg-pulse-total-label { font-size: 0.65rem; color: var(--cg-muted); font-weight: 600; margin-bottom: 0.15rem; }
+        .cg-pulse-total-val { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; color: var(--cg-text); }
+        .cg-pulse-total-val.nd-up   { color: var(--cg-green); }
+        .cg-pulse-total-val.nd-down { color: var(--cg-pink); }
+        .cg-pulse-total-val .cg-trend-arrow { font-size: 0.72rem; margin-left: 0.2rem; }
+
+        /* === BUSINESS MIX === */
+        .cg-biz-row {
             display: grid;
             grid-template-columns: auto 1fr auto;
-            gap: 0.45rem;
+            gap: 0.5rem;
             align-items: center;
-            margin-bottom: 0.35rem;
-            font-size: 0.72rem;
+            margin-bottom: 0.42rem;
+            font-size: 0.75rem;
         }
-        .sad-biz-row__rank {
-            width: 1.35rem;
-            height: 1.35rem;
-            border-radius: 6px;
-            background: #f1f5f9;
-            font-size: 0.62rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--sad-muted);
+        .cg-biz-rank {
+            width: 1.5rem; height: 1.5rem;
+            border-radius: 8px;
+            background: #f2f2f7;
+            font-size: 0.62rem; font-weight: 800;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--cg-muted);
         }
-        .sad-biz-row__track {
-            height: 5px;
-            border-radius: 999px;
-            background: #e2e8f0;
-            overflow: hidden;
+        .cg-biz-label { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--cg-sub); }
+        .cg-biz-track { height: 6px; border-radius: 999px; background: #f2f2f7; overflow: hidden; margin-top: 0.25rem; }
+        .cg-biz-fill  { height: 100%; border-radius: 999px; }
+        .cg-biz-nums  { font-weight: 800; color: var(--cg-text); white-space: nowrap; }
+
+        /* === STAGE MIX === */
+        .cg-stage-mix {
+            padding-top: 0.65rem;
+            border-top: 1px solid #f5f5f7;
+            margin-top: 0.65rem;
         }
-        .sad-biz-row__fill { height: 100%; border-radius: 999px; }
-        .sad-biz-row__nums { font-weight: 700; white-space: nowrap; }
-        .sad-district-cards {
+        .cg-stage-mix__head {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem;
+        }
+        .cg-stage-mix__title {
+            font-size: 0.7rem; font-weight: 700; color: var(--cg-muted);
+            text-transform: uppercase; letter-spacing: 0.04em; margin: 0;
+        }
+        .cg-stage-badge {
+            font-size: 0.62rem; font-weight: 700; padding: 0.18rem 0.5rem;
+            border-radius: 999px; white-space: nowrap;
+        }
+        .cg-stage-badge--ok   { background: var(--cg-green-bg); color: #1b5e20; border: 1px solid #a5d6a7; }
+        .cg-stage-badge--warn { background: #fff8e1; color: #e65100; border: 1px solid #ffe082; }
+        .cg-stage-row { margin-bottom: 0.42rem; }
+        .cg-stage-row:last-child { margin-bottom: 0; }
+        .cg-stage-label-row {
+            display: flex; align-items: baseline; justify-content: space-between;
+            font-size: 0.7rem; font-weight: 700; margin-bottom: 0.18rem; color: var(--cg-sub);
+        }
+        .cg-stage-nums { font-size: 0.62rem; font-weight: 600; color: var(--cg-muted); }
+        .cg-stage-track {
+            position: relative; height: 7px; border-radius: 999px;
+            background: #f2f2f7; overflow: visible;
+        }
+        .cg-stage-track__fill { height: 100%; border-radius: 999px; max-width: 100%; }
+        .cg-stage-track__target {
+            position: absolute; top: -3px; bottom: -3px; width: 2px;
+            border-radius: 1px; background: #334155; opacity: 0.75; z-index: 2;
+            transform: translateX(-50%);
+        }
+        .cg-stage-foot {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 0.15rem; font-size: 0.6rem; color: var(--cg-muted);
+        }
+        .cg-stage-delta { font-weight: 700; }
+        .cg-stage-delta.is-ok   { color: #1b5e20; }
+        .cg-stage-delta.is-high { color: #e65100; }
+        .cg-stage-delta.is-low  { color: #c62828; }
+        .cg-stage-fill--seed   { background: #d97706; }
+        .cg-stage-fill--early  { background: #ff9500; }
+        .cg-stage-fill--growth { background: var(--cg-teal); }
+        .cg-stage-legend {
+            font-size: 0.6rem; color: var(--cg-muted); margin: 0 0 0.35rem;
+        }
+        .cg-stage-legend-tick {
+            display: inline-block; width: 2px; height: 0.65rem;
+            background: #334155; vertical-align: middle; margin: 0 0.2rem;
+        }
+
+        /* === GRID LAYOUTS === */
+        .cg-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+        .cg-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+        @media (max-width: 1100px) { .cg-grid-2, .cg-grid-3 { grid-template-columns: 1fr; } }
+
+        /* === DISTRICT CARDS === */
+        .cg-district-cards {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-            gap: 0.45rem;
-            margin-bottom: 0.55rem;
+            gap: 0.5rem;
+            margin-bottom: 0.65rem;
         }
-        .sad-district-card {
-            padding: 0.5rem 0.55rem;
-            border-radius: 10px;
-            border: 1px solid var(--sad-border);
-            background: #f8fafc;
+        .cg-district-card {
+            padding: 0.6rem 0.7rem;
+            border-radius: var(--cg-radius-sm);
+            border: 1px solid var(--cg-border);
+            background: #f8f8fb;
+            transition: transform 0.15s;
         }
-        .sad-district-card.is-top {
-            border-color: #fcd34d;
-            background: #fffbeb;
-        }
-        .sad-district-card__name {
-            font-size: 0.68rem;
-            font-weight: 700;
-            color: var(--sad-muted);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .sad-district-card__val {
-            font-size: 1.1rem;
-            font-weight: 800;
-            margin-top: 0.15rem;
-        }
-        .sad-split-table {
+        .cg-district-card:hover { transform: translateY(-1px); }
+        .cg-district-card.is-top { border-color: #ffe082; background: #fff8e1; }
+        .cg-district-card__name { font-size: 0.68rem; font-weight: 700; color: var(--cg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cg-district-card__val  { font-size: 1.15rem; font-weight: 800; color: var(--cg-text); margin-top: 0.15rem; }
+
+        /* === SPLIT TABLE === */
+        .cg-split-table {
             max-height: 14rem;
             overflow-y: auto;
-            border: 1px solid var(--sad-border);
-            border-radius: 10px;
+            border: 1px solid var(--cg-border);
+            border-radius: var(--cg-radius-sm);
         }
-        .sad-split-row {
+        .cg-split-row {
             display: flex;
             justify-content: space-between;
-            padding: 0.38rem 0.55rem;
-            font-size: 0.72rem;
-            border-bottom: 1px solid #f1f5f9;
+            padding: 0.38rem 0.6rem;
+            font-size: 0.75rem;
+            border-bottom: 1px solid #f5f5f7;
+            color: var(--cg-sub);
         }
-        .sad-split-row:last-child { border-bottom: none; }
-        .sad-split-row.is-zero { opacity: 0.5; }
-        .sad-staff-controls {
-            display: flex;
-            gap: 0.4rem;
-            margin-bottom: 0.5rem;
-            flex-wrap: wrap;
+        .cg-split-row:last-child { border-bottom: none; }
+        .cg-split-row.is-zero { opacity: 0.5; }
+        .cg-split-row strong { color: var(--cg-text); font-weight: 800; }
+
+        /* === STAFF TABLE === */
+        .cg-staff-controls {
+            display: flex; gap: 0.4rem; margin-bottom: 0.5rem; flex-wrap: wrap;
         }
-        .sad-staff-controls input,
-        .sad-staff-controls select {
-            flex: 1;
-            min-width: 8rem;
-            padding: 0.42rem 0.55rem;
-            border: 1px solid var(--sad-border);
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 0.78rem;
+        .cg-staff-controls input,
+        .cg-staff-controls select {
+            flex: 1; min-width: 8rem;
+            padding: 0.42rem 0.6rem;
+            border: 1px solid var(--cg-border);
+            border-radius: var(--cg-radius-sm);
+            font-family: inherit; font-size: 0.78rem;
+            background: #f8f8fb;
         }
-        .sad-staff-list { max-height: min(480px, 52vh); overflow-y: auto; }
-        .sad-staff-row {
+        .cg-staff-controls input:focus,
+        .cg-staff-controls select:focus {
+            outline: none;
+            border-color: var(--cg-teal);
+            box-shadow: 0 0 0 3px rgba(38, 166, 154, 0.15);
+        }
+        .cg-staff-list { max-height: min(480px, 52vh); overflow-y: auto; }
+        .cg-staff-row {
             display: grid;
             grid-template-columns: 2rem 1fr auto;
-            gap: 0.45rem;
-            align-items: center;
-            padding: 0.42rem 0.35rem;
-            border-bottom: 1px solid #f1f5f9;
+            gap: 0.45rem; align-items: center;
+            padding: 0.45rem 0.35rem;
+            border-bottom: 1px solid #f5f5f7;
             font-size: 0.78rem;
         }
-        .sad-staff-row:last-child { border-bottom: none; }
-        .sad-staff-rank {
-            font-size: 0.68rem;
-            font-weight: 800;
-            color: var(--sad-muted);
+        .cg-staff-row:last-child { border-bottom: none; }
+        .cg-staff-rank { font-size: 0.68rem; font-weight: 800; color: var(--cg-muted); }
+        .cg-staff-rank.is-medal { color: #ff9500; }
+        .cg-staff-main { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+        .cg-staff-avatar, .cg-staff-fallback {
+            width: 30px; height: 30px; border-radius: 10px;
+            flex-shrink: 0; object-fit: cover;
         }
-        .sad-staff-rank.is-medal { color: var(--sad-gold); }
-        .sad-staff-main { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
-        .sad-staff-avatar, .sad-staff-fallback {
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            flex-shrink: 0;
-            object-fit: cover;
+        .cg-staff-fallback {
+            display: inline-flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #26a69a, #4db6ac);
+            color: #fff; font-size: 0.7rem; font-weight: 800;
         }
-        .sad-staff-fallback {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--sad-brand-grad);
-            color: #fff;
-            font-size: 0.7rem;
-            font-weight: 800;
-        }
-        .sad-staff-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sad-staff-district { font-size: 0.65rem; color: var(--sad-muted); }
-        .sad-staff-val { font-weight: 800; font-size: 0.9rem; }
-        .sad-savings-grid {
+        .cg-staff-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--cg-text); }
+        .cg-staff-district { font-size: 0.65rem; color: var(--cg-muted); }
+        .cg-staff-val { font-weight: 800; font-size: 0.92rem; color: var(--cg-text); }
+
+        /* === SAVINGS TILES === */
+        .cg-savings-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 0.45rem;
-            margin-bottom: 0.55rem;
+            gap: 0.65rem; margin-bottom: 0.65rem;
         }
-        @media (max-width: 720px) {
-            .sad-savings-grid { grid-template-columns: 1fr; }
-        }
-        .sad-savings-tile {
-            padding: 0.55rem 0.65rem;
-            border-radius: 10px;
+        @media (max-width: 720px) { .cg-savings-grid { grid-template-columns: 1fr; } }
+        .cg-savings-tile {
+            padding: 0.75rem 0.85rem;
+            border-radius: var(--cg-radius-sm);
             border: 1px solid;
         }
-        .sad-savings-tile--green { border-color: #a7f3d0; background: #ecfdf5; }
-        .sad-savings-tile--blue { border-color: #bae6fd; background: #f0f9ff; }
-        .sad-savings-tile--violet { border-color: #f5c4a8; background: var(--sad-brand-light); }
-        .sad-savings-tile__lbl {
-            font-size: 0.6rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+        .cg-savings-tile--green { border-color: #a5d6a7; background: var(--cg-green-bg); }
+        .cg-savings-tile--blue  { border-color: #90caf9; background: var(--cg-blue-bg); }
+        .cg-savings-tile--teal  { border-color: #80cbc4; background: var(--cg-teal-bg); }
+        .cg-savings-tile__lbl { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .cg-savings-tile__val { font-size: 1.2rem; font-weight: 800; margin-top: 0.2rem; }
+
+        /* === TABLE === */
+        .cg-table-wrap { border: 1px solid var(--cg-border); border-radius: var(--cg-radius-sm); overflow: hidden; }
+        .cg-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+        .cg-table th { text-align: left; padding: 0.5rem 0.6rem; background: #f8f8fb; font-weight: 700; color: var(--cg-muted); }
+        .cg-table th:not(:first-child), .cg-table td:not(:first-child) { text-align: right; }
+        .cg-table td { padding: 0.42rem 0.6rem; border-top: 1px solid #f5f5f7; color: var(--cg-sub); }
+        .cg-table td strong { color: var(--cg-text); }
+
+        /* === DOCK (quick links) === */
+        .cg-dock {
+            margin-top: 1rem;
+            padding: 0.85rem 1rem;
+            background: var(--cg-card);
+            border-radius: var(--cg-radius);
+            box-shadow: var(--cg-shadow);
         }
-        .sad-savings-tile__val {
-            font-size: 1.15rem;
-            font-weight: 800;
-            margin-top: 0.2rem;
+        .cg-dock__title {
+            font-size: 0.65rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--cg-muted); margin: 0 0 0.6rem;
         }
-        .sad-table-wrap {
-            border: 1px solid var(--sad-border);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        .sad-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.76rem;
-        }
-        .sad-table th {
-            text-align: left;
-            padding: 0.45rem 0.55rem;
-            background: #f8fafc;
-            font-weight: 700;
-            color: var(--sad-muted);
-        }
-        .sad-table th:not(:first-child),
-        .sad-table td:not(:first-child) { text-align: right; }
-        .sad-table td {
-            padding: 0.42rem 0.55rem;
-            border-top: 1px solid #f1f5f9;
-        }
-        .sad-dock {
-            margin-top: 0.65rem;
-            padding: 0.55rem 0.65rem;
-            background: var(--sad-surface);
-            border: 1px solid var(--sad-border);
-            border-radius: var(--sad-radius);
-        }
-        .sad-dock__title {
-            font-size: 0.68rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--sad-muted);
-            margin: 0 0 0.45rem;
-        }
-        .sad-dock__links {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.35rem;
-        }
-        .sad-dock__link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            padding: 0.38rem 0.55rem;
-            border-radius: 8px;
-            border: 1px solid var(--sad-border);
-            background: #f8fafc;
-            color: var(--sad-text);
+        .cg-dock__links { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .cg-dock__link {
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            padding: 0.4rem 0.65rem;
+            border-radius: var(--cg-radius-sm);
+            border: 1px solid var(--cg-border);
+            background: #f8f8fb;
+            color: var(--cg-sub);
             text-decoration: none;
-            font-size: 0.72rem;
-            font-weight: 600;
+            font-size: 0.73rem; font-weight: 600;
             transition: background 0.12s, border-color 0.12s, transform 0.12s;
         }
-        .sad-dock__link:hover {
-            background: var(--sad-brand-light);
-            border-color: #f0b48a;
+        .cg-dock__link:hover {
+            background: var(--cg-teal-bg);
+            border-color: #80cbc4;
+            color: #00695c;
+            transform: translateY(-1px);
         }
-        .sad-dock__link i { color: var(--sad-brand); font-size: 0.8rem; }
-        .sad-spark {
-            height: 28px;
-            margin-top: 0.25rem;
+        .cg-dock__link i { color: var(--cg-teal); font-size: 0.8rem; }
+
+        /* === CHART BOXES === */
+        .cg-chart-box { height: 175px; position: relative; }
+        .cg-chart-box--pulse { height: 185px; }
+        .cg-chart-box--tall { height: min(420px, 55vh); }
+        .cg-chart-box--donut { height: 210px; position: relative; }
+
+        /* === ALIGN PILLS === */
+        .cg-align-status { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+        .cg-align-pill { font-size: 0.65rem; font-weight: 700; padding: 0.2rem 0.45rem; border-radius: 6px; }
+        .cg-align-pill--ok  { background: var(--cg-green-bg); color: #1b5e20; }
+        .cg-align-pill--bad { background: #fff8e1; color: #e65100; }
+        .cg-align-gaps {
+            margin-top: 0.4rem; padding: 0.45rem 0.6rem;
+            border-radius: 8px; background: #f8f8fb;
+            border: 1px solid var(--cg-border);
+            font-size: 0.68rem; max-height: 8rem; overflow-y: auto;
         }
-        .sad-spark svg {
-            width: 100%;
-            height: 100%;
-            display: block;
-            overflow: visible;
+        .cg-align-gaps li { margin: 0.2rem 0; line-height: 1.35; color: var(--cg-sub); }
+        details.cg-details summary {
+            cursor: pointer; font-size: 0.72rem; font-weight: 700;
+            color: var(--cg-teal); list-style: none;
         }
-        .sad-spark--live .sad-spark__fill {
-            fill: url(#sadSparkGrad);
-            opacity: 0;
-            animation: sadSparkFadeIn 0.55s ease-out 0.1s 1 forwards;
+        details.cg-details summary::-webkit-details-marker { display: none; }
+
+        /* === EMPTY STATE === */
+        .cg-empty {
+            text-align: center; padding: 1.5rem;
+            color: var(--cg-muted); font-size: 0.82rem;
         }
-        .sad-spark--live .sad-spark__line {
-            fill: none;
-            stroke: var(--sad-brand);
-            stroke-width: 1.5;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            stroke-dasharray: 140;
-            stroke-dashoffset: 140;
-            animation: sadSparkDraw 0.75s ease-out 1 forwards;
+
+        /* === DT TABS (insights sub-tabs) === */
+        .cg-dt-tabs {
+            display: flex; flex-wrap: nowrap; gap: 0.3rem;
+            overflow-x: auto; scrollbar-width: thin;
+            padding-bottom: 0.3rem; margin-bottom: 0.35rem;
+            -webkit-overflow-scrolling: touch;
         }
-        .sad-spark--live .sad-spark__dot {
-            fill: var(--sad-brand);
-            opacity: 0;
-            animation: sadSparkDotIn 0.35s ease-out 0.55s 1 forwards;
+        .cg-dt-tab {
+            flex: 0 0 auto;
+            border: 1px solid var(--cg-border);
+            background: #f8f8fb;
+            border-radius: 999px; padding: 0.3rem 0.65rem;
+            font-family: inherit; font-size: 0.68rem; font-weight: 700;
+            color: var(--cg-muted); cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
         }
-        @keyframes sadSparkFadeIn {
-            to { opacity: 0.4; }
+        .cg-dt-tab:hover { background: #ececf1; color: var(--cg-text); }
+        .cg-dt-tab.is-active {
+            background: var(--cg-teal-bg); border-color: var(--cg-teal);
+            color: #00695c;
         }
-        @keyframes sadSparkDraw {
-            to { stroke-dashoffset: 0; }
+        .cg-dt-hint { margin: 0 0 0.45rem; font-size: 0.72rem; color: var(--cg-muted); line-height: 1.4; }
+
+        /* === INSIGHTS GRID === */
+        .cg-insights-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem; margin-top: 0.65rem; }
+        .cg-insights-grid--2 { grid-template-columns: repeat(2, 1fr); }
+        @media (max-width: 1100px) { .cg-insights-grid, .cg-insights-grid--2 { grid-template-columns: 1fr; } }
+
+        /* ---- Keep SAD interop for _insights-panel include ---- */
+        /* The _insights-panel uses .sad-* classes; map them to new style */
+        .sad-panel  { display: none; animation: cgFade 0.25s ease; }
+        .sad-panel.is-active { display: block; }
+        /* Map sad-card → cg-card */
+        .sad-card {
+            background: var(--cg-card);
+            border-radius: var(--cg-radius);
+            padding: 1.1rem 1.2rem;
+            box-shadow: var(--cg-shadow);
+            border: none;
+            min-width: 0;
         }
-        @keyframes sadSparkDotIn {
-            to { opacity: 1; }
+        .sad-card__head {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 0.5rem; margin-bottom: 0.85rem;
         }
-        @media (prefers-reduced-motion: reduce) {
-            .sad-spark--live .sad-spark__fill,
-            .sad-spark--live .sad-spark__line,
-            .sad-spark--live .sad-spark__dot {
-                animation: none !important;
-                opacity: 1;
-                stroke-dashoffset: 0;
-            }
-            .sad-spark--live .sad-spark__fill { opacity: 0.4; }
-        }
-        .sad-empty {
-            text-align: center;
-            padding: 1.25rem;
-            color: #94a3b8;
-            font-size: 0.8rem;
-        }
-        details.sad-details summary {
-            cursor: pointer;
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: var(--sad-sky);
-            list-style: none;
-        }
-        details.sad-details summary::-webkit-details-marker { display: none; }
-        .sad-align-status {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.35rem;
-            margin-top: 0.35rem;
-        }
-        .sad-align-pill {
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 0.2rem 0.45rem;
-            border-radius: 6px;
-        }
-        .sad-align-pill--ok { background: #ecfdf5; color: var(--sad-green-deep); }
-        .sad-align-pill--bad { background: #fffbeb; color: #92400e; }
-        .sad-align-gaps {
-            margin-top: 0.4rem;
-            padding: 0.45rem 0.55rem;
-            border-radius: 8px;
-            background: #f8fafc;
-            border: 1px solid var(--sad-border);
-            font-size: 0.68rem;
-            max-height: 8rem;
-            overflow-y: auto;
-        }
-        .sad-align-gaps li { margin: 0.2rem 0; line-height: 1.35; }
+        .sad-card__title { font-size: 0.92rem; font-weight: 800; color: var(--cg-text); margin: 0; display: flex; align-items: center; gap: 0.4rem; }
+        .sad-card__title i { color: var(--cg-teal); }
+        .sad-card__tag { font-size: 0.65rem; font-weight: 700; padding: 0.22rem 0.5rem; border-radius: 6px; background: var(--cg-teal-bg); color: #00695c; }
+        .sad-card__hint { font-size: 0.72rem; color: var(--cg-muted); margin: -0.5rem 0 0.65rem; line-height: 1.4; }
+        .sad-grid { display: grid; gap: 0.85rem; }
+        .sad-grid--2 { grid-template-columns: 1fr 1fr; }
+        .sad-grid--3 { grid-template-columns: 1.1fr 1fr 1fr; }
+        @media (max-width: 1100px) { .sad-grid--2, .sad-grid--3 { grid-template-columns: 1fr; } }
+        .sad-empty { text-align: center; padding: 1.5rem; color: var(--cg-muted); font-size: 0.82rem; }
+        .sad-chart-box { height: 175px; position: relative; }
+        .sad-chart-box--donut { height: 210px; }
+        .sad-chart-box--md { height: 230px; }
+        .sad-chart-box--tall { height: min(420px, 55vh); }
+        .sad-chart-box--pulse { height: 185px; }
+        .sad-dt-tabs { display: flex; flex-wrap: nowrap; gap: 0.3rem; overflow-x: auto; scrollbar-width: thin; padding-bottom: 0.3rem; margin-bottom: 0.35rem; -webkit-overflow-scrolling: touch; }
+        .sad-dt-tab { flex: 0 0 auto; border: 1px solid var(--cg-border); background: #f8f8fb; border-radius: 999px; padding: 0.3rem 0.65rem; font-family: inherit; font-size: 0.68rem; font-weight: 700; color: var(--cg-muted); cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+        .sad-dt-tab:hover { background: #ececf1; color: var(--cg-text); }
+        .sad-dt-tab.is-active { background: var(--cg-teal-bg); border-color: var(--cg-teal); color: #00695c; }
+        .sad-dt-hint { margin: 0 0 0.45rem; font-size: 0.72rem; color: var(--cg-muted); line-height: 1.4; }
+        .sad-insights-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem; margin-top: 0.65rem; }
+        .sad-insights-grid--2 { grid-template-columns: repeat(2, 1fr); }
+        @media (max-width: 1100px) { .sad-insights-grid, .sad-insights-grid--2 { grid-template-columns: 1fr; } }
+        /* sad-signals / sad-signal → map to cg-signals */
+        .sad-signals { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+        .sad-signal { padding: 0.5rem 0.6rem; border-radius: var(--cg-radius-sm); background: #f8f8fb; border: 1px solid #ececf1; }
+        .sad-signal span { display: block; font-size: 0.62rem; color: var(--cg-muted); font-weight: 600; margin-bottom: 0.15rem; }
+        .sad-signal strong { font-size: 0.9rem; font-weight: 800; color: var(--cg-text); display: block; }
+        /* sad-split-table */
+        .sad-split-table { max-height: 14rem; overflow-y: auto; border: 1px solid var(--cg-border); border-radius: var(--cg-radius-sm); }
+        .sad-split-row { display: flex; justify-content: space-between; padding: 0.38rem 0.6rem; font-size: 0.75rem; border-bottom: 1px solid #f5f5f7; color: var(--cg-sub); }
+        .sad-split-row:last-child { border-bottom: none; }
+        .sad-split-row.is-zero { opacity: 0.5; }
+        /* sad-district-target-card */
+        .sad-district-target-card { background: var(--cg-card); border-radius: var(--cg-radius); padding: 1.1rem 1.2rem; box-shadow: var(--cg-shadow); border: none; }
+
+        @include('dashboards.state-admin._theme-styles')
     </style>
 </head>
 <body class="admin-app-body admin-app-body--dashboard admin-app-body--dash-unified admin-app-body--state-premium admin-app-body--state-theme-{{ $dashboardTheme ?? 'revamp' }}">
@@ -950,7 +998,7 @@
                 ? (int) round(($cfaTotalN / $cfaTargetN) * 100)
                 : null;
             $ringPct = $stateProgressPct !== null ? (int) min(100, max(0, $stateProgressPct)) : 0;
-            $ringCirc = 2 * M_PI * 38;
+            $ringCirc = 2 * M_PI * 55;
             $ringOffset = $ringCirc * (1 - $ringPct / 100);
 
             $sStageTotals = ['SEED' => 0, 'EARLY' => 0, 'GROWTH' => 0];
@@ -1067,14 +1115,18 @@
             $planMisaligned = $plan['misaligned'] ?? [];
         @endphp
 
-        <header class="sad-unified-strip" aria-label="Dashboard context">
-            <div class="sad-unified-strip__left">
-                <h1 class="sad-unified-strip__title">Welcome, {{ auth()->user()->name }}</h1>
+        {{-- Ground activity ticker --}}
+        <header class="cg-ticker-strip" aria-label="Dashboard context">
+            <div class="cg-ticker-strip__left">
+                <h1 class="cg-ticker-strip__title">
+                    <i class="fa-solid fa-bolt" aria-hidden="true" style="opacity:0.85;margin-right:0.3rem;"></i>
+                    Welcome, {{ auth()->user()->name }}
+                </h1>
             </div>
-            <div class="sad-unified-strip__meta">
-                <div class="sad-ground-ticker" id="sadGroundTicker" aria-live="polite" aria-atomic="true">
-                    <i class="fa-solid fa-bullhorn sad-ground-ticker__icon" aria-hidden="true"></i>
-                    <span class="sad-ground-ticker__text" id="sadGroundTickerText"></span>
+            <div class="cg-ticker-strip__meta">
+                <div class="cg-ticker-box" id="sadGroundTicker" aria-live="polite" aria-atomic="true">
+                    <i class="fa-solid fa-bullhorn cg-ticker-box__icon" aria-hidden="true"></i>
+                    <span class="cg-ticker-box__text" id="sadGroundTickerText"></span>
                 </div>
             </div>
         </header>
@@ -1084,14 +1136,10 @@
             var messages = @json($groundActivityTicker ?? []);
             var el = document.getElementById('sadGroundTickerText');
             if (!el || !messages.length) return;
-
             for (var i = messages.length - 1; i > 0; i--) {
                 var j = Math.floor(Math.random() * (i + 1));
-                var tmp = messages[i];
-                messages[i] = messages[j];
-                messages[j] = tmp;
+                var tmp = messages[i]; messages[i] = messages[j]; messages[j] = tmp;
             }
-
             var idx = 0;
             function showNext() {
                 el.classList.add('is-fading');
@@ -1101,553 +1149,796 @@
                     idx = (idx + 1) % messages.length;
                 }, 320);
             }
-
-            el.textContent = messages[0];
-            idx = 1;
+            el.textContent = messages[0]; idx = 1;
             setInterval(showNext, 7000);
         })();
         </script>
 
-        <div class="sad">
-            <div class="sad-stat-chips" role="group" aria-label="Key performance indicators">
-                <div class="sad-stat-chip sad-stat-chip--cfa" title="Phase 3 CFA submissions — {{ number_format((int) ($cfaLast30 ?? 0)) }} in last 30 days">
-                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-file-circle-plus"></i></span>
-                    <span class="sad-stat-chip__label">CFA total</span>
-                    <span class="sad-stat-chip__val">{{ number_format($cfaTotalN) }}</span>
-                </div>
-                <div class="sad-stat-chip sad-stat-chip--target" title="@if ($cfaTargetN !== null){{ number_format($cfaTotalN) }} / {{ number_format($cfaTargetN) }} toward state target@else No state CFA target set @endif">
-                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></span>
-                    <span class="sad-stat-chip__label">Target</span>
-                    <span class="sad-stat-chip__val">{{ $ringPct }}%</span>
-                </div>
-                <div class="sad-stat-chip sad-stat-chip--today @if ($todayDelta > 0) is-up @elseif ($todayDelta < 0) is-down @endif" title="@if ($todayDelta > 0)+{{ number_format($todayDelta) }} vs yesterday ({{ number_format($cfaYesterdayCount) }})@elseif ($todayDelta < 0){{ number_format(abs($todayDelta)) }} fewer vs yesterday ({{ number_format($cfaYesterdayCount) }})@else Same as yesterday ({{ number_format($cfaYesterdayCount) }})@endif">
-                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-sun"></i></span>
-                    <span class="sad-stat-chip__label">CFA today</span>
-                    <span class="sad-stat-chip__val">{{ number_format($cfaTodayCount) }}</span>
-                </div>
-                <div class="sad-stat-chip sad-stat-chip--onboard" title="@if ($onbTarget > 0){{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }} locked hub members@else Locked hub members (Phase 3)@endif">
-                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-user-check"></i></span>
-                    <span class="sad-stat-chip__label">Onboarding</span>
-                    <span class="sad-stat-chip__val">@if ($onbTarget > 0){{ $onbPct }}%@else{{ number_format($onbAchieved) }}@endif</span>
-                </div>
-                <div class="sad-stat-chip sad-stat-chip--services" title="Approved services till date — {{ number_format((int) ($servicesDeliveredThisFy ?? 0)) }} this FY">
-                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></span>
-                    <span class="sad-stat-chip__label">Services</span>
-                    <span class="sad-stat-chip__val">{{ number_format((int) ($servicesDeliveredTillDate ?? 0)) }}</span>
-                </div>
-                <div class="sad-stat-chip sad-stat-chip--districts" title="{{ number_format((int) ($insights['geo']['districts'] ?? 0)) }} of {{ number_format($districtsCount) }} districts with CFA">
-                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-map"></i></span>
-                    <span class="sad-stat-chip__label">Districts</span>
-                    <span class="sad-stat-chip__val">{{ number_format((int) ($insights['geo']['districts'] ?? 0)) }}/{{ number_format($districtsCount) }}</span>
-                </div>
-                <div class="sad-stat-chip sad-stat-chip--blocks" title="{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }} unique blocks with CFA in scope">
-                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-map-pin"></i></span>
-                    <span class="sad-stat-chip__label">Blocks</span>
-                    <span class="sad-stat-chip__val">{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</span>
-                </div>
-                <div class="sad-stat-chip sad-stat-chip--savings" title="Estimated savings from approved services this FY">
-                    <span class="sad-stat-chip__ico" aria-hidden="true"><i class="fa-solid fa-piggy-bank"></i></span>
-                    <span class="sad-stat-chip__label">Savings FY</span>
-                    <span class="sad-stat-chip__val">Rs {{ number_format($savingsTotalThisFy, 0) }}</span>
-                </div>
+        {{-- Page header row --}}
+        <div class="cg-page-head">
+            <div>
+                <h1 class="cg-page-title">State Command Dashboard</h1>
+                <p class="cg-page-sub">{{ $fyLabel }} · Live performance data</p>
             </div>
-
-            <div class="sad-alerts" role="status">
+            <div class="cg-page-head-right">
                 @if (($todayZeroDistricts ?? 0) > 0)
-                    <span class="sad-alert sad-alert--warn">
+                    <span class="cg-alert cg-alert--warn">
                         <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
                         {{ number_format((int) $todayZeroDistricts) }} district(s) with zero CFA today
                     </span>
                 @endif
                 @if ($todayTopDistrict)
-                    <span class="sad-alert sad-alert--ok">
+                    <span class="cg-alert cg-alert--ok">
                         <i class="fa-solid fa-trophy" aria-hidden="true"></i>
                         Top today: {{ $todayTopDistrict['name'] }} ({{ number_format((int) $todayTopDistrict['count']) }})
                     </span>
                 @endif
                 @if (($cfaWoWDeltaPct ?? 0) !== 0)
-                    <span class="sad-alert sad-alert--info">
+                    <span class="cg-alert cg-alert--info">
                         <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
                         7-day CFA {{ ($cfaWoWDeltaPct ?? 0) > 0 ? 'up' : 'down' }} {{ abs((int) ($cfaWoWDeltaPct ?? 0)) }}% vs prior week
                     </span>
                 @endif
-                @if ($planPct !== null && ! ($plan['all_aligned'] ?? false))
-                    <span class="sad-alert sad-alert--warn">
-                        <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i>
-                        CFA + services: {{ (int) $planPct }}% deliverables aligned ({{ (int) ($plan['aligned_count'] ?? 0) }}/{{ (int) ($plan['tracked_count'] ?? 0) }})
+            </div>
+        </div>
+
+        {{-- ═══════════════════════════════════════════════
+             HERO KPI CARDS — 3 large cards like reference
+             ═══════════════════════════════════════════════ --}}
+        <div class="cg-hero-row" role="group" aria-label="Primary KPIs">
+
+            {{-- Card 1: CFA Total --}}
+            <div class="cg-hero-card">
+                <div class="cg-hero-card__top">
+                    <span class="cg-hero-icon cg-hero-icon--green" aria-hidden="true">
+                        <i class="fa-solid fa-file-circle-plus"></i>
                     </span>
+                    <span class="cg-hero-card__label">CFA Total</span>
+                    <a href="{{ route('admin.cfa.index') }}" class="cg-hero-card__arrow" title="View CFA">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+                <div class="cg-hero-card__val">{{ number_format($cfaTotalN) }}</div>
+                @if ($todayDelta > 0)
+                    <div class="cg-hero-card__trend cg-hero-card__trend--up">
+                        <i class="fa-solid fa-arrow-up"></i> {{ number_format($todayDelta) }} today
+                    </div>
+                @elseif ($todayDelta < 0)
+                    <div class="cg-hero-card__trend cg-hero-card__trend--down">
+                        <i class="fa-solid fa-arrow-down"></i> {{ number_format(abs($todayDelta)) }} today
+                    </div>
+                @else
+                    <div class="cg-hero-card__trend cg-hero-card__trend--flat">
+                        <i class="fa-solid fa-minus"></i> Same as yesterday
+                    </div>
                 @endif
+                @if ($sparkLine)
+                    <div class="cg-spark" aria-hidden="true" title="30-day CFA volume: {{ number_format($sparkSum) }} total">
+                        <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="cgSparkGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#26a69a" stop-opacity="0.5"/>
+                                    <stop offset="100%" stop-color="#26a69a" stop-opacity="0"/>
+                                </linearGradient>
+                            </defs>
+                            <polygon class="cg-spark__fill" points="{{ $sparkFill }}"/>
+                            <polyline class="cg-spark__line" points="{{ $sparkLine }}"/>
+                            @if ($sparkDotX !== null && $sparkDotY !== null)
+                                <circle class="cg-spark__dot" cx="{{ $sparkDotX }}" cy="{{ $sparkDotY }}" r="2.5"/>
+                            @endif
+                        </svg>
+                    </div>
+                @endif
+                <div class="cg-hero-card__foot">
+                    <span>Phase 3 · {{ $phaseLabel }} onward</span>
+                    <span class="cg-hero-card__pill">Live</span>
+                </div>
             </div>
 
-            <nav class="sad-nav" aria-label="Dashboard sections">
-                <button type="button" class="sad-nav__btn is-active" data-sad-tab="overview">
-                    <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Overview
-                </button>
-                <button type="button" class="sad-nav__btn" data-sad-tab="insights">
-                    <i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Insights
-                </button>
-                <button type="button" class="sad-nav__btn" data-sad-tab="districts">
-                    <i class="fa-solid fa-map" aria-hidden="true"></i> Districts
-                </button>
-                <button type="button" class="sad-nav__btn" data-sad-tab="team">
-                    <i class="fa-solid fa-users-gear" aria-hidden="true"></i> Team performance
-                </button>
-                <button type="button" class="sad-nav__btn" data-sad-tab="impact">
-                    <i class="fa-solid fa-seedling" aria-hidden="true"></i> Impact &amp; savings
-                </button>
-            </nav>
+            {{-- Card 2: Total Onboarding --}}
+            <div class="cg-hero-card">
+                <div class="cg-hero-card__top">
+                    <span class="cg-hero-icon cg-hero-icon--blue" aria-hidden="true">
+                        <i class="fa-solid fa-user-check"></i>
+                    </span>
+                    <span class="cg-hero-card__label">Total Onboarding</span>
+                    <a href="{{ route('admin.onboarded.index') }}" class="cg-hero-card__arrow" title="View onboarded">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+                <div class="cg-hero-card__val">{{ number_format($onbAchieved) }}</div>
+                @if ($onbTarget > 0)
+                    <div class="cg-hero-card__trend {{ $onbPct >= 100 ? 'cg-hero-card__trend--up' : 'cg-hero-card__trend--flat' }}">
+                        <i class="fa-solid fa-bullseye"></i> {{ $onbPct }}% of {{ number_format($onbTarget) }} target
+                    </div>
+                @else
+                    <div class="cg-hero-card__trend cg-hero-card__trend--flat">Locked hub members</div>
+                @endif
+                <div class="cg-hero-card__foot">
+                    <span>Phase 3 · locked batches</span>
+                    <span class="cg-hero-card__pill">{{ $fyLabel }}</span>
+                </div>
+            </div>
 
-            {{-- OVERVIEW --}}
-            <section class="sad-panel is-active" data-sad-panel="overview">
-                <div class="sad-grid sad-grid--2">
-                    <div class="sad-card">
-                        <div class="sad-card__head">
-                            <h2 class="sad-card__title"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Program intelligence</h2>
-                            @if ($achPct !== null)
-                                <span class="sad-card__tag">{{ $achPct }}% achieved</span>
-                            @endif
-                        </div>
-                        @if ($cfaTargetN !== null && $cfaTargetN > 0)
-                            <div class="sad-progress-block">
-                                <div class="sad-progress-top">
-                                    <span>CFA vs state target</span>
-                                    <strong>{{ number_format($cfaTotalN) }} / {{ number_format($cfaTargetN) }}</strong>
-                                </div>
-                                <div class="sad-progress-track">
-                                    <div class="sad-progress-fill" style="width: {{ min(100, max(0, $achPct ?? 0)) }}%;"></div>
-                                </div>
-                                <p class="sad-progress-foot">Gap to target: <strong>{{ number_format($insGap) }}</strong> applications.</p>
+            {{-- Card 3: Business Stage Mix (Early / Seed / Growth) --}}
+            <div class="cg-hero-card">
+                <div class="cg-hero-card__top">
+                    <span class="cg-hero-icon cg-hero-icon--pink" aria-hidden="true">
+                        <i class="fa-solid fa-seedling"></i>
+                    </span>
+                    <span class="cg-hero-card__label">Stage Mix</span>
+                    <button class="cg-hero-card__arrow" onclick="document.querySelector('[data-sad-tab=overview]')?.click();" title="View stage mix">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </button>
+                </div>
+                {{-- Big number = total CFA with stage data --}}
+                <div class="cg-hero-card__val" style="font-size:1.55rem;">{{ number_format($sStageSum) }}</div>
+                {{-- Stage mix badge --}}
+                @if ($sStageSum > 0)
+                    <div class="cg-hero-card__trend {{ $stagePolicyWithinTolerance ? 'cg-hero-card__trend--up' : 'cg-hero-card__trend--flat' }}">
+                        @if ($stagePolicyWithinTolerance)
+                            <i class="fa-solid fa-circle-check"></i> Within policy mix
+                        @else
+                            <i class="fa-solid fa-triangle-exclamation"></i> {{ $stagePolicyDeviationTotal }}pp drift
+                        @endif
+                    </div>
+                @else
+                    <div class="cg-hero-card__trend cg-hero-card__trend--flat">No stage data yet</div>
+                @endif
+                {{-- Early / Seed / Growth mini bars --}}
+                <div style="display:flex;flex-direction:column;gap:0.3rem;margin:0.6rem 0 0.5rem;">
+                    @php
+                        $stageColorMap = ['EARLY' => '#ff9500', 'SEED' => '#d97706', 'GROWTH' => '#26a69a'];
+                        $stageLabelMap = ['EARLY' => 'Early', 'SEED' => 'Seed', 'GROWTH' => 'Growth'];
+                    @endphp
+                    @foreach (['EARLY','SEED','GROWTH'] as $sk)
+                        @php
+                            $skCount = $sStageTotals[$sk] ?? 0;
+                            $skPct   = $sStagePct[$sk] ?? 0;
+                            $skColor = $stageColorMap[$sk];
+                        @endphp
+                        <div style="display:flex;align-items:center;gap:0.45rem;font-size:0.72rem;">
+                            <span style="width:3.2rem;font-weight:700;color:#3c3c43;">{{ $stageLabelMap[$sk] }}</span>
+                            <div style="flex:1;height:5px;border-radius:999px;background:#f2f2f7;overflow:hidden;">
+                                <div style="height:100%;border-radius:999px;background:{{ $skColor }};width:{{ $skPct }}%;"></div>
                             </div>
-                            @if ($planPct !== null)
-                                <div class="sad-progress-block">
-                                    <div class="sad-progress-top">
-                                        <span>District plan alignment (CFA + services)</span>
-                                        <strong>{{ (int) $planPct }}%</strong>
-                                    </div>
-                                    <div class="sad-progress-track">
-                                        <div class="sad-progress-fill sad-progress-fill--sky" style="width: {{ min(100, (int) $planPct) }}%;"></div>
-                                    </div>
-                                    <p class="sad-progress-foot">
-                                        <strong>{{ (int) ($plan['aligned_count'] ?? 0) }} of {{ (int) ($plan['tracked_count'] ?? 0) }}</strong> deliverables with state target have matching district totals.
-                                        Combined district {{ number_format((int) ($plan['district_total'] ?? 0)) }} vs state {{ number_format((int) ($plan['state_total'] ?? 0)) }}.
-                                        @if ($activeFy)
-                                            <a href="{{ route('admin.targets.district', ['fiscal_year_id' => $activeFy->id]) }}">District targets</a>
-                                        @endif
-                                    </p>
-                                    <div class="sad-align-status">
-                                        @if ($planCfa['tracked'] ?? false)
-                                            <span class="sad-align-pill {{ ($planCfa['aligned'] ?? false) ? 'sad-align-pill--ok' : 'sad-align-pill--bad' }}">
-                                                CFA {{ ($planCfa['aligned'] ?? false) ? 'aligned' : 'mismatch' }}
-                                                ({{ number_format((int) ($planCfa['district'] ?? 0)) }}/{{ number_format((int) ($planCfa['state'] ?? 0)) }})
-                                            </span>
-                                        @else
-                                            <span class="sad-align-pill sad-align-pill--bad">CFA target not set</span>
-                                        @endif
-                                        @if (($planSvc['tracked_count'] ?? 0) > 0)
-                                            <span class="sad-align-pill {{ ($planSvc['all_aligned'] ?? false) ? 'sad-align-pill--ok' : 'sad-align-pill--bad' }}">
-                                                Services {{ (int) ($planSvc['aligned_count'] ?? 0) }}/{{ (int) ($planSvc['tracked_count'] ?? 0) }} aligned
-                                                ({{ number_format((int) ($planSvc['district'] ?? 0)) }}/{{ number_format((int) ($planSvc['state'] ?? 0)) }})
-                                            </span>
-                                        @else
-                                            <span class="sad-align-pill sad-align-pill--bad">No service targets set</span>
-                                        @endif
-                                    </div>
-                                    @if (count($planMisaligned) > 0)
-                                        <details class="sad-details" style="margin-top:0.35rem;">
-                                            <summary>{{ count($planMisaligned) }} deliverable(s) need district fix</summary>
-                                            <ul class="sad-align-gaps">
-                                                @foreach ($planMisaligned as $gap)
-                                                    <li>
-                                                        <strong>{{ $gap['name'] }}</strong>
-                                                        ({{ $gap['kind'] === 'cfa' ? 'CFA' : 'Service' }}):
-                                                        district {{ number_format((int) $gap['district']) }}
-                                                        vs state {{ number_format((int) $gap['state']) }}
-                                                        — gap {{ number_format((int) $gap['gap']) }}
-                                                    </li>
-                                                @endforeach
-                                            </ul>
-                                        </details>
-                                    @elseif ($plan['all_aligned'] ?? false)
-                                        <p class="sad-progress-foot" style="color:#047857;margin-top:0.35rem;">
-                                            <i class="fa-solid fa-circle-check" aria-hidden="true"></i> All CFA and service district targets match state plan.
-                                        </p>
+                            <span style="font-weight:800;color:#1c1c1e;min-width:2.4rem;text-align:right;">{{ number_format($skCount) }}</span>
+                            <span style="color:#8e8e93;min-width:2rem;text-align:right;">{{ $skPct }}%</span>
+                        </div>
+                    @endforeach
+                </div>
+                <div class="cg-hero-card__foot">
+                    <span>CFA with stage data</span>
+                    <span class="cg-hero-card__pill">Policy: E60·S30·G10</span>
+                </div>
+            </div>
+        </div>
+
+        {{-- ═══════════════════════════════════════════════
+             SECONDARY CHIPS — 5 smaller KPIs
+             ═══════════════════════════════════════════════ --}}
+        <div class="cg-chips-row" role="group" aria-label="Secondary KPIs">
+            <div class="cg-chip cg-chip--today" title="Today's CFA vs yesterday ({{ number_format($cfaYesterdayCount) }})">
+                <div class="cg-chip-ico cg-chip-ico--yellow"><i class="fa-solid fa-sun"></i></div>
+                <div class="cg-chip-body">
+                    <div class="cg-chip-label">CFA Today</div>
+                    <div class="cg-chip-val @if ($todayDelta > 0) is-up @elseif ($todayDelta < 0) is-down @endif">
+                        {{ number_format($cfaTodayCount) }}
+                    </div>
+                </div>
+            </div>
+            <div class="cg-chip cg-chip--onboard" title="{{ $onbTarget > 0 ? number_format($onbAchieved).' / '.number_format($onbTarget).' locked hub members' : 'Locked hub members' }}">
+                <div class="cg-chip-ico cg-chip-ico--rose"><i class="fa-solid fa-user-check"></i></div>
+                <div class="cg-chip-body">
+                    <div class="cg-chip-label">Onboarding</div>
+                    <div class="cg-chip-val">
+                        @if ($onbTarget > 0){{ $onbPct }}%@else{{ number_format($onbAchieved) }}@endif
+                    </div>
+                </div>
+            </div>
+            <div class="cg-chip cg-chip--target" title="{{ $cfaTargetN !== null ? number_format($cfaTotalN).' / '.number_format($cfaTargetN).' toward state target' : 'No CFA target set' }}">
+                <div class="cg-chip-ico cg-chip-ico--amber"><i class="fa-solid fa-bullseye"></i></div>
+                <div class="cg-chip-body">
+                    <div class="cg-chip-label">Target</div>
+                    <div class="cg-chip-val">{{ $ringPct }}%</div>
+                </div>
+            </div>
+            <div class="cg-chip cg-chip--blocks" title="{{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }} blocks · {{ number_format($hubsCount) }} hubs">
+                <div class="cg-chip-ico cg-chip-ico--green"><i class="fa-solid fa-map-pin"></i></div>
+                <div class="cg-chip-body">
+                    <div class="cg-chip-label">Hubs / Blocks</div>
+                    <div class="cg-chip-val">{{ number_format($hubsCount) }} / {{ number_format((int) ($insights['geo']['blocks'] ?? 0)) }}</div>
+                </div>
+            </div>
+            <div class="cg-chip cg-chip--savings" title="Estimated savings from approved services this FY">
+                <div class="cg-chip-ico cg-chip-ico--purple"><i class="fa-solid fa-piggy-bank"></i></div>
+                <div class="cg-chip-body">
+                    <div class="cg-chip-label">Savings FY</div>
+                    <div class="cg-chip-val">₹{{ number_format($savingsTotalThisFy, 0) }}</div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Plan alignment alert --}}
+        @if ($planPct !== null && ! ($plan['all_aligned'] ?? false))
+            <div class="cg-alerts-row">
+                <span class="cg-alert cg-alert--warn">
+                    <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i>
+                    CFA + services: {{ (int) $planPct }}% deliverables aligned
+                    ({{ (int) ($plan['aligned_count'] ?? 0) }}/{{ (int) ($plan['tracked_count'] ?? 0) }})
+                </span>
+            </div>
+        @endif
+
+        {{-- ═══════════════════════════════════════════════
+             PILL TAB NAVIGATION
+             ═══════════════════════════════════════════════ --}}
+        <nav class="cg-tabs" aria-label="Dashboard sections">
+            <button type="button" class="cg-tab is-active" data-sad-tab="overview">
+                <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Overview
+            </button>
+            <button type="button" class="cg-tab" data-sad-tab="insights">
+                <i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Insights
+            </button>
+            <button type="button" class="cg-tab" data-sad-tab="districts">
+                <i class="fa-solid fa-map" aria-hidden="true"></i> Districts
+            </button>
+            <button type="button" class="cg-tab" data-sad-tab="team">
+                <i class="fa-solid fa-users-gear" aria-hidden="true"></i> Team
+            </button>
+            <button type="button" class="cg-tab" data-sad-tab="impact">
+                <i class="fa-solid fa-seedling" aria-hidden="true"></i> Impact &amp; Savings
+            </button>
+        </nav>
+
+        {{-- ═══════════════════════════════════════════════
+             OVERVIEW PANEL — 3 columns like reference
+             ═══════════════════════════════════════════════ --}}
+        <section class="cg-panel sad-panel is-active" data-sad-panel="overview">
+
+            {{-- Main 3-column row --}}
+            <div class="cg-main-row">
+
+                {{-- Column 1: Program Intelligence (Task Progress style) --}}
+                <div class="cg-card">
+                    <div class="cg-card__head">
+                        <h2 class="cg-card__title">
+                            <i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Program Intelligence
+                        </h2>
+                        @if ($achPct !== null)
+                            <span class="cg-card__tag">{{ $achPct }}% achieved</span>
+                        @endif
+                    </div>
+
+                    @if ($achPct !== null)
+                        <div class="cg-prog-big">{{ $achPct }}%</div>
+                        <div class="cg-prog-sub">Average CFA target achievement</div>
+                    @endif
+
+                    @if ($cfaTargetN !== null && $cfaTargetN > 0)
+                        <div class="cg-progress">
+                            <div class="cg-progress__top">
+                                <span>CFA vs state target</span>
+                                <strong>{{ number_format($cfaTotalN) }} / {{ number_format($cfaTargetN) }}</strong>
+                            </div>
+                            <div class="cg-progress__track">
+                                <div class="cg-progress__fill cg-progress__fill--teal" style="width: {{ min(100, max(0, $achPct ?? 0)) }}%;"></div>
+                            </div>
+                            <p class="cg-progress__foot">Gap to target: <strong>{{ number_format($insGap) }}</strong> applications.</p>
+                        </div>
+
+                        @if ($planPct !== null)
+                            <div class="cg-progress">
+                                <div class="cg-progress__top">
+                                    <span>District plan alignment</span>
+                                    <strong>{{ (int) $planPct }}%</strong>
+                                </div>
+                                <div class="cg-progress__track">
+                                    <div class="cg-progress__fill cg-progress__fill--blue" style="width: {{ min(100, (int) $planPct) }}%;"></div>
+                                </div>
+                                <p class="cg-progress__foot">
+                                    <strong>{{ (int) ($plan['aligned_count'] ?? 0) }} of {{ (int) ($plan['tracked_count'] ?? 0) }}</strong> deliverables aligned.
+                                    @if ($activeFy)
+                                        <a href="{{ route('admin.targets.district', ['fiscal_year_id' => $activeFy->id]) }}">District targets →</a>
+                                    @endif
+                                </p>
+                                <div class="cg-align-status">
+                                    @if ($planCfa['tracked'] ?? false)
+                                        <span class="cg-align-pill {{ ($planCfa['aligned'] ?? false) ? 'cg-align-pill--ok' : 'cg-align-pill--bad' }}">
+                                            CFA {{ ($planCfa['aligned'] ?? false) ? 'aligned' : 'mismatch' }}
+                                            ({{ number_format((int) ($planCfa['district'] ?? 0)) }}/{{ number_format((int) ($planCfa['state'] ?? 0)) }})
+                                        </span>
+                                    @else
+                                        <span class="cg-align-pill cg-align-pill--bad">CFA target not set</span>
+                                    @endif
+                                    @if (($planSvc['tracked_count'] ?? 0) > 0)
+                                        <span class="cg-align-pill {{ ($planSvc['all_aligned'] ?? false) ? 'cg-align-pill--ok' : 'cg-align-pill--bad' }}">
+                                            Services {{ (int) ($planSvc['aligned_count'] ?? 0) }}/{{ (int) ($planSvc['tracked_count'] ?? 0) }} aligned
+                                        </span>
+                                    @else
+                                        <span class="cg-align-pill cg-align-pill--bad">No service targets set</span>
                                     @endif
                                 </div>
-                            @elseif ($cfaTargetN !== null && $cfaTargetN > 0)
-                                <p class="sad-progress-foot">Set service state targets in <a href="{{ route('admin.targets.state') }}">State targets</a>, then split by district for full alignment view.</p>
-                            @endif
-                        @else
-                            <p class="sad-progress-foot">Configure CFA state target in <a href="{{ route('admin.targets.state') }}">State targets</a> to unlock progress tracking.</p>
-                        @endif
-
-                        @if ($onbTarget > 0)
-                            <div class="sad-progress-block">
-                                <div class="sad-progress-top">
-                                    <span>Onboarding (locked batches)</span>
-                                    <strong>{{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }}</strong>
-                                </div>
-                                <div class="sad-progress-track">
-                                    <div class="sad-progress-fill sad-progress-fill--sky" style="width: {{ min(100, $onbPct) }}%;"></div>
-                                </div>
-                                <p class="sad-progress-foot">Remaining gap: <strong>{{ number_format($onbGap) }}</strong>.</p>
+                                @if (count($planMisaligned) > 0)
+                                    <details class="cg-details" style="margin-top:0.35rem;">
+                                        <summary>{{ count($planMisaligned) }} deliverable(s) need district fix</summary>
+                                        <ul class="cg-align-gaps">
+                                            @foreach ($planMisaligned as $gap)
+                                                <li>
+                                                    <strong>{{ $gap['name'] }}</strong>
+                                                    ({{ $gap['kind'] === 'cfa' ? 'CFA' : 'Service' }}):
+                                                    district {{ number_format((int) $gap['district']) }}
+                                                    vs state {{ number_format((int) $gap['state']) }}
+                                                    — gap {{ number_format((int) $gap['gap']) }}
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    </details>
+                                @elseif ($plan['all_aligned'] ?? false)
+                                    <p class="cg-progress__foot" style="color:#1b5e20;margin-top:0.35rem;">
+                                        <i class="fa-solid fa-circle-check" aria-hidden="true"></i> All CFA and service targets aligned.
+                                    </p>
+                                @endif
                             </div>
+                        @elseif ($cfaTargetN !== null && $cfaTargetN > 0)
+                            <p class="cg-progress__foot">Set service targets in <a href="{{ route('admin.targets.state') }}">State targets</a> for full alignment view.</p>
                         @endif
+                    @else
+                        <p class="cg-progress__foot">Configure CFA state target in <a href="{{ route('admin.targets.state') }}">State targets</a>.</p>
+                    @endif
 
-                        <div class="sad-signals">
-                            <div class="sad-signal">
-                                <span>Last 7 days CFA</span>
-                                <strong>{{ number_format((int) ($cfaLast7 ?? 0)) }}</strong>
+                    @if ($onbTarget > 0)
+                        <div class="cg-progress">
+                            <div class="cg-progress__top">
+                                <span>Onboarding (locked batches)</span>
+                                <strong>{{ number_format($onbAchieved) }} / {{ number_format($onbTarget) }}</strong>
                             </div>
-                            <div class="sad-signal">
-                                <span>Week-over-week</span>
-                                <span class="sad-chip {{ ($cfaWoWDeltaPct ?? 0) > 0 ? 'up' : (($cfaWoWDeltaPct ?? 0) < 0 ? 'down' : 'flat') }}">
-                                    {{ ($cfaWoWDeltaPct ?? 0) > 0 ? '+' : '' }}{{ (int) ($cfaWoWDeltaPct ?? 0) }}%
+                            <div class="cg-progress__track">
+                                <div class="cg-progress__fill cg-progress__fill--pink" style="width: {{ min(100, $onbPct) }}%;"></div>
+                            </div>
+                            <p class="cg-progress__foot">Remaining gap: <strong>{{ number_format($onbGap) }}</strong>.</p>
+                        </div>
+                    @endif
+
+                    {{-- Stage mix bars (like the colored bars in Task Progress card) --}}
+                    @if ($sStageSum > 0)
+                        <div class="cg-stage-mix">
+                            <div class="cg-stage-mix__head">
+                                <p class="cg-stage-mix__title">Stage mix vs policy (Early 60 · Seed 30 · Growth 10)</p>
+                                <span class="cg-stage-badge {{ $stagePolicyWithinTolerance ? 'cg-stage-badge--ok' : 'cg-stage-badge--warn' }}">
+                                    @if ($stagePolicyWithinTolerance)
+                                        <i class="fa-solid fa-circle-check" aria-hidden="true"></i> On policy
+                                    @else
+                                        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ $stagePolicyDeviationTotal }}pp drift
+                                    @endif
                                 </span>
                             </div>
-                            <div class="sad-signal">
-                                <span>This month</span>
-                                <strong>{{ number_format((int) ($cfaThisMonth ?? 0)) }}</strong>
-                            </div>
-                            <div class="sad-signal">
-                                <span>Hubs / deliverables</span>
-                                <strong>{{ number_format($hubsCount) }} / {{ number_format($deliverablesCount) }}</strong>
-                            </div>
+                            <p class="cg-stage-legend"><span class="cg-stage-legend-tick" aria-hidden="true"></span> Dark tick = policy target</p>
+                            @foreach ($stagePolicyRows as $stageRow)
+                                <div class="cg-stage-row">
+                                    <div class="cg-stage-label-row">
+                                        <span>{{ $stageRow['label'] }}</span>
+                                        <span class="cg-stage-nums">{{ $stageRow['actual'] }}% · target {{ $stageRow['target'] }}%</span>
+                                    </div>
+                                    <div class="cg-stage-track" title="{{ $stageRow['label'] }}: {{ $stageRow['actual'] }}% actual vs {{ $stageRow['target'] }}% policy">
+                                        <div class="cg-stage-track__fill cg-stage-fill--{{ strtolower($stageRow['key']) }}" style="width: {{ min(100, max(0, $stageRow['actual'])) }}%;"></div>
+                                        <span class="cg-stage-track__target" style="left: {{ $stageRow['target'] }}%;" aria-hidden="true"></span>
+                                    </div>
+                                    <div class="cg-stage-foot">
+                                        <span>{{ number_format($stageRow['count']) }} forms</span>
+                                        <span class="cg-stage-delta is-{{ $stageRow['status'] }}">
+                                            @if ($stageRow['status'] === 'ok') On target (±5pp)
+                                            @elseif ($stageRow['delta'] > 0) +{{ $stageRow['delta'] }}pp above
+                                            @else {{ $stageRow['delta'] }}pp below
+                                            @endif
+                                        </span>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Column 2: CFA Status / Ring chart (Project Status style) --}}
+                <div class="cg-card">
+                    <div class="cg-card__head">
+                        <h2 class="cg-card__title">
+                            <i class="fa-solid fa-chart-pie" aria-hidden="true"></i> CFA Status
+                        </h2>
+                        <div class="cg-card-btn-group" aria-label="Chart view">
+                            <button class="cg-icon-btn" title="Absolute">∑</button>
+                            <button class="cg-icon-btn" title="Percentage">%</button>
                         </div>
                     </div>
 
-                    <div class="sad-card">
-                        <div class="sad-card__head">
-                            <h2 class="sad-card__title"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> State pulse</h2>
-                            <span class="sad-card__tag">FY pace</span>
-                        </div>
-                        <div class="sad-ring-wrap">
-                            <svg class="sad-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
-                                <defs>
-                                    <linearGradient id="sadRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="var(--sad-brand-deep)"/>
-                                        <stop offset="100%" stop-color="var(--sad-brand)"/>
-                                    </linearGradient>
-                                </defs>
-                                <circle class="track" cx="50" cy="50" r="38"/>
-                                <circle class="bar" cx="50" cy="50" r="38"
-                                    stroke-dasharray="{{ round($ringCirc, 3) }}"
-                                    stroke-dashoffset="{{ round($ringOffset, 3) }}"/>
-                                <text class="pct" x="50" y="52" text-anchor="middle" dominant-baseline="middle">{{ $ringPct }}%</text>
-                            </svg>
-                            <div>
-                                <div class="sad-ring-meta__big">{{ number_format($cfaTotalN) }}</div>
-                                <div class="sad-ring-meta__lbl">Phase 3 CFA · {{ $phaseLabel }} onward</div>
-                                @if ($sparkLine)
-                                    <div class="sad-spark sad-spark--live" title="30-day CFA volume: {{ number_format($sparkSum) }} total" aria-hidden="true">
-                                        <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
-                                            <defs>
-                                                <linearGradient id="sadSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stop-color="var(--sad-brand)" stop-opacity="0.45"/>
-                                                    <stop offset="100%" stop-color="var(--sad-brand)" stop-opacity="0"/>
-                                                </linearGradient>
-                                            </defs>
-                                            <polygon class="sad-spark__fill" points="{{ $sparkFill }}"/>
-                                            <polyline class="sad-spark__line" points="{{ $sparkLine }}"/>
-                                            @if ($sparkDotX !== null && $sparkDotY !== null)
-                                                <circle class="sad-spark__dot" cx="{{ $sparkDotX }}" cy="{{ $sparkDotY }}" r="2"/>
-                                            @endif
-                                        </svg>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
+                    {{-- Ring chart like Project Status donut --}}
+                    <div class="cg-ring-wrap" aria-hidden="true">
+                        <svg class="cg-ring-svg" viewBox="0 0 120 120">
+                            <defs>
+                                <linearGradient id="cgRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#00897b"/>
+                                    <stop offset="100%" stop-color="#4db6ac"/>
+                                </linearGradient>
+                            </defs>
+                            <circle class="cg-track" cx="60" cy="60" r="55"/>
+                            <circle class="cg-bar" cx="60" cy="60" r="55"
+                                stroke-dasharray="{{ round($ringCirc, 3) }}"
+                                stroke-dashoffset="{{ round($ringOffset, 3) }}"/>
+                            <text class="cg-pct" x="60" y="56" text-anchor="middle" dominant-baseline="middle">{{ $ringPct }}%</text>
+                            <text class="cg-pct-sub" x="60" y="72" text-anchor="middle" dominant-baseline="middle">of target</text>
+                        </svg>
+                    </div>
+
+                    {{-- Breakdown rows below ring --}}
+                    <div class="cg-breakdown">
                         @php
-                            $paceChart = $stateFyPaceChart ?? [];
-                            $paceCfaTarget = $paceChart['cfa_target'] ?? null;
-                            $paceOnbTarget = $paceChart['onboarding_target'] ?? null;
+                            $svcTillDate = (int)($servicesDeliveredTillDate ?? 0);
+                            $svcThisFyBd = (int)($servicesDeliveredThisFy ?? 0);
+                            $cfaLast30Bd = (int)($cfaLast30 ?? 0);
+                            $cfaThisMonthBd = (int)($cfaThisMonth ?? 0);
+                            $bdMax = max($cfaTotalN, $svcTillDate, $onbAchieved, 1);
                         @endphp
-                        <div class="sad-pulse-tabs" role="tablist" aria-label="State pulse chart views">
-                            <button type="button" class="sad-pulse-tab is-active" data-sad-pulse-tab="pace" aria-selected="true">Pace %</button>
-                            <button type="button" class="sad-pulse-tab" data-sad-pulse-tab="cfa" aria-selected="false">CFA</button>
-                            <button type="button" class="sad-pulse-tab" data-sad-pulse-tab="onboarding" aria-selected="false">Onboarding</button>
-                            <button type="button" class="sad-pulse-tab" data-sad-pulse-tab="daily" aria-selected="false">Daily 14d</button>
-                        </div>
-                        <p class="sad-pulse-hint" data-sad-pulse-hint>
-                            Cumulative achievement vs prorated FY target — 100% line means on pace.
-                            @if ($paceCfaTarget)
-                                CFA target {{ number_format((int) $paceCfaTarget) }}@if ($paceOnbTarget) · Onboard target {{ number_format((int) $paceOnbTarget) }}@endif.
-                            @endif
-                        </p>
-                        <div class="sad-chart-box sad-chart-box--pulse" style="margin-top:0.15rem;">
-                            <canvas id="stateTrendCurveChart" aria-label="CFA and onboarding pace chart"></canvas>
-                        </div>
-                        <div class="sad-stage-mix">
-                            <div class="sad-stage-mix__head">
-                                <p class="sad-stage-mix__title">Stage mix vs policy (Early 60 · Seed 30 · Growth 10)</p>
-                                @if ($sStageSum > 0)
-                                    <span class="sad-stage-mix__badge {{ $stagePolicyWithinTolerance ? 'sad-stage-mix__badge--ok' : 'sad-stage-mix__badge--warn' }}">
-                                        @if ($stagePolicyWithinTolerance)
-                                            <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Within policy mix
-                                        @else
-                                            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Mix drift · {{ $stagePolicyDeviationTotal }}pp off
-                                        @endif
-                                    </span>
-                                @endif
+                        <div class="cg-breakdown-row">
+                            <span class="cg-breakdown-dot cg-breakdown-dot--green"></span>
+                            <span class="cg-breakdown-label">CFA Phase 3</span>
+                            <div class="cg-breakdown-bar-wrap">
+                                <div class="cg-breakdown-bar-track">
+                                    <div class="cg-breakdown-bar-fill" style="width:{{ $bdMax > 0 ? min(100, round($cfaTotalN/$bdMax*100)) : 0 }}%; background: #34c759;"></div>
+                                </div>
                             </div>
-                            @if ($sStageSum <= 0)
-                                <div class="sad-empty" style="padding:0.5rem 0;">No stage data yet</div>
-                            @else
-                                <p class="sad-stage-mix__legend"><span class="sad-stage-mix__legend-tick" aria-hidden="true"></span> Dark tick = policy target · Coloured bar = actual share</p>
-                                @foreach ($stagePolicyRows as $stageRow)
-                                    <div class="sad-stage-mix__row">
-                                        <div class="sad-stage-mix__label-row">
-                                            <span>{{ $stageRow['label'] }}</span>
-                                            <span class="sad-stage-mix__nums">{{ $stageRow['actual'] }}% actual · {{ $stageRow['target'] }}% target</span>
-                                        </div>
-                                        <div class="sad-stage-track" title="{{ $stageRow['label'] }}: {{ $stageRow['actual'] }}% actual vs {{ $stageRow['target'] }}% policy target">
-                                            <div class="sad-stage-track__fill sad-stage-fill--{{ strtolower($stageRow['key']) }}" style="width: {{ min(100, max(0, $stageRow['actual'])) }}%;"></div>
-                                            <span class="sad-stage-track__target" style="left: {{ $stageRow['target'] }}%;" aria-hidden="true"></span>
-                                        </div>
-                                        <div class="sad-stage-mix__foot">
-                                            <span>{{ number_format($stageRow['count']) }} forms</span>
-                                            <span class="sad-stage-mix__delta is-{{ $stageRow['status'] }}">
-                                                @if ($stageRow['status'] === 'ok')
-                                                    On target (±5pp)
-                                                @elseif ($stageRow['delta'] > 0)
-                                                    +{{ $stageRow['delta'] }}pp above target
-                                                @else
-                                                    {{ $stageRow['delta'] }}pp below target
-                                                @endif
-                                            </span>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            @endif
+                            <span class="cg-breakdown-val">{{ number_format($cfaTotalN) }}</span>
+                        </div>
+                        <div class="cg-breakdown-row">
+                            <span class="cg-breakdown-dot cg-breakdown-dot--blue"></span>
+                            <span class="cg-breakdown-label">Services delivered</span>
+                            <div class="cg-breakdown-bar-wrap">
+                                <div class="cg-breakdown-bar-track">
+                                    <div class="cg-breakdown-bar-fill" style="width:{{ $bdMax > 0 ? min(100, round($svcTillDate/$bdMax*100)) : 0 }}%; background: #007aff;"></div>
+                                </div>
+                            </div>
+                            <span class="cg-breakdown-val">{{ number_format($svcTillDate) }}</span>
+                        </div>
+                        @if ($onbAchieved > 0)
+                        <div class="cg-breakdown-row">
+                            <span class="cg-breakdown-dot" style="background:#ff9500;"></span>
+                            <span class="cg-breakdown-label">Onboarded</span>
+                            <div class="cg-breakdown-bar-wrap">
+                                <div class="cg-breakdown-bar-track">
+                                    <div class="cg-breakdown-bar-fill" style="width:{{ $bdMax > 0 ? min(100, round($onbAchieved/$bdMax*100)) : 0 }}%; background: #ff9500;"></div>
+                                </div>
+                            </div>
+                            <span class="cg-breakdown-val">{{ number_format($onbAchieved) }}</span>
+                        </div>
+                        @endif
+                        @if ($cfaTargetN !== null && $cfaTargetN > 0)
+                        <div class="cg-breakdown-row">
+                            <span class="cg-breakdown-dot" style="background:#e5e5ea;"></span>
+                            <span class="cg-breakdown-label" style="color:#8e8e93;">Gap to target</span>
+                            <div class="cg-breakdown-bar-wrap">
+                                <div class="cg-breakdown-bar-track">
+                                    <div class="cg-breakdown-bar-fill" style="width:{{ $cfaTargetN > 0 ? min(100, round($insGap/$cfaTargetN*100)) : 0 }}%; background: #e5e5ea;"></div>
+                                </div>
+                            </div>
+                            <span class="cg-breakdown-val" style="color:#8e8e93;">{{ number_format($insGap) }}</span>
+                        </div>
+                        @endif
+                    </div>
+
+                    {{-- Signal grid --}}
+                    <div class="cg-signals" style="margin-top:0.85rem;">
+                        <div class="cg-signal">
+                            <span>Last 7 days CFA</span>
+                            <strong>{{ number_format((int) ($cfaLast7 ?? 0)) }}</strong>
+                        </div>
+                        <div class="cg-signal">
+                            <span>This month</span>
+                            <strong>{{ number_format((int) ($cfaThisMonth ?? 0)) }}</strong>
+                        </div>
+                        <div class="cg-signal">
+                            <span>Deliverables</span>
+                            <strong>{{ number_format($deliverablesCount) }}</strong>
+                        </div>
+                        <div class="cg-signal">
+                            <span>Week-over-week</span>
+                            <strong>
+                                <span class="cg-chip-badge {{ ($cfaWoWDeltaPct ?? 0) > 0 ? 'up' : (($cfaWoWDeltaPct ?? 0) < 0 ? 'down' : 'flat') }}">
+                                    {{ ($cfaWoWDeltaPct ?? 0) > 0 ? '+' : '' }}{{ (int) ($cfaWoWDeltaPct ?? 0) }}%
+                                </span>
+                            </strong>
                         </div>
                     </div>
                 </div>
 
-                <div class="sad-card" style="margin-top:0.55rem;">
-                    <div class="sad-card__head">
-                        <h2 class="sad-card__title"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Business category mix</h2>
-                        <span class="sad-card__tag">{{ number_format($bizMixTotal) }} apps</span>
+                {{-- Column 3: State Pulse / Trend chart (Productivity Trend style) --}}
+                <div class="cg-card">
+                    <div class="cg-card__head">
+                        <h2 class="cg-card__title">
+                            <i class="fa-solid fa-wave-square" aria-hidden="true"></i> State Pulse
+                        </h2>
+                        <span class="cg-card__tag">FY pace</span>
                     </div>
-                    @if (count($businessMix['labels'] ?? []) === 0)
-                        <div class="sad-empty">No category data yet</div>
-                    @else
+
+                    <div class="cg-pulse-tabs" role="tablist" aria-label="State pulse chart views">
+                        <button type="button" class="cg-pulse-tab is-active" data-sad-pulse-tab="pace" aria-selected="true">Pace %</button>
+                        <button type="button" class="cg-pulse-tab" data-sad-pulse-tab="cfa" aria-selected="false">CFA</button>
+                        <button type="button" class="cg-pulse-tab" data-sad-pulse-tab="onboarding" aria-selected="false">Onboarding</button>
+                        <button type="button" class="cg-pulse-tab" data-sad-pulse-tab="daily" aria-selected="false">Daily 14d</button>
+                    </div>
+                    <p class="cg-pulse-hint" data-sad-pulse-hint>
+                        Cumulative achievement vs prorated FY target — 100% line means on pace.
+                        @php $paceCfaTarget = $stateFyPaceChart['cfa_target'] ?? null; $paceOnbTarget = $stateFyPaceChart['onboarding_target'] ?? null; @endphp
+                        @if ($paceCfaTarget)
+                            CFA target {{ number_format((int) $paceCfaTarget) }}@if ($paceOnbTarget) · Onboard target {{ number_format((int) $paceOnbTarget) }}@endif.
+                        @endif
+                    </p>
+                    <div class="cg-chart-box cg-chart-box--pulse">
+                        <canvas id="stateTrendCurveChart" aria-label="CFA and onboarding pace chart"></canvas>
+                    </div>
+
+                    {{-- Totals footer like reference's "Total active time / pause time" --}}
+                    <div class="cg-pulse-totals">
+                        <div>
+                            <div class="cg-pulse-total-label">Last 7 days CFA</div>
+                            <div class="cg-pulse-total-val">
+                                {{ number_format((int) ($cfaLast7 ?? 0)) }}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="cg-pulse-total-label">Week-over-week</div>
+                            <div class="cg-pulse-total-val {{ ($cfaWoWDeltaPct ?? 0) >= 0 ? 'nd-up' : 'nd-down' }}">
+                                {{ ($cfaWoWDeltaPct ?? 0) > 0 ? '+' : '' }}{{ (int) ($cfaWoWDeltaPct ?? 0) }}%
+                                <span class="cg-trend-arrow">{{ ($cfaWoWDeltaPct ?? 0) >= 0 ? '↑' : '↓' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            {{-- Business category mix (full width card below 3 cols) --}}
+            <div class="cg-card cg-card--full">
+                <div class="cg-card__head">
+                    <h2 class="cg-card__title">
+                        <i class="fa-solid fa-chart-bar" aria-hidden="true"></i> Business Category Mix
+                    </h2>
+                    <span class="cg-card__tag">{{ number_format($bizMixTotal) }} apps</span>
+                </div>
+                @if (count($businessMix['labels'] ?? []) === 0)
+                    <div class="cg-empty">No category data yet</div>
+                @else
+                    <div style="columns: 2; gap: 1.25rem; column-fill: balance;">
                         @foreach ($businessMix['labels'] as $idx => $label)
                             @php
                                 $bizV = (int) ($businessMix['values'][$idx] ?? 0);
                                 $bizPct = $bizMixTotal > 0 ? (int) round(100 * $bizV / $bizMixTotal) : 0;
-                                $bizCol = $businessMix['colors'][$idx] ?? '#d04a02';
+                                $bizCol = $businessMix['colors'][$idx] ?? '#26a69a';
                             @endphp
-                            <div class="sad-biz-row">
-                                <span class="sad-biz-row__rank">#{{ $idx + 1 }}</span>
-                                <div>
-                                    <div style="font-weight:700;font-size:0.72rem;margin-bottom:0.2rem;">
+                            <div class="cg-biz-row" style="break-inside: avoid;">
+                                <span class="cg-biz-rank">#{{ $idx + 1 }}</span>
+                                <div style="min-width:0;">
+                                    <div class="cg-biz-label">
                                         <i class="fa-solid {{ $bizIconFor((string) $label) }}" aria-hidden="true" style="color:{{ $bizCol }};margin-right:0.25rem;"></i>
                                         {{ $label }}
                                     </div>
-                                    <div class="sad-biz-row__track">
-                                        <div class="sad-biz-row__fill" style="width:{{ $bizPct }}%;background:{{ $bizCol }};"></div>
+                                    <div class="cg-biz-track">
+                                        <div class="cg-biz-fill" style="width:{{ $bizPct }}%;background:{{ $bizCol }};"></div>
                                     </div>
                                 </div>
-                                <span class="sad-biz-row__nums">{{ $bizPct }}% · {{ number_format($bizV) }}</span>
+                                <span class="cg-biz-nums">{{ $bizPct }}% · {{ number_format($bizV) }}</span>
                             </div>
                         @endforeach
-                    @endif
-                </div>
-            </section>
+                    </div>
+                @endif
+            </div>
+        </section>
 
-            @include('dashboards.state-admin._insights-panel')
+        {{-- ═══════════════════════════════════════════════
+             INSIGHTS PANEL
+             ═══════════════════════════════════════════════ --}}
+        @include('dashboards.state-admin._insights-panel')
 
-            {{-- DISTRICTS --}}
-            <section class="sad-panel" data-sad-panel="districts">
-                <div class="sad-district-cards">
-                    @foreach ($topDistricts as $i => $d)
-                        <div class="sad-district-card @if ($i === 0) is-top @endif">
-                            <div class="sad-district-card__name">
-                                @if ($i === 0)<i class="fa-solid fa-crown" style="color:var(--sad-gold);margin-right:0.2rem;" aria-hidden="true"></i>@endif
-                                {{ $d['name'] }}
-                            </div>
-                            <div class="sad-district-card__val">{{ number_format($d['total']) }}</div>
+        {{-- ═══════════════════════════════════════════════
+             DISTRICTS PANEL
+             ═══════════════════════════════════════════════ --}}
+        <section class="cg-panel sad-panel" data-sad-panel="districts">
+            <div class="cg-district-cards">
+                @foreach ($topDistricts as $i => $d)
+                    <div class="cg-district-card @if ($i === 0) is-top @endif">
+                        <div class="cg-district-card__name">
+                            @if ($i === 0)<i class="fa-solid fa-crown" style="color:#ff9500;margin-right:0.2rem;" aria-hidden="true"></i>@endif
+                            {{ $d['name'] }}
                         </div>
-                    @endforeach
-                </div>
-                <div class="sad-grid sad-grid--2" style="margin-bottom:0.55rem;">
-                    @include('dashboards.state-admin._district-target-chart', ['insights' => $insights ?? []])
-                    <div class="sad-card">
-                        <h2 class="sad-card__title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Top blocks by CFA</h2>
-                        <p class="sad-card__hint">Top 12 blocks in Phase 3 scope</p>
-                        <div class="sad-chart-box sad-chart-box--tall">
-                            <canvas id="chartTopBlocks"></canvas>
-                        </div>
+                        <div class="cg-district-card__val">{{ number_format($d['total']) }}</div>
                     </div>
-                </div>
-                <div class="sad-grid sad-grid--2">
-                    <div class="sad-card">
-                        <h2 class="sad-card__title"><i class="fa-solid fa-chart-bar" aria-hidden="true"></i> Applications by district</h2>
-                        <p class="sad-card__hint">Phase 3 CFA from {{ $phaseLabel }}</p>
-                        <div class="sad-chart-box sad-chart-box--tall">
-                            <canvas id="chartDistrictCfa"></canvas>
-                        </div>
-                    </div>
-                    <div class="sad-card">
-                        <h2 class="sad-card__title"><i class="fa-solid fa-map-pin" aria-hidden="true"></i> District signals</h2>
-                        <div class="sad-signals" style="margin-bottom:0.55rem;">
-                            <div class="sad-signal">
-                                <span>Top district today</span>
-                                <strong>{{ $todayTopDistrict['name'] ?? '—' }} @if(isset($todayTopDistrict['count'])) ({{ number_format((int) $todayTopDistrict['count']) }}) @endif</strong>
-                            </div>
-                            <div class="sad-signal">
-                                <span>Lowest active today</span>
-                                <strong>
-                                    @if ($todayLowestActiveDistrict)
-                                        {{ $todayLowestActiveDistrict['name'] }} ({{ number_format((int) $todayLowestActiveDistrict['count']) }})
-                                    @else
-                                        —
-                                    @endif
-                                </strong>
-                            </div>
-                        </div>
-                        <h3 class="sad-card__title" style="font-size:0.78rem;margin-bottom:0.35rem;">
-                            <i class="fa-solid fa-user-group" aria-hidden="true"></i> Onboarding by district
-                        </h3>
-                        <div class="sad-split-table">
-                            @forelse ($onbDistrictRows as $row)
-                                @php $rowCount = (int) ($row['count'] ?? 0); @endphp
-                                <div class="sad-split-row @if ($rowCount === 0) is-zero @endif">
-                                    <span>{{ $row['district'] }}</span>
-                                    <strong>{{ number_format($rowCount) }}</strong>
-                                </div>
-                            @empty
-                                <div class="sad-empty">No district onboarding data</div>
-                            @endforelse
-                        </div>
-                    </div>
-                </div>
-            </section>
+                @endforeach
+            </div>
 
-            {{-- TEAM --}}
-            <section class="sad-panel" data-sad-panel="team">
-                <div class="sad-card" style="margin-bottom:0.55rem;">
-                    <h2 class="sad-card__title"><i class="fa-solid fa-chart-bar" aria-hidden="true"></i> Top staff by CFA</h2>
-                    <p class="sad-card__hint">Referral-linked CFA · top 10</p>
-                    <div class="sad-chart-box sad-chart-box--tall">
-                        <canvas id="chartStaffTop"></canvas>
+            <div class="cg-grid-2" style="margin-bottom:0.85rem;">
+                @include('dashboards.state-admin._district-target-chart', ['insights' => $insights ?? []])
+                <div class="cg-card">
+                    <h2 class="cg-card__title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Top blocks by CFA</h2>
+                    <p class="cg-card__hint">Top 12 blocks in Phase 3 scope</p>
+                    <div class="cg-chart-box cg-chart-box--tall">
+                        <canvas id="chartTopBlocks"></canvas>
                     </div>
-                </div>
-                <div class="sad-card">
-                    <div class="sad-card__head">
-                        <h2 class="sad-card__title"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> CFA by district staff</h2>
-                        <span class="sad-card__tag">{{ count($staffCfaRows) }} rows</span>
-                    </div>
-                    <p class="sad-card__hint">Referral-linked CFA aligned to staff district · Phase 3 from {{ $phaseLabel }}</p>
-                    <div class="sad-staff-controls">
-                        <input type="text" id="stateStaffCfaSearch" placeholder="Search staff name…" autocomplete="off">
-                        <select id="stateStaffCfaDistrictFilter">
-                            <option value="">All districts</option>
-                            @foreach ($staffDistrictOptions as $districtName)
-                                <option value="{{ strtolower($districtName) }}">{{ $districtName }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="sad-staff-list" id="stateStaffCfaList">
-                        @forelse ($staffCfaRows as $index => $row)
-                            <div class="sad-staff-row"
-                                data-name="{{ strtolower($row['name']) }}"
-                                data-district="{{ strtolower($row['district']) }}">
-                                <span class="sad-staff-rank @if ($index < 3) is-medal @endif">#{{ $index + 1 }}</span>
-                                <div class="sad-staff-main">
-                                    @if (!empty($row['avatar_url']))
-                                        <img src="{{ $row['avatar_url'] }}" alt="" class="sad-staff-avatar">
-                                    @else
-                                        <span class="sad-staff-fallback">{{ strtoupper(substr(trim((string) $row['name']), 0, 1)) ?: '?' }}</span>
-                                    @endif
-                                    <div style="min-width:0;">
-                                        <div class="sad-staff-name">{{ $row['name'] }}</div>
-                                        <div class="sad-staff-district">{{ $row['district'] }}</div>
-                                    </div>
-                                </div>
-                                <span class="sad-staff-val">{{ number_format((int) $row['cfa_total']) }}</span>
-                            </div>
-                        @empty
-                            <div class="sad-empty">No staff data yet</div>
-                        @endforelse
-                        <div class="sad-empty" id="stateStaffCfaNoResults" style="display:none;">No matches for this filter</div>
-                    </div>
-                </div>
-            </section>
-
-            {{-- IMPACT --}}
-            <section class="sad-panel" data-sad-panel="impact">
-                <div class="sad-savings-grid">
-                    <div class="sad-savings-tile sad-savings-tile--green">
-                        <div class="sad-savings-tile__lbl" style="color:#166534;">Total till date</div>
-                        <div class="sad-savings-tile__val" style="color:#14532d;">Rs {{ number_format($savingsTotalTillDate, 2) }}</div>
-                    </div>
-                    <div class="sad-savings-tile sad-savings-tile--blue">
-                        <div class="sad-savings-tile__lbl" style="color:#1d4ed8;">Estimated this FY</div>
-                        <div class="sad-savings-tile__val" style="color:#1e3a8a;">Rs {{ number_format($savingsTotalThisFy, 2) }}</div>
-                    </div>
-                    <div class="sad-savings-tile sad-savings-tile--violet">
-                        <div class="sad-savings-tile__lbl" style="color:var(--sad-green);">Active deliverables</div>
-                        <div class="sad-savings-tile__val" style="color:var(--sad-green-deep);">{{ number_format($deliverablesCount) }}</div>
-                    </div>
-                </div>
-                <div class="sad-card">
-                    <h2 class="sad-card__title"><i class="fa-solid fa-hand-holding-heart" aria-hidden="true"></i> Top services by estimated savings</h2>
-                    <p class="sad-card__hint">Approved service cases × configured average market price</p>
-                    <div class="sad-table-wrap">
-                        <table class="sad-table">
-                            <thead>
-                                <tr>
-                                    <th>Service</th>
-                                    <th>Approved</th>
-                                    <th>Avg price</th>
-                                    <th>Savings</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse ($topSavingsServices as $svc)
-                                    <tr>
-                                        <td>{{ $svc['name'] }}</td>
-                                        <td>{{ number_format((int) $svc['approved_count']) }}</td>
-                                        <td>Rs {{ number_format((float) $svc['avg_price'], 2) }}</td>
-                                        <td><strong>Rs {{ number_format((float) $svc['savings'], 2) }}</strong></td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="sad-empty">No savings data yet — configure service market prices.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                    <p class="sad-card__hint" style="margin-top:0.5rem;">
-                        <a href="{{ route('admin.phase3-services.index') }}">View Phase 3 service cases</a>
-                        · <a href="{{ route('admin.deliverables.index') }}">Deliverables report</a>
-                    </p>
-                </div>
-            </section>
-
-            <div class="sad-dock">
-                <p class="sad-dock__title">Quick command links</p>
-                <div class="sad-dock__links">
-                    <a class="sad-dock__link" href="{{ route('admin.cfa.index') }}"><i class="fa-solid fa-clipboard-list"></i> CFA</a>
-                    <a class="sad-dock__link" href="{{ route('admin.targets.state') }}"><i class="fa-solid fa-bullseye"></i> State targets</a>
-                    <a class="sad-dock__link" href="{{ route('admin.targets.state-monthly') }}"><i class="fa-solid fa-calendar-days"></i> State monthly</a>
-                    <a class="sad-dock__link" href="{{ route('admin.targets.district') }}"><i class="fa-solid fa-map-location-dot"></i> District targets</a>
-                    <a class="sad-dock__link" href="{{ route('admin.targets.allocate-by-service') }}"><i class="fa-solid fa-sliders"></i> Allocate by service</a>
-                    <a class="sad-dock__link" href="{{ route('admin.state-tasks.index') }}"><i class="fa-solid fa-list-check"></i> State tasks</a>
-                    <a class="sad-dock__link" href="{{ route('admin.staff.index') }}"><i class="fa-solid fa-user-tie"></i> Staff</a>
-                    <a class="sad-dock__link" href="{{ route('admin.attendance.index') }}"><i class="fa-solid fa-calendar-check"></i> Field attendance</a>
-                    <a class="sad-dock__link" href="{{ route('admin.staff-check-ins.index') }}"><i class="fa-solid fa-location-dot"></i> Staff check-ins</a>
-                    <a class="sad-dock__link" href="{{ route('admin.live-map.index') }}"><i class="fa-solid fa-map-location-dot"></i> Live map</a>
-                    <a class="sad-dock__link" href="{{ route('admin.data-centre.index') }}"><i class="fa-solid fa-database"></i> Data centre</a>
-                    <a class="sad-dock__link" href="{{ route('admin.deliverables.index') }}"><i class="fa-solid fa-chart-column"></i> Deliverables</a>
-                    <a class="sad-dock__link" href="{{ route('admin.onboarded.index') }}"><i class="fa-solid fa-user-check"></i> Onboarded</a>
-                    <a class="sad-dock__link" href="{{ route('team.index') }}"><i class="fa-solid fa-people-group"></i> Team</a>
-                    <a class="sad-dock__link" href="{{ route('library.documents.index') }}"><i class="fa-solid fa-folder-open"></i> Documents</a>
-                    <a class="sad-dock__link" href="{{ route('admin.audit.index') }}"><i class="fa-solid fa-scroll"></i> Audit</a>
                 </div>
             </div>
+
+            <div class="cg-grid-2">
+                <div class="cg-card">
+                    <h2 class="cg-card__title"><i class="fa-solid fa-chart-bar" aria-hidden="true"></i> Applications by district</h2>
+                    <p class="cg-card__hint">Phase 3 CFA from {{ $phaseLabel }}</p>
+                    <div class="cg-chart-box cg-chart-box--tall">
+                        <canvas id="chartDistrictCfa"></canvas>
+                    </div>
+                </div>
+                <div class="cg-card">
+                    <h2 class="cg-card__title"><i class="fa-solid fa-map-pin" aria-hidden="true"></i> District signals</h2>
+                    <div class="cg-signals" style="margin-bottom:0.65rem;">
+                        <div class="cg-signal">
+                            <span>Top district today</span>
+                            <strong>{{ $todayTopDistrict['name'] ?? '—' }} @if(isset($todayTopDistrict['count'])) ({{ number_format((int) $todayTopDistrict['count']) }}) @endif</strong>
+                        </div>
+                        <div class="cg-signal">
+                            <span>Lowest active today</span>
+                            <strong>
+                                @if ($todayLowestActiveDistrict)
+                                    {{ $todayLowestActiveDistrict['name'] }} ({{ number_format((int) $todayLowestActiveDistrict['count']) }})
+                                @else —
+                                @endif
+                            </strong>
+                        </div>
+                    </div>
+                    <h3 class="cg-card__title" style="font-size:0.8rem;margin-bottom:0.45rem;">
+                        <i class="fa-solid fa-user-group" aria-hidden="true"></i> Onboarding by district
+                    </h3>
+                    <div class="cg-split-table">
+                        @forelse ($onbDistrictRows as $row)
+                            @php $rowCount = (int) ($row['count'] ?? 0); @endphp
+                            <div class="cg-split-row @if ($rowCount === 0) is-zero @endif">
+                                <span>{{ $row['district'] }}</span>
+                                <strong>{{ number_format($rowCount) }}</strong>
+                            </div>
+                        @empty
+                            <div class="cg-empty">No district onboarding data</div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {{-- ═══════════════════════════════════════════════
+             TEAM PANEL
+             ═══════════════════════════════════════════════ --}}
+        <section class="cg-panel sad-panel" data-sad-panel="team">
+            <div class="cg-card" style="margin-bottom:0.85rem;">
+                <h2 class="cg-card__title"><i class="fa-solid fa-chart-bar" aria-hidden="true"></i> Top staff by CFA</h2>
+                <p class="cg-card__hint">Referral-linked CFA · top 10</p>
+                <div class="cg-chart-box cg-chart-box--tall">
+                    <canvas id="chartStaffTop"></canvas>
+                </div>
+            </div>
+            <div class="cg-card">
+                <div class="cg-card__head">
+                    <h2 class="cg-card__title"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> CFA by district staff</h2>
+                    <span class="cg-card__tag">{{ count($staffCfaRows) }} rows</span>
+                </div>
+                <p class="cg-card__hint">Referral-linked CFA aligned to staff district · Phase 3 from {{ $phaseLabel }}</p>
+                <div class="cg-staff-controls">
+                    <input type="text" id="stateStaffCfaSearch" placeholder="Search staff name…" autocomplete="off">
+                    <select id="stateStaffCfaDistrictFilter">
+                        <option value="">All districts</option>
+                        @foreach ($staffDistrictOptions as $districtName)
+                            <option value="{{ strtolower($districtName) }}">{{ $districtName }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="cg-staff-list" id="stateStaffCfaList">
+                    @forelse ($staffCfaRows as $index => $row)
+                        <div class="cg-staff-row sad-staff-row"
+                            data-name="{{ strtolower($row['name']) }}"
+                            data-district="{{ strtolower($row['district']) }}">
+                            <span class="cg-staff-rank @if ($index < 3) is-medal @endif">#{{ $index + 1 }}</span>
+                            <div class="cg-staff-main">
+                                @if (!empty($row['avatar_url']))
+                                    <img src="{{ $row['avatar_url'] }}" alt="" class="cg-staff-avatar">
+                                @else
+                                    <span class="cg-staff-fallback">{{ strtoupper(substr(trim((string) $row['name']), 0, 1)) ?: '?' }}</span>
+                                @endif
+                                <div style="min-width:0;">
+                                    <div class="cg-staff-name">{{ $row['name'] }}</div>
+                                    <div class="cg-staff-district">{{ $row['district'] }}</div>
+                                </div>
+                            </div>
+                            <span class="cg-staff-val">{{ number_format((int) $row['cfa_total']) }}</span>
+                        </div>
+                    @empty
+                        <div class="cg-empty">No staff data yet</div>
+                    @endforelse
+                    <div class="cg-empty" id="stateStaffCfaNoResults" style="display:none;">No matches for this filter</div>
+                </div>
+            </div>
+        </section>
+
+        {{-- ═══════════════════════════════════════════════
+             IMPACT & SAVINGS PANEL
+             ═══════════════════════════════════════════════ --}}
+        <section class="cg-panel sad-panel" data-sad-panel="impact">
+            <div class="cg-savings-grid">
+                <div class="cg-savings-tile cg-savings-tile--green">
+                    <div class="cg-savings-tile__lbl" style="color:#1b5e20;">Total till date</div>
+                    <div class="cg-savings-tile__val" style="color:#1b5e20;">₹{{ number_format($savingsTotalTillDate, 2) }}</div>
+                </div>
+                <div class="cg-savings-tile cg-savings-tile--blue">
+                    <div class="cg-savings-tile__lbl" style="color:#0d47a1;">Estimated this FY</div>
+                    <div class="cg-savings-tile__val" style="color:#0d47a1;">₹{{ number_format($savingsTotalThisFy, 2) }}</div>
+                </div>
+                <div class="cg-savings-tile cg-savings-tile--teal">
+                    <div class="cg-savings-tile__lbl" style="color:#00695c;">Active deliverables</div>
+                    <div class="cg-savings-tile__val" style="color:#00695c;">{{ number_format($deliverablesCount) }}</div>
+                </div>
+            </div>
+            <div class="cg-card">
+                <h2 class="cg-card__title"><i class="fa-solid fa-hand-holding-heart" aria-hidden="true"></i> Top services by estimated savings</h2>
+                <p class="cg-card__hint">Approved service cases × configured average market price</p>
+                <div class="cg-table-wrap">
+                    <table class="cg-table">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Approved</th>
+                                <th>Avg price</th>
+                                <th>Savings</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($topSavingsServices as $svc)
+                                <tr>
+                                    <td>{{ $svc['name'] }}</td>
+                                    <td>{{ number_format((int) $svc['approved_count']) }}</td>
+                                    <td>₹{{ number_format((float) $svc['avg_price'], 2) }}</td>
+                                    <td><strong>₹{{ number_format((float) $svc['savings'], 2) }}</strong></td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="cg-empty">No savings data yet — configure service market prices.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                <p class="cg-card__hint" style="margin-top:0.5rem;margin-bottom:0;">
+                    <a href="{{ route('admin.phase3-services.index') }}" style="color:var(--cg-teal);">View Phase 3 service cases</a>
+                    · <a href="{{ route('admin.deliverables.index') }}" style="color:var(--cg-teal);">Deliverables report</a>
+                </p>
+            </div>
+        </section>
+
+        {{-- ═══════════════════════════════════════════════
+             QUICK COMMAND DOCK
+             ═══════════════════════════════════════════════ --}}
+        <div class="cg-dock">
+            <p class="cg-dock__title">Quick command links</p>
+            <div class="cg-dock__links">
+                <a class="cg-dock__link" href="{{ route('admin.cfa.index') }}"><i class="fa-solid fa-clipboard-list"></i> CFA</a>
+                <a class="cg-dock__link" href="{{ route('admin.targets.state') }}"><i class="fa-solid fa-bullseye"></i> State targets</a>
+                <a class="cg-dock__link" href="{{ route('admin.targets.state-monthly') }}"><i class="fa-solid fa-calendar-days"></i> State monthly</a>
+                <a class="cg-dock__link" href="{{ route('admin.targets.district') }}"><i class="fa-solid fa-map-location-dot"></i> District targets</a>
+                <a class="cg-dock__link" href="{{ route('admin.targets.allocate-by-service') }}"><i class="fa-solid fa-sliders"></i> Allocate by service</a>
+                <a class="cg-dock__link" href="{{ route('admin.state-tasks.index') }}"><i class="fa-solid fa-list-check"></i> State tasks</a>
+                <a class="cg-dock__link" href="{{ route('admin.staff.index') }}"><i class="fa-solid fa-user-tie"></i> Staff</a>
+                <a class="cg-dock__link" href="{{ route('admin.attendance.index') }}"><i class="fa-solid fa-calendar-check"></i> Field attendance</a>
+                <a class="cg-dock__link" href="{{ route('admin.staff-check-ins.index') }}"><i class="fa-solid fa-location-dot"></i> Staff check-ins</a>
+                <a class="cg-dock__link" href="{{ route('admin.live-map.index') }}"><i class="fa-solid fa-map-location-dot"></i> Live map</a>
+                <a class="cg-dock__link" href="{{ route('admin.data-centre.index') }}"><i class="fa-solid fa-database"></i> Data centre</a>
+                <a class="cg-dock__link" href="{{ route('admin.deliverables.index') }}"><i class="fa-solid fa-chart-column"></i> Deliverables</a>
+                <a class="cg-dock__link" href="{{ route('admin.onboarded.index') }}"><i class="fa-solid fa-user-check"></i> Onboarded</a>
+                <a class="cg-dock__link" href="{{ route('team.index') }}"><i class="fa-solid fa-people-group"></i> Team</a>
+                <a class="cg-dock__link" href="{{ route('library.documents.index') }}"><i class="fa-solid fa-folder-open"></i> Documents</a>
+                <a class="cg-dock__link" href="{{ route('admin.audit.index') }}"><i class="fa-solid fa-scroll"></i> Audit</a>
+            </div>
         </div>
+
     </main>
 
 @include('dashboards.state-admin._chart-scripts')

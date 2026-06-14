@@ -12,10 +12,11 @@
     @include('partials.admin-shell-styles')
     <style>
         .admin-app-body--dashboard .admin-main {
-            padding: 0.65rem clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
+            padding: 0.85rem clamp(0.75rem, 2vw, 1.5rem) 2rem;
+            background: #eef0f5 !important;
         }
         .admin-app-body--dash-unified .admin-main {
-            padding: 0 clamp(0.75rem, 2vw, 1.35rem) 1.25rem;
+            padding: 0.85rem clamp(0.75rem, 2vw, 1.5rem) 2rem;
         }
         .sad-unified-strip {
             display: flex;
@@ -923,6 +924,101 @@
                 pointer-events: auto;
             }
         }
+
+        /* =============================================
+           COGNIFY DESIGN OVERRIDES — Hub Admin
+           ============================================= */
+        .admin-app-body--hub-admin { background: #eef0f5 !important; }
+        .admin-app-body--hub-admin .had { font-family: 'DM Sans', system-ui, sans-serif; }
+
+        /* Ticker strip → teal gradient */
+        .admin-app-body--hub-admin .sad-unified-strip {
+            background: linear-gradient(120deg, #00897b 0%, #26a69a 50%, #4db6ac 100%) !important;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            box-shadow: 0 6px 20px rgba(38, 166, 154, 0.2);
+        }
+
+        /* Cards — bigger radius, cleaner shadow */
+        .admin-app-body--hub-admin .sad-card,
+        .admin-app-body--hub-admin .had-card {
+            background: #ffffff !important;
+            border: none !important;
+            border-radius: 20px !important;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04) !important;
+            padding: 1.1rem 1.2rem !important;
+        }
+        .admin-app-body--hub-admin .sad-card:hover {
+            box-shadow: 0 8px 32px rgba(0,0,0,0.10) !important;
+        }
+
+        /* Masthead → white card */
+        .admin-app-body--hub-admin .sad-masthead {
+            border-radius: 20px !important;
+            border: none !important;
+            border-top: none !important;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.06) !important;
+            background: #ffffff !important;
+            padding: 1.25rem 1.35rem !important;
+        }
+
+        /* KPI cards — elevated look */
+        .admin-app-body--hub-admin .sad-kpi {
+            background: #ffffff !important;
+            border: none !important;
+            border-radius: 16px !important;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
+            padding: 0.75rem 0.85rem !important;
+        }
+        .admin-app-body--hub-admin .sad-kpi:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important;
+        }
+
+        /* Tabs — pill style */
+        .admin-app-body--hub-admin .had-tabs,
+        .admin-app-body--hub-admin .sad-nav {
+            background: #ffffff !important;
+            border: none !important;
+            border-radius: 999px !important;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
+            padding: 0.3rem !important;
+            width: fit-content;
+        }
+        .admin-app-body--hub-admin .had-tab.is-active,
+        .admin-app-body--hub-admin .sad-nav__btn.is-active {
+            background: #1c1c1e !important;
+            color: #ffffff !important;
+            border-radius: 999px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+        }
+
+        /* Progress bars — rounded */
+        .admin-app-body--hub-admin .sad-progress-track { border-radius: 999px !important; background: #f2f2f7 !important; height: 8px !important; }
+        .admin-app-body--hub-admin .sad-progress-fill { border-radius: 999px !important; }
+
+        /* Dock quick links */
+        .admin-app-body--hub-admin .sad-dock {
+            border-radius: 20px !important;
+            border: none !important;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.06) !important;
+            background: #ffffff !important;
+        }
+        .admin-app-body--hub-admin .sad-dock__link {
+            border-radius: 12px !important;
+            transition: background 0.12s, transform 0.12s !important;
+        }
+        .admin-app-body--hub-admin .sad-dock__link:hover {
+            transform: translateY(-1px);
+            background: #e0f2f1 !important;
+            border-color: #80cbc4 !important;
+        }
+
+        /* Alerts — pill style */
+        .admin-app-body--hub-admin .sad-alert { border-radius: 999px !important; }
+
+        /* Page background */
+        .admin-app-body--hub-admin.admin-app-body--hub-premium { background: #eef0f5 !important; }
     </style>
 </head>
 <body class="admin-app-body admin-app-body--dashboard admin-app-body--dash-unified admin-app-body--hub-premium admin-app-body--hub-admin admin-app-body--state-theme-{{ $dashboardTheme ?? 'revamp' }}">

@@ -2283,6 +2283,98 @@
                 width: 100%;
             }
         }
+
+        /* =============================================
+           COGNIFY DESIGN OVERRIDES — District Staff
+           ============================================= */
+        .admin-app-body--staff-premium { background: #eef0f5 !important; }
+        .admin-app-body--staff-premium .admin-main { padding: 0.85rem clamp(0.75rem, 2vw, 1.5rem) 2rem !important; }
+
+        /* Ticker strip */
+        .admin-app-body--staff-premium .sad-unified-strip {
+            background: linear-gradient(120deg, #00897b 0%, #26a69a 50%, #4db6ac 100%) !important;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            box-shadow: 0 6px 20px rgba(38, 166, 154, 0.2);
+        }
+
+        /* Cards — Cognify card look */
+        .admin-app-body--staff-premium .sad-card {
+            background: #ffffff !important;
+            border: none !important;
+            border-radius: 20px !important;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04) !important;
+        }
+        .admin-app-body--staff-premium .sad-card:hover {
+            box-shadow: 0 8px 32px rgba(0,0,0,0.10) !important;
+        }
+
+        /* KPI strip */
+        .admin-app-body--staff-premium .sad-kpi {
+            background: #ffffff !important;
+            border: none !important;
+            border-radius: 16px !important;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
+        }
+        .admin-app-body--staff-premium .sad-kpi:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important;
+        }
+
+        /* Navigation tabs — pill style */
+        .admin-app-body--staff-premium .sad-nav {
+            background: #ffffff !important;
+            border: none !important;
+            border-radius: 999px !important;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
+            padding: 0.3rem !important;
+            width: fit-content;
+        }
+        .admin-app-body--staff-premium .sad-nav__btn.is-active {
+            background: #1c1c1e !important;
+            color: #ffffff !important;
+            border-radius: 999px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+        }
+
+        /* Progress bars */
+        .admin-app-body--staff-premium .sad-progress-track { border-radius: 999px !important; background: #f2f2f7 !important; }
+        .admin-app-body--staff-premium .sad-progress-fill { border-radius: 999px !important; }
+
+        /* Dashboard intro card */
+        .admin-app-body--staff-premium .dashboard-intro {
+            background: #ffffff !important;
+            border: none !important;
+            border-radius: 20px !important;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.06) !important;
+        }
+
+        /* Quick dock */
+        .admin-app-body--staff-premium .sad-dock {
+            background: #ffffff !important;
+            border: none !important;
+            border-radius: 20px !important;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.06) !important;
+        }
+        .admin-app-body--staff-premium .sad-dock__link {
+            border-radius: 12px !important;
+        }
+        .admin-app-body--staff-premium .sad-dock__link:hover {
+            transform: translateY(-1px);
+            background: #e0f2f1 !important;
+            border-color: #80cbc4 !important;
+        }
+
+        /* Alerts */
+        .admin-app-body--staff-premium .sad-alert { border-radius: 999px !important; }
+
+        /* Masthead */
+        .admin-app-body--staff-premium .sad-masthead {
+            border: none !important;
+            border-top: none !important;
+            border-radius: 20px !important;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.06) !important;
+        }
     </style>
 </head>
 <body class="admin-app-body admin-app-body--dashboard admin-app-body--dash-unified admin-app-body--staff-premium admin-app-body--state-theme-{{ $dashboardTheme ?? 'revamp' }}">
