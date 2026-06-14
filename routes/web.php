@@ -61,7 +61,10 @@ use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\LegacyPhase2IncubateeProfileController;
 use App\Http\Controllers\Staff\StaffPortalController;
 use App\Http\Controllers\StaffCheckInController;
-use App\Http\Controllers\BusinessAccelerationPartnerOutreachController;
+use App\Http\Controllers\DemoDayController;
+use App\Http\Controllers\DemoDayLandingController;
+use App\Http\Controllers\FundingSchematicPartnerOutreachController;
+use App\Http\Controllers\FundingSchematicPartnerOutreachLandingController;
 use App\Http\Controllers\BusinessAccelerationPartnersOutreachLandingController;
 use App\Http\Controllers\MarketingPartnerOutreachController;
 use App\Http\Controllers\PartnerOutreachLandingController;
@@ -666,6 +669,27 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('pitch-deck-preparations/{pitchDeckPreparation}/deck', [PitchDeckPreparationController::class, 'downloadDeck'])
             ->name('pitch-deck-preparations.deck');
         Route::get('pitch-deck-preparations/{pitchDeckPreparation}', [PitchDeckPreparationController::class, 'show'])->name('pitch-deck-preparations.show');
+
+        Route::get('demo-days/incubatees/search', [DemoDayController::class, 'searchIncubatees'])->name('demo-days.incubatees.search');
+        Route::get('demo-days/create', [DemoDayController::class, 'create'])->name('demo-days.create');
+        Route::post('demo-days', [DemoDayController::class, 'store'])->middleware('throttle:30,1')->name('demo-days.store');
+        Route::get('demo-days', DemoDayLandingController::class)->name('demo-days.index');
+        Route::get('demo-days/dashboard', [DemoDayController::class, 'dashboard'])->name('demo-days.dashboard');
+        Route::get('demo-days/export', [DemoDayController::class, 'export'])->name('demo-days.export');
+        Route::get('demo-days/{demoDay}/edit', [DemoDayController::class, 'edit'])->name('demo-days.edit');
+        Route::put('demo-days/{demoDay}', [DemoDayController::class, 'update'])->middleware('throttle:30,1')->name('demo-days.update');
+        Route::delete('demo-days/{demoDay}', [DemoDayController::class, 'destroy'])->middleware('throttle:30,1')->name('demo-days.destroy');
+        Route::get('demo-days/{demoDay}/attachment', [DemoDayController::class, 'downloadAttachment'])->name('demo-days.attachment');
+        Route::get('demo-days/{demoDay}/proof', [DemoDayController::class, 'downloadProof'])->name('demo-days.proof');
+        Route::get('demo-days/{demoDay}', [DemoDayController::class, 'show'])->name('demo-days.show');
+
+        Route::get('funding-partners-outreach/create', [FundingSchematicPartnerOutreachController::class, 'create'])->name('funding-partners-outreach.create');
+        Route::post('funding-partners-outreach', [FundingSchematicPartnerOutreachController::class, 'store'])->middleware('throttle:30,1')->name('funding-partners-outreach.store');
+        Route::get('funding-partners-outreach', FundingSchematicPartnerOutreachLandingController::class)->name('funding-partners-outreach.index');
+        Route::get('funding-partners-outreach/dashboard', [FundingSchematicPartnerOutreachController::class, 'dashboard'])->name('funding-partners-outreach.dashboard');
+        Route::get('funding-partners-outreach/export', [FundingSchematicPartnerOutreachController::class, 'export'])->name('funding-partners-outreach.export');
+        Route::get('funding-partners-outreach/{fundingPartnerOutreach}', [FundingSchematicPartnerOutreachController::class, 'show'])->name('funding-partners-outreach.show');
+        Route::delete('funding-partners-outreach/{fundingPartnerOutreach}', [FundingSchematicPartnerOutreachController::class, 'destroy'])->middleware('throttle:30,1')->name('funding-partners-outreach.destroy');
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -933,6 +957,20 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('pitch-deck-preparations/{pitchDeckPreparation}/deck', [PitchDeckPreparationController::class, 'downloadDeck'])
             ->name('pitch-deck-preparations.deck');
         Route::get('pitch-deck-preparations/{pitchDeckPreparation}', [PitchDeckPreparationController::class, 'show'])->name('pitch-deck-preparations.show');
+
+        Route::get('demo-days/dashboard', [DemoDayController::class, 'dashboard'])->name('demo-days.dashboard');
+        Route::get('demo-days', DemoDayLandingController::class)->name('demo-days.index');
+        Route::get('demo-days/export', [DemoDayController::class, 'export'])->name('demo-days.export');
+        Route::delete('demo-days/{demoDay}', [DemoDayController::class, 'destroy'])->middleware('throttle:30,1')->name('demo-days.destroy');
+        Route::get('demo-days/{demoDay}/attachment', [DemoDayController::class, 'downloadAttachment'])->name('demo-days.attachment');
+        Route::get('demo-days/{demoDay}/proof', [DemoDayController::class, 'downloadProof'])->name('demo-days.proof');
+        Route::get('demo-days/{demoDay}', [DemoDayController::class, 'show'])->name('demo-days.show');
+
+        Route::get('funding-partners-outreach/dashboard', [FundingSchematicPartnerOutreachController::class, 'dashboard'])->name('funding-partners-outreach.dashboard');
+        Route::get('funding-partners-outreach', FundingSchematicPartnerOutreachLandingController::class)->name('funding-partners-outreach.index');
+        Route::get('funding-partners-outreach/export', [FundingSchematicPartnerOutreachController::class, 'export'])->name('funding-partners-outreach.export');
+        Route::get('funding-partners-outreach/{fundingPartnerOutreach}', [FundingSchematicPartnerOutreachController::class, 'show'])->name('funding-partners-outreach.show');
+        Route::delete('funding-partners-outreach/{fundingPartnerOutreach}', [FundingSchematicPartnerOutreachController::class, 'destroy'])->middleware('throttle:30,1')->name('funding-partners-outreach.destroy');
 
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');

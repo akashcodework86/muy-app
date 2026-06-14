@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\BusinessAccelerationPartnerOutreachEntry;
+use App\Models\DemoDay;
+use App\Models\FundingSchematicPartnerOutreachEntry;
 use App\Models\StakeholderCapacityBuildingSession;
 use App\Services\NotificationReminderService;
 use App\Services\StaffCheckInService;
@@ -29,6 +31,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Route::bind('cbsSession', fn (string $value) => StakeholderCapacityBuildingSession::query()->findOrFail($value));
         Route::bind('baPartnerOutreach', fn (string $value) => BusinessAccelerationPartnerOutreachEntry::query()->findOrFail($value));
+        Route::bind('demoDay', fn (string $value) => DemoDay::query()->findOrFail($value));
+        Route::bind('fundingPartnerOutreach', fn (string $value) => FundingSchematicPartnerOutreachEntry::query()->findOrFail($value));
 
         View::composer(['layouts.admin', 'dashboards.state-admin', 'dashboards.hub-admin'], function ($view): void {
             $user = auth()->user();

@@ -25,6 +25,8 @@
     $canViewCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canViewDashboard($u);
     $canSubmitPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canSubmit($u);
     $canViewPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canViewDashboard($u);
+    $canSubmitFundingSchematic = $u && \App\Support\FundingSchematicConvergenceAccess::canSubmit($u);
+    $canViewFundingSchematic = $u && \App\Support\FundingSchematicConvergenceAccess::canViewDashboard($u);
     $canManageTrainingPackageMonthPlans = $u && \App\Support\TrainingPackageMonthPlanAccess::canManage($u);
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
@@ -187,6 +189,20 @@
         str_starts_with($r, 'spoc.pitch-deck-preparations.show') => 'pitch-deck-preparations-dashboard',
         str_starts_with($r, 'admin.pitch-deck-preparations.dashboard') => 'pitch-deck-preparations-dashboard',
         str_starts_with($r, 'admin.pitch-deck-preparations.show') => 'pitch-deck-preparations-dashboard',
+        str_starts_with($r, 'spoc.demo-days.create') => 'demo-days-submit',
+        str_starts_with($r, 'spoc.demo-days.store') => 'demo-days-submit',
+        str_starts_with($r, 'spoc.demo-days.edit') => 'demo-days-submit',
+        str_starts_with($r, 'spoc.demo-days.update') => 'demo-days-submit',
+        str_starts_with($r, 'spoc.demo-days.dashboard') => 'demo-days-dashboard',
+        str_starts_with($r, 'spoc.demo-days.show') => 'demo-days-dashboard',
+        str_starts_with($r, 'admin.demo-days.dashboard') => 'demo-days-dashboard',
+        str_starts_with($r, 'admin.demo-days.show') => 'demo-days-dashboard',
+        str_starts_with($r, 'spoc.funding-partners-outreach.create') => 'funding-partners-outreach-submit',
+        str_starts_with($r, 'spoc.funding-partners-outreach.store') => 'funding-partners-outreach-submit',
+        str_starts_with($r, 'spoc.funding-partners-outreach.dashboard') => 'funding-partners-outreach-dashboard',
+        str_starts_with($r, 'spoc.funding-partners-outreach.show') => 'funding-partners-outreach-dashboard',
+        str_starts_with($r, 'admin.funding-partners-outreach.dashboard') => 'funding-partners-outreach-dashboard',
+        str_starts_with($r, 'admin.funding-partners-outreach.show') => 'funding-partners-outreach-dashboard',
         str_starts_with($r, 'staff.market-linkages.create') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.store') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.dashboard') => 'market-linkages-dashboard',
@@ -240,9 +256,10 @@
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
     $spocPitchDeckActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true);
+    $spocFundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard', 'demo-days-submit', 'demo-days-dashboard', 'funding-partners-outreach-submit', 'funding-partners-outreach-dashboard'], true);
     $spocPartnerOutreachActive = in_array($activeNav, ['partner-outreach-submit', 'partner-outreach-dashboard'], true);
     $spocBaPartnersOutreachActive = in_array($activeNav, ['ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
-    $fundingSchematicActive = $activeNav === 'pitch-deck-preparations-dashboard';
+    $fundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-dashboard', 'demo-days-dashboard', 'funding-partners-outreach-dashboard'], true);
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
 
     // Inline SVG icon set (heroicons-style, uses currentColor so it respects active/hover states).
@@ -474,15 +491,25 @@
                             </a>
                         </div>
                     </div>
-                    @if ($canViewPitchDeckPreparation)
+                    @if ($canViewPitchDeckPreparation || $canViewFundingSchematic)
                     <div class="admin-topbar__dropdown-subgroup @if ($fundingSchematicActive) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('targets') !!}<span>Funding &amp; Schematic Convergence</span>
                         </span>
                         <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            @if ($canViewPitchDeckPreparation)
                             <a href="{{ route('admin.pitch-deck-preparations.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pitch-deck-preparations-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>Incubatees Pitch Deck Preparation (8.3)</span>
                             </a>
+                            @endif
+                            @if ($canViewFundingSchematic)
+                            <a href="{{ route('admin.demo-days.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'demo-days-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Demo Days (8.4)</span>
+                            </a>
+                            <a href="{{ route('admin.funding-partners-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'funding-partners-outreach-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Partners outreach (8.5)</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                     @endif
@@ -637,18 +664,55 @@
                 </div>
             </details>
             @endif
-            @if ($canSubmitPitchDeckPreparation)
+            @if ($canSubmitPitchDeckPreparation || $canSubmitFundingSchematic)
             <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocPitchDeckActive) is-active @endif">
-                    {!! $i('doc') !!}<span class="admin-topbar__link-text">Pitch deck (8.3)</span>
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocFundingSchematicActive) is-active @endif">
+                    {!! $i('targets') !!}<span class="admin-topbar__link-text">Funding &amp; Schematic</span>
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
-                    <a href="{{ route('spoc.pitch-deck-preparations.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pitch-deck-preparations-submit') is-active @endif" role="menuitem">
-                        {!! $i('doc') !!}<span>New entry</span>
-                    </a>
-                    <a href="{{ route('spoc.pitch-deck-preparations.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pitch-deck-preparations-dashboard') is-active @endif" role="menuitem">
-                        {!! $i('bars') !!}<span>View dashboard</span>
-                    </a>
+                    @if ($canSubmitPitchDeckPreparation)
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('doc') !!}<span>Pitch deck (8.3)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('spoc.pitch-deck-preparations.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pitch-deck-preparations-submit') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>New entry</span>
+                            </a>
+                            <a href="{{ route('spoc.pitch-deck-preparations.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'pitch-deck-preparations-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+                    @if ($canSubmitFundingSchematic)
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['demo-days-submit', 'demo-days-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('calendar') !!}<span>Demo Days (8.4)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('spoc.demo-days.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'demo-days-submit') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>New entry</span>
+                            </a>
+                            <a href="{{ route('spoc.demo-days.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'demo-days-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['funding-partners-outreach-submit', 'funding-partners-outreach-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('pin') !!}<span>Partners outreach (8.5)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('spoc.funding-partners-outreach.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'funding-partners-outreach-submit') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>New entry</span>
+                            </a>
+                            <a href="{{ route('spoc.funding-partners-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'funding-partners-outreach-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </details>
             @endif

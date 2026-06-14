@@ -387,6 +387,8 @@ class ProgramDeliverablesActivityGuideService
             'market_linkage_unique_partners', 'market_linkage_incubatees' => $pick('market-linkages.dashboard', 'Service → Market linkage', 'Market linkage partners & incubatees.'),
             'marketing_partner_outreach_count', 'marketing_partner_onboarded_count' => $pick('partner-outreach.dashboard', 'Partner outreach (6.1 / 6.2)', 'Sanjna logs partner outreach; onboard via LoA/LoI/MoU on detail page.', 'partner-outreach.dashboard'),
             'business_acceleration_partners_outreach_count' => $pick('business-acceleration-partners-outreach.dashboard', '7.1 BA Partners outreach', 'Ankur Rawat logs acceleration partner outreach (unique partners count).', 'business-acceleration-partners-outreach.dashboard'),
+            'demo_days_count' => $pick('demo-days.dashboard', '8.4 Demo Days', 'Govind Singh Dhami logs demo day events (onboarded incubatee + audience counts).', 'demo-days.dashboard'),
+            'funding_schematic_partners_outreach_count' => $pick('funding-partners-outreach.dashboard', '8.5 Partners outreach (Funding)', 'Govind Singh Dhami logs funding / schematic partner outreach.', 'funding-partners-outreach.dashboard'),
             default => [
                 'label' => 'Achievement records',
                 'route' => Route::has($prefix.'deliverables.index') ? $prefix.'deliverables.index' : null,
@@ -418,6 +420,8 @@ class ProgramDeliverablesActivityGuideService
             'marketing_partner_outreach_count' => 'Marketing partner outreach entries',
             'marketing_partner_onboarded_count' => 'Marketing partners onboarded (LoA/LoI/MoU)',
             'business_acceleration_partners_outreach_count' => '7.1 BA partners outreach (unique)',
+            'demo_days_count' => '8.4 Demo Days (state team)',
+            'funding_schematic_partners_outreach_count' => '8.5 Funding partners outreach (unique)',
             'none' => 'Not wired',
             'target_name' => 'Name-matched deliverable target',
             default => 'System achievement count',

@@ -16,6 +16,37 @@ class PitchDeckIncubateeCatalogService
     /**
      * @return list<array<string, mixed>>
      */
+    public function listOnboarded(int $limit = 2000): array
+    {
+        $results = [];
+        $seen = [];
+
+        foreach ($this->listCfaOnboarded($limit) as $row) {
+            $cfaId = (int) ($row['cfa_submission_id'] ?? 0);
+            if ($cfaId < 1 || isset($seen['cfa:'.$cfaId])) {
+                continue;
+            }
+            $seen['cfa:'.$cfaId] = true;
+            $results[] = $row;
+        }
+
+        foreach ($this->listLegacyOnboarded($limit) as $row) {
+            $legacyId = (int) ($row['legacy_application_id'] ?? 0);
+            if ($legacyId < 1 || isset($seen['legacy:'.$legacyId])) {
+                continue;
+            }
+            $seen['legacy:'.$legacyId] = true;
+            $results[] = $row;
+        }
+
+        usort($results, fn (array $a, array $b): int => strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? '')));
+
+        return array_slice($results, 0, $limit);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function search(string $term, int $limit = 5): array
     {
         $term = trim($term);
@@ -323,6 +354,98 @@ class PitchDeckIncubateeCatalogService
             ->pluck('legacy_application_id')
             ->mapWithKeys(fn ($id) => [(int) $id => true])
             ->all();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function listCfaOnboarded(int $limit): array
+    {
+        if (! Schema::hasTable('cfa_submissions')) {
+            return [];
+        }
+
+        return CfaSubmission::query()
+            ->with([
+                'district:id,name,hub_id',
+                'district.hub:id,name',
+                'onboardingBatchMembership.batch:id,name,status,locked_at',
+            ])
+            ->whereHas('onboardingBatchMembership.batch', function ($q): void {
+                $q->where('status', 'locked')->whereNotNull('locked_at');
+            })
+            ->orderBy('applicant_name')
+            ->limit($limit)
+            ->get()
+            ->map(fn (CfaSubmission $sub): array => $this->mapCfaRow($sub))
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function listLegacyOnboarded(int $limit): array
+    {
+        if (! $this->legacyApplications->legacyDbAvailable()) {
+            return [];
+        }
+
+        $legacy = Schema::connection('legacy');
+        if (! $legacy->hasTable('rbi_onboarded_applicants')) {
+            return [];
+        }
+
+        $hasOnboardBatches = $legacy->hasTable('rbi_onboarding_batches');
+
+        $q = DB::connection('legacy')
+            ->table('rbi_applicant_details as d')
+            ->join('rbi_applications as a', 'a.id', '=', 'd.application_id')
+            ->join('rbi_onboarded_applicants as oa', 'oa.application_id', '=', 'd.application_id')
+            ->orderBy('d.applicant_name')
+            ->limit($limit);
+
+        if ($hasOnboardBatches) {
+            $q->leftJoin('rbi_onboarding_batches as ob', 'ob.id', '=', 'oa.onboarding_batch_id');
+        }
+
+        $select = [
+            'd.application_id',
+            'd.applicant_name',
+            'a.application_no',
+            'd.phone',
+            'd.district',
+            'd.block',
+            'd.village',
+            'd.gender',
+            DB::raw('1 as is_onboarded'),
+            $hasOnboardBatches
+                ? DB::raw('ob.batch_name as onboarding_batch_name')
+                : DB::raw("'' as onboarding_batch_name"),
+        ];
+
+        $q->select($select);
+
+        return collect($q->get())->map(function ($row): array {
+            return [
+                'key' => 'legacy:'.(int) $row->application_id,
+                'source' => 'Phase 2 legacy',
+                'cfa_submission_id' => 0,
+                'legacy_application_id' => (int) $row->application_id,
+                'name' => (string) ($row->applicant_name ?? ''),
+                'application_no' => (string) ($row->application_no ?? ''),
+                'phone' => (string) ($row->phone ?? ''),
+                'district' => (string) ($row->district ?? ''),
+                'hub' => '',
+                'block' => (string) ($row->block ?? ''),
+                'village' => (string) ($row->village ?? ''),
+                'gender' => (string) ($row->gender ?? ''),
+                'business_category' => '',
+                'is_onboarded' => true,
+                'onboarding_status' => 'Onboarded',
+                'onboarding_batch_name' => (string) ($row->onboarding_batch_name ?? ''),
+                'already_recorded' => false,
+            ];
+        })->all();
     }
 
     /**

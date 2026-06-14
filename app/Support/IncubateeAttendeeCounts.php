@@ -8,6 +8,31 @@ use App\Models\TrainingPackage;
 final class IncubateeAttendeeCounts
 {
     /**
+     * @param  list<array<string, mixed>>  $snapshots
+     * @return array{male: int, female: int, total: int}
+     */
+    public static function fromSnapshots(array $snapshots): array
+    {
+        $items = array_values(array_filter($snapshots, static fn ($item): bool => is_array($item)));
+
+        $male = 0;
+        $female = 0;
+        foreach ($items as $snap) {
+            if (self::isFemaleGender((string) ($snap['gender'] ?? ''))) {
+                $female++;
+            } elseif (self::isMaleGender((string) ($snap['gender'] ?? ''))) {
+                $male++;
+            }
+        }
+
+        return [
+            'male' => $male,
+            'female' => $female,
+            'total' => count($items),
+        ];
+    }
+
+    /**
      * @return array{male: int, female: int, total: int}
      */
     public static function fromTrainingRecord(TechnicalTraining|TrainingPackage $row): array

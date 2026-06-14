@@ -14,6 +14,8 @@ use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\ServiceTargetDeliverableSyncService;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
 use App\Support\BusinessAccelerationPartnersOutreachDeliverablesSupport;
+use App\Support\DemoDaysDeliverablesSupport;
+use App\Support\FundingSchematicPartnersOutreachDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
@@ -90,6 +92,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'marketing_partner_outreach_count' => $this->marketingPartnerOutreachBreakdown(),
             'marketing_partner_onboarded_count' => $this->marketingPartnerOnboardedBreakdown(),
             'business_acceleration_partners_outreach_count' => $this->businessAccelerationPartnersOutreachBreakdown(),
+            'demo_days_count' => $this->demoDaysBreakdown(),
+            'funding_schematic_partners_outreach_count' => $this->fundingSchematicPartnersOutreachBreakdown(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsBreakdown(),
             'reap_support_services' => $this->reapSupportServicesBreakdown(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsBreakdown(),
@@ -263,6 +267,22 @@ class ProgramDeliverablesAchievementBreakdownService
     private function businessAccelerationPartnersOutreachBreakdown(): array
     {
         return BusinessAccelerationPartnersOutreachDeliverablesSupport::breakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    private function demoDaysBreakdown(): array
+    {
+        return DemoDaysDeliverablesSupport::breakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    private function fundingSchematicPartnersOutreachBreakdown(): array
+    {
+        return FundingSchematicPartnersOutreachDeliverablesSupport::breakdown(
             $this->periodFrom,
             $this->periodTo,
         );
@@ -1838,6 +1858,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'marketing_partner_outreach_count' => 'Marketing partner outreach entries',
             'marketing_partner_onboarded_count' => 'Marketing partners onboarded (LoA/LoI/MoU)',
             'business_acceleration_partners_outreach_count' => '7.1 BA partners outreach (unique)',
+            'demo_days_count' => '8.4 Demo Days (state team)',
+            'funding_schematic_partners_outreach_count' => '8.5 Funding partners outreach (unique)',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
             'reap_support_services' => 'Support to MUY Incubatee through Reap',
             'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation',
