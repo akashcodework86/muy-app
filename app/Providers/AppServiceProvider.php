@@ -8,7 +8,9 @@ use App\Models\DemoDay;
 use App\Models\FundingSchematicPartnerOutreachEntry;
 use App\Models\MediaCampaignEntry;
 use App\Models\MuyNewsletterEntry;
+use App\Models\LineDepartmentMeeting;
 use App\Models\StakeholderCapacityBuildingSession;
+use App\Models\StakeholderConsultationWorkshop;
 use App\Services\NotificationReminderService;
 use App\Services\StaffCheckInService;
 use App\Support\StateAdminTheme;
@@ -33,6 +35,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::bind('cbsSession', fn (string $value) => StakeholderCapacityBuildingSession::query()->findOrFail($value));
+        Route::bind('scwWorkshop', fn (string $value) => StakeholderConsultationWorkshop::query()->findOrFail($value));
+        Route::bind('ldmMeeting', fn (string $value) => LineDepartmentMeeting::query()->findOrFail($value));
         Route::bind('baPartnerOutreach', fn (string $value) => BusinessAccelerationPartnerOutreachEntry::query()->findOrFail($value));
         Route::bind('demoDay', fn (string $value) => DemoDay::query()->findOrFail($value));
         Route::bind('fundingPartnerOutreach', fn (string $value) => FundingSchematicPartnerOutreachEntry::query()->findOrFail($value));

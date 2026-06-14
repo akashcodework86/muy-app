@@ -25,6 +25,10 @@
     $canViewBaPartnersOutreach = $u && \App\Support\BusinessAccelerationPartnersOutreachAccess::canViewDashboard($u);
     $canManageCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canSubmit($u);
     $canViewCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canViewDashboard($u);
+    $canManageStakeholderConsultationWorkshops = $u && \App\Support\StakeholderConsultationWorkshopAccess::canSubmit($u);
+    $canViewStakeholderConsultationWorkshops = $u && \App\Support\StakeholderConsultationWorkshopAccess::canViewDashboard($u);
+    $canSubmitLineDepartmentMeetings = $u && \App\Support\LineDepartmentMeetingAccess::canSubmit($u);
+    $canViewLineDepartmentMeetings = $u && \App\Support\LineDepartmentMeetingAccess::canViewDashboard($u);
     $canSubmitPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canSubmit($u);
     $canViewPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canViewDashboard($u);
     $canSubmitFundingSchematic = $u && \App\Support\FundingSchematicConvergenceAccess::canSubmit($u);
@@ -203,6 +207,40 @@
         str_starts_with($r, 'spoc.capacity-building-stakeholders.show') => 'capacity-building-stakeholders-dashboard',
         str_starts_with($r, 'admin.capacity-building-stakeholders.dashboard') => 'capacity-building-stakeholders-dashboard',
         str_starts_with($r, 'admin.capacity-building-stakeholders.show') => 'capacity-building-stakeholders-dashboard',
+        str_starts_with($r, 'spoc.stakeholder-consultation-workshops.create') => 'stakeholder-consultation-workshops-submit',
+        str_starts_with($r, 'spoc.stakeholder-consultation-workshops.index') => 'stakeholder-consultation-workshops-submit',
+        str_starts_with($r, 'spoc.stakeholder-consultation-workshops.store') => 'stakeholder-consultation-workshops-submit',
+        str_starts_with($r, 'spoc.stakeholder-consultation-workshops.edit') => 'stakeholder-consultation-workshops-submit',
+        str_starts_with($r, 'spoc.stakeholder-consultation-workshops.update') => 'stakeholder-consultation-workshops-submit',
+        str_starts_with($r, 'spoc.stakeholder-consultation-workshops.destroy') => 'stakeholder-consultation-workshops-dashboard',
+        str_starts_with($r, 'spoc.stakeholder-consultation-workshops.dashboard') => 'stakeholder-consultation-workshops-dashboard',
+        str_starts_with($r, 'spoc.stakeholder-consultation-workshops.show') => 'stakeholder-consultation-workshops-dashboard',
+        str_starts_with($r, 'admin.stakeholder-consultation-workshops.dashboard') => 'stakeholder-consultation-workshops-dashboard',
+        str_starts_with($r, 'admin.stakeholder-consultation-workshops.show') => 'stakeholder-consultation-workshops-dashboard',
+        str_starts_with($r, 'spoc.line-department-meetings.create') => 'line-department-meetings-submit',
+        str_starts_with($r, 'spoc.line-department-meetings.index') => 'line-department-meetings-submit',
+        str_starts_with($r, 'spoc.line-department-meetings.store') => 'line-department-meetings-submit',
+        str_starts_with($r, 'spoc.line-department-meetings.edit') => 'line-department-meetings-submit',
+        str_starts_with($r, 'spoc.line-department-meetings.update') => 'line-department-meetings-submit',
+        str_starts_with($r, 'spoc.line-department-meetings.destroy') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'spoc.line-department-meetings.dashboard') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'spoc.line-department-meetings.show') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'hub.line-department-meetings.create') => 'line-department-meetings-submit',
+        str_starts_with($r, 'hub.line-department-meetings.store') => 'line-department-meetings-submit',
+        str_starts_with($r, 'hub.line-department-meetings.edit') => 'line-department-meetings-submit',
+        str_starts_with($r, 'hub.line-department-meetings.update') => 'line-department-meetings-submit',
+        str_starts_with($r, 'hub.line-department-meetings.destroy') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'hub.line-department-meetings.dashboard') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'hub.line-department-meetings.show') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'staff.line-department-meetings.create') => 'line-department-meetings-submit',
+        str_starts_with($r, 'staff.line-department-meetings.store') => 'line-department-meetings-submit',
+        str_starts_with($r, 'staff.line-department-meetings.edit') => 'line-department-meetings-submit',
+        str_starts_with($r, 'staff.line-department-meetings.update') => 'line-department-meetings-submit',
+        str_starts_with($r, 'staff.line-department-meetings.destroy') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'staff.line-department-meetings.dashboard') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'staff.line-department-meetings.show') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'admin.line-department-meetings.dashboard') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'admin.line-department-meetings.show') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'spoc.pitch-deck-preparations.create') => 'pitch-deck-preparations-submit',
         str_starts_with($r, 'spoc.pitch-deck-preparations.index') => 'pitch-deck-preparations-submit',
         str_starts_with($r, 'spoc.pitch-deck-preparations.store') => 'pitch-deck-preparations-submit',
@@ -251,7 +289,7 @@
     $targetsAllocationActive = in_array($activeNav, ['state', 'district', 'targets-state-monthly', 'targets-district-hub-monthly', 'targets-allocate', 'training-package-month-plans'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -269,15 +307,16 @@
         || $staffNavDistrictWorkshop;
     $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'staff-batches'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'deliverables', 'field-coordinator-report'], true);
-    $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard'], true)
+    $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard'], true)
         || $staffFieldWorkActive;
 
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
-    $hubServiceGroupActive = in_array($activeNav, ['community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard'], true);
+    $hubServiceGroupActive = in_array($activeNav, ['community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents'], true);
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
+    $spocSynergiesActive = in_array($activeNav, ['stakeholder-consultation-workshops-submit', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard'], true);
     $spocPitchDeckActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true);
     $spocFundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard', 'demo-days-submit', 'demo-days-dashboard', 'funding-partners-outreach-submit', 'funding-partners-outreach-dashboard'], true);
     $spocPartnerOutreachActive = in_array($activeNav, ['partner-outreach-submit', 'partner-outreach-dashboard'], true);
@@ -505,6 +544,39 @@
                             @endif
                         </div>
                     </div>
+                    @if ($canViewStakeholderConsultationWorkshops || $canViewLineDepartmentMeetings)
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('users') !!}<span>Synergies Across Line Departments</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            @if ($canViewStakeholderConsultationWorkshops)
+                            <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'stakeholder-consultation-workshops-dashboard') is-active @endif">
+                                <span class="admin-topbar__dropdown-subtrigger">
+                                    {!! $i('calendar') !!}<span>Stakeholder consultation (12.1)</span>
+                                </span>
+                                <div class="admin-topbar__dropdown-subpanel" role="menu">
+                                    <a href="{{ route('admin.stakeholder-consultation-workshops.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'stakeholder-consultation-workshops-dashboard') is-active @endif" role="menuitem">
+                                        {!! $i('bars') !!}<span>View dashboard</span>
+                                    </a>
+                                </div>
+                            </div>
+                            @endif
+                            @if ($canViewLineDepartmentMeetings)
+                            <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'line-department-meetings-dashboard') is-active @endif">
+                                <span class="admin-topbar__dropdown-subtrigger">
+                                    {!! $i('users') !!}<span>Line dept meetings (12.2)</span>
+                                </span>
+                                <div class="admin-topbar__dropdown-subpanel" role="menu">
+                                    <a href="{{ route('admin.line-department-meetings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'line-department-meetings-dashboard') is-active @endif" role="menuitem">
+                                        {!! $i('bars') !!}<span>View dashboard</span>
+                                    </a>
+                                </div>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
                     <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['social-media-posts-dashboard', 'case-study-entries-dashboard', 'muy-newsletters-dashboard', 'media-campaigns-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('book') !!}<span>Branding, Communication &amp; Knowledge Management</span>
@@ -719,6 +791,45 @@
                 </div>
             </details>
             @endif
+            @if ($canManageStakeholderConsultationWorkshops || $canSubmitLineDepartmentMeetings)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocSynergiesActive) is-active @endif">
+                    {!! $i('users') !!}<span class="admin-topbar__link-text">Line dept synergies (12.x)</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    @if ($canManageStakeholderConsultationWorkshops)
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['stakeholder-consultation-workshops-submit', 'stakeholder-consultation-workshops-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('calendar') !!}<span>Stakeholder consultation (12.1)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('spoc.stakeholder-consultation-workshops.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'stakeholder-consultation-workshops-submit') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>New entry</span>
+                            </a>
+                            <a href="{{ route('spoc.stakeholder-consultation-workshops.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'stakeholder-consultation-workshops-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+                    @if ($canSubmitLineDepartmentMeetings && ($u->role ?? '') === 'state_staff')
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['line-department-meetings-submit', 'line-department-meetings-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('users') !!}<span>Line dept meetings (12.2)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('spoc.line-department-meetings.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'line-department-meetings-submit') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>New entry</span>
+                            </a>
+                            <a href="{{ route('spoc.line-department-meetings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'line-department-meetings-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            </details>
+            @endif
             @if ($canSubmitPitchDeckPreparation || $canSubmitFundingSchematic)
             <details class="admin-topbar__details">
                 <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocFundingSchematicActive) is-active @endif">
@@ -845,6 +956,21 @@
                             </a>
                         </div>
                     </div>
+                    @if ($canSubmitLineDepartmentMeetings)
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['line-department-meetings-submit', 'line-department-meetings-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('users') !!}<span>Line dept meetings (12.2)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('hub.line-department-meetings.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'line-department-meetings-submit') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>Submit</span>
+                            </a>
+                            <a href="{{ route('hub.line-department-meetings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'line-department-meetings-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                     <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'market-linkage-dashboard') is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('pin') !!}<span>Market linkage</span>
@@ -945,6 +1071,21 @@
                     <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Market linkage</span>
                     </a>
+                    @if ($canSubmitLineDepartmentMeetings)
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['line-department-meetings-submit', 'line-department-meetings-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('users') !!}<span>Line dept meetings (12.2)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('staff.line-department-meetings.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'line-department-meetings-submit') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>Submit</span>
+                            </a>
+                            <a href="{{ route('staff.line-department-meetings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'line-department-meetings-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </details>
             @include('partials.staff-field-work-nav')

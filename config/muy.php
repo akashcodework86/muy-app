@@ -51,4 +51,22 @@ return [
         'aadil.ishrat@pwc.com',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | MIS 12.1 — Stakeholder Consultation Workshop
+    |--------------------------------------------------------------------------
+    */
+    'stakeholder_consultation_workshop_submitters' => [
+        'aadil.ishrat@pwc.com',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | MIS 12.2 — Line department meetings (Aadil as state staff submitter)
+    |--------------------------------------------------------------------------
+    */
+    'line_department_meeting_aadil_submitters' => [
+        'aadil.ishrat@pwc.com',
+    ],
+
 ];

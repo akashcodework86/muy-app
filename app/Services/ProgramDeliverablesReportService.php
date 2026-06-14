@@ -23,6 +23,8 @@ use App\Support\FundingSchematicPartnersOutreachDeliverablesSupport;
 use App\Support\BusinessAccelerationPartnersOutreachDeliverablesSupport;
 use App\Support\ConvergenceReapSupportDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
+use App\Support\StakeholderConsultationWorkshopDeliverablesSupport;
+use App\Support\LineDepartmentMeetingDeliverablesSupport;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
 use App\Support\PitchDeckPreparationsDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
@@ -760,6 +762,8 @@ class ProgramDeliverablesReportService
             'media_campaigns_count' => $this->mediaCampaignEntriesCount(),
             'community_org_outreach_count' => $this->communityOrgOutreachVisitsCount(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsCount(),
+            'stakeholder_consultation_workshop_sessions' => $this->stakeholderConsultationWorkshopSessionsCount(),
+            'line_department_meeting_sessions' => $this->lineDepartmentMeetingSessionsCount(),
             'reap_support_services' => $this->reapSupportServicesCount(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsCount(),
             'pitch_deck_combined' => $this->pitchDeckCombinedCount(),
@@ -781,7 +785,7 @@ class ProgramDeliverablesReportService
                 sumServiceTargets: true,
             ),
             'bst_sessions' => $this->bstSessionsPlannedTargetCount(),
-            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'demo_days_count', 'funding_schematic_partners_outreach_count', 'muy_newsletter_count', 'media_campaigns_count' => $this->resolveStateTargetForCodes([
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'stakeholder_consultation_workshop_sessions', 'line_department_meeting_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'demo_days_count', 'funding_schematic_partners_outreach_count', 'muy_newsletter_count', 'media_campaigns_count' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
             'none' => ($source['deliverable_code'] ?? '') !== ''
@@ -1609,6 +1613,22 @@ SQL;
     private function capacityBuildingStakeholderSessionsCount(): int
     {
         return CapacityBuildingStakeholdersDeliverablesSupport::countSessions(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    private function stakeholderConsultationWorkshopSessionsCount(): int
+    {
+        return StakeholderConsultationWorkshopDeliverablesSupport::countWorkshops(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    private function lineDepartmentMeetingSessionsCount(): int
+    {
+        return LineDepartmentMeetingDeliverablesSupport::countMeetings(
             $this->periodFrom,
             $this->periodTo,
         );

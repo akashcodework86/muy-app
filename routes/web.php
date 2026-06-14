@@ -80,6 +80,10 @@ use App\Http\Controllers\MuyNewsletterController;
 use App\Http\Controllers\MuyNewsletterLandingController;
 use App\Http\Controllers\SocialMediaPostController;
 use App\Http\Controllers\StakeholderCapacityBuildingSessionController;
+use App\Http\Controllers\StakeholderConsultationWorkshopController;
+use App\Http\Controllers\StakeholderConsultationWorkshopLandingController;
+use App\Http\Controllers\LineDepartmentMeetingController;
+use App\Http\Controllers\LineDepartmentMeetingLandingController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
 use App\Http\Controllers\StateStaff\SpocMarketLinkageController;
 use App\Http\Controllers\Spoc\StateTaskController as SpocStateTaskController;
@@ -465,6 +469,24 @@ Route::middleware(['auth', 'active'])->group(function () {
         });
 
         /** Read-only batches view for district staff (scoped to their own district) */
+        Route::get('line-department-meetings/create', [LineDepartmentMeetingController::class, 'create'])->name('line-department-meetings.create');
+        Route::post('line-department-meetings', [LineDepartmentMeetingController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.store');
+        Route::get('line-department-meetings/{ldmMeeting}/edit', [LineDepartmentMeetingController::class, 'edit'])->name('line-department-meetings.edit');
+        Route::put('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.update');
+        Route::delete('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.destroy');
+        Route::get('line-department-meetings', LineDepartmentMeetingLandingController::class)->name('line-department-meetings.index');
+        Route::get('line-department-meetings/dashboard', [LineDepartmentMeetingController::class, 'dashboard'])->name('line-department-meetings.dashboard');
+        Route::get('line-department-meetings/export', [LineDepartmentMeetingController::class, 'export'])->name('line-department-meetings.export');
+        Route::get('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'show'])->name('line-department-meetings.show');
+        Route::get('line-department-meetings/{ldmMeeting}/attachment', [LineDepartmentMeetingController::class, 'downloadAttachment'])
+            ->name('line-department-meetings.attachment');
+
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
         Route::get('batches/legacy/{legacy_batch}', [BatchReadOnlyController::class, 'showLegacy'])
             ->whereNumber('legacy_batch')
@@ -684,6 +706,42 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('capacity-building-stakeholders/{cbsSession}', [StakeholderCapacityBuildingSessionController::class, 'show'])->name('capacity-building-stakeholders.show');
         Route::get('capacity-building-stakeholders/{cbsSession}/attachment', [StakeholderCapacityBuildingSessionController::class, 'downloadAttachment'])
             ->name('capacity-building-stakeholders.attachment');
+
+        Route::get('stakeholder-consultation-workshops/create', [StakeholderConsultationWorkshopController::class, 'create'])->name('stakeholder-consultation-workshops.create');
+        Route::post('stakeholder-consultation-workshops', [StakeholderConsultationWorkshopController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('stakeholder-consultation-workshops.store');
+        Route::get('stakeholder-consultation-workshops/{scwWorkshop}/edit', [StakeholderConsultationWorkshopController::class, 'edit'])->name('stakeholder-consultation-workshops.edit');
+        Route::put('stakeholder-consultation-workshops/{scwWorkshop}', [StakeholderConsultationWorkshopController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('stakeholder-consultation-workshops.update');
+        Route::delete('stakeholder-consultation-workshops/{scwWorkshop}', [StakeholderConsultationWorkshopController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('stakeholder-consultation-workshops.destroy');
+        Route::get('stakeholder-consultation-workshops', StakeholderConsultationWorkshopLandingController::class)->name('stakeholder-consultation-workshops.index');
+        Route::get('stakeholder-consultation-workshops/dashboard', [StakeholderConsultationWorkshopController::class, 'dashboard'])->name('stakeholder-consultation-workshops.dashboard');
+        Route::get('stakeholder-consultation-workshops/export', [StakeholderConsultationWorkshopController::class, 'export'])->name('stakeholder-consultation-workshops.export');
+        Route::get('stakeholder-consultation-workshops/{scwWorkshop}', [StakeholderConsultationWorkshopController::class, 'show'])->name('stakeholder-consultation-workshops.show');
+        Route::get('stakeholder-consultation-workshops/{scwWorkshop}/attachment', [StakeholderConsultationWorkshopController::class, 'downloadAttachment'])
+            ->name('stakeholder-consultation-workshops.attachment');
+
+        Route::get('line-department-meetings/create', [LineDepartmentMeetingController::class, 'create'])->name('line-department-meetings.create');
+        Route::post('line-department-meetings', [LineDepartmentMeetingController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.store');
+        Route::get('line-department-meetings/{ldmMeeting}/edit', [LineDepartmentMeetingController::class, 'edit'])->name('line-department-meetings.edit');
+        Route::put('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.update');
+        Route::delete('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.destroy');
+        Route::get('line-department-meetings', LineDepartmentMeetingLandingController::class)->name('line-department-meetings.index');
+        Route::get('line-department-meetings/dashboard', [LineDepartmentMeetingController::class, 'dashboard'])->name('line-department-meetings.dashboard');
+        Route::get('line-department-meetings/export', [LineDepartmentMeetingController::class, 'export'])->name('line-department-meetings.export');
+        Route::get('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'show'])->name('line-department-meetings.show');
+        Route::get('line-department-meetings/{ldmMeeting}/attachment', [LineDepartmentMeetingController::class, 'downloadAttachment'])
+            ->name('line-department-meetings.attachment');
 
         Route::get('pitch-deck-preparations/incubatees/search', [PitchDeckPreparationController::class, 'searchIncubatees'])
             ->name('pitch-deck-preparations.incubatees.search');
@@ -1002,6 +1060,20 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('capacity-building-stakeholders/{cbsSession}/attachment', [StakeholderCapacityBuildingSessionController::class, 'downloadAttachment'])
             ->name('capacity-building-stakeholders.attachment');
 
+        Route::get('stakeholder-consultation-workshops/dashboard', [StakeholderConsultationWorkshopController::class, 'dashboard'])->name('stakeholder-consultation-workshops.dashboard');
+        Route::get('stakeholder-consultation-workshops', StakeholderConsultationWorkshopLandingController::class)->name('stakeholder-consultation-workshops.index');
+        Route::get('stakeholder-consultation-workshops/export', [StakeholderConsultationWorkshopController::class, 'export'])->name('stakeholder-consultation-workshops.export');
+        Route::get('stakeholder-consultation-workshops/{scwWorkshop}', [StakeholderConsultationWorkshopController::class, 'show'])->name('stakeholder-consultation-workshops.show');
+        Route::get('stakeholder-consultation-workshops/{scwWorkshop}/attachment', [StakeholderConsultationWorkshopController::class, 'downloadAttachment'])
+            ->name('stakeholder-consultation-workshops.attachment');
+
+        Route::get('line-department-meetings/dashboard', [LineDepartmentMeetingController::class, 'dashboard'])->name('line-department-meetings.dashboard');
+        Route::get('line-department-meetings', LineDepartmentMeetingLandingController::class)->name('line-department-meetings.index');
+        Route::get('line-department-meetings/export', [LineDepartmentMeetingController::class, 'export'])->name('line-department-meetings.export');
+        Route::get('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'show'])->name('line-department-meetings.show');
+        Route::get('line-department-meetings/{ldmMeeting}/attachment', [LineDepartmentMeetingController::class, 'downloadAttachment'])
+            ->name('line-department-meetings.attachment');
+
         Route::get('pitch-deck-preparations/dashboard', [PitchDeckPreparationController::class, 'dashboard'])->name('pitch-deck-preparations.dashboard');
         Route::get('pitch-deck-preparations', PitchDeckPreparationLandingController::class)->name('pitch-deck-preparations.index');
         Route::get('pitch-deck-preparations/export', [PitchDeckPreparationController::class, 'export'])->name('pitch-deck-preparations.export');
@@ -1091,6 +1163,23 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('community-org-outreach.destroy');
+        Route::get('line-department-meetings/create', [LineDepartmentMeetingController::class, 'create'])->name('line-department-meetings.create');
+        Route::post('line-department-meetings', [LineDepartmentMeetingController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.store');
+        Route::get('line-department-meetings/{ldmMeeting}/edit', [LineDepartmentMeetingController::class, 'edit'])->name('line-department-meetings.edit');
+        Route::put('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.update');
+        Route::delete('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.destroy');
+        Route::get('line-department-meetings', LineDepartmentMeetingLandingController::class)->name('line-department-meetings.index');
+        Route::get('line-department-meetings/dashboard', [LineDepartmentMeetingController::class, 'dashboard'])->name('line-department-meetings.dashboard');
+        Route::get('line-department-meetings/export', [LineDepartmentMeetingController::class, 'export'])->name('line-department-meetings.export');
+        Route::get('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'show'])->name('line-department-meetings.show');
+        Route::get('line-department-meetings/{ldmMeeting}/attachment', [LineDepartmentMeetingController::class, 'downloadAttachment'])
+            ->name('line-department-meetings.attachment');
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
         Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');

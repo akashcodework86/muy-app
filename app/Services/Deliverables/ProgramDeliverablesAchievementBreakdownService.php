@@ -17,6 +17,8 @@ use App\Support\BusinessAccelerationPartnersOutreachDeliverablesSupport;
 use App\Support\DemoDaysDeliverablesSupport;
 use App\Support\FundingSchematicPartnersOutreachDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
+use App\Support\StakeholderConsultationWorkshopDeliverablesSupport;
+use App\Support\LineDepartmentMeetingDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
@@ -97,6 +99,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'muy_newsletter_count' => $this->muyNewsletterEntriesBreakdown(),
             'media_campaigns_count' => $this->mediaCampaignEntriesBreakdown(),
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsBreakdown(),
+            'stakeholder_consultation_workshop_sessions' => $this->stakeholderConsultationWorkshopSessionsBreakdown(),
+            'line_department_meeting_sessions' => $this->lineDepartmentMeetingSessionsBreakdown(),
             'reap_support_services' => $this->reapSupportServicesBreakdown(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsBreakdown(),
             'pitch_deck_combined' => $this->pitchDeckCombinedBreakdown(),
@@ -1272,6 +1276,40 @@ class ProgramDeliverablesAchievementBreakdownService
         ];
     }
 
+    private function stakeholderConsultationWorkshopSessionsBreakdown(): array
+    {
+        $data = StakeholderConsultationWorkshopDeliverablesSupport::workshopsBreakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+
+        return [
+            'total' => (int) ($data['total'] ?? 0),
+            'by_district' => $data['by_district'] ?? [],
+            'by_hub' => $data['by_hub'] ?? [],
+            'by_month' => $data['by_month'] ?? [],
+            'by_service' => [],
+            'records' => $data['records'] ?? [],
+        ];
+    }
+
+    private function lineDepartmentMeetingSessionsBreakdown(): array
+    {
+        $data = LineDepartmentMeetingDeliverablesSupport::meetingsBreakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+
+        return [
+            'total' => (int) ($data['total'] ?? 0),
+            'by_district' => $data['by_district'] ?? [],
+            'by_hub' => $data['by_hub'] ?? [],
+            'by_month' => $data['by_month'] ?? [],
+            'by_service' => [],
+            'records' => $data['records'] ?? [],
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -1906,6 +1944,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'muy_newsletter_count' => '10.3 MUY Newsletter entries',
             'media_campaigns_count' => '10.4 Newspaper / Radio campaigns',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
+            'stakeholder_consultation_workshop_sessions' => '12.1 Stakeholder consultation workshops',
+            'line_department_meeting_sessions' => '12.2 Line department meetings',
             'reap_support_services' => 'Support to MUY Incubatee through Reap',
             'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation',
             default => 'Achievement records',
