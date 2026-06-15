@@ -22,12 +22,17 @@
             background: linear-gradient(90deg, #4f46e5, #6366f1);
             transition: width 0.15s ease;
         }
+        .doc-upload-progress__fill.is-done {
+            background: linear-gradient(90deg, #16a34a, #22c55e);
+        }
         .doc-upload-progress__label {
             margin: 0.35rem 0 0;
             font-size: 0.8rem;
             color: #475569;
             font-weight: 600;
         }
+        .doc-upload-progress__label.is-error { color: #b91c1c; }
+        .doc-upload-progress__label.is-success { color: #166534; }
         .doc-upload-progress.is-indeterminate .doc-upload-progress__fill {
             width: 35% !important;
             animation: doc-upload-indeterminate 1.1s ease-in-out infinite;
@@ -53,6 +58,21 @@
             return Math.max(1, Math.round(bytes / 1024)) + ' KB';
         }
 
+        function setLabel(label, text, kind) {
+            if (!label) return;
+            label.textContent = text;
+            label.classList.remove('is-error', 'is-success');
+            if (kind) label.classList.add(kind);
+        }
+
+        function parseJsonResponse(xhr) {
+            try {
+                return JSON.parse(xhr.responseText || '{}');
+            } catch (e) {
+                return null;
+            }
+        }
+
         function bindUploadProgress(form) {
             if (!form || form.dataset.uploadProgressBound === '1') return;
             form.dataset.uploadProgressBound = '1';
@@ -76,11 +96,12 @@
                     panel.hidden = false;
                     panel.classList.remove('is-indeterminate');
                 }
-                if (fill) fill.style.width = '0%';
-                if (track) track.setAttribute('aria-valuenow', '0');
-                if (label) {
-                    label.textContent = 'Uploading ' + (file.name || 'file') + ' (' + formatSize(file.size) + ')… 0%';
+                if (fill) {
+                    fill.style.width = '0%';
+                    fill.classList.remove('is-done');
                 }
+                if (track) track.setAttribute('aria-valuenow', '0');
+                setLabel(label, 'Uploading ' + (file.name || 'file') + ' (' + formatSize(file.size) + ')… 0%', null);
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.dataset.originalText = submitBtn.textContent;
@@ -89,8 +110,9 @@
 
                 var xhr = new XMLHttpRequest();
                 xhr.open((form.method || 'POST').toUpperCase(), form.action, true);
+                xhr.withCredentials = true;
                 xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-                xhr.setRequestHeader('Accept', 'text/html, application/json');
+                xhr.setRequestHeader('Accept', 'application/json');
                 var token = csrfToken(form);
                 if (token) xhr.setRequestHeader('X-CSRF-TOKEN', token);
 
@@ -103,9 +125,17 @@
                     var pct = Math.min(100, Math.round((ev.loaded / ev.total) * 100));
                     if (fill) fill.style.width = pct + '%';
                     if (track) track.setAttribute('aria-valuenow', String(pct));
-                    if (label) {
-                        label.textContent = 'Uploading ' + (file.name || 'file') + '… ' + pct + '%';
+                    setLabel(label, 'Uploading ' + (file.name || 'file') + '… ' + pct + '%', null);
+                });
+
+                xhr.upload.addEventListener('loadend', function () {
+                    if (panel) panel.classList.remove('is-indeterminate');
+                    if (fill) {
+                        fill.style.width = '100%';
+                        fill.classList.add('is-done');
                     }
+                    if (track) track.setAttribute('aria-valuenow', '100');
+                    setLabel(label, 'File sent. Saving on server…', null);
                 });
 
                 function resetSubmit() {
@@ -116,32 +146,52 @@
                 }
 
                 xhr.addEventListener('load', function () {
-                    if (xhr.status >= 200 && xhr.status < 400) {
-                        if (label) label.textContent = 'Upload complete. Redirecting…';
-                        if (fill) fill.style.width = '100%';
-                        window.location.href = xhr.responseURL || form.action;
+                    var payload = parseJsonResponse(xhr);
+
+                    if (xhr.status >= 200 && xhr.status < 300 && payload && payload.ok && payload.redirect) {
+                        setLabel(label, payload.message || 'Upload complete. Opening documents…', 'is-success');
+                        window.setTimeout(function () {
+                            window.location.assign(payload.redirect);
+                        }, 350);
                         return;
                     }
 
-                    if (xhr.status === 422) {
-                        try {
-                            var payload = JSON.parse(xhr.responseText);
-                            var messages = payload.errors ? Object.values(payload.errors).flat().join(' ') : (payload.message || 'Validation failed.');
-                            if (label) label.textContent = messages;
-                        } catch (e) {
-                            if (label) label.textContent = 'Upload rejected. Please check the file and try again.';
-                        }
-                    } else {
-                        if (label) label.textContent = 'Upload failed (HTTP ' + xhr.status + '). Please try again.';
+                    if (xhr.status === 422 && payload) {
+                        var messages = payload.errors
+                            ? Object.values(payload.errors).flat().join(' ')
+                            : (payload.message || 'Validation failed.');
+                        setLabel(label, messages, 'is-error');
+                        resetSubmit();
+                        return;
                     }
+
+                    if (xhr.status === 419) {
+                        setLabel(label, 'Session expired. Refresh the page and try again.', 'is-error');
+                        resetSubmit();
+                        return;
+                    }
+
+                    if (xhr.status >= 200 && xhr.status < 400 && xhr.responseURL && xhr.responseURL !== form.action) {
+                        setLabel(label, 'Upload complete. Redirecting…', 'is-success');
+                        window.location.assign(xhr.responseURL);
+                        return;
+                    }
+
+                    setLabel(label, 'Upload failed (HTTP ' + xhr.status + '). Please try again.', 'is-error');
                     resetSubmit();
                 });
 
                 xhr.addEventListener('error', function () {
-                    if (label) label.textContent = 'Upload failed. Check your connection and try again.';
+                    setLabel(label, 'Upload failed. Check your connection and try again.', 'is-error');
                     resetSubmit();
                 });
 
+                xhr.addEventListener('timeout', function () {
+                    setLabel(label, 'Upload timed out. Try a smaller file or check server limits.', 'is-error');
+                    resetSubmit();
+                });
+
+                xhr.timeout = 600000;
                 xhr.send(new FormData(form));
             });
         }

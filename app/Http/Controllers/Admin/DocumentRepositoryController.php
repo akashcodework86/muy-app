@@ -8,6 +8,7 @@ use App\Models\DocumentCategory;
 use App\Models\DocumentVersion;
 use App\Services\AdminAuditLogger;
 use App\Services\HubBatchService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -147,7 +148,7 @@ class DocumentRepositoryController extends Controller
         return redirect()->route('admin.documents.index')->with('status', 'Subcategory created.');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $this->validateDocumentRequest($request, requireFile: true);
         $userId = (int) $request->user()->id;
@@ -187,7 +188,11 @@ class DocumentRepositoryController extends Controller
             );
         });
 
-        return redirect()->route('admin.documents.index')->with('status', 'Document uploaded.');
+        return $this->uploadSuccessResponse(
+            $request,
+            'Document uploaded.',
+            'admin.documents.index'
+        );
     }
 
     public function edit(Document $document): View
@@ -245,7 +250,7 @@ class DocumentRepositoryController extends Controller
         return redirect()->route('admin.documents.edit', $document)->with('status', 'Document details updated.');
     }
 
-    public function uploadVersion(Request $request, Document $document): RedirectResponse
+    public function uploadVersion(Request $request, Document $document): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'file' => ['required', 'file', 'max:51200', 'mimes:pdf,docx,xlsx,pptx,jpg,jpeg,png'],
@@ -267,7 +272,12 @@ class DocumentRepositoryController extends Controller
             'Document new version uploaded'
         );
 
-        return redirect()->route('admin.documents.edit', $document)->with('status', 'New version uploaded (v'.$version->version_no.').');
+        return $this->uploadSuccessResponse(
+            $request,
+            'New version uploaded (v'.$version->version_no.').',
+            'admin.documents.edit',
+            ['document' => $document]
+        );
     }
 
     public function destroy(Request $request, Document $document): RedirectResponse
@@ -304,6 +314,25 @@ class DocumentRepositoryController extends Controller
         return redirect()
             ->route('admin.documents.index')
             ->with('status', 'Onboarding letters sync complete. Scanned: '.$result['scanned'].', synced: '.$result['synced'].', skipped: '.$result['skipped'].'.');
+    }
+
+    private function uploadSuccessResponse(
+        Request $request,
+        string $message,
+        string $routeName,
+        array $routeParams = [],
+    ): RedirectResponse|JsonResponse {
+        if ($request->ajax()) {
+            session()->flash('status', $message);
+
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'redirect' => route($routeName, $routeParams),
+            ]);
+        }
+
+        return redirect()->route($routeName, $routeParams)->with('status', $message);
     }
 
     private function validateDocumentRequest(Request $request, bool $requireFile): array
