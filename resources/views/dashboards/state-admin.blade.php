@@ -606,6 +606,17 @@
         .cg-spark__line { fill: none; stroke: var(--cg-teal); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
         .cg-spark__dot  { fill: var(--cg-teal); }
 
+        .cg-hero-stage-rows { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.5rem 0 0.35rem; }
+        .cg-hero-stage-row { display: flex; align-items: center; gap: 0.45rem; font-size: 0.72rem; }
+        .cg-hero-stage-row__label { width: 3.2rem; font-weight: 700; color: #3c3c43; }
+        .cg-hero-stage-row__track { flex: 1; height: 5px; border-radius: 999px; background: #f2f2f7; overflow: hidden; }
+        .cg-hero-stage-row__fill { height: 100%; border-radius: 999px; }
+        .cg-hero-stage-row__count { font-weight: 800; color: #1c1c1e; min-width: 2.4rem; text-align: right; }
+        .cg-hero-stage-row__pct { color: #8e8e93; min-width: 2rem; text-align: right; }
+
+        .cg-hero-pie-wrap { position: relative; height: 138px; margin: 0.35rem 0 0.15rem; }
+        .cg-hero-pie-wrap canvas { width: 100% !important; height: 100% !important; }
+
         /* === PULSE TABS === */
         .cg-pulse-tabs {
             display: flex;
@@ -1045,6 +1056,33 @@
             $onbGap = max(0, $onbTarget - $onbAchieved);
             $onbDistrictRows = collect($stateOnboardingByDistrict ?? []);
 
+            $cfaStageTotals = [
+                'EARLY' => (int) ($earlyCount ?? 0),
+                'SEED' => (int) ($seedCount ?? 0),
+                'GROWTH' => (int) ($growthCount ?? 0),
+            ];
+            $cfaStageSum = array_sum($cfaStageTotals);
+            $cfaStagePct = [
+                'EARLY' => $cfaStageSum > 0 ? (int) round(($cfaStageTotals['EARLY'] / $cfaStageSum) * 100) : 0,
+                'SEED' => $cfaStageSum > 0 ? (int) round(($cfaStageTotals['SEED'] / $cfaStageSum) * 100) : 0,
+                'GROWTH' => $cfaStageSum > 0 ? (int) round(($cfaStageTotals['GROWTH'] / $cfaStageSum) * 100) : 0,
+            ];
+
+            $onbStageTotals = [
+                'EARLY' => (int) ($onbEarlyCount ?? 0),
+                'SEED' => (int) ($onbSeedCount ?? 0),
+                'GROWTH' => (int) ($onbGrowthCount ?? 0),
+            ];
+            $onbStageSum = array_sum($onbStageTotals);
+            $onbStagePct = [
+                'EARLY' => $onbStageSum > 0 ? (int) round(($onbStageTotals['EARLY'] / $onbStageSum) * 100) : 0,
+                'SEED' => $onbStageSum > 0 ? (int) round(($onbStageTotals['SEED'] / $onbStageSum) * 100) : 0,
+                'GROWTH' => $onbStageSum > 0 ? (int) round(($onbStageTotals['GROWTH'] / $onbStageSum) * 100) : 0,
+            ];
+
+            $heroSectorMix = $heroSectorMix ?? ['labels' => [], 'values' => [], 'colors' => []];
+            $heroSectorTotal = (int) array_sum($heroSectorMix['values'] ?? []);
+
             $insGap = $cfaTargetN !== null ? max(0, $cfaTargetN - $cfaTotalN) : 0;
             $todayDelta = (int) ($heroCfaTodayDelta ?? 0);
             $cfaTodayCount = (int) ($heroCfaToday ?? 0);
@@ -1212,25 +1250,12 @@
                         <i class="fa-solid fa-minus"></i> Same as yesterday
                     </div>
                 @endif
-                @if ($sparkLine)
-                    <div class="cg-spark" aria-hidden="true" title="30-day CFA volume: {{ number_format($sparkSum) }} total">
-                        <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
-                            <defs>
-                                <linearGradient id="cgSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stop-color="#26a69a" stop-opacity="0.5"/>
-                                    <stop offset="100%" stop-color="#26a69a" stop-opacity="0"/>
-                                </linearGradient>
-                            </defs>
-                            <polygon class="cg-spark__fill" points="{{ $sparkFill }}"/>
-                            <polyline class="cg-spark__line" points="{{ $sparkLine }}"/>
-                            @if ($sparkDotX !== null && $sparkDotY !== null)
-                                <circle class="cg-spark__dot" cx="{{ $sparkDotX }}" cy="{{ $sparkDotY }}" r="2.5"/>
-                            @endif
-                        </svg>
-                    </div>
-                @endif
+                @include('dashboards.state-admin._hero-stage-rows', [
+                    'stageTotals' => $cfaStageTotals,
+                    'stagePct' => $cfaStagePct,
+                ])
                 <div class="cg-hero-card__foot">
-                    <span>Phase 3 · {{ $phaseLabel }} onward</span>
+                    <span>Early · Seed · Growth ({{ number_format($cfaStageSum) }})</span>
                     <span class="cg-hero-card__pill">Live</span>
                 </div>
             </div>
@@ -1254,62 +1279,41 @@
                 @else
                     <div class="cg-hero-card__trend cg-hero-card__trend--flat">Locked hub members</div>
                 @endif
+                @include('dashboards.state-admin._hero-stage-rows', [
+                    'stageTotals' => $onbStageTotals,
+                    'stagePct' => $onbStagePct,
+                ])
                 <div class="cg-hero-card__foot">
-                    <span>Phase 3 · locked batches</span>
+                    <span>Onboarded Early · Seed · Growth ({{ number_format($onbStageSum) }})</span>
                     <span class="cg-hero-card__pill">{{ $fyLabel }}</span>
                 </div>
             </div>
 
-            {{-- Card 3: Business Stage Mix (Early / Seed / Growth) --}}
+            {{-- Card 3: Sector mix pie --}}
             <div class="cg-hero-card">
                 <div class="cg-hero-card__top">
                     <span class="cg-hero-icon cg-hero-icon--pink" aria-hidden="true">
-                        <i class="fa-solid fa-seedling"></i>
+                        <i class="fa-solid fa-chart-pie"></i>
                     </span>
-                    <span class="cg-hero-card__label">Stage Mix</span>
-                    <button class="cg-hero-card__arrow" onclick="document.querySelector('[data-sad-tab=overview]')?.click();" title="View stage mix">
+                    <span class="cg-hero-card__label">Sector Mix</span>
+                    <button class="cg-hero-card__arrow" onclick="document.querySelector('[data-sad-tab=overview]')?.click();" title="View sector mix">
                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </button>
                 </div>
-                {{-- Big number = total CFA with stage data --}}
-                <div class="cg-hero-card__val" style="font-size:1.55rem;">{{ number_format($sStageSum) }}</div>
-                {{-- Stage mix badge --}}
-                @if ($sStageSum > 0)
-                    <div class="cg-hero-card__trend {{ $stagePolicyWithinTolerance ? 'cg-hero-card__trend--up' : 'cg-hero-card__trend--flat' }}">
-                        @if ($stagePolicyWithinTolerance)
-                            <i class="fa-solid fa-circle-check"></i> Within policy mix
-                        @else
-                            <i class="fa-solid fa-triangle-exclamation"></i> {{ $stagePolicyDeviationTotal }}pp drift
-                        @endif
+                <div class="cg-hero-card__val" style="font-size:1.55rem;">{{ number_format($heroSectorTotal) }}</div>
+                @if ($heroSectorTotal > 0)
+                    <div class="cg-hero-card__trend cg-hero-card__trend--flat">
+                        <i class="fa-solid fa-layer-group"></i> {{ count($heroSectorMix['labels'] ?? []) }} sectors
+                    </div>
+                    <div class="cg-hero-pie-wrap">
+                        <canvas id="heroSectorPie" aria-label="CFA sector distribution"></canvas>
                     </div>
                 @else
-                    <div class="cg-hero-card__trend cg-hero-card__trend--flat">No stage data yet</div>
+                    <div class="cg-hero-card__trend cg-hero-card__trend--flat">No sector data yet</div>
                 @endif
-                {{-- Early / Seed / Growth mini bars --}}
-                <div style="display:flex;flex-direction:column;gap:0.3rem;margin:0.6rem 0 0.5rem;">
-                    @php
-                        $stageColorMap = ['EARLY' => '#ff9500', 'SEED' => '#d97706', 'GROWTH' => '#26a69a'];
-                        $stageLabelMap = ['EARLY' => 'Early', 'SEED' => 'Seed', 'GROWTH' => 'Growth'];
-                    @endphp
-                    @foreach (['EARLY','SEED','GROWTH'] as $sk)
-                        @php
-                            $skCount = $sStageTotals[$sk] ?? 0;
-                            $skPct   = $sStagePct[$sk] ?? 0;
-                            $skColor = $stageColorMap[$sk];
-                        @endphp
-                        <div style="display:flex;align-items:center;gap:0.45rem;font-size:0.72rem;">
-                            <span style="width:3.2rem;font-weight:700;color:#3c3c43;">{{ $stageLabelMap[$sk] }}</span>
-                            <div style="flex:1;height:5px;border-radius:999px;background:#f2f2f7;overflow:hidden;">
-                                <div style="height:100%;border-radius:999px;background:{{ $skColor }};width:{{ $skPct }}%;"></div>
-                            </div>
-                            <span style="font-weight:800;color:#1c1c1e;min-width:2.4rem;text-align:right;">{{ number_format($skCount) }}</span>
-                            <span style="color:#8e8e93;min-width:2rem;text-align:right;">{{ $skPct }}%</span>
-                        </div>
-                    @endforeach
-                </div>
                 <div class="cg-hero-card__foot">
-                    <span>CFA with stage data</span>
-                    <span class="cg-hero-card__pill">Policy: E60·S30·G10</span>
+                    <span>All business sectors</span>
+                    <span class="cg-hero-card__pill">Phase 3</span>
                 </div>
             </div>
         </div>

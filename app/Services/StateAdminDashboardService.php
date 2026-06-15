@@ -41,6 +41,9 @@ class StateAdminDashboardService
         $districtPlanAlignment = $this->emptyDistrictPlanAlignment();
         $stateOnboardingTarget = null;
         $stateOnboardingAchieved = 0;
+        $onbEarlyCount = 0;
+        $onbSeedCount = 0;
+        $onbGrowthCount = 0;
         $stateOnboardingProgressPct = null;
         $stateOnboardingByDistrict = [];
         $stateCfaThisFy = (int) (clone $phase3Scope)->count();
@@ -144,6 +147,26 @@ class StateAdminDashboardService
                 ->whereNotNull('ob.locked_at')
                 ->where('ob.locked_at', '>=', $phase3FloorDate)
                 ->count();
+
+            $onboardingStageExpr = CfaSubmissionListQuery::payloadJsonExpr('$.form_stage', 'cs.payload');
+            try {
+                $onboardingStageCounts = DB::table('onboarding_batch_cfa as obc')
+                    ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                    ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
+                    ->where('ob.status', 'locked')
+                    ->whereNotNull('ob.locked_at')
+                    ->where('ob.locked_at', '>=', $phase3FloorDate)
+                    ->selectRaw('LOWER(TRIM('.$onboardingStageExpr.')) as stage_key, COUNT(*) as total')
+                    ->groupBy(DB::raw('LOWER(TRIM('.$onboardingStageExpr.'))'))
+                    ->pluck('total', 'stage_key');
+                $onbEarlyCount = (int) ($onboardingStageCounts['early'] ?? 0);
+                $onbSeedCount = (int) ($onboardingStageCounts['seed'] ?? 0);
+                $onbGrowthCount = (int) ($onboardingStageCounts['growth'] ?? 0);
+            } catch (\Throwable) {
+                $onbEarlyCount = 0;
+                $onbSeedCount = 0;
+                $onbGrowthCount = 0;
+            }
 
             if (Schema::hasTable('districts')) {
                 // Start from districts so every district is included (zeros for those
@@ -298,6 +321,8 @@ class StateAdminDashboardService
 
         $businessMixChart = $this->businessCategoryMix($phase3FloorDate, $activeFyId);
         $businessMixChart['colors'] = $this->chartColorsForLabels($businessMixChart['labels']);
+        $heroSectorMix = $this->businessCategoryMix($phase3FloorDate, $activeFyId, null);
+        $heroSectorMix['colors'] = $this->chartColorsForLabels($heroSectorMix['labels']);
 
         $heroCfaToday = (int) (clone $phase3Scope)->whereDate('created_at', now()->toDateString())->count();
         $heroCfaYesterday = (int) (clone $phase3Scope)->whereDate('created_at', now()->subDay()->toDateString())->count();
@@ -384,6 +409,9 @@ class StateAdminDashboardService
             'districtPlanAlignment' => $districtPlanAlignment,
             'stateOnboardingTarget' => $stateOnboardingTarget,
             'stateOnboardingAchieved' => $stateOnboardingAchieved,
+            'onbEarlyCount' => $onbEarlyCount,
+            'onbSeedCount' => $onbSeedCount,
+            'onbGrowthCount' => $onbGrowthCount,
             'stateOnboardingProgressPct' => $stateOnboardingProgressPct,
             'stateOnboardingByDistrict' => $stateOnboardingByDistrict,
             'stateCfaThisFy' => $stateCfaThisFy,
@@ -430,6 +458,7 @@ class StateAdminDashboardService
             ])->all(),
             'cfaTrend' => $stateCfaTrend,
             'businessMix' => $businessMixChart,
+            'heroSectorMix' => $heroSectorMix,
             'heroCfaToday' => $heroCfaToday,
             'heroCfaYesterday' => $heroCfaYesterday,
             'heroCfaTodayDelta' => $heroCfaTodayDelta,
@@ -1351,7 +1380,7 @@ class StateAdminDashboardService
     /**
      * @return array{labels: list<string>, values: list<int>}
      */
-    private function businessCategoryMix(Carbon $phase3FloorDate, int $fiscalYearId = 0): array
+    private function businessCategoryMix(Carbon $phase3FloorDate, int $fiscalYearId = 0, ?int $labelLimit = 8): array
     {
         $counts = [];
         $q = CfaSubmission::query()
@@ -1378,10 +1407,10 @@ class StateAdminDashboardService
         $labels = array_keys($counts);
         $values = array_map(intval(...), array_values($counts));
 
-        if (count($labels) > 8) {
-            $topLabels = array_slice($labels, 0, 7);
-            $topValues = array_slice($values, 0, 7);
-            $otherSum = (int) array_sum(array_slice($values, 7));
+        if ($labelLimit !== null && count($labels) > $labelLimit) {
+            $topLabels = array_slice($labels, 0, $labelLimit - 1);
+            $topValues = array_slice($values, 0, $labelLimit - 1);
+            $otherSum = (int) array_sum(array_slice($values, $labelLimit - 1));
             if ($otherSum > 0) {
                 $topLabels[] = 'Other';
                 $topValues[] = $otherSum;

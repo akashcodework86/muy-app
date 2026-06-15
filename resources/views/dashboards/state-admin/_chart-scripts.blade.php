@@ -359,6 +359,51 @@
         makeDonut(id, data.labels || [], data.values || [], data.colors || []);
     });
 
+    const heroSectorPie = @json($heroSectorMix ?? ['labels' => [], 'values' => [], 'colors' => []]);
+    const heroSectorEl = document.getElementById('heroSectorPie');
+    if (heroSectorEl && (heroSectorPie.labels || []).length) {
+        new Chart(heroSectorEl, {
+            type: 'doughnut',
+            data: {
+                labels: heroSectorPie.labels,
+                datasets: [{
+                    data: heroSectorPie.values,
+                    backgroundColor: heroSectorPie.colors || [],
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                    hoverOffset: 6,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '58%',
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            font: { size: 9, weight: '600' },
+                            boxWidth: 8,
+                            padding: 6,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                        },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label(ctx) {
+                                const total = (heroSectorPie.values || []).reduce((a, b) => a + Number(b || 0), 0);
+                                const val = Number(ctx.parsed || 0);
+                                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                                return `${ctx.label}: ${val.toLocaleString('en-IN')} (${pct}%)`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
     const dLabels = @json($cfaByDistrict['labels']);
     const dValues = @json($cfaByDistrict['values']);
     const districtPalette = @json($districtPalette);
