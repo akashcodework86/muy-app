@@ -248,7 +248,7 @@ class DocumentRepositoryController extends Controller
     public function uploadVersion(Request $request, Document $document): RedirectResponse
     {
         $validated = $request->validate([
-            'file' => ['required', 'file', 'max:25600', 'mimes:pdf,docx,xlsx,pptx,jpg,jpeg,png'],
+            'file' => ['required', 'file', 'max:51200', 'mimes:pdf,docx,xlsx,pptx,jpg,jpeg,png'],
         ]);
 
         $version = $this->storeVersion($document, $request->file('file'), (int) $request->user()->id);
@@ -308,7 +308,7 @@ class DocumentRepositoryController extends Controller
 
     private function validateDocumentRequest(Request $request, bool $requireFile): array
     {
-        $fileRules = ['nullable', 'file', 'max:25600', 'mimes:pdf,docx,xlsx,pptx,jpg,jpeg,png'];
+        $fileRules = ['nullable', 'file', 'max:51200', 'mimes:pdf,docx,xlsx,pptx,jpg,jpeg,png'];
         if ($requireFile) {
             $fileRules[0] = 'required';
         }
