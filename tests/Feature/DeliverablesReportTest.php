@@ -692,6 +692,87 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(12, $row['target']);
     }
 
+    public function test_state_monthly_targets_use_exact_month_on_deliverables_report_when_month_filtered(): void
+    {
+        app(StateMonthlyTargetIndicatorBootstrapService::class)->ensureDeliverables();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $deliverable = Deliverable::query()->where('code', 'social_media')->firstOrFail();
+
+        StateDeliverableTarget::query()->updateOrCreate(
+            ['fiscal_year_id' => $fy->id, 'deliverable_id' => $deliverable->id],
+            ['target_total' => 120],
+        );
+
+        foreach (range(1, 12) as $month) {
+            StateMonthlyTarget::query()->updateOrCreate(
+                [
+                    'fiscal_year_id' => $fy->id,
+                    'deliverable_id' => $deliverable->id,
+                    'month_number' => $month,
+                ],
+                ['target_count' => $month === 1 ? 5 : ($month === 2 ? 7 : 0)],
+            );
+        }
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+
+        $aprilFilter = new ProgramDeliverablesFilter($fy->id, null, 4, 2026, null, null);
+        $aprilReport = app(ProgramDeliverablesReportService::class)->build($aprilFilter, $scope);
+        $aprilRow = collect($aprilReport['rows'])->firstWhere('serial', '10.1');
+        $this->assertNotNull($aprilRow);
+        $this->assertSame(5, $aprilRow['target']);
+
+        $mayFilter = new ProgramDeliverablesFilter($fy->id, null, 5, 2026, null, null);
+        $mayReport = app(ProgramDeliverablesReportService::class)->build($mayFilter, $scope);
+        $mayRow = collect($mayReport['rows'])->firstWhere('serial', '10.1');
+        $this->assertNotNull($mayRow);
+        $this->assertSame(7, $mayRow['target']);
+    }
+
+    public function test_state_monthly_partner_outreach_uses_exact_month_on_deliverables_report(): void
+    {
+        app(StateMonthlyTargetIndicatorBootstrapService::class)->ensureDeliverables();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $deliverable = Deliverable::query()->where('code', 'partners_outreach')->firstOrFail();
+
+        StateMonthlyTarget::query()->updateOrCreate(
+            [
+                'fiscal_year_id' => $fy->id,
+                'deliverable_id' => $deliverable->id,
+                'month_number' => 1,
+            ],
+            ['target_count' => 11],
+        );
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, 4, 2026, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '6.1');
+
+        $this->assertNotNull($row);
+        $this->assertSame(11, $row['target']);
+    }
+
     public function test_state_target_resolves_via_service_catalog_for_pitch_deck(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

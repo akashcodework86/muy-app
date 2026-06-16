@@ -37,7 +37,17 @@ class StateMonthlyTargetsTest extends TestCase
             ->assertSee('Mentorship Support through online portal')
             ->assertSee('Initiation of acceleration and co-incubation services')
             ->assertSee('Other Support Services - Labelling, Packaging, Logo Designing etc.')
-            ->assertSee('Advance Licensing Support (Mandi Licensing, Lab Test etc.)');
+            ->assertSee('Advance Licensing Support (Mandi Licensing, Lab Test etc.)')
+            ->assertSee('Partnership & Forward Linkages')
+            ->assertSee('6.1')
+            ->assertSee('No of Partners outreach')
+            ->assertSee('Marketing Partners Onboarded through (LoA/LoI/MoU)')
+            ->assertSee('Branding, Communication & Knowledge Management')
+            ->assertSee('10.1')
+            ->assertSee('Social Media Post')
+            ->assertSee('Product Development')
+            ->assertSee('Identification and Submission of Proposal for New Product Development')
+            ->assertSee('Paste M1–M12 targets (tab, space, or comma separated)');
     }
 
     public function test_page_only_lists_configured_services(): void

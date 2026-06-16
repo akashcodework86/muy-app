@@ -5,9 +5,9 @@
 
 @section('content')
     <p style="font-size:0.88rem; color:#52525b; margin:0 0 1rem; max-width:56rem; line-height:1.55;">
-        Month-wise state plan for selected MIS services including
-        <strong>3.3</strong>, <strong>3.3.1</strong>, <strong>3.4</strong>, <strong>4.2.7</strong>, <strong>5.2</strong>, <strong>7.2</strong>, <strong>8.3</strong>, and <strong>9.2</strong>.
-        Set <strong>M1–M12</strong> per service; row total should match the <strong>state FY target</strong> when final.
+        Month-wise state plan for selected MIS services grouped by deliverable category (main category → sub-services).
+        Includes <strong>6.1–6.2</strong>, <strong>10.1–10.6</strong>, <strong>11.1</strong>, <strong>12.1–12.2</strong>, and other state-level indicators.
+        Set <strong>M1–M12</strong> per service — paste a row of 12 numbers or edit cells directly; row total should match the <strong>state FY target</strong> when final.
         Annual totals are set on <a href="{{ route('admin.targets.state', ['fiscal_year_id' => $fiscalYearId]) }}">State targets</a>.
     </p>
 
@@ -57,6 +57,7 @@
                         <tr>
                             <th style="padding:0.5rem 0.65rem; background:#ea580c; color:#fff; border:1px solid #c2410c; text-align:left; min-width:3.5rem;">S.N.</th>
                             <th style="padding:0.5rem 0.65rem; background:#ea580c; color:#fff; border:1px solid #c2410c; text-align:left; min-width:16rem;">Indicator</th>
+                            <th style="padding:0.5rem 0.65rem; background:#ea580c; color:#fff; border:1px solid #c2410c; text-align:left; min-width:14rem;">Paste M1–M12</th>
                             @foreach ($monthLabels as $m => $label)
                                 <th style="padding:0.45rem 0.35rem; background:#ffedd5; border:1px solid #fdba74; text-align:center; min-width:3.25rem;">{{ $label }}</th>
                             @endforeach
@@ -65,11 +66,39 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php $lastCategory = null; @endphp
                         @foreach ($grid as $row)
-                            @php $d = $row['deliverable']; @endphp
+                            @php
+                                $d = $row['deliverable'];
+                                $categoryKey = ($row['category_serial'] ?? '').'|'.($row['category_name'] ?? '');
+                            @endphp
+                            @if ($categoryKey !== '|' && $categoryKey !== $lastCategory)
+                                @php $lastCategory = $categoryKey; @endphp
+                                <tr class="js-category-row">
+                                    <td style="padding:0.45rem 0.65rem; border:1px solid #e7d5b8; background:#f5e6c8; font-weight:700; color:#78350f;">
+                                        {{ $row['category_serial'] }}
+                                    </td>
+                                    <td colspan="16" style="padding:0.45rem 0.65rem; border:1px solid #e7d5b8; background:#f5e6c8; font-weight:700; color:#78350f;">
+                                        {{ $row['category_name'] }}
+                                    </td>
+                                </tr>
+                            @endif
                             <tr class="js-data-row" data-annual="{{ (int) $row['state_annual'] }}">
                                 <td style="padding:0.4rem 0.65rem; border:1px solid #e4e4e7; font-weight:600;">{{ $row['serial'] }}</td>
                                 <td style="padding:0.4rem 0.65rem; border:1px solid #e4e4e7; font-weight:500; max-width:18rem;">{{ $d->name }}</td>
+                                <td style="padding:0.35rem 0.5rem; border:1px solid #e4e4e7; min-width:14rem;">
+                                    <label style="display:block; font-size:0.68rem; font-weight:600; color:#475569; margin-bottom:0.2rem;">Paste M1–M12 targets (tab, space, or comma separated)</label>
+                                    <input type="text"
+                                        class="js-row-paste-input"
+                                        placeholder="87  105  140  70  35  35  70  53  28  32  27  18"
+                                        autocomplete="off"
+                                        title="Paste M1–M12 targets (tab, space, or comma separated)"
+                                        style="width:100%; min-width:11rem; padding:0.3rem 0.4rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem; font-family:ui-monospace, monospace;">
+                                    <div style="display:flex; align-items:center; gap:0.35rem; margin-top:0.25rem;">
+                                        <button type="button" class="js-row-paste-apply" style="background:#1d4ed8; color:#fff; border:none; padding:0.28rem 0.45rem; border-radius:4px; font-size:0.7rem; font-weight:600; cursor:pointer;">Apply</button>
+                                        <span class="js-row-paste-status" style="font-size:0.68rem; color:#64748b;"></span>
+                                    </div>
+                                </td>
                                 @foreach (range(1, 12) as $m)
                                     <td style="padding:0.25rem; border:1px solid #e4e4e7; text-align:center;">
                                         <input type="number" min="0" step="1"
@@ -92,7 +121,7 @@
                     </tbody>
                     <tfoot>
                         <tr style="background:#ffedd5; font-weight:700;">
-                            <td colspan="2" style="padding:0.45rem 0.65rem; border:1px solid #fdba74;">Total</td>
+                            <td colspan="3" style="padding:0.45rem 0.65rem; border:1px solid #fdba74;">Total</td>
                             @foreach (range(1, 12) as $m)
                                 <td style="padding:0.4rem; border:1px solid #fdba74; text-align:center;" class="js-col-total" data-month="{{ $m }}">{{ number_format((int) ($columnTotals[$m] ?? 0)) }}</td>
                             @endforeach
@@ -133,6 +162,56 @@
 
                 function fmt(n) {
                     return Number(n).toLocaleString('en-IN');
+                }
+
+                function parsePastedMonths(text) {
+                    const parts = String(text || '')
+                        .trim()
+                        .split(/[\s,\t]+/)
+                        .filter(function (part) { return part !== ''; });
+                    if (parts.length === 0) {
+                        return { ok: false, message: 'Paste 12 numbers for M1–M12.' };
+                    }
+                    if (parts.length !== 12) {
+                        return { ok: false, message: 'Need exactly 12 values (got ' + parts.length + ').' };
+                    }
+                    const months = {};
+                    let annual = 0;
+                    for (let i = 0; i < 12; i++) {
+                        const value = parseInt(parts[i], 10);
+                        if (!Number.isFinite(value) || value < 0) {
+                            return { ok: false, message: 'Invalid number at position ' + (i + 1) + '.' };
+                        }
+                        months[i + 1] = value;
+                        annual += value;
+                    }
+                    return { ok: true, months: months, annual: annual };
+                }
+
+                function setRowPasteStatus(tr, message, tone) {
+                    const statusEl = tr.querySelector('.js-row-paste-status');
+                    if (!statusEl) return;
+                    statusEl.textContent = message;
+                    statusEl.style.color = tone === 'error' ? '#b91c1c' : (tone === 'ok' ? '#047857' : '#64748b');
+                }
+
+                function applyMonthsObjectToRow(tr, months) {
+                    tr.querySelectorAll('.js-month-cell').forEach(function (cell, idx) {
+                        cell.value = months[idx + 1] ?? 0;
+                    });
+                    recalc();
+                }
+
+                function applyRowPastedMonths(tr) {
+                    const pasteInput = tr.querySelector('.js-row-paste-input');
+                    if (!pasteInput) return;
+                    const parsed = parsePastedMonths(pasteInput.value);
+                    if (!parsed.ok) {
+                        setRowPasteStatus(tr, parsed.message, 'error');
+                        return;
+                    }
+                    applyMonthsObjectToRow(tr, parsed.months);
+                    setRowPasteStatus(tr, 'Applied — ' + fmt(parsed.annual), 'ok');
                 }
 
                 function recalc() {
@@ -177,6 +256,25 @@
                     el.addEventListener('input', recalc);
                     el.addEventListener('change', recalc);
                 });
+
+                table.querySelectorAll('.js-data-row').forEach(function (tr) {
+                    const applyBtn = tr.querySelector('.js-row-paste-apply');
+                    const pasteInput = tr.querySelector('.js-row-paste-input');
+                    if (applyBtn) {
+                        applyBtn.addEventListener('click', function () {
+                            applyRowPastedMonths(tr);
+                        });
+                    }
+                    if (pasteInput) {
+                        pasteInput.addEventListener('keydown', function (event) {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                applyRowPastedMonths(tr);
+                            }
+                        });
+                    }
+                });
+
                 recalc();
             })();
         </script>

@@ -61,6 +61,8 @@ class StateMonthlyTargetsService
      * @return list<array{
      *     deliverable: Deliverable,
      *     serial: string,
+     *     category_serial: string,
+     *     category_name: string,
      *     state_annual: int,
      *     months: array<int, int>,
      *     row_total: int
@@ -91,7 +93,7 @@ class StateMonthlyTargetsService
         $grid = [];
         foreach ($deliverables as $deliverable) {
             $code = strtolower((string) $deliverable->code);
-            $meta = $metadata[$code] ?? ['serial' => ''];
+            $meta = $metadata[$code] ?? ['serial' => '', 'category_serial' => '', 'category_name' => ''];
             $months = [];
             $rowTotal = 0;
             for ($m = 1; $m <= 12; $m++) {
@@ -103,6 +105,8 @@ class StateMonthlyTargetsService
             $grid[] = [
                 'deliverable' => $deliverable,
                 'serial' => (string) $meta['serial'],
+                'category_serial' => (string) ($meta['category_serial'] ?? ''),
+                'category_name' => (string) ($meta['category_name'] ?? ''),
                 'state_annual' => (int) ($stateAnnualByDeliverable[(int) $deliverable->id] ?? 0),
                 'months' => $months,
                 'row_total' => $rowTotal,

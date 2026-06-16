@@ -360,17 +360,30 @@ class ProgramDeliverablesReportService
         }
 
         if (Schema::hasTable('state_monthly_targets') && $stateMonthlyDeliverables->isNotEmpty()) {
-            $stateQuery = StateMonthlyTarget::query()->where('fiscal_year_id', $fiscalYear->id);
+            $stateMonthlyIds = $stateMonthlyDeliverables->keys()->map(fn ($id) => (int) $id)->all();
+
+            $deliverablesWithMonthlyPlan = StateMonthlyTarget::query()
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->whereIn('deliverable_id', $stateMonthlyIds)
+                ->distinct()
+                ->pluck('deliverable_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            $stateQuery = StateMonthlyTarget::query()
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->whereIn('deliverable_id', $stateMonthlyIds);
+
             if ($periodInfo['has_narrowing'] && $periodInfo['weights'] !== []) {
                 $stateQuery->whereIn('month_number', array_keys($periodInfo['weights']));
             }
+
             $stateRows = $stateQuery->get(['deliverable_id', 'month_number', 'target_count']);
 
             $stateTotals = [];
             foreach ($stateRows as $row) {
                 $deliverableId = (int) $row->deliverable_id;
-                $deliverable = $stateMonthlyDeliverables->get($deliverableId);
-                if (! $deliverable) {
+                if (! $stateMonthlyDeliverables->has($deliverableId)) {
                     continue;
                 }
                 $weight = $periodInfo['has_narrowing']
@@ -383,10 +396,10 @@ class ProgramDeliverablesReportService
                     + ((int) $row->target_count) * ($periodInfo['has_narrowing'] ? $weight : 1.0);
             }
 
-            foreach ($stateTotals as $deliverableId => $total) {
-                $value = (int) round($total);
-                if ($value > 0) {
-                    $targets[(int) $deliverableId] = $value;
+            foreach ($deliverablesWithMonthlyPlan as $deliverableId) {
+                $value = (int) round($stateTotals[$deliverableId] ?? 0);
+                if ($periodInfo['has_narrowing'] || $value > 0) {
+                    $targets[$deliverableId] = $value;
                 }
             }
         }

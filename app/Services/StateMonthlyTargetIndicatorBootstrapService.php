@@ -76,6 +76,8 @@ class StateMonthlyTargetIndicatorBootstrapService
             }
             $out[$code] = [
                 'serial' => (string) ($row['serial'] ?? ''),
+                'category_serial' => (string) ($row['category_serial'] ?? ''),
+                'category_name' => (string) ($row['category_name'] ?? ''),
             ];
         }
 
