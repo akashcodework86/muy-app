@@ -99,4 +99,83 @@ class FiscalYear extends Model
 
         return min(12, $idx);
     }
+
+    /**
+     * Fiscal quarter 1–4 → M# indexes included (Q1 = M1–M3, …, Q4 = M10–M12).
+     *
+     * @return list<int>
+     */
+    public function fiscalMonthNumbersForQuarter(int $quarter): array
+    {
+        if ($quarter < 1 || $quarter > 4) {
+            return [];
+        }
+
+        $start = ($quarter - 1) * 3 + 1;
+
+        return [$start, $start + 1, $start + 2];
+    }
+
+    /**
+     * Calendar period for a fiscal quarter: 1st day of first month through last day of last month.
+     *
+     * @return array{0: Carbon, 1: Carbon}|null
+     */
+    public function fiscalQuarterPeriod(int $quarter): ?array
+    {
+        if ($quarter < 1 || $quarter > 4 || ! $this->starts_on) {
+            return null;
+        }
+
+        $firstMonth = Carbon::parse($this->starts_on)->startOfMonth()->addMonths(($quarter - 1) * 3);
+        $lastMonth = $firstMonth->copy()->addMonths(2);
+
+        return [
+            $firstMonth->copy()->startOfMonth()->startOfDay(),
+            $lastMonth->copy()->endOfMonth()->endOfDay(),
+        ];
+    }
+
+    /** Short label for filter UI, e.g. "Apr–Jun 2026". */
+    public function fiscalQuarterLabel(int $quarter): string
+    {
+        $period = $this->fiscalQuarterPeriod($quarter);
+        if ($period === null) {
+            return 'Q'.$quarter;
+        }
+
+        [$from, $to] = $period;
+        if ($from->year === $to->year) {
+            return $from->format('M').'–'.$to->format('M Y');
+        }
+
+        return $from->format('M Y').'–'.$to->format('M Y');
+    }
+
+    /**
+     * Quarter date ranges for deliverables filter UI (JS).
+     *
+     * @return array<int, array{from: string, to: string, label: string}|null>
+     */
+    public function fiscalQuarterPeriodsForJs(): array
+    {
+        $out = [];
+        for ($q = 1; $q <= 4; $q++) {
+            $period = $this->fiscalQuarterPeriod($q);
+            if ($period === null) {
+                $out[$q] = null;
+
+                continue;
+            }
+
+            [$from, $to] = $period;
+            $out[$q] = [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'label' => $from->format('d M Y').' – '.$to->format('d M Y'),
+            ];
+        }
+
+        return $out;
+    }
 }

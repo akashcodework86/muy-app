@@ -15,12 +15,14 @@ class ProgramDeliverablesFilter
         public readonly ?int $year,
         public readonly ?string $dateFrom,
         public readonly ?string $dateTo,
+        public readonly ?int $quarter = null,
     ) {}
 
     public static function fromRequest(Request $request): self
     {
         $month = $request->query('month');
         $year = $request->query('year');
+        $quarter = $request->query('quarter');
 
         return new self(
             fiscalYearId: $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null,
@@ -29,6 +31,7 @@ class ProgramDeliverablesFilter
             year: $year !== null && $year !== '' ? (int) $year : null,
             dateFrom: self::normalizeDate($request->query('date_from')),
             dateTo: self::normalizeDate($request->query('date_to')),
+            quarter: $quarter !== null && $quarter !== '' ? (int) $quarter : null,
         );
     }
 
@@ -37,11 +40,11 @@ class ProgramDeliverablesFilter
      */
     public function resolvePeriod(?FiscalYear $fiscalYear): array
     {
-        if ($this->dateFrom && $this->dateTo) {
-            $from = Carbon::parse($this->dateFrom)->startOfDay();
-            $to = Carbon::parse($this->dateTo)->endOfDay();
-
-            return $this->clampToFiscalYear($from, $to, $fiscalYear);
+        if ($this->quarter !== null && $this->quarter >= 1 && $this->quarter <= 4 && $fiscalYear) {
+            $period = $fiscalYear->fiscalQuarterPeriod($this->quarter);
+            if ($period !== null) {
+                return $period;
+            }
         }
 
         if ($this->month !== null && $this->month >= 1 && $this->month <= 12) {
@@ -49,7 +52,14 @@ class ProgramDeliverablesFilter
             $from = Carbon::create($year, $this->month, 1)->startOfDay();
             $to = $from->copy()->endOfMonth()->endOfDay();
 
-            return $this->clampToFiscalYear($from, $to, $fiscalYear);
+            return [$from, $to];
+        }
+
+        if ($this->dateFrom && $this->dateTo) {
+            return self::normalizeToWholeMonths(
+                Carbon::parse($this->dateFrom)->startOfDay(),
+                Carbon::parse($this->dateTo)->endOfDay(),
+            );
         }
 
         if ($fiscalYear?->starts_on && $fiscalYear?->ends_on) {
@@ -65,46 +75,25 @@ class ProgramDeliverablesFilter
     /** User narrowed period beyond the default full fiscal year. */
     public function hasExplicitDateFilter(): bool
     {
-        return $this->month !== null
+        return $this->quarter !== null
+            || $this->month !== null
             || $this->dateFrom !== null
             || $this->dateTo !== null;
     }
 
     /**
-     * Date inputs for the filter form — when a calendar month is selected, show the
-     * resolved from/to range (clamped to fiscal year when applicable).
-     *
      * @return array{dateFrom: ?string, dateTo: ?string, year: ?int}
      */
     public function formDates(?FiscalYear $fiscalYear): array
     {
-        if ($this->dateFrom !== null && $this->dateTo !== null) {
+        [$from, $to] = $this->resolvePeriod($fiscalYear);
+
+        if ($from !== null && $to !== null) {
             return [
-                'dateFrom' => $this->dateFrom,
-                'dateTo' => $this->dateTo,
-                'year' => $this->year,
+                'dateFrom' => $from->toDateString(),
+                'dateTo' => $to->toDateString(),
+                'year' => $this->year ?? (int) $from->year,
             ];
-        }
-
-        if ($this->month !== null && $this->month >= 1 && $this->month <= 12) {
-            $year = $this->year ?? (int) ($fiscalYear?->starts_on?->year ?? now()->year);
-            $filter = new self(
-                fiscalYearId: $this->fiscalYearId,
-                districtId: $this->districtId,
-                month: $this->month,
-                year: $year,
-                dateFrom: null,
-                dateTo: null,
-            );
-            [$from, $to] = $filter->resolvePeriod($fiscalYear);
-
-            if ($from !== null && $to !== null) {
-                return [
-                    'dateFrom' => $from->toDateString(),
-                    'dateTo' => $to->toDateString(),
-                    'year' => $year,
-                ];
-            }
         }
 
         return [
@@ -114,10 +103,10 @@ class ProgramDeliverablesFilter
         ];
     }
 
-    /** Fill date (and year) fields from month selection when not manually provided. */
+    /** Fill date (and year) fields from quarter / month selection. */
     public function withDerivedDates(?FiscalYear $fiscalYear): self
     {
-        if ($this->month === null || ($this->dateFrom !== null && $this->dateTo !== null)) {
+        if ($this->quarter === null && $this->month === null) {
             return $this;
         }
 
@@ -133,6 +122,7 @@ class ProgramDeliverablesFilter
             year: $dates['year'],
             dateFrom: $dates['dateFrom'],
             dateTo: $dates['dateTo'],
+            quarter: $this->quarter,
         );
     }
 
@@ -144,6 +134,7 @@ class ProgramDeliverablesFilter
         return array_filter([
             'fiscal_year_id' => $this->fiscalYearId,
             'district_id' => $this->districtId,
+            'quarter' => $this->quarter,
             'month' => $this->month,
             'year' => $this->year,
             'date_from' => $this->dateFrom,
@@ -165,24 +156,18 @@ class ProgramDeliverablesFilter
     }
 
     /**
+     * Expand a date range to whole calendar months (1st → last day of each month touched).
+     *
      * @return array{0: Carbon, 1: Carbon}
      */
-    private function clampToFiscalYear(Carbon $from, Carbon $to, ?FiscalYear $fiscalYear): array
+    private static function normalizeToWholeMonths(Carbon $from, Carbon $to): array
     {
-        if ($fiscalYear?->starts_on && $fiscalYear?->ends_on) {
-            $fyStart = $fiscalYear->starts_on->copy()->startOfDay();
-            $fyEnd = $fiscalYear->ends_on->copy()->endOfDay();
-            if ($from->lt($fyStart)) {
-                $from = $fyStart;
-            }
-            if ($to->gt($fyEnd)) {
-                $to = $fyEnd;
-            }
-        }
-
         if ($from->gt($to)) {
             $to = $from->copy()->endOfDay();
         }
+
+        $from = $from->copy()->startOfMonth()->startOfDay();
+        $to = $to->copy()->endOfMonth()->endOfDay();
 
         return [$from, $to];
     }

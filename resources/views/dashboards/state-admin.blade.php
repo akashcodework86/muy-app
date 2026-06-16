@@ -1443,7 +1443,7 @@
                                 <p class="cg-progress__foot">
                                     <strong>{{ (int) ($plan['aligned_count'] ?? 0) }} of {{ (int) ($plan['tracked_count'] ?? 0) }}</strong> deliverables aligned.
                                     @if ($activeFy)
-                                        <a href="{{ route('admin.targets.district', ['fiscal_year_id' => $activeFy->id]) }}">District targets →</a>
+                                        <a href="{{ route('admin.targets.official-district-monthly', ['fiscal_year_id' => $activeFy->id]) }}">District targets →</a>
                                     @endif
                                 </p>
                                 <div class="cg-align-status">
@@ -1485,10 +1485,10 @@
                                 @endif
                             </div>
                         @elseif ($cfaTargetN !== null && $cfaTargetN > 0)
-                            <p class="cg-progress__foot">Set service targets in <a href="{{ route('admin.targets.state') }}">State targets</a> for full alignment view.</p>
+                            <p class="cg-progress__foot">Set service targets in <a href="{{ route('admin.targets.official-state-monthly') }}">State target month wise</a> for full alignment view.</p>
                         @endif
                     @else
-                        <p class="cg-progress__foot">Configure CFA state target in <a href="{{ route('admin.targets.state') }}">State targets</a>.</p>
+                        <p class="cg-progress__foot">Configure CFA state target in <a href="{{ route('admin.targets.official-state-monthly') }}">State target month wise</a>.</p>
                     @endif
 
                     @if ($onbTarget > 0)
@@ -1925,10 +1925,8 @@
             <p class="cg-dock__title">Quick command links</p>
             <div class="cg-dock__links">
                 <a class="cg-dock__link" href="{{ route('admin.cfa.index') }}"><i class="fa-solid fa-clipboard-list"></i> CFA</a>
-                <a class="cg-dock__link" href="{{ route('admin.targets.state') }}"><i class="fa-solid fa-bullseye"></i> State targets</a>
-                <a class="cg-dock__link" href="{{ route('admin.targets.state-monthly') }}"><i class="fa-solid fa-calendar-days"></i> State monthly</a>
-                <a class="cg-dock__link" href="{{ route('admin.targets.district') }}"><i class="fa-solid fa-map-location-dot"></i> District targets</a>
-                <a class="cg-dock__link" href="{{ route('admin.targets.allocate-by-service') }}"><i class="fa-solid fa-sliders"></i> Allocate by service</a>
+                <a class="cg-dock__link" href="{{ route('admin.targets.official-state-monthly') }}"><i class="fa-solid fa-table"></i> State month wise</a>
+                <a class="cg-dock__link" href="{{ route('admin.targets.official-district-monthly') }}"><i class="fa-solid fa-table"></i> District month wise</a>
                 <a class="cg-dock__link" href="{{ route('admin.state-tasks.index') }}"><i class="fa-solid fa-list-check"></i> State tasks</a>
                 <a class="cg-dock__link" href="{{ route('admin.staff.index') }}"><i class="fa-solid fa-user-tie"></i> Staff</a>
                 <a class="cg-dock__link" href="{{ route('admin.attendance.index') }}"><i class="fa-solid fa-calendar-check"></i> Field attendance</a>

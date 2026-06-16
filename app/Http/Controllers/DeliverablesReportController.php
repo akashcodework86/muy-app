@@ -252,6 +252,7 @@ class DeliverablesReportController extends Controller
             'breakdownExportCsvRoute' => $this->routeNameFor($user, 'breakdown.export.csv'),
             'breakdownExportPdfRoute' => $this->routeNameFor($user, 'breakdown.export.pdf'),
             'showStateTargetsLink' => $user->role === 'state_admin',
+            'fyQuarterPeriods' => $report['fiscalYear']?->fiscalQuarterPeriodsForJs() ?? [],
         ];
     }
 
@@ -280,6 +281,7 @@ class DeliverablesReportController extends Controller
             year: $filter->year,
             dateFrom: $filter->dateFrom,
             dateTo: $filter->dateTo,
+            quarter: $filter->quarter,
         );
 
         $fiscalYears = FiscalYear::forUiDropdown();
@@ -296,6 +298,10 @@ class DeliverablesReportController extends Controller
 
     private function periodLabel(?Carbon $from, ?Carbon $to, ProgramDeliverablesFilter $filter): string
     {
+        if ($filter->quarter !== null && $filter->quarter >= 1 && $filter->quarter <= 4) {
+            return 'Q'.$filter->quarter.($from && $to ? ' ('.$from->format('d M Y').' – '.$to->format('d M Y').')' : '');
+        }
+
         if ($from && $to) {
             if ($filter->month) {
                 return $from->format('F Y').' ('.$from->format('d M').' – '.$to->format('d M Y').')';

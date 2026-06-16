@@ -11,7 +11,6 @@ use App\Models\FiscalYear;
 use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
-use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
 use App\Models\StateMonthlyTarget;
 use App\Models\User;
@@ -44,6 +43,7 @@ class ProgramDeliverablesReportService
         private readonly MarketLinkagePartnerCatalogService $marketLinkagePartners,
         private readonly DistrictHubMonthlyTargetsService $districtHubMonthlyTargets,
         private readonly StateMonthlyTargetIndicatorBootstrapService $stateMonthlyIndicators,
+        private readonly OfficialMonthlyTargetsReportService $officialMonthlyTargets,
     ) {}
 
     /** @var array<string, int> */
@@ -76,6 +76,8 @@ class ProgramDeliverablesReportService
 
     private bool $useStateTargets = true;
 
+    private bool $useOfficialMonthlyTargets = false;
+
     private ?ProgramDeliverablesFilter $filter = null;
 
     /**
@@ -104,6 +106,7 @@ class ProgramDeliverablesReportService
         $this->districtIds = $scope->effectiveDistrictIds($filter->districtId);
         // State-wide targets for state admin; when a district is selected, use that district's targets.
         $this->useStateTargets = $scope->usesStateTargets && ($filter->districtId === null || $filter->districtId <= 0);
+        $this->useOfficialMonthlyTargets = false;
         [$this->periodFrom, $this->periodTo] = $filter->resolvePeriod($fiscalYear);
 
         $this->targetsByDeliverableId = $this->loadTargets($fiscalYear);
@@ -143,10 +146,36 @@ class ProgramDeliverablesReportService
             return [];
         }
 
-        // When the user narrows by month / date range, scale or replace FY targets
-        // so the Targets column matches the same window the Achievement column uses.
         $periodInfo = $this->periodMonthWeights($fiscalYear);
 
+        if ($this->officialMonthlyTargets->hasAnyForFiscalYear($fiscalYear)) {
+            $this->useOfficialMonthlyTargets = true;
+
+            if ($this->useStateTargets) {
+                $targets = $this->officialMonthlyTargets->loadStateAdminTargets($fiscalYear, $periodInfo);
+                $this->buildTargetIndexesFromTotals($targets);
+
+                return $targets;
+            }
+
+            $districtIds = $this->districtIds ?? [];
+            $targets = $this->officialMonthlyTargets->loadDistrictScopedTargets($fiscalYear, $districtIds, $periodInfo);
+            $this->buildTargetIndexesFromTotals($targets);
+
+            return $targets;
+        }
+
+        $this->useOfficialMonthlyTargets = false;
+
+        return $this->loadLegacyTargets($fiscalYear, $periodInfo);
+    }
+
+    /**
+     * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
+     * @return array<int, int>
+     */
+    private function loadLegacyTargets(FiscalYear $fiscalYear, array $periodInfo): array
+    {
         if ($this->useStateTargets) {
             $targets = [];
             $rows = StateDeliverableTarget::query()
@@ -156,15 +185,12 @@ class ProgramDeliverablesReportService
             foreach ($rows as $deliverableId => $total) {
                 $value = (int) $total;
                 if ($periodInfo['has_narrowing']) {
-                    // No monthly data exists at state level: pro-rate the FY total
-                    // by the fraction of the year covered by the filter window.
                     $value = (int) round($value * $periodInfo['year_fraction']);
                 }
                 $targets[(int) $deliverableId] = $value;
             }
 
             $targets = $this->mergeStateScopedMonthlyTargets($fiscalYear, $targets, $periodInfo);
-
             $this->buildTargetIndexesFromTotals($targets);
 
             return $targets;
@@ -174,12 +200,12 @@ class ProgramDeliverablesReportService
     }
 
     /**
-     * District / hub / SPOC: sum district_deliverable_targets for scope, with svc_* code mapping
-     * (same resolution as state admin). Falls back to staff monthly allocations when no district row.
+     * District / hub / SPOC: sum district_deliverable_targets for scope, with svc_* code mapping.
+     * Monthly breakdown comes from district_monthly_targets (official plan).
      *
      * When the filter narrows to a month / date range, prefer the weighted sum of
-     * staff_monthly_targets for the selected fiscal months (real plan data), and only
-     * pro-rate the district FY total for deliverables that have no monthly rows yet.
+     * district_monthly_targets for the selected fiscal months, and pro-rate the district
+     * FY total for deliverables that have no monthly rows yet.
      *
      * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
      * @return array<int, int>
@@ -204,46 +230,15 @@ class ProgramDeliverablesReportService
             $districtFy[$id] = ($districtFy[$id] ?? 0) + (int) $row->target_total;
         }
 
-        $staffUserIds = [];
-        $hasStaffMonthly = $this->districtIds !== null && Schema::hasTable('staff_monthly_targets');
-        if ($hasStaffMonthly) {
-            $staffUserIds = User::query()
-                ->whereIn('district_id', $this->districtIds)
-                ->whereIn('role', ['district_staff', 'state_staff'])
-                ->pluck('id')
-                ->all();
-            $hasStaffMonthly = count($staffUserIds) > 0;
-        }
-
         if ($periodInfo['has_narrowing']) {
             return $this->buildNarrowedDistrictTargets(
                 $fiscalYear,
                 $districtFy,
-                $staffUserIds,
-                $hasStaffMonthly,
                 $periodInfo,
             );
         }
 
         $targets = $districtFy;
-
-        if ($hasStaffMonthly) {
-            $monthlyTotals = StaffMonthlyTarget::query()
-                ->where('fiscal_year_id', $fiscalYear->id)
-                ->whereIn('user_id', $staffUserIds)
-                ->selectRaw('deliverable_id, SUM(target_count) as total')
-                ->groupBy('deliverable_id')
-                ->pluck('total', 'deliverable_id');
-
-            foreach ($monthlyTotals as $deliverableId => $total) {
-                $deliverableId = (int) $deliverableId;
-                $total = (int) $total;
-                if ($total <= 0 || array_key_exists($deliverableId, $targets)) {
-                    continue;
-                }
-                $targets[$deliverableId] = $total;
-            }
-        }
 
         $targets = $this->mergeDistrictScopedMonthlyTargets($fiscalYear, $targets, $periodInfo);
 
@@ -359,20 +354,16 @@ class ProgramDeliverablesReportService
             }
         }
 
-        if (Schema::hasTable('state_monthly_targets') && $stateMonthlyDeliverables->isNotEmpty()) {
-            $stateMonthlyIds = $stateMonthlyDeliverables->keys()->map(fn ($id) => (int) $id)->all();
-
+        if (Schema::hasTable('state_monthly_targets')) {
             $deliverablesWithMonthlyPlan = StateMonthlyTarget::query()
                 ->where('fiscal_year_id', $fiscalYear->id)
-                ->whereIn('deliverable_id', $stateMonthlyIds)
                 ->distinct()
                 ->pluck('deliverable_id')
                 ->map(fn ($id) => (int) $id)
                 ->all();
 
             $stateQuery = StateMonthlyTarget::query()
-                ->where('fiscal_year_id', $fiscalYear->id)
-                ->whereIn('deliverable_id', $stateMonthlyIds);
+                ->where('fiscal_year_id', $fiscalYear->id);
 
             if ($periodInfo['has_narrowing'] && $periodInfo['weights'] !== []) {
                 $stateQuery->whereIn('month_number', array_keys($periodInfo['weights']));
@@ -383,9 +374,6 @@ class ProgramDeliverablesReportService
             $stateTotals = [];
             foreach ($stateRows as $row) {
                 $deliverableId = (int) $row->deliverable_id;
-                if (! $stateMonthlyDeliverables->has($deliverableId)) {
-                    continue;
-                }
                 $weight = $periodInfo['has_narrowing']
                     ? ($periodInfo['weights'][(int) $row->month_number] ?? 0.0)
                     : 1.0;
@@ -453,29 +441,25 @@ class ProgramDeliverablesReportService
 
     /**
      * Per-deliverable target narrowed to the selected month / date window:
-     *  - if staff_monthly_targets has any non-zero row for the FY → use weighted month sum
-     *    (real plan; may legitimately be 0 if nothing is planned for the selected months)
+     *  - if district_monthly_targets has any non-zero row for the FY → use weighted month sum
      *  - else → pro-rate the district FY total by the fraction of year selected.
      *
      * @param  array<int, int>  $districtFy
-     * @param  list<int>  $staffUserIds
      * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
      * @return array<int, int>
      */
     private function buildNarrowedDistrictTargets(
         FiscalYear $fiscalYear,
         array $districtFy,
-        array $staffUserIds,
-        bool $hasStaffMonthly,
         array $periodInfo,
     ): array {
         $weightedMonthly = [];
         $deliverablesWithMonthlyData = [];
 
-        if ($hasStaffMonthly) {
-            $deliverablesWithMonthlyData = StaffMonthlyTarget::query()
+        if (Schema::hasTable('district_monthly_targets') && $this->districtIds !== null && $this->districtIds !== []) {
+            $deliverablesWithMonthlyData = DistrictMonthlyTarget::query()
                 ->where('fiscal_year_id', $fiscalYear->id)
-                ->whereIn('user_id', $staffUserIds)
+                ->whereIn('district_id', $this->districtIds)
                 ->where('target_count', '>', 0)
                 ->distinct()
                 ->pluck('deliverable_id')
@@ -483,10 +467,10 @@ class ProgramDeliverablesReportService
                 ->all();
         }
 
-        if ($hasStaffMonthly && $periodInfo['weights'] !== []) {
-            $rows = StaffMonthlyTarget::query()
+        if ($deliverablesWithMonthlyData !== [] && $periodInfo['weights'] !== []) {
+            $rows = DistrictMonthlyTarget::query()
                 ->where('fiscal_year_id', $fiscalYear->id)
-                ->whereIn('user_id', $staffUserIds)
+                ->whereIn('district_id', $this->districtIds ?? [])
                 ->whereIn('month_number', array_keys($periodInfo['weights']))
                 ->selectRaw('deliverable_id, month_number, SUM(target_count) as total')
                 ->groupBy('deliverable_id', 'month_number')
@@ -536,8 +520,9 @@ class ProgramDeliverablesReportService
     /**
      * Translate the active filter window into per-FY-month weights and an overall year fraction.
      *
-     * - Keys in `weights` are fiscal-month indexes (M1..M12), matching staff_monthly_targets.month_number.
-     * - Each weight = (days of that calendar month covered by the window) / (days in that calendar month).
+     * - Keys in `weights` are fiscal-month indexes (M1..M12), matching official monthly targets.
+     * - Each included fiscal month gets weight 1.0 (full month plan), because monthly targets are
+     *   stored per fiscal month, not pro-rated by calendar days inside the month.
      * - `year_fraction` = (total days covered) / (days in fiscal year), used to pro-rate FY totals
      *   where no monthly breakdown exists (state targets, or district deliverables without monthly rows).
      *
@@ -560,7 +545,27 @@ class ProgramDeliverablesReportService
         $fyEnd = $fiscalYear->ends_on->copy()->startOfDay();
         $daysInFy = (int) $fyStart->diffInDays($fyEnd) + 1;
 
-        // Month dropdown: map calendar month → fiscal M# at full weight (matches staff_monthly_targets).
+        $fromDate = $this->periodFrom->copy()->startOfDay();
+        $toDate = $this->periodTo->copy()->startOfDay();
+
+        if ($this->filter?->quarter !== null
+            && $this->filter->quarter >= 1
+            && $this->filter->quarter <= 4
+        ) {
+            $weights = array_fill_keys($fiscalYear->fiscalMonthNumbersForQuarter($this->filter->quarter), 1.0);
+            $overlapDays = $fromDate->lte($toDate)
+                ? (int) $fromDate->diffInDays($toDate) + 1
+                : 0;
+            $yearFraction = $daysInFy > 0 ? min(1.0, $overlapDays / $daysInFy) : 0.0;
+
+            return [
+                'weights' => $weights,
+                'year_fraction' => $yearFraction,
+                'has_narrowing' => true,
+            ];
+        }
+
+        // Single calendar month: one full fiscal month at weight 1.0.
         if ($this->filter?->month !== null
             && $this->filter->month >= 1
             && $this->filter->month <= 12
@@ -569,8 +574,6 @@ class ProgramDeliverablesReportService
             $anchor = Carbon::create($year, $this->filter->month, 15)->startOfDay();
             $fyMonthIdx = $fiscalYear->fiscalMonthIndex($anchor);
             if ($fyMonthIdx !== null) {
-                $fromDate = $this->periodFrom->copy()->startOfDay();
-                $toDate = $this->periodTo->copy()->startOfDay();
                 $overlapDays = $fromDate->lte($toDate)
                     ? (int) $fromDate->diffInDays($toDate) + 1
                     : 0;
@@ -584,37 +587,29 @@ class ProgramDeliverablesReportService
             }
         }
 
-        $fromDate = $this->periodFrom->copy()->startOfDay();
-        $toDate = $this->periodTo->copy()->startOfDay();
-
         $weights = [];
         $totalOverlapDays = 0;
 
-        $cursor = $fromDate->copy()->startOfMonth();
-        $endMonthCursor = $toDate->copy()->startOfMonth();
+        $fyFirstCalendarMonth = $fyStart->copy()->startOfMonth();
 
-        while ($cursor->lte($endMonthCursor)) {
-            $monthFirst = $cursor->copy()->startOfMonth();
-            $monthLast = $cursor->copy()->endOfMonth()->startOfDay();
+        for ($m = 1; $m <= 12; $m++) {
+            $calendarMonthStart = $fyFirstCalendarMonth->copy()->addMonths($m - 1)->startOfMonth();
+            $calendarMonthEnd = $calendarMonthStart->copy()->endOfMonth()->startOfDay();
 
-            $overlapStart = $monthFirst->gt($fromDate) ? $monthFirst : $fromDate;
-            $overlapEnd = $monthLast->lt($toDate) ? $monthLast : $toDate;
+            $monthStartInFy = $calendarMonthStart->lt($fyStart) ? $fyStart->copy() : $calendarMonthStart->copy();
+            $monthEndInFy = $calendarMonthEnd->gt($fyEnd) ? $fyEnd->copy() : $calendarMonthEnd->copy();
 
-            if ($overlapEnd->gte($overlapStart)) {
-                $overlapDays = (int) $overlapStart->diffInDays($overlapEnd) + 1;
-                $daysInMonth = $cursor->daysInMonth;
-                $weight = $daysInMonth > 0 ? $overlapDays / $daysInMonth : 0.0;
-
-                // Use overlap start (inside FY), not month start — FY may begin mid-month.
-                $fyMonthIdx = $fiscalYear->fiscalMonthIndex($overlapStart->copy()->startOfDay());
-                if ($fyMonthIdx !== null) {
-                    $weights[$fyMonthIdx] = ($weights[$fyMonthIdx] ?? 0.0) + $weight;
-                }
-
-                $totalOverlapDays += $overlapDays;
+            if ($monthStartInFy->gt($monthEndInFy)) {
+                continue;
             }
 
-            $cursor->addMonth();
+            $overlapStart = $monthStartInFy->gt($fromDate) ? $monthStartInFy : $fromDate;
+            $overlapEnd = $monthEndInFy->lt($toDate) ? $monthEndInFy : $toDate;
+
+            if ($overlapEnd->gte($overlapStart)) {
+                $weights[$m] = 1.0;
+                $totalOverlapDays += (int) $overlapStart->diffInDays($overlapEnd) + 1;
+            }
         }
 
         $yearFraction = $daysInFy > 0 ? min(1.0, $totalOverlapDays / $daysInFy) : 0.0;
@@ -797,7 +792,9 @@ class ProgramDeliverablesReportService
                 array_map('strval', (array) ($source['codes'] ?? [])),
                 sumServiceTargets: true,
             ),
-            'bst_sessions' => $this->bstSessionsPlannedTargetCount(),
+            'bst_sessions' => $this->useOfficialMonthlyTargets
+                ? $this->resolveStateTargetForCodes([(string) ($source['deliverable_code'] ?? 'bst_sessions')])
+                : $this->bstSessionsPlannedTargetCount(),
             'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'stakeholder_consultation_workshop_sessions', 'line_department_meeting_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'demo_days_count', 'funding_schematic_partners_outreach_count', 'muy_newsletter_count', 'media_campaigns_count' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
