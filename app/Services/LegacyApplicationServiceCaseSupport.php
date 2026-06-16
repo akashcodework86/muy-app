@@ -479,29 +479,74 @@ class LegacyApplicationServiceCaseSupport
     }
 
     /**
-     * @return array{applicant_name: string, application_no: string, district: string}|null
+     * @param  list<int>  $legacyApplicationIds
+     * @return array<int, array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string}>
+     */
+    public function incubateePreviewMap(array $legacyApplicationIds): array
+    {
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', $legacyApplicationIds),
+            fn (int $id): bool => $id > 0
+        )));
+
+        if ($ids === [] || ! $this->legacyDbAvailable()) {
+            return [];
+        }
+
+        $legacy = Schema::connection('legacy');
+        $hasOnboard = $legacy->hasTable('rbi_onboarded_applicants');
+        $hasOnboardBatches = $legacy->hasTable('rbi_onboarding_batches');
+
+        $q = DB::connection('legacy')
+            ->table('rbi_applicant_details as d')
+            ->join('rbi_applications as a', 'a.id', '=', 'd.application_id')
+            ->whereIn('d.application_id', $ids);
+
+        if ($hasOnboard) {
+            $q->leftJoin('rbi_onboarded_applicants as oa', 'oa.application_id', '=', 'd.application_id');
+            if ($hasOnboardBatches) {
+                $q->leftJoin('rbi_onboarding_batches as ob', 'ob.id', '=', 'oa.onboarding_batch_id');
+            }
+        }
+
+        $select = [
+            'd.application_id',
+            'd.applicant_name',
+            'a.application_no',
+            'd.district',
+        ];
+        $select[] = ($hasOnboard && $hasOnboardBatches)
+            ? DB::raw('ob.batch_name as onboarding_batch_name')
+            : DB::raw("'' as onboarding_batch_name");
+
+        $out = [];
+        foreach ($q->select($select)->get() as $row) {
+            $id = (int) ($row->application_id ?? 0);
+            if ($id < 1) {
+                continue;
+            }
+
+            $out[$id] = [
+                'applicant_name' => (string) ($row->applicant_name ?? ''),
+                'application_no' => (string) ($row->application_no ?? ''),
+                'district' => (string) ($row->district ?? ''),
+                'onboarding_batch_name' => (string) ($row->onboarding_batch_name ?? ''),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string}|null
      */
     public function incubateePreview(int $legacyApplicationId): ?array
     {
-        if (! $this->legacyDbAvailable()) {
+        if ($legacyApplicationId < 1) {
             return null;
         }
 
-        $row = DB::connection('legacy')
-            ->table('rbi_applicant_details as d')
-            ->join('rbi_applications as a', 'a.id', '=', 'd.application_id')
-            ->where('d.application_id', $legacyApplicationId)
-            ->first(['d.applicant_name', 'a.application_no', 'd.district']);
-
-        if ($row === null) {
-            return null;
-        }
-
-        return [
-            'applicant_name' => (string) ($row->applicant_name ?? ''),
-            'application_no' => (string) ($row->application_no ?? ''),
-            'district' => (string) ($row->district ?? ''),
-        ];
+        return $this->incubateePreviewMap([$legacyApplicationId])[$legacyApplicationId] ?? null;
     }
 
     public function assertLegacyApplicationInStaffDistrict(User $staff, int $legacyApplicationId): void

@@ -25,6 +25,37 @@
         $legacyPreviews = $legacyPreviews ?? [];
     @endphp
 
+    <style>
+        .p3-table-card { border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+        .p3-table-wrap { overflow-x: auto; }
+        .p3-table { width: 100%; border-collapse: collapse; min-width: 1180px; font-size: 0.84rem; }
+        .p3-table thead th {
+            position: sticky; top: 0; z-index: 2;
+            text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+            color: #64748b; background: #f8fafc; padding: 0.62rem 0.7rem; border-bottom: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+        .p3-table td { padding: 0.62rem 0.7rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .p3-table tr.p3-row--pending_approval td { background: #fffbeb; }
+        .p3-table tr.p3-row--sent_back td { background: #fff7ed; }
+        .p3-table tr.p3-row--approved td { background: #ecfdf5; }
+        .p3-table tr.p3-row--rejected td { background: #fef2f2; }
+        .p3-table tr.p3-row--draft td { background: #f9fafb; }
+        .p3-table tr.p3-row--cancelled td { background: #f8fafc; }
+        .p3-table tbody tr:hover td { filter: brightness(0.98); }
+        .p3-sr { width: 2.8rem; text-align: center; color: #64748b; font-weight: 700; }
+        .p3-name { font-weight: 700; color: #0f172a; }
+        .p3-sub { font-size: 0.76rem; color: #64748b; margin-top: 0.12rem; }
+        .p3-pill { display: inline-flex; align-items: center; padding: 0.14rem 0.48rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+        .p3-pill--legacy { background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; margin-left: 0.25rem; }
+        .p3-pill--batch { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+        .p3-remark { max-width: 14rem; color: #475569; font-size: 0.8rem; word-break: break-word; white-space: normal; }
+        .p3-link { color: #4338ca; font-weight: 600; text-decoration: none; }
+        .p3-link:hover { text-decoration: underline; }
+        .p3-btn { background: #fff; border: 1px solid #cbd5e1; color: #1e293b; padding: 0.24rem 0.5rem; border-radius: 6px; cursor: pointer; font-size: 0.76rem; font-weight: 600; }
+        .p3-count-hint { margin-bottom: 0.65rem; color: #475569; font-size: 0.86rem; }
+    </style>
+
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.7rem;margin-bottom:1rem;">
         <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:0.75rem 0.85rem;">
             <div style="font-size:0.78rem;color:#6b7280;">Total cases</div>
@@ -133,35 +164,40 @@
         </div>
     </form>
 
-    <div style="margin-bottom:0.6rem;color:#475569;font-size:0.88rem;">
+    <div class="p3-count-hint">
         Showing {{ number_format($cases->count()) }} of {{ number_format($cases->total()) }} cases
     </div>
 
-    <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e4e7;border-radius:10px;font-size:0.86rem;">
+    <div class="p3-table-card">
+        <div class="p3-table-wrap">
+        <table class="p3-table">
             <thead>
-                <tr style="text-align:left;background:#f8fafc;">
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">#</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Reference</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Applicant</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">District</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Service</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Tier</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Status</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;max-width:16rem;">SPOC remark</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">SLA</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Submitted</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Assigned by</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">SPOC</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Documents</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">CFA</th>
-                    <th style="padding:0.55rem;border-bottom:1px solid #e4e4e7;">Details</th>
+                <tr>
+                    <th class="p3-sr">Sr.</th>
+                    <th>Reference</th>
+                    <th>Applicant</th>
+                    <th>District</th>
+                    <th>Batch</th>
+                    <th>Service</th>
+                    <th>Tier</th>
+                    <th>Status</th>
+                    <th>SPOC remark</th>
+                    <th>SLA</th>
+                    <th>Submitted</th>
+                    <th>Assigned by</th>
+                    <th>SPOC</th>
+                    <th>Docs</th>
+                    <th>CFA</th>
+                    <th>Details</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse ($cases as $case)
                     @php
                         $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
+                        $batchName = $case->cfaSubmission?->onboardingBatchMembership?->batch?->name
+                            ?? (is_array($lp) ? ($lp['onboarding_batch_name'] ?? '') : '');
+                        $isLegacyBatch = $batchName !== '' && ! $case->cfaSubmission;
                         $attachments = $case->attachments->map(fn ($a) => [
                             'id' => (int) $a->id,
                             'name' => (string) ($a->original_name ?: 'Attachment'),
@@ -184,40 +220,49 @@
                             : (($isUdyamService && $case->status === 'pending_approval')
                                 ? 'Awaiting SPOC selection'
                                 : '');
+                        $srNo = $loop->iteration + (($cases->currentPage() - 1) * $cases->perPage());
                     @endphp
-                    <tr>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">{{ $loop->iteration + (($cases->currentPage() - 1) * $cases->perPage()) }}</td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
-                            <span style="font-weight:600;">{{ $case->reference_number ?: '—' }}</span>
+                    <tr class="p3-row--{{ $case->status }}">
+                        <td class="p3-sr">{{ $srNo }}</td>
+                        <td><span style="font-weight:600;">{{ $case->reference_number ?: '—' }}</span></td>
+                        <td>
+                            <div class="p3-name">{{ $case->cfaSubmission?->applicant_name ?? ($lp['applicant_name'] ?? null) ?: '—' }}</div>
+                            <div class="p3-sub">{{ $case->cfaSubmission?->application_no ?? ($lp['application_no'] ?? null) ?: '—' }}</div>
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
-                            <div style="font-weight:700;color:#111827;">{{ $case->cfaSubmission?->applicant_name ?? ($lp['applicant_name'] ?? null) ?: '—' }}</div>
-                            <div style="font-size:0.78rem;color:#64748b;">{{ $case->cfaSubmission?->application_no ?? ($lp['application_no'] ?? null) ?: '—' }}</div>
+                        <td>{{ $case->cfaSubmission?->district?->name ?? ($lp['district'] ?? null) ?: '—' }}</td>
+                        <td>
+                            @if ($batchName !== '')
+                                <span class="p3-pill p3-pill--batch">{{ $batchName }}</span>
+                                @if ($isLegacyBatch)
+                                    <span class="p3-pill p3-pill--legacy">legacy</span>
+                                @endif
+                            @else
+                                <span style="color:#94a3b8;">—</span>
+                            @endif
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">{{ $case->cfaSubmission?->district?->name ?? ($lp['district'] ?? null) ?: '—' }}</td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
-                            <div style="font-weight:700;color:#111827;">{{ $case->service?->name ?? '—' }}</div>
-                            <div style="font-size:0.78rem;color:#64748b;">{{ $case->service?->category?->name ?? '—' }}</div>
+                        <td>
+                            <div class="p3-name">{{ $case->service?->name ?? '—' }}</div>
+                            <div class="p3-sub">{{ $case->service?->category?->name ?? '—' }}</div>
                             @if ($isUdyamService && $udyamTypeDisplay !== '')
                                 <div style="margin-top:0.26rem;">
-                                    <span style="display:inline-flex;align-items:center;padding:0.14rem 0.45rem;border-radius:999px;font-size:0.72rem;font-weight:800;letter-spacing:0.01em;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;">
+                                    <span class="p3-pill" style="background:#fffbeb;border:1px solid #fcd34d;color:#92400e;">
                                         Udyam: {{ $udyamTypeDisplay }}
                                     </span>
                                 </div>
                             @endif
                             @include('staff.services.partials.through-reap-badge', ['case' => $case])
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
-                            <span style="font-size:0.75rem;padding:0.12rem 0.4rem;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">
+                        <td>
+                            <span class="p3-pill" style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">
                                 {{ strtoupper((string) ($case->service?->reporting_tier ?? 'unset')) }}
                             </span>
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
-                            <span style="font-size:0.75rem;padding:0.12rem 0.4rem;border-radius:999px;{{ $statusStyle[$case->status] ?? $statusStyle['draft'] }}">
+                        <td>
+                            <span class="p3-pill" style="{{ $statusStyle[$case->status] ?? $statusStyle['draft'] }}">
                                 {{ $statusLabel[$case->status] ?? ucfirst((string) $case->status) }}
                             </span>
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;max-width:16rem;color:#475569;white-space:normal;word-break:break-word;font-size:0.82rem;">
+                        <td class="p3-remark">
                             @php
                                 $spocRemark = match ($case->status) {
                                     'sent_back' => $case->sent_back_note,
@@ -225,54 +270,48 @@
                                     default => null,
                                 };
                             @endphp
-                            @if ($spocRemark)
-                                {{ $spocRemark }}
-                            @else
-                                <span style="color:#94a3b8;">—</span>
-                            @endif
+                            {{ $spocRemark ?: '—' }}
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;{{ $isSlaBreached ? 'color:#b91c1c;font-weight:700;' : 'color:#475569;' }}">
+                        <td style="{{ $isSlaBreached ? 'color:#b91c1c;font-weight:700;' : 'color:#475569;' }}">
                             {{ $case->sla_deadline_at ? \Illuminate\Support\Carbon::parse($case->sla_deadline_at)->format('d M Y') : '—' }}
                             @if ($isSlaBreached)
-                                <div style="font-size:0.74rem;">Breached</div>
+                                <div class="p3-sub" style="color:#b91c1c;">Breached</div>
                             @endif
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;color:#475569;">
+                        <td style="color:#475569;white-space:nowrap;">
                             {{ $case->submitted_at ? \Illuminate\Support\Carbon::parse($case->submitted_at)->format('d M Y, h:i A') : '—' }}
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
-                            {{ $case->submitter?->name ?? $case->creator?->name ?? '—' }}
-                        </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">{{ $case->spoc?->name ?? 'Unassigned' }}</td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;white-space:nowrap;">
-                            <span style="font-weight:700;">{{ count($attachments) }}</span>
+                        <td>{{ $case->submitter?->name ?? $case->creator?->name ?? '—' }}</td>
+                        <td>{{ $case->spoc?->name ?? 'Unassigned' }}</td>
+                        <td style="white-space:nowrap;">
+                            <strong>{{ count($attachments) }}</strong>
                             <button
                                 type="button"
-                                class="js-documents-open"
+                                class="js-documents-open p3-btn"
                                 data-case-label="{{ $case->service?->name ?? 'Service case' }}"
                                 data-case-ref="{{ $case->reference_number ?: '—' }}"
                                 data-documents='@json($attachments)'
-                                style="margin-left:0.35rem;background:#fff;border:1px solid #cbd5e1;color:#1e293b;padding:0.24rem 0.5rem;border-radius:6px;cursor:pointer;"
                             >View</button>
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
+                        <td>
                             @if ($case->cfaSubmission)
-                                <a href="{{ route('admin.cfa.show', $case->cfaSubmission) }}">View CFA</a>
+                                <a href="{{ route('admin.cfa.show', $case->cfaSubmission) }}" class="p3-link">View CFA</a>
                             @else
                                 —
                             @endif
                         </td>
-                        <td style="padding:0.5rem;border-bottom:1px solid #f4f4f5;">
-                            <a href="{{ route('admin.phase3-services.show', $case) }}">View details</a>
+                        <td>
+                            <a href="{{ route('admin.phase3-services.show', $case) }}" class="p3-link" target="_blank" rel="noopener">View details</a>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="15" style="padding:1rem;color:#64748b;">No Phase 3 service cases found for selected filters.</td>
+                        <td colspan="16" style="padding:1.2rem;color:#64748b;text-align:center;">No Phase 3 service cases found for selected filters.</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 
     @if ($cases->hasPages())
@@ -306,6 +345,10 @@
                     clearTimeout(autoSubmitTimer);
                 }
                 autoSubmitTimer = setTimeout(function () {
+                    const pageInput = filterForm.querySelector('input[name="page"]');
+                    if (pageInput) {
+                        pageInput.remove();
+                    }
                     filterForm.submit();
                 }, delayMs);
             }

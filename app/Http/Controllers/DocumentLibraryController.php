@@ -47,7 +47,7 @@ class DocumentLibraryController extends Controller
             ->where('allowed_roles', 'like', '%"'.$role.'"%')
             ->whereNotNull('latest_version_id')
             ->with(['category', 'latestVersion'])
-            ->orderBy('title');
+            ->orderByDesc('updated_at');
 
         if ($q !== '') {
             $like = '%'.$q.'%';

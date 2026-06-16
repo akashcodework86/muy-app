@@ -57,7 +57,10 @@ class Phase3ServiceCasesController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $summaryRows = (clone $baseQuery)
+        $summaryQuery = $this->buildFilteredQuery($filters);
+        $this->applyFilters($summaryQuery, $filters, ignoreStatusFilter: true);
+
+        $summaryRows = (clone $summaryQuery)
             ->select('service_cases.status', DB::raw('COUNT(DISTINCT service_cases.id) as total'))
             ->groupBy('service_cases.status')
             ->pluck('total', 'status');
@@ -71,7 +74,7 @@ class Phase3ServiceCasesController extends Controller
         ];
 
         $statsQuery = $this->buildFilteredQuery($filters);
-        $this->applyFilters($statsQuery, $filters, ignoreDistrictFilter: true);
+        $this->applyFilters($statsQuery, $filters, ignoreDistrictFilter: true, ignoreStatusFilter: true);
 
         $districtCounts = District::query()
             ->orderBy('name')
@@ -588,14 +591,19 @@ class Phase3ServiceCasesController extends Controller
         ]);
     }
 
-    private function applyFilters($query, array $filters, bool $ignoreDistrictFilter = false): void
+    private function applyFilters($query, array $filters, bool $ignoreDistrictFilter = false, bool $ignoreStatusFilter = false): void
     {
         if ($filters['q'] !== '') {
             $like = '%'.$filters['q'].'%';
             $query->where(function ($q) use ($like): void {
                 $q->where('service_cases.reference_number', 'like', $like)
+                    ->orWhere('service_cases.sent_back_note', 'like', $like)
+                    ->orWhere('service_cases.rejected_note', 'like', $like)
                     ->orWhere('cfa_submissions.application_no', 'like', $like)
-                    ->orWhere('cfa_submissions.applicant_name', 'like', $like);
+                    ->orWhere('cfa_submissions.applicant_name', 'like', $like)
+                    ->orWhereHas('service', fn ($s) => $s->where('name', 'like', $like))
+                    ->orWhereHas('submitter', fn ($s) => $s->where('name', 'like', $like))
+                    ->orWhereHas('spoc', fn ($s) => $s->where('name', 'like', $like));
                 if ($this->legacyPhase2JoinsApplied) {
                     $q->orWhere('legacy_phase2_app.application_no', 'like', $like);
                 }
@@ -624,7 +632,7 @@ class Phase3ServiceCasesController extends Controller
             $query->where('service_cases.spoc_user_id', (int) $filters['spoc_id']);
         }
 
-        if ($filters['status'] !== '') {
+        if (! $ignoreStatusFilter && $filters['status'] !== '') {
             $query->where('service_cases.status', $filters['status']);
         }
 
@@ -676,6 +684,8 @@ class Phase3ServiceCasesController extends Controller
                 'service.category:id,name,slug',
                 'cfaSubmission:id,application_no,applicant_name,district_id,phone,payload',
                 'cfaSubmission.district:id,name',
+                'cfaSubmission.onboardingBatchMembership:id,onboarding_batch_id,cfa_submission_id',
+                'cfaSubmission.onboardingBatchMembership.batch:id,name',
                 'submitter:id,name',
                 'creator:id,name',
                 'spoc:id,name',
@@ -726,7 +736,7 @@ class Phase3ServiceCasesController extends Controller
 
     /**
      * @param  Collection<int, ServiceCase>|\Illuminate\Database\Eloquent\Collection<int, ServiceCase>  $cases
-     * @return array<int, array{applicant_name: string, application_no: string, district: string}|null>
+     * @return array<int, array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string}>
      */
     private function buildLegacyPreviewMap($cases): array
     {
@@ -735,16 +745,15 @@ class Phase3ServiceCasesController extends Controller
             return [];
         }
 
-        $out = [];
+        $ids = [];
         foreach ($cases as $case) {
             $lid = (int) ($case->legacy_application_id ?? 0);
-            if ($lid < 1 || array_key_exists($lid, $out)) {
-                continue;
+            if ($lid > 0 && ! $case->cfa_submission_id) {
+                $ids[] = $lid;
             }
-            $out[$lid] = $support->incubateePreview($lid);
         }
 
-        return $out;
+        return $support->incubateePreviewMap(array_values(array_unique($ids)));
     }
 
     /**

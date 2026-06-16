@@ -28,17 +28,40 @@
         }
         .sq-kpi-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.06em; }
         .sq-kpi-value { font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-top: 0.12rem; }
-        .sq-table-card { border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; overflow: hidden; }
-        .sq-toolbar { padding: 0.6rem 0.75rem; border-bottom: 1px solid #f1f5f9; background: #fafafa; }
+        .sq-table-card { border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+        .sq-toolbar { padding: 0.75rem 0.85rem; border-bottom: 1px solid #f1f5f9; background: linear-gradient(180deg, #fafafa 0%, #f8fafc 100%); }
         .sq-search {
             width: 100%; max-width: 26rem; border: 1px solid #d1d5db; border-radius: 9px;
-            padding: 0.42rem 0.65rem; font-size: 0.86rem;
+            padding: 0.42rem 0.65rem; font-size: 0.86rem; background: #fff;
         }
-        .sq-table-wrap { overflow-x: auto; }
-        .sq-table { width: 100%; border-collapse: collapse; min-width: 980px; font-size: 0.84rem; }
-        .sq-table th { text-align: left; font-size: 0.76rem; color: #64748b; background: #f8fafc; padding: 0.56rem 0.65rem; border-bottom: 1px solid #e5e7eb; }
-        .sq-table td { padding: 0.56rem 0.65rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-        .sq-table tr:hover td { background: #fcfcff; }
+        .sq-search:focus { outline: none; border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12); }
+        .sq-table-wrap { overflow-x: auto; max-height: 72vh; }
+        .sq-table { width: 100%; border-collapse: collapse; min-width: 1080px; font-size: 0.84rem; }
+        .sq-table th {
+            position: sticky; top: 0; z-index: 2;
+            text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+            color: #64748b; background: #f8fafc; padding: 0.62rem 0.7rem; border-bottom: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+        .sq-table td { padding: 0.62rem 0.7rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .sq-table tr.sq-row--pending_approval td { background: #fffbeb; }
+        .sq-table tr.sq-row--sent_back td { background: #fff7ed; }
+        .sq-table tr.sq-row--approved td { background: #ecfdf5; }
+        .sq-table tr.sq-row--rejected td { background: #fef2f2; }
+        .sq-table tr.sq-row--market_linkage td { background: #faf5ff; }
+        .sq-table tr:hover td { filter: brightness(0.98); }
+        .sq-filter-grid {
+            display: grid; gap: 0.45rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+            margin-bottom: 0.5rem;
+        }
+        .sq-filter-actions { display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.5rem; }
+        .sq-remark { max-width: 14rem; font-size: 0.78rem; color: #475569; word-break: break-word; white-space: normal; }
+        .sq-count-hint { font-size: 0.82rem; color: #64748b; margin-bottom: 0.45rem; padding: 0 0.85rem; }
+        .sq-sr { width: 2.8rem; text-align: center; color: #64748b; font-weight: 700; }
+        .sq-name { font-weight: 700; color: #0f172a; }
+        .sq-pill { display: inline-flex; align-items: center; padding: 0.14rem 0.48rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+        .sq-pill--batch { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+        .sq-pill--legacy { background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; margin-left: 0.25rem; }
         .sq-muted { font-size: 0.75rem; color: #71717a; margin-top: 0.1rem; }
         .sq-status {
             display: inline-flex; border-radius: 999px; padding: 0.15rem 0.55rem; font-size: 0.75rem; font-weight: 700;
@@ -107,15 +130,22 @@
             ServiceCase::STATUS_APPROVED => 'Approved',
             ServiceCase::STATUS_REJECTED => 'Rejected',
         ];
+        $filterParams = array_filter([
+            'district_id' => (int) ($filterDistrictId ?? 0) ?: null,
+            'batch_id' => (int) ($filterBatchId ?? 0) ?: null,
+            'service_id' => (int) ($filterServiceId ?? 0) ?: null,
+            'q' => ($filterQ ?? '') !== '' ? $filterQ : null,
+            'date_from' => ($filterDateFrom ?? '') !== '' ? $filterDateFrom : null,
+            'date_to' => ($filterDateTo ?? '') !== '' ? $filterDateTo : null,
+            'has_docs' => ($filterHasDocs ?? '') !== '' ? $filterHasDocs : null,
+        ], fn ($v) => $v !== null && $v !== '');
     @endphp
 
     <div class="sq-tabs">
         @foreach ($tabs as $val => $label)
-            <a href="{{ route('spoc.service-cases.index', array_filter([
+            <a href="{{ route('spoc.service-cases.index', array_merge($filterParams, array_filter([
                 'status' => $val !== '' ? $val : null,
-                'district_id' => (int) ($filterDistrictId ?? 0) ?: null,
-                'batch_id' => (int) ($filterBatchId ?? 0) ?: null,
-            ])) }}"
+            ]))) }}"
                 class="sq-tab {{ ($filterStatus === $val) ? 'is-active' : '' }}">
                 {{ $label }} ({{ number_format((int) ($tabCounts[$val] ?? 0)) }})
             </a>
@@ -145,41 +175,58 @@
         <p style="color:#b45309;font-size:0.9rem;background:#fffbeb;border:1px solid #fcd34d;padding:0.65rem 0.85rem;border-radius:8px;">
             No districts are assigned to you yet. Ask the state admin to assign you on <strong>Service SPOCs</strong> before you can review submissions.
         </p>
-    @elseif (!($marketLinkageWorkflowReady ?? true))
-        <p style="color:#b45309;font-size:0.9rem;background:#fffbeb;border:1px solid #fcd34d;padding:0.65rem 0.85rem;border-radius:8px;margin-bottom:0.75rem;">
-            Market linkage approval workflow is not active. Run <code>php artisan migrate</code> to enable market linkage in this queue.
-        </p>
-    @endif
-
-    @if ($cases->isEmpty())
-        <p style="color:#71717a;font-size:0.9rem;">No service cases or market linkage submissions in this view.</p>
     @else
+        @if (!($marketLinkageWorkflowReady ?? true))
+            <p style="color:#b45309;font-size:0.9rem;background:#fffbeb;border:1px solid #fcd34d;padding:0.65rem 0.85rem;border-radius:8px;margin-bottom:0.75rem;">
+                Market linkage approval workflow is not active. Run <code>php artisan migrate</code> to enable market linkage in this queue.
+            </p>
+        @endif
+
         <div class="sq-table-card">
             <div class="sq-toolbar">
-                <form method="get" style="display:flex;gap:0.45rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                <form id="sqFilterForm" method="get" action="{{ route('spoc.service-cases.index') }}">
                     @if (!empty($filterStatus))
                         <input type="hidden" name="status" value="{{ $filterStatus }}">
                     @endif
-                    <select name="district_id" class="sq-search" style="max-width:15rem;">
-                        <option value="">All districts</option>
-                        @foreach (($districtOptions ?? collect()) as $district)
-                            <option value="{{ (int) $district->id }}" @selected((int) ($filterDistrictId ?? 0) === (int) $district->id)>
-                                {{ $district->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <select name="batch_id" class="sq-search" style="max-width:20rem;">
-                        <option value="">All batches</option>
-                        @foreach (($batchOptions ?? collect()) as $batch)
-                            @php $dName = $districtNameById->get($batch->district_id); @endphp
-                            <option value="{{ (int) $batch->id }}" @selected((int) ($filterBatchId ?? 0) === (int) $batch->id)>
-                                {{ $batch->name }}@if($dName) — {{ $dName }}@endif
-                            </option>
-                        @endforeach
-                    </select>
-                    <button type="submit" class="sq-btn">Apply</button>
+                    <div class="sq-filter-grid">
+                        <input type="search" name="q" value="{{ $filterQ ?? '' }}" class="sq-search" placeholder="Search all entries: incubatee, app no, service, remark…" style="max-width:none;">
+                        <select name="district_id" class="sq-search" style="max-width:none;">
+                            <option value="">All districts</option>
+                            @foreach (($districtOptions ?? collect()) as $district)
+                                <option value="{{ (int) $district->id }}" @selected((int) ($filterDistrictId ?? 0) === (int) $district->id)>
+                                    {{ $district->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <select name="batch_id" class="sq-search" style="max-width:none;">
+                            <option value="">All batches</option>
+                            @foreach (($batchOptions ?? collect()) as $batch)
+                                @php $dName = $districtNameById->get($batch->district_id); @endphp
+                                <option value="{{ (int) $batch->id }}" @selected((int) ($filterBatchId ?? 0) === (int) $batch->id)>
+                                    {{ $batch->name }}@if($dName) — {{ $dName }}@endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <select name="service_id" class="sq-search" style="max-width:none;">
+                            <option value="">All services</option>
+                            @foreach (($serviceOptions ?? collect()) as $service)
+                                <option value="{{ (int) $service->id }}" @selected((int) ($filterServiceId ?? 0) === (int) $service->id)>
+                                    {{ $service->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <select name="has_docs" class="sq-search" style="max-width:none;">
+                            <option value="">All document states</option>
+                            <option value="1" @selected(($filterHasDocs ?? '') === '1')>With documents</option>
+                            <option value="0" @selected(($filterHasDocs ?? '') === '0')>Without documents</option>
+                        </select>
+                        <input type="date" name="date_from" value="{{ $filterDateFrom ?? '' }}" class="sq-search" style="max-width:none;">
+                        <input type="date" name="date_to" value="{{ $filterDateTo ?? '' }}" class="sq-search" style="max-width:none;">
+                    </div>
+                    <div class="sq-filter-actions">
+                        <a href="{{ route('spoc.service-cases.index', array_filter(['status' => ($filterStatus ?? '') !== '' ? $filterStatus : null])) }}" class="sq-btn">Clear filters</a>
+                    </div>
                 </form>
-                <input id="sqSearch" type="text" class="sq-search" placeholder="Search incubatee, app no, service, submitter, status">
                 @if ($canBulkApprove ?? false)
                     <form id="sqBulkForm" method="post" action="{{ route('spoc.service-cases.bulk-approve') }}" style="display:none;">
                         @csrf
@@ -197,10 +244,16 @@
                     </div>
                 @endif
             </div>
+            @if ($cases->total() > 0)
+                <div class="sq-count-hint">
+                    Showing {{ number_format($cases->count()) }} of {{ number_format($cases->total()) }} entries
+                </div>
+            @endif
             <div class="sq-table-wrap">
             <table class="sq-table">
                 <thead>
                     <tr>
+                        <th class="sq-sr">Sr.</th>
                         @if ($canBulkApprove ?? false)
                             <th style="width:2.4rem;"></th>
                         @endif
@@ -210,36 +263,36 @@
                         <th>Batch</th>
                         <th>Submitted by</th>
                         <th>Status</th>
+                        <th>SPOC remark</th>
                         <th>Updated</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($cases as $row)
+                    @forelse ($cases as $row)
                         @php
                             $rowKind = is_array($row) ? (string) ($row['kind'] ?? '') : '';
                             $case = is_array($row) ? ($row['service_case'] ?? null) : null;
                             $ml = is_array($row) ? ($row['market_linkage'] ?? null) : null;
+                            $srNo = $loop->iteration + (($cases->currentPage() - 1) * $cases->perPage());
                         @endphp
                         @if ($rowKind === 'market_linkage' && $ml)
                         @php
                             $statusClass = strtolower((string) $ml->status);
-                            $search = strtolower(trim(
-                                ($ml->incubatee_name ?? '').' '.
-                                ($ml->application_no ?? '').' '.
-                                'market linkage '.
-                                ($ml->district_name ?? $ml->district?->name ?? '').' '.
-                                ($ml->submitted_by_name ?? $ml->submitter?->name ?? '').' '.
-                                str_replace('_', ' ', (string) $ml->status)
-                            ));
+                            $mlRemark = match ((string) $ml->status) {
+                                ServiceCase::STATUS_SENT_BACK => $ml->sent_back_note,
+                                ServiceCase::STATUS_REJECTED => $ml->rejected_note,
+                                default => null,
+                            };
                             $isPending = $ml->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL;
                         @endphp
-                        <tr data-search="{{ $search }}" style="background:#faf5ff;">
+                        <tr class="sq-row--market_linkage sq-row--{{ $statusClass }}">
+                            <td class="sq-sr">{{ $srNo }}</td>
                             @if ($canBulkApprove ?? false)
                                 <td></td>
                             @endif
                             <td>
-                                <strong>{{ $ml->incubatee_name }}</strong>
+                                <div class="sq-name">{{ $ml->incubatee_name }}</div>
                                 @if ($ml->application_no)
                                     <div class="sq-muted">{{ $ml->application_no }}</div>
                                 @endif
@@ -251,10 +304,11 @@
                             <td>
                                 <span class="sq-status sq-status--{{ $statusClass }}">{{ str_replace('_', ' ', (string) $ml->status) }}</span>
                             </td>
+                            <td class="sq-remark">{{ $mlRemark ?: '—' }}</td>
                             <td style="white-space:nowrap;">{{ $ml->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
                             <td>
                                 <div class="sq-actions">
-                                    <a href="{{ route('spoc.market-linkages.show', $ml) }}" class="sq-btn sq-btn--primary">Review</a>
+                                    <a href="{{ route('spoc.market-linkages.show', $ml) }}" class="sq-btn sq-btn--primary" target="_blank" rel="noopener">Review</a>
                                 </div>
                             </td>
                         </tr>
@@ -262,18 +316,18 @@
                         @php
                             $lip = $case->legacyIncubateePreview ?? null;
                             $statusClass = strtolower((string) $case->status);
-                            $search = strtolower(trim(
-                                ($case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '') : '')).' '.
-                                ($case->cfaSubmission?->application_no ?? (is_array($lip) ? ($lip['application_no'] ?? '') : '')).' '.
-                                ($case->service?->name ?? '').' '.
-                                ($case->cfaSubmission?->district?->name ?? (is_array($lip) ? ($lip['district'] ?? '') : '')).' '.
-                                ($case->cfaSubmission?->onboardingBatchMembership?->batch?->name ?? '').' '.
-                                ($case->submitter?->name ?? '').' '.
-                                str_replace('_', ' ', (string) $case->status)
-                            ));
+                            $spocRemark = match ((string) $case->status) {
+                                ServiceCase::STATUS_SENT_BACK => $case->sent_back_note,
+                                ServiceCase::STATUS_REJECTED => $case->rejected_note,
+                                default => null,
+                            };
                             $isPending = $case->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL;
+                            $batchName = $case->cfaSubmission?->onboardingBatchMembership?->batch?->name
+                                ?? (is_array($lip) ? ($lip['onboarding_batch_name'] ?? '') : '');
+                            $isLegacyBatch = $batchName !== '' && ! $case->cfaSubmission;
                         @endphp
-                        <tr data-search="{{ $search }}">
+                        <tr class="sq-row--{{ $statusClass }}">
+                            <td class="sq-sr">{{ $srNo }}</td>
                             @if ($canBulkApprove ?? false)
                                 <td>
                                     @if ($isPending)
@@ -289,7 +343,7 @@
                                 </td>
                             @endif
                             <td>
-                                <strong>{{ $case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '—') : '—') }}</strong>
+                                <div class="sq-name">{{ $case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '—') : '—') }}</div>
                                 @if ($case->cfaSubmission?->application_no)
                                     <div class="sq-muted">{{ $case->cfaSubmission->application_no }}</div>
                                 @elseif (is_array($lip) && ($lip['application_no'] ?? '') !== '')
@@ -298,11 +352,21 @@
                             </td>
                             <td>{{ $case->service?->name ?? '—' }}</td>
                             <td>{{ $case->cfaSubmission?->district?->name ?? (is_array($lip) ? ($lip['district'] ?? '—') : '—') }}</td>
-                            <td>{{ $case->cfaSubmission?->onboardingBatchMembership?->batch?->name ?? '—' }}</td>
+                            <td>
+                                @if ($batchName !== '')
+                                    <span class="sq-pill sq-pill--batch">{{ $batchName }}</span>
+                                    @if ($isLegacyBatch)
+                                        <span class="sq-pill sq-pill--legacy">legacy</span>
+                                    @endif
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td>{{ $case->submitter?->name ?? '—' }}</td>
                             <td>
                                 <span class="sq-status sq-status--{{ $statusClass }}">{{ str_replace('_', ' ', $case->status) }}</span>
                             </td>
+                            <td class="sq-remark">{{ $spocRemark ?: '—' }}</td>
                             <td style="white-space:nowrap;">{{ $case->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
                             <td>
                                 <div class="sq-actions">
@@ -332,17 +396,23 @@
                                             data-case-id="{{ (int) $case->id }}"
                                         >View document</button>
                                     @endif
-                                    <a href="{{ route('spoc.service-cases.show', $case) }}" class="sq-btn">Open full</a>
+                                    <a href="{{ route('spoc.service-cases.show', $case) }}" class="sq-btn" target="_blank" rel="noopener">Open full</a>
                                 </div>
                             </td>
                         </tr>
                         @endif
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="{{ ($canBulkApprove ?? false) ? 11 : 10 }}" style="padding:1.2rem;color:#71717a;text-align:center;">No service cases or market linkage submissions match your filters.</td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
             </div>
         </div>
-        <div style="margin-top:0.75rem;">{{ $cases->links() }}</div>
+        @if ($cases->hasPages())
+            <div style="margin-top:0.75rem;">{{ $cases->links() }}</div>
+        @endif
     @endif
     </div>
 
@@ -396,7 +466,7 @@
                 </div>
 
                 <div>
-                    <a id="sqOpenFull" href="#" class="sq-btn">Open full case page</a>
+                    <a id="sqOpenFull" href="#" class="sq-btn" target="_blank" rel="noopener">Open full case page</a>
                 </div>
             </div>
         </div>
@@ -423,16 +493,25 @@
 
     <script>
         (function () {
-            const rows = Array.from(document.querySelectorAll('tr[data-search]'));
-            const search = document.getElementById('sqSearch');
-            if (search) {
-                search.addEventListener('input', function () {
-                    const q = (search.value || '').trim().toLowerCase();
-                    rows.forEach(function (row) {
-                        const hay = row.getAttribute('data-search') || '';
-                        row.style.display = hay.includes(q) ? '' : 'none';
-                    });
+            const filterForm = document.getElementById('sqFilterForm');
+            let autoSubmitTimer = null;
+            function queueFilterSubmit(delayMs) {
+                if (!filterForm) return;
+                if (autoSubmitTimer) clearTimeout(autoSubmitTimer);
+                autoSubmitTimer = setTimeout(function () {
+                    const pageInput = filterForm.querySelector('input[name="page"]');
+                    if (pageInput) pageInput.remove();
+                    filterForm.submit();
+                }, delayMs);
+            }
+            if (filterForm) {
+                filterForm.querySelectorAll('select,input[type="date"]').forEach(function (el) {
+                    el.addEventListener('change', function () { queueFilterSubmit(120); });
                 });
+                const searchInput = filterForm.querySelector('input[name="q"]');
+                if (searchInput) {
+                    searchInput.addEventListener('input', function () { queueFilterSubmit(450); });
+                }
             }
 
             const modal = document.getElementById('sqReviewModal');
@@ -569,10 +648,7 @@
                 const bulkCount = document.getElementById('sqBulkCount');
 
                 function visibleBulkChecks() {
-                    return bulkChecks.filter(function (cb) {
-                        const row = cb.closest('tr');
-                        return row && row.style.display !== 'none';
-                    });
+                    return bulkChecks;
                 }
 
                 function refreshBulkUi() {
@@ -596,10 +672,6 @@
                     visibleBulkChecks().forEach(function (cb) { cb.checked = checked; });
                     refreshBulkUi();
                 });
-
-                if (search) {
-                    search.addEventListener('input', refreshBulkUi);
-                }
 
                 bulkForm && bulkForm.addEventListener('submit', function (e) {
                     const selected = bulkChecks.filter(function (cb) { return cb.checked; }).length;

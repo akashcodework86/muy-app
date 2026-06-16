@@ -7,6 +7,7 @@ use App\Models\District;
 use App\Models\DistrictServiceSpoc;
 use App\Models\MarketLinkageSubmission;
 use App\Models\OnboardingBatch;
+use App\Models\Service;
 use App\Models\ServiceCase;
 use Illuminate\Support\Facades\Schema;
 use App\Models\ServiceCaseEvent;
@@ -43,6 +44,14 @@ class SpocServiceCaseController extends Controller
         $status = (string) $request->query('status', '');
         $districtId = (int) $request->query('district_id', 0);
         $batchId = (int) $request->query('batch_id', 0);
+        $serviceId = (int) $request->query('service_id', 0);
+        $searchQ = trim((string) $request->query('q', ''));
+        $dateFrom = trim((string) $request->query('date_from', ''));
+        $dateTo = trim((string) $request->query('date_to', ''));
+        $hasDocs = trim((string) $request->query('has_docs', ''));
+        if (! in_array($hasDocs, ['', '1', '0'], true)) {
+            $hasDocs = '';
+        }
         $allowed = ['', ServiceCase::STATUS_PENDING_APPROVAL, ServiceCase::STATUS_SENT_BACK, ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_REJECTED];
         if (! in_array($status, $allowed, true)) {
             $status = '';
@@ -83,17 +92,34 @@ class SpocServiceCaseController extends Controller
             $scopeBase->whereHas('cfaSubmission.onboardingBatchMembership', fn ($qq) => $qq->where('onboarding_batch_id', $batchId));
         }
 
+        $countScope = clone $scopeBase;
+
+        if ($serviceId > 0) {
+            $scopeBase->where('service_id', $serviceId);
+        }
+        if ($hasDocs === '1') {
+            $scopeBase->has('attachments');
+        } elseif ($hasDocs === '0') {
+            $scopeBase->doesntHave('attachments');
+        }
+        if ($dateFrom !== '') {
+            $scopeBase->whereDate('updated_at', '>=', $dateFrom);
+        }
+        if ($dateTo !== '') {
+            $scopeBase->whereDate('updated_at', '<=', $dateTo);
+        }
+
         $tabCounts = [
-            '' => (clone $scopeBase)->whereIn('status', [
+            '' => (clone $countScope)->whereIn('status', [
                 ServiceCase::STATUS_PENDING_APPROVAL,
                 ServiceCase::STATUS_SENT_BACK,
                 ServiceCase::STATUS_APPROVED,
                 ServiceCase::STATUS_REJECTED,
             ])->count(),
-            ServiceCase::STATUS_PENDING_APPROVAL => (clone $scopeBase)->where('status', ServiceCase::STATUS_PENDING_APPROVAL)->count(),
-            ServiceCase::STATUS_SENT_BACK => (clone $scopeBase)->where('status', ServiceCase::STATUS_SENT_BACK)->count(),
-            ServiceCase::STATUS_APPROVED => (clone $scopeBase)->where('status', ServiceCase::STATUS_APPROVED)->count(),
-            ServiceCase::STATUS_REJECTED => (clone $scopeBase)->where('status', ServiceCase::STATUS_REJECTED)->count(),
+            ServiceCase::STATUS_PENDING_APPROVAL => (clone $countScope)->where('status', ServiceCase::STATUS_PENDING_APPROVAL)->count(),
+            ServiceCase::STATUS_SENT_BACK => (clone $countScope)->where('status', ServiceCase::STATUS_SENT_BACK)->count(),
+            ServiceCase::STATUS_APPROVED => (clone $countScope)->where('status', ServiceCase::STATUS_APPROVED)->count(),
+            ServiceCase::STATUS_REJECTED => (clone $countScope)->where('status', ServiceCase::STATUS_REJECTED)->count(),
         ];
 
         $q = (clone $scopeBase)
@@ -107,6 +133,8 @@ class SpocServiceCaseController extends Controller
                 'attachments:id,service_case_id,original_name,size_bytes,disk,path',
             ]);
 
+        $this->applySpocSearchFilter($q, $searchQ);
+
         if ($status !== '') {
             $q->where('status', $status);
         } else {
@@ -119,9 +147,16 @@ class SpocServiceCaseController extends Controller
         }
 
         $casesCollection = $q->orderByDesc('updated_at')->get();
-        $casesCollection->transform(function (ServiceCase $case) {
+        $legacyIds = $casesCollection
+            ->filter(fn (ServiceCase $case): bool => (int) ($case->legacy_application_id ?? 0) > 0 && ! $case->cfa_submission_id)
+            ->map(fn (ServiceCase $case): int => (int) $case->legacy_application_id)
+            ->unique()
+            ->values()
+            ->all();
+        $legacyPreviewMap = $this->legacyApplications->incubateePreviewMap($legacyIds);
+        $casesCollection->transform(function (ServiceCase $case) use ($legacyPreviewMap): ServiceCase {
             if ($case->legacy_application_id && ! $case->cfa_submission_id) {
-                $case->legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $case->legacy_application_id);
+                $case->legacyIncubateePreview = $legacyPreviewMap[(int) $case->legacy_application_id] ?? null;
             }
 
             return $case;
@@ -172,6 +207,13 @@ class SpocServiceCaseController extends Controller
 
             $mlq = (clone $mlBase)
                 ->with(['submitter:id,name', 'district:id,name', 'partners']);
+            $this->applySpocMarketLinkageSearchFilter($mlq, $searchQ);
+            if ($dateFrom !== '') {
+                $mlq->whereDate('updated_at', '>=', $dateFrom);
+            }
+            if ($dateTo !== '') {
+                $mlq->whereDate('updated_at', '<=', $dateTo);
+            }
             if ($status !== '') {
                 $mlq->where('status', $status);
             } else {
@@ -187,6 +229,35 @@ class SpocServiceCaseController extends Controller
 
         $cases = $this->buildMergedSpocQueue($casesCollection, $marketLinkages, $request);
 
+        $serviceScope = ServiceCase::query()
+            ->where(function ($outer) use ($districtIds, $legacyAppIds): void {
+                $outer->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds));
+                if (ServiceCase::supportsLegacyApplicationLink() && $legacyAppIds !== []) {
+                    $outer->orWhere(function ($qq) use ($legacyAppIds): void {
+                        $qq->whereNotNull('legacy_application_id')
+                            ->whereNull('cfa_submission_id')
+                            ->whereIn('legacy_application_id', $legacyAppIds);
+                    });
+                }
+            });
+        if ($districtId > 0) {
+            $legacyForOne = $this->legacyApplications->legacyApplicationIdsInLaravelDistrict($districtId);
+            $serviceScope->where(function ($qq) use ($districtId, $legacyForOne): void {
+                $qq->whereHas('cfaSubmission', fn ($q) => $q->where('district_id', $districtId));
+                if (ServiceCase::supportsLegacyApplicationLink() && $legacyForOne !== []) {
+                    $qq->orWhere(function ($q) use ($legacyForOne): void {
+                        $q->whereNotNull('legacy_application_id')
+                            ->whereNull('cfa_submission_id')
+                            ->whereIn('legacy_application_id', $legacyForOne);
+                    });
+                }
+            });
+        }
+        $serviceIds = $serviceScope->distinct()->pluck('service_id')->map(fn ($id) => (int) $id)->filter(fn (int $id) => $id > 0)->values()->all();
+        $serviceOptions = $serviceIds === []
+            ? collect()
+            : Service::query()->whereIn('id', $serviceIds)->orderBy('name')->get(['id', 'name']);
+
         return view('spoc.service-cases.index', [
             'cases' => $cases,
             'marketLinkages' => collect(),
@@ -195,11 +266,123 @@ class SpocServiceCaseController extends Controller
             'filterStatus' => $status,
             'filterDistrictId' => $districtId,
             'filterBatchId' => $batchId,
+            'filterServiceId' => $serviceId,
+            'filterQ' => $searchQ,
+            'filterDateFrom' => $dateFrom,
+            'filterDateTo' => $dateTo,
+            'filterHasDocs' => $hasDocs,
             'districtOptions' => $districtOptions,
             'batchOptions' => $batchOptions,
+            'serviceOptions' => $serviceOptions,
             'tabCounts' => $tabCounts,
             'canBulkApprove' => SpocBulkApproveAccess::canBulkApprove($spoc),
         ]);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<ServiceCase>  $query
+     */
+    private function applySpocSearchFilter($query, string $searchQ): void
+    {
+        if ($searchQ === '') {
+            return;
+        }
+
+        $like = '%'.$searchQ.'%';
+        $legacyIds = $this->legacyApplicationIdsMatchingSearch($searchQ);
+
+        $query->where(function ($w) use ($like, $legacyIds, $searchQ): void {
+            $w->where('reference_number', 'like', $like)
+                ->orWhere('sent_back_note', 'like', $like)
+                ->orWhere('rejected_note', 'like', $like)
+                ->orWhereHas('cfaSubmission', fn ($s) => $s
+                    ->where('application_no', 'like', $like)
+                    ->orWhere('applicant_name', 'like', $like))
+                ->orWhereHas('service', fn ($s) => $s->where('name', 'like', $like))
+                ->orWhereHas('submitter', fn ($s) => $s->where('name', 'like', $like))
+                ->orWhereHas('cfaSubmission.district', fn ($s) => $s->where('name', 'like', $like))
+                ->orWhereHas('cfaSubmission.onboardingBatchMembership.batch', fn ($s) => $s->where('name', 'like', $like));
+
+            $searchLower = strtolower($searchQ);
+            if (str_contains($searchLower, 'pending')) {
+                $w->orWhere('status', ServiceCase::STATUS_PENDING_APPROVAL);
+            }
+            if (str_contains($searchLower, 'sent') || str_contains($searchLower, 'back')) {
+                $w->orWhere('status', ServiceCase::STATUS_SENT_BACK);
+            }
+            if (str_contains($searchLower, 'approv')) {
+                $w->orWhere('status', ServiceCase::STATUS_APPROVED);
+            }
+            if (str_contains($searchLower, 'reject')) {
+                $w->orWhere('status', ServiceCase::STATUS_REJECTED);
+            }
+
+            if (ServiceCase::supportsLegacyApplicationLink() && $legacyIds !== []) {
+                $w->orWhere(function ($qq) use ($legacyIds): void {
+                    $qq->whereNotNull('legacy_application_id')
+                        ->whereNull('cfa_submission_id')
+                        ->whereIn('legacy_application_id', $legacyIds);
+                });
+            }
+        });
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<MarketLinkageSubmission>  $query
+     */
+    private function applySpocMarketLinkageSearchFilter($query, string $searchQ): void
+    {
+        if ($searchQ === '') {
+            return;
+        }
+
+        $like = '%'.$searchQ.'%';
+        $searchLower = strtolower($searchQ);
+
+        $query->where(function ($w) use ($like, $searchLower): void {
+            $w->where('incubatee_name', 'like', $like)
+                ->orWhere('application_no', 'like', $like)
+                ->orWhere('sent_back_note', 'like', $like)
+                ->orWhere('rejected_note', 'like', $like)
+                ->orWhereHas('district', fn ($s) => $s->where('name', 'like', $like))
+                ->orWhereHas('submitter', fn ($s) => $s->where('name', 'like', $like));
+
+            if (str_contains($searchLower, 'market') || str_contains($searchLower, 'linkage')) {
+                $w->orWhereRaw('1 = 1');
+            }
+        });
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function legacyApplicationIdsMatchingSearch(string $search): array
+    {
+        if (! $this->legacyApplications->legacyDbAvailable() || mb_strlen($search) < 2) {
+            return [];
+        }
+
+        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
+
+        try {
+            return DB::connection('legacy')
+                ->table('rbi_applicant_details as d')
+                ->join('rbi_applications as a', 'a.id', '=', 'd.application_id')
+                ->where(function ($q) use ($like): void {
+                    $q->where('d.applicant_name', 'like', $like)
+                        ->orWhere('a.application_no', 'like', $like)
+                        ->orWhere('d.phone', 'like', $like)
+                        ->orWhere('d.district', 'like', $like);
+                })
+                ->pluck('d.application_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id): bool => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     /**
