@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\DocumentCategory;
@@ -15,10 +16,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class DocumentRepositoryController extends Controller
 {
+    use ValidatesAttendanceMediaUploads;
     public function __construct(
         private AdminAuditLogger $auditLogger,
         private HubBatchService $hubBatchService,
@@ -252,6 +255,8 @@ class DocumentRepositoryController extends Controller
 
     public function uploadVersion(Request $request, Document $document): RedirectResponse|JsonResponse
     {
+        $this->assertDocumentFileUploaded($request);
+
         $validated = $request->validate([
             'file' => ['required', 'file', 'max:51200', 'mimes:pdf,docx,xlsx,pptx,jpg,jpeg,png'],
         ]);
@@ -322,7 +327,7 @@ class DocumentRepositoryController extends Controller
         string $routeName,
         array $routeParams = [],
     ): RedirectResponse|JsonResponse {
-        if ($request->ajax()) {
+        if ($request->ajax() || $request->expectsJson()) {
             session()->flash('status', $message);
 
             return response()->json([
@@ -337,6 +342,10 @@ class DocumentRepositoryController extends Controller
 
     private function validateDocumentRequest(Request $request, bool $requireFile): array
     {
+        if ($requireFile) {
+            $this->assertDocumentFileUploaded($request);
+        }
+
         $fileRules = ['nullable', 'file', 'max:51200', 'mimes:pdf,docx,xlsx,pptx,jpg,jpeg,png'];
         if ($requireFile) {
             $fileRules[0] = 'required';
@@ -352,6 +361,24 @@ class DocumentRepositoryController extends Controller
             'allowed_roles' => ['required', 'array', 'min:1'],
             'allowed_roles.*' => ['string', Rule::in(Document::ALLOWED_ROLES)],
             'file' => $fileRules,
+        ]);
+    }
+
+    private function assertDocumentFileUploaded(Request $request): void
+    {
+        $file = $request->file('file');
+        if (! $file instanceof \Illuminate\Http\UploadedFile) {
+            throw ValidationException::withMessages([
+                'file' => ['Please choose a file to upload.'],
+            ]);
+        }
+
+        if ($file->isValid()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'file' => [$this->describeFailedUpload($file)],
         ]);
     }
 

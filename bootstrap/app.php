@@ -66,9 +66,13 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (PostTooLargeException $e, Request $request) {
-            if ($request->expectsJson()) {
+            $limit = ini_get('post_max_size') ?: 'unknown';
+            $message = 'Upload too large for this server (limit '.$limit.'). '
+                .'Restart the dev server with: composer serve or ./serve.sh';
+
+            if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
-                    'message' => 'Upload too large. Add photos in smaller batches (up to 5 MB each) or increase PHP post_max_size.',
+                    'message' => $message,
                 ], 413);
             }
 
@@ -76,7 +80,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->back()
                 ->withInput()
                 ->withErrors([
-                    'visit_media' => 'Total upload is too large for the server limit. Photos are uploaded one at a time when you select them — submit again after they appear in the preview. If using php artisan serve, restart with: composer dev (higher limits) or set post_max_size to at least 64M in php.ini.',
+                    'file' => $message,
                 ]);
         });
     })->create();

@@ -165,15 +165,51 @@
                         return;
                     }
 
+                    if (xhr.status === 413) {
+                        setLabel(
+                            label,
+                            (payload && payload.message)
+                                ? payload.message
+                                : 'Upload too large for this server. Restart with: composer serve (supports up to 50 MB).',
+                            'is-error'
+                        );
+                        resetSubmit();
+                        return;
+                    }
+
                     if (xhr.status === 419) {
                         setLabel(label, 'Session expired. Refresh the page and try again.', 'is-error');
                         resetSubmit();
                         return;
                     }
 
+                    var actionPath = '';
+                    var responsePath = '';
+                    try {
+                        actionPath = new URL(form.action, window.location.href).pathname;
+                    } catch (e) {}
+                    try {
+                        responsePath = new URL(xhr.responseURL || window.location.href, window.location.href).pathname;
+                    } catch (e) {}
+
+                    if (xhr.status >= 200 && xhr.status < 400 && responsePath && actionPath
+                        && responsePath === actionPath && actionPath.indexOf('/admin/documents') !== -1) {
+                        setLabel(label, 'Upload complete. Redirecting…', 'is-success');
+                        window.setTimeout(function () {
+                            window.location.assign(xhr.responseURL || form.action);
+                        }, 350);
+                        return;
+                    }
+
                     if (xhr.status >= 200 && xhr.status < 400 && xhr.responseURL && xhr.responseURL !== form.action) {
                         setLabel(label, 'Upload complete. Redirecting…', 'is-success');
                         window.location.assign(xhr.responseURL);
+                        return;
+                    }
+
+                    if (payload && payload.message) {
+                        setLabel(label, payload.message, 'is-error');
+                        resetSubmit();
                         return;
                     }
 

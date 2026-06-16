@@ -76,12 +76,38 @@
     </div>
 </fieldset>
 
+@php
+    $parseIniSize = static function (string $value): int {
+        $value = trim($value);
+        if ($value === '') {
+            return 0;
+        }
+        $unit = strtolower(substr($value, -1));
+        $number = (float) $value;
+
+        return match ($unit) {
+            'g' => (int) round($number * 1073741824),
+            'm' => (int) round($number * 1048576),
+            'k' => (int) round($number * 1024),
+            default => (int) round($number),
+        };
+    };
+    $uploadLimitBytes = min(
+        51200 * 1024,
+        $parseIniSize((string) ini_get('upload_max_filesize')),
+        $parseIniSize((string) ini_get('post_max_size'))
+    );
+    $uploadLimitLabel = $uploadLimitBytes >= 1048576
+        ? rtrim(rtrim(number_format($uploadLimitBytes / 1048576, 1), '0'), '.').' MB'
+        : max(1, (int) round($uploadLimitBytes / 1024)).' KB';
+@endphp
+
 @if (empty($fileOptional))
 <div style="margin-bottom:0.9rem;">
     <label for="file" style="display:block;font-weight:600;margin-bottom:0.25rem;">File</label>
     <input id="file" type="file" name="file" required accept=".pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png"
         style="padding:0.4rem 0.45rem;border:1px solid #d4d4d8;border-radius:8px;background:#fff;">
-    <p style="margin:0.25rem 0 0;font-size:0.78rem;color:#71717a;">Allowed: PDF, DOCX, XLSX, PPTX, JPG, PNG · Max 50 MB.</p>
+    <p style="margin:0.25rem 0 0;font-size:0.78rem;color:#71717a;">Allowed: PDF, DOCX, XLSX, PPTX, JPG, PNG · Max {{ $uploadLimitLabel }} on this server.</p>
     @include('admin.documents.partials.upload-progress')
 </div>
 @endif
