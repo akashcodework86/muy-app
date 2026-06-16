@@ -495,6 +495,15 @@ class DocumentRepositoryController extends Controller
 
         $file->move($absDir, $filename);
 
+        // Detect MIME from actual file bytes (more reliable than browser-reported type)
+        if (function_exists('finfo_open')) {
+            $finfo    = new \finfo(FILEINFO_MIME_TYPE);
+            $detected = $finfo->file($absDir.'/'.$filename);
+            if (is_string($detected) && $detected !== '') {
+                $mimeType = $detected;
+            }
+        }
+
         return [$subDir.'/'.$filename, $originalName, $mimeType, $sizeBytes];
     }
 

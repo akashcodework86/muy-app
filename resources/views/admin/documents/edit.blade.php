@@ -17,9 +17,9 @@
         style="max-width:46rem;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:0.85rem 1rem;margin-bottom:1rem;">
         @csrf
         <h3 style="margin:0 0 0.55rem;font-size:0.95rem;">Upload new version</h3>
-        <input type="file" name="file" required accept=".pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png"
+        <input id="file_new_version" type="file" name="file" required
             style="padding:0.35rem 0.45rem;border:1px solid #d4d4d8;border-radius:8px;background:#fff;">
-        <p style="margin:0.35rem 0 0;font-size:0.78rem;color:#71717a;">Max 50 MB.</p>
+        <p style="margin:0.35rem 0 0;font-size:0.78rem;color:#71717a;">Any file type · Max 50 MB.</p>
         @include('admin.documents.partials.upload-progress')
         <button type="submit" style="margin-top:0.65rem;background:#4f46e5;color:#fff;border:none;padding:0.45rem 0.8rem;border-radius:8px;">Upload</button>
     </form>
