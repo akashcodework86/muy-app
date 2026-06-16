@@ -13,7 +13,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -156,40 +155,55 @@ class DocumentRepositoryController extends Controller
         $validated = $this->validateDocumentRequest($request, requireFile: true);
         $userId = (int) $request->user()->id;
 
-        DB::transaction(function () use ($validated, $request, $userId): void {
-            $categoryId = $this->resolveCategoryId(
-                $validated['category_name'] ?? null,
-                $validated['subcategory_name'] ?? null,
-                (int) ($validated['document_category_id'] ?? 0),
-                (int) ($validated['document_subcategory_id'] ?? 0)
-            );
-            $doc = Document::query()->create([
-                'document_category_id' => $categoryId,
-                'title' => trim((string) $validated['title']),
-                'tags' => $this->normalizeTags($validated['tags'] ?? ''),
-                'allowed_roles' => $this->normalizeAllowedRoles($validated['allowed_roles'] ?? []),
-                'created_by' => $userId,
-                'updated_by' => $userId,
-            ]);
+        // Move the uploaded file before opening the DB transaction so the
+        // transaction is kept as short as possible. The file move is an
+        // O(1) OS rename when tmp and storage share the same filesystem.
+        [$movedPath, $originalName, $mimeType, $sizeBytes] =
+            $this->moveUploadedDocumentFile($request->file('file'));
 
-            $version = $this->storeVersion($doc, $request->file('file'), $userId);
-            $doc->update(['latest_version_id' => $version->id]);
+        try {
+            DB::transaction(function () use ($validated, $request, $userId, $movedPath, $originalName, $mimeType, $sizeBytes): void {
+                $categoryId = $this->resolveCategoryId(
+                    $validated['category_name'] ?? null,
+                    $validated['subcategory_name'] ?? null,
+                    (int) ($validated['document_category_id'] ?? 0),
+                    (int) ($validated['document_subcategory_id'] ?? 0)
+                );
+                $doc = Document::query()->create([
+                    'document_category_id' => $categoryId,
+                    'title' => trim((string) $validated['title']),
+                    'tags' => $this->normalizeTags($validated['tags'] ?? ''),
+                    'allowed_roles' => $this->normalizeAllowedRoles($validated['allowed_roles'] ?? []),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
 
-            $this->auditLogger->record(
-                $request,
-                'document.created',
-                Document::class,
-                $doc->id,
-                null,
-                [
-                    'title' => $doc->title,
-                    'category_id' => $doc->document_category_id,
-                    'allowed_roles' => $doc->allowed_roles,
-                    'version' => $version->version_no,
-                ],
-                'Document created'
-            );
-        });
+                $version = $this->registerMovedFile($doc, $movedPath, $originalName, $mimeType, $sizeBytes, $userId);
+                $doc->update(['latest_version_id' => $version->id]);
+
+                $this->auditLogger->record(
+                    $request,
+                    'document.created',
+                    Document::class,
+                    $doc->id,
+                    null,
+                    [
+                        'title' => $doc->title,
+                        'category_id' => $doc->document_category_id,
+                        'allowed_roles' => $doc->allowed_roles,
+                        'version' => $version->version_no,
+                    ],
+                    'Document created'
+                );
+            });
+        } catch (\Throwable $e) {
+            // Transaction failed — clean up the already-moved file
+            $fullPath = storage_path('app/private/'.$movedPath);
+            if (file_exists($fullPath)) {
+                unlink($fullPath);
+            }
+            throw $e;
+        }
 
         return $this->uploadSuccessResponse(
             $request,
@@ -257,11 +271,14 @@ class DocumentRepositoryController extends Controller
     {
         $this->assertDocumentFileUploaded($request);
 
-        $validated = $request->validate([
+        $request->validate([
             'file' => ['required', 'file', 'max:51200'],
         ]);
 
-        $version = $this->storeVersion($document, $request->file('file'), (int) $request->user()->id);
+        [$movedPath, $originalName, $mimeType, $sizeBytes] =
+            $this->moveUploadedDocumentFile($request->file('file'), (int) $document->id);
+
+        $version = $this->registerMovedFile($document, $movedPath, $originalName, $mimeType, $sizeBytes, (int) $request->user()->id);
         $document->update([
             'latest_version_id' => $version->id,
             'updated_by' => (int) $request->user()->id,
@@ -449,22 +466,71 @@ class DocumentRepositoryController extends Controller
         return $roles;
     }
 
-    private function storeVersion(Document $document, \Illuminate\Http\UploadedFile $file, int $userId): DocumentVersion
+    /**
+     * Move the uploaded file to permanent storage using move_uploaded_file()
+     * (an O(1) OS rename when tmp and storage share the same filesystem).
+     * Returns [storagePath, originalName, mimeType, sizeBytes].
+     *
+     * @param  int|null  $docId  When known upfront (uploadVersion), files go
+     *                           directly into documents/{docId}/. When null
+     *                           (new document, ID not yet known) they go into
+     *                           documents/pending/ and are renamed later.
+     * @return array{0:string,1:string,2:string,3:int}
+     */
+    private function moveUploadedDocumentFile(\Illuminate\Http\UploadedFile $file, ?int $docId = null): array
     {
+        $originalName = (string) ($file->getClientOriginalName() ?: 'file');
+        $mimeType = (string) ($file->getClientMimeType() ?: '');
+        $sizeBytes = (int) $file->getSize();
+
+        $ext = strtolower((string) ($file->getClientOriginalExtension() ?: ''));
+        $filename = Str::random(40).($ext !== '' ? '.'.$ext : '');
+
+        $subDir = $docId !== null ? 'documents/'.$docId : 'documents/pending';
+        $absDir = storage_path('app/private/'.$subDir);
+
+        if (! is_dir($absDir)) {
+            mkdir($absDir, 0755, true);
+        }
+
+        $file->move($absDir, $filename);
+
+        return [$subDir.'/'.$filename, $originalName, $mimeType, $sizeBytes];
+    }
+
+    /**
+     * Move a pending file into the document's own directory and persist the
+     * version record. When $docId matches the pending path, no extra rename
+     * is needed; otherwise we move the file into documents/{doc->id}/.
+     */
+    private function registerMovedFile(
+        Document $document,
+        string $movedPath,
+        string $originalName,
+        string $mimeType,
+        int $sizeBytes,
+        int $userId,
+    ): DocumentVersion {
         $nextNo = ((int) $document->versions()->max('version_no')) + 1;
-        $dir = 'documents/'.$document->id;
-        $stored = Storage::disk('local')->putFile($dir, $file);
-        if (! is_string($stored) || $stored === '') {
-            throw new \RuntimeException('Could not store document file.');
+
+        // If file landed in pending/, rename into the now-known document dir
+        if (str_starts_with($movedPath, 'documents/pending/')) {
+            $filename = basename($movedPath);
+            $finalDir = storage_path('app/private/documents/'.$document->id);
+            if (! is_dir($finalDir)) {
+                mkdir($finalDir, 0755, true);
+            }
+            rename(storage_path('app/private/'.$movedPath), $finalDir.'/'.$filename);
+            $movedPath = 'documents/'.$document->id.'/'.$filename;
         }
 
         return $document->versions()->create([
             'version_no' => $nextNo,
             'disk' => 'local',
-            'path' => $stored,
-            'original_name' => (string) ($file->getClientOriginalName() ?: 'file'),
-            'mime_type' => (string) ($file->getClientMimeType() ?: ''),
-            'size_bytes' => (int) $file->getSize(),
+            'path' => $movedPath,
+            'original_name' => $originalName,
+            'mime_type' => $mimeType,
+            'size_bytes' => $sizeBytes,
             'uploaded_by' => $userId,
         ]);
     }
