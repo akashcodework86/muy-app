@@ -258,7 +258,7 @@ class DocumentRepositoryController extends Controller
         $this->assertDocumentFileUploaded($request);
 
         $validated = $request->validate([
-            'file' => ['required', 'file', 'max:51200', 'mimes:pdf,docx,xlsx,pptx,jpg,jpeg,png'],
+            'file' => ['required', 'file', 'max:51200'],
         ]);
 
         $version = $this->storeVersion($document, $request->file('file'), (int) $request->user()->id);
@@ -346,7 +346,7 @@ class DocumentRepositoryController extends Controller
             $this->assertDocumentFileUploaded($request);
         }
 
-        $fileRules = ['nullable', 'file', 'max:51200', 'mimes:pdf,docx,xlsx,pptx,jpg,jpeg,png'];
+        $fileRules = ['nullable', 'file', 'max:51200'];
         if ($requireFile) {
             $fileRules[0] = 'required';
         }

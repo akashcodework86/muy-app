@@ -105,9 +105,9 @@
 @if (empty($fileOptional))
 <div style="margin-bottom:0.9rem;">
     <label for="file" style="display:block;font-weight:600;margin-bottom:0.25rem;">File</label>
-    <input id="file" type="file" name="file" required accept=".pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png"
+    <input id="file" type="file" name="file" required
         style="padding:0.4rem 0.45rem;border:1px solid #d4d4d8;border-radius:8px;background:#fff;">
-    <p style="margin:0.25rem 0 0;font-size:0.78rem;color:#71717a;">Allowed: PDF, DOCX, XLSX, PPTX, JPG, PNG · Max {{ $uploadLimitLabel }} on this server.</p>
+    <p style="margin:0.25rem 0 0;font-size:0.78rem;color:#71717a;">Any file type · Max {{ $uploadLimitLabel }} on this server.</p>
     @include('admin.documents.partials.upload-progress')
 </div>
 @endif

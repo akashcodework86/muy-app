@@ -121,6 +121,16 @@
                                 <span style="color:#d4d4d8;">|</span>
                                 <a href="{{ route('library.documents.download', $d) }}">Download</a>
                             @endif
+                            <span style="color:#d4d4d8;">|</span>
+                            <form method="post" action="{{ route('admin.documents.destroy', $d) }}" style="display:inline;"
+                                onsubmit="return (confirm('Delete \u201c{{ addslashes($d->title) }}\u201d?\n\nThis will permanently remove the document and ALL its versions.') && confirm('Are you absolutely sure?\n\nThis action CANNOT be undone. Press OK to permanently delete.'));">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit"
+                                    style="background:none;border:none;padding:0;color:#dc2626;cursor:pointer;font-size:inherit;font-family:inherit;text-decoration:underline;">
+                                    Delete
+                                </button>
+                            </form>
                         </td>
                     </tr>
                 @empty
