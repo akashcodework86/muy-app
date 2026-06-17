@@ -4,9 +4,107 @@
 @section('heading', 'District target month wise — official plan')
 
 @section('content')
+    @php
+        $mismatchBlocks = collect($districtBlocks)->filter(function (array $block) {
+            $status = (string) (($block['verify_saved'] ?? [])['status'] ?? '');
+
+            return in_array($status, ['over', 'under', 'no_state'], true);
+        })->values()->all();
+        $matchedBlocks = collect($districtBlocks)->filter(function (array $block) {
+            return (string) (($block['verify_saved'] ?? [])['status'] ?? '') === 'match';
+        })->count();
+        $mismatchCount = count($mismatchBlocks);
+        $totalBlocks = count($districtBlocks);
+    @endphp
+
+    <div class="odm-page-top">
+        <form method="get" action="{{ route('admin.targets.official-district-monthly') }}" class="odm-fy-bar">
+            <div class="odm-fy-bar__field">
+                <label for="fy">Fiscal year</label>
+                <select id="fy" name="fiscal_year_id">
+                    @foreach ($fiscalYears as $fy)
+                        <option value="{{ $fy->id }}" @selected((int) $fiscalYearId === (int) $fy->id)>{{ $fy->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <button type="submit" class="odm-fy-bar__btn">Load</button>
+            <div class="odm-fy-bar__meta">
+                <span class="odm-stat-pill odm-stat-pill--neutral">{{ $totalBlocks }} services</span>
+                <span class="odm-stat-pill odm-stat-pill--ok" id="align-match-count">{{ $matchedBlocks }} matched</span>
+                <span class="odm-stat-pill odm-stat-pill--alert" id="align-mismatch-count" @if ($mismatchCount === 0) style="display:none;" @endif>{{ $mismatchCount }} mismatch{{ $mismatchCount === 1 ? '' : 'es' }}</span>
+            </div>
+        </form>
+
+        <div id="align-ok-banner" class="odm-align-ok" @if ($mismatchCount > 0) style="display:none;" @endif>
+            <div class="odm-align-ok__icon" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></div>
+            <div>
+                <div class="odm-align-ok__title">All district allocations match state targets</div>
+                <div class="odm-align-ok__text">Every service block is aligned with targets saved on State target month wise for {{ $fiscalYear->name ?? 'this fiscal year' }}.</div>
+            </div>
+        </div>
+
+        <section id="mismatch-summary" class="odm-align-alert" aria-live="polite" @if ($mismatchCount === 0) hidden @endif>
+            <div class="odm-align-alert__head">
+                <div class="odm-align-alert__icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="odm-align-alert__copy">
+                    <div class="odm-align-alert__title">State vs district alignment issues</div>
+                    <div class="odm-align-alert__text">
+                        These services do not match targets from
+                        <a href="{{ route('admin.targets.official-state-monthly', ['fiscal_year_id' => $fiscalYearId]) }}">State target month wise</a>.
+                        Use <strong>Put targets automatically</strong> or edit cells, then <strong>Update targets</strong>.
+                    </div>
+                </div>
+                <div class="odm-align-alert__badge" id="mismatch-count">{{ $mismatchCount }} to fix</div>
+            </div>
+            <div id="mismatch-cards" class="odm-align-alert__grid">
+                @foreach ($mismatchBlocks as $block)
+                    @php
+                        $verify = (array) ($block['verify_saved'] ?? []);
+                        $blockIndex = (int) ($block['block_index'] ?? 0);
+                        $serial = (string) ($block['mis_serial'] ?? '');
+                        $name = (string) ($block['name'] ?? '');
+                        $stateTotal = (int) ($block['state_saved_total'] ?? 0);
+                        $districtTotal = (int) ($block['saved_state_total'] ?? 0);
+                        $delta = abs($districtTotal - $stateTotal);
+                    @endphp
+                    <a href="#district-block-{{ $blockIndex }}" class="odm-mismatch-card">
+                        <div class="odm-mismatch-card__top">
+                            @if ($serial !== '')
+                                <span class="odm-mismatch-card__serial">{{ $serial }}</span>
+                            @endif
+                            <span class="odm-mismatch-card__status odm-mismatch-card__status--{{ $verify['status'] ?? 'over' }}">{{ $verify['label'] ?? 'Mismatch' }}</span>
+                        </div>
+                        <div class="odm-mismatch-card__name">{{ $name }}</div>
+                        <div class="odm-mismatch-card__metrics">
+                            <div class="odm-mismatch-card__metric">
+                                <span class="odm-mismatch-card__metric-label">State target</span>
+                                <span class="odm-mismatch-card__metric-value">{{ number_format($stateTotal) }}</span>
+                            </div>
+                            <div class="odm-mismatch-card__metric">
+                                <span class="odm-mismatch-card__metric-label">District total</span>
+                                <span class="odm-mismatch-card__metric-value">{{ number_format($districtTotal) }}</span>
+                            </div>
+                            @if ($delta > 0)
+                                <div class="odm-mismatch-card__metric odm-mismatch-card__metric--delta">
+                                    <span class="odm-mismatch-card__metric-label">Difference</span>
+                                    <span class="odm-mismatch-card__metric-value">{{ number_format($delta) }}</span>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="odm-mismatch-card__foot">
+                            Jump to service <i class="fa-solid fa-arrow-down" aria-hidden="true"></i>
+                        </div>
+                    </a>
+                @endforeach
+            </div>
+        </section>
+    </div>
+
     <p style="font-size:0.88rem; color:#52525b; margin:0 0 1rem; max-width:58rem; line-height:1.55;">
         Official district / hub monthly plan (same layout as <strong>District Target Month Wise</strong> Excel).
-        Cells show your <strong>last saved</strong> targets. Use <strong>Put targets automatically</strong> to refill from the Excel plan, edit if needed, then <strong>Update targets</strong> to save.
+        Cells show your <strong>last saved</strong> targets. Use <strong>Put targets automatically</strong> to fill cells from the state target (when set) split across districts using the official plan ratios, or from the Excel plan if no state target exists. Edit if needed, then <strong>Update targets</strong> to save.
+        District totals are cross-checked against targets saved on
+        <a href="{{ route('admin.targets.official-state-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">State target month wise</a>.
     </p>
 
     @if (session('status'))
@@ -24,18 +122,6 @@
             </ul>
         </div>
     @endif
-
-    <form method="get" action="{{ route('admin.targets.official-district-monthly') }}" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.65rem; align-items:flex-end; padding:0.85rem 1rem; background:#fff; border:1px solid #e4e4e7; border-radius:10px;">
-        <div>
-            <label for="fy" style="display:block; font-size:0.78rem; font-weight:600; margin-bottom:0.25rem;">Fiscal year</label>
-            <select id="fy" name="fiscal_year_id" style="padding:0.45rem 0.55rem; border-radius:8px; border:1px solid #d4d4d8; min-width:11rem;">
-                @foreach ($fiscalYears as $fy)
-                    <option value="{{ $fy->id }}" @selected((int) $fiscalYearId === (int) $fy->id)>{{ $fy->name }}</option>
-                @endforeach
-            </select>
-        </div>
-        <button type="submit" style="background:#18181b; color:#fff; border:none; padding:0.5rem 0.85rem; border-radius:8px; font-weight:600; cursor:pointer;">Load</button>
-    </form>
 
     <form method="post" action="{{ route('admin.targets.official-district-monthly.apply') }}" id="official-district-form">
         @csrf
@@ -58,17 +144,30 @@
             @php
                 $deliverableId = (int) ($block['deliverable']->id ?? 0);
                 $mapped = (bool) ($block['mapped'] ?? false);
+                $verifySaved = (array) ($block['verify_saved'] ?? []);
+                $stateSavedTotal = (int) ($block['state_saved_total'] ?? 0);
+                $stateSavedMonths = (array) ($block['state_saved_months'] ?? []);
             @endphp
             <div class="district-block" style="margin-bottom:1.5rem; background:#fff; border:1px solid #e4e4e7; border-radius:10px; overflow:hidden;"
-                @if ($mapped && $deliverableId > 0) data-block="1" @endif>
+                id="district-block-{{ (int) ($block['block_index'] ?? 0) }}"
+                data-block="1"
+                data-block-label="{{ ($block['mis_serial'] ?? '') !== '' ? $block['mis_serial'].' — ' : '' }}{{ $block['name'] ?? '' }}"
+                data-block-serial="{{ (string) ($block['mis_serial'] ?? '') }}"
+                data-block-name="{{ (string) ($block['name'] ?? '') }}"
+                data-state-total="{{ $stateSavedTotal }}"
+                @foreach (range(1, 12) as $m)
+                    data-state-month-{{ $m }}="{{ (int) ($stateSavedMonths[$m] ?? 0) }}"
+                @endforeach
+            >
                 <div style="padding:0.65rem 0.9rem; background:#9a3412; color:#fff; font-weight:700; font-size:0.9rem;">
                     @if (! empty($block['excel_sn']))
                         {{ $block['excel_sn'] }}.
                     @endif
                     {{ $block['mis_serial'] ? $block['mis_serial'].' — ' : '' }}{{ $block['name'] }}
                     <span style="font-weight:400; opacity:0.85; margin-left:0.5rem;">
-                        Official state total: {{ number_format((int) ($block['official_state_total'] ?? 0)) }}
-                        · Form total: <span class="block-grand-total">0</span>
+                        State target (saved): <span class="block-state-total">{{ number_format($stateSavedTotal) }}</span>
+                        · District allocation: <span class="block-grand-total">0</span>
+                        · <span class="block-verify-status" style="display:inline-block; padding:0.1rem 0.45rem; border-radius:999px; font-size:0.72rem; font-weight:700; color:{{ $verifySaved['color'] ?? '#64748b' }}; background:{{ $verifySaved['bg'] ?? '#f1f5f9' }};">{{ $verifySaved['label'] ?? '—' }}</span>
                     </span>
                     @if (! $mapped)
                         <span style="display:block; font-size:0.75rem; color:#fecaca; margin-top:0.25rem;">{{ $block['map_error'] ?? 'Not mapped' }}</span>
@@ -90,68 +189,69 @@
                                 @php $districtId = (int) $dRow['district']->id; @endphp
                                 <tr class="data-row">
                                     <td style="padding:0.4rem 0.65rem; border:1px solid #e4e4e7; font-weight:600;">{{ $dRow['district']->name }}</td>
-                                    @if ($mapped && $deliverableId > 0)
-                                        @foreach (range(1, 12) as $m)
-                                            <td style="padding:0.15rem; border:1px solid #e4e4e7; text-align:center;">
-                                                <input type="number" min="0" step="1"
-                                                    value="{{ (int) ($dRow['saved_months'][$m] ?? 0) }}"
-                                                    data-official="{{ (int) ($dRow['official_months'][$m] ?? 0) }}"
-                                                    data-scope="district"
+                                    @foreach (range(1, 12) as $m)
+                                        <td style="padding:0.15rem; border:1px solid #e4e4e7; text-align:center;">
+                                            <input type="number" min="0" step="1"
+                                                value="{{ (int) ($dRow['saved_months'][$m] ?? 0) }}"
+                                                data-official="{{ (int) ($dRow['official_months'][$m] ?? 0) }}"
+                                                data-scope="district"
+                                                @if ($mapped && $deliverableId > 0)
                                                     data-deliverable-id="{{ $deliverableId }}"
-                                                    data-district-id="{{ $districtId }}"
-                                                    data-month="{{ $m }}"
-                                                    class="month-input"
-                                                    style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
-                                            </td>
-                                        @endforeach
-                                        <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
-                                    @else
-                                        @foreach (range(1, 12) as $m)
-                                            <td style="padding:0.35rem; border:1px solid #e4e4e7; text-align:center;">{{ number_format((int) ($dRow['official_months'][$m] ?? 0)) }}</td>
-                                        @endforeach
-                                        <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">{{ number_format((int) ($dRow['official_total'] ?? 0)) }}</td>
-                                    @endif
+                                                @else
+                                                    data-mis-serial="{{ (string) ($block['mis_serial'] ?? '') }}"
+                                                    data-indicator-name="{{ (string) ($block['name'] ?? '') }}"
+                                                @endif
+                                                data-district-id="{{ $districtId }}"
+                                                data-month="{{ $m }}"
+                                                class="month-input"
+                                                style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
+                                        </td>
+                                    @endforeach
+                                    <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
                                 </tr>
                             @endforeach
                             @foreach ($block['hub_rows'] ?? [] as $hRow)
                                 @php $hubId = (int) $hRow['hub']->id; @endphp
                                 <tr class="data-row">
                                     <td style="padding:0.4rem 0.65rem; border:1px solid #e4e4e7; font-weight:600;">{{ $hRow['hub']->name }} (Hub)</td>
-                                    @if ($mapped && $deliverableId > 0)
-                                        @foreach (range(1, 12) as $m)
-                                            <td style="padding:0.15rem; border:1px solid #e4e4e7; text-align:center;">
-                                                <input type="number" min="0" step="1"
-                                                    value="{{ (int) ($hRow['saved_months'][$m] ?? 0) }}"
-                                                    data-official="{{ (int) ($hRow['official_months'][$m] ?? 0) }}"
-                                                    data-scope="hub"
+                                    @foreach (range(1, 12) as $m)
+                                        <td style="padding:0.15rem; border:1px solid #e4e4e7; text-align:center;">
+                                            <input type="number" min="0" step="1"
+                                                value="{{ (int) ($hRow['saved_months'][$m] ?? 0) }}"
+                                                data-official="{{ (int) ($hRow['official_months'][$m] ?? 0) }}"
+                                                data-scope="hub"
+                                                @if ($mapped && $deliverableId > 0)
                                                     data-deliverable-id="{{ $deliverableId }}"
-                                                    data-hub-id="{{ $hubId }}"
-                                                    data-month="{{ $m }}"
-                                                    class="month-input"
-                                                    style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
-                                            </td>
-                                        @endforeach
-                                        <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
-                                    @else
-                                        @foreach (range(1, 12) as $m)
-                                            <td style="padding:0.35rem; border:1px solid #e4e4e7; text-align:center;">{{ number_format((int) ($hRow['official_months'][$m] ?? 0)) }}</td>
-                                        @endforeach
-                                        <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">{{ number_format((int) ($hRow['official_total'] ?? 0)) }}</td>
-                                    @endif
+                                                @else
+                                                    data-mis-serial="{{ (string) ($block['mis_serial'] ?? '') }}"
+                                                    data-indicator-name="{{ (string) ($block['name'] ?? '') }}"
+                                                @endif
+                                                data-hub-id="{{ $hubId }}"
+                                                data-month="{{ $m }}"
+                                                class="month-input"
+                                                style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
+                                        </td>
+                                    @endforeach
+                                    <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
                                 </tr>
                             @endforeach
                         </tbody>
-                        @if ($mapped && $deliverableId > 0)
-                            <tfoot>
-                                <tr style="background:#ffedd5; font-weight:700;">
-                                    <td style="padding:0.4rem 0.65rem; border:1px solid #fdba74;">Service total</td>
-                                    @foreach (range(1, 12) as $m)
-                                        <td class="col-total" data-month="{{ $m }}" style="padding:0.35rem; border:1px solid #fdba74; text-align:center;">0</td>
-                                    @endforeach
-                                    <td class="footer-grand" style="padding:0.4rem; border:1px solid #fdba74; text-align:center;">0</td>
-                                </tr>
-                            </tfoot>
-                        @endif
+                        <tfoot>
+                            <tr style="background:#ffedd5; font-weight:700;">
+                                <td style="padding:0.4rem 0.65rem; border:1px solid #fdba74;">District allocation</td>
+                                @foreach (range(1, 12) as $m)
+                                    <td class="col-total" data-month="{{ $m }}" style="padding:0.35rem; border:1px solid #fdba74; text-align:center;">0</td>
+                                @endforeach
+                                <td class="footer-grand" style="padding:0.4rem; border:1px solid #fdba74; text-align:center;">0</td>
+                            </tr>
+                            <tr style="background:#dbeafe; font-weight:600;">
+                                <td style="padding:0.4rem 0.65rem; border:1px solid #93c5fd;">State target (saved)</td>
+                                @foreach (range(1, 12) as $m)
+                                    <td class="state-month-total" data-month="{{ $m }}" style="padding:0.35rem; border:1px solid #93c5fd; text-align:center;">{{ number_format((int) ($stateSavedMonths[$m] ?? 0)) }}</td>
+                                @endforeach
+                                <td class="state-grand-total" style="padding:0.4rem; border:1px solid #93c5fd; text-align:center;">{{ number_format($stateSavedTotal) }}</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -181,8 +281,7 @@
                                     $deliverableId = (int) ($row['deliverable']->id ?? 0);
                                     $mapped = (bool) ($row['mapped'] ?? false);
                                 @endphp
-                                <tr @if (! $mapped) style="background:#fef2f2;" @endif
-                                    @if ($mapped && $deliverableId > 0) class="state-only-row" data-leaf="1" @endif>
+                                <tr @if (! $mapped) style="background:#fef2f2;" @endif class="state-only-row" data-leaf="1">
                                     <td style="padding:0.4rem 0.65rem; border:1px solid #e4e4e7;">{{ $row['excel_sn'] ?? '' }}</td>
                                     <td style="padding:0.4rem 0.65rem; border:1px solid #e4e4e7;">
                                         <div style="font-weight:600;">{{ $row['mis_serial'] }} — {{ $row['name'] }}</div>
@@ -191,26 +290,24 @@
                                         @endif
                                     </td>
                                     <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-size:0.72rem; color:#64748b;">{{ $row['level'] ?? '' }}</td>
-                                    @if ($mapped && $deliverableId > 0)
-                                        @foreach (range(1, 12) as $m)
-                                            <td style="padding:0.15rem; border:1px solid #e4e4e7; text-align:center;">
-                                                <input type="number" min="0" step="1"
-                                                    value="{{ (int) ($row['saved_months'][$m] ?? 0) }}"
-                                                    data-official="{{ (int) ($row['official_months'][$m] ?? 0) }}"
-                                                    data-scope="state_only"
+                                    @foreach (range(1, 12) as $m)
+                                        <td style="padding:0.15rem; border:1px solid #e4e4e7; text-align:center;">
+                                            <input type="number" min="0" step="1"
+                                                value="{{ (int) ($row['saved_months'][$m] ?? 0) }}"
+                                                data-official="{{ (int) ($row['official_months'][$m] ?? 0) }}"
+                                                data-scope="state_only"
+                                                @if ($mapped && $deliverableId > 0)
                                                     data-deliverable-id="{{ $deliverableId }}"
-                                                    data-month="{{ $m }}"
-                                                    class="month-input"
-                                                    style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
-                                            </td>
-                                        @endforeach
-                                        <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
-                                    @else
-                                        @foreach (range(1, 12) as $m)
-                                            <td style="padding:0.35rem; border:1px solid #e4e4e7; text-align:center;">{{ number_format((int) ($row['official_months'][$m] ?? 0)) }}</td>
-                                        @endforeach
-                                        <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">{{ number_format((int) ($row['official_total'] ?? 0)) }}</td>
-                                    @endif
+                                                @else
+                                                    data-mis-serial="{{ (string) ($row['mis_serial'] ?? '') }}"
+                                                    data-indicator-name="{{ (string) ($row['name'] ?? '') }}"
+                                                @endif
+                                                data-month="{{ $m }}"
+                                                class="month-input"
+                                                style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
+                                        </td>
+                                    @endforeach
+                                    <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -220,11 +317,453 @@
         @endif
     </form>
 
+    @push('styles')
+    <style>
+        .odm-page-top {
+            margin: -0.25rem 0 1.35rem;
+            overflow: visible;
+        }
+        .odm-fy-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 0.75rem 1rem;
+            padding: 0.9rem 1.1rem;
+            background: #fff;
+            border: 1px solid #e4e4e7;
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            margin-bottom: 0.85rem;
+        }
+        .odm-fy-bar__field label {
+            display: block;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: #52525b;
+            margin-bottom: 0.28rem;
+        }
+        .odm-fy-bar__field select {
+            padding: 0.48rem 0.6rem;
+            border-radius: 8px;
+            border: 1px solid #d4d4d8;
+            min-width: 11rem;
+            font-size: 0.88rem;
+            background: #fff;
+        }
+        .odm-fy-bar__btn {
+            background: #18181b;
+            color: #fff;
+            border: none;
+            padding: 0.52rem 0.95rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.86rem;
+        }
+        .odm-fy-bar__meta {
+            margin-left: auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            align-items: center;
+        }
+        .odm-stat-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.32rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+        }
+        .odm-stat-pill--neutral {
+            background: #f4f4f5;
+            color: #3f3f46;
+            border-color: #e4e4e7;
+        }
+        .odm-stat-pill--ok {
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #86efac;
+        }
+        .odm-stat-pill--alert {
+            background: #fef2f2;
+            color: #b91c1c;
+            border-color: #fca5a5;
+        }
+        .odm-align-ok {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.85rem;
+            padding: 1rem 1.1rem;
+            border-radius: 12px;
+            border: 1px solid #86efac;
+            background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+            box-shadow: 0 1px 2px rgba(4, 120, 87, 0.08);
+        }
+        .odm-align-ok__icon {
+            width: 2.35rem;
+            height: 2.35rem;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #dcfce7;
+            color: #047857;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .odm-align-ok__title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #166534;
+        }
+        .odm-align-ok__text {
+            font-size: 0.82rem;
+            color: #15803d;
+            margin-top: 0.2rem;
+            line-height: 1.45;
+        }
+        .odm-align-alert {
+            border-radius: 14px;
+            border: 1px solid #fca5a5;
+            background: linear-gradient(180deg, #fff1f2 0%, #fef2f2 45%, #fff7ed 100%);
+            box-shadow: 0 8px 24px rgba(185, 28, 28, 0.08);
+            overflow: visible;
+        }
+        .odm-align-alert__head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 0.85rem 1rem;
+            padding: 1rem 1.15rem;
+            border-bottom: 1px solid #fecaca;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 14px 14px 0 0;
+        }
+        .odm-align-alert__icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fee2e2;
+            color: #dc2626;
+            font-size: 1.15rem;
+            flex-shrink: 0;
+        }
+        .odm-align-alert__copy {
+            flex: 1 1 16rem;
+            min-width: 0;
+        }
+        .odm-align-alert__title {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #991b1b;
+            letter-spacing: -0.01em;
+        }
+        .odm-align-alert__text {
+            font-size: 0.82rem;
+            color: #7f1d1d;
+            margin-top: 0.25rem;
+            line-height: 1.5;
+            max-width: 42rem;
+        }
+        .odm-align-alert__text a {
+            color: #b91c1c;
+            font-weight: 700;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .odm-align-alert__badge {
+            margin-left: auto;
+            align-self: center;
+            padding: 0.45rem 0.85rem;
+            border-radius: 999px;
+            background: #dc2626;
+            color: #fff;
+            font-size: 0.78rem;
+            font-weight: 800;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+        }
+        .odm-align-alert__grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.85rem;
+            padding: 1rem 1.15rem 1.25rem;
+            align-items: start;
+        }
+        .odm-mismatch-card {
+            display: flex;
+            flex-direction: column;
+            text-decoration: none;
+            color: inherit;
+            background: #fff;
+            border: 1px solid #fca5a5;
+            border-radius: 12px;
+            padding: 0.95rem 1rem 1rem;
+            height: auto;
+            min-height: 0;
+            box-sizing: border-box;
+            transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+            box-shadow: 0 2px 8px rgba(127, 29, 29, 0.06);
+        }
+        .odm-mismatch-card:hover {
+            transform: translateY(-2px);
+            border-color: #f87171;
+            box-shadow: 0 10px 24px rgba(185, 28, 28, 0.12);
+        }
+        .odm-mismatch-card__top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.55rem;
+        }
+        .odm-mismatch-card__serial {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.18rem 0.5rem;
+            border-radius: 6px;
+            background: #fee2e2;
+            color: #991b1b;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+        }
+        .odm-mismatch-card__status {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.18rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .odm-mismatch-card__status--over {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        .odm-mismatch-card__status--under {
+            background: #fffbeb;
+            color: #b45309;
+        }
+        .odm-mismatch-card__status--no_state {
+            background: #fff7ed;
+            color: #c2410c;
+        }
+        .odm-mismatch-card__name {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #7f1d1d;
+            line-height: 1.35;
+            margin-bottom: 0.75rem;
+        }
+        .odm-mismatch-card__metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.55rem;
+            margin-top: 0.5rem;
+        }
+        .odm-mismatch-card__metric--delta {
+            grid-column: 1 / -1;
+            background: #fef2f2;
+            border-color: #f87171;
+        }
+        .odm-mismatch-card__metric {
+            background: #fff5f5;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 0.5rem 0.6rem;
+            min-width: 0;
+        }
+        .odm-mismatch-card__metric-label {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: #9f1239;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .odm-mismatch-card__metric-value {
+            display: block;
+            margin-top: 0.15rem;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #991b1b;
+        }
+        .odm-mismatch-card__foot {
+            margin-top: 0.75rem;
+            padding-top: 0.65rem;
+            border-top: 1px dashed #fecaca;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #dc2626;
+        }
+        .district-block {
+            scroll-margin-top: 1.25rem;
+        }
+        @media (max-width: 720px) {
+            .odm-fy-bar__meta {
+                margin-left: 0;
+                width: 100%;
+            }
+            .odm-align-alert__badge {
+                margin-left: 0;
+            }
+            .odm-mismatch-card__metrics {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    @endpush
+
     @push('scripts')
     <script>
         (function () {
             const form = document.getElementById('official-district-form');
             if (!form) return;
+
+            function compareTotals(allocated, stateSaved) {
+                if (stateSaved <= 0 && allocated <= 0) {
+                    return { status: 'empty', label: 'No targets set', color: '#64748b', bg: '#f1f5f9' };
+                }
+                if (stateSaved <= 0) {
+                    return { status: 'no_state', label: 'State target not set', color: '#b45309', bg: '#fffbeb' };
+                }
+                if (allocated === stateSaved) {
+                    return { status: 'match', label: 'Match', color: '#047857', bg: '#ecfdf5' };
+                }
+                const delta = Math.abs(allocated - stateSaved);
+                if (allocated > stateSaved) {
+                    return { status: 'over', label: 'Over by ' + delta.toLocaleString(), color: '#b91c1c', bg: '#fef2f2' };
+                }
+                return { status: 'under', label: 'Under by ' + delta.toLocaleString(), color: '#b45309', bg: '#fffbeb' };
+            }
+
+            function escapeHtml(value) {
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            function updateMismatchSummary() {
+                const summary = document.getElementById('mismatch-summary');
+                const cardsEl = document.getElementById('mismatch-cards');
+                const countEl = document.getElementById('mismatch-count');
+                const okBanner = document.getElementById('align-ok-banner');
+                const mismatchPill = document.getElementById('align-mismatch-count');
+                const matchPill = document.getElementById('align-match-count');
+                if (!summary || !cardsEl) {
+                    return;
+                }
+
+                const mismatches = [];
+                let matched = 0;
+                form.querySelectorAll('.district-block[data-block="1"]').forEach(function (block) {
+                    const stateTotal = parseInt(block.getAttribute('data-state-total') || '0', 10) || 0;
+                    const grand = parseInt((block.querySelector('.footer-grand')?.textContent || '0').replace(/,/g, ''), 10) || 0;
+                    const result = compareTotals(grand, stateTotal);
+                    if (result.status === 'match') {
+                        matched++;
+                        return;
+                    }
+                    if (result.status === 'empty') {
+                        return;
+                    }
+
+                    mismatches.push({
+                        blockId: block.id,
+                        serial: block.getAttribute('data-block-serial') || '',
+                        name: block.getAttribute('data-block-name') || block.getAttribute('data-block-label') || 'Service',
+                        stateTotal: stateTotal,
+                        grand: grand,
+                        delta: Math.abs(grand - stateTotal),
+                        result: result,
+                    });
+                });
+
+                summary.hidden = mismatches.length === 0;
+                if (okBanner) {
+                    okBanner.style.display = mismatches.length === 0 ? '' : 'none';
+                }
+                if (countEl) {
+                    countEl.textContent = mismatches.length + ' to fix';
+                }
+                if (mismatchPill) {
+                    mismatchPill.style.display = mismatches.length > 0 ? '' : 'none';
+                    mismatchPill.textContent = mismatches.length + ' mismatch' + (mismatches.length === 1 ? '' : 'es');
+                }
+                if (matchPill) {
+                    matchPill.textContent = matched + ' matched';
+                }
+
+                cardsEl.innerHTML = mismatches.map(function (item) {
+                    const serialHtml = item.serial
+                        ? '<span class="odm-mismatch-card__serial">' + escapeHtml(item.serial) + '</span>'
+                        : '<span></span>';
+                    const deltaHtml = item.delta > 0
+                        ? '<div class="odm-mismatch-card__metric odm-mismatch-card__metric--delta">' +
+                            '<span class="odm-mismatch-card__metric-label">Difference</span>' +
+                            '<span class="odm-mismatch-card__metric-value">' + item.delta.toLocaleString() + '</span>' +
+                          '</div>'
+                        : '';
+
+                    return '<a href="#' + escapeHtml(item.blockId) + '" class="odm-mismatch-card">' +
+                        '<div class="odm-mismatch-card__top">' +
+                            serialHtml +
+                            '<span class="odm-mismatch-card__status odm-mismatch-card__status--' + escapeHtml(item.result.status) + '">' + escapeHtml(item.result.label) + '</span>' +
+                        '</div>' +
+                        '<div class="odm-mismatch-card__name">' + escapeHtml(item.name) + '</div>' +
+                        '<div class="odm-mismatch-card__metrics">' +
+                            '<div class="odm-mismatch-card__metric">' +
+                                '<span class="odm-mismatch-card__metric-label">State target</span>' +
+                                '<span class="odm-mismatch-card__metric-value">' + item.stateTotal.toLocaleString() + '</span>' +
+                            '</div>' +
+                            '<div class="odm-mismatch-card__metric">' +
+                                '<span class="odm-mismatch-card__metric-label">District total</span>' +
+                                '<span class="odm-mismatch-card__metric-value">' + item.grand.toLocaleString() + '</span>' +
+                            '</div>' +
+                            deltaHtml +
+                        '</div>' +
+                        '<div class="odm-mismatch-card__foot">Jump to service <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></div>' +
+                    '</a>';
+                }).join('');
+            }
+
+            function updateVerification(block, grand, colTotals) {
+                const stateTotal = parseInt(block.getAttribute('data-state-total') || '0', 10) || 0;
+                const status = compareTotals(grand, stateTotal);
+                const statusEl = block.querySelector('.block-verify-status');
+                if (statusEl) {
+                    statusEl.textContent = status.label;
+                    statusEl.style.color = status.color;
+                    statusEl.style.background = status.bg;
+                }
+
+                for (let m = 1; m <= 12; m++) {
+                    const stateMonth = parseInt(block.getAttribute('data-state-month-' + m) || '0', 10) || 0;
+                    const allocated = colTotals[m] || 0;
+                    const cell = block.querySelector('.col-total[data-month="' + m + '"]');
+                    if (!cell) {
+                        continue;
+                    }
+                    if (stateMonth > 0 && allocated !== stateMonth) {
+                        cell.style.background = '#fecaca';
+                        cell.style.color = '#991b1b';
+                    } else if (stateMonth > 0 && allocated === stateMonth) {
+                        cell.style.background = '#bbf7d0';
+                        cell.style.color = '#166534';
+                    } else {
+                        cell.style.background = '';
+                        cell.style.color = '';
+                    }
+                }
+            }
 
             function recalcBlock(block) {
                 const colTotals = {};
@@ -254,50 +793,150 @@
                 if (footer) footer.textContent = grand.toLocaleString();
                 const headerTotal = block.querySelector('.block-grand-total');
                 if (headerTotal) headerTotal.textContent = grand.toLocaleString();
+                updateVerification(block, grand, colTotals);
             }
 
             function recalcAll() {
                 form.querySelectorAll('[data-block="1"]').forEach(recalcBlock);
                 const stateOnlyTable = document.getElementById('state-only-table');
                 if (stateOnlyTable) recalcBlock(stateOnlyTable);
+                updateMismatchSummary();
             }
 
             form.querySelectorAll('.month-input').forEach(function (input) {
                 input.addEventListener('input', recalcAll);
             });
 
-            document.getElementById('btn-auto-fill')?.addEventListener('click', function () {
-                form.querySelectorAll('.month-input').forEach(function (input) {
+            function distributeMonthTargets(inputs, stateMonth) {
+                if (inputs.length === 0) {
+                    return;
+                }
+
+                stateMonth = Math.max(0, parseInt(stateMonth, 10) || 0);
+                if (stateMonth <= 0) {
+                    inputs.forEach(function (input) {
+                        input.value = input.getAttribute('data-official') || '0';
+                    });
+
+                    return;
+                }
+
+                const weights = inputs.map(function (input) {
+                    return Math.max(0, parseInt(input.getAttribute('data-official') || '0', 10) || 0);
+                });
+                const weightSum = weights.reduce(function (sum, weight) {
+                    return sum + weight;
+                }, 0);
+
+                if (weightSum <= 0) {
+                    const base = Math.floor(stateMonth / inputs.length);
+                    let remainder = stateMonth % inputs.length;
+                    inputs.forEach(function (input) {
+                        const value = base + (remainder > 0 ? 1 : 0);
+                        if (remainder > 0) {
+                            remainder--;
+                        }
+                        input.value = String(value);
+                    });
+
+                    return;
+                }
+
+                let allocated = 0;
+                inputs.forEach(function (input, index) {
+                    if (index === inputs.length - 1) {
+                        input.value = String(Math.max(0, stateMonth - allocated));
+
+                        return;
+                    }
+
+                    const share = Math.round(stateMonth * weights[index] / weightSum);
+                    input.value = String(share);
+                    allocated += share;
+                });
+            }
+
+            function autoFillBlock(block) {
+                const stateTotal = parseInt(block.getAttribute('data-state-total') || '0', 10) || 0;
+
+                if (stateTotal > 0) {
+                    for (let m = 1; m <= 12; m++) {
+                        const stateMonth = parseInt(block.getAttribute('data-state-month-' + m) || '0', 10) || 0;
+                        const inputs = Array.from(block.querySelectorAll('.month-input[data-month="' + m + '"]'));
+                        distributeMonthTargets(inputs, stateMonth);
+                    }
+
+                    return;
+                }
+
+                block.querySelectorAll('.month-input').forEach(function (input) {
                     input.value = input.getAttribute('data-official') || '0';
                 });
+            }
+
+            document.getElementById('btn-auto-fill')?.addEventListener('click', function () {
+                form.querySelectorAll('[data-block="1"]').forEach(autoFillBlock);
+                const stateOnlyTable = document.getElementById('state-only-table');
+                if (stateOnlyTable) {
+                    stateOnlyTable.querySelectorAll('.month-input').forEach(function (input) {
+                        input.value = input.getAttribute('data-official') || '0';
+                    });
+                }
                 recalcAll();
             });
 
             form.addEventListener('submit', function () {
                 const blocks = {};
                 const stateOnly = {};
+                const unresolvedBlocks = {};
+                const unresolvedStateOnly = {};
 
-                form.querySelectorAll('.month-input[data-deliverable-id]').forEach(function (input) {
+                function unresolvedKey(scope, misSerial, indicatorName) {
+                    return [scope, misSerial || '', indicatorName || ''].join('|');
+                }
+
+                form.querySelectorAll('.month-input').forEach(function (input) {
                     const scope = input.getAttribute('data-scope') || '';
-                    const deliverableId = input.getAttribute('data-deliverable-id');
+                    const deliverableIdAttr = input.getAttribute('data-deliverable-id');
+                    const deliverableId = deliverableIdAttr ? parseInt(deliverableIdAttr, 10) : 0;
                     const month = input.getAttribute('data-month');
                     const value = parseInt(input.value, 10) || 0;
+                    const misSerial = input.getAttribute('data-mis-serial') || '';
+                    const indicatorName = input.getAttribute('data-indicator-name') || '';
 
-                    if (!deliverableId || !month) {
+                    if (!month) {
                         return;
                     }
 
                     if (scope === 'state_only') {
-                        if (!stateOnly[deliverableId]) {
-                            stateOnly[deliverableId] = {};
+                        if (deliverableId > 0) {
+                            if (!stateOnly[deliverableId]) {
+                                stateOnly[deliverableId] = {};
+                            }
+                            stateOnly[deliverableId][month] = value;
+                        } else {
+                            const key = unresolvedKey(scope, misSerial, indicatorName);
+                            if (!unresolvedStateOnly[key]) {
+                                unresolvedStateOnly[key] = { mis_serial: misSerial, name: indicatorName, months: {} };
+                            }
+                            unresolvedStateOnly[key].months[month] = value;
                         }
-                        stateOnly[deliverableId][month] = value;
 
                         return;
                     }
 
-                    if (!blocks[deliverableId]) {
-                        blocks[deliverableId] = { districts: {}, hubs: {} };
+                    let targetBlock = null;
+                    if (deliverableId > 0) {
+                        if (!blocks[deliverableId]) {
+                            blocks[deliverableId] = { districts: {}, hubs: {} };
+                        }
+                        targetBlock = blocks[deliverableId];
+                    } else {
+                        const key = unresolvedKey(scope, misSerial, indicatorName);
+                        if (!unresolvedBlocks[key]) {
+                            unresolvedBlocks[key] = { mis_serial: misSerial, name: indicatorName, districts: {}, hubs: {} };
+                        }
+                        targetBlock = unresolvedBlocks[key];
                     }
 
                     if (scope === 'district') {
@@ -305,25 +944,30 @@
                         if (!districtId) {
                             return;
                         }
-                        if (!blocks[deliverableId].districts[districtId]) {
-                            blocks[deliverableId].districts[districtId] = {};
+                        if (!targetBlock.districts[districtId]) {
+                            targetBlock.districts[districtId] = {};
                         }
-                        blocks[deliverableId].districts[districtId][month] = value;
+                        targetBlock.districts[districtId][month] = value;
                     } else if (scope === 'hub') {
                         const hubId = input.getAttribute('data-hub-id');
                         if (!hubId) {
                             return;
                         }
-                        if (!blocks[deliverableId].hubs[hubId]) {
-                            blocks[deliverableId].hubs[hubId] = {};
+                        if (!targetBlock.hubs[hubId]) {
+                            targetBlock.hubs[hubId] = {};
                         }
-                        blocks[deliverableId].hubs[hubId][month] = value;
+                        targetBlock.hubs[hubId][month] = value;
                     }
                 });
 
                 const payloadEl = document.getElementById('district_payload');
                 if (payloadEl) {
-                    payloadEl.value = JSON.stringify({ blocks: blocks, state_only: stateOnly });
+                    payloadEl.value = JSON.stringify({
+                        blocks: blocks,
+                        state_only: stateOnly,
+                        unresolved_blocks: Object.values(unresolvedBlocks),
+                        unresolved_state_only: Object.values(unresolvedStateOnly),
+                    });
                 }
             });
 

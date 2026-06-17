@@ -141,7 +141,7 @@ return [
         ],
         [
             'excel_sn' => '8',
-            'mis_serial' => '2.1',
+            'mis_serial' => '2.1.1',
             'name' => 'Onboarding of Potential Lakhpati Didi/ SHG Members/ CBOs*',
             'scope' => 'district',
             'districts' => [

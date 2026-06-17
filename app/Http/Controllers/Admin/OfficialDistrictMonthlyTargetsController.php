@@ -63,11 +63,18 @@ class OfficialDistrictMonthlyTargetsController extends Controller
             [
                 'blocks' => $validated['blocks'] ?? [],
                 'state_only' => $validated['state_only'] ?? [],
+                'unresolved_blocks' => [],
+                'unresolved_state_only' => [],
             ],
             $validated['district_payload'] ?? null,
         );
 
-        if (($input['blocks'] ?? []) === [] && ($input['state_only'] ?? []) === []) {
+        if (
+            ($input['blocks'] ?? []) === []
+            && ($input['state_only'] ?? []) === []
+            && ($input['unresolved_blocks'] ?? []) === []
+            && ($input['unresolved_state_only'] ?? []) === []
+        ) {
             return redirect()
                 ->route('admin.targets.official-district-monthly', ['fiscal_year_id' => $fyId])
                 ->withErrors(['apply' => 'No target values were submitted. Edit cells and click Update targets again.']);
@@ -101,8 +108,18 @@ class OfficialDistrictMonthlyTargetsController extends Controller
     }
 
     /**
-     * @param  array{blocks: array<int, array<string, mixed>>, state_only: array<int, array<int, int>>}  $input
-     * @return array{blocks: array<int, array<string, mixed>>, state_only: array<int, array<int, int>>}
+     * @param  array{
+     *     blocks: array<int, array<string, mixed>>,
+     *     state_only: array<int, array<int, int>>,
+     *     unresolved_blocks: array<int, array<string, mixed>>,
+     *     unresolved_state_only: array<int, array<string, mixed>>
+     * }  $input
+     * @return array{
+     *     blocks: array<int, array<string, mixed>>,
+     *     state_only: array<int, array<int, int>>,
+     *     unresolved_blocks: array<int, array<string, mixed>>,
+     *     unresolved_state_only: array<int, array<string, mixed>>
+     * }
      */
     private function decodeDistrictPayload(array $input, ?string $json): array
     {
@@ -118,6 +135,8 @@ class OfficialDistrictMonthlyTargetsController extends Controller
         return [
             'blocks' => is_array($decoded['blocks'] ?? null) ? $decoded['blocks'] : ($input['blocks'] ?? []),
             'state_only' => is_array($decoded['state_only'] ?? null) ? $decoded['state_only'] : ($input['state_only'] ?? []),
+            'unresolved_blocks' => is_array($decoded['unresolved_blocks'] ?? null) ? array_values($decoded['unresolved_blocks']) : ($input['unresolved_blocks'] ?? []),
+            'unresolved_state_only' => is_array($decoded['unresolved_state_only'] ?? null) ? array_values($decoded['unresolved_state_only']) : ($input['unresolved_state_only'] ?? []),
         ];
     }
 }

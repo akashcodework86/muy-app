@@ -7,6 +7,8 @@
     <p style="font-size:0.88rem; color:#52525b; margin:0 0 1rem; max-width:58rem; line-height:1.55;">
         Official state monthly plan (same layout as <strong>State Target Month Wise</strong> Excel).
         Cells show your <strong>last saved</strong> targets. Use <strong>Put targets automatically</strong> to refill from the Excel plan, edit if needed, then <strong>Update targets</strong> to save.
+        For district-split services, totals are cross-checked against
+        <a href="{{ route('admin.targets.official-district-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">District target month wise</a>.
     </p>
 
     @if (session('status'))
@@ -71,6 +73,8 @@
                             @endforeach
                             <th style="padding:0.5rem 0.65rem; background:#ffedd5; border:1px solid #fdba74; text-align:center;">Row total</th>
                             <th style="padding:0.5rem 0.65rem; background:#fef3c7; border:1px solid #fcd34d; text-align:center;">Saved</th>
+                            <th style="padding:0.5rem 0.65rem; background:#dbeafe; border:1px solid #93c5fd; text-align:center;">District allocated</th>
+                            <th style="padding:0.5rem 0.65rem; background:#dbeafe; border:1px solid #93c5fd; text-align:center;">Alignment</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -79,12 +83,15 @@
                             @if (in_array($type, ['category', 'subcategory'], true))
                                 <tr style="background:#ffedd5; font-weight:700;">
                                     <td style="padding:0.45rem 0.65rem; border:1px solid #fdba74;">{{ $row['serial'] ?? '' }}</td>
-                                    <td colspan="16" style="padding:0.45rem 0.65rem; border:1px solid #fdba74;">{{ $row['name'] ?? '' }}</td>
+                                    <td colspan="18" style="padding:0.45rem 0.65rem; border:1px solid #fdba74;">{{ $row['name'] ?? '' }}</td>
                                 </tr>
                             @elseif ($type === 'leaf')
                                 @php
                                     $deliverableId = (int) ($row['deliverable']->id ?? 0);
                                     $mapped = (bool) ($row['mapped'] ?? false);
+                                    $hasDistrictSplit = (bool) ($row['has_district_split'] ?? false);
+                                    $verifyDistrict = (array) ($row['verify_district'] ?? []);
+                                    $districtAllocatedTotal = (int) ($row['district_allocated_total'] ?? 0);
                                 @endphp
                                 <tr class="leaf-row" @if (! $mapped) style="background:#fef2f2;" @endif
                                     @if ($mapped) data-leaf="1" @endif>
@@ -117,10 +124,30 @@
                                                 <span style="color:#94a3b8;">—</span>
                                             @endif
                                         </td>
+                                        <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center;">
+                                            @if ($hasDistrictSplit)
+                                                @if ($districtAllocatedTotal > 0)
+                                                    <span style="font-weight:600;">{{ number_format($districtAllocatedTotal) }}</span>
+                                                @else
+                                                    <span style="color:#94a3b8;">—</span>
+                                                @endif
+                                            @else
+                                                <span style="color:#94a3b8; font-size:0.72rem;">N/A</span>
+                                            @endif
+                                        </td>
+                                        <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center;">
+                                            @if ($hasDistrictSplit && $verifyDistrict !== [])
+                                                <span style="display:inline-block; padding:0.15rem 0.45rem; border-radius:999px; font-size:0.72rem; font-weight:700; color:{{ $verifyDistrict['color'] ?? '#64748b' }}; background:{{ $verifyDistrict['bg'] ?? '#f1f5f9' }};">{{ $verifyDistrict['label'] ?? '—' }}</span>
+                                            @else
+                                                <span style="color:#94a3b8;">—</span>
+                                            @endif
+                                        </td>
                                     @else
                                         @foreach (range(1, 12) as $m)
                                             <td style="padding:0.35rem; border:1px solid #e4e4e7; text-align:center; color:#94a3b8;">—</td>
                                         @endforeach
+                                        <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center;">—</td>
+                                        <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center;">—</td>
                                         <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center;">—</td>
                                         <td style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center;">—</td>
                                     @endif
@@ -135,6 +162,8 @@
                                 <td class="col-total" data-month="{{ $m }}" style="padding:0.4rem; border:1px solid #fdba74; text-align:center;">0</td>
                             @endforeach
                             <td id="footer-grand" style="padding:0.4rem; border:1px solid #fdba74; text-align:center;">0</td>
+                            <td style="border:1px solid #fdba74;"></td>
+                            <td style="border:1px solid #fdba74;"></td>
                             <td style="border:1px solid #fdba74;"></td>
                         </tr>
                     </tfoot>

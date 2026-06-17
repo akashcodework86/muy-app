@@ -106,7 +106,10 @@ class OfficialMonthlyTargetsTest extends TestCase
             ->assertSee('Update targets')
             ->assertDontSee('Assign targets')
             ->assertSee('1.1')
-            ->assertSee('Call for Application');
+            ->assertSee('Call for Application')
+            ->assertSee('District allocated')
+            ->assertSee('Alignment')
+            ->assertSee('District target month wise');
     }
 
     public function test_official_state_update_writes_official_monthly_targets(): void
@@ -182,8 +185,40 @@ class OfficialMonthlyTargetsTest extends TestCase
             ->assertSee('District target month wise')
             ->assertSee('Put targets automatically')
             ->assertSee('Update targets')
-            ->assertSee('Service total')
-            ->assertSee('Call for application');
+            ->assertSee('District allocation')
+            ->assertSee('State target (saved)')
+            ->assertSee('State target month wise')
+            ->assertSee('Call for application')
+            ->assertSee('Onboarding')
+            ->assertSee('Onboarding of Potential Lakhpati Didi/ SHG Members/ CBOs*');
+    }
+
+    public function test_onboarding_and_lakhpati_district_blocks_map_to_distinct_deliverables(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $viewData = app(\App\Services\OfficialDistrictMonthlyTargetService::class)->buildViewData((int) $fy->id);
+        $onboardingBlock = collect($viewData['district_blocks'] ?? [])
+            ->first(fn (array $block) => ($block['mis_serial'] ?? '') === '2.1' && ($block['name'] ?? '') === 'Onboarding');
+        $lakhpatiBlock = collect($viewData['district_blocks'] ?? [])
+            ->first(fn (array $block) => ($block['mis_serial'] ?? '') === '2.1.1');
+
+        $this->assertNotNull($onboardingBlock);
+        $this->assertNotNull($lakhpatiBlock);
+        $this->assertTrue((bool) ($onboardingBlock['mapped'] ?? false));
+        $this->assertTrue((bool) ($lakhpatiBlock['mapped'] ?? false));
+        $this->assertNotSame(
+            (int) ($onboardingBlock['deliverable']->id ?? 0),
+            (int) ($lakhpatiBlock['deliverable']->id ?? 0),
+        );
     }
 
     public function test_official_district_update_writes_official_district_monthly_targets(): void
@@ -257,6 +292,132 @@ class OfficialMonthlyTargetsTest extends TestCase
             ->where('deliverable_id', $cfa->id)
             ->where('district_id', $almora->id)
             ->sum('target_count'));
+    }
+
+    public function test_district_save_warns_when_allocation_does_not_match_state_target(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $cfa = app(OfficialMonthlyTargetCodeResolver::class)
+            ->deliverableForMisSerial('1.1', 'Call for application');
+        $almora = District::query()->where('slug', 'almora')->firstOrFail();
+
+        foreach (range(1, 12) as $month) {
+            OfficialStateMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'deliverable_id' => $cfa->id,
+                'month_number' => $month,
+                'target_count' => 100,
+            ]);
+        }
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $payload = $this->officialDistrictTargetsPayload();
+
+        $this->actingAs($admin)
+            ->post(route('admin.targets.official-district-monthly.apply'), array_merge(
+                ['fiscal_year_id' => $fy->id],
+                $payload,
+            ))
+            ->assertRedirect(route('admin.targets.official-district-monthly', ['fiscal_year_id' => $fy->id]))
+            ->assertSessionHas('status')
+            ->assertSessionHasErrors('apply');
+
+        $this->assertSame(2100, (int) OfficialDistrictMonthlyTarget::query()
+            ->where('fiscal_year_id', $fy->id)
+            ->where('deliverable_id', $cfa->id)
+            ->where('district_id', $almora->id)
+            ->sum('target_count'));
+    }
+
+    public function test_state_page_shows_district_alignment_for_split_services(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $cfa = app(OfficialMonthlyTargetCodeResolver::class)
+            ->deliverableForMisSerial('1.1', 'Call for application');
+        $almora = District::query()->where('slug', 'almora')->firstOrFail();
+
+        foreach (range(1, 12) as $month) {
+            OfficialStateMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'deliverable_id' => $cfa->id,
+                'month_number' => $month,
+                'target_count' => 100,
+            ]);
+            OfficialDistrictMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'deliverable_id' => $cfa->id,
+                'district_id' => $almora->id,
+                'month_number' => $month,
+                'target_count' => 100,
+            ]);
+        }
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.targets.official-state-monthly', ['fiscal_year_id' => $fy->id]))
+            ->assertOk()
+            ->assertSee('Match');
+    }
+
+    public function test_district_page_shows_mismatch_summary_cards_when_not_aligned(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $cfa = app(OfficialMonthlyTargetCodeResolver::class)
+            ->deliverableForMisSerial('1.1', 'Call for application');
+        $almora = District::query()->where('slug', 'almora')->firstOrFail();
+
+        foreach (range(1, 12) as $month) {
+            OfficialStateMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'deliverable_id' => $cfa->id,
+                'month_number' => $month,
+                'target_count' => 100,
+            ]);
+            OfficialDistrictMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'deliverable_id' => $cfa->id,
+                'district_id' => $almora->id,
+                'month_number' => $month,
+                'target_count' => 250,
+            ]);
+        }
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.targets.official-district-monthly', ['fiscal_year_id' => $fy->id]))
+            ->assertOk()
+            ->assertSee('State vs district alignment issues')
+            ->assertSee('Call for application')
+            ->assertSee('Over by');
     }
 
     /**

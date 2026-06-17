@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\Hub;
@@ -17,6 +18,7 @@ class OfficialDistrictMonthlyTargetService
         private readonly OfficialMonthlyTargetCodeResolver $codeResolver,
         private readonly DistrictHubMonthlyTargetsService $monthlyTargets,
         private readonly OfficialMonthlyTargetPersistenceService $persistence,
+        private readonly OfficialMonthlyTargetCrossCheckService $crossCheck,
     ) {}
 
     /**
@@ -48,6 +50,27 @@ class OfficialDistrictMonthlyTargetService
 
         $districtBySlug = $districts->keyBy(fn (District $d) => (string) $d->slug);
         $hubs = Hub::query()->orderBy('name')->get()->keyBy(fn (Hub $h) => (string) $h->slug);
+
+        $blockDeliverableIds = [];
+        foreach ($blocks as $block) {
+            if (! is_array($block)) {
+                continue;
+            }
+
+            $misSerial = (string) ($block['mis_serial'] ?? '');
+            if ($misSerial === '') {
+                continue;
+            }
+
+            try {
+                $deliverable = $this->codeResolver->deliverableForMisSerial($misSerial, (string) ($block['name'] ?? ''));
+                $blockDeliverableIds[] = (int) $deliverable->id;
+            } catch (InvalidArgumentException) {
+                continue;
+            }
+        }
+
+        $stateSavedByDeliverable = $this->crossCheck->stateSavedTargets($fiscalYearId, $blockDeliverableIds);
 
         $enrichedBlocks = [];
         $blockIndex = 0;
@@ -153,6 +176,17 @@ class OfficialDistrictMonthlyTargetService
             }
             $columnTotals['grand'] = $savedGrand;
 
+            $savedDistrictTotal = $savedGrand + (int) array_sum(array_column($hubRows, 'saved_total'));
+            $stateSavedMonths = array_fill(1, 12, 0);
+            $stateSavedTotal = 0;
+            if ($deliverable) {
+                $stateSaved = $stateSavedByDeliverable[(int) $deliverable->id] ?? null;
+                if (is_array($stateSaved)) {
+                    $stateSavedMonths = $stateSaved['months'] ?? $stateSavedMonths;
+                    $stateSavedTotal = (int) ($stateSaved['total'] ?? 0);
+                }
+            }
+
             $enrichedBlocks[] = array_merge($block, [
                 'block_index' => $blockIndex++,
                 'deliverable' => $deliverable,
@@ -162,7 +196,10 @@ class OfficialDistrictMonthlyTargetService
                 'hub_rows' => $hubRows,
                 'official_state_total' => (int) array_sum(array_column($districtRows, 'official_total'))
                     + (int) array_sum(array_column($hubRows, 'official_total')),
-                'saved_state_total' => $savedGrand + (int) array_sum(array_column($hubRows, 'saved_total')),
+                'saved_state_total' => $savedDistrictTotal,
+                'state_saved_months' => $stateSavedMonths,
+                'state_saved_total' => $stateSavedTotal,
+                'verify_saved' => $this->crossCheck->compareTotals($savedDistrictTotal, $stateSavedTotal),
                 'column_totals' => $columnTotals,
             ]);
         }
@@ -224,7 +261,18 @@ class OfficialDistrictMonthlyTargetService
     /**
      * @param  array{
      *     blocks?: array<int|string, array{districts?: array<int|string, array<int|string, int|string|null>>, hubs?: array<int|string, array<int|string, int|string|null>>}>,
-     *     state_only?: array<int|string, array<int|string, int|string|null>>
+     *     state_only?: array<int|string, array<int|string, int|string|null>>,
+     *     unresolved_blocks?: list<array{
+     *         mis_serial?: string,
+     *         name?: string,
+     *         districts?: array<int|string, array<int|string, int|string|null>>,
+     *         hubs?: array<int|string, array<int|string, int|string|null>>
+     *     }>,
+     *     unresolved_state_only?: list<array{
+     *         mis_serial?: string,
+     *         name?: string,
+     *         months?: array<int|string, int|string|null>
+     *     }>
      * }  $input
      * @return array{applied: int, skipped: int, errors: list<string>}
      */
@@ -248,6 +296,31 @@ class OfficialDistrictMonthlyTargetService
                 }
 
                 $applied += $this->persistDistrictBlock($fiscalYearId, $deliverableId, $blockInput, $skipped);
+                $errors = array_merge($errors, $this->crossCheckWarningsForBlock($fiscalYearId, $deliverableId, $blockInput));
+            }
+
+            foreach ((array) ($input['unresolved_blocks'] ?? []) as $unresolvedBlock) {
+                if (! is_array($unresolvedBlock)) {
+                    continue;
+                }
+
+                $misSerial = trim((string) ($unresolvedBlock['mis_serial'] ?? ''));
+                $name = trim((string) ($unresolvedBlock['name'] ?? ''));
+                if ($misSerial === '') {
+                    $errors[] = 'Cannot save an unmapped district/hub row because MIS serial is missing.';
+                    $skipped++;
+
+                    continue;
+                }
+
+                try {
+                    $deliverable = $this->codeResolver->deliverableForMisSerial($misSerial, $name);
+                    $applied += $this->persistDistrictBlock($fiscalYearId, (int) $deliverable->id, $unresolvedBlock, $skipped);
+                    $errors = array_merge($errors, $this->crossCheckWarningsForBlock($fiscalYearId, (int) $deliverable->id, $unresolvedBlock));
+                } catch (InvalidArgumentException $e) {
+                    $errors[] = 'Could not save ['.$misSerial.'] '.($name !== '' ? $name : 'Unknown indicator').': '.$e->getMessage();
+                    $skipped++;
+                }
             }
 
             foreach ((array) ($input['state_only'] ?? []) as $deliverableId => $months) {
@@ -260,6 +333,31 @@ class OfficialDistrictMonthlyTargetService
 
                 $this->persistence->saveStateGrid($fiscalYearId, $deliverableId, $months);
                 $applied++;
+            }
+
+            foreach ((array) ($input['unresolved_state_only'] ?? []) as $unresolvedStateRow) {
+                if (! is_array($unresolvedStateRow)) {
+                    continue;
+                }
+
+                $misSerial = trim((string) ($unresolvedStateRow['mis_serial'] ?? ''));
+                $name = trim((string) ($unresolvedStateRow['name'] ?? ''));
+                $months = $unresolvedStateRow['months'] ?? null;
+                if ($misSerial === '' || ! is_array($months)) {
+                    $errors[] = 'Cannot save an unmapped state-only row because its mapping details are incomplete.';
+                    $skipped++;
+
+                    continue;
+                }
+
+                try {
+                    $deliverable = $this->codeResolver->deliverableForMisSerial($misSerial, $name);
+                    $this->persistence->saveStateGrid($fiscalYearId, (int) $deliverable->id, $months);
+                    $applied++;
+                } catch (InvalidArgumentException $e) {
+                    $errors[] = 'Could not save state-only row ['.$misSerial.'] '.($name !== '' ? $name : 'Unknown indicator').': '.$e->getMessage();
+                    $skipped++;
+                }
             }
         });
 
@@ -314,6 +412,53 @@ class OfficialDistrictMonthlyTargetService
         }
 
         return 1;
+    }
+
+    /**
+     * @param  array{districts?: array<int|string, array<int|string, int|string|null>>, hubs?: array<int|string, array<int|string, int|string|null>>}  $blockInput
+     * @return list<string>
+     */
+    private function crossCheckWarningsForBlock(int $fiscalYearId, int $deliverableId, array $blockInput): array
+    {
+        $allocatedMonths = array_fill(1, 12, 0);
+
+        foreach ((array) ($blockInput['districts'] ?? []) as $months) {
+            if (! is_array($months)) {
+                continue;
+            }
+            for ($m = 1; $m <= 12; $m++) {
+                $allocatedMonths[$m] += max(0, (int) ($months[$m] ?? $months[(string) $m] ?? 0));
+            }
+        }
+
+        foreach ((array) ($blockInput['hubs'] ?? []) as $months) {
+            if (! is_array($months)) {
+                continue;
+            }
+            for ($m = 1; $m <= 12; $m++) {
+                $allocatedMonths[$m] += max(0, (int) ($months[$m] ?? $months[(string) $m] ?? 0));
+            }
+        }
+
+        $allocatedTotal = (int) array_sum($allocatedMonths);
+        $stateSaved = $this->crossCheck->stateSavedTargets($fiscalYearId, [$deliverableId])[$deliverableId] ?? null;
+        $stateTotal = (int) ($stateSaved['total'] ?? 0);
+
+        if ($stateTotal <= 0) {
+            return ['District allocation saved, but no matching state target is set yet on State target month wise.'];
+        }
+
+        $compare = $this->crossCheck->compareTotals($allocatedTotal, $stateTotal);
+        if ($compare['status'] === 'match') {
+            return [];
+        }
+
+        $deliverable = Deliverable::query()->find($deliverableId);
+        $label = $deliverable?->name ?? ('Deliverable #'.$deliverableId);
+
+        return [
+            $label.': district allocation total ('.number_format($allocatedTotal).') does not match state target ('.number_format($stateTotal).') — '.$compare['label'].'.',
+        ];
     }
 
     /**

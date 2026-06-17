@@ -71,16 +71,14 @@
             <label for="year" style="font-size:0.75rem;font-weight:600;color:#475569;">Year</label>
             <input type="number" name="year" id="year" value="{{ $formDates['year'] ?? $filter->year }}" min="2020" max="2040" placeholder="e.g. 2026" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;width:6.5rem;">
         </div>
-        @if (! empty($formDates['dateFrom']) && ! empty($formDates['dateTo']))
-            <div style="display:flex;flex-direction:column;gap:0.25rem;min-width:11rem;">
-                <span style="font-size:0.75rem;font-weight:600;color:#475569;">Period</span>
-                <span id="period_display" style="padding:0.45rem 0.55rem;border:1px solid #e4e4e7;border-radius:8px;background:#f8fafc;color:#334155;font-size:0.85rem;">
-                    {{ \Carbon\Carbon::parse($formDates['dateFrom'])->format('d M Y') }} – {{ \Carbon\Carbon::parse($formDates['dateTo'])->format('d M Y') }}
-                </span>
-            </div>
-        @endif
-        <input type="hidden" name="date_from" id="date_from" value="{{ $formDates['dateFrom'] ?? '' }}">
-        <input type="hidden" name="date_to" id="date_to" value="{{ $formDates['dateTo'] ?? '' }}">
+        <div style="display:flex;flex-direction:column;gap:0.25rem;">
+            <label for="date_from" style="font-size:0.75rem;font-weight:600;color:#475569;">From date</label>
+            <input type="date" name="date_from" id="date_from" value="{{ $formDates['dateFrom'] ?? '' }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:10.5rem;">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.25rem;">
+            <label for="date_to" style="font-size:0.75rem;font-weight:600;color:#475569;">To date</label>
+            <input type="date" name="date_to" id="date_to" value="{{ $formDates['dateTo'] ?? '' }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:10.5rem;">
+        </div>
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;cursor:pointer;">Apply</button>
         <a href="{{ route($indexRoute) }}" style="padding:0.48rem 0.75rem;border:1px solid #d4d4d8;border-radius:8px;text-decoration:none;color:#334155;font-size:0.88rem;">Reset</a>
         <a href="{{ route($exportRoute, $queryParams) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;">⬇ Export .xlsx</a>
@@ -240,6 +238,7 @@
                 if (!quarterEl || !monthEl || !yearEl || !fyEl || !dateFromEl || !dateToEl) return;
 
                 const fyQuarterMonths = @json($fyQuarterPeriods);
+                let syncingPresetDates = false;
 
                 function pad2(n) {
                     return String(n).padStart(2, '0');
@@ -255,33 +254,23 @@
                     return !Number.isNaN(startYear) && startYear > 0 ? startYear : new Date().getFullYear();
                 }
 
-                function formatDisplay(fromIso, toIso) {
-                    const from = new Date(fromIso + 'T00:00:00');
-                    const to = new Date(toIso + 'T00:00:00');
-                    const opts = { day: '2-digit', month: 'short', year: 'numeric' };
-                    return from.toLocaleDateString('en-GB', opts) + ' – ' + to.toLocaleDateString('en-GB', opts);
-                }
-
-                function updatePeriodDisplay(fromIso, toIso) {
-                    const display = document.getElementById('period_display');
-                    if (!display) return;
-                    if (!fromIso || !toIso) {
-                        display.closest('div')?.remove();
-                        return;
-                    }
-                    display.textContent = formatDisplay(fromIso, toIso);
+                function setDateRange(fromIso, toIso) {
+                    syncingPresetDates = true;
+                    dateFromEl.value = fromIso || '';
+                    dateToEl.value = toIso || '';
+                    syncingPresetDates = false;
                 }
 
                 function clearPeriodFields() {
-                    dateFromEl.value = '';
-                    dateToEl.value = '';
-                    updatePeriodDisplay('', '');
+                    setDateRange('', '');
                 }
 
                 function syncDatesFromMonth() {
                     const month = parseInt(monthEl.value, 10);
                     if (!month || month < 1 || month > 12) {
-                        clearPeriodFields();
+                        if (!quarterEl.value) {
+                            clearPeriodFields();
+                        }
                         return;
                     }
 
@@ -290,15 +279,15 @@
                     const lastDay = new Date(year, month, 0).getDate();
                     const fromIso = year + '-' + pad2(month) + '-01';
                     const toIso = year + '-' + pad2(month) + '-' + pad2(lastDay);
-                    dateFromEl.value = fromIso;
-                    dateToEl.value = toIso;
-                    updatePeriodDisplay(fromIso, toIso);
+                    setDateRange(fromIso, toIso);
                 }
 
                 function syncDatesFromQuarter() {
                     const quarter = parseInt(quarterEl.value, 10);
                     if (!quarter || quarter < 1 || quarter > 4) {
-                        clearPeriodFields();
+                        if (!monthEl.value) {
+                            clearPeriodFields();
+                        }
                         return;
                     }
 
@@ -308,9 +297,15 @@
                         return;
                     }
 
-                    dateFromEl.value = range.from;
-                    dateToEl.value = range.to;
-                    updatePeriodDisplay(range.from, range.to);
+                    setDateRange(range.from, range.to);
+                }
+
+                function onManualDateChange() {
+                    if (syncingPresetDates) {
+                        return;
+                    }
+                    quarterEl.value = '';
+                    monthEl.value = '';
                 }
 
                 quarterEl.addEventListener('change', function () {
@@ -332,6 +327,9 @@
                         syncDatesFromMonth();
                     }
                 });
+
+                dateFromEl.addEventListener('change', onManualDateChange);
+                dateToEl.addEventListener('change', onManualDateChange);
 
                 fyEl.addEventListener('change', function () {
                     quarterEl.value = '';

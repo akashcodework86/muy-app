@@ -411,4 +411,58 @@ class OfficialMonthlyTargetsDeliverablesTest extends TestCase
         $this->assertNotNull($q1Row);
         $this->assertSame(60, $q1Row['target']);
     }
+
+    public function test_deliverables_date_range_filter_sums_overlapping_official_months(): void
+    {
+        app(\App\Services\ServiceTargetDeliverableSyncService::class)->syncAllServices();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'kumaon', 'name' => 'Kumaon', 'sort_order' => 1]);
+        $almora = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'almora',
+            'name' => 'Almora',
+            'sort_order' => 1,
+        ]);
+
+        $cfa = app(OfficialMonthlyTargetCodeResolver::class)
+            ->deliverableForMisSerial('1.1', 'Call for application');
+
+        foreach ([1 => 10, 2 => 20, 3 => 30, 4 => 40] as $month => $count) {
+            OfficialDistrictMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'district_id' => $almora->id,
+                'deliverable_id' => $cfa->id,
+                'month_number' => $month,
+                'target_count' => $count,
+            ]);
+        }
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+
+        $twoMonthReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, $almora->id, null, null, '2026-04-01', '2026-05-31'),
+            $scope,
+        );
+        $twoMonthRow = collect($twoMonthReport['rows'])->firstWhere('serial', '1.1');
+        $this->assertNotNull($twoMonthRow);
+        $this->assertSame(30, $twoMonthRow['target']);
+
+        $partialMonthReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, $almora->id, null, null, '2026-04-15', '2026-05-10'),
+            $scope,
+        );
+        $partialMonthRow = collect($partialMonthReport['rows'])->firstWhere('serial', '1.1');
+        $this->assertNotNull($partialMonthRow);
+        $this->assertSame(30, $partialMonthRow['target']);
+    }
 }

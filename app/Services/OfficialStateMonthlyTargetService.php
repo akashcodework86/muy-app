@@ -14,6 +14,7 @@ class OfficialStateMonthlyTargetService
     public function __construct(
         private readonly OfficialMonthlyTargetCodeResolver $codeResolver,
         private readonly OfficialMonthlyTargetPersistenceService $persistence,
+        private readonly OfficialMonthlyTargetCrossCheckService $crossCheck,
     ) {}
 
     /**
@@ -74,6 +75,12 @@ class OfficialStateMonthlyTargetService
             }
         }
 
+        $districtSplitIds = $this->crossCheck->deliverableIdsWithDistrictSplit();
+        $districtAllocatedByDeliverable = $this->crossCheck->districtAllocatedTargets(
+            $fiscalYearId,
+            array_keys(array_intersect_key($deliverableIds, $districtSplitIds)),
+        );
+
         $grid = [];
         foreach ($rows as $row) {
             if (! is_array($row)) {
@@ -112,6 +119,16 @@ class OfficialStateMonthlyTargetService
             }
 
             $savedTotal = array_sum($savedMonths);
+            $hasDistrictSplit = $deliverable && isset($districtSplitIds[(int) $deliverable->id]);
+            $districtAllocatedMonths = array_fill(1, 12, 0);
+            $districtAllocatedTotal = 0;
+            if ($hasDistrictSplit && $deliverable) {
+                $allocated = $districtAllocatedByDeliverable[(int) $deliverable->id] ?? null;
+                if (is_array($allocated)) {
+                    $districtAllocatedMonths = $allocated['months'] ?? $districtAllocatedMonths;
+                    $districtAllocatedTotal = (int) ($allocated['total'] ?? 0);
+                }
+            }
 
             $grid[] = array_merge($row, [
                 'deliverable' => $deliverable,
@@ -121,6 +138,12 @@ class OfficialStateMonthlyTargetService
                 'saved_months' => $savedMonths,
                 'official_total' => (int) ($row['total'] ?? array_sum($officialMonths)),
                 'saved_total' => $savedTotal,
+                'has_district_split' => $hasDistrictSplit,
+                'district_allocated_months' => $districtAllocatedMonths,
+                'district_allocated_total' => $districtAllocatedTotal,
+                'verify_district' => $hasDistrictSplit
+                    ? $this->crossCheck->compareTotals($districtAllocatedTotal, $savedTotal)
+                    : null,
             ]);
         }
 
