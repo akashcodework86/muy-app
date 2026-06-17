@@ -259,15 +259,17 @@ class TrainingPackageAttendanceController extends Controller
 
         $eventPeriod = $this->applyEventPeriodFilter($query, $request);
 
-        $totals = IncubateeAttendeeCounts::sumForRecords(
-            (clone $query)->get(['selected_incubatee_ids', 'selected_incubatees_snapshot'])
-        );
+        $allForTotals = (clone $query)->get(['selected_incubatee_ids', 'selected_incubatees_snapshot']);
+        $this->enrichSnapshotGenders($allForTotals);
+        $totals = IncubateeAttendeeCounts::sumForRecords($allForTotals);
 
         $rows = $query
             ->orderByDesc('event_date')
             ->orderByDesc('id')
             ->paginate(25)
             ->withQueryString();
+
+        $this->enrichSnapshotGenders($rows->getCollection());
 
         $filterYear = (int) ($eventPeriod['event_year'] !== '' ? $eventPeriod['event_year'] : now()->year);
 
@@ -625,6 +627,14 @@ class TrainingPackageAttendanceController extends Controller
             }
         }
 
+        // Scope legacy ID lookups to applicants belonging to this training package's district so
+        // that a legacy applicant from a different district can never be merged into this record.
+        $packageDistrictId = (int) ($trainingPackage->district_id ?: 0);
+        if ($legacyApplicationIds !== [] && $packageDistrictId > 0) {
+            $allowedLegacyIds = $this->legacyApplications->legacyApplicationIdsInLaravelDistrict($packageDistrictId);
+            $legacyApplicationIds = array_values(array_intersect($legacyApplicationIds, $allowedLegacyIds));
+        }
+
         $legacyDetailsById = $this->legacyApplications->applicantSnapshotsByLegacyApplicationIds($legacyApplicationIds);
         $legacyDetailsByApplicationNumber = $this->legacyApplications->applicantSnapshotsByLegacyApplicationNumbers($legacyApplicationNumbers);
 
@@ -863,6 +873,120 @@ class TrainingPackageAttendanceController extends Controller
             'monthSummary' => $monthSummary,
             'monthOptions' => $monthOptions,
         ];
+    }
+
+    /**
+     * Batch-enrich missing/empty genders in the in-memory snapshots of a collection of training
+     * package rows, mirroring the same logic used by enrichedApplicantSnapshots() on the show page.
+     *
+     * Covers two cases:
+     *   – Phase 2 applicants (incubatee_id < 0): always re-fetch from legacy DB.
+     *   – Phase 3 applicants with empty stored gender: look up by application_no in legacy DB.
+     *
+     * Only TWO legacy-DB queries are made for the whole collection (one by ID, one by application_no)
+     * regardless of how many rows are on the page. Model instances are mutated in memory only —
+     * nothing is written to the database.
+     *
+     * @param  \Illuminate\Support\Collection<int, TrainingPackage>  $rows
+     */
+    private function enrichSnapshotGenders(Collection $rows): void
+    {
+        if (! $this->legacyApplications->legacyDbAvailable()) {
+            return;
+        }
+
+        $legacyIds = [];
+        $applicationNumbers = [];
+
+        foreach ($rows as $row) {
+            foreach ((array) ($row->selected_incubatees_snapshot ?? []) as $snap) {
+                if (! is_array($snap)) {
+                    continue;
+                }
+
+                $incubateeId = (int) ($snap['incubatee_id'] ?? 0);
+                $storedGender = trim((string) ($snap['gender'] ?? ''));
+
+                if ($incubateeId < 0) {
+                    // Phase 2 applicant — always enrich from legacy DB.
+                    $legacyIds[] = abs($incubateeId);
+                } elseif ($storedGender === '') {
+                    // Phase 3 applicant with no stored gender — try legacy lookup by application_no.
+                    // Also try positive incubatee_id as a legacy ID (mirrors show-page behaviour).
+                    if ($incubateeId > 0) {
+                        $legacyIds[] = $incubateeId;
+                    }
+                    $appNo = trim((string) ($snap['application_no'] ?? ''));
+                    if ($appNo !== '') {
+                        $applicationNumbers[] = $appNo;
+                    }
+                }
+            }
+        }
+
+        $legacyDetailsById = $legacyIds !== []
+            ? $this->legacyApplications->applicantSnapshotsByLegacyApplicationIds(
+                array_values(array_unique($legacyIds))
+            )
+            : [];
+
+        $legacyDetailsByAppNo = $applicationNumbers !== []
+            ? $this->legacyApplications->applicantSnapshotsByLegacyApplicationNumbers(
+                array_values(array_unique($applicationNumbers))
+            )
+            : [];
+
+        if ($legacyDetailsById === [] && $legacyDetailsByAppNo === []) {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $snapshots = (array) ($row->selected_incubatees_snapshot ?? []);
+            $changed = false;
+
+            foreach ($snapshots as $i => $snap) {
+                if (! is_array($snap)) {
+                    continue;
+                }
+
+                $incubateeId = (int) ($snap['incubatee_id'] ?? 0);
+                $storedGender = trim((string) ($snap['gender'] ?? ''));
+                $needsEnrichment = $incubateeId < 0 || $storedGender === '';
+
+                if (! $needsEnrichment) {
+                    continue;
+                }
+
+                $enrichedGender = '';
+
+                // Phase 2: lookup by abs(incubatee_id) as legacy application ID.
+                if ($incubateeId < 0) {
+                    $enrichedGender = (string) ($legacyDetailsById[abs($incubateeId)]['gender'] ?? '');
+                }
+
+                // Phase 3 fallback: try positive incubatee_id as legacy application ID.
+                if ($enrichedGender === '' && $incubateeId > 0) {
+                    $enrichedGender = (string) ($legacyDetailsById[$incubateeId]['gender'] ?? '');
+                }
+
+                // Last resort: lookup by application_no.
+                if ($enrichedGender === '') {
+                    $appNoKey = mb_strtolower(trim((string) ($snap['application_no'] ?? '')));
+                    if ($appNoKey !== '') {
+                        $enrichedGender = (string) ($legacyDetailsByAppNo[$appNoKey]['gender'] ?? '');
+                    }
+                }
+
+                if ($enrichedGender !== '' && $enrichedGender !== $storedGender) {
+                    $snapshots[$i]['gender'] = $enrichedGender;
+                    $changed = true;
+                }
+            }
+
+            if ($changed) {
+                $row->selected_incubatees_snapshot = $snapshots;
+            }
+        }
     }
 
     private function exportRouteForRole(string $role): string

@@ -6,6 +6,7 @@ use App\Models\District;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\User;
+use App\Support\IncubateeAttendeeCounts;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -245,7 +246,7 @@ class LegacyApplicationServiceCaseSupport
                     'name' => (string) ($row->applicant_name ?? ''),
                     'application_no' => (string) ($row->application_no ?? ''),
                     'phone' => (string) ($row->phone ?? ''),
-                    'gender' => (string) ($row->gender ?? ''),
+                    'gender' => IncubateeAttendeeCounts::normalizeGender((string) ($row->gender ?? '')),
                     'village' => (string) ($row->village ?? ''),
                     'block_name' => (string) ($row->block_name ?? ''),
                     'onboarding_batch_id' => (int) ($row->onboarding_batch_id ?? 0),
@@ -308,7 +309,7 @@ class LegacyApplicationServiceCaseSupport
                         'name' => (string) ($row->applicant_name ?? ''),
                         'application_no' => (string) ($row->application_no ?? ''),
                         'phone' => (string) ($row->phone ?? ''),
-                        'gender' => (string) ($row->gender ?? ''),
+                        'gender' => IncubateeAttendeeCounts::normalizeGender((string) ($row->gender ?? '')),
                         'village' => (string) ($row->village ?? ''),
                         'block_name' => (string) ($row->block ?? ''),
                     ],
@@ -365,7 +366,7 @@ class LegacyApplicationServiceCaseSupport
                         'name' => (string) ($row->applicant_name ?? ''),
                         'application_no' => $applicationNo,
                         'phone' => (string) ($row->phone ?? ''),
-                        'gender' => (string) ($row->gender ?? ''),
+                        'gender' => IncubateeAttendeeCounts::normalizeGender((string) ($row->gender ?? '')),
                         'village' => (string) ($row->village ?? ''),
                         'block_name' => (string) ($row->block ?? ''),
                     ],

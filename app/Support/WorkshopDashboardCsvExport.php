@@ -179,6 +179,7 @@ class WorkshopDashboardCsvExport
             'Session Brief',
             'Male',
             'Female',
+            'Other/NA',
             'Total',
         ];
 
@@ -200,6 +201,7 @@ class WorkshopDashboardCsvExport
                 (string) ($entry->session_brief ?? ''),
                 (string) $counts['male'],
                 (string) $counts['female'],
+                (string) ($counts['other'] ?? 0),
                 (string) $counts['total'],
             ];
         }
@@ -222,6 +224,7 @@ class WorkshopDashboardCsvExport
             'Training Modules',
             'Male',
             'Female',
+            'Other/NA',
             'Total',
         ];
 
@@ -259,6 +262,7 @@ class WorkshopDashboardCsvExport
                 $moduleLabel !== '' ? $moduleLabel : 'NA',
                 (string) $counts['male'],
                 (string) $counts['female'],
+                (string) ($counts['other'] ?? 0),
                 (string) $counts['total'],
             ];
         }

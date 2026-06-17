@@ -96,6 +96,12 @@
             <div class="tp-stat-card__label">Total Female</div>
             <div class="tp-stat-card__value">{{ number_format((int) ($totals['female'] ?? 0)) }}</div>
         </div>
+        @if (($totals['other'] ?? 0) > 0)
+        <div class="tp-stat-card">
+            <div class="tp-stat-card__label">Total Other / NA</div>
+            <div class="tp-stat-card__value">{{ number_format((int) ($totals['other'] ?? 0)) }}</div>
+        </div>
+        @endif
         <div class="tp-stat-card">
             <div class="tp-stat-card__label">Total Attendees</div>
             <div class="tp-stat-card__value">{{ number_format((int) ($totals['total'] ?? 0)) }}</div>
@@ -169,6 +175,7 @@
                 <th>Training Modules</th>
                 <th>Male</th>
                 <th>Female</th>
+                <th>Other/NA</th>
                 <th>Total</th>
                 <th>Actions</th>
             </tr>
@@ -207,6 +214,7 @@
                     <td><span class="tp-pill">{{ $moduleLabel !== '' ? $moduleLabel : 'NA' }}</span></td>
                     <td>{{ number_format($attendeeCounts['male']) }}</td>
                     <td>{{ number_format($attendeeCounts['female']) }}</td>
+                    <td>{{ number_format($attendeeCounts['other'] ?? 0) }}</td>
                     <td>{{ number_format($attendeeCounts['total']) }}</td>
                     <td>
                         <div class="tp-row-actions">
@@ -223,7 +231,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="11" class="tp-empty">No entries found.</td>
+                    <td colspan="12" class="tp-empty">No entries found.</td>
                 </tr>
             @endforelse
             </tbody>
