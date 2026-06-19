@@ -28,14 +28,7 @@
         </div>
 
     <form method="get" action="{{ route($indexRoute) }}" id="deliverables-filter-form" style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:flex-end;margin-bottom:1rem;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.9rem;">
-        <div style="display:flex;flex-direction:column;gap:0.25rem;">
-            <label for="fiscal_year_id" style="font-size:0.75rem;font-weight:600;color:#475569;">Fiscal year</label>
-            <select name="fiscal_year_id" id="fiscal_year_id" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:10rem;">
-                @foreach ($fiscalYears as $fy)
-                    <option value="{{ $fy->id }}" data-start-year="{{ $fy->starts_on?->year }}" @selected((int) $fiscalYearId === (int) $fy->id)>{{ $fy->name }}</option>
-                @endforeach
-            </select>
-        </div>
+        <input type="hidden" name="fiscal_year_id" id="fiscal_year_id" value="{{ $fiscalYearId }}">
         @if ($canPickDistrict)
             <div style="display:flex;flex-direction:column;gap:0.25rem;">
                 <label for="district_id" style="font-size:0.75rem;font-weight:600;color:#475569;">District</label>
@@ -66,10 +59,6 @@
                     <option value="{{ $m }}" @selected((int) ($filter->month ?? 0) === $m)>{{ \Carbon\Carbon::create(null, $m, 1)->format('F') }}</option>
                 @endforeach
             </select>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:0.25rem;">
-            <label for="year" style="font-size:0.75rem;font-weight:600;color:#475569;">Year</label>
-            <input type="number" name="year" id="year" value="{{ $formDates['year'] ?? $filter->year }}" min="2020" max="2040" placeholder="e.g. 2026" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;width:6.5rem;">
         </div>
         <div style="display:flex;flex-direction:column;gap:0.25rem;">
             <label for="date_from" style="font-size:0.75rem;font-weight:600;color:#475569;">From date</label>
@@ -231,27 +220,21 @@
             (function () {
                 const quarterEl = document.getElementById('quarter');
                 const monthEl = document.getElementById('month');
-                const yearEl = document.getElementById('year');
-                const fyEl = document.getElementById('fiscal_year_id');
                 const dateFromEl = document.getElementById('date_from');
                 const dateToEl = document.getElementById('date_to');
-                if (!quarterEl || !monthEl || !yearEl || !fyEl || !dateFromEl || !dateToEl) return;
+                if (!quarterEl || !monthEl || !dateFromEl || !dateToEl) return;
 
                 const fyQuarterMonths = @json($fyQuarterPeriods);
+                const fiscalStartYear = @json((int) ($fiscalYear?->starts_on?->year ?? now()->year));
+                const fiscalStartMonth = @json((int) ($fiscalYear?->starts_on?->month ?? 4));
                 let syncingPresetDates = false;
 
                 function pad2(n) {
                     return String(n).padStart(2, '0');
                 }
 
-                function defaultYear() {
-                    const parsed = parseInt(yearEl.value, 10);
-                    if (!Number.isNaN(parsed) && parsed > 0) {
-                        return parsed;
-                    }
-                    const fyOpt = fyEl.options[fyEl.selectedIndex];
-                    const startYear = fyOpt ? parseInt(fyOpt.dataset.startYear || '', 10) : NaN;
-                    return !Number.isNaN(startYear) && startYear > 0 ? startYear : new Date().getFullYear();
+                function calendarYearForMonth(month) {
+                    return month >= fiscalStartMonth ? fiscalStartYear : fiscalStartYear + 1;
                 }
 
                 function setDateRange(fromIso, toIso) {
@@ -274,8 +257,7 @@
                         return;
                     }
 
-                    const year = defaultYear();
-                    yearEl.value = year;
+                    const year = calendarYearForMonth(month);
                     const lastDay = new Date(year, month, 0).getDate();
                     const fromIso = year + '-' + pad2(month) + '-01';
                     const toIso = year + '-' + pad2(month) + '-' + pad2(lastDay);
@@ -322,20 +304,8 @@
                     syncDatesFromMonth();
                 });
 
-                yearEl.addEventListener('change', function () {
-                    if (monthEl.value) {
-                        syncDatesFromMonth();
-                    }
-                });
-
                 dateFromEl.addEventListener('change', onManualDateChange);
                 dateToEl.addEventListener('change', onManualDateChange);
-
-                fyEl.addEventListener('change', function () {
-                    quarterEl.value = '';
-                    monthEl.value = '';
-                    clearPeriodFields();
-                });
             })();
 
             (function () {
@@ -348,10 +318,7 @@
                 }
 
                 function screenshotFilename() {
-                    const fy = document.getElementById('fiscal_year_id');
-                    const fyLabel = fy && fy.options[fy.selectedIndex]
-                        ? fy.options[fy.selectedIndex].textContent.trim().replace(/\s+/g, '-')
-                        : 'FY';
+                    const fyLabel = @json(str_replace(' ', '-', (string) ($fiscalYear?->name ?? 'FY')));
                     const now = new Date();
                     const stamp = now.getFullYear()
                         + pad2(now.getMonth() + 1)

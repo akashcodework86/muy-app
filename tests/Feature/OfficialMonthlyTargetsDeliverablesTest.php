@@ -412,6 +412,129 @@ class OfficialMonthlyTargetsDeliverablesTest extends TestCase
         $this->assertSame(60, $q1Row['target']);
     }
 
+    public function test_deliverables_district_level_workshops_uses_official_district_monthly_with_filters(): void
+    {
+        app(\App\Services\ServiceTargetDeliverableSyncService::class)->syncAllServices();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'kumaon', 'name' => 'Kumaon', 'sort_order' => 1]);
+        $almora = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'almora',
+            'name' => 'Almora',
+            'sort_order' => 1,
+        ]);
+        $bageshwar = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bageshwar',
+            'name' => 'Bageshwar',
+            'sort_order' => 2,
+        ]);
+
+        $workshops = app(OfficialMonthlyTargetCodeResolver::class)
+            ->deliverableForMisSerial('1.2', 'District Level Workshops');
+
+        foreach ([$almora, $bageshwar] as $district) {
+            foreach ([1 => 0, 2 => 1, 3 => 0, 4 => 1, 7 => 1, 10 => 1] as $month => $count) {
+                OfficialDistrictMonthlyTarget::query()->create([
+                    'fiscal_year_id' => $fy->id,
+                    'district_id' => $district->id,
+                    'deliverable_id' => $workshops->id,
+                    'month_number' => $month,
+                    'target_count' => $count,
+                ]);
+            }
+        }
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+
+        $fullReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, null, null, null, null),
+            $scope,
+        );
+        $fullRow = collect($fullReport['rows'])->firstWhere('serial', '1.2');
+        $this->assertNotNull($fullRow);
+        $this->assertSame(8, $fullRow['target']);
+
+        $q1Report = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, null, null, null, null, 1),
+            $scope,
+        );
+        $q1Row = collect($q1Report['rows'])->firstWhere('serial', '1.2');
+        $this->assertNotNull($q1Row);
+        $this->assertSame(2, $q1Row['target']);
+
+        $districtReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, $almora->id, null, null, null, null, 1),
+            $scope,
+        );
+        $districtRow = collect($districtReport['rows'])->firstWhere('serial', '1.2');
+        $this->assertNotNull($districtRow);
+        $this->assertSame(1, $districtRow['target']);
+    }
+
+    public function test_deliverables_district_level_workshops_prefers_state_official_on_state_view(): void
+    {
+        app(\App\Services\ServiceTargetDeliverableSyncService::class)->syncAllServices();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'kumaon', 'name' => 'Kumaon', 'sort_order' => 1]);
+        $almora = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'almora',
+            'name' => 'Almora',
+            'sort_order' => 1,
+        ]);
+
+        $workshops = app(OfficialMonthlyTargetCodeResolver::class)
+            ->deliverableForMisSerial('1.2', 'District Level Workshops');
+
+        foreach ([1 => 0, 2 => 13, 3 => 0, 4 => 13] as $month => $count) {
+            OfficialStateMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'deliverable_id' => $workshops->id,
+                'month_number' => $month,
+                'target_count' => $count,
+            ]);
+        }
+
+        OfficialDistrictMonthlyTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $almora->id,
+            'deliverable_id' => $workshops->id,
+            'month_number' => 2,
+            'target_count' => 1,
+        ]);
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+
+        $q1Report = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, null, null, null, null, 1),
+            $scope,
+        );
+        $q1Row = collect($q1Report['rows'])->firstWhere('serial', '1.2');
+        $this->assertNotNull($q1Row);
+        $this->assertSame(13, $q1Row['target']);
+    }
+
     public function test_deliverables_date_range_filter_sums_overlapping_official_months(): void
     {
         app(\App\Services\ServiceTargetDeliverableSyncService::class)->syncAllServices();

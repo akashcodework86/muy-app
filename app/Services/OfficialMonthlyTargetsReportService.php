@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Deliverable;
 use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\OfficialDistrictMonthlyTarget;
@@ -12,10 +11,6 @@ use Illuminate\Support\Facades\Schema;
 
 class OfficialMonthlyTargetsReportService
 {
-    public function __construct(
-        private readonly DistrictHubMonthlyTargetsService $districtHubMonthlyTargets,
-    ) {}
-
     /**
      * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
      * @return array<int, int> deliverable_id => target total
@@ -195,7 +190,7 @@ class OfficialMonthlyTargetsReportService
                 + (int) round((int) $row->target_count * ($periodInfo['has_narrowing'] ? $weight : 1));
         }
 
-        return $this->filterByScope($rawTotals, DistrictHubMonthlyTargetsService::SCOPE_DISTRICT);
+        return $rawTotals;
     }
 
     /**
@@ -266,39 +261,7 @@ class OfficialMonthlyTargetsReportService
                 + (int) round((int) $row->target_count * ($periodInfo['has_narrowing'] ? $weight : 1));
         }
 
-        return $this->filterByScope($rawTotals, DistrictHubMonthlyTargetsService::SCOPE_HUB);
-    }
-
-    /**
-     * @param  array<int, int>  $rawTotals
-     * @return array<int, int>
-     */
-    private function filterByScope(array $rawTotals, string $requiredScope): array
-    {
-        if ($rawTotals === []) {
-            return [];
-        }
-
-        $deliverables = Deliverable::query()
-            ->whereIn('id', array_keys($rawTotals))
-            ->get(['id', 'code', 'name', 'mis_entry_label'])
-            ->keyBy('id');
-
-        $out = [];
-        foreach ($rawTotals as $deliverableId => $total) {
-            $deliverable = $deliverables->get((int) $deliverableId);
-            if (! $deliverable) {
-                continue;
-            }
-            if ($this->districtHubMonthlyTargets->resolveScopeForDeliverable($deliverable) !== $requiredScope) {
-                continue;
-            }
-            if ($total > 0 || ! isset($out[(int) $deliverableId])) {
-                $out[(int) $deliverableId] = (int) $total;
-            }
-        }
-
-        return $out;
+        return $rawTotals;
     }
 
     /**
