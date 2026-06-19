@@ -292,9 +292,15 @@
     <div class="adatt-filter-card">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
             <h3 style="margin:0;"><i class="fa-solid fa-filter" style="margin-right:0.35rem;"></i>Filter records</h3>
-            <a href="{{ route('admin.gram-panchayats.import') }}" class="adatt-btn" style="text-decoration:none;font-size:0.8rem;">
-                <i class="fa-solid fa-file-import"></i> Import gram panchayats CSV
-            </a>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                <a href="{{ route('admin.attendance.export', request()->only(['q', 'coordinator_id', 'from', 'to'])) }}"
+                    class="adatt-btn" style="text-decoration:none;font-size:0.8rem;background:var(--adatt-teal);">
+                    <i class="fa-solid fa-file-excel"></i> Export report
+                </a>
+                <a href="{{ route('admin.gram-panchayats.import') }}" class="adatt-btn" style="text-decoration:none;font-size:0.8rem;">
+                    <i class="fa-solid fa-file-import"></i> Import gram panchayats CSV
+                </a>
+            </div>
         </div>
         <form method="get" action="{{ route('admin.attendance.index') }}">
             <div class="adatt-filter-row">
@@ -361,6 +367,7 @@
             <table class="adatt-table">
                 <thead>
                     <tr>
+                        <th>S.No.</th>
                         <th>Coordinator</th>
                         <th>Visit date</th>
                         <th>District</th>
@@ -377,7 +384,16 @@
                     @forelse ($reports as $row)
                         @php $media = $row->visitMediaItems(); @endphp
                         <tr>
-                            <td><div class="adatt-coord-name">{{ $row->field_coordinator_name }}</div></td>
+                            <td>{{ $reports->firstItem() + $loop->index }}</td>
+                            <td>
+                                <div class="adatt-coord-name">{{ $row->field_coordinator_name }}</div>
+                                @if ($row->coordinator?->designationRecord?->name)
+                                    <div class="adatt-coord-meta">{{ $row->coordinator->designationRecord->name }}</div>
+                                @endif
+                                @if ($row->coordinator?->district?->name)
+                                    <span class="adatt-coord-district">{{ $row->coordinator->district->name }}</span>
+                                @endif
+                            </td>
                             <td><span class="adatt-date-badge">{{ $row->visit_date?->format('d M Y') }}</span></td>
                             <td>{{ $row->district?->name ?? '—' }}</td>
                             <td>{{ $row->block ?: '—' }}</td>
@@ -433,7 +449,7 @@
                             <td style="font-size:0.82rem;color:var(--adatt-muted);max-width:14rem;">{{ $row->remark ?: '—' }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="10"><div class="adatt-empty">No submissions found.</div></td></tr>
+                        <tr><td colspan="11"><div class="adatt-empty">No submissions found.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>

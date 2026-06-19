@@ -84,6 +84,9 @@
             @if (\App\Services\LegacyPhase1\LegacyPhase1ListQuery::hasActiveFilters(request(), $includeDistrictInClear))
                 <a href="{{ $clearUrl }}" class="p1l-btn p1l-btn--ghost">Clear all</a>
             @endif
+            @if (! empty($exportUrl))
+                <a href="{{ $exportUrl }}" class="p1l-btn p1l-btn--ghost" style="background:#ecfdf5;border-color:#6ee7b7;color:#047857;">Export Excel</a>
+            @endif
         </div>
     </form>
 </div>

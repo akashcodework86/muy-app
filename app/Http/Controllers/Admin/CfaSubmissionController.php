@@ -52,7 +52,7 @@ class CfaSubmissionController extends Controller
     {
         $filters = $this->extractFilters($request);
         $query = CfaSubmissionListQuery::applyFilters(CfaSubmission::query(), $filters)
-            ->with(['district:id,name', 'referralUser:id,name,designation_id', 'referralUser.designationRecord:id,name', 'fiscalYear:id,code,name']);
+            ->with(['district:id,name', 'referralUser:id,name,designation_id', 'referralUser.designationRecord:id,name', 'fiscalYear:id,code,name', 'onboardingBatchMembership']);
 
         $payloadColumnsMap = $this->discoverPayloadColumns((clone $query)->reorder());
         $payloadHeaders = array_keys($payloadColumnsMap);
@@ -71,6 +71,7 @@ class CfaSubmissionController extends Controller
             'referral_staff',
             'referral_designation',
             'fiscal_year',
+            'onboard_status',
         ];
         $headers = array_merge($baseHeaders, $payloadHeaders);
 
@@ -104,6 +105,7 @@ class CfaSubmissionController extends Controller
                         $row->referralUser?->name ?? '',
                         $row->referralUser?->designationRecord?->name ?? '',
                         $row->fiscalYear?->code ?? $row->fiscalYear?->name ?? '',
+                        $row->onboardingBatchMembership !== null ? 'Onboarded' : 'Non onboarded',
                     ];
                     foreach ($payloadColumnsMap as $originalPayloadKey) {
                         $record[] = $this->toCsvValue($payload[$originalPayloadKey] ?? null);

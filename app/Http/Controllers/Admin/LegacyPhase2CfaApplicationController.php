@@ -10,6 +10,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LegacyPhase2CfaApplicationController extends Controller
 {
@@ -19,21 +20,13 @@ class LegacyPhase2CfaApplicationController extends Controller
      */
     public function index(Request $request): View
     {
-        if ($request->query('fiscal_year_id')) {
-            $requestedFyId = (int) $request->query('fiscal_year_id');
-        } else {
-            $fy2526Id = (int) (FiscalYear::query()->where('code', '2025-26')->value('id') ?? 0);
-            $requestedFyId = $fy2526Id > 0 ? $fy2526Id : null;
-        }
-
-        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi($requestedFyId);
+        [$fiscalYearId, $fiscalYears, $fiscalYear] = $this->resolveFiscalYearContext($request);
         $districts = LegacyPhase2ListQuery::canonicalDistricts();
 
         if ($fiscalYears->isEmpty()) {
             return view('admin.phase2-cfa.index', $this->emptyViewData($fiscalYears, $districts));
         }
 
-        $fiscalYear = FiscalYear::query()->find($fiscalYearId);
         if ($fiscalYear === null) {
             return view('admin.phase2-cfa.index', $this->emptyViewData($fiscalYears, $districts));
         }
@@ -83,6 +76,100 @@ class LegacyPhase2CfaApplicationController extends Controller
             'legacyUnavailable' => false,
             'legacyMissingTables' => false,
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        [$fiscalYearId, , $fiscalYear] = $this->resolveFiscalYearContext($request);
+
+        abort_if($fiscalYear === null, 422, 'No fiscal year configured.');
+        abort_if((string) config('database.connections.legacy.database', '') === '', 422, 'Legacy database is not configured.');
+
+        try {
+            abort_unless(
+                Schema::connection('legacy')->hasTable('rbi_applications')
+                    && Schema::connection('legacy')->hasTable('rbi_applicant_details'),
+                422,
+                'Required legacy tables were not found.'
+            );
+        } catch (\Exception $e) {
+            abort(422, 'Legacy database is not available.');
+        }
+
+        [$start, $end] = LegacyPhase2ListQuery::fyWindowDates($fiscalYear);
+        $query = LegacyPhase2ListQuery::listQueryForFyWindow($start, $end);
+        LegacyPhase2ListQuery::applyFilters($query, $request);
+
+        $rows = $query->orderByDesc('a.submission_date')->orderByDesc('a.id')->get()
+            ->map(fn ($row) => LegacyPhase2ListQuery::enrichRow($row));
+
+        $fySlug = preg_replace('/[^a-z0-9]+/i', '-', strtolower((string) ($fiscalYear->code ?? 'fy'))) ?: 'fy';
+        $filename = 'cfa-phase2-legacy-'.$fySlug.'-'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () use ($rows): void {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, [
+                'Sr No',
+                'Application No',
+                'Submitted',
+                'Applicant',
+                'Mobile',
+                'District',
+                'Block',
+                'Village',
+                'Category',
+                'Form Stage',
+                'Gender',
+                'onboard_status',
+                'Submitted By',
+            ]);
+            foreach ($rows->values() as $idx => $row) {
+                $phone = (string) ($row->phone ?? '');
+                if ($phone !== '' && preg_match('/^\d{10,}$/', $phone)) {
+                    $phone = "\t".$phone;
+                }
+                fputcsv($out, [
+                    (string) ($idx + 1),
+                    (string) ($row->application_no ?? ''),
+                    $row->submission_date ? (string) $row->submission_date : '',
+                    (string) ($row->applicant_name ?? ''),
+                    $phone,
+                    (string) ($row->district ?? ''),
+                    (string) ($row->block ?? ''),
+                    (string) ($row->village ?? ''),
+                    (string) ($row->category ?? ''),
+                    (string) ($row->form_stage ?? ''),
+                    (string) ($row->gender ?? ''),
+                    (string) ($row->onboard_label ?? 'Non onboarded'),
+                    (string) ($row->submitted_by_name ?? ''),
+                ]);
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * @return array{0: int, 1: Collection<int, FiscalYear>, 2: ?FiscalYear}
+     */
+    private function resolveFiscalYearContext(Request $request): array
+    {
+        if ($request->query('fiscal_year_id')) {
+            $requestedFyId = (int) $request->query('fiscal_year_id');
+        } else {
+            $fy2526Id = (int) (FiscalYear::query()->where('code', '2025-26')->value('id') ?? 0);
+            $requestedFyId = $fy2526Id > 0 ? $fy2526Id : null;
+        }
+
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi($requestedFyId);
+        $fiscalYear = $fiscalYearId > 0 ? FiscalYear::query()->find($fiscalYearId) : null;
+
+        return [$fiscalYearId, $fiscalYears, $fiscalYear];
     }
 
     /**

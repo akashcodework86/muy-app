@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LegacyPhase1CfaApplicationController extends Controller
 {
@@ -51,6 +52,69 @@ class LegacyPhase1CfaApplicationController extends Controller
             'scopeCounts' => $scopeCounts,
             'phase1Unavailable' => false,
             'phase1MissingTables' => false,
+        ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        abort_if((string) config('database.connections.legacy_phase1.database', '') === '', 422, 'Phase 1 database is not configured.');
+
+        try {
+            abort_unless(Schema::connection('legacy_phase1')->hasTable('tblapplication'), 422, 'Required Phase 1 table was not found.');
+        } catch (\Exception $e) {
+            abort(422, 'Phase 1 database is not available.');
+        }
+
+        $query = LegacyPhase1ListQuery::listQuery();
+        LegacyPhase1ListQuery::applyFilters($query, $request);
+        $rows = $query->orderByDesc('ApplicationDate')->orderByDesc('ID')->get()
+            ->map(fn ($row) => LegacyPhase1DistrictResolver::enrichRow($row));
+
+        $filename = 'cfa-phase1-legacy-'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () use ($rows): void {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, [
+                'Sr No',
+                'Application No',
+                'Application Date',
+                'Applicant',
+                'Mobile',
+                'District',
+                'Legacy Region',
+                'Village',
+                'onboard_status',
+                'Loan Scheme Status',
+                'Gender',
+                'Education',
+            ]);
+            foreach ($rows->values() as $idx => $row) {
+                $phone = (string) ($row->mobile_number ?? '');
+                if ($phone !== '' && preg_match('/^\d{10,}$/', $phone)) {
+                    $phone = "\t".$phone;
+                }
+                fputcsv($out, [
+                    (string) ($idx + 1),
+                    (string) ($row->application_no ?? ''),
+                    $row->application_date ? (string) $row->application_date : '',
+                    (string) ($row->full_name ?? ''),
+                    $phone,
+                    (string) ($row->district_name ?? ''),
+                    (string) ($row->legacy_region ?? ''),
+                    (string) ($row->city_name ?? ''),
+                    (string) ($row->onboard_label ?? 'Non onboarded'),
+                    (string) ($row->application_status ?? ''),
+                    (string) ($row->gender ?? ''),
+                    (string) ($row->education ?? ''),
+                ]);
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 

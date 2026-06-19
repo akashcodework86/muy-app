@@ -75,7 +75,7 @@
 
         <div class="p1l-filters__actions">
             <button type="submit" class="p1l-btn p1l-btn--primary">Apply filters</button>
-            <a href="{{ route('admin.cfa.export', request()->query()) }}" class="p1l-btn p1l-btn--ghost" style="background:#ecfdf5;border-color:#6ee7b7;color:#047857;">Download CSV</a>
+            <a href="{{ route('admin.cfa.export', request()->query()) }}" class="p1l-btn p1l-btn--ghost" style="background:#ecfdf5;border-color:#6ee7b7;color:#047857;">Export Excel</a>
             @if (\App\Services\Cfa\CfaSubmissionListQuery::hasActiveFilters(request()))
                 <a href="{{ route('admin.cfa.index') }}" class="p1l-btn p1l-btn--ghost">Clear all</a>
             @endif

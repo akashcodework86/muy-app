@@ -824,7 +824,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('cfa-applications/export', [CfaSubmissionController::class, 'export'])->name('cfa.export');
         Route::get('cfa-applications/{cfa_submission}', [CfaSubmissionController::class, 'show'])->name('cfa.show');
         Route::get('cfa-applications-phase1-legacy', [LegacyPhase1CfaApplicationController::class, 'index'])->name('phase1-cfa.index');
+        Route::get('cfa-applications-phase1-legacy/export', [LegacyPhase1CfaApplicationController::class, 'export'])->name('phase1-cfa.export');
         Route::get('cfa-applications-phase2-legacy', [LegacyPhase2CfaApplicationController::class, 'index'])->name('phase2-cfa.index');
+        Route::get('cfa-applications-phase2-legacy/export', [LegacyPhase2CfaApplicationController::class, 'export'])->name('phase2-cfa.export');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
         Route::get('phase3-services', [Phase3ServiceCasesController::class, 'index'])->name('phase3-services.index');
@@ -962,6 +964,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('documents/{document}/versions', [DocumentRepositoryController::class, 'uploadVersion'])->name('documents.upload-version');
         Route::delete('documents/{document}', [DocumentRepositoryController::class, 'destroy'])->name('documents.destroy');
         Route::get('attendance', [FieldCoordinatorAttendanceAdminController::class, 'index'])->name('attendance.index');
+        Route::get('attendance/export', [FieldCoordinatorAttendanceAdminController::class, 'export'])
+            ->middleware('throttle:15,1')
+            ->name('attendance.export');
         Route::get('staff-check-ins', [StaffCheckInAdminController::class, 'index'])->name('staff-check-ins.index');
         Route::get('staff-check-ins/export', [StaffCheckInAdminController::class, 'export'])
             ->middleware('throttle:15,1')

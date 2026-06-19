@@ -19,9 +19,7 @@ class LegacyPhase2ListQuery
 
     public static function listQueryForFyWindow(string $start, string $end): Builder
     {
-        return self::baseTable()
-            ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
-            ->leftJoin('rbi_onboarded_applicants as oa', 'oa.application_id', '=', 'a.id')
+        return self::queryWithLatestApplicantDetails()
             ->whereNotNull('a.submission_date')
             ->whereBetween(DB::raw('DATE(a.submission_date)'), [$start, $end])
             ->select(self::adminSelectColumns());
@@ -29,10 +27,7 @@ class LegacyPhase2ListQuery
 
     public static function districtListQuery(string $canonicalDistrictName): Builder
     {
-        $query = DB::connection('legacy')
-            ->table('rbi_applicant_details as d')
-            ->leftJoin('rbi_applications as a', 'a.id', '=', 'd.application_id')
-            ->leftJoin('rbi_onboarded_applicants as oa', 'oa.application_id', '=', 'd.application_id')
+        $query = self::queryWithLatestApplicantDetails()
             ->leftJoin('rbi_onboarding_batches as ob', 'ob.id', '=', 'oa.onboarding_batch_id')
             ->leftJoin(DB::raw('(
                 SELECT e1.application_id, e1.turnover_last_year
@@ -303,6 +298,22 @@ class LegacyPhase2ListQuery
             $fiscalYear->starts_on->toDateString(),
             $fiscalYear->ends_on->toDateString(),
         ];
+    }
+
+    /**
+     * One row per application using the latest {@see rbi_applicant_details} row (highest id).
+     */
+    private static function queryWithLatestApplicantDetails(): Builder
+    {
+        return DB::connection('legacy')
+            ->table('rbi_applicant_details as d')
+            ->join(DB::raw('(
+                SELECT application_id, MAX(id) AS max_id
+                FROM rbi_applicant_details
+                GROUP BY application_id
+            ) as d_pick'), 'd_pick.max_id', '=', 'd.id')
+            ->join('rbi_applications as a', 'a.id', '=', 'd.application_id')
+            ->leftJoin('rbi_onboarded_applicants as oa', 'oa.application_id', '=', 'd.application_id');
     }
 
     /**

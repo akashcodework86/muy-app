@@ -71,6 +71,7 @@
             'formAction' => route('admin.phase2-cfa.index'),
             'clearUrl' => route('admin.phase2-cfa.index', ['fiscal_year_id' => $fiscalYearId]),
             'preserveParams' => ['fiscal_year_id' => $fiscalYearId],
+            'exportUrl' => route('admin.phase2-cfa.export', request()->query()),
         ])
 
         @include('partials.phase2-legacy.table-admin', [

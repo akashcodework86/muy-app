@@ -54,6 +54,7 @@
             'filterOptions' => $filterOptions ?? [],
             'formAction' => route('admin.phase1-cfa.index'),
             'clearUrl' => route('admin.phase1-cfa.index'),
+            'exportUrl' => route('admin.phase1-cfa.export', request()->query()),
         ])
 
         @include('partials.phase1-legacy.table', [
