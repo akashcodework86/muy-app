@@ -7,6 +7,7 @@ use App\Models\FiscalYear;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class LegacyPhase2ListQuery
 {
@@ -23,6 +24,235 @@ class LegacyPhase2ListQuery
             ->whereNotNull('a.submission_date')
             ->whereBetween(DB::raw('DATE(a.submission_date)'), [$start, $end])
             ->select(self::adminSelectColumns());
+    }
+
+    /**
+     * Full export query: latest {@see rbi_applicant_details} + {@see rbi_applications} columns.
+     */
+    public static function exportQueryForFyWindow(string $start, string $end): Builder
+    {
+        $query = self::queryWithLatestApplicantDetails()
+            ->leftJoin('rbi_onboarding_batches as ob', 'ob.id', '=', 'oa.onboarding_batch_id');
+
+        if (self::legacyHasTable('rbi_enterprise_details')) {
+            $query->leftJoin(DB::raw('(
+                SELECT e1.application_id, e1.turnover_last_year
+                FROM rbi_enterprise_details e1
+                INNER JOIN (
+                    SELECT application_id, MAX(id) AS max_id
+                    FROM rbi_enterprise_details
+                    GROUP BY application_id
+                ) t ON t.application_id = e1.application_id AND t.max_id = e1.id
+            ) as ed'), 'ed.application_id', '=', 'd.application_id');
+        }
+
+        return $query
+            ->whereNotNull('a.submission_date')
+            ->whereBetween(DB::raw('DATE(a.submission_date)'), [$start, $end])
+            ->select(self::exportSelectColumns());
+    }
+
+    /**
+     * @return list{array{key: string, label: string}}
+     */
+    public static function exportColumnDefinitions(): array
+    {
+        $columns = [
+            ['key' => 'sr_no', 'label' => 'Sr No'],
+        ];
+
+        foreach (self::legacyTableColumns('rbi_applications') as $col) {
+            $columns[] = ['key' => 'app_'.$col, 'label' => 'app_'.$col];
+        }
+
+        foreach (self::legacyTableColumns('rbi_applicant_details') as $col) {
+            $columns[] = ['key' => 'detail_'.$col, 'label' => 'detail_'.$col];
+        }
+
+        $columns[] = ['key' => 'onboarding_batch_name', 'label' => 'onboarding_batch_name'];
+        $columns[] = ['key' => 'onboard_status_raw', 'label' => 'onboard_status_raw'];
+        $columns[] = ['key' => 'onboard_status', 'label' => 'onboard_status'];
+
+        if (self::legacyHasTable('rbi_enterprise_details')) {
+            $columns[] = ['key' => 'enterprise_turnover_last_year', 'label' => 'enterprise_turnover_last_year'];
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @return list<string|mixed>
+     */
+    public static function exportRowValues(object $row, int $srNo): array
+    {
+        $row = self::enrichRow($row);
+        $data = (array) $row;
+        $values = [(string) $srNo];
+
+        foreach (self::exportColumnDefinitions() as $def) {
+            if ($def['key'] === 'sr_no') {
+                continue;
+            }
+
+            if ($def['key'] === 'onboard_status') {
+                $values[] = (string) ($row->onboard_label ?? 'Non onboarded');
+
+                continue;
+            }
+
+            if ($def['key'] === 'onboard_status_raw') {
+                $values[] = self::csvCell($data['onboard_status_db'] ?? null);
+
+                continue;
+            }
+
+            $values[] = self::csvCell($data[$def['key']] ?? null, $def['key']);
+        }
+
+        return $values;
+    }
+
+    /**
+     * @return list<string|mixed>
+     */
+    public static function exportHeaderLabels(): array
+    {
+        return array_map(
+            fn (array $def): string => $def['label'],
+            self::exportColumnDefinitions()
+        );
+    }
+
+    /**
+     * @return list<string|Expression>
+     */
+    private static function exportSelectColumns(): array
+    {
+        $select = [];
+
+        foreach (self::legacyTableColumns('rbi_applications') as $col) {
+            $select[] = 'a.'.$col.' as app_'.$col;
+        }
+
+        foreach (self::legacyTableColumns('rbi_applicant_details') as $col) {
+            $select[] = 'd.'.$col.' as detail_'.$col;
+        }
+
+        $select[] = 'ob.batch_name as onboarding_batch_name';
+        $select[] = 'oa.status as onboard_status_db';
+
+        if (self::legacyHasTable('rbi_enterprise_details')) {
+            $select[] = 'ed.turnover_last_year as enterprise_turnover_last_year';
+        }
+
+        return $select;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function legacyTableColumns(string $table): array
+    {
+        static $cache = [];
+
+        if (isset($cache[$table])) {
+            return $cache[$table];
+        }
+
+        try {
+            if ((string) config('database.connections.legacy.database', '') !== ''
+                && Schema::connection('legacy')->hasTable($table)) {
+                $cache[$table] = Schema::connection('legacy')->getColumnListing($table);
+
+                return $cache[$table];
+            }
+        } catch (\Throwable) {
+            // fall through to static fallback
+        }
+
+        $cache[$table] = match ($table) {
+            'rbi_applicant_details' => self::fallbackApplicantDetailColumns(),
+            'rbi_applications' => self::fallbackApplicationColumns(),
+            default => [],
+        };
+
+        return $cache[$table];
+    }
+
+    private static function legacyHasTable(string $table): bool
+    {
+        try {
+            return (string) config('database.connections.legacy.database', '') !== ''
+                && Schema::connection('legacy')->hasTable($table);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function fallbackApplicantDetailColumns(): array
+    {
+        return [
+            'id', 'application_id', 'applicant_name', 'guardian_name', 'gender', 'dob', 'education',
+            'phone', 'alt_mobile', 'email', 'caste', 'is_shg_member', 'shg_name', 'lakhpati',
+            'district', 'block', 'pincode', 'village', 'loan_taken', 'bank_loan', 'current_employment',
+            'employed_count', 'id_proof_type', 'id_proof_number', 'expectations', 'training_mode',
+            'challenges', 'expectation_other', 'migrated_for_employment', 'submitted_by_name',
+            'submitted_by_mobile', 'department_name', 'info_source', 'resource_name',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function fallbackApplicationColumns(): array
+    {
+        return [
+            'id', 'application_no', 'product', 'category', 'form_stage', 'business_category',
+            'submission_date', 'created_at', 'updated_at',
+        ];
+    }
+
+    private static function csvCell(mixed $value, ?string $key = null): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        if (is_scalar($value)) {
+            $text = (string) $value;
+            if ($key !== null && self::shouldTabPrefixForExcel($key, $text)) {
+                return "\t".$text;
+            }
+
+            return $text;
+        }
+
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
+    }
+
+    private static function shouldTabPrefixForExcel(string $key, string $text): bool
+    {
+        if ($text === '') {
+            return false;
+        }
+
+        $numericKeys = [
+            'detail_phone', 'detail_alt_mobile', 'detail_submitted_by_mobile',
+            'detail_id_proof_number', 'detail_pincode', 'app_application_no',
+        ];
+
+        if (in_array($key, $numericKeys, true)) {
+            return preg_match('/^\d{6,}$/', $text) === 1;
+        }
+
+        return false;
     }
 
     public static function districtListQuery(string $canonicalDistrictName): Builder

@@ -97,57 +97,28 @@ class LegacyPhase2CfaApplicationController extends Controller
         }
 
         [$start, $end] = LegacyPhase2ListQuery::fyWindowDates($fiscalYear);
-        $query = LegacyPhase2ListQuery::listQueryForFyWindow($start, $end);
+        $query = LegacyPhase2ListQuery::exportQueryForFyWindow($start, $end);
         LegacyPhase2ListQuery::applyFilters($query, $request);
+        $query->orderByDesc('a.submission_date')->orderByDesc('a.id');
 
-        $rows = $query->orderByDesc('a.submission_date')->orderByDesc('a.id')->get()
-            ->map(fn ($row) => LegacyPhase2ListQuery::enrichRow($row));
-
+        $headers = LegacyPhase2ListQuery::exportHeaderLabels();
         $fySlug = preg_replace('/[^a-z0-9]+/i', '-', strtolower((string) ($fiscalYear->code ?? 'fy'))) ?: 'fy';
-        $filename = 'cfa-phase2-legacy-'.$fySlug.'-'.now()->format('Ymd_His').'.csv';
+        $filename = 'cfa-phase2-legacy-full-'.$fySlug.'-'.now()->format('Ymd_His').'.csv';
 
-        return response()->streamDownload(function () use ($rows): void {
+        return response()->streamDownload(function () use ($query, $headers): void {
             $out = fopen('php://output', 'w');
             if ($out === false) {
                 return;
             }
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, [
-                'Sr No',
-                'Application No',
-                'Submitted',
-                'Applicant',
-                'Mobile',
-                'District',
-                'Block',
-                'Village',
-                'Category',
-                'Form Stage',
-                'Gender',
-                'onboard_status',
-                'Submitted By',
-            ]);
-            foreach ($rows->values() as $idx => $row) {
-                $phone = (string) ($row->phone ?? '');
-                if ($phone !== '' && preg_match('/^\d{10,}$/', $phone)) {
-                    $phone = "\t".$phone;
-                }
-                fputcsv($out, [
-                    (string) ($idx + 1),
-                    (string) ($row->application_no ?? ''),
-                    $row->submission_date ? (string) $row->submission_date : '',
-                    (string) ($row->applicant_name ?? ''),
-                    $phone,
-                    (string) ($row->district ?? ''),
-                    (string) ($row->block ?? ''),
-                    (string) ($row->village ?? ''),
-                    (string) ($row->category ?? ''),
-                    (string) ($row->form_stage ?? ''),
-                    (string) ($row->gender ?? ''),
-                    (string) ($row->onboard_label ?? 'Non onboarded'),
-                    (string) ($row->submitted_by_name ?? ''),
-                ]);
+            fputcsv($out, $headers);
+
+            $srNo = 0;
+            foreach ($query->cursor() as $row) {
+                $srNo++;
+                fputcsv($out, LegacyPhase2ListQuery::exportRowValues($row, $srNo));
             }
+
             fclose($out);
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
