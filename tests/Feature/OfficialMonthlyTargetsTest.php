@@ -590,57 +590,59 @@ class OfficialMonthlyTargetsTest extends TestCase
             ->assertSee('targets_allocation_editable', false);
     }
 
-    public function test_official_state_monthly_export_returns_xlsx(): void
+    public function test_official_state_monthly_export_returns_download(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
 
         $response = $this->actingAs($admin)
             ->get(route('admin.targets.official-state-monthly.export'));
 
-        if (! class_exists(\ZipArchive::class) || ! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
-            $response->assertStatus(500);
-
-            return;
-        }
-
         $response->assertOk();
-        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        $this->assertStringContainsString('state-targets-', (string) $response->headers->get('content-disposition'));
+        $contentType = (string) $response->headers->get('content-type');
+        if (class_exists(\ZipArchive::class) && class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            $this->assertStringContainsString('state-targets-', (string) $response->headers->get('content-disposition'));
+            $this->assertStringContainsString('.xlsx', (string) $response->headers->get('content-disposition'));
+        } else {
+            $this->assertStringContainsString('text/csv', $contentType);
+            $this->assertStringContainsString('state-targets-', (string) $response->headers->get('content-disposition'));
+            $this->assertStringContainsString('.csv', (string) $response->headers->get('content-disposition'));
+        }
     }
 
-    public function test_official_district_monthly_export_returns_xlsx(): void
+    public function test_official_district_monthly_export_returns_download(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
 
         $response = $this->actingAs($admin)
             ->get(route('admin.targets.official-district-monthly.export'));
 
-        if (! class_exists(\ZipArchive::class) || ! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
-            $response->assertStatus(500);
-
-            return;
-        }
-
         $response->assertOk();
-        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        $this->assertStringContainsString('district-targets-', (string) $response->headers->get('content-disposition'));
+        $contentType = (string) $response->headers->get('content-type');
+        if (class_exists(\ZipArchive::class) && class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            $this->assertStringContainsString('district-targets-', (string) $response->headers->get('content-disposition'));
+        } else {
+            $this->assertStringContainsString('text/csv', $contentType);
+            $this->assertStringContainsString('district-targets-', (string) $response->headers->get('content-disposition'));
+        }
     }
 
-    public function test_official_hub_distribution_export_returns_xlsx(): void
+    public function test_official_hub_distribution_export_returns_download(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
 
         $response = $this->actingAs($admin)
             ->get(route('admin.targets.official-hub-distribution-monthly.export'));
 
-        if (! class_exists(\ZipArchive::class) || ! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
-            $response->assertStatus(500);
-
-            return;
-        }
-
         $response->assertOk();
-        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        $this->assertStringContainsString('hub-targets-', (string) $response->headers->get('content-disposition'));
+        $contentType = (string) $response->headers->get('content-type');
+        if (class_exists(\ZipArchive::class) && class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            $this->assertStringContainsString('hub-targets-', (string) $response->headers->get('content-disposition'));
+        } else {
+            $this->assertStringContainsString('text/csv', $contentType);
+            $this->assertStringContainsString('hub-targets-', (string) $response->headers->get('content-disposition'));
+        }
     }
 }

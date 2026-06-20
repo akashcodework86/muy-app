@@ -4,12 +4,17 @@ namespace App\Services\Targets\Exports;
 
 use App\Models\FiscalYear;
 use App\Services\Deliverables\Exports\DeliverablesExcelSupport;
+use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OfficialDistrictMonthlyTargetsExcelExport
 {
+    public function __construct(
+        private readonly OfficialDistrictMonthlyTargetsCsvExport $csvExport,
+    ) {}
+
     /**
      * @param  list<array<string, mixed>>  $blocks
      * @param  list<array<string, mixed>>  $stateOnlyRows
@@ -22,7 +27,14 @@ class OfficialDistrictMonthlyTargetsExcelExport
         ?FiscalYear $fiscalYear,
         bool $hubOnlyPage,
     ): StreamedResponse {
-        DeliverablesExcelSupport::ensureAvailable();
+        if (! DeliverablesExcelSupport::isAvailable()) {
+            Log::warning('District targets export: using CSV fallback', [
+                'reason' => DeliverablesExcelSupport::availabilityIssue(),
+                'hub_only' => $hubOnlyPage,
+            ]);
+
+            return $this->csvExport->download($blocks, $stateOnlyRows, $monthLabels, $fiscalYear, $hubOnlyPage);
+        }
 
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
