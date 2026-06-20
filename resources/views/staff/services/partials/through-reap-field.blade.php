@@ -2,7 +2,7 @@
     $throughReapValue = old('payload.through_reap', $payload[\App\Support\ConvergenceReapSupport::PAYLOAD_KEY] ?? null);
     $throughReapChecked = \App\Support\ConvergenceReapSupport::payloadValueIsThroughReap($throughReapValue);
 @endphp
-<div style="padding:0.65rem 0.75rem;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;margin-bottom:0.65rem;">
+<div style="margin-top:0.85rem;padding:0.65rem 0.75rem;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;margin-bottom:0.65rem;">
     <label style="display:flex;align-items:flex-start;gap:0.45rem;cursor:pointer;margin:0;">
         <input type="hidden" name="payload[through_reap]" value="0">
         <input
@@ -19,4 +19,5 @@
             </span>
         </span>
     </label>
+    @include('staff.services.partials.through-reap-details-field', ['payload' => $payload ?? []])
 </div>

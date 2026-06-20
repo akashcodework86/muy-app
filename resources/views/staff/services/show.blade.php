@@ -111,6 +111,7 @@
     </p>
 
     @php
+        use App\Support\ConvergenceReapSupport;
         use App\Support\SchemaValueFormatter;
         use App\Support\ServiceFieldTypes;
         $schema = ServiceFieldTypes::normalizeSchema($case->service?->field_schema ?? []);
@@ -208,33 +209,43 @@
                         This convergence case counts toward MIS <strong>8.2</strong> and <strong>8.3</strong> after SPOC approval.
                     </span>
                 </p>
+                @php
+                    $reapSector = $payload[ConvergenceReapSupport::REAP_SECTOR_KEY] ?? null;
+                    $reapAmount = $payload[ConvergenceReapSupport::REAP_AMOUNT_KEY] ?? null;
+                    $reapActivity = $payload[ConvergenceReapSupport::REAP_ACTIVITY_KEY] ?? null;
+                    $reapDocument = $payload[ConvergenceReapSupport::REAP_DOCUMENT_KEY] ?? null;
+                @endphp
+                @if ($reapSector || $reapAmount || $reapActivity || $reapDocument)
+                    <dl style="margin:0.75rem 0 0;display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr);gap:0.35rem 0.75rem;font-size:0.84rem;">
+                        @if ($reapSector)
+                            <dt style="color:#71717a;">Sector</dt>
+                            <dd style="margin:0;">{{ ConvergenceReapSupport::reapSectorLabel((string) $reapSector) }}</dd>
+                        @endif
+                        @if ($reapAmount)
+                            <dt style="color:#71717a;">Support amount</dt>
+                            <dd style="margin:0;">{{ ConvergenceReapSupport::reapAmountLabel((string) $reapAmount) }}</dd>
+                        @endif
+                        @if ($reapActivity)
+                            <dt style="color:#71717a;">Activity</dt>
+                            <dd style="margin:0;white-space:pre-wrap;">{{ $reapActivity }}</dd>
+                        @endif
+                        @if ($reapDocument)
+                            <dt style="color:#71717a;">Document</dt>
+                            <dd style="margin:0;">{{ $reapDocument }}</dd>
+                        @endif
+                    </dl>
+                @endif
             @else
                 <p style="margin:0;font-size:0.88rem;color:#71717a;">Not marked Through REAP.</p>
             @endif
         </div>
     @endif
 
-    @if ($case->attachments->isNotEmpty())
-        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:48rem;margin-bottom:1rem;box-shadow:0 8px 22px -18px rgba(15,23,42,0.3);">
-            <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">Attachments</h3>
-            <ul style="margin:0;padding-left:1.1rem;font-size:0.85rem;">
-                @foreach ($case->attachments as $att)
-                    <li style="margin-bottom:0.35rem;">
-                        <button
-                            type="button"
-                            class="svc-doc-btn js-doc-open"
-                            data-doc-url="{{ route('staff.services.attachments.download', [$case, $att]) }}"
-                            data-doc-name="{{ $att->original_name }}"
-                        >
-                            View document
-                        </button>
-                        <span style="margin-left:0.3rem;">{{ $att->original_name }}</span>
-                        <span style="color:#71717a;">({{ number_format((int) ($att->size_bytes / 1024), 0) }} KB)</span>
-                    </li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+    @include('partials.service-case-document-cards', [
+        'case' => $case,
+        'attachmentRoute' => 'staff.services.attachments.download',
+        'docButtonClass' => 'svc-doc-btn js-doc-open',
+    ])
 
     @if ($case->canBeDeletedByStaff())
         <form method="post" action="{{ route('staff.services.destroy', $case) }}" onsubmit="return confirm('Delete this case?');" style="margin-top:0.5rem;">

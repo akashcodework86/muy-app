@@ -41,7 +41,12 @@ class ServiceCaseRecorder
             $payload = $schema === []
                 ? []
                 : $this->schemaValidator->validate($schema, $rawPayload);
-            $payload = ConvergenceReapSupport::mergeThroughReapIntoPayload($service, $payload, $rawPayload);
+            $payload = ConvergenceReapSupport::mergeThroughReapIntoPayload(
+                $service,
+                $payload,
+                $rawPayload,
+                (bool) ($rawPayload['reap_document_uploaded'] ?? false),
+            );
             $case->payload = $payload === [] ? null : $payload;
             ConvergenceReapSupport::syncThroughReapColumn($case, $payload);
             $case->save();
@@ -129,8 +134,8 @@ class ServiceCaseRecorder
     /**
      * Staff submits a draft or re-submits after send-back.
      *
-     * @param  array<string, mixed>  $attributes  actor_id, reference_number?, delivered_on?, payload?
-     * @param  list<UploadedFile>  $uploads
+     * @param  array<string, mixed>  $attributes  actor_id, reference_number?, delivered_on?, payload?, reap_document_uploaded?
+     * @param  list<UploadedFile|array{file: UploadedFile, any_mime?: bool}>  $uploads
      */
     public function submit(ServiceCase $case, array $attributes, array $uploads = []): void
     {
@@ -164,7 +169,16 @@ class ServiceCaseRecorder
         $payload = $schema === []
             ? []
             : $this->schemaValidator->validate($schema, $rawPayload);
-        $payload = ConvergenceReapSupport::mergeThroughReapIntoPayload($service, $payload, $rawPayload);
+        $existingPayload = is_array($case->payload) ? $case->payload : [];
+        $existingReapDocument = trim((string) ($existingPayload[ConvergenceReapSupport::REAP_DOCUMENT_KEY] ?? ''));
+        $payload = ConvergenceReapSupport::mergeThroughReapIntoPayload(
+            $service,
+            $payload,
+            $rawPayload,
+            (bool) ($attributes['reap_document_uploaded'] ?? false),
+            $existingReapDocument !== '' ? $existingReapDocument : null,
+        );
+        $uploadItems = $this->normalizeUploadItems($uploads);
 
         $requiresApproval = (bool) $service->requires_approval;
         $districtId = $this->districtIdForCase($case);
@@ -185,28 +199,29 @@ class ServiceCaseRecorder
         }
 
         $existingFiles = $case->attachments()->count();
-        if ($existingFiles + count($uploads) > 3) {
+        if ($existingFiles + count($uploadItems) > 3) {
             throw ValidationException::withMessages([
                 'attachments' => 'Maximum 3 documents per case.',
             ]);
         }
 
-        if ($service->requires_document && $existingFiles + count($uploads) < 1) {
+        if ($service->requires_document && $existingFiles + count($uploadItems) < 1) {
             throw ValidationException::withMessages([
                 'attachments' => 'This service requires at least one document.',
             ]);
         }
 
-        foreach ($uploads as $file) {
-            if (! $file instanceof UploadedFile || ! $file->isValid()) {
+        foreach ($uploadItems as $item) {
+            $file = $item['file'];
+            if (! $file->isValid()) {
                 throw ValidationException::withMessages(['attachments' => 'Invalid upload.']);
             }
-            $this->assertAllowedUpload($service, $file);
+            $this->assertAllowedUpload($service, $file, (bool) ($item['any_mime'] ?? false));
         }
 
-        DB::transaction(function () use ($case, $service, $attributes, $payload, $requiresApproval, $deliveredOn, $actorId, $uploads): void {
-            foreach ($uploads as $file) {
-                $this->persistAttachment($case, $file, $actorId);
+        DB::transaction(function () use ($case, $service, $attributes, $payload, $requiresApproval, $deliveredOn, $actorId, $uploadItems): void {
+            foreach ($uploadItems as $item) {
+                $this->persistAttachment($case, $item['file'], $actorId);
             }
 
             if ($service->requires_document && $case->attachments()->count() < 1) {
@@ -335,11 +350,36 @@ class ServiceCaseRecorder
         return null;
     }
 
-    private function assertAllowedUpload(Service $service, UploadedFile $file): void
+    /**
+     * @param  list<UploadedFile|array{file: UploadedFile, any_mime?: bool}>  $uploads
+     * @return list<array{file: UploadedFile, any_mime: bool}>
+     */
+    private function normalizeUploadItems(array $uploads): array
+    {
+        $out = [];
+        foreach ($uploads as $upload) {
+            if ($upload instanceof UploadedFile) {
+                $out[] = ['file' => $upload, 'any_mime' => false];
+            } elseif (is_array($upload) && ($upload['file'] ?? null) instanceof UploadedFile) {
+                $out[] = [
+                    'file' => $upload['file'],
+                    'any_mime' => ! empty($upload['any_mime']),
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    private function assertAllowedUpload(Service $service, UploadedFile $file, bool $allowAnyMime = false): void
     {
         $maxKb = 5120;
         if ($file->getSize() > $maxKb * 1024) {
             throw ValidationException::withMessages(['attachments' => 'Each file must be 5 MB or smaller.']);
+        }
+
+        if ($allowAnyMime) {
+            return;
         }
 
         $allowedTags = $service->effectiveAllowedDocumentTypes();

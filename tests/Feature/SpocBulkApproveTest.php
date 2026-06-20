@@ -7,6 +7,7 @@ use App\Models\DistrictServiceSpoc;
 use App\Models\Hub;
 use App\Models\Service;
 use App\Models\ServiceCase;
+use App\Models\ServiceCaseAttachment;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\AppSettingsService;
@@ -78,6 +79,109 @@ class SpocBulkApproveTest extends TestCase
             ->assertOk()
             ->assertDontSee('Select pending on page', false)
             ->assertDontSee('Approve selected', false);
+    }
+
+    public function test_spoc_queue_highlights_through_reap_convergence_cases(): void
+    {
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $spoc = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'reap.spoc@example.com',
+            'is_active' => true,
+        ]);
+        DistrictServiceSpoc::query()->create([
+            'district_id' => $district->id,
+            'state_staff_user_id' => $spoc->id,
+            'assigned_by' => $staff->id,
+            'assigned_at' => now(),
+        ]);
+
+        $convergenceCategory = ServiceCategory::query()->create([
+            'slug' => 'convergence-with-line-departments',
+            'name' => 'Schematic Convergence',
+            'sort_order' => 1,
+        ]);
+        $service = Service::query()->create([
+            'service_category_id' => $convergenceCategory->id,
+            'code' => 'p_m_e_g_p_spoc',
+            'name' => 'PMEGP SPOC Queue',
+            'sort_order' => 1,
+            'is_active' => true,
+            'requires_approval' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'REAP Queue Applicant',
+            'phone' => '9999999955',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $case = ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_PENDING_APPROVAL,
+            'reference_number' => 'SC-REAP-QUEUE',
+            'submitted_at' => now(),
+            'spoc_user_id' => $spoc->id,
+            'through_reap' => true,
+            'payload' => [
+                'through_reap' => '1',
+                'reap_sector' => 'farm',
+                'reap_amount' => '1_lakh',
+                'reap_activity' => 'REAP support activity for review.',
+                'reap_document' => 'reap-proof.pdf',
+            ],
+        ]);
+
+        ServiceCaseAttachment::query()->create([
+            'service_case_id' => $case->id,
+            'disk' => 'local',
+            'path' => 'service-cases/'.$case->id.'/reap-proof.pdf',
+            'original_name' => 'reap-proof.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 120000,
+            'uploaded_by' => $staff->id,
+        ]);
+        ServiceCaseAttachment::query()->create([
+            'service_case_id' => $case->id,
+            'disk' => 'local',
+            'path' => 'service-cases/'.$case->id.'/convergence-scheme.pdf',
+            'original_name' => 'convergence-scheme.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 98000,
+            'uploaded_by' => $staff->id,
+        ]);
+
+        $this->actingAs($spoc)
+            ->get(route('spoc.service-cases.index'))
+            ->assertOk()
+            ->assertSee('Through REAP pending', false)
+            ->assertSee('sq-row--through_reap', false)
+            ->assertSee('PMEGP SPOC Queue', false)
+            ->assertSee('MIS 8.2', false)
+            ->assertSee('REAP document', false)
+            ->assertSee('Convergence document', false);
+
+        $this->actingAs($spoc)
+            ->get(route('spoc.service-cases.show', $case))
+            ->assertOk()
+            ->assertSee('Through REAP', false)
+            ->assertSee('REAP support activity for review.', false)
+            ->assertSee('Farm', false)
+            ->assertSee('REAP document', false)
+            ->assertSee('Convergence documents', false)
+            ->assertSee('reap-proof.pdf', false)
+            ->assertSee('convergence-scheme.pdf', false);
     }
 
     /**

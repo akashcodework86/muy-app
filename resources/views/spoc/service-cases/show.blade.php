@@ -120,7 +120,10 @@
     @endphp
 
     <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:52rem;margin-bottom:1rem;">
-        <h2 style="margin:0 0 0.35rem;font-size:1.05rem;">{{ $case->service?->name ?? 'Service' }}</h2>
+        <h2 style="margin:0 0 0.35rem;font-size:1.05rem;display:flex;flex-wrap:wrap;align-items:center;gap:0.45rem;">
+            <span>{{ $case->service?->name ?? 'Service' }}</span>
+            @include('staff.services.partials.through-reap-badge', ['case' => $case])
+        </h2>
         <p style="margin:0;font-size:0.85rem;color:#52525b;">
             <strong>Status:</strong> {{ str_replace('_', ' ', $case->status) }}
             @if ($case->reference_number)
@@ -171,6 +174,8 @@
         </p>
     </div>
 
+    @include('staff.services.partials.through-reap-summary', ['case' => $case, 'payload' => $payload])
+
     @if ($schema !== [])
         <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:52rem;margin-bottom:1rem;">
             <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">Submitted details</h3>
@@ -186,28 +191,11 @@
         </div>
     @endif
 
-    @if ($case->attachments->isNotEmpty())
-        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:52rem;margin-bottom:1rem;">
-            <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">Attachments</h3>
-            <ul style="margin:0;padding-left:1.1rem;font-size:0.85rem;">
-                @foreach ($case->attachments as $att)
-                    <li style="margin-bottom:0.35rem;">
-                        <button
-                            type="button"
-                            class="spoc-doc-btn js-doc-open"
-                            data-doc-url="{{ route('spoc.service-cases.attachments.download', [$case, $att]) }}"
-                            data-doc-name="{{ $att->original_name }}"
-                            data-case-id="{{ (int) $case->id }}"
-                        >
-                            View document
-                        </button>
-                        <span style="margin-left:0.3rem;">{{ $att->original_name }}</span>
-                        <span style="color:#71717a;">({{ number_format((int) ($att->size_bytes / 1024), 0) }} KB)</span>
-                    </li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+    @include('partials.service-case-document-cards', [
+        'case' => $case,
+        'attachmentRoute' => 'spoc.service-cases.attachments.download',
+        'docButtonClass' => 'spoc-doc-btn js-doc-open',
+    ])
 
     @if ($isPending)
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0.75rem;max-width:52rem;">

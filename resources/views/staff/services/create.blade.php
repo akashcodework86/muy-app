@@ -191,12 +191,11 @@
                 <div id="schema_fields" style="display:flex;flex-direction:column;gap:0.65rem;">
                     <p style="margin:0;font-size:0.82rem;color:#71717a;">Select a service to load its form fields.</p>
                 </div>
+                <div id="wrap_attach" style="margin-top:0.65rem;display:none;">
+                    <label style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Documents <span style="font-weight:400;color:#71717a;">(max 3, PDF or image, 5 MB each)</span></label>
+                    <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;">
+                </div>
             </fieldset>
-
-            <div id="wrap_attach" style="margin-bottom:0.85rem;display:none;">
-                <label style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Documents <span style="font-weight:400;color:#71717a;">(max 3, PDF or image, 5 MB each)</span></label>
-                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;">
-            </div>
 
                 <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.55rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;">Submit</button>
             </form>
@@ -384,9 +383,27 @@
                     return d.innerHTML;
                 }
 
+                const REAP_DETAIL_SCHEMA = @json(\App\Support\ConvergenceReapSupport::reapDetailSchema());
+
+                function reapPayloadValue(key) {
+                    const els = box.querySelectorAll('[name="payload[' + key + ']"], [name="payload[' + key + '][]"]');
+                    if (!els.length) return '';
+                    const checkbox = Array.from(els).find(function (el) { return el.type === 'checkbox'; });
+                    if (checkbox) return checkbox.checked ? '1' : '0';
+                    const first = els[0];
+                    if (first.type === 'radio') {
+                        const checked = Array.from(els).find(function (el) { return el.checked; });
+                        return checked ? checked.value : '';
+                    }
+                    if (first.tagName === 'SELECT' && first.multiple) {
+                        return Array.from(first.selectedOptions).map(function (o) { return o.value; });
+                    }
+                    return first.value || '';
+                }
+
                 function appendThroughReapField(container) {
                     const wrap = document.createElement('div');
-                    wrap.style.cssText = 'padding:0.65rem 0.75rem;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;';
+                    wrap.style.cssText = 'margin-top:0.85rem;padding:0.65rem 0.75rem;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;';
                     wrap.innerHTML =
                         '<label style="display:flex;align-items:flex-start;gap:0.45rem;cursor:pointer;margin:0;">' +
                         '<input type="hidden" name="payload[through_reap]" value="0">' +
@@ -395,9 +412,104 @@
                         '<span style="display:block;font-size:0.76rem;color:#9a3412;margin-top:0.12rem;">Tick for MIS 8.2 and 8.3 after SPOC approval.</span></span>' +
                         '</label>';
                     container.appendChild(wrap);
+
+                    const detailsWrap = document.createElement('div');
+                    detailsWrap.id = 'reap_details_wrap';
+                    detailsWrap.style.cssText = 'display:none;margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid #fed7aa;flex-direction:column;gap:0.65rem;';
+                    wrap.appendChild(detailsWrap);
+
+                    REAP_DETAIL_SCHEMA.forEach(function (field) {
+                        if ((field.type || '') === 'file') {
+                            const fileWrap = document.createElement('div');
+                            const fileLabel = document.createElement('label');
+                            fileLabel.style.cssText = 'display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.2rem;';
+                            fileLabel.innerHTML = esc(field.label || field.key) + ' <span style="color:#b91c1c">*</span>';
+                            fileWrap.appendChild(fileLabel);
+                            const fileInput = document.createElement('input');
+                            fileInput.type = 'file';
+                            fileInput.name = 'payload_files[' + field.key + ']';
+                            fileInput.dataset.reapRequired = '1';
+                            fileInput.style.cssText = 'width:100%;padding:0.35rem 0.45rem;border:1px solid #d4d4d8;border-radius:6px;background:#fff;font-size:0.82rem;';
+                            fileWrap.appendChild(fileInput);
+                            const fileHint = document.createElement('p');
+                            fileHint.style.cssText = 'margin:0.2rem 0 0;font-size:0.75rem;color:#71717a;';
+                            fileHint.textContent = 'Any document type, max 5 MB.';
+                            fileWrap.appendChild(fileHint);
+                            detailsWrap.appendChild(fileWrap);
+                            return;
+                        }
+
+                        const fieldWrap = document.createElement('div');
+                        const lb = document.createElement('label');
+                        lb.style.cssText = 'display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.2rem;';
+                        lb.innerHTML = esc(field.label || field.key) + ' <span style="color:#b91c1c">*</span>';
+                        fieldWrap.appendChild(lb);
+
+                        let input;
+                        if ((field.type || '') === 'textarea') {
+                            input = document.createElement('textarea');
+                            input.name = 'payload[' + field.key + ']';
+                            input.rows = 3;
+                            input.required = true;
+                            input.dataset.reapRequired = '1';
+                            input.style.cssText = 'width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;font-size:0.85rem;';
+                        } else if ((field.type || '') === 'select') {
+                            input = document.createElement('select');
+                            input.name = 'payload[' + field.key + ']';
+                            input.required = true;
+                            input.dataset.reapRequired = '1';
+                            input.style.cssText = 'width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;';
+                            const o0 = document.createElement('option');
+                            o0.value = '';
+                            o0.textContent = '—';
+                            input.appendChild(o0);
+                            (field.options || []).forEach(function (o) {
+                                const opt = document.createElement('option');
+                                opt.value = o.value;
+                                opt.textContent = o.label || o.value;
+                                input.appendChild(opt);
+                            });
+                        }
+
+                        if (input) {
+                            const oldVal = OLD_PAYLOAD && OLD_PAYLOAD[field.key] !== undefined ? OLD_PAYLOAD[field.key] : '';
+                            if (input.tagName === 'SELECT') input.value = String(oldVal || '');
+                            else if (input.tagName === 'TEXTAREA') input.value = String(oldVal || '');
+                            fieldWrap.appendChild(input);
+                            detailsWrap.appendChild(fieldWrap);
+                        }
+                    });
+
                     const checked = OLD_PAYLOAD && (OLD_PAYLOAD.through_reap === '1' || OLD_PAYLOAD.through_reap === 1 || OLD_PAYLOAD.through_reap === true || OLD_PAYLOAD.through_reap === 'true');
                     const cb = wrap.querySelector('#payload_through_reap');
                     if (cb && checked) cb.checked = true;
+
+                    function toggleReapDetails() {
+                        const show = cb && cb.checked;
+                        detailsWrap.style.display = show ? 'flex' : 'none';
+                        detailsWrap.querySelectorAll('input,select,textarea').forEach(function (el) {
+                            if (!show) {
+                                el.dataset.wasRequired = (el.dataset.reapRequired === '1' || el.required) ? '1' : '0';
+                                el.required = false;
+                                el.disabled = true;
+                                if (el.type === 'file') {
+                                    el.value = '';
+                                } else if (el.tagName !== 'SELECT') {
+                                    el.value = '';
+                                } else {
+                                    el.selectedIndex = 0;
+                                }
+                            } else {
+                                el.disabled = false;
+                                if (el.dataset.reapRequired === '1' || el.dataset.wasRequired === '1') {
+                                    el.required = true;
+                                }
+                            }
+                        });
+                    }
+
+                    if (cb) cb.addEventListener('change', toggleReapDetails);
+                    toggleReapDetails();
                 }
 
                 function render() {
@@ -405,6 +517,10 @@
                     const subId = parseInt(selSub ? (selSub.value || '0') : '0', 10);
                     const legId = selLegacy ? parseInt(selLegacy.value || '0', 10) : 0;
                     const svc = SERVICES.find(function (x) { return parseInt(x.id, 10) === id; });
+                    const fieldset = box.closest('fieldset');
+                    if (fieldset && wrapAtt.parentElement === box) {
+                        fieldset.appendChild(wrapAtt);
+                    }
                     box.innerHTML = '';
                     meta.textContent = '';
                     wrapDel.style.display = 'none';
@@ -415,6 +531,9 @@
                         p.style.cssText = 'margin:0;font-size:0.82rem;color:#71717a;';
                         p.textContent = 'Select a service to load its form fields.';
                         box.appendChild(p);
+                        if (fieldset && wrapAtt.parentElement !== fieldset) {
+                            fieldset.appendChild(wrapAtt);
+                        }
                         return;
                     }
 
@@ -443,10 +562,8 @@
 
                     if (svc.requires_document) {
                         wrapAtt.style.display = 'block';
-                    }
-
-                    if (svc.is_convergence) {
-                        appendThroughReapField(box);
+                    } else {
+                        wrapAtt.style.display = 'none';
                     }
 
                     const schema = svc.schema || [];
@@ -457,9 +574,7 @@
                             p.textContent = 'No extra fields configured for this service.';
                             box.appendChild(p);
                         }
-                        return;
-                    }
-
+                    } else {
                     const fieldRows = {};
                     function getPayloadValue(key) {
                         const els = box.querySelectorAll('[name="payload[' + key + ']"], [name="payload[' + key + '][]"]');
@@ -606,6 +721,22 @@
                     box.addEventListener('input', syncVisibility);
                     box.addEventListener('change', syncVisibility);
                     syncVisibility();
+                    }
+
+                    if (svc.requires_document) {
+                        wrapAtt.style.display = 'block';
+                        box.appendChild(wrapAtt);
+                    } else {
+                        wrapAtt.style.display = 'none';
+                        const fieldset = box.closest('fieldset');
+                        if (fieldset && wrapAtt.parentElement === box) {
+                            fieldset.appendChild(wrapAtt);
+                        }
+                    }
+
+                    if (svc.is_convergence) {
+                        appendThroughReapField(box);
+                    }
                 }
 
                 function refreshServiceOptionLocks() {

@@ -56,9 +56,6 @@
 
         <fieldset style="margin:0 0 1rem;padding:0.75rem 0.9rem;border:1px solid #e4e4e7;border-radius:8px;">
             <legend style="font-size:0.85rem;font-weight:600;">Service details</legend>
-            @if ($isConvergenceService ?? false)
-                @include('staff.services.partials.through-reap-field')
-            @endif
             @if ($schema === [] && ! ($isConvergenceService ?? false))
                 <p style="margin:0;font-size:0.82rem;color:#71717a;">No extra fields configured for this service.</p>
             @elseif ($schema !== [])
@@ -147,12 +144,16 @@
                     @endforeach
                 </div>
             @endif
+            @if ($case->service?->requires_document)
+                <div style="margin-top:0.65rem;margin-bottom:0.65rem;">
+                    <label style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Documents <span style="font-weight:400;color:#71717a;">(max 3, PDF or image, 5 MB each)</span></label>
+                    <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;">
+                </div>
+            @endif
+            @if ($isConvergenceService ?? false)
+                @include('staff.services.partials.through-reap-field', ['payload' => $payload])
+            @endif
         </fieldset>
-
-        <div style="margin-bottom:0.85rem;">
-            <label style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Add documents <span style="font-weight:400;color:#71717a;">(max total 3, PDF/image, 5 MB each)</span></label>
-            <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;">
-        </div>
 
         @if ($case->attachments->isNotEmpty())
             <div style="margin-bottom:0.9rem;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:0.65rem 0.75rem;">
@@ -172,12 +173,15 @@
             const form = document.querySelector('form[action*="staff/services"]');
             if (!form) return;
             const rows = Array.from(form.querySelectorAll('.svc-field-row'));
-            if (!rows.length) return;
+            const reapCheckbox = form.querySelector('input[name="payload[through_reap]"][type="checkbox"]');
+            const reapDetailsWrap = document.getElementById('reap_details_wrap');
+
             function payloadValue(key) {
                 const els = form.querySelectorAll('[name="payload[' + key + ']"], [name="payload[' + key + '][]"]');
                 if (!els.length) return '';
+                const checkbox = Array.from(els).find(function (el) { return el.type === 'checkbox'; });
+                if (checkbox) return checkbox.checked ? '1' : '0';
                 const first = els[0];
-                if (first.type === 'checkbox') return first.checked ? '1' : '0';
                 if (first.type === 'radio') {
                     const checked = Array.from(els).find(el => el.checked);
                     return checked ? checked.value : '';
@@ -187,6 +191,37 @@
                 }
                 return first.value || '';
             }
+
+            function syncReapDetails() {
+                if (!reapDetailsWrap) return;
+                const show = reapCheckbox && reapCheckbox.checked;
+                reapDetailsWrap.style.display = show ? 'flex' : 'none';
+                reapDetailsWrap.querySelectorAll('input,select,textarea').forEach(function (el) {
+                    if (!show) {
+                        el.dataset.wasRequired = (el.dataset.reapRequired === '1' || el.required) ? '1' : '0';
+                        el.required = false;
+                        el.disabled = true;
+                        if (el.type === 'file') {
+                            el.value = '';
+                        } else if (el.tagName !== 'SELECT') {
+                            el.value = '';
+                        } else {
+                            el.selectedIndex = 0;
+                        }
+                    } else {
+                        el.disabled = false;
+                        if (el.dataset.reapRequired === '1' || el.dataset.wasRequired === '1') {
+                            if (el.type === 'file') {
+                                const hasCurrent = el.parentElement && el.parentElement.querySelector('p') && (el.parentElement.textContent || '').indexOf('Current:') >= 0;
+                                el.required = !hasCurrent;
+                            } else {
+                                el.required = true;
+                            }
+                        }
+                    }
+                });
+            }
+
             function syncVisibility() {
                 rows.forEach(function (row) {
                     const depField = row.getAttribute('data-visible-if-field') || '';
@@ -208,6 +243,11 @@
                         }
                     });
                 });
+            }
+
+            if (reapCheckbox) {
+                reapCheckbox.addEventListener('change', syncReapDetails);
+                syncReapDetails();
             }
             form.addEventListener('input', syncVisibility);
             form.addEventListener('change', syncVisibility);

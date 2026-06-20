@@ -9,24 +9,28 @@ use App\Models\MarketLinkageSubmission;
 use App\Models\OnboardingBatch;
 use App\Models\Service;
 use App\Models\ServiceCase;
-use Illuminate\Support\Facades\Schema;
 use App\Models\ServiceCaseEvent;
 use App\Models\User;
 use App\Notifications\ServiceCaseWorkflowNotification;
 use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\SpocServiceCaseReviewTelemetryService;
+use App\Support\ConvergenceReapSupport;
 use App\Support\SpocBulkApproveAccess;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class SpocServiceCaseController extends Controller
 {
@@ -258,6 +262,10 @@ class SpocServiceCaseController extends Controller
             ? collect()
             : Service::query()->whereIn('id', $serviceIds)->orderBy('name')->get(['id', 'name']);
 
+        $reapPendingQuery = (clone $scopeBase)->where('status', ServiceCase::STATUS_PENDING_APPROVAL);
+        ConvergenceReapSupport::applyThroughReapEloquentScope($reapPendingQuery);
+        $reapPendingCount = (int) $reapPendingQuery->count();
+
         return view('spoc.service-cases.index', [
             'cases' => $cases,
             'marketLinkages' => collect(),
@@ -275,12 +283,13 @@ class SpocServiceCaseController extends Controller
             'batchOptions' => $batchOptions,
             'serviceOptions' => $serviceOptions,
             'tabCounts' => $tabCounts,
+            'reapPendingCount' => $reapPendingCount,
             'canBulkApprove' => SpocBulkApproveAccess::canBulkApprove($spoc),
         ]);
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<ServiceCase>  $query
+     * @param  Builder<ServiceCase>  $query
      */
     private function applySpocSearchFilter($query, string $searchQ): void
     {
@@ -316,6 +325,9 @@ class SpocServiceCaseController extends Controller
             if (str_contains($searchLower, 'reject')) {
                 $w->orWhere('status', ServiceCase::STATUS_REJECTED);
             }
+            if (str_contains($searchLower, 'reap')) {
+                ConvergenceReapSupport::applyThroughReapEloquentScope($w);
+            }
 
             if (ServiceCase::supportsLegacyApplicationLink() && $legacyIds !== []) {
                 $w->orWhere(function ($qq) use ($legacyIds): void {
@@ -328,7 +340,7 @@ class SpocServiceCaseController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<MarketLinkageSubmission>  $query
+     * @param  Builder<MarketLinkageSubmission>  $query
      */
     private function applySpocMarketLinkageSearchFilter($query, string $searchQ): void
     {
@@ -388,7 +400,7 @@ class SpocServiceCaseController extends Controller
     /**
      * @param  Collection<int, ServiceCase>  $cases
      * @param  Collection<int, MarketLinkageSubmission>  $marketLinkages
-     * @return LengthAwarePaginator<int, array{kind: string, service_case: ?ServiceCase, market_linkage: ?MarketLinkageSubmission, updated_at: ?\Illuminate\Support\Carbon}>
+     * @return LengthAwarePaginator<int, array{kind: string, service_case: ?ServiceCase, market_linkage: ?MarketLinkageSubmission, updated_at: ?Carbon}>
      */
     private function buildMergedSpocQueue(Collection $cases, Collection $marketLinkages, Request $request): LengthAwarePaginator
     {
@@ -567,7 +579,7 @@ class SpocServiceCaseController extends Controller
 
             try {
                 $this->assertCaseInSpocDistrict($case, (int) $spoc->id);
-            } catch (\Symfony\Component\HttpKernel\Exception\HttpException) {
+            } catch (HttpException) {
                 $skipped++;
 
                 continue;
@@ -957,5 +969,4 @@ class SpocServiceCaseController extends Controller
 
         return str_contains($targetPath, '/spoc/service-cases');
     }
-
 }

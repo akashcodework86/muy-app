@@ -16,18 +16,20 @@ use App\Models\ServiceCategory;
 use App\Models\StaffMonthlyTarget;
 use App\Models\StateDeliverableTarget;
 use App\Models\StateMonthlyTarget;
-use App\Services\StateMonthlyTargetIndicatorBootstrapService;
 use App\Models\TrainingPackage;
 use App\Models\TrainingPackageMonthSession;
 use App\Models\User;
+use App\Services\AppSettingsService;
 use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
 use App\Services\Deliverables\ProgramDeliverablesActivityGuideService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\ProgramDeliverablesReportService;
+use App\Services\StateMonthlyTargetIndicatorBootstrapService;
 use Dompdf\Dompdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -2696,7 +2698,7 @@ class DeliverablesReportTest extends TestCase
 
     public function test_convergence_through_reap_store_show_badge_and_deliverables_count(): void
     {
-        app(\App\Services\AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);
 
         $fy = FiscalYear::query()->firstOrCreate(
             ['code' => '2026-27'],
@@ -2777,18 +2779,31 @@ class DeliverablesReportTest extends TestCase
                     'through_reap' => '1',
                     'scheme_name' => 'PMEGP Flow',
                     'scheme_registration_date' => '2026-05-12',
+                    'reap_sector' => 'farm',
+                    'reap_amount' => '1_lakh',
+                    'reap_activity' => 'REAP support for farm enterprise setup.',
+                ],
+                'payload_files' => [
+                    'reap_document' => UploadedFile::fake()->create('reap-support.docx', 120),
                 ],
             ])
             ->assertRedirect(route('staff.services.index'));
 
         $case = ServiceCase::query()->where('service_id', $service->id)->latest('id')->firstOrFail();
         $this->assertSame('1', $case->payload['through_reap'] ?? null);
+        $this->assertSame('farm', $case->payload['reap_sector'] ?? null);
+        $this->assertSame('1_lakh', $case->payload['reap_amount'] ?? null);
+        $this->assertSame('REAP support for farm enterprise setup.', $case->payload['reap_activity'] ?? null);
+        $this->assertSame('reap-support.docx', $case->payload['reap_document'] ?? null);
         $this->assertTrue((bool) $case->through_reap);
 
         $this->actingAs($staff)
             ->get(route('staff.services.show', $case))
             ->assertOk()
-            ->assertSee('Through REAP', false);
+            ->assertSee('Through REAP', false)
+            ->assertSee('Farm', false)
+            ->assertSee('1 Lakh', false)
+            ->assertSee('REAP support for farm enterprise setup.', false);
 
         $filter = new ProgramDeliverablesFilter($fy->id, null, null, $district->id, null, null);
         $scope = ProgramDeliverablesScope::forUser($staff);
@@ -2805,7 +2820,7 @@ class DeliverablesReportTest extends TestCase
 
     public function test_approved_convergence_case_can_toggle_through_reap_without_reapproval(): void
     {
-        app(\App\Services\AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);
 
         $hub = Hub::query()->create(['slug' => 'reap-edit-hub', 'name' => 'Hub', 'sort_order' => 97]);
         $district = District::query()->create([
@@ -2870,6 +2885,12 @@ class DeliverablesReportTest extends TestCase
                     'through_reap' => '1',
                     'scheme_name' => 'PMEGP Edit',
                     'scheme_registration_date' => '2026-05-10',
+                    'reap_sector' => 'non_farm',
+                    'reap_amount' => '3_lakh',
+                    'reap_activity' => 'Pitch deck and business plan support.',
+                ],
+                'payload_files' => [
+                    'reap_document' => UploadedFile::fake()->create('reap-plan.pdf', 100),
                 ],
             ])
             ->assertRedirect(route('staff.services.index'));
@@ -2877,6 +2898,91 @@ class DeliverablesReportTest extends TestCase
         $case->refresh();
         $this->assertSame(ServiceCase::STATUS_APPROVED, $case->status);
         $this->assertSame('1', $case->payload['through_reap'] ?? null);
+        $this->assertSame('non_farm', $case->payload['reap_sector'] ?? null);
         $this->assertTrue((bool) $case->through_reap);
+    }
+
+    public function test_through_reap_requires_reap_detail_fields_on_store(): void
+    {
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+
+        $hub = Hub::query()->create(['slug' => 'reap-val-hub', 'name' => 'Hub', 'sort_order' => 96]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'reap-val-district',
+            'name' => 'Reap Val District',
+            'sort_order' => 96,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $convergenceCategory = ServiceCategory::query()->create([
+            'slug' => 'convergence-with-line-departments',
+            'name' => 'Schematic Convergence',
+            'sort_order' => 96,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $convergenceCategory->id,
+            'code' => 'p_m_e_g_p_val',
+            'name' => 'PMEGP Val',
+            'sort_order' => 1,
+            'is_active' => true,
+            'requires_approval' => false,
+            'field_schema' => [
+                ['key' => 'scheme_name', 'label' => 'Scheme', 'type' => 'text', 'required' => true],
+                ['key' => 'scheme_registration_date', 'label' => 'Date', 'type' => 'date', 'required' => true],
+            ],
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Reap Val Applicant',
+            'phone' => '9999999944',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $batchId = (int) DB::table('onboarding_batches')->insertGetId([
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'name' => 'Val batch',
+            'target_size' => 1,
+            'status' => 'locked',
+            'locked_at' => now(),
+            'onboarding_date' => '2026-05-01',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('onboarding_batch_cfa')->insert([
+            'onboarding_batch_id' => $batchId,
+            'cfa_submission_id' => $cfaId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($staff)
+            ->from(route('staff.services.create'))
+            ->post(route('staff.services.store'), [
+                'cfa_submission_id' => $cfaId,
+                'service_id' => $service->id,
+                'payload' => [
+                    'through_reap' => '1',
+                    'scheme_name' => 'PMEGP Val',
+                    'scheme_registration_date' => '2026-05-12',
+                ],
+            ])
+            ->assertRedirect(route('staff.services.create'))
+            ->assertSessionHasErrors(['reap_sector', 'reap_document']);
+
+        $case = ServiceCase::query()->where('service_id', $service->id)->first();
+        $this->assertNotNull($case);
+        $this->assertSame(ServiceCase::STATUS_DRAFT, $case->status);
     }
 }

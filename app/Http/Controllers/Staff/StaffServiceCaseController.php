@@ -382,6 +382,7 @@ class StaffServiceCaseController extends Controller
             'payload' => ['nullable', 'array'],
             'payload_files' => ['nullable', 'array'],
             'payload_files.*' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'payload_files.reap_document' => ['nullable', 'file', 'max:5120'],
             'attachments' => ['nullable', 'array', 'max:3'],
             'attachments.*' => ['file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
         ]);
@@ -433,7 +434,7 @@ class StaffServiceCaseController extends Controller
             }
         }
 
-        $payload = $this->normalizeConvergencePayload($service, $payload);
+        [$payload, $uploads, $reapDocumentUploaded] = $this->appendReapDocumentFromRequest($request, $service, $payload, $uploads);
 
         try {
             if ($cfaId > 0) {
@@ -449,6 +450,7 @@ class StaffServiceCaseController extends Controller
                 'reference_number' => $validated['reference_number'] ?? null,
                 'delivered_on' => $validated['delivered_on'] ?? null,
                 'payload' => $payload,
+                'reap_document_uploaded' => $reapDocumentUploaded,
             ], $uploads);
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
@@ -525,6 +527,7 @@ class StaffServiceCaseController extends Controller
             'payload' => ['nullable', 'array'],
             'payload_files' => ['nullable', 'array'],
             'payload_files.*' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'payload_files.reap_document' => ['nullable', 'file', 'max:5120'],
             'attachments' => ['nullable', 'array', 'max:3'],
             'attachments.*' => ['file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
         ]);
@@ -552,11 +555,22 @@ class StaffServiceCaseController extends Controller
             }
         }
 
-        $payload = $this->normalizeConvergencePayload($service, $payload);
+        [$payload, $uploads, $reapDocumentUploaded] = $this->appendReapDocumentFromRequest($request, $service, $payload, $uploads);
+        $existingPayload = is_array($service_case->payload) ? $service_case->payload : [];
+        $existingReapDocument = trim((string) ($existingPayload[ConvergenceReapSupport::REAP_DOCUMENT_KEY] ?? ''));
 
         try {
             if ($service_case->status === ServiceCase::STATUS_APPROVED) {
-                $this->updateApprovedCase($service_case, $service, $payload, $validated, $uploads, (int) $staff->id);
+                $this->updateApprovedCase(
+                    $service_case,
+                    $service,
+                    $payload,
+                    $validated,
+                    $uploads,
+                    (int) $staff->id,
+                    $reapDocumentUploaded,
+                    $existingReapDocument !== '' ? $existingReapDocument : null,
+                );
 
                 return redirect()
                     ->route('staff.services.index')
@@ -574,6 +588,7 @@ class StaffServiceCaseController extends Controller
                 'reference_number' => $validated['reference_number'] ?? null,
                 'delivered_on' => $validated['delivered_on'] ?? null,
                 'payload' => $payload,
+                'reap_document_uploaded' => $reapDocumentUploaded,
             ], $uploads);
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
@@ -827,16 +842,77 @@ class StaffServiceCaseController extends Controller
 
     /**
      * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
+     * @param  list<UploadedFile|array{file: UploadedFile, any_mime?: bool}>  $uploads
+     * @return array{0: array<string, mixed>, 1: list<UploadedFile|array{file: UploadedFile, any_mime?: bool}>, 2: bool}
      */
-    private function normalizeConvergencePayload(Service $service, array $payload): array
+    private function appendReapDocumentFromRequest(Request $request, Service $service, array $payload, array $uploads): array
     {
-        return ConvergenceReapSupport::mergeThroughReapIntoPayload($service, $payload, $payload);
+        $reapDocumentUploaded = false;
+        if (! ConvergenceReapSupport::serviceIsConvergence($service)) {
+            return [$payload, $uploads, $reapDocumentUploaded];
+        }
+
+        $reapFile = $request->file('payload_files.reap_document');
+        if ($reapFile instanceof UploadedFile && $reapFile->isValid()) {
+            ConvergenceReapSupport::assertReapDocumentUpload($reapFile);
+            $payload[ConvergenceReapSupport::REAP_DOCUMENT_KEY] = $reapFile->getClientOriginalName();
+            $uploads[] = ['file' => $reapFile, 'any_mime' => true];
+            $reapDocumentUploaded = true;
+        }
+
+        return [$payload, $uploads, $reapDocumentUploaded];
+    }
+
+    /**
+     * @param  list<UploadedFile|array{file: UploadedFile, any_mime?: bool}>  $uploads
+     * @return list<array{file: UploadedFile, any_mime: bool}>
+     */
+    private function normalizeUploadItems(array $uploads): array
+    {
+        $out = [];
+        foreach ($uploads as $upload) {
+            if ($upload instanceof UploadedFile) {
+                $out[] = ['file' => $upload, 'any_mime' => false];
+            } elseif (is_array($upload) && ($upload['file'] ?? null) instanceof UploadedFile) {
+                $out[] = [
+                    'file' => $upload['file'],
+                    'any_mime' => ! empty($upload['any_mime']),
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    private function assertServiceDocumentUpload(Service $service, UploadedFile $file): void
+    {
+        $maxKb = 5120;
+        if ($file->getSize() > $maxKb * 1024) {
+            throw ValidationException::withMessages(['attachments' => 'Each file must be 5 MB or smaller.']);
+        }
+
+        $allowedTags = $service->effectiveAllowedDocumentTypes();
+        $mime = strtolower((string) $file->getMimeType());
+        $ext = strtolower((string) $file->getClientOriginalExtension());
+
+        $okPdf = in_array('pdf', $allowedTags, true)
+            && (str_contains($mime, 'pdf') || $ext === 'pdf');
+        $okImage = in_array('image', $allowedTags, true)
+            && (
+                str_starts_with($mime, 'image/')
+                || in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)
+            );
+
+        if (! $okPdf && ! $okImage) {
+            throw ValidationException::withMessages([
+                'attachments' => 'Only PDF and image uploads are allowed for this service.',
+            ]);
+        }
     }
 
     /**
      * @param  array<string, mixed>  $validated
-     * @param  list<UploadedFile>  $uploads
+     * @param  list<UploadedFile|array{file: UploadedFile, any_mime?: bool}>  $uploads
      */
     private function updateApprovedCase(
         ServiceCase $case,
@@ -845,34 +921,47 @@ class StaffServiceCaseController extends Controller
         array $validated,
         array $uploads,
         int $actorId,
+        bool $reapDocumentUploaded = false,
+        ?string $existingReapDocument = null,
     ): void {
         $schema = ServiceFieldTypes::normalizeSchema($service->field_schema ?? []);
         $validatedPayload = $schema === []
             ? []
             : app(SchemaValidator::class)->validate($schema, $payload);
-        $validatedPayload = ConvergenceReapSupport::mergeThroughReapIntoPayload($service, $validatedPayload, $payload);
+        $validatedPayload = ConvergenceReapSupport::mergeThroughReapIntoPayload(
+            $service,
+            $validatedPayload,
+            $payload,
+            $reapDocumentUploaded,
+            $existingReapDocument,
+        );
+        $normalizedUploads = $this->normalizeUploadItems($uploads);
 
         $existingFiles = $case->attachments()->count();
-        if ($existingFiles + count($uploads) > 3) {
+        if ($existingFiles + count($normalizedUploads) > 3) {
             throw ValidationException::withMessages([
                 'attachments' => 'Maximum 3 documents per case.',
             ]);
         }
 
-        if ($service->requires_document && $existingFiles + count($uploads) < 1) {
+        if ($service->requires_document && $existingFiles + count($normalizedUploads) < 1) {
             throw ValidationException::withMessages([
                 'attachments' => 'This service requires at least one document.',
             ]);
         }
 
-        DB::transaction(function () use ($case, $service, $validatedPayload, $validated, $uploads, $actorId): void {
-            foreach ($uploads as $file) {
-                if (! $file instanceof UploadedFile || ! $file->isValid()) {
+        DB::transaction(function () use ($case, $service, $validatedPayload, $validated, $normalizedUploads, $actorId): void {
+            foreach ($normalizedUploads as $item) {
+                $file = $item['file'];
+                if (! $file->isValid()) {
                     throw ValidationException::withMessages(['attachments' => 'Invalid upload.']);
                 }
-            }
+                if (! ($item['any_mime'] ?? false)) {
+                    $this->assertServiceDocumentUpload($service, $file);
+                } else {
+                    ConvergenceReapSupport::assertReapDocumentUpload($file);
+                }
 
-            foreach ($uploads as $file) {
                 $dir = 'service-case-attachments/'.$case->id;
                 $path = $file->store($dir, 'local');
                 ServiceCaseAttachment::query()->create([

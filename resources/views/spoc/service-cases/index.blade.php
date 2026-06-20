@@ -49,7 +49,36 @@
         .sq-table tr.sq-row--approved td { background: #ecfdf5; }
         .sq-table tr.sq-row--rejected td { background: #fef2f2; }
         .sq-table tr.sq-row--market_linkage td { background: #faf5ff; }
+        .sq-table tr.sq-row--through_reap td {
+            background: linear-gradient(90deg, #fff7ed 0%, #fffbeb 100%);
+            border-top: 1px solid #fdba74;
+            border-bottom: 1px solid #fdba74;
+        }
+        .sq-table tr.sq-row--through_reap td:first-child {
+            box-shadow: inset 4px 0 0 #ea580c;
+        }
         .sq-table tr:hover td { filter: brightness(0.98); }
+        .sq-through-reap-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 0.28rem;
+            padding: 0.14rem 0.48rem;
+            border-radius: 999px;
+            border: 1px solid #fdba74;
+            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+            color: #9a3412;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
+        .sq-through-reap-note {
+            display: block;
+            margin-top: 0.18rem;
+            font-size: 0.72rem;
+            color: #c2410c;
+            font-weight: 600;
+        }
         .sq-filter-grid {
             display: grid; gap: 0.45rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
             margin-bottom: 0.5rem;
@@ -81,6 +110,7 @@
         .sq-btn--warn { border-color: #fdba74; background: #fff7ed; color: #9a3412; }
         .sq-btn--danger { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
         .sq-btn--doc { border-color: #cbd5e1; background: #f8fafc; color: #0f172a; }
+        .sq-btn--reap { border-color: #fdba74; background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%); color: #9a3412; }
         .sq-bulk-bar { display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.5rem; }
         .sq-bulk-hint { font-size: 0.78rem; color: #64748b; }
         .sq-check { width: 1rem; height: 1rem; cursor: pointer; }
@@ -168,6 +198,10 @@
         <div class="sq-kpi">
             <div class="sq-kpi-label">Rejected</div>
             <div class="sq-kpi-value">{{ number_format((int) ($tabCounts[\App\Models\ServiceCase::STATUS_REJECTED] ?? 0)) }}</div>
+        </div>
+        <div class="sq-kpi">
+            <div class="sq-kpi-label">Through REAP pending</div>
+            <div class="sq-kpi-value">{{ number_format((int) ($reapPendingCount ?? 0)) }}</div>
         </div>
     </div>
 
@@ -322,11 +356,12 @@
                                 default => null,
                             };
                             $isPending = $case->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL;
+                            $isThroughReap = $case->isConvergenceServiceCase() && $case->isMarkedThroughReap();
                             $batchName = $case->cfaSubmission?->onboardingBatchMembership?->batch?->name
                                 ?? (is_array($lip) ? ($lip['onboarding_batch_name'] ?? '') : '');
                             $isLegacyBatch = $batchName !== '' && ! $case->cfaSubmission;
                         @endphp
-                        <tr class="sq-row--{{ $statusClass }}">
+                        <tr class="sq-row--{{ $statusClass }}{{ $isThroughReap ? ' sq-row--through_reap' : '' }}">
                             <td class="sq-sr">{{ $srNo }}</td>
                             @if ($canBulkApprove ?? false)
                                 <td>
@@ -350,7 +385,13 @@
                                     <div class="sq-muted">{{ $lip['application_no'] }} <span style="color:#94a3b8;">(legacy)</span></div>
                                 @endif
                             </td>
-                            <td>{{ $case->service?->name ?? '—' }}</td>
+                            <td>
+                                <div>{{ $case->service?->name ?? '—' }}</div>
+                                @if ($isThroughReap)
+                                    <span class="sq-through-reap-badge" title="Counts toward MIS 8.2 and 8.3 when approved">Through REAP</span>
+                                    <span class="sq-through-reap-note">Schematic convergence · MIS 8.2 &amp; 8.3</span>
+                                @endif
+                            </td>
                             <td>{{ $case->cfaSubmission?->district?->name ?? (is_array($lip) ? ($lip['district'] ?? '—') : '—') }}</td>
                             <td>
                                 @if ($batchName !== '')
@@ -377,6 +418,7 @@
                                             data-applicant="{{ $case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '—') : '—') }}"
                                             data-app-no="{{ $case->cfaSubmission?->application_no ?? (is_array($lip) ? ($lip['application_no'] ?? '—') : '—') }}"
                                             data-service="{{ $case->service?->name ?? '—' }}"
+                                            data-through-reap="{{ $isThroughReap ? '1' : '0' }}"
                                             data-submitter="{{ $case->submitter?->name ?? '—' }}"
                                             data-updated="{{ $case->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}"
                                             data-open-url="{{ route('spoc.service-cases.show', $case) }}"
@@ -386,16 +428,7 @@
                                             data-case-id="{{ (int) $case->id }}"
                                         >Quick review</button>
                                     @endif
-                                    @if ($case->attachments->isNotEmpty())
-                                        @php $doc = $case->attachments->first(); @endphp
-                                        <button
-                                            type="button"
-                                            class="sq-btn sq-btn--doc js-doc-open"
-                                            data-doc-url="{{ route('spoc.service-cases.attachments.download', [$case, $doc]) }}"
-                                            data-doc-name="{{ $doc->original_name }}"
-                                            data-case-id="{{ (int) $case->id }}"
-                                        >View document</button>
-                                    @endif
+                                    @include('partials.service-case-document-buttons', ['case' => $case])
                                     <a href="{{ route('spoc.service-cases.show', $case) }}" class="sq-btn" target="_blank" rel="noopener">Open full</a>
                                 </div>
                             </td>
@@ -426,7 +459,7 @@
                 <div class="sq-meta">
                     <div><b>Incubatee:</b> <span id="sqMetaApplicant">—</span></div>
                     <div><b>Application no:</b> <span id="sqMetaAppNo">—</span></div>
-                    <div><b>Service:</b> <span id="sqMetaService">—</span></div>
+                    <div><b>Service:</b> <span id="sqMetaService">—</span> <span id="sqMetaReapBadge" style="display:none;" class="sq-through-reap-badge">Through REAP</span></div>
                     <div><b>Submitted by:</b> <span id="sqMetaSubmitter">—</span> · <b>Updated:</b> <span id="sqMetaUpdated">—</span></div>
                 </div>
 
@@ -519,6 +552,7 @@
             const applicant = document.getElementById('sqMetaApplicant');
             const appNo = document.getElementById('sqMetaAppNo');
             const service = document.getElementById('sqMetaService');
+            const reapBadge = document.getElementById('sqMetaReapBadge');
             const submitter = document.getElementById('sqMetaSubmitter');
             const updated = document.getElementById('sqMetaUpdated');
             const openFull = document.getElementById('sqOpenFull');
@@ -553,6 +587,10 @@
                     applicant.textContent = btn.dataset.applicant || '—';
                     appNo.textContent = btn.dataset.appNo || '—';
                     service.textContent = btn.dataset.service || '—';
+                    if (reapBadge) {
+                        const isReap = btn.dataset.throughReap === '1';
+                        reapBadge.style.display = isReap ? 'inline-flex' : 'none';
+                    }
                     submitter.textContent = btn.dataset.submitter || '—';
                     updated.textContent = btn.dataset.updated || '—';
                     openFull.href = btn.dataset.openUrl || '#';

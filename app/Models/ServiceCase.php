@@ -6,6 +6,7 @@ use App\Support\ConvergenceReapSupport;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 class ServiceCase extends Model
@@ -194,5 +195,47 @@ class ServiceCase extends Model
         return ConvergenceReapSupport::payloadValueIsThroughReap(
             $payload[ConvergenceReapSupport::PAYLOAD_KEY] ?? null,
         );
+    }
+
+    /**
+     * @return Collection<int, ServiceCaseAttachment>
+     */
+    public function reapAttachments(): Collection
+    {
+        $this->loadMissing('attachments');
+
+        if (! $this->isMarkedThroughReap()) {
+            return collect();
+        }
+
+        $payload = is_array($this->payload) ? $this->payload : [];
+        $reapName = trim((string) ($payload[ConvergenceReapSupport::REAP_DOCUMENT_KEY] ?? ''));
+        if ($reapName === '') {
+            return collect();
+        }
+
+        return $this->attachments->filter(
+            fn (ServiceCaseAttachment $attachment) => strcasecmp((string) $attachment->original_name, $reapName) === 0
+        )->values();
+    }
+
+    /**
+     * Convergence / general service attachments, excluding the REAP upload when Through REAP is set.
+     *
+     * @return Collection<int, ServiceCaseAttachment>
+     */
+    public function convergenceAttachments(): Collection
+    {
+        $this->loadMissing('attachments');
+
+        if (! $this->isMarkedThroughReap()) {
+            return $this->attachments->values();
+        }
+
+        $reapIds = $this->reapAttachments()->pluck('id')->all();
+
+        return $this->attachments->reject(
+            fn (ServiceCaseAttachment $attachment) => in_array($attachment->id, $reapIds, true)
+        )->values();
     }
 }
