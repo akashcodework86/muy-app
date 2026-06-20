@@ -228,6 +228,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::get('fy-targets/state', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
+        Route::get('fy-targets/state/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
+        Route::get('fy-targets/district', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
+        Route::get('fy-targets/district/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'export'])->name('fy-targets.district.export');
+        Route::get('fy-targets/hub', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('fy-targets.hub');
+        Route::get('fy-targets/hub/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('fy-targets.hub.export');
         Route::get('cfa-targets', function (Request $request) {
             return redirect()->route('staff.monthly-targets', $request->query(), 301);
         });
@@ -559,6 +565,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::get('fy-targets/state', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
+        Route::get('fy-targets/state/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
+        Route::get('fy-targets/district', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
+        Route::get('fy-targets/district/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'export'])->name('fy-targets.district.export');
+        Route::get('fy-targets/hub', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('fy-targets.hub');
+        Route::get('fy-targets/hub/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('fy-targets.hub.export');
         Route::get('service-cases/{service_case}', [SpocServiceCaseController::class, 'show'])->name('service-cases.show');
         Route::post('service-cases/{service_case}/review-telemetry', [SpocServiceCaseController::class, 'recordReviewTelemetry'])
             ->middleware('throttle:120,1')
@@ -1156,6 +1168,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::get('fy-targets/state', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
+        Route::get('fy-targets/state/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
+        Route::get('fy-targets/district', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
+        Route::get('fy-targets/district/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'export'])->name('fy-targets.district.export');
+        Route::get('fy-targets/hub', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('fy-targets.hub');
+        Route::get('fy-targets/hub/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('fy-targets.hub.export');
         Route::get('applications', [HubApplicationsController::class, 'index'])->name('applications.index');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');

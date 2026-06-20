@@ -94,6 +94,35 @@ class LineDepartmentMeetingTest extends TestCase
         $this->assertDatabaseCount('line_department_meetings', 1);
     }
 
+    public function test_any_spoc_can_store_state_level_meeting(): void
+    {
+        Storage::fake();
+
+        $spoc = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'other.spoc@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($spoc)
+            ->post(route('spoc.line-department-meetings.store'), [
+                'meeting_date' => now()->toDateString(),
+                'meeting_level' => 'state',
+                'meeting_mode' => 'physical',
+                'department_name' => 'Tourism',
+                'official_name' => 'Rajesh Kumar',
+                'official_designation' => 'Director',
+                'muy_staff_present' => 'SPOC team',
+                'meeting_purpose' => 'convergence',
+                'agenda_summary' => 'Scheme alignment',
+                'outcome_decision' => 'Follow-up in April',
+                'proof_media' => [UploadedFile::fake()->create('minutes.pdf', 100, 'application/pdf')],
+            ])
+            ->assertRedirect(route('spoc.line-department-meetings.dashboard'));
+
+        $this->assertDatabaseCount('line_department_meetings', 1);
+    }
+
     public function test_program_deliverables_counts_meetings_for_indicator_12_2(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

@@ -1554,17 +1554,52 @@
         color: #546e7a;
         max-width: 10.5rem;
     }
+    .admin-brand--staff .admin-brand__meta {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+        overflow: hidden;
+        font-size: 0.62rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        line-height: 1.2;
+        color: #0d9488;
+        max-width: 10.5rem;
+    }
     .admin-topbar__nav-rail--staff {
         position: relative;
         min-width: 0;
         max-width: 100%;
-        padding: 0.28rem 0.32rem;
+        padding: 0.32rem 0.38rem;
         border-radius: 14px;
-        background: #eef2f6;
-        border: 1px solid #dde3ea;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+        background: linear-gradient(180deg, #f3f6f9 0%, #e9eef3 100%);
+        border: 1px solid #d5dde6;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.92),
+            0 1px 2px rgba(55, 71, 79, 0.06);
         overflow: visible;
         align-self: center;
+    }
+    @media (min-width: 1101px) and (max-width: 1400px) {
+        .admin-topbar__nav-rail--staff {
+            overflow-x: auto;
+            overflow-y: visible;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(13, 148, 136, 0.35) transparent;
+        }
+        .admin-topbar__nav-rail--staff::-webkit-scrollbar {
+            height: 4px;
+        }
+        .admin-topbar__nav-rail--staff::-webkit-scrollbar-thumb {
+            background: rgba(13, 148, 136, 0.35);
+            border-radius: 999px;
+        }
+        .admin-topbar__nav--staff {
+            flex-wrap: nowrap;
+            justify-content: flex-start;
+            width: max-content;
+            min-width: 100%;
+        }
     }
     .admin-topbar__nav--staff {
         display: flex;
@@ -1597,8 +1632,52 @@
     .admin-topbar__nav--staff .admin-topbar__link {
         overflow: visible;
         white-space: nowrap;
-        padding: 0.46rem 0.72rem;
+        padding: 0.48rem 0.74rem;
         font-size: 0.8rem;
+        border-radius: 10px;
+    }
+    .admin-topbar__nav--staff .admin-topbar__dropdown-trigger {
+        list-style: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding-right: 1.7rem;
+        position: relative;
+    }
+    .admin-topbar__nav--staff .admin-topbar__dropdown-trigger::-webkit-details-marker {
+        display: none;
+    }
+    .admin-topbar__nav--staff .admin-topbar__dropdown-trigger::after {
+        content: '';
+        position: absolute;
+        right: 0.55rem;
+        top: 50%;
+        width: 0.36rem;
+        height: 0.36rem;
+        margin-top: -0.2rem;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        opacity: 0.85;
+        z-index: 2;
+        pointer-events: none;
+        transition: transform 0.2s ease, margin-top 0.2s ease;
+    }
+    .admin-topbar__nav--staff .admin-topbar__details[open] > .admin-topbar__dropdown-trigger::after {
+        margin-top: -0.08rem;
+        transform: rotate(225deg);
+    }
+    .admin-topbar__nav--staff .admin-topbar__link.is-active.admin-topbar__dropdown-trigger::after {
+        opacity: 1;
+    }
+    .admin-topbar__nav--staff .admin-topbar__dropdown-panel--staff-targets {
+        min-width: 16.5rem;
+    }
+    .admin-topbar__dropdown-kicker--sub {
+        margin-top: 0.35rem;
+        padding-top: 0.45rem;
+        border-top: 1px solid rgba(148, 163, 184, 0.25);
     }
     .admin-topbar__nav--staff .admin-topbar__link-text {
         overflow: visible;

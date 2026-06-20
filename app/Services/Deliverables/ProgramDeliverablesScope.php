@@ -3,7 +3,6 @@
 namespace App\Services\Deliverables;
 
 use App\Models\District;
-use App\Models\DistrictServiceSpoc;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -41,19 +40,7 @@ class ProgramDeliverablesScope
                 $user->district_id ? [(int) $user->district_id] : [],
                 false,
             ),
-            'state_staff' => new self(
-                'state_staff',
-                null,
-                DistrictServiceSpoc::query()
-                    ->where('state_staff_user_id', (int) $user->id)
-                    ->pluck('district_id')
-                    ->map(fn ($id) => (int) $id)
-                    ->filter(fn (int $id) => $id > 0)
-                    ->unique()
-                    ->values()
-                    ->all(),
-                false,
-            ),
+            'state_staff' => new self('state_staff', null, null, true),
             default => new self((string) $user->role, null, [], false),
         };
     }
@@ -117,7 +104,7 @@ class ProgramDeliverablesScope
             'state_admin' => 'All districts (state)',
             'hub_admin' => 'All districts in your hub',
             'district_staff' => 'Your district',
-            'state_staff' => 'Your assigned districts',
+            'state_staff' => 'All districts (state)',
             default => 'Scoped view',
         };
     }

@@ -1,15 +1,22 @@
 @extends('layouts.admin')
 
-@section('title', 'State target month wise (official)')
-@section('heading', 'State target month wise — official plan')
+@section('title', ($fyTargetsNavLabel ?? 'FY Targets').' — '.($pageTitleSuffix ?? 'State'))
+@section('heading', ($fyTargetsNavLabel ?? 'FY Targets').' — '.($pageTitleSuffix ?? 'State').(($readOnlyAudience ?? false) ? ' (read-only)' : ''))
 
 @section('content')
+    @if (! ($readOnlyAudience ?? false))
     <p style="font-size:0.88rem; color:#52525b; margin:0 0 1rem; max-width:58rem; line-height:1.55;">
         Official state monthly plan (same layout as <strong>State Target Month Wise</strong> Excel).
         Cells show your <strong>last saved</strong> targets. Use <strong>Put targets automatically</strong> to refill from the Excel plan, edit if needed, then <strong>Update targets</strong> to save.
         For district-split services, totals are cross-checked against
-        <a href="{{ route('admin.targets.official-district-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">District target month wise</a>.
+        <a href="{{ route($districtPageRoute, ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">District targets</a>.
     </p>
+    @else
+    <p style="font-size:0.88rem; color:#52525b; margin:0 0 1rem; max-width:58rem; line-height:1.55;">
+        Read-only view of official state monthly targets for {{ $fiscalYear->name ?? 'the selected fiscal year' }}.
+        Use <strong>Export .xlsx</strong> to download the sheet. District and hub breakdowns are linked below.
+    </p>
+    @endif
 
     @if (session('status'))
         <p style="background:#f0fdf4; border:1px solid #86efac; color:#166534; padding:0.75rem; border-radius:8px; font-size:0.88rem; margin-bottom:1rem;">
@@ -27,7 +34,7 @@
         </div>
     @endif
 
-    <form method="get" action="{{ route('admin.targets.official-state-monthly') }}" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.65rem; align-items:flex-end; padding:0.85rem 1rem; background:#fff; border:1px solid #e4e4e7; border-radius:10px;">
+    <form method="get" action="{{ route($pageRoute) }}" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.65rem; align-items:flex-end; padding:0.85rem 1rem; background:#fff; border:1px solid #e4e4e7; border-radius:10px;">
         <div>
             <label for="fy" style="display:block; font-size:0.78rem; font-weight:600; margin-bottom:0.25rem;">Fiscal year</label>
             <select id="fy" name="fiscal_year_id" style="padding:0.45rem 0.55rem; border-radius:8px; border:1px solid #d4d4d8; min-width:11rem;">
@@ -37,22 +44,30 @@
             </select>
         </div>
         <button type="submit" style="background:#18181b; color:#fff; border:none; padding:0.5rem 0.85rem; border-radius:8px; font-weight:600; cursor:pointer;">Load</button>
-        <a href="{{ route('admin.targets.official-state-monthly.export', ['fiscal_year_id' => $fiscalYearId]) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.5rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;">⬇ Export .xlsx</a>
+        <a href="{{ route($exportRoute, ['fiscal_year_id' => $fiscalYearId]) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.5rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;">⬇ Export .xlsx</a>
+        @if ($readOnlyAudience ?? false)
+            <a href="{{ route($districtPageRoute, ['fiscal_year_id' => $fiscalYearId]) }}" style="padding:0.5rem 0.85rem;border:1px solid #d4d4d8;border-radius:8px;text-decoration:none;color:#334155;font-size:0.88rem;">District targets</a>
+            <a href="{{ route($hubPageRoute, ['fiscal_year_id' => $fiscalYearId]) }}" style="padding:0.5rem 0.85rem;border:1px solid #d4d4d8;border-radius:8px;text-decoration:none;color:#334155;font-size:0.88rem;">Hub distribution</a>
+        @endif
     </form>
 
     @if ($grid === [])
         <p style="color:#64748b;">No official rows configured.</p>
     @else
-        <form method="post" action="{{ route('admin.targets.official-state-monthly.apply') }}" id="official-state-form">
+        @if ($applyRoute)
+        <form method="post" action="{{ route($applyRoute) }}" id="official-state-form">
             @csrf
             <input type="hidden" name="fiscal_year_id" value="{{ $fiscalYearId }}">
             <input type="hidden" name="targets_payload" id="targets_payload" value="">
+        @else
+        <div id="official-state-form">
+        @endif
 
             <div style="background:linear-gradient(135deg,#fff7ed,#fef3c7); border:1px solid #fdba74; border-radius:10px; padding:0.85rem 1rem; margin-bottom:1rem; font-size:0.88rem; display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
                 <div><strong>Official plan total:</strong> <span id="grand-official">{{ number_format((int) ($columnTotals['grand_official'] ?? 0)) }}</span></div>
                 <div><strong>Form total:</strong> <span id="grand-form">0</span></div>
                 <div><strong>Saved in DB:</strong> {{ number_format((int) ($columnTotals['grand_saved'] ?? 0)) }}</div>
-                @if ($targetsAllocationEditable ?? true)
+                @if ($targetsAllocationEditable ?? false)
                 <button type="button" id="btn-auto-fill" style="background:#0369a1; color:#fff; border:none; padding:0.55rem 1rem; border-radius:8px; font-weight:700; cursor:pointer;">
                     Put targets automatically
                 </button>
@@ -116,8 +131,8 @@
                                                     data-deliverable-id="{{ $deliverableId }}"
                                                     data-month="{{ $m }}"
                                                     class="month-input"
-                                                    @if (! ($targetsAllocationEditable ?? true)) readonly disabled @endif
-                                                    style="width:3.25rem; padding:0.25rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px;@if (! ($targetsAllocationEditable ?? true)) background:#f4f4f5; color:#52525b; @endif">
+                                                    @if (! ($targetsAllocationEditable ?? false)) readonly disabled @endif
+                                                    style="width:3.25rem; padding:0.25rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px;@if (! ($targetsAllocationEditable ?? false)) background:#f4f4f5; color:#52525b; @endif">
                                             </td>
                                         @endforeach
                                         <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
@@ -173,7 +188,11 @@
                     </tfoot>
                 </table>
             </div>
+        @if ($applyRoute)
         </form>
+        @else
+        </div>
+        @endif
     @endif
 
     @push('scripts')

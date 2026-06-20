@@ -1,20 +1,18 @@
 @extends('layouts.admin')
 
-@section('title', ($hubOnlyPage ?? false) ? 'Hub target distribution (official)' : 'District target month wise (official)')
-@section('heading', ($hubOnlyPage ?? false) ? 'Hub target distribution — official plan' : 'District target month wise — official plan')
+@section('title', ($fyTargetsNavLabel ?? 'FY Targets').' — '.($pageTitleSuffix ?? (($hubOnlyPage ?? false) ? 'Hub' : 'District')))
+@section('heading', ($fyTargetsNavLabel ?? 'FY Targets').' — '.($pageTitleSuffix ?? (($hubOnlyPage ?? false) ? 'Hub' : 'District')).(($readOnlyAudience ?? false) ? ' (read-only)' : ''))
 
 @section('content')
     @php
         $hubOnlyPage = (bool) ($hubOnlyPage ?? false);
-        $pageRoute = $hubOnlyPage
-            ? route('admin.targets.official-hub-distribution-monthly')
-            : route('admin.targets.official-district-monthly');
-        $applyRoute = $hubOnlyPage
-            ? route('admin.targets.official-hub-distribution-monthly.apply')
-            : route('admin.targets.official-district-monthly.apply');
-        $exportRoute = $hubOnlyPage
-            ? route('admin.targets.official-hub-distribution-monthly.export')
-            : route('admin.targets.official-district-monthly.export');
+        $pageRouteUrl = route($pageRoute);
+        $exportRouteUrl = route($exportRoute, ['fiscal_year_id' => $fiscalYearId]);
+        $applyRouteName = $applyRoute ?? null;
+        $applyRouteUrl = $applyRouteName ? route($applyRouteName) : null;
+        $statePageUrl = route($statePageRoute, ['fiscal_year_id' => $fiscalYearId]);
+        $districtPageUrl = route($districtPageRoute, ['fiscal_year_id' => $fiscalYearId]);
+        $hubPageUrl = route($hubPageRoute, ['fiscal_year_id' => $fiscalYearId]);
         $displayBlocks = $hubOnlyPage ? ($hubDistributionBlocks ?? []) : ($districtBlocks ?? []);
         $allDistrictBlocks = $displayBlocks;
         $mismatchBlocks = collect($allDistrictBlocks)->filter(function (array $block) {
@@ -30,7 +28,7 @@
     @endphp
 
     <div class="odm-page-top">
-        <form method="get" action="{{ $pageRoute }}" class="odm-fy-bar">
+        <form method="get" action="{{ $pageRouteUrl }}" class="odm-fy-bar">
             <div class="odm-fy-bar__field">
                 <label for="fy">Fiscal year</label>
                 <select id="fy" name="fiscal_year_id">
@@ -40,7 +38,15 @@
                 </select>
             </div>
             <button type="submit" class="odm-fy-bar__btn">Load</button>
-            <a href="{{ $exportRoute }}?fiscal_year_id={{ $fiscalYearId }}" class="odm-fy-bar__btn odm-fy-bar__btn--export">⬇ Export .xlsx</a>
+            <a href="{{ $exportRouteUrl }}" class="odm-fy-bar__btn odm-fy-bar__btn--export">⬇ Export .xlsx</a>
+            @if ($readOnlyAudience ?? false)
+                <a href="{{ $statePageUrl }}" class="odm-fy-bar__btn">State targets</a>
+                @if (! $hubOnlyPage)
+                    <a href="{{ $hubPageUrl }}" class="odm-fy-bar__btn">Hub distribution</a>
+                @else
+                    <a href="{{ $districtPageUrl }}" class="odm-fy-bar__btn">District targets</a>
+                @endif
+            @endif
             <div class="odm-fy-bar__meta">
                 <span class="odm-stat-pill odm-stat-pill--neutral">{{ $totalBlocks }} services</span>
                 <span class="odm-stat-pill odm-stat-pill--ok" id="align-match-count">{{ $matchedBlocks }} matched</span>
@@ -63,7 +69,7 @@
                     <div class="odm-align-alert__title">State vs district alignment issues</div>
                     <div class="odm-align-alert__text">
                         These services do not match targets from
-                        <a href="{{ route('admin.targets.official-state-monthly', ['fiscal_year_id' => $fiscalYearId]) }}">State target month wise</a>.
+                        <a href="{{ $statePageUrl }}">State targets</a>.
                         Use <strong>Put targets automatically</strong> or edit cells, then <strong>Update targets</strong>.
                     </div>
                 </div>
@@ -118,16 +124,20 @@
             Hub-distributed monthly targets for services allocated only across <strong>Almora</strong> and <strong>Pauri Garhwal</strong> (same layout as the official Excel plan).
             Cells show your <strong>last saved</strong> targets. Use <strong>Put targets automatically</strong> to fill from state targets or the official plan, then <strong>Update targets</strong> to save.
             Totals are cross-checked against
-            <a href="{{ route('admin.targets.official-state-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">State target month wise</a>.
+            <a href="{{ $statePageUrl }}" style="color:#1d4ed8; font-weight:600;">State targets</a>.
             Other district services are on
-            <a href="{{ route('admin.targets.official-district-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">District target month wise</a>.
+            <a href="{{ $districtPageUrl }}" style="color:#1d4ed8; font-weight:600;">District targets</a>.
         @else
             Official district / hub monthly plan (same layout as <strong>District Target Month Wise</strong> Excel).
+            @if (! ($readOnlyAudience ?? false))
             Cells show your <strong>last saved</strong> targets. Use <strong>Put targets automatically</strong> to fill cells from the state target (when set) split across districts using the official plan ratios, or from the Excel plan if no state target exists. Edit if needed, then <strong>Update targets</strong> to save.
+            @else
+            Read-only view of saved district monthly targets.
+            @endif
             District totals are cross-checked against targets saved on
-            <a href="{{ route('admin.targets.official-state-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">State target month wise</a>.
+            <a href="{{ $statePageUrl }}" style="color:#1d4ed8; font-weight:600;">State targets</a>.
             Hub-distributed services are on
-            <a href="{{ route('admin.targets.official-hub-distribution-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">Hub target distribution</a>.
+            <a href="{{ $hubPageUrl }}" style="color:#1d4ed8; font-weight:600;">Hub distribution</a>.
         @endif
     </p>
 
@@ -147,17 +157,21 @@
         </div>
     @endif
 
-    <form method="post" action="{{ $applyRoute }}" id="official-district-form">
+    @if ($applyRouteUrl)
+    <form method="post" action="{{ $applyRouteUrl }}" id="official-district-form">
         @csrf
         <input type="hidden" name="fiscal_year_id" value="{{ $fiscalYearId }}">
         <input type="hidden" name="district_payload" id="district_payload" value="">
+    @else
+    <div id="official-district-form">
+    @endif
 
         <div style="background:linear-gradient(135deg,#eff6ff,#f0fdf4); border:1px solid #93c5fd; border-radius:10px; padding:0.85rem 1rem; margin-bottom:1.25rem; font-size:0.88rem; display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
             <div><strong>Services / blocks:</strong> {{ count($displayBlocks) }}</div>
             @if (! $hubOnlyPage)
                 <div><strong>State-only rows:</strong> {{ count($stateOnlyRows) }}</div>
             @endif
-            @if ($targetsAllocationEditable ?? true)
+            @if ($targetsAllocationEditable ?? false)
             <button type="button" id="btn-auto-fill" style="background:#0369a1; color:#fff; border:none; padding:0.55rem 1rem; border-radius:8px; font-weight:700; cursor:pointer;">
                 Put targets automatically
             </button>
@@ -235,7 +249,11 @@
                 </div>
             </div>
         @endif
+    @if ($applyRouteUrl)
     </form>
+    @else
+    </div>
+    @endif
 
     @push('styles')
     <style>

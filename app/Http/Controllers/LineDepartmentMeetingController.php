@@ -315,7 +315,7 @@ class LineDepartmentMeetingController extends Controller
      */
     private function scopeDashboardQuery($query, User $user): void
     {
-        if ($user->role === 'state_admin' || LineDepartmentMeetingAccess::isAadil($user)) {
+        if ($user->role === 'state_admin' || LineDepartmentMeetingAccess::isStateStaffSpoc($user)) {
             return;
         }
 
@@ -332,7 +332,7 @@ class LineDepartmentMeetingController extends Controller
 
     private function canViewRecord(User $user, LineDepartmentMeeting $row): bool
     {
-        if ($user->role === 'state_admin' || LineDepartmentMeetingAccess::isAadil($user)) {
+        if ($user->role === 'state_admin' || LineDepartmentMeetingAccess::isStateStaffSpoc($user)) {
             return true;
         }
 

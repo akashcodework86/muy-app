@@ -34,6 +34,14 @@
     $canSubmitFundingSchematic = $u && \App\Support\FundingSchematicConvergenceAccess::canSubmit($u);
     $canViewFundingSchematic = $u && \App\Support\FundingSchematicConvergenceAccess::canViewDashboard($u);
     $canManageTrainingPackageMonthPlans = $u && \App\Support\TrainingPackageMonthPlanAccess::canManage($u);
+    $fyTargetsNavLabel = \App\Support\OfficialMonthlyTargetsUiSupport::fyTargetsNavLabel(\App\Models\FiscalYear::phase3Default());
+    $fyTargetsNavPrefix = $showStateStaffNav ? 'spoc' : ($showHubNav ? 'hub' : ($showStaffNav ? 'staff' : null));
+    $staffDesignationLabel = $showStaffNav
+        ? trim((string) ($u->designationRecord?->name ?? ''))
+        : '';
+    $staffDistrictLabel = $showStaffNav
+        ? trim((string) ($u->district?->name ?? ''))
+        : '';
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
         'district_staff' => 'District staff',
@@ -68,6 +76,15 @@
         str_starts_with($r, 'hub.deliverables') => 'deliverables',
         str_starts_with($r, 'staff.deliverables') => 'deliverables',
         str_starts_with($r, 'spoc.deliverables') => 'deliverables',
+        str_starts_with($r, 'spoc.fy-targets.state') => 'fy-targets-state',
+        str_starts_with($r, 'spoc.fy-targets.district') => 'fy-targets-district',
+        str_starts_with($r, 'spoc.fy-targets.hub') => 'fy-targets-hub',
+        str_starts_with($r, 'hub.fy-targets.state') => 'fy-targets-state',
+        str_starts_with($r, 'hub.fy-targets.district') => 'fy-targets-district',
+        str_starts_with($r, 'hub.fy-targets.hub') => 'fy-targets-hub',
+        str_starts_with($r, 'staff.fy-targets.state') => 'fy-targets-state',
+        str_starts_with($r, 'staff.fy-targets.district') => 'fy-targets-district',
+        str_starts_with($r, 'staff.fy-targets.hub') => 'fy-targets-hub',
         str_starts_with($r, 'admin.targets.state-monthly') => 'targets-state-monthly',
         str_starts_with($r, 'admin.targets.official-state-monthly') => 'targets-official-state-monthly',
         str_starts_with($r, 'admin.targets.official-hub-distribution-monthly') => 'targets-official-hub-distribution-monthly',
@@ -290,6 +307,7 @@
         default => '',
     };
     $targetsAllocationActive = in_array($activeNav, ['targets-official-state-monthly', 'targets-official-district-monthly', 'targets-official-hub-distribution-monthly'], true);
+    $fyTargetsGroupActive = in_array($activeNav, ['fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
@@ -309,8 +327,8 @@
         || $staffNavEapEdp
         || $staffNavDistrictWorkshop;
     $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'staff-batches'], true);
-    $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'deliverables', 'field-coordinator-report'], true);
-    $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard'], true)
+    $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
+    $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'field-coordinator-report'], true)
         || $staffFieldWorkActive;
 
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
@@ -371,10 +389,13 @@
                 @elseif ($showStaffNav)
                     <span class="admin-brand__eyebrow">District staff portal</span>
                     <span class="admin-brand__name">MUY</span>
-                    @if ($u->district?->name)
-                        <span class="admin-brand__hub" title="{{ $u->district->name }}">{{ $u->district->name }}</span>
+                    @if ($staffDistrictLabel !== '')
+                        <span class="admin-brand__hub" title="{{ $staffDistrictLabel }}">{{ $staffDistrictLabel }}</span>
                     @else
                         <span class="admin-brand__sub">{{ $brandSub }}</span>
+                    @endif
+                    @if ($staffDesignationLabel !== '')
+                        <span class="admin-brand__meta">{{ $staffDesignationLabel }}</span>
                     @endif
                 @else
                     <span class="admin-brand__name">Mukhyamantri Udyamshala Yojana</span>
@@ -694,6 +715,7 @@
             <a href="{{ route('spoc.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
             </a>
+            @include('partials.fy-targets-nav-dropdown', ['fyTargetsNavPrefix' => $showStateStaffNav ? 'spoc' : null])
             @if ($canManageTrainingPackageMonthPlans)
             <details class="admin-topbar__details">
                 <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocAssignTargetActive) is-active @endif">
@@ -801,7 +823,7 @@
                         </div>
                     </div>
                     @endif
-                    @if ($canSubmitLineDepartmentMeetings && ($u->role ?? '') === 'state_staff')
+                    @if ($canSubmitLineDepartmentMeetings)
                     <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['line-department-meetings-submit', 'line-department-meetings-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('users') !!}<span>Line dept meetings (12.2)</span>
@@ -926,6 +948,8 @@
                 </div>
             </details>
 
+            @include('partials.fy-targets-nav-dropdown', ['fyTargetsNavPrefix' => $showHubNav ? 'hub' : null])
+
             <details class="admin-topbar__details">
                 <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($hubServiceGroupActive) is-active @endif">
                     {!! $i('catalog') !!}<span class="admin-topbar__link-text">Service</span>
@@ -1028,26 +1052,14 @@
                 </div>
             </details>
 
-            <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffTargetsGroupActive) is-active @endif" title="Targets and progress">
-                    {!! $i('targets') !!}<span class="admin-topbar__link-text">Targets</span>
-                </summary>
-                <div class="admin-topbar__dropdown-panel" role="menu">
-                    <p class="admin-topbar__dropdown-kicker" role="presentation">Planning &amp; reporting</p>
-                    <a href="{{ route('staff.monthly-targets') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-targets') is-active @endif" role="menuitem">
-                        {!! $i('calendar') !!}<span>Monthly targets</span>
-                    </a>
-                    <a href="{{ route('staff.deliverables.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'deliverables') is-active @endif" role="menuitem">
-                        {!! $i('bars') !!}<span>Deliverables</span>
-                    </a>
-                    <a href="{{ route('staff.field-coordinator-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-coordinator-report') is-active @endif" role="menuitem">
-                        {!! $i('calendar') !!}<span>Field coordinator report</span>
-                    </a>
-                </div>
-            </details>
+            @include('partials.staff-targets-nav-dropdown')
+
+            <a href="{{ route('staff.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif" title="Deliverables">
+                {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
+            </a>
 
             <details class="admin-topbar__details">
-                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffServiceGroupActive) is-active @endif">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffServiceGroupActive) is-active @endif" title="Service">
                     {!! $i('catalog') !!}<span class="admin-topbar__link-text">Service</span>
                 </summary>
                 <div class="admin-topbar__dropdown-panel admin-topbar__dropdown-panel--wide" role="menu">
@@ -1059,6 +1071,9 @@
                     @endif
                     <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Market linkage</span>
+                    </a>
+                    <a href="{{ route('staff.field-coordinator-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-coordinator-report') is-active @endif" role="menuitem">
+                        {!! $i('calendar') !!}<span>Field coordinator report</span>
                     </a>
                     @if ($canSubmitLineDepartmentMeetings)
                     <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['line-department-meetings-submit', 'line-department-meetings-dashboard'], true)) is-active @endif">
@@ -1169,6 +1184,11 @@
                                 <span class="admin-topbar__user-role">
                                     @if ($showHubNav)
                                         Hub admin
+                                    @elseif ($showStaffNav)
+                                        District staff
+                                        @if ($staffDesignationLabel !== '')
+                                            · {{ $staffDesignationLabel }}
+                                        @endif
                                     @else
                                         {{ str_replace('_', ' ', $u->role ?? 'user') }}
                                     @endif

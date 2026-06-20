@@ -645,4 +645,46 @@ class OfficialMonthlyTargetsTest extends TestCase
             $this->assertStringContainsString('hub-targets-', (string) $response->headers->get('content-disposition'));
         }
     }
+
+    public function test_spoc_can_view_read_only_fy_targets_and_export_but_not_apply(): void
+    {
+        $spoc = User::factory()->create(['role' => 'state_staff', 'is_active' => true]);
+
+        $this->actingAs($spoc)
+            ->get(route('spoc.fy-targets.state'))
+            ->assertOk()
+            ->assertSee('read-only', false)
+            ->assertDontSee('id="btn-auto-fill"', false);
+
+        $this->actingAs($spoc)
+            ->get(route('spoc.fy-targets.district'))
+            ->assertOk()
+            ->assertSee('read-only', false);
+
+        $this->actingAs($spoc)
+            ->get(route('spoc.fy-targets.hub'))
+            ->assertOk()
+            ->assertSee('read-only', false);
+
+        $this->actingAs($spoc)
+            ->get(route('spoc.fy-targets.state.export'))
+            ->assertOk();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $this->actingAs($spoc)
+            ->post(route('admin.targets.official-state-monthly.apply'), [
+                'fiscal_year_id' => $fy->id,
+                'targets' => $this->officialStateTargetsPayload(),
+            ])
+            ->assertForbidden();
+    }
 }

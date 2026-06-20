@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\FiscalYear;
+use App\Models\User;
 use App\Services\AdminAuditLogger;
 use App\Services\AppSettingsService;
 use App\Services\OfficialDistrictMonthlyTargetService;
 use App\Services\ServiceTargetDeliverableSyncService;
 use App\Services\Targets\Exports\OfficialDistrictMonthlyTargetsExcelExport;
+use App\Support\OfficialMonthlyTargetsUiSupport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -35,18 +37,22 @@ class OfficialDistrictMonthlyTargetsController extends Controller
 
         $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId);
         $viewData = $this->targets->buildViewData($fiscalYearId);
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
 
-        return view('admin.targets.official-district-monthly', [
-            'fiscalYears' => $fiscalYears,
-            'fiscalYearId' => $fiscalYearId,
-            'fiscalYear' => $fiscalYear,
-            'monthLabels' => $this->targets->fiscalMonthLabels($fiscalYear),
-            'districtBlocks' => $viewData['district_blocks'],
-            'hubDistributionBlocks' => [],
-            'stateOnlyRows' => $viewData['state_only_rows'],
-            'hubOnlyPage' => false,
-            'targetsAllocationEditable' => $this->appSettings->isEnabled('targets.allocation_editable'),
-        ]);
+        return view('admin.targets.official-district-monthly', array_merge(
+            OfficialMonthlyTargetsUiSupport::viewContext($user, $this->appSettings, $fiscalYear, 'district'),
+            [
+                'fiscalYears' => $fiscalYears,
+                'fiscalYearId' => $fiscalYearId,
+                'fiscalYear' => $fiscalYear,
+                'monthLabels' => $this->targets->fiscalMonthLabels($fiscalYear),
+                'districtBlocks' => $viewData['district_blocks'],
+                'hubDistributionBlocks' => [],
+                'stateOnlyRows' => $viewData['state_only_rows'],
+                'hubOnlyPage' => false,
+            ],
+        ));
     }
 
     public function hubDistribution(Request $request): View
@@ -59,18 +65,22 @@ class OfficialDistrictMonthlyTargetsController extends Controller
 
         $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId);
         $viewData = $this->targets->buildViewData($fiscalYearId);
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
 
-        return view('admin.targets.official-district-monthly', [
-            'fiscalYears' => $fiscalYears,
-            'fiscalYearId' => $fiscalYearId,
-            'fiscalYear' => $fiscalYear,
-            'monthLabels' => $this->targets->fiscalMonthLabels($fiscalYear),
-            'districtBlocks' => [],
-            'hubDistributionBlocks' => $viewData['hub_distribution_blocks'],
-            'stateOnlyRows' => [],
-            'hubOnlyPage' => true,
-            'targetsAllocationEditable' => $this->appSettings->isEnabled('targets.allocation_editable'),
-        ]);
+        return view('admin.targets.official-district-monthly', array_merge(
+            OfficialMonthlyTargetsUiSupport::viewContext($user, $this->appSettings, $fiscalYear, 'hub'),
+            [
+                'fiscalYears' => $fiscalYears,
+                'fiscalYearId' => $fiscalYearId,
+                'fiscalYear' => $fiscalYear,
+                'monthLabels' => $this->targets->fiscalMonthLabels($fiscalYear),
+                'districtBlocks' => [],
+                'hubDistributionBlocks' => $viewData['hub_distribution_blocks'],
+                'stateOnlyRows' => [],
+                'hubOnlyPage' => true,
+            ],
+        ));
     }
 
     public function export(Request $request): StreamedResponse
@@ -127,6 +137,8 @@ class OfficialDistrictMonthlyTargetsController extends Controller
         string $auditAction,
         string $auditDescription,
     ): RedirectResponse {
+        abort_unless($request->user()?->role === 'state_admin', 403);
+
         if (! $this->appSettings->isEnabled('targets.allocation_editable')) {
             return redirect()
                 ->back()

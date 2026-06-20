@@ -3079,4 +3079,14 @@ class DeliverablesReportTest extends TestCase
             ->assertSee('Deliverables page — edit mode', false)
             ->assertSee('deliverables_indicator_metadata_editable', false);
     }
+
+    public function test_spoc_deliverables_scope_is_statewide(): void
+    {
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_staff']));
+
+        $this->assertNull($scope->districtIds);
+        $this->assertTrue($scope->usesStateTargets);
+        $this->assertSame('All districts (state)', $scope->scopeLabel(null));
+        $this->assertTrue($scope->canPickDistrict());
+    }
 }

@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\FiscalYear;
+use App\Models\User;
 use App\Services\AdminAuditLogger;
 use App\Services\AppSettingsService;
 use App\Services\OfficialStateMonthlyTargetService;
 use App\Services\ServiceTargetDeliverableSyncService;
 use App\Services\Targets\Exports\OfficialStateMonthlyTargetsExcelExport;
+use App\Support\OfficialMonthlyTargetsUiSupport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -36,16 +38,20 @@ class OfficialStateMonthlyTargetsController extends Controller
         $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId);
         $grid = $this->targets->buildGrid($fiscalYearId);
         $columnTotals = $this->targets->columnTotals($grid);
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
 
-        return view('admin.targets.official-state-monthly', [
-            'fiscalYears' => $fiscalYears,
-            'fiscalYearId' => $fiscalYearId,
-            'fiscalYear' => $fiscalYear,
-            'monthLabels' => $this->targets->fiscalMonthLabels($fiscalYear),
-            'grid' => $grid,
-            'columnTotals' => $columnTotals,
-            'targetsAllocationEditable' => $this->appSettings->isEnabled('targets.allocation_editable'),
-        ]);
+        return view('admin.targets.official-state-monthly', array_merge(
+            OfficialMonthlyTargetsUiSupport::viewContext($user, $this->appSettings, $fiscalYear, 'state'),
+            [
+                'fiscalYears' => $fiscalYears,
+                'fiscalYearId' => $fiscalYearId,
+                'fiscalYear' => $fiscalYear,
+                'monthLabels' => $this->targets->fiscalMonthLabels($fiscalYear),
+                'grid' => $grid,
+                'columnTotals' => $columnTotals,
+            ],
+        ));
     }
 
     public function export(Request $request): StreamedResponse
@@ -67,6 +73,8 @@ class OfficialStateMonthlyTargetsController extends Controller
 
     public function applyAll(Request $request): RedirectResponse
     {
+        abort_unless($request->user()?->role === 'state_admin', 403);
+
         if (! $this->appSettings->isEnabled('targets.allocation_editable')) {
             return redirect()
                 ->back()

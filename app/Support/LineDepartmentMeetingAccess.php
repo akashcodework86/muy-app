@@ -7,29 +7,9 @@ use App\Models\User;
 
 final class LineDepartmentMeetingAccess
 {
-    /**
-     * @return list<string>
-     */
-    public static function aadilEmails(): array
+    public static function isStateStaffSpoc(?User $user): bool
     {
-        $emails = config('muy.line_department_meeting_aadil_submitters', []);
-
-        return array_values(array_filter(array_map(
-            fn (mixed $email): string => strtolower(trim((string) $email)),
-            is_array($emails) ? $emails : [],
-        )));
-    }
-
-    public static function isAadil(?User $user): bool
-    {
-        if (! $user || $user->role !== 'state_staff') {
-            return false;
-        }
-
-        $allowed = self::aadilEmails();
-
-        return $allowed !== []
-            && in_array(strtolower(trim((string) $user->email)), $allowed, true);
+        return $user !== null && $user->role === 'state_staff';
     }
 
     public static function isIncubationManager(?User $user): bool
@@ -50,7 +30,7 @@ final class LineDepartmentMeetingAccess
             return false;
         }
 
-        if (self::isAadil($user)) {
+        if (self::isStateStaffSpoc($user)) {
             return true;
         }
 
