@@ -10,6 +10,7 @@ use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
+use App\Models\ProgramDeliverableRowMetadata;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCategory;
@@ -20,6 +21,7 @@ use App\Models\TrainingPackage;
 use App\Models\TrainingPackageMonthSession;
 use App\Models\User;
 use App\Services\AppSettingsService;
+use App\Services\Deliverables\ProgramDeliverableRowMetadataService;
 use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
 use App\Services\Deliverables\ProgramDeliverablesActivityGuideService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
@@ -2984,5 +2986,86 @@ class DeliverablesReportTest extends TestCase
         $case = ServiceCase::query()->where('service_id', $service->id)->first();
         $this->assertNotNull($case);
         $this->assertSame(ServiceCase::STATUS_DRAFT, $case->status);
+    }
+
+    public function test_report_uses_row_metadata_overrides(): void
+    {
+        ProgramDeliverableRowMetadata::query()->create([
+            'serial' => '1.1',
+            'indicator_type' => 'Non-Key',
+            'level' => 'State',
+        ]);
+
+        ProgramDeliverableRowMetadataService::resetCacheForTesting();
+
+        $filter = new ProgramDeliverablesFilter(null, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '1.1');
+
+        $this->assertNotNull($row);
+        $this->assertSame('Non-Key', $row['indicator_type']);
+        $this->assertSame('State', $row['level']);
+    }
+
+    public function test_row_metadata_update_requires_edit_mode_enabled(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->patchJson(route('admin.deliverables.row-metadata.update'), [
+                'serial' => '1.1',
+                'field' => 'level',
+                'value' => 'State',
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_state_admin_can_update_row_metadata_when_edit_mode_enabled(): void
+    {
+        app(AppSettingsService::class)->setMany(['deliverables.indicator_metadata_editable' => true]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->patchJson(route('admin.deliverables.row-metadata.update'), [
+                'serial' => '1.1',
+                'field' => 'indicator_type',
+                'value' => 'Non-Key',
+            ])
+            ->assertOk()
+            ->assertJson([
+                'serial' => '1.1',
+                'indicator_type' => 'Non-Key',
+            ]);
+
+        $this->assertDatabaseHas('program_deliverable_row_metadata', [
+            'serial' => '1.1',
+            'indicator_type' => 'Non-Key',
+        ]);
+    }
+
+    public function test_deliverables_page_shows_editable_selects_when_edit_mode_enabled(): void
+    {
+        app(AppSettingsService::class)->setMany(['deliverables.indicator_metadata_editable' => true]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.index'))
+            ->assertOk()
+            ->assertSee('dlv-meta-select', false)
+            ->assertSee('Edit mode is on', false);
+    }
+
+    public function test_service_module_settings_page_shows_deliverables_edit_toggle(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.service-module-settings.edit'))
+            ->assertOk()
+            ->assertSee('Deliverables page — edit mode', false)
+            ->assertSee('deliverables_indicator_metadata_editable', false);
     }
 }

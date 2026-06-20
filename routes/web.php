@@ -844,6 +844,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::patch('deliverables/row-metadata', [DeliverablesReportController::class, 'updateRowMetadata'])->name('deliverables.row-metadata.update');
         Route::get('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly');
         Route::post('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly.update');
         Route::get('targets/official-state-monthly', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('targets.official-state-monthly');

@@ -85,6 +85,19 @@
         @endif
     </form>
 
+    @if (($canEditRowMetadata ?? false) === false && auth()->user()?->role === 'state_admin')
+        <p style="margin:0 0 0.85rem; padding:0.55rem 0.75rem; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; font-size:0.84rem; color:#92400e; max-width:55rem;">
+            Indicator columns are read-only.
+            @if ($serviceModuleSettingsUrl ?? null)
+                <a href="{{ $serviceModuleSettingsUrl }}" style="color:#b45309; font-weight:600;">Enable edit mode in Service module settings →</a>
+            @endif
+        </p>
+    @elseif ($canEditRowMetadata ?? false)
+        <p style="margin:0 0 0.85rem; padding:0.55rem 0.75rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; font-size:0.84rem; color:#065f46; max-width:55rem;">
+            Edit mode is on — click <em>Type of Indicator</em> or <em>Spoke/Hub/State</em> to update. Changes save automatically.
+        </p>
+    @endif
+
     <div id="deliverables-table-wrap" style="overflow-x:auto;">
         <table id="deliverables-table" class="deliverables-report-table" style="width:100%;min-width:72rem;border-collapse:collapse;font-size:0.86rem;background:#fff;table-layout:fixed;">
             <thead>
@@ -109,8 +122,30 @@
                     <tr @if ($isHeading) style="background:#ffedd5;font-weight:700;" @endif>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['serial'] }}</td>
                         <td style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;">{{ $row['name'] }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $isHeading ? '' : ($row['indicator_type'] ?: '—') }}</td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $isHeading ? '' : ($row['level'] ?: '—') }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">
+                            @if ($canEditRowMetadata && ! $isHeading)
+                                <select class="dlv-meta-select" data-serial="{{ $row['serial'] }}" data-field="indicator_type" aria-label="Type of indicator for {{ $row['serial'] }}">
+                                    <option value="">—</option>
+                                    @foreach ($indicatorTypeOptions as $option)
+                                        <option value="{{ $option }}" @selected($row['indicator_type'] === $option)>{{ $option }}</option>
+                                    @endforeach
+                                </select>
+                            @else
+                                {{ $isHeading ? '' : ($row['indicator_type'] ?: '—') }}
+                            @endif
+                        </td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">
+                            @if ($canEditRowMetadata && ! $isHeading)
+                                <select class="dlv-meta-select" data-serial="{{ $row['serial'] }}" data-field="level" aria-label="Spoke Hub State for {{ $row['serial'] }}">
+                                    <option value="">—</option>
+                                    @foreach ($levelOptions as $option)
+                                        <option value="{{ $option }}" @selected($row['level'] === $option)>{{ $option }}</option>
+                                    @endforeach
+                                </select>
+                            @else
+                                {{ $isHeading ? '' : ($row['level'] ?: '—') }}
+                            @endif
+                        </td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ ! $isHeading && $row['target'] !== null ? number_format($row['target']) : '' }}</td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">
                             @if (! $isHeading && ($row['drilldown'] ?? false))
@@ -188,6 +223,34 @@
             .deliverables-report-table td:nth-child(6) { width: 8.5rem; }
             .deliverables-report-table th:nth-child(7),
             .deliverables-report-table td:nth-child(7) { width: 9rem; }
+            .dlv-meta-select {
+                width: 100%;
+                max-width: 100%;
+                padding: 0.28rem 0.35rem;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                font: inherit;
+                font-size: 0.8rem;
+                background: #fff;
+                cursor: pointer;
+            }
+            .dlv-meta-select:focus {
+                outline: 2px solid #6366f1;
+                outline-offset: 1px;
+                border-color: #6366f1;
+            }
+            .dlv-meta-select.is-saving {
+                opacity: 0.65;
+                cursor: wait;
+            }
+            .dlv-meta-select.is-saved {
+                border-color: #059669;
+                box-shadow: 0 0 0 1px rgba(5, 150, 105, 0.25);
+            }
+            .dlv-meta-select.is-error {
+                border-color: #dc2626;
+                box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.25);
+            }
             .dlv-screenshot-clone {
                 position: fixed;
                 left: -99999px;
@@ -372,6 +435,13 @@
                         button.replaceWith(span);
                     });
 
+                    clone.querySelectorAll('.dlv-meta-select').forEach(function (select) {
+                        const span = document.createElement('span');
+                        span.textContent = select.options[select.selectedIndex]?.text || '—';
+                        span.style.display = 'inline-block';
+                        select.replaceWith(span);
+                    });
+
                     clone.style.overflow = 'visible';
                     clone.style.background = '#ffffff';
 
@@ -440,6 +510,68 @@
                     }
                 });
             })();
+
+            @if ($canEditRowMetadata && $rowMetadataUpdateRoute)
+            (function () {
+                const updateUrl = @json(route($rowMetadataUpdateRoute));
+                const csrf = @json(csrf_token());
+
+                document.querySelectorAll('.dlv-meta-select').forEach(function (select) {
+                    let lastSaved = select.value;
+
+                    select.addEventListener('change', async function () {
+                        const serial = select.dataset.serial;
+                        const field = select.dataset.field;
+                        const value = select.value;
+
+                        select.classList.remove('is-saved', 'is-error');
+                        select.classList.add('is-saving');
+                        select.disabled = true;
+
+                        try {
+                            const res = await fetch(updateUrl, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-CSRF-TOKEN': csrf,
+                                },
+                                body: JSON.stringify({ serial: serial, field: field, value: value }),
+                            });
+
+                            if (!res.ok) {
+                                const payload = await res.json().catch(function () { return {}; });
+                                throw new Error(payload.message || 'Save failed');
+                            }
+
+                            const data = await res.json();
+                            lastSaved = value;
+
+                            document.querySelectorAll('.dlv-meta-select[data-serial="' + serial + '"]').forEach(function (el) {
+                                if (el.dataset.field === 'indicator_type') {
+                                    el.value = data.indicator_type || '';
+                                }
+                                if (el.dataset.field === 'level') {
+                                    el.value = data.level || '';
+                                }
+                            });
+
+                            select.classList.add('is-saved');
+                            setTimeout(function () {
+                                select.classList.remove('is-saved');
+                            }, 1200);
+                        } catch (error) {
+                            select.value = lastSaved;
+                            select.classList.add('is-error');
+                            alert(error.message || 'Could not save. Try again.');
+                        } finally {
+                            select.disabled = false;
+                            select.classList.remove('is-saving');
+                        }
+                    });
+                });
+            })();
+            @endif
         </script>
     @endpush
 @endsection

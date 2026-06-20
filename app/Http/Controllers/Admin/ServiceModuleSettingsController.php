@@ -37,6 +37,7 @@ class ServiceModuleSettingsController extends Controller
         return view('admin.service-module-settings.edit', [
             'enabled' => $this->settings->isEnabled('service_module.enabled'),
             'eligibility' => $this->settings->get('service_module.eligibility', 'onboarded_only'),
+            'deliverablesIndicatorMetadataEditable' => $this->settings->isEnabled('deliverables.indicator_metadata_editable'),
         ]);
     }
 
@@ -45,21 +46,25 @@ class ServiceModuleSettingsController extends Controller
         $validated = $request->validate([
             'enabled' => ['nullable', 'boolean'],
             'eligibility' => ['required', Rule::in(['all', 'onboarded_only'])],
+            'deliverables_indicator_metadata_editable' => ['nullable', 'boolean'],
         ]);
 
         $before = [
             'enabled' => $this->settings->isEnabled('service_module.enabled'),
             'eligibility' => $this->settings->get('service_module.eligibility', 'onboarded_only'),
+            'deliverables_indicator_metadata_editable' => $this->settings->isEnabled('deliverables.indicator_metadata_editable'),
         ];
 
         $after = [
             'enabled' => (bool) ($validated['enabled'] ?? false),
             'eligibility' => $validated['eligibility'],
+            'deliverables_indicator_metadata_editable' => (bool) ($validated['deliverables_indicator_metadata_editable'] ?? false),
         ];
 
         $this->settings->setMany([
             'service_module.enabled' => $after['enabled'],
             'service_module.eligibility' => $after['eligibility'],
+            'deliverables.indicator_metadata_editable' => $after['deliverables_indicator_metadata_editable'],
         ], auth()->id());
 
         $this->auditLogger->record(

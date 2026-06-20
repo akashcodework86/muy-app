@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\FiscalYear;
 use App\Models\User;
+use App\Services\AppSettingsService;
 use App\Services\Deliverables\DeliverablesBreakdownCsvExport;
 use App\Services\Deliverables\DeliverablesBreakdownPdfExport;
 use App\Services\Deliverables\Exports\DeliverablesBreakdownExcelExport;
 use App\Services\Deliverables\Exports\DeliverablesProgramExcelExport;
+use App\Services\Deliverables\ProgramDeliverableRowMetadataService;
 use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
 use App\Services\Deliverables\ProgramDeliverablesActivityGuideService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
@@ -31,6 +33,8 @@ class DeliverablesReportController extends Controller
         private readonly DeliverablesBreakdownExcelExport $breakdownExcelExport,
         private readonly DeliverablesBreakdownPdfExport $breakdownPdfExport,
         private readonly DeliverablesBreakdownCsvExport $breakdownCsvExport,
+        private readonly AppSettingsService $appSettings,
+        private readonly ProgramDeliverableRowMetadataService $rowMetadata,
     ) {}
 
     public function index(Request $request): View
@@ -153,6 +157,35 @@ class DeliverablesReportController extends Controller
         );
     }
 
+    public function updateRowMetadata(Request $request): JsonResponse
+    {
+        abort_unless(
+            $request->user()?->role === 'state_admin'
+            && $this->appSettings->isEnabled('deliverables.indicator_metadata_editable'),
+            403,
+            'Deliverables edit mode is disabled.',
+        );
+
+        $validated = $request->validate([
+            'serial' => ['required', 'string', 'max:32'],
+            'field' => ['required', 'in:indicator_type,level'],
+            'value' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        try {
+            $result = $this->rowMetadata->upsertField(
+                trim((string) $validated['serial']),
+                (string) $validated['field'],
+                filled($validated['value'] ?? null) ? (string) $validated['value'] : null,
+                $request->user(),
+            );
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json($result);
+    }
+
     /**
      * @return array{
      *     serial: string,
@@ -253,6 +286,16 @@ class DeliverablesReportController extends Controller
             'breakdownExportPdfRoute' => $this->routeNameFor($user, 'breakdown.export.pdf'),
             'showStateTargetsLink' => $user->role === 'state_admin',
             'fyQuarterPeriods' => $report['fiscalYear']?->fiscalQuarterPeriodsForJs() ?? [],
+            'canEditRowMetadata' => $user->role === 'state_admin'
+                && $this->appSettings->isEnabled('deliverables.indicator_metadata_editable'),
+            'rowMetadataUpdateRoute' => $user->role === 'state_admin'
+                ? 'admin.deliverables.row-metadata.update'
+                : null,
+            'serviceModuleSettingsUrl' => $user->role === 'state_admin'
+                ? route('admin.service-module-settings.edit')
+                : null,
+            'indicatorTypeOptions' => ProgramDeliverableRowMetadataService::INDICATOR_TYPES,
+            'levelOptions' => ProgramDeliverableRowMetadataService::LEVELS,
         ];
     }
 

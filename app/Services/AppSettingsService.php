@@ -39,6 +39,9 @@ class AppSettingsService
         'staff_nav.technical_training.visible' => true,
         'staff_nav.eap_edp_session.visible' => true,
         'staff_nav.district_workshop.visible' => true,
+
+        // Deliverables report — inline edit for indicator metadata columns
+        'deliverables.indicator_metadata_editable' => false,
     ];
 
     public function get(string $key, mixed $fallback = null): mixed

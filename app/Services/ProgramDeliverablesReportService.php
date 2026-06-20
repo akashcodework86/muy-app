@@ -15,6 +15,7 @@ use App\Models\StateDeliverableTarget;
 use App\Models\StateMonthlyTarget;
 use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverableReportingTier;
+use App\Services\Deliverables\ProgramDeliverableRowMetadataService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Support\DemoDaysDeliverablesSupport;
@@ -44,6 +45,7 @@ class ProgramDeliverablesReportService
         private readonly DistrictHubMonthlyTargetsService $districtHubMonthlyTargets,
         private readonly StateMonthlyTargetIndicatorBootstrapService $stateMonthlyIndicators,
         private readonly OfficialMonthlyTargetsReportService $officialMonthlyTargets,
+        private readonly ProgramDeliverableRowMetadataService $rowMetadata,
     ) {}
 
     /** @var array<string, int> */
@@ -1779,8 +1781,8 @@ SQL;
             'row_type' => (string) ($node['row_type'] ?? 'leaf'),
             'serial' => $serial,
             'name' => (string) ($node['name'] ?? ''),
-            'indicator_type' => ProgramDeliverableReportingTier::indicatorTypeLabel($node),
-            'level' => (string) ($node['level'] ?? ''),
+            'indicator_type' => $this->rowMetadata->resolveIndicatorType($node, $serial),
+            'level' => $this->rowMetadata->resolveLevel($node, $serial),
             'target' => $target,
             'achievement' => $achievement,
             'achievement_pct' => $this->percent($target, $achievement),
