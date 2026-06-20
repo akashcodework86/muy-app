@@ -1,24 +1,33 @@
 @extends('layouts.admin')
 
-@section('title', 'District target month wise (official)')
-@section('heading', 'District target month wise — official plan')
+@section('title', ($hubOnlyPage ?? false) ? 'Hub target distribution (official)' : 'District target month wise (official)')
+@section('heading', ($hubOnlyPage ?? false) ? 'Hub target distribution — official plan' : 'District target month wise — official plan')
 
 @section('content')
     @php
-        $mismatchBlocks = collect($districtBlocks)->filter(function (array $block) {
+        $hubOnlyPage = (bool) ($hubOnlyPage ?? false);
+        $pageRoute = $hubOnlyPage
+            ? route('admin.targets.official-hub-distribution-monthly')
+            : route('admin.targets.official-district-monthly');
+        $applyRoute = $hubOnlyPage
+            ? route('admin.targets.official-hub-distribution-monthly.apply')
+            : route('admin.targets.official-district-monthly.apply');
+        $displayBlocks = $hubOnlyPage ? ($hubDistributionBlocks ?? []) : ($districtBlocks ?? []);
+        $allDistrictBlocks = $displayBlocks;
+        $mismatchBlocks = collect($allDistrictBlocks)->filter(function (array $block) {
             $status = (string) (($block['verify_saved'] ?? [])['status'] ?? '');
 
             return in_array($status, ['over', 'under', 'no_state'], true);
         })->values()->all();
-        $matchedBlocks = collect($districtBlocks)->filter(function (array $block) {
+        $matchedBlocks = collect($allDistrictBlocks)->filter(function (array $block) {
             return (string) (($block['verify_saved'] ?? [])['status'] ?? '') === 'match';
         })->count();
         $mismatchCount = count($mismatchBlocks);
-        $totalBlocks = count($districtBlocks);
+        $totalBlocks = count($allDistrictBlocks);
     @endphp
 
     <div class="odm-page-top">
-        <form method="get" action="{{ route('admin.targets.official-district-monthly') }}" class="odm-fy-bar">
+        <form method="get" action="{{ $pageRoute }}" class="odm-fy-bar">
             <div class="odm-fy-bar__field">
                 <label for="fy">Fiscal year</label>
                 <select id="fy" name="fiscal_year_id">
@@ -38,7 +47,7 @@
         <div id="align-ok-banner" class="odm-align-ok" @if ($mismatchCount > 0) style="display:none;" @endif>
             <div class="odm-align-ok__icon" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></div>
             <div>
-                <div class="odm-align-ok__title">All district allocations match state targets</div>
+                <div class="odm-align-ok__title">All {{ $hubOnlyPage ? 'hub' : 'district' }} allocations match state targets</div>
                 <div class="odm-align-ok__text">Every service block is aligned with targets saved on State target month wise for {{ $fiscalYear->name ?? 'this fiscal year' }}.</div>
             </div>
         </div>
@@ -101,10 +110,21 @@
     </div>
 
     <p style="font-size:0.88rem; color:#52525b; margin:0 0 1rem; max-width:58rem; line-height:1.55;">
-        Official district / hub monthly plan (same layout as <strong>District Target Month Wise</strong> Excel).
-        Cells show your <strong>last saved</strong> targets. Use <strong>Put targets automatically</strong> to fill cells from the state target (when set) split across districts using the official plan ratios, or from the Excel plan if no state target exists. Edit if needed, then <strong>Update targets</strong> to save.
-        District totals are cross-checked against targets saved on
-        <a href="{{ route('admin.targets.official-state-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">State target month wise</a>.
+        @if ($hubOnlyPage)
+            Hub-distributed monthly targets for services allocated only across <strong>Almora</strong> and <strong>Pauri Garhwal</strong> (same layout as the official Excel plan).
+            Cells show your <strong>last saved</strong> targets. Use <strong>Put targets automatically</strong> to fill from state targets or the official plan, then <strong>Update targets</strong> to save.
+            Totals are cross-checked against
+            <a href="{{ route('admin.targets.official-state-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">State target month wise</a>.
+            Other district services are on
+            <a href="{{ route('admin.targets.official-district-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">District target month wise</a>.
+        @else
+            Official district / hub monthly plan (same layout as <strong>District Target Month Wise</strong> Excel).
+            Cells show your <strong>last saved</strong> targets. Use <strong>Put targets automatically</strong> to fill cells from the state target (when set) split across districts using the official plan ratios, or from the Excel plan if no state target exists. Edit if needed, then <strong>Update targets</strong> to save.
+            District totals are cross-checked against targets saved on
+            <a href="{{ route('admin.targets.official-state-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">State target month wise</a>.
+            Hub-distributed services are on
+            <a href="{{ route('admin.targets.official-hub-distribution-monthly', ['fiscal_year_id' => $fiscalYearId]) }}" style="color:#1d4ed8; font-weight:600;">Hub target distribution</a>.
+        @endif
     </p>
 
     @if (session('status'))
@@ -123,14 +143,16 @@
         </div>
     @endif
 
-    <form method="post" action="{{ route('admin.targets.official-district-monthly.apply') }}" id="official-district-form">
+    <form method="post" action="{{ $applyRoute }}" id="official-district-form">
         @csrf
         <input type="hidden" name="fiscal_year_id" value="{{ $fiscalYearId }}">
         <input type="hidden" name="district_payload" id="district_payload" value="">
 
         <div style="background:linear-gradient(135deg,#eff6ff,#f0fdf4); border:1px solid #93c5fd; border-radius:10px; padding:0.85rem 1rem; margin-bottom:1.25rem; font-size:0.88rem; display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
-            <div><strong>Services / blocks:</strong> {{ count($districtBlocks) }}</div>
-            <div><strong>State-only rows:</strong> {{ count($stateOnlyRows) }}</div>
+            <div><strong>Services / blocks:</strong> {{ count($displayBlocks) }}</div>
+            @if (! $hubOnlyPage)
+                <div><strong>State-only rows:</strong> {{ count($stateOnlyRows) }}</div>
+            @endif
             <button type="button" id="btn-auto-fill" style="background:#0369a1; color:#fff; border:none; padding:0.55rem 1rem; border-radius:8px; font-weight:700; cursor:pointer;">
                 Put targets automatically
             </button>
@@ -140,124 +162,11 @@
             </button>
         </div>
 
-        @foreach ($districtBlocks as $block)
-            @php
-                $deliverableId = (int) ($block['deliverable']->id ?? 0);
-                $mapped = (bool) ($block['mapped'] ?? false);
-                $verifySaved = (array) ($block['verify_saved'] ?? []);
-                $stateSavedTotal = (int) ($block['state_saved_total'] ?? 0);
-                $stateSavedMonths = (array) ($block['state_saved_months'] ?? []);
-            @endphp
-            <div class="district-block" style="margin-bottom:1.5rem; background:#fff; border:1px solid #e4e4e7; border-radius:10px; overflow:hidden;"
-                id="district-block-{{ (int) ($block['block_index'] ?? 0) }}"
-                data-block="1"
-                data-block-label="{{ ($block['mis_serial'] ?? '') !== '' ? $block['mis_serial'].' — ' : '' }}{{ $block['name'] ?? '' }}"
-                data-block-serial="{{ (string) ($block['mis_serial'] ?? '') }}"
-                data-block-name="{{ (string) ($block['name'] ?? '') }}"
-                data-state-total="{{ $stateSavedTotal }}"
-                @foreach (range(1, 12) as $m)
-                    data-state-month-{{ $m }}="{{ (int) ($stateSavedMonths[$m] ?? 0) }}"
-                @endforeach
-            >
-                <div style="padding:0.65rem 0.9rem; background:#9a3412; color:#fff; font-weight:700; font-size:0.9rem;">
-                    @if (! empty($block['excel_sn']))
-                        {{ $block['excel_sn'] }}.
-                    @endif
-                    {{ $block['mis_serial'] ? $block['mis_serial'].' — ' : '' }}{{ $block['name'] }}
-                    <span style="font-weight:400; opacity:0.85; margin-left:0.5rem;">
-                        State target (saved): <span class="block-state-total">{{ number_format($stateSavedTotal) }}</span>
-                        · District allocation: <span class="block-grand-total">0</span>
-                        · <span class="block-verify-status" style="display:inline-block; padding:0.1rem 0.45rem; border-radius:999px; font-size:0.72rem; font-weight:700; color:{{ $verifySaved['color'] ?? '#64748b' }}; background:{{ $verifySaved['bg'] ?? '#f1f5f9' }};">{{ $verifySaved['label'] ?? '—' }}</span>
-                    </span>
-                    @if (! $mapped)
-                        <span style="display:block; font-size:0.75rem; color:#fecaca; margin-top:0.25rem;">{{ $block['map_error'] ?? 'Not mapped' }}</span>
-                    @endif
-                </div>
-                <div style="overflow-x:auto;">
-                    <table class="block-table" style="border-collapse:collapse; font-size:0.78rem; min-width:max-content; width:100%;">
-                        <thead>
-                            <tr>
-                                <th style="padding:0.45rem 0.65rem; background:#ffedd5; border:1px solid #fdba74; text-align:left; min-width:8rem;">District</th>
-                                @foreach ($monthLabels as $m => $label)
-                                    <th style="padding:0.4rem 0.35rem; background:#ffedd5; border:1px solid #fdba74; text-align:center;">{{ $label }}</th>
-                                @endforeach
-                                <th style="padding:0.45rem 0.65rem; background:#ffedd5; border:1px solid #fdba74; text-align:center;">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($block['district_rows'] ?? [] as $dRow)
-                                @php $districtId = (int) $dRow['district']->id; @endphp
-                                <tr class="data-row">
-                                    <td style="padding:0.4rem 0.65rem; border:1px solid #e4e4e7; font-weight:600;">{{ $dRow['district']->name }}</td>
-                                    @foreach (range(1, 12) as $m)
-                                        <td style="padding:0.15rem; border:1px solid #e4e4e7; text-align:center;">
-                                            <input type="number" min="0" step="1"
-                                                value="{{ (int) ($dRow['saved_months'][$m] ?? 0) }}"
-                                                data-official="{{ (int) ($dRow['official_months'][$m] ?? 0) }}"
-                                                data-scope="district"
-                                                @if ($mapped && $deliverableId > 0)
-                                                    data-deliverable-id="{{ $deliverableId }}"
-                                                @else
-                                                    data-mis-serial="{{ (string) ($block['mis_serial'] ?? '') }}"
-                                                    data-indicator-name="{{ (string) ($block['name'] ?? '') }}"
-                                                @endif
-                                                data-district-id="{{ $districtId }}"
-                                                data-month="{{ $m }}"
-                                                class="month-input"
-                                                style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
-                                        </td>
-                                    @endforeach
-                                    <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
-                                </tr>
-                            @endforeach
-                            @foreach ($block['hub_rows'] ?? [] as $hRow)
-                                @php $hubId = (int) $hRow['hub']->id; @endphp
-                                <tr class="data-row">
-                                    <td style="padding:0.4rem 0.65rem; border:1px solid #e4e4e7; font-weight:600;">{{ $hRow['hub']->name }} (Hub)</td>
-                                    @foreach (range(1, 12) as $m)
-                                        <td style="padding:0.15rem; border:1px solid #e4e4e7; text-align:center;">
-                                            <input type="number" min="0" step="1"
-                                                value="{{ (int) ($hRow['saved_months'][$m] ?? 0) }}"
-                                                data-official="{{ (int) ($hRow['official_months'][$m] ?? 0) }}"
-                                                data-scope="hub"
-                                                @if ($mapped && $deliverableId > 0)
-                                                    data-deliverable-id="{{ $deliverableId }}"
-                                                @else
-                                                    data-mis-serial="{{ (string) ($block['mis_serial'] ?? '') }}"
-                                                    data-indicator-name="{{ (string) ($block['name'] ?? '') }}"
-                                                @endif
-                                                data-hub-id="{{ $hubId }}"
-                                                data-month="{{ $m }}"
-                                                class="month-input"
-                                                style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
-                                        </td>
-                                    @endforeach
-                                    <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot>
-                            <tr style="background:#ffedd5; font-weight:700;">
-                                <td style="padding:0.4rem 0.65rem; border:1px solid #fdba74;">District allocation</td>
-                                @foreach (range(1, 12) as $m)
-                                    <td class="col-total" data-month="{{ $m }}" style="padding:0.35rem; border:1px solid #fdba74; text-align:center;">0</td>
-                                @endforeach
-                                <td class="footer-grand" style="padding:0.4rem; border:1px solid #fdba74; text-align:center;">0</td>
-                            </tr>
-                            <tr style="background:#dbeafe; font-weight:600;">
-                                <td style="padding:0.4rem 0.65rem; border:1px solid #93c5fd;">State target (saved)</td>
-                                @foreach (range(1, 12) as $m)
-                                    <td class="state-month-total" data-month="{{ $m }}" style="padding:0.35rem; border:1px solid #93c5fd; text-align:center;">{{ number_format((int) ($stateSavedMonths[$m] ?? 0)) }}</td>
-                                @endforeach
-                                <td class="state-grand-total" style="padding:0.4rem; border:1px solid #93c5fd; text-align:center;">{{ number_format($stateSavedTotal) }}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
+        @foreach ($displayBlocks as $block)
+            @include('admin.targets.partials.official-district-block', ['block' => $block, 'monthLabels' => $monthLabels])
         @endforeach
 
-        @if ($stateOnlyRows !== [])
+        @if (! $hubOnlyPage && $stateOnlyRows !== [])
             <div style="margin-bottom:1rem; background:#fff; border:1px solid #e4e4e7; border-radius:10px; overflow:hidden;">
                 <div style="padding:0.65rem 0.9rem; background:#1e3a8a; color:#fff; font-weight:700; font-size:0.9rem;">
                     State-level monthly targets (no district split)
@@ -390,6 +299,15 @@
             background: #fef2f2;
             color: #b91c1c;
             border-color: #fca5a5;
+        }
+        .odm-stat-pill--hub {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-color: #93c5fd;
+            text-decoration: none;
+        }
+        .odm-stat-pill--hub:hover {
+            background: #dbeafe;
         }
         .odm-align-ok {
             display: flex;
@@ -604,6 +522,84 @@
         }
         .district-block {
             scroll-margin-top: 1.25rem;
+        }
+        .hub-distribution-group {
+            margin-bottom: 1.5rem;
+            background: #fff;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            overflow: visible;
+            box-shadow: 0 4px 16px rgba(30, 64, 175, 0.12);
+            scroll-margin-top: 1.25rem;
+        }
+        .hub-distribution-group__summary {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem 1rem;
+            padding: 0.85rem 1rem;
+            cursor: pointer;
+            list-style: none;
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border-bottom: 1px solid #bfdbfe;
+            user-select: none;
+        }
+        .hub-distribution-group__summary::-webkit-details-marker {
+            display: none;
+        }
+        .hub-distribution-group__summary::before {
+            content: '▶';
+            font-size: 0.7rem;
+            color: #1d4ed8;
+            transition: transform 0.15s ease;
+        }
+        .hub-distribution-group[open] > .hub-distribution-group__summary::before {
+            content: '▼';
+        }
+        .hub-distribution-group__title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #1e3a8a;
+        }
+        .hub-distribution-group__meta {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #3b82f6;
+        }
+        .hub-distribution-group__body {
+            padding: 1rem 0.85rem 0.25rem;
+            background: #f8fafc;
+        }
+        .hub-target-section {
+            border-top: 1px solid #e4e4e7;
+            padding: 0 0.9rem 0.65rem;
+        }
+        .hub-target-section > summary {
+            padding: 0.55rem 0;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #1e40af;
+            user-select: none;
+            list-style: none;
+        }
+        .hub-target-section > summary::-webkit-details-marker {
+            display: none;
+        }
+        .hub-target-section > summary::before {
+            content: '▶ ';
+            font-size: 0.7rem;
+        }
+        .hub-target-section[open] > summary::before {
+            content: '▼ ';
+        }
+        .hub-target-section__count {
+            font-weight: 600;
+            color: #64748b;
+        }
+        .hub-target-section__body {
+            overflow-x: auto;
+            padding-bottom: 0.35rem;
         }
         @media (max-width: 720px) {
             .odm-fy-bar__meta {

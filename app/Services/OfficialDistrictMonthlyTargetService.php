@@ -32,6 +32,7 @@ class OfficialDistrictMonthlyTargetService
     /**
      * @return array{
      *     district_blocks: list<array<string, mixed>>,
+     *     hub_distribution_blocks: list<array<string, mixed>>,
      *     state_only_rows: list<array<string, mixed>>,
      *     districts: \Illuminate\Support\Collection<int, District>
      * }
@@ -251,11 +252,41 @@ class OfficialDistrictMonthlyTargetService
             ]);
         }
 
+        $districtBlocks = [];
+        $hubDistributionBlocks = [];
+        foreach ($enrichedBlocks as $enrichedBlock) {
+            if ($this->isHubDistributionBlock($enrichedBlock)) {
+                $hubDistributionBlocks[] = $enrichedBlock;
+            } else {
+                $districtBlocks[] = $enrichedBlock;
+            }
+        }
+
         return [
-            'district_blocks' => $enrichedBlocks,
+            'district_blocks' => $districtBlocks,
+            'hub_distribution_blocks' => $hubDistributionBlocks,
             'state_only_rows' => $enrichedStateRows,
             'districts' => $districts,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $block
+     */
+    private function isHubDistributionBlock(array $block): bool
+    {
+        if (($block['group'] ?? '') === 'hub_distribution') {
+            return true;
+        }
+
+        $slugs = collect(array_keys((array) ($block['districts'] ?? [])))
+            ->map(fn ($slug) => (string) $slug)
+            ->filter()
+            ->sort()
+            ->values()
+            ->all();
+
+        return $slugs === ['almora', 'pauri-garhwal'];
     }
 
     /**

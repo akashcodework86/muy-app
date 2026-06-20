@@ -190,7 +190,24 @@ class OfficialMonthlyTargetsTest extends TestCase
             ->assertSee('State target month wise')
             ->assertSee('Call for application')
             ->assertSee('Onboarding')
-            ->assertSee('Onboarding of Potential Lakhpati Didi/ SHG Members/ CBOs*');
+            ->assertSee('Onboarding of Potential Lakhpati Didi/ SHG Members/ CBOs*')
+            ->assertSee('Hub target distribution')
+            ->assertDontSee('Technical Trainings to Incubatees');
+    }
+
+    public function test_official_hub_distribution_monthly_page_renders(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.targets.official-hub-distribution-monthly'))
+            ->assertOk()
+            ->assertSee('Hub target distribution')
+            ->assertSee('Technical Trainings to Incubatees')
+            ->assertSee('UTDB - Hub wise')
+            ->assertSee('Trademark Filling - Hub Level')
+            ->assertSee('GI Seller')
+            ->assertDontSee('Call for application');
     }
 
     public function test_onboarding_and_lakhpati_district_blocks_map_to_distinct_deliverables(): void

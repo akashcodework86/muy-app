@@ -70,6 +70,7 @@
         str_starts_with($r, 'spoc.deliverables') => 'deliverables',
         str_starts_with($r, 'admin.targets.state-monthly') => 'targets-state-monthly',
         str_starts_with($r, 'admin.targets.official-state-monthly') => 'targets-official-state-monthly',
+        str_starts_with($r, 'admin.targets.official-hub-distribution-monthly') => 'targets-official-hub-distribution-monthly',
         str_starts_with($r, 'admin.targets.official-district-monthly') => 'targets-official-district-monthly',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
@@ -288,7 +289,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsAllocationActive = in_array($activeNav, ['targets-official-state-monthly', 'targets-official-district-monthly'], true);
+    $targetsAllocationActive = in_array($activeNav, ['targets-official-state-monthly', 'targets-official-district-monthly', 'targets-official-hub-distribution-monthly'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
@@ -425,6 +426,9 @@
                     </a>
                     <a href="{{ route('admin.targets.official-district-monthly') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'targets-official-district-monthly') is-active @endif" role="menuitem">
                         {!! $i('calendar') !!}<span>District target month wise</span>
+                    </a>
+                    <a href="{{ route('admin.targets.official-hub-distribution-monthly') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'targets-official-hub-distribution-monthly') is-active @endif" role="menuitem">
+                        {!! $i('calendar') !!}<span>Hub target distribution</span>
                     </a>
                 </div>
             </details>

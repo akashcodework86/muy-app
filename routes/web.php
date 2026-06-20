@@ -850,6 +850,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('targets/official-state-monthly/apply', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'applyAll'])->name('targets.official-state-monthly.apply');
         Route::get('targets/official-district-monthly', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('targets.official-district-monthly');
         Route::post('targets/official-district-monthly/apply', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'applyAll'])->name('targets.official-district-monthly.apply');
+        Route::get('targets/official-hub-distribution-monthly', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('targets.official-hub-distribution-monthly');
+        Route::post('targets/official-hub-distribution-monthly/apply', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionApply'])->name('targets.official-hub-distribution-monthly.apply');
         Route::get('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state');
         Route::post('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state.update');
         Route::get('targets/district', fn () => redirect()->route('admin.targets.official-district-monthly'))->name('targets.district');

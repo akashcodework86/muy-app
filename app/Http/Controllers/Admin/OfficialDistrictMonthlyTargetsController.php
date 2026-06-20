@@ -37,12 +37,61 @@ class OfficialDistrictMonthlyTargetsController extends Controller
             'fiscalYear' => $fiscalYear,
             'monthLabels' => $this->targets->fiscalMonthLabels($fiscalYear),
             'districtBlocks' => $viewData['district_blocks'],
+            'hubDistributionBlocks' => [],
             'stateOnlyRows' => $viewData['state_only_rows'],
+            'hubOnlyPage' => false,
+        ]);
+    }
+
+    public function hubDistribution(Request $request): View
+    {
+        $this->serviceDeliverables->syncAllServices();
+
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
+            $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
+        );
+
+        $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId);
+        $viewData = $this->targets->buildViewData($fiscalYearId);
+
+        return view('admin.targets.official-district-monthly', [
+            'fiscalYears' => $fiscalYears,
+            'fiscalYearId' => $fiscalYearId,
+            'fiscalYear' => $fiscalYear,
+            'monthLabels' => $this->targets->fiscalMonthLabels($fiscalYear),
+            'districtBlocks' => [],
+            'hubDistributionBlocks' => $viewData['hub_distribution_blocks'],
+            'stateOnlyRows' => [],
+            'hubOnlyPage' => true,
         ]);
     }
 
     public function applyAll(Request $request): RedirectResponse
     {
+        return $this->applyTargetsFromRequest(
+            $request,
+            'admin.targets.official-district-monthly',
+            'targets.official-district-monthly.applied',
+            'Official district monthly targets assigned from form',
+        );
+    }
+
+    public function hubDistributionApply(Request $request): RedirectResponse
+    {
+        return $this->applyTargetsFromRequest(
+            $request,
+            'admin.targets.official-hub-distribution-monthly',
+            'targets.official-hub-distribution-monthly.applied',
+            'Official hub distribution monthly targets assigned from form',
+        );
+    }
+
+    private function applyTargetsFromRequest(
+        Request $request,
+        string $redirectRoute,
+        string $auditAction,
+        string $auditDescription,
+    ): RedirectResponse {
         $validated = $request->validate([
             'fiscal_year_id' => ['required', 'integer', Rule::exists('fiscal_years', 'id')->whereIn('code', FiscalYear::UI_SELECTABLE_CODES)],
             'blocks' => ['nullable', 'array'],
@@ -76,7 +125,7 @@ class OfficialDistrictMonthlyTargetsController extends Controller
             && ($input['unresolved_state_only'] ?? []) === []
         ) {
             return redirect()
-                ->route('admin.targets.official-district-monthly', ['fiscal_year_id' => $fyId])
+                ->route($redirectRoute, ['fiscal_year_id' => $fyId])
                 ->withErrors(['apply' => 'No target values were submitted. Edit cells and click Update targets again.']);
         }
 
@@ -84,16 +133,16 @@ class OfficialDistrictMonthlyTargetsController extends Controller
 
         $this->auditLogger->record(
             $request,
-            'targets.official-district-monthly.applied',
+            $auditAction,
             FiscalYear::class,
             $fyId,
             null,
             $result,
-            'Official district monthly targets assigned from form',
+            $auditDescription,
         );
 
         $redirect = redirect()
-            ->route('admin.targets.official-district-monthly', ['fiscal_year_id' => $fyId]);
+            ->route($redirectRoute, ['fiscal_year_id' => $fyId]);
 
         if ($result['errors'] !== []) {
             return $redirect
