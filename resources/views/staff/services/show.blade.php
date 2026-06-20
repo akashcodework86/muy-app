@@ -226,7 +226,7 @@
                             <dd style="margin:0;">{{ ConvergenceReapSupport::reapAmountLabel((string) $reapAmount) }}</dd>
                         @endif
                         @if ($reapActivity)
-                            <dt style="color:#71717a;">Activity</dt>
+                            <dt style="color:#71717a;">Purposed activity</dt>
                             <dd style="margin:0;white-space:pre-wrap;">{{ $reapActivity }}</dd>
                         @endif
                         @if ($reapDocument)

@@ -69,7 +69,7 @@ final class ConvergenceReapSupport
             ],
             [
                 'key' => self::REAP_ACTIVITY_KEY,
-                'label' => 'Activity',
+                'label' => 'Purposed activity',
                 'type' => ServiceFieldTypes::TEXTAREA,
                 'required' => true,
             ],
