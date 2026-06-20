@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\FiscalYear;
 use App\Services\AdminAuditLogger;
+use App\Services\AppSettingsService;
 use App\Services\OfficialDistrictMonthlyTargetService;
 use App\Services\ServiceTargetDeliverableSyncService;
+use App\Services\Targets\Exports\OfficialDistrictMonthlyTargetsExcelExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OfficialDistrictMonthlyTargetsController extends Controller
 {
@@ -18,6 +21,8 @@ class OfficialDistrictMonthlyTargetsController extends Controller
         private readonly OfficialDistrictMonthlyTargetService $targets,
         private readonly ServiceTargetDeliverableSyncService $serviceDeliverables,
         private readonly AdminAuditLogger $auditLogger,
+        private readonly AppSettingsService $appSettings,
+        private readonly OfficialDistrictMonthlyTargetsExcelExport $excelExport,
     ) {}
 
     public function index(Request $request): View
@@ -40,6 +45,7 @@ class OfficialDistrictMonthlyTargetsController extends Controller
             'hubDistributionBlocks' => [],
             'stateOnlyRows' => $viewData['state_only_rows'],
             'hubOnlyPage' => false,
+            'targetsAllocationEditable' => $this->appSettings->isEnabled('targets.allocation_editable'),
         ]);
     }
 
@@ -63,7 +69,36 @@ class OfficialDistrictMonthlyTargetsController extends Controller
             'hubDistributionBlocks' => $viewData['hub_distribution_blocks'],
             'stateOnlyRows' => [],
             'hubOnlyPage' => true,
+            'targetsAllocationEditable' => $this->appSettings->isEnabled('targets.allocation_editable'),
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        return $this->exportViewData($request, hubOnly: false);
+    }
+
+    public function hubDistributionExport(Request $request): StreamedResponse
+    {
+        return $this->exportViewData($request, hubOnly: true);
+    }
+
+    private function exportViewData(Request $request, bool $hubOnly): StreamedResponse
+    {
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
+            $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
+        );
+
+        $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId);
+        $viewData = $this->targets->buildViewData($fiscalYearId);
+
+        return $this->excelExport->download(
+            $hubOnly ? $viewData['hub_distribution_blocks'] : $viewData['district_blocks'],
+            $hubOnly ? [] : $viewData['state_only_rows'],
+            $this->targets->fiscalMonthLabels($fiscalYear),
+            $fiscalYear,
+            $hubOnly,
+        );
     }
 
     public function applyAll(Request $request): RedirectResponse
@@ -92,6 +127,12 @@ class OfficialDistrictMonthlyTargetsController extends Controller
         string $auditAction,
         string $auditDescription,
     ): RedirectResponse {
+        if (! $this->appSettings->isEnabled('targets.allocation_editable')) {
+            return redirect()
+                ->back()
+                ->withErrors(['apply' => 'Target allocation editing is disabled in Service module settings.']);
+        }
+
         $validated = $request->validate([
             'fiscal_year_id' => ['required', 'integer', Rule::exists('fiscal_years', 'id')->whereIn('code', FiscalYear::UI_SELECTABLE_CODES)],
             'blocks' => ['nullable', 'array'],

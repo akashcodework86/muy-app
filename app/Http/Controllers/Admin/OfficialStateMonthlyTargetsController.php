@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\FiscalYear;
 use App\Services\AdminAuditLogger;
+use App\Services\AppSettingsService;
 use App\Services\OfficialStateMonthlyTargetService;
 use App\Services\ServiceTargetDeliverableSyncService;
+use App\Services\Targets\Exports\OfficialStateMonthlyTargetsExcelExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OfficialStateMonthlyTargetsController extends Controller
 {
@@ -18,6 +21,8 @@ class OfficialStateMonthlyTargetsController extends Controller
         private readonly OfficialStateMonthlyTargetService $targets,
         private readonly ServiceTargetDeliverableSyncService $serviceDeliverables,
         private readonly AdminAuditLogger $auditLogger,
+        private readonly AppSettingsService $appSettings,
+        private readonly OfficialStateMonthlyTargetsExcelExport $excelExport,
     ) {}
 
     public function index(Request $request): View
@@ -39,11 +44,35 @@ class OfficialStateMonthlyTargetsController extends Controller
             'monthLabels' => $this->targets->fiscalMonthLabels($fiscalYear),
             'grid' => $grid,
             'columnTotals' => $columnTotals,
+            'targetsAllocationEditable' => $this->appSettings->isEnabled('targets.allocation_editable'),
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        [$fiscalYearId, $fiscalYears] = FiscalYear::resolveIdForUi(
+            $request->query('fiscal_year_id') ? (int) $request->query('fiscal_year_id') : null
+        );
+
+        $fiscalYear = $fiscalYears->firstWhere('id', $fiscalYearId);
+        $grid = $this->targets->buildGrid($fiscalYearId);
+
+        return $this->excelExport->download(
+            $grid,
+            $this->targets->columnTotals($grid),
+            $this->targets->fiscalMonthLabels($fiscalYear),
+            $fiscalYear,
+        );
     }
 
     public function applyAll(Request $request): RedirectResponse
     {
+        if (! $this->appSettings->isEnabled('targets.allocation_editable')) {
+            return redirect()
+                ->back()
+                ->withErrors(['apply' => 'Target allocation editing is disabled in Service module settings.']);
+        }
+
         $validated = $request->validate([
             'fiscal_year_id' => ['required', 'integer', Rule::exists('fiscal_years', 'id')->whereIn('code', FiscalYear::UI_SELECTABLE_CODES)],
             'targets' => ['nullable', 'array'],

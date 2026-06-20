@@ -3058,6 +3058,17 @@ class DeliverablesReportTest extends TestCase
             ->assertSee('Edit mode is on', false);
     }
 
+    public function test_deliverables_page_does_not_show_read_only_settings_banner(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.index'))
+            ->assertOk()
+            ->assertDontSee('Indicator columns are read-only', false)
+            ->assertDontSee('Enable edit mode in Service module settings', false);
+    }
+
     public function test_service_module_settings_page_shows_deliverables_edit_toggle(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);

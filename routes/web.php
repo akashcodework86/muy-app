@@ -848,10 +848,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly');
         Route::post('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly.update');
         Route::get('targets/official-state-monthly', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('targets.official-state-monthly');
+        Route::get('targets/official-state-monthly/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('targets.official-state-monthly.export');
         Route::post('targets/official-state-monthly/apply', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'applyAll'])->name('targets.official-state-monthly.apply');
         Route::get('targets/official-district-monthly', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('targets.official-district-monthly');
+        Route::get('targets/official-district-monthly/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'export'])->name('targets.official-district-monthly.export');
         Route::post('targets/official-district-monthly/apply', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'applyAll'])->name('targets.official-district-monthly.apply');
         Route::get('targets/official-hub-distribution-monthly', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('targets.official-hub-distribution-monthly');
+        Route::get('targets/official-hub-distribution-monthly/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('targets.official-hub-distribution-monthly.export');
         Route::post('targets/official-hub-distribution-monthly/apply', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionApply'])->name('targets.official-hub-distribution-monthly.apply');
         Route::get('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state');
         Route::post('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state.update');

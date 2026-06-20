@@ -95,6 +95,33 @@
             </header>
         </section>
 
+        {{-- Target allocation edit mode --}}
+        <section style="background:#fff; border:1px solid #e4e4e7; border-radius:12px; padding:1rem 1.1rem; margin-bottom:1rem;">
+            <header style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;">
+                <div>
+                    <h3 style="margin:0 0 0.25rem; font-size:1rem; color:#18181b;">Target allocation pages — edit mode</h3>
+                    <p style="margin:0; font-size:0.82rem; color:#52525b; line-height:1.45;">
+                        When <strong>ON</strong>, state admins can edit and save targets on
+                        <em>State target month wise</em>, <em>District target month wise</em>, and
+                        <em>Hub target distribution</em>.<br>
+                        When <strong>OFF</strong>, those pages are view-only (no cell edits or saves).
+                    </p>
+                    <p style="margin:0.5rem 0 0; font-size:0.82rem;">
+                        <a href="{{ route('admin.targets.official-state-monthly') }}" style="color:#4f46e5;">State targets →</a>
+                        ·
+                        <a href="{{ route('admin.targets.official-district-monthly') }}" style="color:#4f46e5;">District targets →</a>
+                    </p>
+                </div>
+                <label style="display:inline-flex; align-items:center; gap:0.5rem; cursor:pointer; flex-shrink:0;">
+                    <input type="hidden" name="targets_allocation_editable" value="0">
+                    <input type="checkbox" name="targets_allocation_editable" value="1" @checked($targetsAllocationEditable) style="width:1.1rem; height:1.1rem; accent-color:#4f46e5; cursor:pointer;">
+                    <span style="font-weight:600; font-size:0.92rem; color:{{ $targetsAllocationEditable ? '#166534' : '#991b1b' }};">
+                        {{ $targetsAllocationEditable ? 'EDITABLE' : 'READ-ONLY' }}
+                    </span>
+                </label>
+            </header>
+        </section>
+
         <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
             <button type="submit" style="background:#4f46e5; color:#fff; border:none; padding:0.6rem 1.25rem; border-radius:8px; font-weight:600; font-size:0.9rem; cursor:pointer;">
                 Save settings

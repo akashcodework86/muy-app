@@ -85,14 +85,7 @@
         @endif
     </form>
 
-    @if (($canEditRowMetadata ?? false) === false && auth()->user()?->role === 'state_admin')
-        <p style="margin:0 0 0.85rem; padding:0.55rem 0.75rem; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; font-size:0.84rem; color:#92400e; max-width:55rem;">
-            Indicator columns are read-only.
-            @if ($serviceModuleSettingsUrl ?? null)
-                <a href="{{ $serviceModuleSettingsUrl }}" style="color:#b45309; font-weight:600;">Enable edit mode in Service module settings →</a>
-            @endif
-        </p>
-    @elseif ($canEditRowMetadata ?? false)
+    @if ($canEditRowMetadata ?? false)
         <p style="margin:0 0 0.85rem; padding:0.55rem 0.75rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; font-size:0.84rem; color:#065f46; max-width:55rem;">
             Edit mode is on — click <em>Type of Indicator</em> or <em>Spoke/Hub/State</em> to update. Changes save automatically.
         </p>

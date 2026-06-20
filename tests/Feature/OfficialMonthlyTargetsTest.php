@@ -9,6 +9,7 @@ use App\Models\Hub;
 use App\Models\OfficialDistrictMonthlyTarget;
 use App\Models\OfficialStateMonthlyTarget;
 use App\Models\User;
+use App\Services\AppSettingsService;
 use App\Services\OfficialMonthlyTargetCodeResolver;
 use App\Services\ServiceTargetDeliverableSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -532,5 +533,114 @@ class OfficialMonthlyTargetsTest extends TestCase
         }
 
         return ['blocks' => $blocks, 'state_only' => $stateOnly];
+    }
+
+    public function test_target_allocation_pages_hide_edit_controls_when_read_only(): void
+    {
+        app(AppSettingsService::class)->setMany(['targets.allocation_editable' => false]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.targets.official-state-monthly'))
+            ->assertOk()
+            ->assertDontSee('id="btn-auto-fill"', false)
+            ->assertDontSee("confirm('Save these state monthly targets", false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.targets.official-district-monthly'))
+            ->assertOk()
+            ->assertDontSee('id="btn-auto-fill"', false)
+            ->assertDontSee("confirm('Save these district monthly targets", false);
+    }
+
+    public function test_target_allocation_apply_blocked_when_read_only(): void
+    {
+        app(AppSettingsService::class)->setMany(['targets.allocation_editable' => false]);
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.targets.official-state-monthly.apply'), [
+                'fiscal_year_id' => $fy->id,
+                'targets' => $this->officialStateTargetsPayload(),
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('apply');
+    }
+
+    public function test_service_module_settings_shows_target_allocation_toggle(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.service-module-settings.edit'))
+            ->assertOk()
+            ->assertSee('Target allocation pages — edit mode', false)
+            ->assertSee('targets_allocation_editable', false);
+    }
+
+    public function test_official_state_monthly_export_returns_xlsx(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('admin.targets.official-state-monthly.export'));
+
+        if (! class_exists(\ZipArchive::class) || ! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            $response->assertStatus(500);
+
+            return;
+        }
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringContainsString('state-targets-', (string) $response->headers->get('content-disposition'));
+    }
+
+    public function test_official_district_monthly_export_returns_xlsx(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('admin.targets.official-district-monthly.export'));
+
+        if (! class_exists(\ZipArchive::class) || ! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            $response->assertStatus(500);
+
+            return;
+        }
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringContainsString('district-targets-', (string) $response->headers->get('content-disposition'));
+    }
+
+    public function test_official_hub_distribution_export_returns_xlsx(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('admin.targets.official-hub-distribution-monthly.export'));
+
+        if (! class_exists(\ZipArchive::class) || ! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            $response->assertStatus(500);
+
+            return;
+        }
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringContainsString('hub-targets-', (string) $response->headers->get('content-disposition'));
     }
 }

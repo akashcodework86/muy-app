@@ -37,6 +37,7 @@
             </select>
         </div>
         <button type="submit" style="background:#18181b; color:#fff; border:none; padding:0.5rem 0.85rem; border-radius:8px; font-weight:600; cursor:pointer;">Load</button>
+        <a href="{{ route('admin.targets.official-state-monthly.export', ['fiscal_year_id' => $fiscalYearId]) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.5rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;">⬇ Export .xlsx</a>
     </form>
 
     @if ($grid === [])
@@ -51,6 +52,7 @@
                 <div><strong>Official plan total:</strong> <span id="grand-official">{{ number_format((int) ($columnTotals['grand_official'] ?? 0)) }}</span></div>
                 <div><strong>Form total:</strong> <span id="grand-form">0</span></div>
                 <div><strong>Saved in DB:</strong> {{ number_format((int) ($columnTotals['grand_saved'] ?? 0)) }}</div>
+                @if ($targetsAllocationEditable ?? true)
                 <button type="button" id="btn-auto-fill" style="background:#0369a1; color:#fff; border:none; padding:0.55rem 1rem; border-radius:8px; font-weight:700; cursor:pointer;">
                     Put targets automatically
                 </button>
@@ -58,6 +60,7 @@
                     onclick="return confirm('Save these state monthly targets to the database?');">
                     Update targets
                 </button>
+                @endif
             </div>
 
             <div style="overflow-x:auto; background:#fff; border:1px solid #d4d4d8; border-radius:10px;">
@@ -113,7 +116,8 @@
                                                     data-deliverable-id="{{ $deliverableId }}"
                                                     data-month="{{ $m }}"
                                                     class="month-input"
-                                                    style="width:3.25rem; padding:0.25rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px;">
+                                                    @if (! ($targetsAllocationEditable ?? true)) readonly disabled @endif
+                                                    style="width:3.25rem; padding:0.25rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px;@if (! ($targetsAllocationEditable ?? true)) background:#f4f4f5; color:#52525b; @endif">
                                             </td>
                                         @endforeach
                                         <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>

@@ -5,6 +5,11 @@
     $stateSavedTotal = (int) ($block['state_saved_total'] ?? 0);
     $stateSavedMonths = (array) ($block['state_saved_months'] ?? []);
     $hubRows = $block['hub_rows'] ?? [];
+    $inputLocked = ! ($targetsAllocationEditable ?? true);
+    $lockedInputStyle = 'width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;';
+    if ($inputLocked) {
+        $lockedInputStyle .= ' background:#f4f4f5; color:#52525b;';
+    }
 @endphp
 <div class="district-block" style="margin-bottom:1.5rem; background:#fff; border:1px solid #e4e4e7; border-radius:10px; overflow:hidden;"
     id="district-block-{{ (int) ($block['block_index'] ?? 0) }}"
@@ -62,7 +67,8 @@
                                     data-district-id="{{ $districtId }}"
                                     data-month="{{ $m }}"
                                     class="month-input"
-                                    style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
+                                    @if ($inputLocked) readonly disabled @endif
+                                    style="{{ $lockedInputStyle }}">
                             </td>
                         @endforeach
                         <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
@@ -125,7 +131,8 @@
                                             data-hub-id="{{ $hubId }}"
                                             data-month="{{ $m }}"
                                             class="month-input"
-                                            style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
+                                            @if ($inputLocked) readonly disabled @endif
+                                            style="{{ $lockedInputStyle }}">
                                     </td>
                                 @endforeach
                                 <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>

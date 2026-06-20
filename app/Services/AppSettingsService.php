@@ -42,6 +42,9 @@ class AppSettingsService
 
         // Deliverables report — inline edit for indicator metadata columns
         'deliverables.indicator_metadata_editable' => false,
+
+        // Target allocation pages (state / district / hub month-wise)
+        'targets.allocation_editable' => true,
     ];
 
     public function get(string $key, mixed $fallback = null): mixed

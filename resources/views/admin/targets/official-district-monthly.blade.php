@@ -12,6 +12,9 @@
         $applyRoute = $hubOnlyPage
             ? route('admin.targets.official-hub-distribution-monthly.apply')
             : route('admin.targets.official-district-monthly.apply');
+        $exportRoute = $hubOnlyPage
+            ? route('admin.targets.official-hub-distribution-monthly.export')
+            : route('admin.targets.official-district-monthly.export');
         $displayBlocks = $hubOnlyPage ? ($hubDistributionBlocks ?? []) : ($districtBlocks ?? []);
         $allDistrictBlocks = $displayBlocks;
         $mismatchBlocks = collect($allDistrictBlocks)->filter(function (array $block) {
@@ -37,6 +40,7 @@
                 </select>
             </div>
             <button type="submit" class="odm-fy-bar__btn">Load</button>
+            <a href="{{ $exportRoute }}?fiscal_year_id={{ $fiscalYearId }}" class="odm-fy-bar__btn odm-fy-bar__btn--export">⬇ Export .xlsx</a>
             <div class="odm-fy-bar__meta">
                 <span class="odm-stat-pill odm-stat-pill--neutral">{{ $totalBlocks }} services</span>
                 <span class="odm-stat-pill odm-stat-pill--ok" id="align-match-count">{{ $matchedBlocks }} matched</span>
@@ -153,6 +157,7 @@
             @if (! $hubOnlyPage)
                 <div><strong>State-only rows:</strong> {{ count($stateOnlyRows) }}</div>
             @endif
+            @if ($targetsAllocationEditable ?? true)
             <button type="button" id="btn-auto-fill" style="background:#0369a1; color:#fff; border:none; padding:0.55rem 1rem; border-radius:8px; font-weight:700; cursor:pointer;">
                 Put targets automatically
             </button>
@@ -160,10 +165,15 @@
                 onclick="return confirm('Save these district monthly targets to the database?');">
                 Update targets
             </button>
+            @endif
         </div>
 
         @foreach ($displayBlocks as $block)
-            @include('admin.targets.partials.official-district-block', ['block' => $block, 'monthLabels' => $monthLabels])
+            @include('admin.targets.partials.official-district-block', [
+                'block' => $block,
+                'monthLabels' => $monthLabels,
+                'targetsAllocationEditable' => $targetsAllocationEditable ?? true,
+            ])
         @endforeach
 
         @if (! $hubOnlyPage && $stateOnlyRows !== [])
@@ -213,7 +223,8 @@
                                                 @endif
                                                 data-month="{{ $m }}"
                                                 class="month-input"
-                                                style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;">
+                                                @if (! ($targetsAllocationEditable ?? true)) readonly disabled @endif
+                                                style="width:2.75rem; padding:0.2rem; text-align:center; border:1px solid #d4d4d8; border-radius:4px; font-size:0.75rem;@if (! ($targetsAllocationEditable ?? true)) background:#f4f4f5; color:#52525b; @endif">
                                         </td>
                                     @endforeach
                                     <td class="row-total" style="padding:0.4rem; border:1px solid #e4e4e7; text-align:center; font-weight:700;">0</td>
@@ -268,6 +279,12 @@
             font-weight: 600;
             cursor: pointer;
             font-size: 0.86rem;
+        }
+        .odm-fy-bar__btn--export {
+            text-decoration: none;
+            background: #065f46;
+            display: inline-flex;
+            align-items: center;
         }
         .odm-fy-bar__meta {
             margin-left: auto;
