@@ -35,7 +35,8 @@ final class ConvergenceReapSupportDeliverablesSupport
         return Service::query()
             ->where('is_active', true)
             ->whereHas('category', function ($q): void {
-                $q->whereIn('slug', ConvergenceReapSupport::CONVERGENCE_CATEGORY_SLUGS);
+                $q->whereIn('slug', ConvergenceReapSupport::CONVERGENCE_CATEGORY_SLUGS)
+                    ->orWhere('slug', 'like', '%convergence%');
             })
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
@@ -53,7 +54,12 @@ final class ConvergenceReapSupportDeliverablesSupport
 
         return Service::query()
             ->where('is_active', true)
-            ->where('counts_toward_reap_support', true)
+            ->where(function ($scope): void {
+                $scope->where('counts_toward_reap_support', true);
+                foreach (ConvergenceReapSupport::knownReapSupportServiceCodes() as $code) {
+                    $scope->orWhere('code', $code);
+                }
+            })
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();

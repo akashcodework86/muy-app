@@ -34,6 +34,79 @@ final class ConvergenceReapSupport
         'convergence_services',
     ];
 
+    /**
+     * @return list<string>
+     */
+    public static function knownReapSupportServiceCodes(): array
+    {
+        $fromConfig = (string) config('official_monthly_target_serial_codes.8.2', '');
+
+        return array_values(array_unique(array_filter([
+            'support_muy_incubatee_reap',
+            $fromConfig !== '' ? $fromConfig : null,
+        ])));
+    }
+
+    public static function backfillThroughReapFlags(): int
+    {
+        if (! Schema::hasTable('service_cases') || ! Schema::hasColumn('service_cases', 'through_reap')) {
+            return 0;
+        }
+
+        $updated = 0;
+        $driver = Schema::getConnection()->getDriverName();
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $updated += (int) DB::affectingStatement('
+                UPDATE service_cases
+                SET through_reap = 1
+                WHERE through_reap = 0
+                  AND LOWER(COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(payload, \'$."through_reap"\')) AS CHAR), \'\')) IN (\'1\', \'true\', \'yes\', \'on\')
+            ');
+        } elseif ($driver === 'sqlite') {
+            $updated += (int) DB::table('service_cases')
+                ->where('through_reap', false)
+                ->whereRaw(self::throughReapPayloadSql('service_cases'))
+                ->update(['through_reap' => true]);
+        }
+
+        if (Schema::hasTable('services') && Schema::hasColumn('services', 'counts_toward_reap_support')) {
+            $reapServiceIds = DB::table('services')
+                ->where('counts_toward_reap_support', true)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            if ($reapServiceIds !== []) {
+                $updated += (int) DB::table('service_cases')
+                    ->where('through_reap', false)
+                    ->whereIn('service_id', $reapServiceIds)
+                    ->update(['through_reap' => true]);
+            }
+        }
+
+        return $updated;
+    }
+
+    public static function bootstrapReapSupportServices(): int
+    {
+        if (! Schema::hasTable('services') || ! Schema::hasColumn('services', 'counts_toward_reap_support')) {
+            return 0;
+        }
+
+        $codes = self::knownReapSupportServiceCodes();
+        $query = Service::query()->where('counts_toward_reap_support', false);
+
+        $query->where(function ($scope) use ($codes): void {
+            foreach ($codes as $code) {
+                $scope->orWhere('code', $code);
+            }
+            $scope->orWhere('name', 'like', '%Support to MUY Incubatee through REAP%');
+        });
+
+        return (int) $query->update(['counts_toward_reap_support' => true]);
+    }
+
     /** @return list<string> */
     public static function reapDetailKeys(): array
     {
