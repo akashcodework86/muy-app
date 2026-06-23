@@ -94,7 +94,8 @@ class ProgramDeliverablesReportService
      *         level: string,
      *         target: ?int,
      *         achievement: int,
-     *         achievement_pct: ?int
+     *         achievement_pct: ?int,
+     *         performance_tone: ?string
      *     }>
      * }
      */
@@ -1773,6 +1774,7 @@ SQL;
     {
         $target = $metrics['target'];
         $achievement = $metrics['achievement'];
+        $achievementPct = $this->percent($target, $achievement);
 
         return [
             'row_type' => (string) ($node['row_type'] ?? 'leaf'),
@@ -1782,7 +1784,8 @@ SQL;
             'level' => $this->rowMetadata->resolveLevel($node, $serial),
             'target' => $target,
             'achievement' => $achievement,
-            'achievement_pct' => $this->percent($target, $achievement),
+            'achievement_pct' => $achievementPct,
+            'performance_tone' => $this->performanceTone($achievementPct),
             'source_type' => (string) (($node['source'] ?? [])['type'] ?? 'none'),
             'drilldown' => (($node['source'] ?? [])['type'] ?? 'none') !== 'none',
         ];
@@ -1947,5 +1950,22 @@ SQL;
         }
 
         return (int) round(($achievement / $target) * 100);
+    }
+
+    private function performanceTone(?int $achievementPct): ?string
+    {
+        if ($achievementPct === null) {
+            return null;
+        }
+
+        if ($achievementPct >= 90) {
+            return 'good';
+        }
+
+        if ($achievementPct >= 60) {
+            return 'warn';
+        }
+
+        return 'critical';
     }
 }

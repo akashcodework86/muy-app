@@ -3329,4 +3329,117 @@ class DeliverablesReportTest extends TestCase
             ->assertSee('Convergence Reap List', false)
             ->assertDontSee('Plain Convergence', false);
     }
+
+    public function test_report_assigns_performance_tone_from_achievement_pct(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2025-26'],
+            [
+                'name' => 'FY 2025-26',
+                'starts_on' => '2025-04-01',
+                'ends_on' => '2026-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $cfa = Deliverable::query()->updateOrCreate(
+            ['code' => 'cfa'],
+            [
+                'sort_order' => 9999,
+                'name' => 'Call for Application',
+                'mis_entry_label' => 'Call for Application',
+                'is_active' => true,
+            ]
+        );
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $cfa->id,
+            'target_total' => 100,
+        ]);
+
+        $hub = Hub::query()->create(['slug' => 'tone-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'tone-district',
+            'name' => 'Tone District',
+            'sort_order' => 1,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            'district_id' => $district->id,
+            'fiscal_year_id' => $fy->id,
+            'applicant_name' => 'Low achievement',
+            'phone' => '9000000099',
+            'payload' => json_encode([]),
+            'created_at' => '2025-06-01',
+            'updated_at' => now(),
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '1.1');
+
+        $this->assertNotNull($row);
+        $this->assertSame(1, $row['achievement_pct']);
+        $this->assertSame('critical', $row['performance_tone']);
+    }
+
+    public function test_deliverables_page_renders_performance_pct_badges(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2025-26'],
+            [
+                'name' => 'FY 2025-26',
+                'starts_on' => '2025-04-01',
+                'ends_on' => '2026-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $cfa = Deliverable::query()->updateOrCreate(
+            ['code' => 'cfa'],
+            [
+                'sort_order' => 9999,
+                'name' => 'Call for Application',
+                'mis_entry_label' => 'Call for Application',
+                'is_active' => true,
+            ]
+        );
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $cfa->id,
+            'target_total' => 100,
+        ]);
+
+        $hub = Hub::query()->create(['slug' => 'badge-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'badge-district',
+            'name' => 'Badge District',
+            'sort_order' => 1,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            'district_id' => $district->id,
+            'fiscal_year_id' => $fy->id,
+            'applicant_name' => 'Badge test',
+            'phone' => '9000000100',
+            'payload' => json_encode([]),
+            'created_at' => '2025-06-01',
+            'updated_at' => now(),
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.index', ['fiscal_year_id' => $fy->id]))
+            ->assertOk()
+            ->assertSee('dlv-pct-badge--critical', false)
+            ->assertSee('dlv-pct-bar__fill--critical', false)
+            ->assertSee('needs attention', false)
+            ->assertSee('on track', false);
+    }
 }

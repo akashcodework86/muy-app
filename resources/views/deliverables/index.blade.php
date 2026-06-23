@@ -91,6 +91,33 @@
         </p>
     @endif
 
+    <p class="dlv-pct-legend">
+        <strong class="dlv-pct-legend__title">Achievement %:</strong>
+        <span class="dlv-pct-legend-item">
+            <span class="dlv-pct-legend-chip">
+                <span class="dlv-pct-bar dlv-pct-bar--legend" aria-hidden="true"><span class="dlv-pct-bar__fill dlv-pct-bar__fill--good" style="width:95%"></span></span>
+                <span class="dlv-pct-badge dlv-pct-badge--good dlv-pct-badge--sm">≥90%</span>
+            </span>
+            <span class="dlv-pct-legend-label">on track</span>
+        </span>
+        <span class="dlv-pct-legend-sep" aria-hidden="true">·</span>
+        <span class="dlv-pct-legend-item">
+            <span class="dlv-pct-legend-chip">
+                <span class="dlv-pct-bar dlv-pct-bar--legend" aria-hidden="true"><span class="dlv-pct-bar__fill dlv-pct-bar__fill--warn" style="width:70%"></span></span>
+                <span class="dlv-pct-badge dlv-pct-badge--warn dlv-pct-badge--sm">60–89%</span>
+            </span>
+            <span class="dlv-pct-legend-label">needs attention</span>
+        </span>
+        <span class="dlv-pct-legend-sep" aria-hidden="true">·</span>
+        <span class="dlv-pct-legend-item">
+            <span class="dlv-pct-legend-chip">
+                <span class="dlv-pct-bar dlv-pct-bar--legend" aria-hidden="true"><span class="dlv-pct-bar__fill dlv-pct-bar__fill--critical" style="width:25%"></span></span>
+                <span class="dlv-pct-badge dlv-pct-badge--critical dlv-pct-badge--sm">&lt;60%</span>
+            </span>
+            <span class="dlv-pct-legend-label">critical</span>
+        </span>
+    </p>
+
     <div id="deliverables-table-wrap" style="overflow-x:auto;">
         <table id="deliverables-table" class="deliverables-report-table" style="width:100%;min-width:72rem;border-collapse:collapse;font-size:0.86rem;background:#fff;table-layout:fixed;">
             <thead>
@@ -154,7 +181,22 @@
                                 <span class="dlv-ach-static">{{ number_format($row['achievement']) }}</span>
                             @endif
                         </td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ ! $isHeading && $row['achievement_pct'] !== null ? $row['achievement_pct'].'%' : '' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">
+                            @if (! $isHeading && $row['achievement_pct'] !== null)
+                                @php
+                                    $tone = $row['performance_tone'] ?? 'critical';
+                                    $barWidth = min(100, (int) $row['achievement_pct']);
+                                @endphp
+                                <div class="dlv-pct-stack">
+                                    <div class="dlv-pct-bar" role="presentation" aria-hidden="true">
+                                        <div class="dlv-pct-bar__fill dlv-pct-bar__fill--{{ $tone }}" style="width:{{ $barWidth }}%"></div>
+                                    </div>
+                                    <span class="dlv-pct-badge dlv-pct-badge--{{ $tone }}">
+                                        {{ $row['achievement_pct'] }}%
+                                    </span>
+                                </div>
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr>
@@ -215,7 +257,7 @@
             .deliverables-report-table th:nth-child(6),
             .deliverables-report-table td:nth-child(6) { width: 8.5rem; }
             .deliverables-report-table th:nth-child(7),
-            .deliverables-report-table td:nth-child(7) { width: 9rem; }
+            .deliverables-report-table td:nth-child(7) { width: 10rem; }
             .dlv-meta-select {
                 width: 100%;
                 max-width: 100%;
@@ -243,6 +285,106 @@
             .dlv-meta-select.is-error {
                 border-color: #dc2626;
                 box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.25);
+            }
+            .dlv-pct-legend {
+                margin: 0 0 0.65rem;
+                font-size: 0.74rem;
+                color: #475569;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 0.2rem 0.5rem;
+                line-height: 1.2;
+            }
+            .dlv-pct-legend__title {
+                color: #334155;
+                font-weight: 700;
+                margin-right: 0.1rem;
+            }
+            .dlv-pct-legend-item {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.3rem;
+            }
+            .dlv-pct-legend-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.25rem;
+            }
+            .dlv-pct-legend-label {
+                white-space: nowrap;
+            }
+            .dlv-pct-legend-sep {
+                color: #cbd5e1;
+                user-select: none;
+                line-height: 1;
+            }
+            .dlv-pct-stack {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.22rem;
+                width: 100%;
+                max-width: 4.75rem;
+                margin: 0 auto;
+            }
+            .dlv-pct-bar {
+                height: 5px;
+                border-radius: 999px;
+                background: #e2e8f0;
+                overflow: hidden;
+            }
+            .dlv-pct-bar--legend {
+                width: 1.75rem;
+                height: 4px;
+                flex-shrink: 0;
+            }
+            .dlv-pct-bar__fill {
+                height: 100%;
+                border-radius: 999px;
+                min-width: 2px;
+            }
+            .dlv-pct-bar__fill--good {
+                background: linear-gradient(90deg, #34d399, #059669);
+            }
+            .dlv-pct-bar__fill--warn {
+                background: linear-gradient(90deg, #f59e0b, #d97706);
+            }
+            .dlv-pct-bar__fill--critical {
+                background: linear-gradient(90deg, #f87171, #dc2626);
+            }
+            .dlv-pct-badge {
+                display: inline-block;
+                min-width: 2.5rem;
+                padding: 0.14rem 0.42rem;
+                border-radius: 999px;
+                font-weight: 700;
+                font-size: 0.78rem;
+                line-height: 1.2;
+                border: 1px solid transparent;
+                text-align: center;
+                white-space: nowrap;
+            }
+            .dlv-pct-badge--sm {
+                min-width: 0;
+                padding: 0.08rem 0.35rem;
+                font-size: 0.68rem;
+                line-height: 1.15;
+            }
+            .dlv-pct-badge--good {
+                background: #d1fae5;
+                color: #047857;
+                border-color: #6ee7b7;
+            }
+            .dlv-pct-badge--warn {
+                background: #fef3c7;
+                color: #b45309;
+                border-color: #fcd34d;
+            }
+            .dlv-pct-badge--critical {
+                background: #fee2e2;
+                color: #b91c1c;
+                border-color: #fca5a5;
             }
             .dlv-screenshot-clone {
                 position: fixed;
