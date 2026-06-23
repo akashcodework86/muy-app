@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Deliverable;
+use App\Models\District;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Services\LegacyApplicationServiceCaseSupport;
@@ -96,11 +97,11 @@ final class PitchDeckCombinedDeliverablesSupport
         usort($records, static function (array $a, array $b): int {
             return strcmp((string) ($b['_sort_date'] ?? $b['date'] ?? ''), (string) ($a['_sort_date'] ?? $a['date'] ?? ''));
         });
-        $records = array_slice(array_map(static function (array $row): array {
+        $records = array_map(static function (array $row): array {
             unset($row['_sort_date']);
 
             return $row;
-        }, $records), 0, 100);
+        }, $records);
 
         return [
             'total' => $total,
@@ -152,33 +153,24 @@ final class PitchDeckCombinedDeliverablesSupport
 
         $dateExpr = self::achievementDateExpression();
         $monthExpr = self::monthKeySql($dateExpr);
+        $legacySupport = app(LegacyApplicationServiceCaseSupport::class);
 
-        $cfaQuery = DB::table('service_cases as sc')
+        $query = DB::table('service_cases as sc')
             ->join('services as s', 's.id', '=', 'sc.service_id')
-            ->join('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
-            ->join('districts as d', 'd.id', '=', 'cs.district_id')
+            ->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
+            ->leftJoin('districts as d', 'd.id', '=', 'cs.district_id')
             ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
             ->leftJoin('users as submitter', 'submitter.id', '=', 'sc.submitted_by')
             ->whereIn('sc.service_id', $serviceIds)
-            ->whereIn('sc.status', [ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_COMPLETED])
-            ->whereNotNull('sc.cfa_submission_id');
+            ->whereIn('sc.status', [ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_COMPLETED]);
 
-        self::applyDistrictScope($cfaQuery, $districtIds, 'cs.district_id');
-        self::applyPeriodScope($cfaQuery, $periodFrom, $periodTo, $dateExpr);
+        self::applyDistrictScope($query, $districtIds);
+        self::applyPeriodScope($query, $periodFrom, $periodTo, $dateExpr);
 
-        $groupRows = (clone $cfaQuery)
-            ->selectRaw("
-                d.name as district_name,
-                h.name as hub_name,
-                {$monthExpr} as month_key,
-                COUNT(*) as total
-            ")
-            ->groupBy('d.name', 'h.name', DB::raw($monthExpr))
-            ->get();
-
-        $records = (clone $cfaQuery)
+        $cases = (clone $query)
             ->select([
                 'sc.id',
+                'sc.legacy_application_id',
                 'sc.reference_number',
                 'sc.status',
                 'cs.applicant_name',
@@ -189,38 +181,117 @@ final class PitchDeckCombinedDeliverablesSupport
                 'submitter.name as submitted_by_name',
             ])
             ->selectRaw("{$dateExpr} as achievement_date")
+            ->selectRaw("{$monthExpr} as month_key")
             ->orderByDesc(DB::raw($dateExpr))
-            ->limit(100)
-            ->get()
-            ->map(static function ($row): array {
-                $date = trim((string) ($row->achievement_date ?? ''));
-                $displayDate = '—';
-                if ($date !== '') {
-                    try {
-                        $displayDate = Carbon::parse($date)->format('d M Y');
-                    } catch (\Throwable) {
-                        $displayDate = $date;
-                    }
-                }
+            ->orderByDesc('sc.id')
+            ->get();
 
-                return [
-                    'id' => (int) ($row->id ?? 0),
-                    'reference' => (string) ($row->application_no ?: $row->reference_number ?: '—'),
-                    'applicant' => (string) ($row->applicant_name ?: '—'),
-                    'district' => (string) ($row->district_name ?: '—'),
-                    'hub' => (string) ($row->hub_name ?: '—'),
-                    'service' => (string) ($row->service_name ?: 'Pitch Deck'),
-                    'status' => self::LABEL_SERVICES,
-                    'date' => $displayDate,
-                    '_sort_date' => $date,
-                    'filled_by' => trim((string) ($row->submitted_by_name ?? '')) !== ''
-                        ? (string) $row->submitted_by_name
-                        : self::LABEL_SERVICES,
-                ];
-            })
+        if ($cases->isEmpty()) {
+            return ['total' => 0, 'by_district' => [], 'by_hub' => [], 'by_month' => [], 'records' => []];
+        }
+
+        $legacyApplicationIds = $cases
+            ->pluck('legacy_application_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
             ->all();
 
-        return self::aggregateSimpleRows($groupRows, $records);
+        $legacySnapshots = $legacySupport->applicantSnapshotsByLegacyApplicationIds($legacyApplicationIds);
+        $legacyDistrictCache = [];
+
+        $groupRows = [];
+        $records = [];
+
+        foreach ($cases as $row) {
+            $districtName = trim((string) ($row->district_name ?? ''));
+            $hubName = trim((string) ($row->hub_name ?? ''));
+
+            $legacyApplicationId = (int) ($row->legacy_application_id ?? 0);
+            if ($districtName === '' && $legacyApplicationId > 0) {
+                $resolved = self::districtForLegacyApplication($legacyApplicationId, $legacySupport, $legacyDistrictCache);
+                $districtName = (string) ($resolved?->name ?? '');
+                $hubName = (string) ($resolved?->hub?->name ?? '');
+            }
+
+            $districtName = $districtName !== '' ? $districtName : '—';
+            $hubName = $hubName !== '' ? $hubName : '—';
+
+            $monthKey = trim((string) ($row->month_key ?? ''));
+            $bucketKey = implode('|', [$districtName, $hubName, $monthKey]);
+            if (! isset($groupRows[$bucketKey])) {
+                $groupRows[$bucketKey] = (object) [
+                    'district_name' => $districtName,
+                    'hub_name' => $hubName,
+                    'month_key' => $monthKey,
+                    'total' => 0,
+                ];
+            }
+            $groupRows[$bucketKey]->total++;
+
+            $snapshot = $legacySnapshots[$legacyApplicationId] ?? null;
+            $applicant = trim((string) ($row->applicant_name ?? ''));
+            if ($applicant === '' && is_array($snapshot)) {
+                $applicant = trim((string) ($snapshot['name'] ?? ''));
+            }
+
+            $applicationNo = trim((string) ($row->application_no ?? ''));
+            if ($applicationNo === '' && is_array($snapshot)) {
+                $applicationNo = trim((string) ($snapshot['application_no'] ?? ''));
+            }
+
+            $date = trim((string) ($row->achievement_date ?? ''));
+            $displayDate = '—';
+            if ($date !== '') {
+                try {
+                    $displayDate = Carbon::parse($date)->format('d M Y');
+                } catch (\Throwable) {
+                    $displayDate = $date;
+                }
+            }
+
+            $records[] = [
+                'id' => (int) ($row->id ?? 0),
+                'reference' => (string) ($applicationNo !== '' ? $applicationNo : ($row->reference_number ?: '—')),
+                'applicant' => $applicant !== '' ? $applicant : '—',
+                'district' => $districtName,
+                'hub' => $hubName,
+                'service' => (string) ($row->service_name ?: 'Pitch Deck'),
+                'status' => self::LABEL_SERVICES,
+                'date' => $displayDate,
+                '_sort_date' => $date,
+                'filled_by' => trim((string) ($row->submitted_by_name ?? '')) !== ''
+                    ? (string) $row->submitted_by_name
+                    : self::LABEL_SERVICES,
+            ];
+        }
+
+        return self::aggregateSimpleRows(collect(array_values($groupRows)), $records);
+    }
+
+    /**
+     * @param  array<int, District|null>  $cache
+     */
+    private static function districtForLegacyApplication(
+        int $legacyApplicationId,
+        LegacyApplicationServiceCaseSupport $legacySupport,
+        array &$cache,
+    ): ?District {
+        if (array_key_exists($legacyApplicationId, $cache)) {
+            return $cache[$legacyApplicationId];
+        }
+
+        $preview = $legacySupport->incubateePreview($legacyApplicationId);
+        $districtId = $preview !== null
+            ? $legacySupport->laravelDistrictIdForLegacyDistrictName((string) ($preview['district'] ?? ''))
+            : null;
+
+        $district = $districtId !== null
+            ? District::query()->with('hub')->find($districtId)
+            : null;
+
+        return $cache[$legacyApplicationId] = $district;
     }
 
     /**

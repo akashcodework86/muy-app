@@ -326,14 +326,13 @@ class PitchDeckPreparationTest extends TestCase
         Storage::fake();
 
         [$district, , $cfaId] = $this->createOnboardedCfa();
-        $convergenceService = $this->createConvergenceService();
+        $pitchDeckService = $this->createPitchDeckService();
 
         ServiceCase::query()->create([
             'cfa_submission_id' => $cfaId,
-            'service_id' => $convergenceService->id,
+            'service_id' => $pitchDeckService->id,
             'status' => ServiceCase::STATUS_APPROVED,
             'approved_at' => '2026-05-18 10:00:00',
-            'payload' => ['through_reap' => '1'],
         ]);
 
         $govind = User::factory()->create([
@@ -362,7 +361,7 @@ class PitchDeckPreparationTest extends TestCase
 
         Deliverable::query()->where('code', 'pitch_deck_prep')->firstOrFail();
 
-        $filter = new ProgramDeliverablesFilter($fy->id, null, null, $district->id, null, null);
+        $filter = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
         $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
         $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
         $row = collect($report['rows'])->firstWhere('serial', '8.3');

@@ -56,10 +56,13 @@ class ProgramDeliverablesFilter
         }
 
         if ($this->dateFrom && $this->dateTo) {
-            return self::normalizeToWholeMonths(
-                Carbon::parse($this->dateFrom)->startOfDay(),
-                Carbon::parse($this->dateTo)->endOfDay(),
-            );
+            $from = Carbon::parse($this->dateFrom)->startOfDay();
+            $to = Carbon::parse($this->dateTo)->endOfDay();
+            if ($from->gt($to)) {
+                $to = $from->copy()->endOfDay();
+            }
+
+            return [$from, $to];
         }
 
         if ($fiscalYear?->starts_on && $fiscalYear?->ends_on) {
@@ -155,20 +158,4 @@ class ProgramDeliverablesFilter
         }
     }
 
-    /**
-     * Expand a date range to whole calendar months (1st → last day of each month touched).
-     *
-     * @return array{0: Carbon, 1: Carbon}
-     */
-    private static function normalizeToWholeMonths(Carbon $from, Carbon $to): array
-    {
-        if ($from->gt($to)) {
-            $to = $from->copy()->endOfDay();
-        }
-
-        $from = $from->copy()->startOfMonth()->startOfDay();
-        $to = $to->copy()->endOfMonth()->endOfDay();
-
-        return [$from, $to];
-    }
 }

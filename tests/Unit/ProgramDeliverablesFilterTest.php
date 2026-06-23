@@ -72,7 +72,7 @@ class ProgramDeliverablesFilterTest extends TestCase
         $this->assertSame([1, 2, 3], $fy->fiscalMonthNumbersForQuarter(1));
     }
 
-    public function test_legacy_date_range_snaps_to_whole_months(): void
+    public function test_manual_date_range_uses_exact_calendar_days(): void
     {
         $fy = FiscalYear::query()->create([
             'code' => '2026-27',
@@ -85,7 +85,24 @@ class ProgramDeliverablesFilterTest extends TestCase
         $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, '2026-04-15', '2026-06-20');
         [$from, $to] = $filter->resolvePeriod($fy);
 
-        $this->assertSame('2026-04-01', $from?->toDateString());
-        $this->assertSame('2026-06-30', $to?->toDateString());
+        $this->assertSame('2026-04-15', $from?->toDateString());
+        $this->assertSame('2026-06-20', $to?->toDateString());
+    }
+
+    public function test_single_day_date_filter(): void
+    {
+        $fy = FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, '2026-05-18', '2026-05-18');
+        $dates = $filter->formDates($fy);
+
+        $this->assertSame('2026-05-18', $dates['dateFrom']);
+        $this->assertSame('2026-05-18', $dates['dateTo']);
     }
 }
