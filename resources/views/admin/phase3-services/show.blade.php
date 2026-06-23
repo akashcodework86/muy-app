@@ -208,20 +208,8 @@
         </div>
     @endif
 
-    @if ($case->isConvergenceServiceCase())
-        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:52rem;margin-bottom:1rem;">
-            <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">REAP route</h3>
-            @if ($case->isMarkedThroughReap())
-                <p style="margin:0;font-size:0.88rem;">
-                    <span class="svc-through-reap-badge">Through REAP</span>
-                    <span style="display:block;margin-top:0.45rem;color:#52525b;font-size:0.82rem;">
-                        Counts toward MIS <strong>8.2</strong> when approved.
-                    </span>
-                </p>
-            @else
-                <p style="margin:0;font-size:0.88rem;color:#71717a;">Not marked Through REAP.</p>
-            @endif
-        </div>
+    @if ($case->displaysReapSupportRoute())
+        @include('staff.services.partials.through-reap-summary', ['case' => $case, 'payload' => is_array($case->payload) ? $case->payload : []])
     @endif
 
     @if ($case->attachments->isNotEmpty())

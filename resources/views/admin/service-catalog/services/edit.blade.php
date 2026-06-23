@@ -612,6 +612,16 @@
                     </span>
                 </label>
 
+                <label class="se-check-row">
+                    <input type="hidden" name="counts_toward_reap_support" value="0">
+                    <input type="checkbox" id="counts_toward_reap_support" name="counts_toward_reap_support" value="1"
+                        @checked(old('counts_toward_reap_support', $service->counts_toward_reap_support))>
+                    <span>
+                        <strong>Support to MUY incubatee through REAP (MIS 8.2)</strong>
+                        <span class="se-check-desc">Staff see the REAP detail form (sector, amount, activity, document) on service create without ticking Through REAP on convergence.</span>
+                    </span>
+                </label>
+
                 <div id="allowed_doc_types_wrap" class="se-doctype-row">
                     <span class="se-doctype-label">Allowed types:</span>
                     <label class="se-toggle">

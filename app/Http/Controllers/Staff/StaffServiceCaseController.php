@@ -15,6 +15,7 @@ use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\SchemaValidator;
 use App\Services\ServiceCaseRecorder;
 use App\Support\ConvergenceReapSupport;
+use App\Support\ConvergenceReapSupportDeliverablesSupport;
 use App\Support\ServiceFieldTypes;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -47,16 +48,15 @@ class StaffServiceCaseController extends Controller
             $scope = 'my';
         }
         $status = (string) $request->query('status', '');
-        $serviceIdRaw = $request->query('service_id', '');
-        $recordType = (string) $request->query('record_type', '');
+        $serviceIdRaw = (string) $request->query('service_id', '');
+        $recordType = '';
         $serviceId = 0;
-        if ((string) $serviceIdRaw === 'market_linkage') {
+        if ($serviceIdRaw === 'market_linkage') {
             $recordType = 'market_linkage';
+        } elseif ($serviceIdRaw === ConvergenceReapSupport::MIS_8_2_LIST_FILTER) {
+            $recordType = ConvergenceReapSupport::MIS_8_2_LIST_FILTER;
         } else {
             $serviceId = (int) $serviceIdRaw;
-        }
-        if ($recordType !== 'market_linkage') {
-            $recordType = '';
         }
         $allowed = ['', ServiceCase::STATUS_DRAFT, ServiceCase::STATUS_PENDING_APPROVAL, ServiceCase::STATUS_SENT_BACK, ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_REJECTED];
         if (! in_array($status, $allowed, true)) {
@@ -68,7 +68,9 @@ class StaffServiceCaseController extends Controller
 
         $listItems = collect();
 
-        if ($recordType !== 'market_linkage' && $serviceId <= 0) {
+        $reapOnly = $recordType === ConvergenceReapSupport::MIS_8_2_LIST_FILTER;
+
+        if ($recordType !== 'market_linkage') {
             $q = ServiceCase::query()
                 ->where(function ($outer) use ($districtId, $legacyIds): void {
                     $outer->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
@@ -102,7 +104,9 @@ class StaffServiceCaseController extends Controller
                 $q->where('status', $status);
             }
 
-            if ($serviceId > 0) {
+            if ($reapOnly) {
+                ConvergenceReapSupportDeliverablesSupport::applyListingScope($q, 'service_cases');
+            } elseif ($serviceId > 0) {
                 $q->where('service_id', $serviceId);
             }
 
@@ -117,54 +121,10 @@ class StaffServiceCaseController extends Controller
                     'updated_at' => $case->updated_at,
                 ]);
             }
-        } elseif ($recordType !== 'market_linkage' && $serviceId > 0) {
-            $q = ServiceCase::query()
-                ->where(function ($outer) use ($districtId, $legacyIds): void {
-                    $outer->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
-                    if (ServiceCase::supportsLegacyApplicationLink() && $legacyIds !== []) {
-                        $outer->orWhere(function ($qq) use ($legacyIds): void {
-                            $qq->whereNotNull('legacy_application_id')
-                                ->whereNull('cfa_submission_id')
-                                ->whereIn('legacy_application_id', $legacyIds);
-                        });
-                    }
-                })
-                ->with([
-                    'cfaSubmission:id,applicant_name,application_no,district_id',
-                    'service.category',
-                    'submitter:id,name',
-                    'creator:id,name',
-                    'spoc:id,name',
-                    'approver:id,name',
-                    'rejector:id,name',
-                    'attachments:id,service_case_id,original_name,size_bytes,disk,path',
-                ])
-                ->where('service_id', $serviceId);
-
-            if ($scope === 'my') {
-                $q->where(function ($qq) use ($staff): void {
-                    $qq->where('created_by', (int) $staff->id)
-                        ->orWhere('submitted_by', (int) $staff->id);
-                });
-            }
-            if ($status !== '') {
-                $q->where('status', $status);
-            }
-
-            foreach ($q->orderByDesc('updated_at')->get() as $case) {
-                if (ServiceCase::supportsLegacyApplicationLink() && $case->legacy_application_id && ! $case->cfa_submission_id) {
-                    $case->legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $case->legacy_application_id);
-                }
-                $listItems->push([
-                    'type' => 'service_case',
-                    'service_case' => $case,
-                    'market_linkage' => null,
-                    'updated_at' => $case->updated_at,
-                ]);
-            }
         }
 
-        if (($recordType === 'market_linkage' || $serviceId <= 0) && Schema::hasTable('market_linkage_submissions') && MarketLinkageSubmission::supportsWorkflow()) {
+        $includeMarketLinkage = $recordType === 'market_linkage' || (! $reapOnly && $serviceId <= 0);
+        if ($includeMarketLinkage && Schema::hasTable('market_linkage_submissions') && MarketLinkageSubmission::supportsWorkflow()) {
             $mlq = MarketLinkageSubmission::query()
                 ->where('district_id', $districtId)
                 ->with(['spoc:id,name', 'approver:id,name', 'rejector:id,name', 'submitter:id,name', 'partners']);
@@ -344,6 +304,7 @@ class StaffServiceCaseController extends Controller
                 'category_name' => $s->category?->name ?? 'Other',
                 'category_slug' => $s->category?->slug ?? '',
                 'is_convergence' => ConvergenceReapSupport::categoryIsConvergence($s->category),
+                'counts_toward_reap_support' => ConvergenceReapSupport::serviceIsReapSupportService($s),
                 'requires_document' => (bool) $s->requires_document,
                 'requires_approval' => (bool) $s->requires_approval,
                 'allows_multiple' => (bool) $s->allows_multiple,
@@ -510,6 +471,7 @@ class StaffServiceCaseController extends Controller
             'payload' => is_array($service_case->payload) ? $service_case->payload : [],
             'legacyIncubateePreview' => $legacyIncubateePreview,
             'isConvergenceService' => ConvergenceReapSupport::serviceIsConvergence($service_case->service),
+            'isReapSupportService' => ConvergenceReapSupport::serviceIsReapSupportService($service_case->service),
         ]);
     }
 
@@ -848,7 +810,7 @@ class StaffServiceCaseController extends Controller
     private function appendReapDocumentFromRequest(Request $request, Service $service, array $payload, array $uploads): array
     {
         $reapDocumentUploaded = false;
-        if (! ConvergenceReapSupport::serviceIsConvergence($service)) {
+        if (! ConvergenceReapSupport::serviceUsesReapWorkflow($service)) {
             return [$payload, $uploads, $reapDocumentUploaded];
         }
 

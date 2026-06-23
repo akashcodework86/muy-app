@@ -2818,6 +2818,14 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($row83);
         $this->assertSame(1, $row82['achievement']);
         $this->assertSame(0, $row83['achievement']);
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '8.2');
+        $this->assertSame(1, $breakdown['total']);
+
+        $this->actingAs($staff)
+            ->get(route('staff.deliverables.breakdown', ['serial' => '8.2']))
+            ->assertOk()
+            ->assertJsonPath('total', 1);
     }
 
     public function test_approved_convergence_case_can_toggle_through_reap_without_reapproval(): void
@@ -3088,5 +3096,237 @@ class DeliverablesReportTest extends TestCase
         $this->assertTrue($scope->usesStateTargets);
         $this->assertSame('All districts (state)', $scope->scopeLabel(null));
         $this->assertTrue($scope->canPickDistrict());
+    }
+
+    public function test_dedicated_reap_support_service_store_counts_mis_8_2(): void
+    {
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'dedicated-reap-hub', 'name' => 'Hub', 'sort_order' => 95]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'dedicated-reap-district',
+            'name' => 'Dedicated Reap District',
+            'sort_order' => 95,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $category = ServiceCategory::query()->create([
+            'slug' => 'reap_support',
+            'name' => 'REAP Support',
+            'sort_order' => 95,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $category->id,
+            'code' => 'support_muy_incubatee_reap',
+            'name' => 'Support to MUY Incubatee through REAP',
+            'sort_order' => 1,
+            'is_active' => true,
+            'requires_approval' => false,
+            'counts_toward_reap_support' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Dedicated Reap Applicant',
+            'phone' => '9999999955',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $batchId = (int) DB::table('onboarding_batches')->insertGetId([
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'name' => 'Dedicated reap batch',
+            'target_size' => 1,
+            'status' => 'locked',
+            'locked_at' => now(),
+            'onboarding_date' => '2026-05-01',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('onboarding_batch_cfa')->insert([
+            'onboarding_batch_id' => $batchId,
+            'cfa_submission_id' => $cfaId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($staff)
+            ->post(route('staff.services.store'), [
+                'cfa_submission_id' => $cfaId,
+                'service_id' => $service->id,
+                'payload' => [
+                    'through_reap' => '1',
+                    'reap_sector' => 'non_farm',
+                    'reap_amount' => '3_lakh',
+                    'reap_activity' => 'Equipment support through REAP.',
+                ],
+                'payload_files' => [
+                    'reap_document' => UploadedFile::fake()->create('reap-plan.pdf', 100),
+                ],
+            ])
+            ->assertRedirect(route('staff.services.index'));
+
+        $case = ServiceCase::query()->where('service_id', $service->id)->latest('id')->firstOrFail();
+        $this->assertTrue($case->isReapSupportServiceCase());
+        $this->assertTrue($case->displaysReapSupportRoute());
+        $this->assertSame('1', $case->payload['through_reap'] ?? null);
+        $this->assertSame('non_farm', $case->payload['reap_sector'] ?? null);
+        $this->assertTrue((bool) $case->through_reap);
+
+        $this->actingAs($staff)
+            ->get(route('staff.services.create'))
+            ->assertOk()
+            ->assertSee('counts_toward_reap_support', false)
+            ->assertSee('Support to MUY Incubatee through REAP', false);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, $district->id, null, null);
+        $scope = ProgramDeliverablesScope::forUser($staff);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $row82 = collect($report['rows'])->firstWhere('serial', '8.2');
+        $row83 = collect($report['rows'])->firstWhere('serial', '8.3');
+        $this->assertNotNull($row82);
+        $this->assertSame(1, $row82['achievement']);
+        $this->assertSame(0, $row83['achievement'] ?? 0);
+    }
+
+    public function test_staff_services_index_reap_support_8_2_filter_shows_unified_label(): void
+    {
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+
+        $hub = Hub::query()->create(['slug' => 'reap-list-hub', 'name' => 'Hub', 'sort_order' => 96]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'reap-list-district',
+            'name' => 'Reap List District',
+            'sort_order' => 96,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $convergenceCategory = ServiceCategory::query()->create([
+            'slug' => 'convergence-with-line-departments',
+            'name' => 'Schematic Convergence',
+            'sort_order' => 96,
+        ]);
+
+        $convergenceService = Service::query()->create([
+            'service_category_id' => $convergenceCategory->id,
+            'code' => 'pmegp_list',
+            'name' => 'PMEGP',
+            'sort_order' => 1,
+            'is_active' => true,
+            'requires_approval' => false,
+        ]);
+
+        $reapCategory = ServiceCategory::query()->create([
+            'slug' => 'reap_support_list',
+            'name' => 'REAP Support',
+            'sort_order' => 97,
+        ]);
+
+        $reapService = Service::query()->create([
+            'service_category_id' => $reapCategory->id,
+            'code' => 'support_muy_incubatee_reap_list',
+            'name' => 'Support to MUY Incubatee through REAP',
+            'sort_order' => 1,
+            'is_active' => true,
+            'requires_approval' => false,
+            'counts_toward_reap_support' => true,
+        ]);
+
+        $cfaReapId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Dedicated Reap List',
+            'phone' => '9999999944',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $cfaConvergenceId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Convergence Reap List',
+            'phone' => '9999999945',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $cfaPlainId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Plain Convergence',
+            'phone' => '9999999946',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaReapId,
+            'service_id' => $reapService->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'created_by' => $staff->id,
+            'submitted_by' => $staff->id,
+            'through_reap' => true,
+            'payload' => ['through_reap' => '1'],
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaConvergenceId,
+            'service_id' => $convergenceService->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'created_by' => $staff->id,
+            'submitted_by' => $staff->id,
+            'through_reap' => true,
+            'payload' => ['through_reap' => '1', 'scheme_name' => 'PMEGP'],
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaPlainId,
+            'service_id' => $convergenceService->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'created_by' => $staff->id,
+            'submitted_by' => $staff->id,
+            'through_reap' => false,
+            'payload' => ['through_reap' => '0'],
+        ]);
+
+        $label = \App\Support\ConvergenceReapSupport::MIS_8_2_LIST_LABEL;
+
+        $this->actingAs($staff)
+            ->get(route('staff.services.index', [
+                'service_id' => \App\Support\ConvergenceReapSupport::MIS_8_2_LIST_FILTER,
+            ]))
+            ->assertOk()
+            ->assertSee($label, false)
+            ->assertSee('via PMEGP', false)
+            ->assertSee('Dedicated Reap List', false)
+            ->assertSee('Convergence Reap List', false)
+            ->assertDontSee('Plain Convergence', false);
     }
 }

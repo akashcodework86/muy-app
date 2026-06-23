@@ -1,8 +1,7 @@
 @php
     $caseModel = $case ?? null;
     $isThroughReap = $caseModel instanceof \App\Models\ServiceCase
-        && $caseModel->isConvergenceServiceCase()
-        && $caseModel->isMarkedThroughReap();
+        && $caseModel->displaysReapSupportRoute();
     $reapDocs = $isThroughReap ? $caseModel->reapAttachments() : collect();
     $convergenceDocs = $isThroughReap ? $caseModel->convergenceAttachments() : ($caseModel?->attachments ?? collect());
     $attachmentRoute = $attachmentRoute ?? 'spoc.service-cases.attachments.download';

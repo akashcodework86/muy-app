@@ -364,7 +364,7 @@ class ProgramDeliverablesAchievementBreakdownService
         $this->applyDistrictScope($cfaQuery, 'cs.district_id');
         $this->applyServiceCaseDateScope($cfaQuery, $dateExpr);
         if ($sourceType === 'reap_support_services') {
-            \App\Support\ConvergenceReapSupport::applyThroughReapPayloadScope($cfaQuery);
+            \App\Support\ConvergenceReapSupportDeliverablesSupport::applyAchievementScope($cfaQuery);
         }
 
         $cfaRows = (clone $cfaQuery)
@@ -468,7 +468,7 @@ class ProgramDeliverablesAchievementBreakdownService
 
         $this->applyServiceCaseDateScope($query, $dateExpr);
         if ($filterThroughReap) {
-            \App\Support\ConvergenceReapSupport::applyThroughReapPayloadScope($query);
+            \App\Support\ConvergenceReapSupportDeliverablesSupport::applyAchievementScope($query);
         }
         $amountTotalsByServiceId = $this->amountTotalsByServiceIdFromServiceCaseQuery($query);
 
@@ -1768,7 +1768,10 @@ class ProgramDeliverablesAchievementBreakdownService
                 $ids = array_merge($ids, $this->serviceIdsForServiceCode((string) $code));
             }
         } elseif ($type === 'reap_support_services') {
-            $ids = \App\Support\ConvergenceReapSupportDeliverablesSupport::convergenceServiceIds();
+            $ids = array_merge(
+                \App\Support\ConvergenceReapSupportDeliverablesSupport::convergenceServiceIds(),
+                \App\Support\ConvergenceReapSupportDeliverablesSupport::reapSupportServiceIds(),
+            );
         }
 
         return array_values(array_unique(array_filter(array_map('intval', $ids))));

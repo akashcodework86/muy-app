@@ -356,7 +356,7 @@
                                 default => null,
                             };
                             $isPending = $case->status === \App\Models\ServiceCase::STATUS_PENDING_APPROVAL;
-                            $isThroughReap = $case->isConvergenceServiceCase() && $case->isMarkedThroughReap();
+                            $isThroughReap = $case->displaysReapSupportRoute();
                             $batchName = $case->cfaSubmission?->onboardingBatchMembership?->batch?->name
                                 ?? (is_array($lip) ? ($lip['onboarding_batch_name'] ?? '') : '');
                             $isLegacyBatch = $batchName !== '' && ! $case->cfaSubmission;

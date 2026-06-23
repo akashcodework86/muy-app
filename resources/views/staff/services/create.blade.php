@@ -401,23 +401,7 @@
                     return first.value || '';
                 }
 
-                function appendThroughReapField(container) {
-                    const wrap = document.createElement('div');
-                    wrap.style.cssText = 'margin-top:0.85rem;padding:0.65rem 0.75rem;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;';
-                    wrap.innerHTML =
-                        '<label style="display:flex;align-items:flex-start;gap:0.45rem;cursor:pointer;margin:0;">' +
-                        '<input type="hidden" name="payload[through_reap]" value="0">' +
-                        '<input type="checkbox" name="payload[through_reap]" value="1" id="payload_through_reap" style="margin-top:0.15rem;width:1rem;height:1rem;accent-color:#ea580c;">' +
-                        '<span><strong style="font-size:0.84rem;color:#7c2d12;">Through REAP</strong>' +
-                        '<span style="display:block;font-size:0.76rem;color:#9a3412;margin-top:0.12rem;">Tick for MIS 8.2 after SPOC approval.</span></span>' +
-                        '</label>';
-                    container.appendChild(wrap);
-
-                    const detailsWrap = document.createElement('div');
-                    detailsWrap.id = 'reap_details_wrap';
-                    detailsWrap.style.cssText = 'display:none;margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid #fed7aa;flex-direction:column;gap:0.65rem;';
-                    wrap.appendChild(detailsWrap);
-
+                function populateReapDetailsWrap(detailsWrap, alwaysVisible) {
                     REAP_DETAIL_SCHEMA.forEach(function (field) {
                         if ((field.type || '') === 'file') {
                             const fileWrap = document.createElement('div');
@@ -450,13 +434,11 @@
                             input = document.createElement('textarea');
                             input.name = 'payload[' + field.key + ']';
                             input.rows = 3;
-                            input.required = true;
                             input.dataset.reapRequired = '1';
                             input.style.cssText = 'width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;font-size:0.85rem;';
                         } else if ((field.type || '') === 'select') {
                             input = document.createElement('select');
                             input.name = 'payload[' + field.key + ']';
-                            input.required = true;
                             input.dataset.reapRequired = '1';
                             input.style.cssText = 'width:100%;padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;';
                             const o0 = document.createElement('option');
@@ -479,6 +461,54 @@
                             detailsWrap.appendChild(fieldWrap);
                         }
                     });
+
+                    detailsWrap.querySelectorAll('input,select,textarea').forEach(function (el) {
+                        if (alwaysVisible) {
+                            el.disabled = false;
+                            if (el.dataset.reapRequired === '1') {
+                                el.required = true;
+                            }
+                        }
+                    });
+                    detailsWrap.style.display = alwaysVisible ? 'flex' : 'none';
+                }
+
+                function appendReapDedicatedField(container) {
+                    const wrap = document.createElement('div');
+                    wrap.style.cssText = 'margin-top:0.85rem;padding:0.65rem 0.75rem;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;';
+                    wrap.innerHTML =
+                        '<input type="hidden" name="payload[through_reap]" value="1">' +
+                        '<p style="margin:0 0 0.65rem;font-size:0.84rem;color:#7c2d12;">' +
+                        '<strong>REAP support (MIS 8.2)</strong>' +
+                        '<span style="display:block;font-size:0.76rem;color:#9a3412;margin-top:0.12rem;">Complete the REAP details below. Counts toward MIS 8.2 after SPOC approval.</span>' +
+                        '</p>';
+                    container.appendChild(wrap);
+
+                    const detailsWrap = document.createElement('div');
+                    detailsWrap.id = 'reap_details_wrap';
+                    detailsWrap.style.cssText = 'display:flex;margin-top:0;flex-direction:column;gap:0.65rem;';
+                    wrap.appendChild(detailsWrap);
+                    populateReapDetailsWrap(detailsWrap, true);
+                }
+
+                function appendThroughReapField(container) {
+                    const wrap = document.createElement('div');
+                    wrap.style.cssText = 'margin-top:0.85rem;padding:0.65rem 0.75rem;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;';
+                    wrap.innerHTML =
+                        '<label style="display:flex;align-items:flex-start;gap:0.45rem;cursor:pointer;margin:0;">' +
+                        '<input type="hidden" name="payload[through_reap]" value="0">' +
+                        '<input type="checkbox" name="payload[through_reap]" value="1" id="payload_through_reap" style="margin-top:0.15rem;width:1rem;height:1rem;accent-color:#ea580c;">' +
+                        '<span><strong style="font-size:0.84rem;color:#7c2d12;">Through REAP</strong>' +
+                        '<span style="display:block;font-size:0.76rem;color:#9a3412;margin-top:0.12rem;">Tick for MIS 8.2 after SPOC approval.</span></span>' +
+                        '</label>';
+                    container.appendChild(wrap);
+
+                    const detailsWrap = document.createElement('div');
+                    detailsWrap.id = 'reap_details_wrap';
+                    detailsWrap.style.cssText = 'display:none;margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid #fed7aa;flex-direction:column;gap:0.65rem;';
+                    wrap.appendChild(detailsWrap);
+
+                    populateReapDetailsWrap(detailsWrap, false);
 
                     const checked = OLD_PAYLOAD && (OLD_PAYLOAD.through_reap === '1' || OLD_PAYLOAD.through_reap === 1 || OLD_PAYLOAD.through_reap === true || OLD_PAYLOAD.through_reap === 'true');
                     const cb = wrap.querySelector('#payload_through_reap');
@@ -568,7 +598,7 @@
 
                     const schema = svc.schema || [];
                     if (schema.length === 0) {
-                        if (!svc.is_convergence) {
+                        if (!svc.is_convergence && !svc.counts_toward_reap_support) {
                             const p = document.createElement('p');
                             p.style.cssText = 'margin:0;font-size:0.82rem;color:#71717a;';
                             p.textContent = 'No extra fields configured for this service.';
@@ -734,7 +764,9 @@
                         }
                     }
 
-                    if (svc.is_convergence) {
+                    if (svc.counts_toward_reap_support) {
+                        appendReapDedicatedField(box);
+                    } else if (svc.is_convergence) {
                         appendThroughReapField(box);
                     }
                 }

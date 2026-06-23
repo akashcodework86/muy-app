@@ -66,6 +66,7 @@ class CatalogServiceController extends Controller
             'allows_multiple' => ['nullable', 'boolean'],
             'requires_approval' => ['nullable', 'boolean'],
             'requires_document' => ['nullable', 'boolean'],
+            'counts_toward_reap_support' => ['nullable', 'boolean'],
             'allowed_document_types' => ['nullable', 'array'],
             'allowed_document_types.*' => ['string', Rule::in(['pdf', 'image'])],
             'deliverable_id' => ['nullable', 'integer', 'exists:deliverables,id'],
@@ -97,6 +98,7 @@ class CatalogServiceController extends Controller
             'reporting_tier' => $validated['reporting_tier'],
             'requires_approval' => (bool) $request->boolean('requires_approval', false),
             'requires_document' => $requiresDocument,
+            'counts_toward_reap_support' => (bool) $request->boolean('counts_toward_reap_support', false),
             'allowed_document_types' => $allowedDocTypes,
             'field_schema' => $fieldSchema,
         ]);
@@ -211,6 +213,7 @@ class CatalogServiceController extends Controller
             'allows_multiple' => ['nullable', 'boolean'],
             'requires_approval' => ['nullable', 'boolean'],
             'requires_document' => ['nullable', 'boolean'],
+            'counts_toward_reap_support' => ['nullable', 'boolean'],
             'allowed_document_types' => ['nullable', 'array'],
             'allowed_document_types.*' => ['string', Rule::in(['pdf', 'image'])],
             'deliverable_id' => ['nullable', 'integer', 'exists:deliverables,id'],
@@ -252,6 +255,7 @@ class CatalogServiceController extends Controller
         $service->reporting_tier = $validated['reporting_tier'];
         $service->requires_approval = (bool) $request->boolean('requires_approval', false);
         $service->requires_document = $requiresDocument;
+        $service->counts_toward_reap_support = (bool) $request->boolean('counts_toward_reap_support', false);
         $service->allowed_document_types = $allowedDocTypes;
         $service->field_schema = $fieldSchema;
         $service->save();
@@ -303,6 +307,7 @@ class CatalogServiceController extends Controller
             'allows_multiple' => ['nullable', 'boolean'],
             'requires_approval' => ['nullable', 'boolean'],
             'requires_document' => ['nullable', 'boolean'],
+            'counts_toward_reap_support' => ['nullable', 'boolean'],
             'allowed_document_types' => ['nullable', 'array'],
             'allowed_document_types.*' => ['string', Rule::in(['pdf', 'image'])],
             'reporting_tier' => ['required', 'string', Rule::in(['unset', 'key', 'non_key'])],
@@ -340,6 +345,7 @@ class CatalogServiceController extends Controller
         $service->allows_multiple = (bool) $request->boolean('allows_multiple', false);
         $service->requires_approval = (bool) $request->boolean('requires_approval', false);
         $service->requires_document = $requiresDocument;
+        $service->counts_toward_reap_support = (bool) $request->boolean('counts_toward_reap_support', false);
         $service->allowed_document_types = $allowedDocTypes;
         $service->reporting_tier = $validated['reporting_tier'];
         $service->estimated_market_price_avg = $this->nullableMoney($validated['estimated_market_price_avg'] ?? null);

@@ -100,7 +100,7 @@ class ServiceCase extends Model
 
             $case->loadMissing('service.category');
             $payload = is_array($case->payload) ? $case->payload : [];
-            if (ConvergenceReapSupport::serviceIsConvergence($case->service)) {
+            if (ConvergenceReapSupport::serviceUsesReapWorkflow($case->service)) {
                 ConvergenceReapSupport::syncThroughReapColumn($case, $payload);
             } else {
                 $case->through_reap = false;
@@ -184,8 +184,25 @@ class ServiceCase extends Model
         return ConvergenceReapSupport::serviceIsConvergence($this->service);
     }
 
+    public function isReapSupportServiceCase(): bool
+    {
+        $this->loadMissing('service');
+
+        return ConvergenceReapSupport::serviceIsReapSupportService($this->service);
+    }
+
+    public function displaysReapSupportRoute(): bool
+    {
+        return $this->isReapSupportServiceCase()
+            || ($this->isConvergenceServiceCase() && $this->isMarkedThroughReap());
+    }
+
     public function isMarkedThroughReap(): bool
     {
+        if ($this->isReapSupportServiceCase()) {
+            return true;
+        }
+
         if (Schema::hasColumn($this->getTable(), 'through_reap') && $this->through_reap) {
             return true;
         }

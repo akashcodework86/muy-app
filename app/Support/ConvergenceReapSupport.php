@@ -13,6 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ConvergenceReapSupport
 {
+    public const MIS_8_2_LIST_FILTER = 'reap_support_8_2';
+
+    public const MIS_8_2_LIST_LABEL = 'Support to MUY Incubatee through REAP (8.2)';
+
     public const PAYLOAD_KEY = 'through_reap';
 
     public const REAP_SECTOR_KEY = 'reap_sector';
@@ -120,6 +124,24 @@ final class ConvergenceReapSupport
         return self::categoryIsConvergence($service->category);
     }
 
+    public static function serviceIsReapSupportService(?Service $service): bool
+    {
+        if ($service === null) {
+            return false;
+        }
+
+        if (! Schema::hasColumn('services', 'counts_toward_reap_support')) {
+            return false;
+        }
+
+        return (bool) $service->counts_toward_reap_support;
+    }
+
+    public static function serviceUsesReapWorkflow(?Service $service): bool
+    {
+        return self::serviceIsConvergence($service) || self::serviceIsReapSupportService($service);
+    }
+
     public static function payloadValueIsThroughReap(mixed $value): bool
     {
         if (is_bool($value)) {
@@ -224,15 +246,18 @@ final class ConvergenceReapSupport
         bool $reapDocumentUploaded = false,
         ?string $existingReapDocument = null,
     ): array {
-        if (! self::serviceIsConvergence($service)) {
+        $isReapSupportService = self::serviceIsReapSupportService($service);
+        if (! self::serviceIsConvergence($service) && ! $isReapSupportService) {
             unset($payload[self::PAYLOAD_KEY]);
 
             return self::stripReapDetails($payload);
         }
 
-        $throughReap = self::payloadValueIsThroughReap(
-            $rawPayload[self::PAYLOAD_KEY] ?? ($payload[self::PAYLOAD_KEY] ?? null)
-        );
+        $throughReap = $isReapSupportService
+            ? true
+            : self::payloadValueIsThroughReap(
+                $rawPayload[self::PAYLOAD_KEY] ?? ($payload[self::PAYLOAD_KEY] ?? null)
+            );
         $payload[self::PAYLOAD_KEY] = $throughReap ? '1' : '0';
 
         if (! $throughReap) {

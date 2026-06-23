@@ -122,6 +122,14 @@
                     <div style="font-size:0.78rem; color:#71717a;">Staff must attach proof (GST certificate, acknowledgement PDF, screenshot, etc.) when submitting a case.</div>
                 </span>
             </label>
+            <label style="display:flex; align-items:flex-start; gap:0.45rem; cursor:pointer; margin:0.35rem 0;">
+                <input type="hidden" name="counts_toward_reap_support" value="0">
+                <input type="checkbox" id="counts_toward_reap_support" name="counts_toward_reap_support" value="1" @checked(old('counts_toward_reap_support'))>
+                <span>
+                    <strong>Support to MUY incubatee through REAP (MIS 8.2)</strong>
+                    <div style="font-size:0.78rem; color:#71717a;">Shows the REAP detail form on staff service create (sector, amount, activity, document).</div>
+                </span>
+            </label>
             <div id="allowed_doc_types_wrap" style="margin-left:1.5rem; margin-top:0.35rem; display:flex; flex-wrap:wrap; gap:1rem; font-size:0.85rem;">
                 <span style="color:#52525b; font-size:0.78rem;">Allowed file types:</span>
                 @php $oldTypes = old('allowed_document_types', ['pdf', 'image']); @endphp

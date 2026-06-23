@@ -1,7 +1,7 @@
 @php
     use App\Support\ConvergenceReapSupport;
     $throughReapValue = old('payload.through_reap', $payload[ConvergenceReapSupport::PAYLOAD_KEY] ?? null);
-    $throughReapChecked = ConvergenceReapSupport::payloadValueIsThroughReap($throughReapValue);
+    $throughReapChecked = $throughReapChecked ?? ConvergenceReapSupport::payloadValueIsThroughReap($throughReapValue);
     $reapSchema = ConvergenceReapSupport::reapDetailSchema();
 @endphp
 <div id="reap_details_wrap" style="display:{{ $throughReapChecked ? 'flex' : 'none' }};flex-direction:column;gap:0.65rem;margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid #fed7aa;">

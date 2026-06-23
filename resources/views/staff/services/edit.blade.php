@@ -56,7 +56,7 @@
 
         <fieldset style="margin:0 0 1rem;padding:0.75rem 0.9rem;border:1px solid #e4e4e7;border-radius:8px;">
             <legend style="font-size:0.85rem;font-weight:600;">Service details</legend>
-            @if ($schema === [] && ! ($isConvergenceService ?? false))
+            @if ($schema === [] && ! ($isConvergenceService ?? false) && ! ($isReapSupportService ?? false))
                 <p style="margin:0;font-size:0.82rem;color:#71717a;">No extra fields configured for this service.</p>
             @elseif ($schema !== [])
                 <div style="display:flex;flex-direction:column;gap:0.65rem;">
@@ -150,7 +150,9 @@
                     <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;">
                 </div>
             @endif
-            @if ($isConvergenceService ?? false)
+            @if ($isReapSupportService ?? false)
+                @include('staff.services.partials.through-reap-dedicated-field', ['payload' => $payload])
+            @elseif ($isConvergenceService ?? false)
                 @include('staff.services.partials.through-reap-field', ['payload' => $payload])
             @endif
         </fieldset>
@@ -175,6 +177,7 @@
             const rows = Array.from(form.querySelectorAll('.svc-field-row'));
             const reapCheckbox = form.querySelector('input[name="payload[through_reap]"][type="checkbox"]');
             const reapDetailsWrap = document.getElementById('reap_details_wrap');
+            const reapAlwaysOn = !reapCheckbox && !!form.querySelector('input[name="payload[through_reap]"][value="1"]');
 
             function payloadValue(key) {
                 const els = form.querySelectorAll('[name="payload[' + key + ']"], [name="payload[' + key + '][]"]');
@@ -194,7 +197,7 @@
 
             function syncReapDetails() {
                 if (!reapDetailsWrap) return;
-                const show = reapCheckbox && reapCheckbox.checked;
+                const show = reapAlwaysOn || (reapCheckbox && reapCheckbox.checked);
                 reapDetailsWrap.style.display = show ? 'flex' : 'none';
                 reapDetailsWrap.querySelectorAll('input,select,textarea').forEach(function (el) {
                     if (!show) {

@@ -122,8 +122,9 @@
 
             <select name="service_id" id="serviceFilter" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
                 <option value="0">All services</option>
+                <option value="{{ \App\Support\ConvergenceReapSupport::MIS_8_2_LIST_FILTER }}" @selected(($filters['service_id'] ?? '') === \App\Support\ConvergenceReapSupport::MIS_8_2_LIST_FILTER)>{{ \App\Support\ConvergenceReapSupport::MIS_8_2_LIST_LABEL }}</option>
                 @foreach ($services as $service)
-                    <option value="{{ $service->id }}" data-category-id="{{ $service->service_category_id }}" @selected((int) $filters['service_id'] === (int) $service->id)>{{ $service->name }}</option>
+                    <option value="{{ $service->id }}" data-category-id="{{ $service->service_category_id }}" @selected(is_numeric($filters['service_id'] ?? '') && (int) $filters['service_id'] === (int) $service->id)>{{ $service->name }}</option>
                 @endforeach
             </select>
 
@@ -241,8 +242,12 @@
                             @endif
                         </td>
                         <td>
-                            <div class="p3-name">{{ $case->service?->name ?? '—' }}</div>
-                            <div class="p3-sub">{{ $case->service?->category?->name ?? '—' }}</div>
+                            @include('staff.services.partials.reap-listing-service-cell', ['case' => $case])
+                            @if (! $case->displaysReapSupportRoute())
+                                <div class="p3-sub">{{ $case->service?->category?->name ?? '—' }}</div>
+                            @elseif ($case->service?->category?->name)
+                                <div class="p3-sub">{{ $case->service->category->name }}</div>
+                            @endif
                             @if ($isUdyamService && $udyamTypeDisplay !== '')
                                 <div style="margin-top:0.26rem;">
                                     <span class="p3-pill" style="background:#fffbeb;border:1px solid #fcd34d;color:#92400e;">
@@ -250,7 +255,6 @@
                                     </span>
                                 </div>
                             @endif
-                            @include('staff.services.partials.through-reap-badge', ['case' => $case])
                         </td>
                         <td>
                             <span class="p3-pill" style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">

@@ -9,6 +9,8 @@ use App\Models\ServiceCase;
 use App\Models\ServiceCaseAttachment;
 use App\Models\User;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Support\ConvergenceReapSupport;
+use App\Support\ConvergenceReapSupportDeliverablesSupport;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -622,8 +624,10 @@ class Phase3ServiceCasesController extends Controller
             $this->constrainToLaravelDistrict($query, $filters['district_id']);
         }
 
-        if ($filters['service_id'] > 0) {
-            $query->where('service_cases.service_id', $filters['service_id']);
+        if ($filters['service_id'] === ConvergenceReapSupport::MIS_8_2_LIST_FILTER) {
+            ConvergenceReapSupportDeliverablesSupport::applyListingScope($query, 'service_cases');
+        } elseif (is_numeric($filters['service_id']) && (int) $filters['service_id'] > 0) {
+            $query->where('service_cases.service_id', (int) $filters['service_id']);
         }
 
         if ($filters['spoc_id'] === 'unassigned') {
@@ -778,7 +782,7 @@ class Phase3ServiceCasesController extends Controller
             'q' => trim((string) $request->query('q', '')),
             'district_id' => (int) $request->query('district_id', 0),
             'category_id' => 0,
-            'service_id' => (int) $request->query('service_id', 0),
+            'service_id' => trim((string) $request->query('service_id', '')),
             'spoc_id' => trim((string) $request->query('spoc_id', '')),
             'status' => trim((string) $request->query('status', '')),
             'reporting_tier' => trim((string) $request->query('reporting_tier', '')),

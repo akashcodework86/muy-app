@@ -356,12 +356,30 @@
         <a href="{{ route('staff.applications') }}" class="svc-link">Applications</a>
     </p>
 
+    @php
+        use App\Models\ServiceCase;
+        use App\Support\ConvergenceReapSupport;
+        $tabs = [
+            '' => 'All',
+            ServiceCase::STATUS_DRAFT => 'Draft',
+            ServiceCase::STATUS_PENDING_APPROVAL => 'Pending approval',
+            ServiceCase::STATUS_SENT_BACK => 'Sent back',
+            ServiceCase::STATUS_APPROVED => 'Approved',
+            ServiceCase::STATUS_REJECTED => 'Rejected',
+        ];
+        $serviceFilterParam = match ($filterRecordType ?? '') {
+            'market_linkage' => 'market_linkage',
+            ConvergenceReapSupport::MIS_8_2_LIST_FILTER => ConvergenceReapSupport::MIS_8_2_LIST_FILTER,
+            default => ((int) ($filterServiceId ?? 0) > 0) ? (int) $filterServiceId : null,
+        };
+    @endphp
+
     <div class="svc-status-tabs" style="margin-top:-0.15rem;">
-        <a href="{{ route('staff.services.index', array_filter(['scope' => 'my', 'status' => $filterStatus ?: null, 'service_id' => (int) ($filterServiceId ?? 0)])) }}"
+        <a href="{{ route('staff.services.index', array_filter(['scope' => 'my', 'status' => $filterStatus ?: null, 'service_id' => $serviceFilterParam])) }}"
            class="svc-status-tab {{ (($filterScope ?? 'my') === 'my') ? 'is-active' : '' }}">
             My services
         </a>
-        <a href="{{ route('staff.services.index', array_filter(['scope' => 'all', 'status' => $filterStatus ?: null, 'service_id' => (int) ($filterServiceId ?? 0)])) }}"
+        <a href="{{ route('staff.services.index', array_filter(['scope' => 'all', 'status' => $filterStatus ?: null, 'service_id' => $serviceFilterParam])) }}"
            class="svc-status-tab {{ (($filterScope ?? 'my') === 'all') ? 'is-active' : '' }}">
             All services (view only)
         </a>
@@ -378,21 +396,9 @@
         </ul>
     @endif
 
-    @php
-        use App\Models\ServiceCase;
-        $tabs = [
-            '' => 'All',
-            ServiceCase::STATUS_DRAFT => 'Draft',
-            ServiceCase::STATUS_PENDING_APPROVAL => 'Pending approval',
-            ServiceCase::STATUS_SENT_BACK => 'Sent back',
-            ServiceCase::STATUS_APPROVED => 'Approved',
-            ServiceCase::STATUS_REJECTED => 'Rejected',
-        ];
-    @endphp
-
     <div class="svc-status-tabs">
         @foreach ($tabs as $val => $label)
-            <a href="{{ route('staff.services.index', array_filter(['scope' => $filterScope ?? 'my', 'status' => $val, 'service_id' => (int) ($filterServiceId ?? 0)])) }}"
+            <a href="{{ route('staff.services.index', array_filter(['scope' => $filterScope ?? 'my', 'status' => $val, 'service_id' => $serviceFilterParam])) }}"
                class="svc-status-tab {{ ($filterStatus === $val) ? 'is-active' : '' }}">
                 {{ $label }}
             </a>
@@ -414,6 +420,7 @@
         <select name="service_id" class="svc-select" onchange="this.form.submit()">
             <option value="" @selected(($filterRecordType ?? '') === '' && (int) ($filterServiceId ?? 0) === 0)>All services</option>
             <option value="market_linkage" @selected(($filterRecordType ?? '') === 'market_linkage')>{{ \App\Models\MarketLinkageSubmission::SERVICE_LIST_LABEL }}</option>
+            <option value="{{ ConvergenceReapSupport::MIS_8_2_LIST_FILTER }}" @selected(($filterRecordType ?? '') === ConvergenceReapSupport::MIS_8_2_LIST_FILTER)>{{ ConvergenceReapSupport::MIS_8_2_LIST_LABEL }}</option>
             @foreach (($services ?? collect()) as $service)
                 <option value="{{ $service->id }}" @selected(($filterRecordType ?? '') === '' && (int) ($filterServiceId ?? 0) === (int) $service->id)>
                     {{ $service->name }}
@@ -572,8 +579,9 @@
                                 $searchText = strtolower(trim(
                                     ($case->cfaSubmission?->applicant_name ?? (is_array($lip) ? ($lip['applicant_name'] ?? '') : '')).' '.
                                     ($case->cfaSubmission?->application_no ?? (is_array($lip) ? ($lip['application_no'] ?? '') : '')).' '.
-                                    ($case->service?->name ?? '').' '.
-                                    ($case->isMarkedThroughReap() ? 'through reap ' : '').
+                                    ($case->displaysReapSupportRoute()
+                                        ? ConvergenceReapSupport::MIS_8_2_LIST_LABEL.' '.($case->service?->name ?? '')
+                                        : ($case->service?->name ?? '')).' '.
                                     ($assignedByName ?? '').' '.
                                     str_replace('_', ' ', (string) $case->status).' '.
                                     ($case->spoc?->name ?? '').' '.
@@ -592,8 +600,7 @@
                                     @endif
                                 </td>
                                 <td>
-                                    {{ $case->service?->name ?? '—' }}
-                                    @include('staff.services.partials.through-reap-badge', ['case' => $case])
+                                    @include('staff.services.partials.reap-listing-service-cell', ['case' => $case])
                                 </td>
                                 <td>{{ $assignedByName }}</td>
                                 <td>

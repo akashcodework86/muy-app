@@ -199,46 +199,8 @@
         </div>
     @endif
 
-    @if ($case->isConvergenceServiceCase())
-        <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:1rem 1.1rem;max-width:48rem;margin-bottom:1rem;box-shadow:0 8px 22px -18px rgba(15,23,42,0.3);">
-            <h3 style="margin:0 0 0.65rem;font-size:0.95rem;">REAP route</h3>
-            @if ($case->isMarkedThroughReap())
-                <p style="margin:0;font-size:0.88rem;">
-                    <span class="svc-through-reap-badge">Through REAP</span>
-                    <span style="display:block;margin-top:0.45rem;color:#52525b;font-size:0.82rem;">
-                        This convergence case counts toward MIS <strong>8.2</strong> after SPOC approval.
-                    </span>
-                </p>
-                @php
-                    $reapSector = $payload[ConvergenceReapSupport::REAP_SECTOR_KEY] ?? null;
-                    $reapAmount = $payload[ConvergenceReapSupport::REAP_AMOUNT_KEY] ?? null;
-                    $reapActivity = $payload[ConvergenceReapSupport::REAP_ACTIVITY_KEY] ?? null;
-                    $reapDocument = $payload[ConvergenceReapSupport::REAP_DOCUMENT_KEY] ?? null;
-                @endphp
-                @if ($reapSector || $reapAmount || $reapActivity || $reapDocument)
-                    <dl style="margin:0.75rem 0 0;display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr);gap:0.35rem 0.75rem;font-size:0.84rem;">
-                        @if ($reapSector)
-                            <dt style="color:#71717a;">Sector</dt>
-                            <dd style="margin:0;">{{ ConvergenceReapSupport::reapSectorLabel((string) $reapSector) }}</dd>
-                        @endif
-                        @if ($reapAmount)
-                            <dt style="color:#71717a;">Support amount</dt>
-                            <dd style="margin:0;">{{ ConvergenceReapSupport::reapAmountLabel((string) $reapAmount) }}</dd>
-                        @endif
-                        @if ($reapActivity)
-                            <dt style="color:#71717a;">Purposed activity</dt>
-                            <dd style="margin:0;white-space:pre-wrap;">{{ $reapActivity }}</dd>
-                        @endif
-                        @if ($reapDocument)
-                            <dt style="color:#71717a;">Document</dt>
-                            <dd style="margin:0;">{{ $reapDocument }}</dd>
-                        @endif
-                    </dl>
-                @endif
-            @else
-                <p style="margin:0;font-size:0.88rem;color:#71717a;">Not marked Through REAP.</p>
-            @endif
-        </div>
+    @if ($case->displaysReapSupportRoute())
+        @include('staff.services.partials.through-reap-summary', ['case' => $case, 'payload' => $payload])
     @endif
 
     @include('partials.service-case-document-cards', [

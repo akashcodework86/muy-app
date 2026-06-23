@@ -43,12 +43,30 @@ final class ConvergenceReapSupportDeliverablesSupport
     }
 
     /**
+     * @return list<int>
+     */
+    public static function reapSupportServiceIds(): array
+    {
+        if (! Schema::hasTable('services') || ! Schema::hasColumn('services', 'counts_toward_reap_support')) {
+            return [];
+        }
+
+        return Service::query()
+            ->where('is_active', true)
+            ->where('counts_toward_reap_support', true)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
      * @param  list<int>|null  $districtIds
      */
     private static function scopedQuery(?array $districtIds, ?Carbon $periodFrom, ?Carbon $periodTo): Builder
     {
-        $serviceIds = self::convergenceServiceIds();
-        if ($serviceIds === []) {
+        $convergenceServiceIds = self::convergenceServiceIds();
+        $reapSupportServiceIds = self::reapSupportServiceIds();
+        if ($convergenceServiceIds === [] && $reapSupportServiceIds === []) {
             return DB::table('service_cases')->whereRaw('1 = 0');
         }
 
@@ -57,10 +75,9 @@ final class ConvergenceReapSupportDeliverablesSupport
 
         $query = DB::table('service_cases as sc')
             ->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
-            ->whereIn('sc.status', $statuses)
-            ->whereIn('sc.service_id', $serviceIds);
+            ->whereIn('sc.status', $statuses);
 
-        ConvergenceReapSupport::applyThroughReapPayloadScope($query);
+        self::applyAchievementScope($query);
 
         if ($districtIds !== null) {
             app(\App\Services\LegacyApplicationServiceCaseSupport::class)
@@ -79,6 +96,48 @@ final class ConvergenceReapSupportDeliverablesSupport
         }
 
         return $query;
+    }
+
+    /**
+     * Count convergence cases marked Through REAP, plus all cases on dedicated REAP-support services.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     */
+    /**
+     * Same OR scope as deliverables counting, without status/date filters — for service-case listings.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     */
+    public static function applyListingScope($query, string $tableAlias = 'service_cases'): void
+    {
+        self::applyAchievementScope($query, $tableAlias);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     */
+    public static function applyAchievementScope($query, string $tableAlias = 'sc'): void
+    {
+        $convergenceServiceIds = self::convergenceServiceIds();
+        $reapSupportServiceIds = self::reapSupportServiceIds();
+
+        if ($convergenceServiceIds === [] && $reapSupportServiceIds === []) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $query->where(function ($scope) use ($convergenceServiceIds, $reapSupportServiceIds, $tableAlias): void {
+            if ($reapSupportServiceIds !== []) {
+                $scope->whereIn("{$tableAlias}.service_id", $reapSupportServiceIds);
+            }
+            if ($convergenceServiceIds !== []) {
+                $scope->orWhere(function ($convergenceScope) use ($convergenceServiceIds, $tableAlias): void {
+                    $convergenceScope->whereIn("{$tableAlias}.service_id", $convergenceServiceIds);
+                    ConvergenceReapSupport::applyThroughReapPayloadScope($convergenceScope, $tableAlias);
+                });
+            }
+        });
     }
 
     private static function achievementDateExpression(): string
