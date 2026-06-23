@@ -15,7 +15,7 @@
         <p style="margin:0;font-size:0.88rem;">
             <span style="display:inline-flex;align-items:center;padding:0.16rem 0.5rem;border-radius:999px;border:1px solid #fdba74;background:#fff7ed;color:#9a3412;font-size:0.72rem;font-weight:800;">Through REAP</span>
             <span style="display:block;margin-top:0.45rem;color:#52525b;font-size:0.82rem;">
-                Counts toward MIS <strong>8.2</strong> (Support through REAP) and <strong>8.3</strong> (Pitch deck preparation) when approved.
+                Counts toward MIS <strong>8.2</strong> (Support through REAP) when approved.
             </span>
         </p>
         @if ($reapSector || $reapAmount || $reapActivity)

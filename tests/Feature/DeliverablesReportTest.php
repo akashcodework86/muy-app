@@ -2817,7 +2817,7 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($row82);
         $this->assertNotNull($row83);
         $this->assertSame(1, $row82['achievement']);
-        $this->assertSame(1, $row83['achievement']);
+        $this->assertSame(0, $row83['achievement']);
     }
 
     public function test_approved_convergence_case_can_toggle_through_reap_without_reapproval(): void

@@ -15,7 +15,7 @@
         <span>
             <strong style="font-size:0.84rem;color:#7c2d12;">Through REAP</strong>
             <span style="display:block;font-size:0.76rem;color:#9a3412;margin-top:0.12rem;">
-                Tick for MIS <strong>8.2</strong> (Support through Reap) and <strong>8.3</strong> (Pitch deck preparation) after SPOC approval.
+                Tick for MIS <strong>8.2</strong> (Support through Reap) after SPOC approval.
             </span>
         </span>
     </label>

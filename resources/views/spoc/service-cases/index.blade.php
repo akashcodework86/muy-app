@@ -388,8 +388,8 @@
                             <td>
                                 <div>{{ $case->service?->name ?? '—' }}</div>
                                 @if ($isThroughReap)
-                                    <span class="sq-through-reap-badge" title="Counts toward MIS 8.2 and 8.3 when approved">Through REAP</span>
-                                    <span class="sq-through-reap-note">Schematic convergence · MIS 8.2 &amp; 8.3</span>
+                                    <span class="sq-through-reap-badge" title="Counts toward MIS 8.2 when approved">Through REAP</span>
+                                    <span class="sq-through-reap-note">Schematic convergence · MIS 8.2</span>
                                 @endif
                             </td>
                             <td>{{ $case->cfaSubmission?->district?->name ?? (is_array($lip) ? ($lip['district'] ?? '—') : '—') }}</td>

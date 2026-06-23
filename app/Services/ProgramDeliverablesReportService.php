@@ -26,6 +26,7 @@ use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\StakeholderConsultationWorkshopDeliverablesSupport;
 use App\Support\LineDepartmentMeetingDeliverablesSupport;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
+use App\Support\PitchDeckCombinedDeliverablesSupport;
 use App\Support\PitchDeckPreparationsDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\BstTrainingMonthPlanTargetSupport;
@@ -1666,11 +1667,7 @@ SQL;
 
     private function pitchDeckCombinedCount(): int
     {
-        return ConvergenceReapSupportDeliverablesSupport::countCases(
-            $this->districtIds,
-            $this->periodFrom,
-            $this->periodTo,
-        ) + PitchDeckPreparationsDeliverablesSupport::countPreparations(
+        return PitchDeckCombinedDeliverablesSupport::combinedCount(
             $this->periodFrom,
             $this->periodTo,
             $this->districtIds,

@@ -206,7 +206,7 @@
                 <p style="margin:0;font-size:0.88rem;">
                     <span class="svc-through-reap-badge">Through REAP</span>
                     <span style="display:block;margin-top:0.45rem;color:#52525b;font-size:0.82rem;">
-                        This convergence case counts toward MIS <strong>8.2</strong> and <strong>8.3</strong> after SPOC approval.
+                        This convergence case counts toward MIS <strong>8.2</strong> after SPOC approval.
                     </span>
                 </p>
                 @php

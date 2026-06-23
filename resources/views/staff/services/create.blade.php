@@ -409,7 +409,7 @@
                         '<input type="hidden" name="payload[through_reap]" value="0">' +
                         '<input type="checkbox" name="payload[through_reap]" value="1" id="payload_through_reap" style="margin-top:0.15rem;width:1rem;height:1rem;accent-color:#ea580c;">' +
                         '<span><strong style="font-size:0.84rem;color:#7c2d12;">Through REAP</strong>' +
-                        '<span style="display:block;font-size:0.76rem;color:#9a3412;margin-top:0.12rem;">Tick for MIS 8.2 and 8.3 after SPOC approval.</span></span>' +
+                        '<span style="display:block;font-size:0.76rem;color:#9a3412;margin-top:0.12rem;">Tick for MIS 8.2 after SPOC approval.</span></span>' +
                         '</label>';
                     container.appendChild(wrap);
 

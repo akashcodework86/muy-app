@@ -1338,17 +1338,10 @@ class ProgramDeliverablesAchievementBreakdownService
 
     private function pitchDeckCombinedBreakdown(): array
     {
-        $service = $this->serviceCaseBreakdown([
-            'type' => 'reap_support_services',
-        ]);
-
-        $data = \App\Support\PitchDeckCombinedDeliverablesSupport::combinedBreakdownFromParts(
-            $service,
-            \App\Support\PitchDeckPreparationsDeliverablesSupport::preparationsBreakdown(
-                $this->periodFrom,
-                $this->periodTo,
-                $this->districtIds,
-            ),
+        $data = \App\Support\PitchDeckCombinedDeliverablesSupport::combinedBreakdown(
+            $this->periodFrom,
+            $this->periodTo,
+            $this->districtIds,
         );
 
         return [
