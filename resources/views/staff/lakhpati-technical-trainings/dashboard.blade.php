@@ -203,6 +203,10 @@
                     <th>Photos</th>
                     <th>Attendance</th>
                     <th>Entered by</th>
+                    @if (\App\Models\LakhpatiTechnicalTraining::supportsMisFieldWorkflow())
+                    <th>Approval status</th>
+                    <th>Assigned SPOC</th>
+                    @endif
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -247,17 +251,22 @@
                         ])
                     </td>
                     <td>{{ $row->submitted_by_name }}</td>
+                    @include('partials.mis-field-workflow-dashboard-cells', ['row' => $row])
                     <td>
                         <div class="ltt-row-actions">
                             <a class="ltt-btn--view" href="{{ route($showRoutePrefix, $row) }}">View</a>
-                            @if (auth()->user()->role === 'district_staff' && (int) $row->submitted_by_user_id === (int) auth()->id())
-                                <a class="ltt-btn--edit" href="{{ route('staff.lakhpati-technical-trainings.edit', $row) }}">Edit</a>
-                            @endif
+                            @include('partials.mis-field-workflow-row-actions', [
+                                'row' => $row,
+                                'editRoute' => 'staff.lakhpati-technical-trainings.edit',
+                                'destroyRoute' => 'staff.lakhpati-technical-trainings.destroy',
+                                'editClass' => 'ltt-btn--edit',
+                                'withdrawClass' => 'ltt-btn--edit',
+                            ])
                         </div>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="15" class="ltt-empty">No sessions found for the current filters.</td></tr>
+                <tr><td colspan="17" class="ltt-empty">No sessions found for the current filters.</td></tr>
             @endforelse
             </tbody>
             @if (($rows instanceof \Countable ? count($rows) : 0) > 0)

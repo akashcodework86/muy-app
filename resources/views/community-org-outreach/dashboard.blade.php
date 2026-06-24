@@ -151,6 +151,10 @@
                             <th>Documents</th>
                             <th>Photos</th>
                             <th>Submitted by</th>
+                            @if (\App\Models\CommunityOrganizationOutreachVisit::supportsMisFieldWorkflow())
+                            <th>Approval status</th>
+                            <th>Assigned SPOC</th>
+                            @endif
                             <th></th>
                         </tr>
                     </thead>
@@ -204,7 +208,17 @@
                                     @endif
                                 </td>
                                 <td>{{ $row->submitted_by_name }}</td>
-                                <td><a href="{{ route($showRoute, $row) }}" class="coo-link">View</a></td>
+                                @include('partials.mis-field-workflow-dashboard-cells', ['row' => $row])
+                                <td>
+                                    <a href="{{ route($showRoute, $row) }}" class="coo-link">View</a>
+                                    @include('partials.mis-field-workflow-row-actions', [
+                                        'row' => $row,
+                                        'editRoute' => $editRoute ?? null,
+                                        'destroyRoute' => $destroyRoute ?? null,
+                                        'editClass' => 'coo-link',
+                                        'withdrawClass' => 'coo-link',
+                                    ])
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\LineDepartmentMeeting;
+use App\Support\MisFieldActivityApproval;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -191,6 +192,8 @@ final class LineDepartmentMeetingDeliverablesSupport
                 $periodTo->toDateString(),
             ]);
         }
+
+        MisFieldActivityApproval::applyApprovedOnlyFilter($query, self::TABLE, 't');
 
         return $query;
     }

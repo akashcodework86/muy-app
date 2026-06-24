@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\TechnicalTraining;
 use App\Support\IncubateeAttendeeCounts;
+use App\Support\MisFieldActivityApproval;
 use App\Support\WorkshopDashboardCsvExport;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Services\MisFieldActivityWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -24,6 +26,7 @@ class TechnicalTrainingAttendanceController extends Controller
 
     public function __construct(
         private LegacyApplicationServiceCaseSupport $legacyApplications,
+        private MisFieldActivityWorkflowService $misFieldWorkflow,
     ) {}
 
     public function create(Request $request): View
@@ -83,7 +86,7 @@ class TechnicalTrainingAttendanceController extends Controller
 
         $mediaItems = $this->storeUploadedMedia((array) $request->file('attendance_media', []));
 
-        TechnicalTraining::query()->create([
+        $training = TechnicalTraining::query()->create([
             'submitted_by_user_id' => (int) $user->id,
             'submitted_by_name' => (string) $user->name,
             'event_date' => $validated['session_date'],
@@ -97,9 +100,11 @@ class TechnicalTrainingAttendanceController extends Controller
             'selected_incubatees_snapshot' => $snapshots->all(),
         ]);
 
+        $this->misFieldWorkflow->submitForApproval($training, (int) $user->id);
+
         return redirect()
             ->route('staff.technical-trainings.dashboard')
-            ->with('status', 'Technical training attendance submitted.');
+            ->with('status', 'Technical training attendance submitted for approval.');
     }
 
     public function dashboard(Request $request): View
@@ -115,7 +120,7 @@ class TechnicalTrainingAttendanceController extends Controller
             ]);
         }
 
-        $query = TechnicalTraining::query()->with(['district:id,name', 'submitter:id,name']);
+        $query = TechnicalTraining::query()->with(['district:id,name', 'submitter:id,name', 'misFieldSpoc:id,name']);
 
         if ($user->role === 'district_staff') {
             $query->where('district_id', (int) ($user->district_id ?: 0));
@@ -185,8 +190,8 @@ class TechnicalTrainingAttendanceController extends Controller
             'row' => $technicalTraining,
             'applicantSnapshots' => $this->enrichedApplicantSnapshots($technicalTraining),
             'currentRole' => (string) $user->role,
-            'canEdit' => (string) $user->role === 'district_staff'
-                && (int) $technicalTraining->submitted_by_user_id === (int) $user->id,
+            'canEdit' => MisFieldActivityApproval::submitterCanEdit($user, $technicalTraining),
+            'canWithdraw' => MisFieldActivityApproval::submitterCanWithdraw($user, $technicalTraining),
         ]);
     }
 
@@ -195,7 +200,7 @@ class TechnicalTrainingAttendanceController extends Controller
         $user = $request->user();
         abort_unless($this->canViewDashboard((string) $user->role), 403);
 
-        $query = TechnicalTraining::query()->with(['district:id,name', 'submitter:id,name']);
+        $query = TechnicalTraining::query()->with(['district:id,name', 'submitter:id,name', 'misFieldSpoc:id,name']);
         if ($user->role === 'district_staff') {
             $query->where('district_id', (int) ($user->district_id ?: 0));
         }
@@ -308,11 +313,31 @@ class TechnicalTrainingAttendanceController extends Controller
         $technicalTraining->session_brief = trim((string) ($validated['session_brief'] ?? '')) ?: null;
         $technicalTraining->selected_incubatee_ids = $selectedIds->all();
         $technicalTraining->selected_incubatees_snapshot = $snapshots->all();
+        $wasResubmit = $technicalTraining->canBeEditedByMisFieldSubmitter();
         $technicalTraining->save();
+
+        if ($wasResubmit) {
+            $this->misFieldWorkflow->resubmitForApproval($technicalTraining, (int) $user->id);
+        }
 
         return redirect()
             ->route('staff.technical-trainings.dashboard')
-            ->with('status', 'Technical training attendance updated.');
+            ->with('status', $wasResubmit
+                ? 'Technical training resubmitted for approval.'
+                : 'Technical training attendance updated.');
+    }
+
+    public function destroy(Request $request, TechnicalTraining $technicalTraining): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless(MisFieldActivityApproval::submitterCanWithdraw($user, $technicalTraining), 403);
+
+        $this->deleteExistingMediaFiles($technicalTraining);
+        $technicalTraining->delete();
+
+        return redirect()
+            ->route('staff.technical-trainings.dashboard')
+            ->with('status', 'Technical training submission withdrawn.');
     }
 
     public function downloadAttachment(Request $request, TechnicalTraining $technicalTraining): StreamedResponse|BinaryFileResponse
@@ -698,6 +723,8 @@ class TechnicalTrainingAttendanceController extends Controller
 
     private function assertCanEdit(TechnicalTraining $row, int $userId): void
     {
+        $user = request()->user();
+        abort_unless($user && MisFieldActivityApproval::submitterCanEdit($user, $row), 403);
         abort_unless((int) $row->submitted_by_user_id === $userId, 403);
     }
 

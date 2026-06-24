@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasMisFieldApprovalWorkflow;
 use App\Support\LineDepartmentMeetingOptions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LineDepartmentMeeting extends Model
 {
+    use HasMisFieldApprovalWorkflow;
+
     public const MODULE_LABEL = '12.2 Line Department Meeting';
 
     /** @var array<string, string> */
@@ -41,6 +44,15 @@ class LineDepartmentMeeting extends Model
         'incubatees_discussed_json',
         'proof_media_json',
         'photos_json',
+        'status',
+        'spoc_user_id',
+        'submitted_at',
+        'approved_at',
+        'approved_by',
+        'sent_back_note',
+        'rejected_at',
+        'rejected_by',
+        'rejected_note',
     ];
 
     protected function casts(): array
@@ -50,6 +62,9 @@ class LineDepartmentMeeting extends Model
             'incubatees_discussed_json' => 'array',
             'proof_media_json' => 'array',
             'photos_json' => 'array',
+            'submitted_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'rejected_at' => 'datetime',
         ];
     }
 

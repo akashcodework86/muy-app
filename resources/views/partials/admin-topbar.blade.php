@@ -23,6 +23,7 @@
     $canViewPartnerOutreach = $u && \App\Support\PartnerOutreachAccess::canViewDashboard($u);
     $canSubmitBaPartnersOutreach = $u && \App\Support\BusinessAccelerationPartnersOutreachAccess::canSubmit($u);
     $canViewBaPartnersOutreach = $u && \App\Support\BusinessAccelerationPartnersOutreachAccess::canViewDashboard($u);
+    $isFieldMisApprover = $u && \App\Support\MisFieldActivityApproval::isDedicatedApprover($u);
     $canManageCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canSubmit($u);
     $canViewCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canViewDashboard($u);
     $canManageStakeholderConsultationWorkshops = $u && \App\Support\StakeholderConsultationWorkshopAccess::canSubmit($u);
@@ -303,8 +304,12 @@
         str_starts_with($r, 'hub.market-linkages.show') => 'market-linkage-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.show') => 'community-org-outreach-dashboard',
-        str_starts_with($r, 'spoc.service-cases') => 'spoc-queue',
-        str_starts_with($r, 'spoc.market-linkages') => 'spoc-queue',
+        str_starts_with($r, 'spoc.service-cases') => 'approval-queue',
+        str_starts_with($r, 'spoc.market-linkages') => 'approval-queue',
+        str_starts_with($r, 'spoc.field-mis-approvals.show') => 'approval-queue',
+        str_starts_with($r, 'spoc.community-org-outreach.show') => 'approval-queue',
+        str_starts_with($r, 'spoc.community-org-outreach.document') => 'approval-queue',
+        str_starts_with($r, 'spoc.community-org-outreach.photo') => 'approval-queue',
         str_starts_with($r, 'account.') => 'account',
         str_starts_with($r, 'incubatee.documents') => 'documents',
         str_starts_with($r, 'incubatee.') => 'incubatee',
@@ -344,6 +349,7 @@
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
     $spocSynergiesActive = in_array($activeNav, ['stakeholder-consultation-workshops-submit', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard'], true);
     $spocPitchDeckActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true);
+    $approvalQueueNavActive = $activeNav === 'approval-queue';
     $spocFundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard', 'demo-days-submit', 'demo-days-dashboard', 'funding-partners-outreach-submit', 'funding-partners-outreach-dashboard'], true);
     $spocPartnerOutreachActive = in_array($activeNav, ['partner-outreach-submit', 'partner-outreach-dashboard'], true);
     $spocBrandingCommunicationActive = in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard'], true);
@@ -711,7 +717,7 @@
             <a href="{{ route('spoc.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
             </a>
-            <a href="{{ route('spoc.service-cases.index') }}" class="admin-topbar__link @if ($activeNav === 'spoc-queue') is-active @endif">
+            <a href="{{ route('spoc.service-cases.index') }}" class="admin-topbar__link @if ($approvalQueueNavActive) is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Approval queue</span>
             </a>
             <a href="{{ route('spoc.state-tasks.index') }}" class="admin-topbar__link @if ($activeNav === 'state-tasks-spoc') is-active @endif">

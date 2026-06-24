@@ -6,6 +6,7 @@ use App\Models\District;
 use App\Models\Hub;
 use App\Models\TechnicalTraining;
 use App\Models\User;
+use App\Models\ServiceCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,7 @@ class TechnicalTrainingAttendanceTest extends TestCase
             'session_name' => 'Product design workshop',
             'session_brief' => 'Hands-on session for packaging design.',
             'submitted_by_user_id' => $staff->id,
+            'status' => ServiceCase::STATUS_PENDING_APPROVAL,
         ]);
     }
 
@@ -121,6 +123,7 @@ class TechnicalTrainingAttendanceTest extends TestCase
         ]);
         $incubateeId = $this->seedOnboardedIncubatee($district);
         $entry = $this->createTechnicalTraining($district, $submitter, 'Original session', [$incubateeId]);
+        $entry->update(['status' => ServiceCase::STATUS_SENT_BACK]);
 
         $this->actingAs($otherStaff)->get(route('staff.technical-trainings.edit', $entry))
             ->assertForbidden();
@@ -189,6 +192,7 @@ class TechnicalTrainingAttendanceTest extends TestCase
             'size_bytes' => 14,
             'type' => 'image',
         ]]);
+        $entry->update(['status' => ServiceCase::STATUS_SENT_BACK]);
 
         $response = $this->actingAs($staff)->put(route('staff.technical-trainings.update', $entry), [
             'session_date' => '2026-05-19',
@@ -290,6 +294,10 @@ class TechnicalTrainingAttendanceTest extends TestCase
                 'onboarding_batch_id' => 1,
                 'onboarding_batch_name' => 'Batch 1',
             ]],
+            'status' => ServiceCase::STATUS_APPROVED,
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $staff->id,
         ]);
     }
 

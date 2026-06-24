@@ -22,6 +22,7 @@ use App\Support\LineDepartmentMeetingDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
+use App\Support\MisFieldActivityApproval;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -241,6 +242,7 @@ class ProgramDeliverablesAchievementBreakdownService
             ->leftJoin('hubs as h', 'h.id', '=', 'v.hub_id');
         $this->applyDistrictScope($query, 'v.district_id');
         $this->applyPeriodFilter($query, 'v.visit_date');
+        MisFieldActivityApproval::applyApprovedOnlyFilter($query, 'community_organization_outreach_visits', 'v');
         $monthExpr = $this->monthKeySql('v.visit_date');
 
         $rows = (clone $query)
@@ -1373,6 +1375,7 @@ class ProgramDeliverablesAchievementBreakdownService
             $this->applyDistrictScope($query, 't.district_id');
         }
         $this->applyPeriodFilter($query, 't.'.$dateCol);
+        MisFieldActivityApproval::applyApprovedOnlyFilter($query, $table, 't');
         $monthExpr = $this->monthKeySql("t.{$dateCol}");
 
         if ($hasDistrict) {

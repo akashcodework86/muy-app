@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Support\MisFieldActivityApproval;
 
 final class PotentialLakhpatiTechnicalTrainingDeliverablesSupport
 {
@@ -189,6 +190,8 @@ final class PotentialLakhpatiTechnicalTrainingDeliverablesSupport
                 $periodTo->toDateString(),
             ]);
         }
+
+        MisFieldActivityApproval::applyApprovedOnlyFilter($query, self::TABLE, 't');
 
         return $query;
     }

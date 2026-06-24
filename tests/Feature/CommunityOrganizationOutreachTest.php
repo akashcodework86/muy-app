@@ -394,6 +394,10 @@ class CommunityOrganizationOutreachTest extends TestCase
             'follow_up_required' => false,
             'submitted_by_user_id' => $admin->id,
             'submitted_by_name' => $admin->name,
+            'status' => \App\Models\ServiceCase::STATUS_APPROVED,
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $admin->id,
         ];
     }
 }

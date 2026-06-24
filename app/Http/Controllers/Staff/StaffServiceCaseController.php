@@ -12,6 +12,7 @@ use App\Models\ServiceCaseAttachment;
 use App\Models\User;
 use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Services\MisFieldActivityListService;
 use App\Services\SchemaValidator;
 use App\Services\ServiceCaseRecorder;
 use App\Support\ConvergenceReapSupport;
@@ -36,6 +37,7 @@ class StaffServiceCaseController extends Controller
         private AppSettingsService $settings,
         private ServiceCaseRecorder $recorder,
         private LegacyApplicationServiceCaseSupport $legacyApplications,
+        private MisFieldActivityListService $fieldMisList,
     ) {}
 
     public function index(Request $request): View
@@ -55,6 +57,8 @@ class StaffServiceCaseController extends Controller
             $recordType = 'market_linkage';
         } elseif ($serviceIdRaw === ConvergenceReapSupport::MIS_8_2_LIST_FILTER) {
             $recordType = ConvergenceReapSupport::MIS_8_2_LIST_FILTER;
+        } elseif (MisFieldActivityListService::isListFilterValue($serviceIdRaw)) {
+            $recordType = $serviceIdRaw;
         } else {
             $serviceId = (int) $serviceIdRaw;
         }
@@ -69,8 +73,10 @@ class StaffServiceCaseController extends Controller
         $listItems = collect();
 
         $reapOnly = $recordType === ConvergenceReapSupport::MIS_8_2_LIST_FILTER;
+        $fieldMisOnly = $recordType !== '' && MisFieldActivityListService::isListFilterValue($recordType);
+        $includeFieldMis = ! $reapOnly && ($fieldMisOnly || ($recordType === '' && $serviceId <= 0 && $recordType !== 'market_linkage'));
 
-        if ($recordType !== 'market_linkage') {
+        if (! $fieldMisOnly && $recordType !== 'market_linkage') {
             $q = ServiceCase::query()
                 ->where(function ($outer) use ($districtId, $legacyIds): void {
                     $outer->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
@@ -123,7 +129,7 @@ class StaffServiceCaseController extends Controller
             }
         }
 
-        $includeMarketLinkage = $recordType === 'market_linkage' || (! $reapOnly && $serviceId <= 0);
+        $includeMarketLinkage = ! $fieldMisOnly && ($recordType === 'market_linkage' || (! $reapOnly && $serviceId <= 0));
         if ($includeMarketLinkage && Schema::hasTable('market_linkage_submissions') && MarketLinkageSubmission::supportsWorkflow()) {
             $mlq = MarketLinkageSubmission::query()
                 ->where('district_id', $districtId)
@@ -145,6 +151,28 @@ class StaffServiceCaseController extends Controller
                     'service_case' => null,
                     'market_linkage' => $ml,
                     'updated_at' => $ml->updated_at,
+                ]);
+            }
+        }
+
+        if ($includeFieldMis) {
+            $fieldMisRecords = $this->fieldMisList->recordsForStaffList(
+                $districtId,
+                (int) $staff->id,
+                $scope,
+                $status,
+                $fieldMisOnly ? $recordType : '',
+                ! $fieldMisOnly,
+            );
+
+            foreach ($fieldMisRecords as $fm) {
+                $listItems->push([
+                    'type' => 'field_mis',
+                    'service_case' => null,
+                    'market_linkage' => null,
+                    'field_mis' => $fm,
+                    'field_mis_module' => $this->fieldMisList->moduleKeyForRecord($fm),
+                    'updated_at' => $fm->updated_at,
                 ]);
             }
         }

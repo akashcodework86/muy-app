@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasMisFieldApprovalWorkflow;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CommunityOrganizationOutreachVisit extends Model
 {
+    use HasMisFieldApprovalWorkflow;
+
     protected $fillable = [
         'hub_id',
         'hub_name',
@@ -31,6 +34,15 @@ class CommunityOrganizationOutreachVisit extends Model
         'follow_up_date',
         'submitted_by_user_id',
         'submitted_by_name',
+        'status',
+        'spoc_user_id',
+        'submitted_at',
+        'approved_at',
+        'approved_by',
+        'sent_back_note',
+        'rejected_at',
+        'rejected_by',
+        'rejected_note',
     ];
 
     protected function casts(): array
@@ -41,6 +53,9 @@ class CommunityOrganizationOutreachVisit extends Model
             'follow_up_required' => 'boolean',
             'documents_json' => 'array',
             'photos_json' => 'array',
+            'submitted_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'rejected_at' => 'datetime',
         ];
     }
 

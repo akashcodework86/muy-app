@@ -58,7 +58,11 @@
 
         <div class="ldm-list-table-wrap">
             <table class="ldm-list-table">
-                <thead><tr><th>Date</th><th>Level</th><th>Department</th><th>Official</th><th>District</th><th>Entered by</th><th></th></tr></thead>
+                <thead><tr><th>Date</th><th>Level</th><th>Department</th><th>Official</th><th>District</th><th>Entered by</th>
+                @if (\App\Models\LineDepartmentMeeting::supportsMisFieldWorkflow())
+                <th>Approval status</th><th>Assigned SPOC</th>
+                @endif
+                <th></th></tr></thead>
                 <tbody>
                     @forelse ($rows as $row)
                         <tr>
@@ -68,10 +72,20 @@
                             <td>{{ $row->official_name }}</td>
                             <td>{{ $row->district_name ?: '—' }}</td>
                             <td>{{ $row->submitted_by_name }}</td>
-                            <td><a href="{{ route($showRoute, $row) }}">View</a></td>
+                            @include('partials.mis-field-workflow-dashboard-cells', ['row' => $row])
+                            <td>
+                                <a href="{{ route($showRoute, $row) }}">View</a>
+                                @include('partials.mis-field-workflow-row-actions', [
+                                    'row' => $row,
+                                    'editRoute' => $editRoute,
+                                    'destroyRoute' => $destroyRoute,
+                                    'editClass' => '',
+                                    'withdrawClass' => '',
+                                ])
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="ldm-list-empty">No meetings logged yet.</td></tr>
+                        <tr><td colspan="9" class="ldm-list-empty">No meetings logged yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

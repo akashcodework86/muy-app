@@ -57,18 +57,23 @@
     @endif
 
     <div class="coo-card">
-        <h3 class="coo-card__title">New outreach visit</h3>
+        <h3 class="coo-card__title">{{ !empty($isEdit) ? 'Edit outreach visit' : 'New outreach visit' }}</h3>
         <p class="coo-card__sub">
             Log one visit per meeting with a community organization, institute, or partner body under <strong>{{ $hub->name }}</strong>.
-            Each saved entry counts as one achievement toward MIS indicator 1.5.
+            @if (empty($isEdit))
+            Each approved entry counts as one achievement toward MIS indicator 1.5.
+            @endif
         </p>
 
-        <form method="post" action="{{ route($storeRoute) }}" enctype="multipart/form-data">
+        <form method="post" action="{{ route($storeRoute, $storeRouteParams ?? []) }}" enctype="multipart/form-data">
             @csrf
+            @if (!empty($isEdit))
+                @method('PUT')
+            @endif
             <div class="coo-grid">
                 <div class="coo-field">
                     <label for="visit_date">Date of visit <span style="color:#b91c1c;">*</span></label>
-                    <input type="date" id="visit_date" name="visit_date" value="{{ old('visit_date', now()->toDateString()) }}" required>
+                    <input type="date" id="visit_date" name="visit_date" value="{{ old('visit_date', optional($row)->visit_date?->toDateString() ?? now()->toDateString()) }}" required>
                 </div>
                 <div class="coo-field">
                     <label for="district_id">District <span style="color:#b91c1c;">*</span></label>
@@ -79,14 +84,14 @@
                     <select id="district_id" name="district_id" required>
                         <option value="">Select district</option>
                         @foreach ($districts as $d)
-                            <option value="{{ $d->id }}" @selected((string) old('district_id') === (string) $d->id)>{{ $d->name }}</option>
+                            <option value="{{ $d->id }}" @selected((string) old('district_id', optional($row)->district_id ?? '') === (string) $d->id)>{{ $d->name }}</option>
                         @endforeach
                     </select>
                     @endif
                 </div>
                 <div class="coo-field coo-field--full">
                     <label for="organization_name">Name of organisation / institute <span style="color:#b91c1c;">*</span></label>
-                    <input type="text" id="organization_name" name="organization_name" value="{{ old('organization_name') }}" maxlength="255" required>
+                    <input type="text" id="organization_name" name="organization_name" value="{{ old('organization_name', optional($row)->organization_name ?? '') }}" maxlength="255" required>
                 </div>
                 <div class="coo-field">
                     <label for="organization_type">Organisation type <span style="color:#b91c1c;">*</span></label>

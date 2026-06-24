@@ -60,7 +60,7 @@ final class LineDepartmentMeetingAccess
             return false;
         }
 
-        return (int) $row->submitted_by_user_id === (int) $user->id;
+        return MisFieldActivityApproval::submitterCanEdit($user, $row);
     }
 
     public static function canDelete(?User $user, LineDepartmentMeeting $row): bool
@@ -69,7 +69,7 @@ final class LineDepartmentMeetingAccess
             return true;
         }
 
-        return self::canEdit($user, $row);
+        return MisFieldActivityApproval::submitterCanWithdraw($user, $row);
     }
 
     public static function routePrefixForUser(?User $user): string

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasMisFieldApprovalWorkflow;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TechnicalTraining extends Model
 {
+    use HasMisFieldApprovalWorkflow;
+
     protected $fillable = [
         'submitted_by_user_id',
         'submitted_by_name',
@@ -19,6 +22,15 @@ class TechnicalTraining extends Model
         'attendance_media_json',
         'selected_incubatee_ids',
         'selected_incubatees_snapshot',
+        'status',
+        'spoc_user_id',
+        'submitted_at',
+        'approved_at',
+        'approved_by',
+        'sent_back_note',
+        'rejected_at',
+        'rejected_by',
+        'rejected_note',
     ];
 
     protected function casts(): array
@@ -28,6 +40,9 @@ class TechnicalTraining extends Model
             'attendance_media_json' => 'array',
             'selected_incubatee_ids' => 'array',
             'selected_incubatees_snapshot' => 'array',
+            'submitted_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'rejected_at' => 'datetime',
         ];
     }
 

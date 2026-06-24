@@ -60,6 +60,11 @@
     .tp-btn--edit:hover { background:#f8fafc; }
     .tp-empty { padding:1rem; color:#64748b; }
     .tp-brief { color:#64748b; font-size:0.8rem; line-height:1.4; margin-top:0.2rem; max-width:24rem; }
+    .mfw-status { display:inline-block; padding:0.15rem 0.45rem; border-radius:999px; font-size:0.72rem; font-weight:700; }
+    .mfw-status--pending { background:#fff7ed; color:#9a3412; }
+    .mfw-status--approved { background:#ecfdf5; color:#166534; }
+    .mfw-status--sent-back { background:#fffbeb; color:#92400e; }
+    .mfw-status--rejected { background:#fef2f2; color:#991b1b; }
 </style>
 @endpush
 
@@ -166,6 +171,10 @@
                 <th>Female</th>
                 <th>Other/NA</th>
                 <th>Total</th>
+                @if (\App\Models\TechnicalTraining::supportsMisFieldWorkflow())
+                <th>Approval status</th>
+                <th>Assigned SPOC</th>
+                @endif
                 <th>Actions</th>
             </tr>
             </thead>
@@ -194,6 +203,7 @@
                     <td>{{ number_format($attendeeCounts['female']) }}</td>
                     <td>{{ number_format($attendeeCounts['other'] ?? 0) }}</td>
                     <td>{{ number_format($attendeeCounts['total']) }}</td>
+                    @include('partials.mis-field-workflow-dashboard-cells', ['row' => $row])
                     <td>
                         <div class="tp-row-actions">
                             <a class="tp-btn--view" href="{{ match ($currentRole ?? auth()->user()->role) {
@@ -201,15 +211,17 @@
                                 'state_staff' => route('spoc.technical-trainings.show', $row),
                                 default => route('staff.technical-trainings.show', $row),
                             } }}">View</a>
-                            @if (auth()->user()->role === 'district_staff' && (int) $row->submitted_by_user_id === (int) auth()->id())
-                                <a class="tp-btn--edit" href="{{ route('staff.technical-trainings.edit', $row) }}">Edit</a>
-                            @endif
+                            @include('partials.mis-field-workflow-row-actions', [
+                                'row' => $row,
+                                'editRoute' => 'staff.technical-trainings.edit',
+                                'destroyRoute' => 'staff.technical-trainings.destroy',
+                            ])
                         </div>
                     </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="11" class="tp-empty">No entries found.</td>
+                    <td colspan="13" class="tp-empty">No entries found.</td>
                 </tr>
             @endforelse
             </tbody>

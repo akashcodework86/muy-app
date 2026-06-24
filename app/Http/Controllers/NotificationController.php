@@ -54,6 +54,12 @@ class NotificationController extends Controller
             ]);
         }
 
+        $misFieldModule = $data['mis_field_module'] ?? null;
+        $misFieldRecordId = (int) ($data['mis_field_record_id'] ?? 0);
+        if ($misFieldModule && $misFieldRecordId > 0 && $request->user()->role === 'state_staff') {
+            return redirect()->route('spoc.field-mis-approvals.show', [$misFieldModule, $misFieldRecordId]);
+        }
+
         $cfaId = $data['cfa_submission_id'] ?? null;
         if ($cfaId) {
             $url = match ($request->user()->role) {

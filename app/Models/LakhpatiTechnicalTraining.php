@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasMisFieldApprovalWorkflow;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LakhpatiTechnicalTraining extends Model
 {
+    use HasMisFieldApprovalWorkflow;
+
     protected $table = 'potential_lakhpati_technical_trainings';
 
     public const MODULE_LABEL = '3.3.1 Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs';
@@ -42,6 +45,15 @@ class LakhpatiTechnicalTraining extends Model
         'participants_json',
         'attendance_media_json',
         'workshop_photos_json',
+        'status',
+        'spoc_user_id',
+        'submitted_at',
+        'approved_at',
+        'approved_by',
+        'sent_back_note',
+        'rejected_at',
+        'rejected_by',
+        'rejected_note',
     ];
 
     protected function casts(): array
@@ -54,6 +66,9 @@ class LakhpatiTechnicalTraining extends Model
             'participants_json' => 'array',
             'attendance_media_json' => 'array',
             'workshop_photos_json' => 'array',
+            'submitted_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'rejected_at' => 'datetime',
         ];
     }
 

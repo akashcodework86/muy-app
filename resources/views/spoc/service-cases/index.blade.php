@@ -49,6 +49,8 @@
         .sq-table tr.sq-row--approved td { background: #ecfdf5; }
         .sq-table tr.sq-row--rejected td { background: #fef2f2; }
         .sq-table tr.sq-row--market_linkage td { background: #faf5ff; }
+        .sq-table tr.sq-row--field_mis td { background: #f0f9ff; }
+        .sq-table tr.sq-row--field_mis td.sq-cell--approval { background: #fffbeb; box-shadow: inset 3px 0 0 #d97706; }
         .sq-table tr.sq-row--through_reap td {
             background: linear-gradient(90deg, #fff7ed 0%, #fffbeb 100%);
             border-top: 1px solid #fdba74;
@@ -163,7 +165,11 @@
         $filterParams = array_filter([
             'district_id' => (int) ($filterDistrictId ?? 0) ?: null,
             'batch_id' => (int) ($filterBatchId ?? 0) ?: null,
-            'service_id' => (int) ($filterServiceId ?? 0) ?: null,
+            'service_id' => match (true) {
+                ($filterRecordType ?? '') !== '' && \App\Services\MisFieldActivityListService::isListFilterValue((string) ($filterRecordType ?? '')) => $filterRecordType,
+                (int) ($filterServiceId ?? 0) > 0 => (int) $filterServiceId,
+                default => null,
+            },
             'q' => ($filterQ ?? '') !== '' ? $filterQ : null,
             'date_from' => ($filterDateFrom ?? '') !== '' ? $filterDateFrom : null,
             'date_to' => ($filterDateTo ?? '') !== '' ? $filterDateTo : null,
@@ -205,7 +211,7 @@
         </div>
     </div>
 
-    @if (($spocDistrictIds ?? []) === [])
+    @if (($spocDistrictIds ?? []) === [] && ! ($isFieldMisApprover ?? false))
         <p style="color:#b45309;font-size:0.9rem;background:#fffbeb;border:1px solid #fcd34d;padding:0.65rem 0.85rem;border-radius:8px;">
             No districts are assigned to you yet. Ask the state admin to assign you on <strong>Service SPOCs</strong> before you can review submissions.
         </p>
@@ -243,8 +249,13 @@
                         </select>
                         <select name="service_id" class="sq-search" style="max-width:none;">
                             <option value="">All services</option>
+                            @foreach (\App\Support\MisFieldActivityApproval::modules() as $moduleKey => $moduleMeta)
+                                <option value="{{ $moduleKey }}" @selected(($filterRecordType ?? '') === $moduleKey)>
+                                    {{ ($moduleMeta['serial'] ?? '').' — '.($moduleMeta['label'] ?? $moduleKey) }}
+                                </option>
+                            @endforeach
                             @foreach (($serviceOptions ?? collect()) as $service)
-                                <option value="{{ (int) $service->id }}" @selected((int) ($filterServiceId ?? 0) === (int) $service->id)>
+                                <option value="{{ (int) $service->id }}" @selected(($filterRecordType ?? '') === '' && (int) ($filterServiceId ?? 0) === (int) $service->id)>
                                     {{ $service->name }}
                                 </option>
                             @endforeach
@@ -308,9 +319,46 @@
                             $rowKind = is_array($row) ? (string) ($row['kind'] ?? '') : '';
                             $case = is_array($row) ? ($row['service_case'] ?? null) : null;
                             $ml = is_array($row) ? ($row['market_linkage'] ?? null) : null;
+                            $fm = is_array($row) ? ($row['field_mis'] ?? null) : null;
+                            $fmModule = is_array($row) ? (string) ($row['field_mis_module'] ?? '') : '';
                             $srNo = $loop->iteration + (($cases->currentPage() - 1) * $cases->perPage());
                         @endphp
-                        @if ($rowKind === 'market_linkage' && $ml)
+                        @if ($rowKind === 'field_mis' && $fm && $fmModule !== '')
+                        @php
+                            $statusClass = strtolower((string) $fm->status);
+                            $fmMeta = \App\Support\MisFieldActivityApproval::module($fmModule);
+                            $fmRemark = \App\Support\MisFieldActivityApproval::remarkForRecord($fm);
+                            $fmTitle = trim((string) ($fm->{($fmMeta['title_column'] ?? 'id')} ?? '')) ?: 'Entry #'.$fm->getKey();
+                            $fmServiceLabel = trim(($fmMeta['serial'] ?? '').' — '.($fmMeta['label'] ?? $fmModule));
+                            $fmDistrict = (string) ($fm->district_name ?? $fm->district?->name ?? '—');
+                            $fmApprover = (string) ($fm->misFieldSpoc?->name ?? \App\Support\MisFieldActivityApproval::approverUser()?->name ?? '—');
+                        @endphp
+                        <tr class="sq-row--field_mis sq-row--{{ $statusClass }}">
+                            <td class="sq-sr">{{ $srNo }}</td>
+                            @if ($canBulkApprove ?? false)
+                                <td></td>
+                            @endif
+                            <td>
+                                <div class="sq-name">{{ $fmTitle }}</div>
+                                <div class="sq-muted">Field MIS · {{ $fmDistrict }}</div>
+                            </td>
+                            <td>{{ $fmServiceLabel }}</td>
+                            <td>{{ $fmDistrict }}</td>
+                            <td>—</td>
+                            <td>{{ $fm->submitted_by_name ?? $fm->submitter?->name ?? '—' }}</td>
+                            <td class="sq-cell--approval">
+                                <span class="sq-status sq-status--{{ $statusClass }}">{{ method_exists($fm, 'misFieldStatusLabel') ? $fm->misFieldStatusLabel() : str_replace('_', ' ', (string) $fm->status) }}</span>
+                                <div class="sq-muted" style="margin-top:0.2rem;">Approver: {{ $fmApprover }}</div>
+                            </td>
+                            <td class="sq-remark">{{ $fmRemark !== '' ? \Illuminate\Support\Str::limit($fmRemark, 120) : '—' }}</td>
+                            <td style="white-space:nowrap;">{{ $fm->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
+                            <td>
+                                <div class="sq-actions">
+                                    <a href="{{ route('spoc.field-mis-approvals.show', [$fmModule, $fm->getKey()]) }}" class="sq-btn sq-btn--primary">Review</a>
+                                </div>
+                            </td>
+                        </tr>
+                        @elseif ($rowKind === 'market_linkage' && $ml)
                         @php
                             $statusClass = strtolower((string) $ml->status);
                             $mlRemark = match ((string) $ml->status) {
@@ -436,7 +484,7 @@
                         @endif
                     @empty
                         <tr>
-                            <td colspan="{{ ($canBulkApprove ?? false) ? 11 : 10 }}" style="padding:1.2rem;color:#71717a;text-align:center;">No service cases or market linkage submissions match your filters.</td>
+                            <td colspan="{{ ($canBulkApprove ?? false) ? 11 : 10 }}" style="padding:1.2rem;color:#71717a;text-align:center;">No entries match your filters.</td>
                         </tr>
                     @endforelse
                 </tbody>

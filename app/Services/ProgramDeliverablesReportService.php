@@ -32,6 +32,7 @@ use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\BstTrainingMonthPlanTargetSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
+use App\Support\MisFieldActivityApproval;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -1498,6 +1499,7 @@ SQL;
         $query = DB::table('community_organization_outreach_visits');
         $this->applyDistrictScope($query, 'district_id');
         $this->applyPeriodFilter($query, 'visit_date');
+        MisFieldActivityApproval::applyApprovedOnlyFilter($query, 'community_organization_outreach_visits');
 
         return (int) $query->count();
     }
@@ -1608,6 +1610,7 @@ SQL;
             $dateCol = Schema::hasColumn('technical_trainings', 'event_date') ? 'event_date' : 'created_at';
             $this->applyDistrictScope($query, 'district_id');
             $this->applyPeriodFilter($query, $dateCol);
+            MisFieldActivityApproval::applyApprovedOnlyFilter($query, 'technical_trainings');
 
             return (int) $query->count();
         }

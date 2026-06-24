@@ -9,6 +9,8 @@ use App\Models\Hub;
 use App\Models\User;
 use App\Support\CommunityOrganizationOutreachOptions;
 use App\Support\CommunityOrgOutreachAccess;
+use App\Support\MisFieldActivityApproval;
+use App\Services\MisFieldActivityWorkflowService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,6 +25,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class CommunityOrganizationOutreachController extends Controller
 {
     use ValidatesAttendanceMediaUploads;
+
+    public function __construct(
+        private MisFieldActivityWorkflowService $misFieldWorkflow,
+    ) {}
 
     public function create(Request $request): View
     {
@@ -105,11 +111,107 @@ class CommunityOrganizationOutreachController extends Controller
             $payload['photos_json'] = $this->storeUploadedPhotos($this->photoUploads($request));
         }
 
-        CommunityOrganizationOutreachVisit::query()->create($payload);
+        $visit = CommunityOrganizationOutreachVisit::query()->create($payload);
+
+        $this->misFieldWorkflow->submitForApproval($visit, (int) $user->id);
 
         return redirect()
             ->route($routePrefix.'community-org-outreach.dashboard')
-            ->with('status', 'Community organization outreach visit logged.');
+            ->with('status', 'Community organization outreach visit submitted for approval.');
+    }
+
+    public function edit(Request $request, CommunityOrganizationOutreachVisit $communityOrgOutreach): View
+    {
+        $user = $request->user();
+        abort_unless(CommunityOrgOutreachAccess::canEdit($user, $communityOrgOutreach), 403);
+
+        return view('community-org-outreach.form', $this->formViewData($user, $communityOrgOutreach));
+    }
+
+    public function update(Request $request, CommunityOrganizationOutreachVisit $communityOrgOutreach): RedirectResponse
+    {
+        $user = $this->submitterOrAbort($request);
+        abort_unless(CommunityOrgOutreachAccess::canEdit($user, $communityOrgOutreach), 403);
+        $routePrefix = CommunityOrgOutreachAccess::routePrefixForUser($user);
+
+        if ($uploadErrors = array_merge(
+            $this->documentUploadErrors($request),
+            $this->photoUploadErrors($request),
+        )) {
+            return back()->withInput()->withErrors($uploadErrors);
+        }
+
+        [$hubId, $districtIds] = $this->allowedDistrictContext($user);
+
+        $validated = $request->validate(array_merge([
+            'visit_date' => ['required', 'date'],
+            'district_id' => ['required', 'integer', Rule::in($districtIds)],
+            'organization_name' => ['required', 'string', 'max:255'],
+            'organization_type' => ['required', 'string', Rule::in(array_keys(CommunityOrganizationOutreachOptions::organizationTypes()))],
+            'organization_type_other' => ['nullable', 'string', 'max:191', 'required_if:organization_type,other'],
+            'person_met_name' => ['required', 'string', 'max:191'],
+            'person_met_designation' => ['nullable', 'string', 'max:191'],
+            'poc_name' => ['required', 'string', 'max:191'],
+            'poc_phone' => ['required', 'string', 'regex:/^[6-9]\d{9}$/'],
+            'poc_email' => ['nullable', 'string', 'email', 'max:191'],
+            'purpose' => ['required', 'string', Rule::in(array_keys(CommunityOrganizationOutreachOptions::purposes()))],
+            'meeting_mode' => ['required', 'string', Rule::in(array_keys(CommunityOrganizationOutreachOptions::meetingModes()))],
+            'remarks' => ['nullable', 'string', 'max:5000'],
+        ], $this->documentValidationRules(), $this->photoValidationRules()));
+
+        $district = District::query()->with('hub')->findOrFail((int) $validated['district_id']);
+        abort_unless((int) $district->hub_id === $hubId, 422, 'District must belong to your hub.');
+        if (CommunityOrgOutreachAccess::isDistrictOutreachSubmitter($user)) {
+            abort_unless((int) $district->id === (int) $user->district_id, 422, 'You can only log visits for your district.');
+        }
+
+        $hub = $district->hub ?? Hub::query()->findOrFail($hubId);
+
+        $communityOrgOutreach->fill([
+            'hub_id' => $hubId,
+            'hub_name' => (string) $hub->name,
+            'district_id' => (int) $district->id,
+            'district_name' => (string) $district->name,
+            'visit_date' => $validated['visit_date'],
+            'organization_name' => trim((string) $validated['organization_name']),
+            'organization_type' => (string) $validated['organization_type'],
+            'organization_type_other' => (string) $validated['organization_type'] === 'other'
+                ? trim((string) ($validated['organization_type_other'] ?? ''))
+                : null,
+            'person_met_name' => trim((string) $validated['person_met_name']),
+            'person_met_designation' => trim((string) ($validated['person_met_designation'] ?? '')) ?: null,
+            'poc_name' => trim((string) $validated['poc_name']),
+            'poc_phone' => (string) $validated['poc_phone'],
+            'poc_email' => trim((string) ($validated['poc_email'] ?? '')) ?: null,
+            'purpose' => (string) $validated['purpose'],
+            'meeting_mode' => (string) $validated['meeting_mode'],
+            'remarks' => trim((string) ($validated['remarks'] ?? '')) ?: null,
+        ]);
+
+        $newDocs = array_values(array_filter((array) $request->file('documents', [])));
+        if ($newDocs !== [] && Schema::hasColumn('community_organization_outreach_visits', 'documents_json')) {
+            $existing = collect((array) $communityOrgOutreach->documents_json)->filter(fn ($item): bool => is_array($item))->values();
+            $communityOrgOutreach->documents_json = $existing->merge($this->storeUploadedDocuments($newDocs))->values()->all();
+        }
+
+        $newPhotos = $this->photoUploads($request);
+        if ($newPhotos !== [] && Schema::hasColumn('community_organization_outreach_visits', 'photos_json')) {
+            $existingPhotos = collect((array) $communityOrgOutreach->photos_json)->filter(fn ($item): bool => is_array($item))->values();
+            $communityOrgOutreach->photos_json = $existingPhotos->merge($this->storeUploadedPhotos($newPhotos))->values()->all();
+        }
+
+        $wasResubmit = $communityOrgOutreach->canBeEditedByMisFieldSubmitter();
+        $communityOrgOutreach->save();
+
+        if ($wasResubmit) {
+            $this->misFieldWorkflow->resubmitForApproval($communityOrgOutreach, (int) $user->id);
+        }
+
+        return redirect()
+            ->route($routePrefix.'community-org-outreach.dashboard')
+            ->with('status', $wasResubmit
+                ? 'Outreach visit resubmitted for approval.'
+                : 'Outreach visit updated.');
     }
 
     public function dashboard(Request $request): View
@@ -128,7 +230,7 @@ class CommunityOrganizationOutreachController extends Controller
         }
 
         $query = CommunityOrganizationOutreachVisit::query()
-            ->with(['district:id,name', 'hub:id,name', 'submitter:id,name']);
+            ->with(['district:id,name', 'hub:id,name', 'submitter:id,name', 'misFieldSpoc:id,name']);
 
         $this->scopeDashboardQuery($query, $user);
 
@@ -199,6 +301,8 @@ class CommunityOrganizationOutreachController extends Controller
             'documentRoute' => $routePrefix.'.community-org-outreach.document',
             'photoRoute' => $routePrefix.'.community-org-outreach.photo',
             'canDelete' => CommunityOrgOutreachAccess::canDelete($user, $communityOrgOutreach),
+            'canEdit' => CommunityOrgOutreachAccess::canEdit($user, $communityOrgOutreach),
+            'canWithdraw' => MisFieldActivityApproval::submitterCanWithdraw($user, $communityOrgOutreach),
             'purposes' => CommunityOrganizationOutreachOptions::purposes(),
             'meetingModes' => CommunityOrganizationOutreachOptions::meetingModes(),
         ]);
@@ -512,7 +616,7 @@ class CommunityOrganizationOutreachController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function formViewData(User $user): array
+    private function formViewData(User $user, ?CommunityOrganizationOutreachVisit $row = null): array
     {
         $routePrefix = CommunityOrgOutreachAccess::routePrefixForUser($user);
 
@@ -529,15 +633,20 @@ class CommunityOrganizationOutreachController extends Controller
 
         return [
             'user' => $user,
+            'row' => $row,
             'hub' => $hub,
             'districts' => $districts,
             'districtLocked' => $districtLocked,
             'migrationMissing' => ! Schema::hasTable('community_organization_outreach_visits'),
-            'storeRoute' => $routePrefix.'community-org-outreach.store',
+            'storeRoute' => $row
+                ? $routePrefix.'community-org-outreach.update'
+                : $routePrefix.'community-org-outreach.store',
+            'storeRouteParams' => $row ? [$row] : [],
             'dashboardRoute' => $routePrefix.'community-org-outreach.dashboard',
             'organizationTypes' => CommunityOrganizationOutreachOptions::organizationTypes(),
             'purposes' => CommunityOrganizationOutreachOptions::purposes(),
             'meetingModes' => CommunityOrganizationOutreachOptions::meetingModes(),
+            'isEdit' => $row !== null,
         ];
     }
 
@@ -592,6 +701,10 @@ class CommunityOrganizationOutreachController extends Controller
 
     private function assertCanAccessRecord(User $user, CommunityOrganizationOutreachVisit $row): void
     {
+        if (MisFieldActivityApproval::isDedicatedApprover($user)) {
+            return;
+        }
+
         if ($user->role === 'state_admin') {
             return;
         }
@@ -638,6 +751,7 @@ class CommunityOrganizationOutreachController extends Controller
                 ? $routePrefix.'.community-org-outreach.create'
                 : null,
             'destroyRoute' => $routePrefix.'.community-org-outreach.destroy',
+            'editRoute' => $routePrefix.'.community-org-outreach.edit',
         ]);
     }
 }

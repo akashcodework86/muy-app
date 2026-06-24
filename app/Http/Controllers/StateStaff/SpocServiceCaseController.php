@@ -14,8 +14,10 @@ use App\Models\User;
 use App\Notifications\ServiceCaseWorkflowNotification;
 use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Services\MisFieldActivityListService;
 use App\Services\SpocServiceCaseReviewTelemetryService;
 use App\Support\ConvergenceReapSupport;
+use App\Support\MisFieldActivityApproval;
 use App\Support\SpocBulkApproveAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -38,6 +40,7 @@ class SpocServiceCaseController extends Controller
         private AppSettingsService $settings,
         private LegacyApplicationServiceCaseSupport $legacyApplications,
         private SpocServiceCaseReviewTelemetryService $reviewTelemetry,
+        private MisFieldActivityListService $fieldMisList,
     ) {}
 
     public function index(Request $request): View
@@ -48,7 +51,14 @@ class SpocServiceCaseController extends Controller
         $status = (string) $request->query('status', '');
         $districtId = (int) $request->query('district_id', 0);
         $batchId = (int) $request->query('batch_id', 0);
-        $serviceId = (int) $request->query('service_id', 0);
+        $serviceIdRaw = (string) $request->query('service_id', '');
+        $recordType = '';
+        $serviceId = 0;
+        if (MisFieldActivityListService::isListFilterValue($serviceIdRaw)) {
+            $recordType = $serviceIdRaw;
+        } else {
+            $serviceId = (int) $serviceIdRaw;
+        }
         $searchQ = trim((string) $request->query('q', ''));
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));
@@ -62,6 +72,10 @@ class SpocServiceCaseController extends Controller
         }
 
         $districtIds = $this->spocDistrictIds((int) $spoc->id);
+        $isFieldMisApprover = MisFieldActivityApproval::isDedicatedApprover($spoc);
+        $includeFieldMis = $isFieldMisApprover && ($recordType !== '' || $serviceId <= 0);
+        $fieldMisOnly = $recordType !== '' && MisFieldActivityListService::isListFilterValue($recordType);
+
         if ($districtId > 0 && ! in_array($districtId, $districtIds, true)) {
             $districtId = 0;
         }
@@ -69,6 +83,11 @@ class SpocServiceCaseController extends Controller
 
         $scopeBase = ServiceCase::query()
             ->where(function ($outer) use ($districtIds, $legacyAppIds): void {
+                if ($districtIds === []) {
+                    $outer->whereRaw('1 = 0');
+
+                    return;
+                }
                 $outer->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds));
                 if (ServiceCase::supportsLegacyApplicationLink() && $legacyAppIds !== []) {
                     $outer->orWhere(function ($qq) use ($legacyAppIds): void {
@@ -113,7 +132,13 @@ class SpocServiceCaseController extends Controller
             $scopeBase->whereDate('updated_at', '<=', $dateTo);
         }
 
-        $tabCounts = [
+        $tabCounts = $fieldMisOnly ? [
+            '' => 0,
+            ServiceCase::STATUS_PENDING_APPROVAL => 0,
+            ServiceCase::STATUS_SENT_BACK => 0,
+            ServiceCase::STATUS_APPROVED => 0,
+            ServiceCase::STATUS_REJECTED => 0,
+        ] : [
             '' => (clone $countScope)->whereIn('status', [
                 ServiceCase::STATUS_PENDING_APPROVAL,
                 ServiceCase::STATUS_SENT_BACK,
@@ -126,45 +151,48 @@ class SpocServiceCaseController extends Controller
             ServiceCase::STATUS_REJECTED => (clone $countScope)->where('status', ServiceCase::STATUS_REJECTED)->count(),
         ];
 
-        $q = (clone $scopeBase)
-            ->with([
-                'cfaSubmission:id,applicant_name,application_no,district_id',
-                'cfaSubmission.district:id,name',
-                'cfaSubmission.onboardingBatchMembership:id,onboarding_batch_id,cfa_submission_id',
-                'cfaSubmission.onboardingBatchMembership.batch:id,name,district_id',
-                'service.category.parent',
-                'submitter:id,name',
-                'attachments:id,service_case_id,original_name,size_bytes,disk,path',
-            ]);
+        $casesCollection = collect();
+        if (! $fieldMisOnly) {
+            $q = (clone $scopeBase)
+                ->with([
+                    'cfaSubmission:id,applicant_name,application_no,district_id',
+                    'cfaSubmission.district:id,name',
+                    'cfaSubmission.onboardingBatchMembership:id,onboarding_batch_id,cfa_submission_id',
+                    'cfaSubmission.onboardingBatchMembership.batch:id,name,district_id',
+                    'service.category.parent',
+                    'submitter:id,name',
+                    'attachments:id,service_case_id,original_name,size_bytes,disk,path',
+                ]);
 
-        $this->applySpocSearchFilter($q, $searchQ);
+            $this->applySpocSearchFilter($q, $searchQ);
 
-        if ($status !== '') {
-            $q->where('status', $status);
-        } else {
-            $q->whereIn('status', [
-                ServiceCase::STATUS_PENDING_APPROVAL,
-                ServiceCase::STATUS_SENT_BACK,
-                ServiceCase::STATUS_APPROVED,
-                ServiceCase::STATUS_REJECTED,
-            ]);
-        }
-
-        $casesCollection = $q->orderByDesc('updated_at')->get();
-        $legacyIds = $casesCollection
-            ->filter(fn (ServiceCase $case): bool => (int) ($case->legacy_application_id ?? 0) > 0 && ! $case->cfa_submission_id)
-            ->map(fn (ServiceCase $case): int => (int) $case->legacy_application_id)
-            ->unique()
-            ->values()
-            ->all();
-        $legacyPreviewMap = $this->legacyApplications->incubateePreviewMap($legacyIds);
-        $casesCollection->transform(function (ServiceCase $case) use ($legacyPreviewMap): ServiceCase {
-            if ($case->legacy_application_id && ! $case->cfa_submission_id) {
-                $case->legacyIncubateePreview = $legacyPreviewMap[(int) $case->legacy_application_id] ?? null;
+            if ($status !== '') {
+                $q->where('status', $status);
+            } else {
+                $q->whereIn('status', [
+                    ServiceCase::STATUS_PENDING_APPROVAL,
+                    ServiceCase::STATUS_SENT_BACK,
+                    ServiceCase::STATUS_APPROVED,
+                    ServiceCase::STATUS_REJECTED,
+                ]);
             }
 
-            return $case;
-        });
+            $casesCollection = $q->orderByDesc('updated_at')->get();
+            $legacyIds = $casesCollection
+                ->filter(fn (ServiceCase $case): bool => (int) ($case->legacy_application_id ?? 0) > 0 && ! $case->cfa_submission_id)
+                ->map(fn (ServiceCase $case): int => (int) $case->legacy_application_id)
+                ->unique()
+                ->values()
+                ->all();
+            $legacyPreviewMap = $this->legacyApplications->incubateePreviewMap($legacyIds);
+            $casesCollection->transform(function (ServiceCase $case) use ($legacyPreviewMap): ServiceCase {
+                if ($case->legacy_application_id && ! $case->cfa_submission_id) {
+                    $case->legacyIncubateePreview = $legacyPreviewMap[(int) $case->legacy_application_id] ?? null;
+                }
+
+                return $case;
+            });
+        }
 
         $districtOptions = District::query()
             ->whereIn('id', $districtIds)
@@ -187,7 +215,7 @@ class SpocServiceCaseController extends Controller
         $marketLinkageWorkflowReady = Schema::hasTable('market_linkage_submissions')
             && Schema::hasColumn('market_linkage_submissions', 'status');
 
-        if ($marketLinkageWorkflowReady && $districtIds !== []) {
+        if (! $fieldMisOnly && $marketLinkageWorkflowReady && $districtIds !== []) {
             $mlBase = MarketLinkageSubmission::query()->whereIn('district_id', $districtIds);
             if ($districtId > 0) {
                 $mlBase->where('district_id', $districtId);
@@ -231,10 +259,45 @@ class SpocServiceCaseController extends Controller
             $marketLinkages = $mlq->orderByDesc('updated_at')->get();
         }
 
-        $cases = $this->buildMergedSpocQueue($casesCollection, $marketLinkages, $request);
+        $fieldMisRecords = collect();
+        if ($includeFieldMis) {
+            foreach ([
+                '' => [
+                    ServiceCase::STATUS_PENDING_APPROVAL,
+                    ServiceCase::STATUS_SENT_BACK,
+                    ServiceCase::STATUS_APPROVED,
+                    ServiceCase::STATUS_REJECTED,
+                ],
+                ServiceCase::STATUS_PENDING_APPROVAL => [ServiceCase::STATUS_PENDING_APPROVAL],
+                ServiceCase::STATUS_SENT_BACK => [ServiceCase::STATUS_SENT_BACK],
+                ServiceCase::STATUS_APPROVED => [ServiceCase::STATUS_APPROVED],
+                ServiceCase::STATUS_REJECTED => [ServiceCase::STATUS_REJECTED],
+            ] as $tabKey => $statuses) {
+                $tabCounts[$tabKey] = (int) ($tabCounts[$tabKey] ?? 0)
+                    + $this->fieldMisList->countForApprover($spoc, $statuses, $districtId > 0 ? $districtId : null);
+            }
+
+            $fieldMisRecords = $this->fieldMisList->recordsForApproverList(
+                $spoc,
+                $status,
+                $recordType,
+                $recordType === '',
+                $searchQ,
+                $districtId > 0 ? $districtId : null,
+                $dateFrom,
+                $dateTo,
+            );
+        }
+
+        $cases = $this->buildMergedSpocQueue($casesCollection, $marketLinkages, $fieldMisRecords, $request);
 
         $serviceScope = ServiceCase::query()
             ->where(function ($outer) use ($districtIds, $legacyAppIds): void {
+                if ($districtIds === []) {
+                    $outer->whereRaw('1 = 0');
+
+                    return;
+                }
                 $outer->whereHas('cfaSubmission', fn ($qq) => $qq->whereIn('district_id', $districtIds));
                 if (ServiceCase::supportsLegacyApplicationLink() && $legacyAppIds !== []) {
                     $outer->orWhere(function ($qq) use ($legacyAppIds): void {
@@ -264,17 +327,19 @@ class SpocServiceCaseController extends Controller
 
         $reapPendingQuery = (clone $scopeBase)->where('status', ServiceCase::STATUS_PENDING_APPROVAL);
         ConvergenceReapSupport::applyThroughReapEloquentScope($reapPendingQuery);
-        $reapPendingCount = (int) $reapPendingQuery->count();
+        $reapPendingCount = $fieldMisOnly ? 0 : (int) $reapPendingQuery->count();
 
         return view('spoc.service-cases.index', [
             'cases' => $cases,
             'marketLinkages' => collect(),
             'marketLinkageWorkflowReady' => $marketLinkageWorkflowReady,
             'spocDistrictIds' => $districtIds,
+            'isFieldMisApprover' => $isFieldMisApprover,
             'filterStatus' => $status,
             'filterDistrictId' => $districtId,
             'filterBatchId' => $batchId,
             'filterServiceId' => $serviceId,
+            'filterRecordType' => $recordType,
             'filterQ' => $searchQ,
             'filterDateFrom' => $dateFrom,
             'filterDateTo' => $dateTo,
@@ -400,9 +465,10 @@ class SpocServiceCaseController extends Controller
     /**
      * @param  Collection<int, ServiceCase>  $cases
      * @param  Collection<int, MarketLinkageSubmission>  $marketLinkages
-     * @return LengthAwarePaginator<int, array{kind: string, service_case: ?ServiceCase, market_linkage: ?MarketLinkageSubmission, updated_at: ?Carbon}>
+     * @param  Collection<int, \Illuminate\Database\Eloquent\Model>  $fieldMisRecords
+     * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    private function buildMergedSpocQueue(Collection $cases, Collection $marketLinkages, Request $request): LengthAwarePaginator
+    private function buildMergedSpocQueue(Collection $cases, Collection $marketLinkages, Collection $fieldMisRecords, Request $request): LengthAwarePaginator
     {
         $items = collect();
 
@@ -411,7 +477,21 @@ class SpocServiceCaseController extends Controller
                 'kind' => 'market_linkage',
                 'service_case' => null,
                 'market_linkage' => $ml,
+                'field_mis' => null,
+                'field_mis_module' => null,
                 'updated_at' => $ml->updated_at,
+            ]);
+        }
+
+        foreach ($fieldMisRecords as $fm) {
+            $moduleKey = $this->fieldMisList->moduleKeyForRecord($fm) ?? '';
+            $items->push([
+                'kind' => 'field_mis',
+                'service_case' => null,
+                'market_linkage' => null,
+                'field_mis' => $fm,
+                'field_mis_module' => $moduleKey,
+                'updated_at' => $fm->updated_at,
             ]);
         }
 
@@ -420,6 +500,8 @@ class SpocServiceCaseController extends Controller
                 'kind' => 'service_case',
                 'service_case' => $case,
                 'market_linkage' => null,
+                'field_mis' => null,
+                'field_mis_module' => null,
                 'updated_at' => $case->updated_at,
             ]);
         }
@@ -432,12 +514,16 @@ class SpocServiceCaseController extends Controller
         ];
 
         $sorted = $items->sort(function (array $a, array $b) use ($statusPriority): int {
-            $statusA = $a['kind'] === 'market_linkage'
-                ? (string) ($a['market_linkage']?->status ?? '')
-                : (string) ($a['service_case']?->status ?? '');
-            $statusB = $b['kind'] === 'market_linkage'
-                ? (string) ($b['market_linkage']?->status ?? '')
-                : (string) ($b['service_case']?->status ?? '');
+            $statusA = match ($a['kind']) {
+                'market_linkage' => (string) ($a['market_linkage']?->status ?? ''),
+                'field_mis' => (string) ($a['field_mis']?->status ?? ''),
+                default => (string) ($a['service_case']?->status ?? ''),
+            };
+            $statusB = match ($b['kind']) {
+                'market_linkage' => (string) ($b['market_linkage']?->status ?? ''),
+                'field_mis' => (string) ($b['field_mis']?->status ?? ''),
+                default => (string) ($b['service_case']?->status ?? ''),
+            };
             $priorityA = $statusPriority[$statusA] ?? 9;
             $priorityB = $statusPriority[$statusB] ?? 9;
             if ($priorityA !== $priorityB) {

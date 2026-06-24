@@ -9,6 +9,8 @@ use App\Models\LineDepartmentMeeting;
 use App\Models\User;
 use App\Support\LineDepartmentMeetingAccess;
 use App\Support\LineDepartmentMeetingOptions;
+use App\Support\MisFieldActivityApproval;
+use App\Services\MisFieldActivityWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -24,6 +26,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class LineDepartmentMeetingController extends Controller
 {
     use ValidatesAttendanceMediaUploads;
+
+    public function __construct(
+        private MisFieldActivityWorkflowService $misFieldWorkflow,
+    ) {}
 
     public function create(Request $request): View
     {
@@ -60,7 +66,7 @@ class LineDepartmentMeetingController extends Controller
             return back()->withInput()->withErrors(['proof_media' => 'Upload meeting proof (minutes, letter, or email).']);
         }
 
-        LineDepartmentMeeting::query()->create(array_merge([
+        $meeting = LineDepartmentMeeting::query()->create(array_merge([
             'submitted_by_user_id' => (int) $user->id,
             'submitted_by_name' => (string) $user->name,
             'meeting_date' => $validated['meeting_date'],
@@ -84,9 +90,11 @@ class LineDepartmentMeetingController extends Controller
             'photos_json' => $this->storeOptionalPhotos($request),
         ], $location));
 
+        $this->misFieldWorkflow->submitForApproval($meeting, (int) $user->id);
+
         return redirect()
             ->route($prefix.'line-department-meetings.dashboard')
-            ->with('status', 'Line department meeting (MIS 12.2) submitted.');
+            ->with('status', 'Line department meeting (MIS 12.2) submitted for approval.');
     }
 
     public function dashboard(Request $request): View
@@ -104,7 +112,7 @@ class LineDepartmentMeetingController extends Controller
             ]);
         }
 
-        $query = LineDepartmentMeeting::query()->with('submitter:id,name');
+        $query = LineDepartmentMeeting::query()->with(['submitter:id,name', 'misFieldSpoc:id,name']);
         $this->scopeDashboardQuery($query, $user);
         $this->applyListFilters($query, $request);
 
@@ -141,6 +149,7 @@ class LineDepartmentMeetingController extends Controller
             'currentRole' => (string) $user->role,
             'canEdit' => LineDepartmentMeetingAccess::canEdit($user, $ldmMeeting),
             'canDelete' => LineDepartmentMeetingAccess::canDelete($user, $ldmMeeting),
+            'canWithdraw' => MisFieldActivityApproval::submitterCanWithdraw($user, $ldmMeeting),
         ]);
     }
 
@@ -208,9 +217,16 @@ class LineDepartmentMeetingController extends Controller
             'outcome_decision' => trim((string) $validated['outcome_decision']),
             'incubatees_discussed_json' => $this->normalizeIncubateesDiscussed($request),
         ], $location));
+        $wasResubmit = $ldmMeeting->canBeEditedByMisFieldSubmitter();
         $ldmMeeting->save();
 
-        return redirect()->route($prefix.'line-department-meetings.dashboard')->with('status', 'Meeting updated.');
+        if ($wasResubmit) {
+            $this->misFieldWorkflow->resubmitForApproval($ldmMeeting, (int) $user->id);
+        }
+
+        return redirect()->route($prefix.'line-department-meetings.dashboard')->with('status', $wasResubmit
+            ? 'Meeting resubmitted for approval.'
+            : 'Meeting updated.');
     }
 
     public function destroy(Request $request, LineDepartmentMeeting $ldmMeeting): RedirectResponse

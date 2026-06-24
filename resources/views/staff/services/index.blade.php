@@ -349,6 +349,16 @@
             letter-spacing: 0.02em;
             white-space: nowrap;
         }
+        .svc-cell--approval {
+            background: #fffbeb !important;
+            box-shadow: inset 3px 0 0 #d97706;
+        }
+        .svc-row--field_mis td {
+            background: #f8fafc;
+        }
+        .svc-row--field_mis:hover td.svc-cell--approval {
+            background: #fef3c7 !important;
+        }
     </style>
 
     <p class="svc-page-actions">
@@ -370,7 +380,9 @@
         $serviceFilterParam = match ($filterRecordType ?? '') {
             'market_linkage' => 'market_linkage',
             ConvergenceReapSupport::MIS_8_2_LIST_FILTER => ConvergenceReapSupport::MIS_8_2_LIST_FILTER,
-            default => ((int) ($filterServiceId ?? 0) > 0) ? (int) $filterServiceId : null,
+            default => \App\Services\MisFieldActivityListService::isListFilterValue((string) ($filterRecordType ?? ''))
+                ? $filterRecordType
+                : (((int) ($filterServiceId ?? 0) > 0) ? (int) $filterServiceId : null),
         };
     @endphp
 
@@ -421,6 +433,11 @@
             <option value="" @selected(($filterRecordType ?? '') === '' && (int) ($filterServiceId ?? 0) === 0)>All services</option>
             <option value="market_linkage" @selected(($filterRecordType ?? '') === 'market_linkage')>{{ \App\Models\MarketLinkageSubmission::SERVICE_LIST_LABEL }}</option>
             <option value="{{ ConvergenceReapSupport::MIS_8_2_LIST_FILTER }}" @selected(($filterRecordType ?? '') === ConvergenceReapSupport::MIS_8_2_LIST_FILTER)>{{ ConvergenceReapSupport::MIS_8_2_LIST_LABEL }}</option>
+            @foreach (\App\Support\MisFieldActivityApproval::modules() as $moduleKey => $moduleMeta)
+                <option value="{{ $moduleKey }}" @selected(($filterRecordType ?? '') === $moduleKey)>
+                    {{ ($moduleMeta['serial'] ?? '').' — '.($moduleMeta['label'] ?? $moduleKey) }}
+                </option>
+            @endforeach
             @foreach (($services ?? collect()) as $service)
                 <option value="{{ $service->id }}" @selected(($filterRecordType ?? '') === '' && (int) ($filterServiceId ?? 0) === (int) $service->id)>
                     {{ $service->name }}
@@ -430,7 +447,7 @@
     </form>
 
     @if ($cases->isEmpty())
-        <p class="svc-empty">No service or market linkage records in this view.</p>
+        <p class="svc-empty">No service, market linkage, or field MIS records in this view.</p>
     @else
         <div class="svc-card">
             <div class="svc-table-wrap">
@@ -458,8 +475,69 @@
                                 $rowType = is_array($row) ? (string) ($row['type'] ?? '') : 'service_case';
                                 $case = is_array($row) ? ($row['service_case'] ?? null) : $row;
                                 $ml = is_array($row) ? ($row['market_linkage'] ?? null) : null;
+                                $fm = is_array($row) ? ($row['field_mis'] ?? null) : null;
+                                $fmModule = is_array($row) ? (string) ($row['field_mis_module'] ?? '') : '';
                             @endphp
-                            @if ($rowType === 'market_linkage' && $ml)
+                            @if ($rowType === 'field_mis' && $fm && $fmModule !== '')
+                            @php
+                                $fmMeta = \App\Support\MisFieldActivityApproval::module($fmModule);
+                                $titleCol = (string) ($fmMeta['title_column'] ?? 'id');
+                                $fmTitle = trim((string) ($fm->{$titleCol} ?? '')) ?: 'Entry #'.$fm->getKey();
+                                $fmServiceLabel = trim(($fmMeta['serial'] ?? '').' — '.($fmMeta['label'] ?? $fmModule));
+                                $fmDistrict = (string) ($fm->district_name ?? $fm->district?->name ?? '—');
+                                $fmApprover = (string) ($fm->misFieldSpoc?->name ?? \App\Support\MisFieldActivityApproval::approverUser()?->name ?? 'Not assigned');
+                                $statusSlug = strtolower(str_replace(' ', '_', (string) $fm->status));
+                                $assignedByName = $fm->submitted_by_name ?? $fm->submitter?->name ?? '—';
+                                $responseText = match ((string) $fm->status) {
+                                    \App\Models\ServiceCase::STATUS_SENT_BACK => $fm->sent_back_note ?: 'Sent back for changes.',
+                                    \App\Models\ServiceCase::STATUS_REJECTED => $fm->rejected_note ?: 'Rejected.',
+                                    \App\Models\ServiceCase::STATUS_APPROVED => 'Approved',
+                                    default => 'Awaiting approval',
+                                };
+                                $responseClass = match ((string) $fm->status) {
+                                    \App\Models\ServiceCase::STATUS_APPROVED => 'svc-response--approved',
+                                    \App\Models\ServiceCase::STATUS_SENT_BACK => 'svc-response--sent-back',
+                                    \App\Models\ServiceCase::STATUS_REJECTED => 'svc-response--rejected',
+                                    default => 'svc-response--none',
+                                };
+                                $fmShowRoute = match ($fmModule) {
+                                    'technical_training' => route('staff.technical-trainings.show', $fm),
+                                    'lakhpati_technical_training' => route('staff.lakhpati-technical-trainings.show', $fm),
+                                    'line_department_meeting' => route('staff.line-department-meetings.show', $fm),
+                                    'community_org_outreach' => route('staff.community-org-outreach.show', $fm),
+                                    default => '#',
+                                };
+                                $searchText = strtolower(trim($fmTitle.' '.$fmServiceLabel.' '.$fmDistrict.' '.$assignedByName.' '.$fmApprover.' '.str_replace('_', ' ', (string) $fm->status).' '.$responseText));
+                            @endphp
+                            <tr class="svc-row svc-row--field_mis" data-search="{{ $searchText }}">
+                                <td class="svc-table__sr">{{ $listSrNo }}</td>
+                                <td>
+                                    <strong>{{ $fmTitle }}</strong>
+                                    <div class="svc-muted">{{ $fmDistrict }}</div>
+                                </td>
+                                <td>{{ $fmServiceLabel }}</td>
+                                <td>{{ $assignedByName }}</td>
+                                <td class="svc-cell--approval">
+                                    <span class="svc-spoc-pill">{{ $fmApprover }}</span>
+                                </td>
+                                <td>{{ '—' }}</td>
+                                <td>
+                                    <span class="svc-response {{ $responseClass }}">{{ $responseText }}</span>
+                                </td>
+                                <td class="svc-cell--approval">
+                                    <span class="svc-status-pill svc-status-pill--{{ $statusSlug }}">
+                                        {{ method_exists($fm, 'misFieldStatusLabel') ? $fm->misFieldStatusLabel() : str_replace('_', ' ', (string) $fm->status) }}
+                                    </span>
+                                </td>
+                                <td style="white-space:nowrap;">{{ $fm->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
+                                <td>
+                                    <div class="svc-action-group">
+                                        <a href="{{ $fmShowRoute }}" class="svc-btn-xs svc-btn-xs--view">View</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            @php $listSrNo++; @endphp
+                            @elseif ($rowType === 'market_linkage' && $ml)
                             @php
                                 $statusSlug = strtolower(str_replace(' ', '_', (string) $ml->status));
                                 $pendingDays = null;

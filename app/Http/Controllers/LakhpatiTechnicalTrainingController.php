@@ -7,7 +7,9 @@ use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\DistrictBlock;
 use App\Models\GramPanchayat;
 use App\Models\LakhpatiTechnicalTraining;
+use App\Support\MisFieldActivityApproval;
 use App\Support\WorkshopDashboardCsvExport;
+use App\Services\MisFieldActivityWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -24,6 +26,10 @@ class LakhpatiTechnicalTrainingController extends Controller
 {
     use ResolvesWorkshopParticipantRows;
     use ValidatesAttendanceMediaUploads;
+
+    public function __construct(
+        private MisFieldActivityWorkflowService $misFieldWorkflow,
+    ) {}
 
     public function create(Request $request): View
     {
@@ -77,7 +83,7 @@ class LakhpatiTechnicalTrainingController extends Controller
         $mediaItems = $this->storeUploadedMedia((array) $request->file('attendance_media', []));
         $photoItems = $this->storeUploadedPhotos((array) $request->file('workshop_photos', []));
 
-        LakhpatiTechnicalTraining::query()->create([
+        $session = LakhpatiTechnicalTraining::query()->create([
             'submitted_by_user_id' => (int) $user->id,
             'submitted_by_name' => (string) $user->name,
             'session_date' => $validated['session_date'],
@@ -99,9 +105,11 @@ class LakhpatiTechnicalTrainingController extends Controller
             'workshop_photos_json' => $photoItems,
         ]);
 
+        $this->misFieldWorkflow->submitForApproval($session, (int) $user->id);
+
         return redirect()
             ->route('staff.lakhpati-technical-trainings.dashboard')
-            ->with('status', 'Technical training session (3.3.1) submitted. You can add attendance later from Edit.');
+            ->with('status', 'Technical training session (3.3.1) submitted for approval.');
     }
 
     public function dashboard(Request $request): View
@@ -118,7 +126,7 @@ class LakhpatiTechnicalTrainingController extends Controller
             ]);
         }
 
-        $query = LakhpatiTechnicalTraining::query()->with(['district:id,name', 'submitter:id,name']);
+        $query = LakhpatiTechnicalTraining::query()->with(['district:id,name', 'submitter:id,name', 'misFieldSpoc:id,name']);
 
         if ($user->role === 'district_staff') {
             $query->where('district_id', (int) ($user->district_id ?: 0));
@@ -206,8 +214,8 @@ class LakhpatiTechnicalTrainingController extends Controller
         return view('staff.lakhpati-technical-trainings.show', [
             'row' => $lakhpatiTechnicalTraining,
             'currentRole' => (string) $user->role,
-            'canEdit' => (string) $user->role === 'district_staff'
-                && (int) $lakhpatiTechnicalTraining->submitted_by_user_id === (int) $user->id,
+            'canEdit' => MisFieldActivityApproval::submitterCanEdit($user, $lakhpatiTechnicalTraining),
+            'canWithdraw' => MisFieldActivityApproval::submitterCanWithdraw($user, $lakhpatiTechnicalTraining),
         ]);
     }
 
@@ -308,11 +316,30 @@ class LakhpatiTechnicalTrainingController extends Controller
             'participants_total' => $total,
             'participants_json' => $participantRows,
         ]);
+        $wasResubmit = $lakhpatiTechnicalTraining->canBeEditedByMisFieldSubmitter();
         $lakhpatiTechnicalTraining->save();
+
+        if ($wasResubmit) {
+            $this->misFieldWorkflow->resubmitForApproval($lakhpatiTechnicalTraining, (int) $user->id);
+        }
 
         return redirect()
             ->route('staff.lakhpati-technical-trainings.dashboard')
-            ->with('status', 'Technical training session updated.');
+            ->with('status', $wasResubmit
+                ? 'Technical training session resubmitted for approval.'
+                : 'Technical training session updated.');
+    }
+
+    public function destroy(Request $request, LakhpatiTechnicalTraining $lakhpatiTechnicalTraining): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless(MisFieldActivityApproval::submitterCanWithdraw($user, $lakhpatiTechnicalTraining), 403);
+
+        $lakhpatiTechnicalTraining->delete();
+
+        return redirect()
+            ->route('staff.lakhpati-technical-trainings.dashboard')
+            ->with('status', 'Technical training submission withdrawn.');
     }
 
     public function export(Request $request): StreamedResponse
@@ -320,7 +347,7 @@ class LakhpatiTechnicalTrainingController extends Controller
         $user = $request->user();
         abort_unless($this->canViewDashboard((string) $user->role), 403);
 
-        $query = LakhpatiTechnicalTraining::query()->with(['district:id,name', 'submitter:id,name']);
+        $query = LakhpatiTechnicalTraining::query()->with(['district:id,name', 'submitter:id,name', 'misFieldSpoc:id,name']);
         if ($user->role === 'district_staff') {
             $query->where('district_id', (int) ($user->district_id ?: 0));
         }
@@ -599,6 +626,8 @@ class LakhpatiTechnicalTrainingController extends Controller
 
     private function assertCanEdit(LakhpatiTechnicalTraining $row, int $userId): void
     {
+        $user = request()->user();
+        abort_unless($user && MisFieldActivityApproval::submitterCanEdit($user, $row), 403);
         abort_unless((int) $row->submitted_by_user_id === $userId, 403);
     }
 

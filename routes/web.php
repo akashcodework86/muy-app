@@ -88,6 +88,7 @@ use App\Http\Controllers\LineDepartmentMeetingController;
 use App\Http\Controllers\LineDepartmentMeetingLandingController;
 use App\Http\Controllers\Staff\StaffServiceCaseController;
 use App\Http\Controllers\StateStaff\SpocMarketLinkageController;
+use App\Http\Controllers\StateStaff\FieldMisApprovalController;
 use App\Http\Controllers\Spoc\StateTaskController as SpocStateTaskController;
 use App\Http\Controllers\StateStaff\SpocServiceCaseController;
 use App\Http\Controllers\TechnicalTrainingAttendanceController;
@@ -412,6 +413,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::put('technical-trainings/{technicalTraining}', [TechnicalTrainingAttendanceController::class, 'update'])
                 ->middleware('throttle:30,1')
                 ->name('technical-trainings.update');
+            Route::delete('technical-trainings/{technicalTraining}', [TechnicalTrainingAttendanceController::class, 'destroy'])
+                ->middleware('throttle:30,1')
+                ->name('technical-trainings.destroy');
             Route::get('technical-trainings/{technicalTraining}/attachment', [TechnicalTrainingAttendanceController::class, 'downloadAttachment'])
                 ->name('technical-trainings.attachment');
 
@@ -428,6 +432,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::put('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'update'])
                 ->middleware('throttle:30,1')
                 ->name('lakhpati-technical-trainings.update');
+            Route::delete('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}', [LakhpatiTechnicalTrainingController::class, 'destroy'])
+                ->middleware('throttle:30,1')
+                ->name('lakhpati-technical-trainings.destroy');
             Route::get('lakhpati-technical-trainings/{lakhpatiTechnicalTraining}/attachment', [LakhpatiTechnicalTrainingController::class, 'downloadAttachment'])
                 ->name('lakhpati-technical-trainings.attachment');
         });
@@ -540,6 +547,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('community-org-outreach', [CommunityOrganizationOutreachController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('community-org-outreach.store');
+        Route::get('community-org-outreach/{communityOrgOutreach}/edit', [CommunityOrganizationOutreachController::class, 'edit'])->name('community-org-outreach.edit');
+        Route::put('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.update');
         Route::get('community-org-outreach/dashboard', [CommunityOrganizationOutreachController::class, 'dashboard'])->name('community-org-outreach.dashboard');
         Route::get('community-org-outreach/export', [CommunityOrganizationOutreachController::class, 'export'])->name('community-org-outreach.export');
         Route::get('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'show'])->name('community-org-outreach.show');
@@ -611,6 +622,20 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('market-linkages.reject');
         Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [SpocMarketLinkageController::class, 'downloadDocument'])
             ->name('market-linkages.document');
+        Route::get('field-mis-approvals', [FieldMisApprovalController::class, 'index'])->name('field-mis-approvals.index');
+        Route::get('field-mis-approvals/{module}/{record}', [FieldMisApprovalController::class, 'show'])->name('field-mis-approvals.show');
+        Route::post('field-mis-approvals/{module}/{record}/approve', [FieldMisApprovalController::class, 'approve'])
+            ->middleware('throttle:60,1')
+            ->name('field-mis-approvals.approve');
+        Route::post('field-mis-approvals/{module}/{record}/send-back', [FieldMisApprovalController::class, 'sendBack'])
+            ->middleware('throttle:60,1')
+            ->name('field-mis-approvals.send-back');
+        Route::post('field-mis-approvals/{module}/{record}/reject', [FieldMisApprovalController::class, 'reject'])
+            ->middleware('throttle:60,1')
+            ->name('field-mis-approvals.reject');
+        Route::get('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'show'])->name('community-org-outreach.show');
+        Route::get('community-org-outreach/{communityOrgOutreach}/document', [CommunityOrganizationOutreachController::class, 'downloadDocument'])->name('community-org-outreach.document');
+        Route::get('community-org-outreach/{communityOrgOutreach}/photo', [CommunityOrganizationOutreachController::class, 'downloadPhoto'])->name('community-org-outreach.photo');
         Route::get('training-packages/dashboard', [TrainingPackageAttendanceController::class, 'dashboard'])->name('training-packages.dashboard');
         Route::get('training-packages/export', [TrainingPackageAttendanceController::class, 'export'])->name('training-packages.export');
         Route::get('training-packages/{trainingPackage}', [TrainingPackageAttendanceController::class, 'show'])->name('training-packages.show');
@@ -1203,6 +1228,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('community-org-outreach', [CommunityOrganizationOutreachController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('community-org-outreach.store');
+        Route::get('community-org-outreach/{communityOrgOutreach}/edit', [CommunityOrganizationOutreachController::class, 'edit'])->name('community-org-outreach.edit');
+        Route::put('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.update');
         Route::get('community-org-outreach/dashboard', [CommunityOrganizationOutreachController::class, 'dashboard'])->name('community-org-outreach.dashboard');
         Route::get('community-org-outreach/export', [CommunityOrganizationOutreachController::class, 'export'])->name('community-org-outreach.export');
         Route::get('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'show'])->name('community-org-outreach.show');

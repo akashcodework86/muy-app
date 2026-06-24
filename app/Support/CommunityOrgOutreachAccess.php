@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\CommunityOrganizationOutreachVisit;
 use App\Models\User;
+use App\Support\MisFieldActivityApproval;
 
 final class CommunityOrgOutreachAccess
 {
@@ -68,7 +69,20 @@ final class CommunityOrgOutreachAccess
             return true;
         }
 
+        if (MisFieldActivityApproval::isDedicatedApprover($user)) {
+            return true;
+        }
+
         return self::canSubmit($user);
+    }
+
+    public static function canEdit(?User $user, CommunityOrganizationOutreachVisit $row): bool
+    {
+        if (! $user || ! self::canSubmit($user)) {
+            return false;
+        }
+
+        return MisFieldActivityApproval::submitterCanEdit($user, $row);
     }
 
     public static function canDelete(?User $user, CommunityOrganizationOutreachVisit $row): bool
@@ -81,19 +95,7 @@ final class CommunityOrgOutreachAccess
             return true;
         }
 
-        if ((int) $row->submitted_by_user_id !== (int) $user->id) {
-            return false;
-        }
-
-        if ($user->role === 'hub_admin') {
-            return (int) $row->hub_id === (int) ($user->hub_id ?: 0);
-        }
-
-        if (self::isDistrictOutreachSubmitter($user)) {
-            return (int) $row->district_id === (int) ($user->district_id ?: 0);
-        }
-
-        return false;
+        return MisFieldActivityApproval::submitterCanWithdraw($user, $row);
     }
 
     public static function routePrefixForUser(?User $user): string
