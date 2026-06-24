@@ -26,28 +26,19 @@ class CommunityOrganizationOutreachController extends Controller
 
     public function create(Request $request): View
     {
-        $user = $this->hubAdminOrAbort($request);
+        $user = $this->submitterOrAbort($request);
 
-        return view('community-org-outreach.form', [
-            'user' => $user,
-            'hub' => Hub::query()->findOrFail((int) $user->hub_id),
-            'districts' => $this->hubDistricts((int) $user->hub_id),
-            'migrationMissing' => ! Schema::hasTable('community_organization_outreach_visits'),
-            'storeRoute' => 'hub.community-org-outreach.store',
-            'dashboardRoute' => 'hub.community-org-outreach.dashboard',
-            'organizationTypes' => CommunityOrganizationOutreachOptions::organizationTypes(),
-            'purposes' => CommunityOrganizationOutreachOptions::purposes(),
-            'meetingModes' => CommunityOrganizationOutreachOptions::meetingModes(),
-        ]);
+        return view('community-org-outreach.form', $this->formViewData($user));
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $user = $this->hubAdminOrAbort($request);
+        $user = $this->submitterOrAbort($request);
+        $routePrefix = CommunityOrgOutreachAccess::routePrefixForUser($user);
 
         if (! Schema::hasTable('community_organization_outreach_visits')) {
             return redirect()
-                ->route('hub.community-org-outreach.create')
+                ->route($routePrefix.'community-org-outreach.create')
                 ->withErrors(['visit_date' => 'Database table is missing. Please run migrations first.']);
         }
 
@@ -58,8 +49,7 @@ class CommunityOrganizationOutreachController extends Controller
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $hubId = (int) $user->hub_id;
-        $districtIds = $this->hubDistricts($hubId)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        [$hubId, $districtIds] = $this->allowedDistrictContext($user);
 
         $validated = $request->validate(array_merge([
             'visit_date' => ['required', 'date'],
@@ -79,6 +69,9 @@ class CommunityOrganizationOutreachController extends Controller
 
         $district = District::query()->with('hub')->findOrFail((int) $validated['district_id']);
         abort_unless((int) $district->hub_id === $hubId, 422, 'District must belong to your hub.');
+        if (CommunityOrgOutreachAccess::isDistrictOutreachSubmitter($user)) {
+            abort_unless((int) $district->id === (int) $user->district_id, 422, 'You can only log visits for your district.');
+        }
 
         $hub = $district->hub ?? Hub::query()->findOrFail($hubId);
 
@@ -115,7 +108,7 @@ class CommunityOrganizationOutreachController extends Controller
         CommunityOrganizationOutreachVisit::query()->create($payload);
 
         return redirect()
-            ->route('hub.community-org-outreach.dashboard')
+            ->route($routePrefix.'community-org-outreach.dashboard')
             ->with('status', 'Community organization outreach visit logged.');
     }
 
@@ -196,14 +189,13 @@ class CommunityOrganizationOutreachController extends Controller
         $this->assertCanAccessRecord($user, $communityOrgOutreach);
 
         $communityOrgOutreach->loadMissing(['district:id,name', 'hub:id,name', 'submitter:id,name']);
-        $isAdmin = $user->role === 'state_admin';
-        $routePrefix = $isAdmin ? 'admin' : 'hub';
+        $routePrefix = $this->namedRoutePrefix($user);
 
         return view('community-org-outreach.show', [
             'row' => $communityOrgOutreach,
             'currentRole' => (string) $user->role,
-            'dashboardRoute' => $isAdmin ? 'admin.community-org-outreach.dashboard' : 'hub.community-org-outreach.dashboard',
-            'destroyRoute' => $isAdmin ? 'admin.community-org-outreach.destroy' : 'hub.community-org-outreach.destroy',
+            'dashboardRoute' => $routePrefix.'.community-org-outreach.dashboard',
+            'destroyRoute' => $routePrefix.'.community-org-outreach.destroy',
             'documentRoute' => $routePrefix.'.community-org-outreach.document',
             'photoRoute' => $routePrefix.'.community-org-outreach.photo',
             'canDelete' => CommunityOrgOutreachAccess::canDelete($user, $communityOrgOutreach),
@@ -235,9 +227,7 @@ class CommunityOrganizationOutreachController extends Controller
         $user = $request->user();
         abort_unless(CommunityOrgOutreachAccess::canDelete($user, $communityOrgOutreach), 403);
 
-        $dashboardRoute = $user->role === 'state_admin'
-            ? 'admin.community-org-outreach.dashboard'
-            : 'hub.community-org-outreach.dashboard';
+        $dashboardRoute = $this->namedRoutePrefix($user).'.community-org-outreach.dashboard';
 
         $communityOrgOutreach->delete();
 
@@ -511,12 +501,70 @@ class CommunityOrganizationOutreachController extends Controller
         return $mime === 'application/pdf' || str_ends_with(strtolower($filename), '.pdf');
     }
 
-    private function hubAdminOrAbort(Request $request): User
+    private function submitterOrAbort(Request $request): User
     {
         $user = $request->user();
         abort_unless(CommunityOrgOutreachAccess::canSubmit($user), 403);
 
         return $user;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formViewData(User $user): array
+    {
+        $routePrefix = CommunityOrgOutreachAccess::routePrefixForUser($user);
+
+        if (CommunityOrgOutreachAccess::isDistrictOutreachSubmitter($user)) {
+            $district = District::query()->with('hub')->findOrFail((int) $user->district_id);
+            $hub = $district->hub ?? Hub::query()->findOrFail((int) $district->hub_id);
+            $districts = collect([$district]);
+            $districtLocked = true;
+        } else {
+            $hub = Hub::query()->findOrFail((int) $user->hub_id);
+            $districts = $this->hubDistricts((int) $user->hub_id);
+            $districtLocked = false;
+        }
+
+        return [
+            'user' => $user,
+            'hub' => $hub,
+            'districts' => $districts,
+            'districtLocked' => $districtLocked,
+            'migrationMissing' => ! Schema::hasTable('community_organization_outreach_visits'),
+            'storeRoute' => $routePrefix.'community-org-outreach.store',
+            'dashboardRoute' => $routePrefix.'community-org-outreach.dashboard',
+            'organizationTypes' => CommunityOrganizationOutreachOptions::organizationTypes(),
+            'purposes' => CommunityOrganizationOutreachOptions::purposes(),
+            'meetingModes' => CommunityOrganizationOutreachOptions::meetingModes(),
+        ];
+    }
+
+    /**
+     * @return array{0: int, 1: list<int>}
+     */
+    private function allowedDistrictContext(User $user): array
+    {
+        if (CommunityOrgOutreachAccess::isDistrictOutreachSubmitter($user)) {
+            $district = District::query()->findOrFail((int) $user->district_id);
+
+            return [(int) $district->hub_id, [(int) $district->id]];
+        }
+
+        $hubId = (int) $user->hub_id;
+        $districtIds = $this->hubDistricts($hubId)->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        return [$hubId, $districtIds];
+    }
+
+    private function namedRoutePrefix(User $user): string
+    {
+        if ($user->role === 'state_admin') {
+            return 'admin';
+        }
+
+        return rtrim(CommunityOrgOutreachAccess::routePrefixForUser($user), '.');
     }
 
     /** @return Collection<int, District> */
@@ -533,6 +581,12 @@ class CommunityOrganizationOutreachController extends Controller
     {
         if ($user->role === 'hub_admin') {
             $query->where('hub_id', (int) ($user->hub_id ?: 0));
+
+            return;
+        }
+
+        if (CommunityOrgOutreachAccess::isDistrictOutreachSubmitter($user)) {
+            $query->where('district_id', (int) ($user->district_id ?: 0));
         }
     }
 
@@ -546,6 +600,11 @@ class CommunityOrganizationOutreachController extends Controller
             return;
         }
 
+        if (CommunityOrgOutreachAccess::isDistrictOutreachSubmitter($user)
+            && (int) $row->district_id === (int) ($user->district_id ?: 0)) {
+            return;
+        }
+
         abort(403);
     }
 
@@ -553,6 +612,7 @@ class CommunityOrganizationOutreachController extends Controller
     {
         $user = $request->user();
         $isAdmin = $user->role === 'state_admin';
+        $routePrefix = $this->namedRoutePrefix($user);
         $hubId = (int) ($user->hub_id ?: 0);
 
         return view('community-org-outreach.dashboard', [
@@ -566,14 +626,18 @@ class CommunityOrganizationOutreachController extends Controller
             'hubs' => $isAdmin ? Hub::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']) : collect(),
             'districts' => $isAdmin
                 ? District::query()->with('hub')->orderBy('hub_id')->orderBy('sort_order')->get(['id', 'name', 'hub_id'])
-                : $this->hubDistricts($hubId),
-            'dashboardRoute' => $isAdmin ? 'admin.community-org-outreach.dashboard' : 'hub.community-org-outreach.dashboard',
-            'exportRoute' => $isAdmin ? 'admin.community-org-outreach.export' : 'hub.community-org-outreach.export',
-            'showRoute' => $isAdmin ? 'admin.community-org-outreach.show' : 'hub.community-org-outreach.show',
-            'documentRoute' => $isAdmin ? 'admin.community-org-outreach.document' : 'hub.community-org-outreach.document',
-            'photoRoute' => $isAdmin ? 'admin.community-org-outreach.photo' : 'hub.community-org-outreach.photo',
-            'createRoute' => CommunityOrgOutreachAccess::canSubmit($user) ? 'hub.community-org-outreach.create' : null,
-            'destroyRoute' => $isAdmin ? 'admin.community-org-outreach.destroy' : 'hub.community-org-outreach.destroy',
+                : (CommunityOrgOutreachAccess::isDistrictOutreachSubmitter($user)
+                    ? District::query()->whereKey((int) $user->district_id)->get(['id', 'name', 'hub_id'])
+                    : $this->hubDistricts($hubId)),
+            'dashboardRoute' => $routePrefix.'.community-org-outreach.dashboard',
+            'exportRoute' => $routePrefix.'.community-org-outreach.export',
+            'showRoute' => $routePrefix.'.community-org-outreach.show',
+            'documentRoute' => $routePrefix.'.community-org-outreach.document',
+            'photoRoute' => $routePrefix.'.community-org-outreach.photo',
+            'createRoute' => CommunityOrgOutreachAccess::canSubmit($user)
+                ? $routePrefix.'.community-org-outreach.create'
+                : null,
+            'destroyRoute' => $routePrefix.'.community-org-outreach.destroy',
         ]);
     }
 }

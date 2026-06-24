@@ -535,6 +535,19 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
         Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
             ->name('market-linkages.document');
+
+        Route::get('community-org-outreach/create', [CommunityOrganizationOutreachController::class, 'create'])->name('community-org-outreach.create');
+        Route::post('community-org-outreach', [CommunityOrganizationOutreachController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.store');
+        Route::get('community-org-outreach/dashboard', [CommunityOrganizationOutreachController::class, 'dashboard'])->name('community-org-outreach.dashboard');
+        Route::get('community-org-outreach/export', [CommunityOrganizationOutreachController::class, 'export'])->name('community-org-outreach.export');
+        Route::get('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'show'])->name('community-org-outreach.show');
+        Route::get('community-org-outreach/{communityOrgOutreach}/document', [CommunityOrganizationOutreachController::class, 'downloadDocument'])->name('community-org-outreach.document');
+        Route::get('community-org-outreach/{communityOrgOutreach}/photo', [CommunityOrganizationOutreachController::class, 'downloadPhoto'])->name('community-org-outreach.photo');
+        Route::delete('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('community-org-outreach.destroy');
     });
 
     /** State Staff (SPOC) — maker-checker approval queue */

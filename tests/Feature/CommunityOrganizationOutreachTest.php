@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CommunityOrganizationOutreachVisit;
+use App\Models\Designation;
 use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\Hub;
@@ -99,20 +100,140 @@ class CommunityOrganizationOutreachTest extends TestCase
         ]);
     }
 
-    public function test_district_staff_cannot_submit_outreach_visit(): void
+    public function test_district_staff_without_allowed_designation_cannot_submit_outreach_visit(): void
     {
         [, $district] = $this->seedHubFixtures();
+        $designation = $this->designation('District Staff', 99);
 
         $staff = User::factory()->create([
             'role' => 'district_staff',
+            'designation_id' => $designation->id,
             'hub_id' => $district->hub_id,
             'district_id' => $district->id,
             'is_active' => true,
         ]);
 
         $this->actingAs($staff)
-            ->get(route('hub.community-org-outreach.create'))
+            ->get(route('staff.community-org-outreach.create'))
             ->assertForbidden();
+    }
+
+    /**
+     * @dataProvider allowedDistrictStaffDesignationProvider
+     */
+    public function test_allowed_district_staff_can_submit_outreach_visit_for_own_district(string $designationName): void
+    {
+        [$hub, $district] = $this->seedHubFixtures();
+        $designation = $this->designation($designationName, 1);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'designation_id' => $designation->id,
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)
+            ->post(route('staff.community-org-outreach.store'), [
+                'visit_date' => '2026-06-10',
+                'district_id' => $district->id,
+                'organization_name' => 'Garhwal SHG Federation',
+                'organization_type' => 'shg_federation',
+                'person_met_name' => 'Priya Sharma',
+                'person_met_designation' => 'Coordinator',
+                'poc_name' => 'Priya Sharma',
+                'poc_phone' => '9876543210',
+                'purpose' => 'awareness',
+                'meeting_mode' => 'physical',
+            ])
+            ->assertRedirect(route('staff.community-org-outreach.dashboard'));
+
+        $this->assertDatabaseHas('community_organization_outreach_visits', [
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'organization_name' => 'Garhwal SHG Federation',
+            'submitted_by_user_id' => $staff->id,
+        ]);
+    }
+
+    public function test_muy_spoke_cannot_submit_outreach_visit_for_another_district(): void
+    {
+        [$hub, $districtA] = $this->seedHubFixtures('hub-a', 'District A');
+        $districtB = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'district-b',
+            'name' => 'District B',
+            'sort_order' => 2,
+        ]);
+        $designation = $this->designation('MUY Spoke', 1);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'designation_id' => $designation->id,
+            'hub_id' => $hub->id,
+            'district_id' => $districtA->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)
+            ->post(route('staff.community-org-outreach.store'), [
+                'visit_date' => '2026-06-10',
+                'district_id' => $districtB->id,
+                'organization_name' => 'Other District Org',
+                'organization_type' => 'ngo',
+                'person_met_name' => 'Someone',
+                'poc_name' => 'Someone',
+                'poc_phone' => '9876543210',
+                'purpose' => 'awareness',
+                'meeting_mode' => 'physical',
+            ])
+            ->assertSessionHasErrors('district_id');
+    }
+
+    public function test_district_staff_dashboard_is_scoped_to_own_district(): void
+    {
+        [$hub, $districtA] = $this->seedHubFixtures('hub-a', 'District A');
+        $districtB = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'district-b',
+            'name' => 'District B',
+            'sort_order' => 2,
+        ]);
+        $designation = $this->designation('Incubation Manager', 1);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'designation_id' => $designation->id,
+            'hub_id' => $hub->id,
+            'district_id' => $districtA->id,
+            'is_active' => true,
+        ]);
+        $otherStaff = User::factory()->create([
+            'role' => 'district_staff',
+            'designation_id' => $designation->id,
+            'hub_id' => $hub->id,
+            'district_id' => $districtB->id,
+            'is_active' => true,
+        ]);
+
+        CommunityOrganizationOutreachVisit::query()->create($this->visitPayload($hub, $districtA, $staff, 'Org A'));
+        CommunityOrganizationOutreachVisit::query()->create($this->visitPayload($hub, $districtB, $otherStaff, 'Org B'));
+
+        $this->actingAs($staff)
+            ->get(route('staff.community-org-outreach.dashboard'))
+            ->assertOk()
+            ->assertSee('Org A')
+            ->assertDontSee('Org B');
+    }
+
+    /**
+     * @return list<array{0: string}>
+     */
+    public static function allowedDistrictStaffDesignationProvider(): array
+    {
+        return [
+            ['MUY Spoke'],
+            ['Incubation Manager'],
+            ['Business Planning & Development Expert'],
+        ];
     }
 
     public function test_dashboard_shows_doc_links_and_photo_thumbnails(): void
@@ -241,6 +362,14 @@ class CommunityOrganizationOutreachTest extends TestCase
         ]);
 
         return [$hub, $district, $admin];
+    }
+
+    private function designation(string $name, int $sortOrder = 0): Designation
+    {
+        return Designation::query()->updateOrCreate(
+            ['name' => $name],
+            ['sort_order' => $sortOrder],
+        );
     }
 
     /**

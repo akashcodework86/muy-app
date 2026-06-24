@@ -72,12 +72,17 @@
                 </div>
                 <div class="coo-field">
                     <label for="district_id">District <span style="color:#b91c1c;">*</span></label>
+                    @if (!empty($districtLocked))
+                        <input type="hidden" name="district_id" value="{{ $districts->first()->id }}">
+                        <input type="text" id="district_id" value="{{ $districts->first()->name }}" readonly style="background:#f8fafc;color:#475569;">
+                    @else
                     <select id="district_id" name="district_id" required>
                         <option value="">Select district</option>
                         @foreach ($districts as $d)
                             <option value="{{ $d->id }}" @selected((string) old('district_id') === (string) $d->id)>{{ $d->name }}</option>
                         @endforeach
                     </select>
+                    @endif
                 </div>
                 <div class="coo-field coo-field--full">
                     <label for="organization_name">Name of organisation / institute <span style="color:#b91c1c;">*</span></label>

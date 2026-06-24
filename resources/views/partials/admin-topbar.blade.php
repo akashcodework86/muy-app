@@ -29,6 +29,7 @@
     $canViewStakeholderConsultationWorkshops = $u && \App\Support\StakeholderConsultationWorkshopAccess::canViewDashboard($u);
     $canSubmitLineDepartmentMeetings = $u && \App\Support\LineDepartmentMeetingAccess::canSubmit($u);
     $canViewLineDepartmentMeetings = $u && \App\Support\LineDepartmentMeetingAccess::canViewDashboard($u);
+    $canSubmitCommunityOrgOutreach = $u && \App\Support\CommunityOrgOutreachAccess::canSubmit($u);
     $canSubmitPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canSubmit($u);
     $canViewPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canViewDashboard($u);
     $canSubmitFundingSchematic = $u && \App\Support\FundingSchematicConvergenceAccess::canSubmit($u);
@@ -294,6 +295,10 @@
         str_starts_with($r, 'hub.community-org-outreach.store') => 'community-org-outreach-submit',
         str_starts_with($r, 'hub.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'hub.community-org-outreach.show') => 'community-org-outreach-dashboard',
+        str_starts_with($r, 'staff.community-org-outreach.create') => 'community-org-outreach-submit',
+        str_starts_with($r, 'staff.community-org-outreach.store') => 'community-org-outreach-submit',
+        str_starts_with($r, 'staff.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
+        str_starts_with($r, 'staff.community-org-outreach.show') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'hub.market-linkages.dashboard') => 'market-linkage-dashboard',
         str_starts_with($r, 'hub.market-linkages.show') => 'market-linkage-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
@@ -328,7 +333,7 @@
         || $staffNavDistrictWorkshop;
     $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'staff-batches'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
-    $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'field-coordinator-report'], true)
+    $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'field-coordinator-report'], true)
         || $staffFieldWorkActive;
 
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
@@ -1075,6 +1080,21 @@
                     <a href="{{ route('staff.field-coordinator-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-coordinator-report') is-active @endif" role="menuitem">
                         {!! $i('calendar') !!}<span>Field coordinator report</span>
                     </a>
+                    @if ($canSubmitCommunityOrgOutreach)
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['community-org-outreach-submit', 'community-org-outreach-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('users') !!}<span>Community org outreach (1.5)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('staff.community-org-outreach.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'community-org-outreach-submit') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>Submit</span>
+                            </a>
+                            <a href="{{ route('staff.community-org-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'community-org-outreach-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                     @if ($canSubmitLineDepartmentMeetings)
                     <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['line-department-meetings-submit', 'line-department-meetings-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
