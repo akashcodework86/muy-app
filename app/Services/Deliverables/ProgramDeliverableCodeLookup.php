@@ -61,6 +61,7 @@ class ProgramDeliverableCodeLookup
         return match ($source['type'] ?? 'none') {
             'deliverable', 'service' => array_filter([(string) ($source['code'] ?? '')]),
             'services' => array_map('strval', (array) ($source['codes'] ?? [])),
+            'schematic_convergence_services' => array_filter([(string) ($source['deliverable_code'] ?? 'schematic_convergence')]),
             'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count',
             'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants',
             'field_work_workshops', 'field_work_participants', 'technical_training_sessions',

@@ -296,15 +296,8 @@ return [
                     'indicator_type' => 'Key Indicator',
                     'level' => 'Spoke & Hub',
                     'source' => [
-                        'type' => 'services',
-                        'codes' => [
-                            'pmegp', 'p_m_e_g_p',
-                            'msy_nano', 'm_s_y_2_0',
-                            'pmfme', 'p_m_f_m_e',
-                            'ddu_homestay', 'deen_dayal_upadhyay_grah_awas_vikas_yojana_d_d_u_g_a_v_y_homestay',
-                            'vcsg', 'veer_chandra_singh_garhwali_self_employment_scheme',
-                            'support_application', 'other_convergence_support',
-                        ],
+                        'type' => 'schematic_convergence_services',
+                        'deliverable_code' => 'schematic_convergence',
                         'bifurcation' => [
                             ['name' => 'PMEGP', 'codes' => ['pmegp', 'p_m_e_g_p']],
                             ['name' => 'MSY 2.0', 'codes' => ['msy_nano', 'm_s_y_2_0']],
@@ -312,6 +305,7 @@ return [
                             ['name' => 'DDUGAYVY - Homestay', 'codes' => ['ddu_homestay', 'deen_dayal_upadhyay_grah_awas_vikas_yojana_d_d_u_g_a_v_y_homestay']],
                             ['name' => 'Veer Chandra Singh Garhwali Self Employment Scheme', 'codes' => ['vcsg', 'veer_chandra_singh_garhwali_self_employment_scheme']],
                             ['name' => 'Other Convergence Support', 'codes' => ['support_application', 'other_convergence_support']],
+                            ['name' => 'Support through REAP', 'codes' => ['support_muy_incubatee_reap']],
                         ],
                     ],
                 ],

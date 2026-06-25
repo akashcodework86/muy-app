@@ -77,7 +77,7 @@ class ProgramDeliverablesAchievementBreakdownService
 
         $breakdown = match ($sourceType) {
             'deliverable' => $this->deliverableBreakdown($source),
-            'service', 'services' => $this->serviceCaseBreakdown($source),
+            'service', 'services', 'schematic_convergence_services' => $this->serviceCaseBreakdown($source),
             'cfa_count' => $this->cfaBreakdown(),
             'onboarding_count' => $this->onboardingBreakdown(),
             'potential_lakhpati_onboarding_count' => $this->potentialLakhpatiOnboardingBreakdown(),
@@ -1775,6 +1775,8 @@ class ProgramDeliverablesAchievementBreakdownService
                 \App\Support\ConvergenceReapSupportDeliverablesSupport::convergenceServiceIds(),
                 \App\Support\ConvergenceReapSupportDeliverablesSupport::reapSupportServiceIds(),
             );
+        } elseif ($type === 'schematic_convergence_services') {
+            $ids = \App\Support\ConvergenceReapSupportDeliverablesSupport::schematicConvergenceServiceIds();
         }
 
         return array_values(array_unique(array_filter(array_map('intval', $ids))));
@@ -1946,6 +1948,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'stakeholder_consultation_workshop_sessions' => '12.1 Stakeholder consultation workshops',
             'line_department_meeting_sessions' => '12.2 Line department meetings',
             'reap_support_services' => 'Support to MUY Incubatee through Reap',
+            'schematic_convergence_services' => 'Schematic Convergence service cases',
             'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation',
             default => 'Achievement records',
         };

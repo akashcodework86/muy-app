@@ -828,6 +828,7 @@ class ProgramDeliverablesReportService
             'stakeholder_consultation_workshop_sessions' => $this->stakeholderConsultationWorkshopSessionsCount(),
             'line_department_meeting_sessions' => $this->lineDepartmentMeetingSessionsCount(),
             'reap_support_services' => $this->reapSupportServicesCount(),
+            'schematic_convergence_services' => $this->schematicConvergenceServicesCount(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsCount(),
             'pitch_deck_combined' => $this->pitchDeckCombinedCount(),
             default => 0,
@@ -850,7 +851,7 @@ class ProgramDeliverablesReportService
             'bst_sessions' => $this->useOfficialMonthlyTargets
                 ? $this->resolveStateTargetForCodes([(string) ($source['deliverable_code'] ?? 'bst_sessions')])
                 : $this->bstSessionsPlannedTargetCount(),
-            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'stakeholder_consultation_workshop_sessions', 'line_department_meeting_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'demo_days_count', 'funding_schematic_partners_outreach_count', 'muy_newsletter_count', 'media_campaigns_count' => $this->resolveStateTargetForCodes([
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'stakeholder_consultation_workshop_sessions', 'line_department_meeting_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'schematic_convergence_services', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'demo_days_count', 'funding_schematic_partners_outreach_count', 'muy_newsletter_count', 'media_campaigns_count' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
             'none' => ($source['deliverable_code'] ?? '') !== ''
@@ -1704,6 +1705,15 @@ SQL;
     private function reapSupportServicesCount(): int
     {
         return ConvergenceReapSupportDeliverablesSupport::countCases(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    private function schematicConvergenceServicesCount(): int
+    {
+        return ConvergenceReapSupportDeliverablesSupport::countSchematicConvergenceCases(
             $this->districtIds,
             $this->periodFrom,
             $this->periodTo,

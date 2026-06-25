@@ -2692,10 +2692,14 @@ class DeliverablesReportTest extends TestCase
         $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
         $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
         $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row81 = collect($report['rows'])->firstWhere('serial', '8.1');
         $row = collect($report['rows'])->firstWhere('serial', '8.2');
 
+        $this->assertNotNull($row81);
         $this->assertNotNull($row);
+        $this->assertSame(2, $row81['achievement']);
         $this->assertSame(1, $row['achievement']);
+        $this->assertGreaterThanOrEqual($row['achievement'], $row81['achievement']);
     }
 
     public function test_convergence_through_reap_store_show_badge_and_deliverables_count(): void
@@ -2811,13 +2815,17 @@ class DeliverablesReportTest extends TestCase
         $scope = ProgramDeliverablesScope::forUser($staff);
         $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
 
+        $row81 = collect($report['rows'])->firstWhere('serial', '8.1');
         $row82 = collect($report['rows'])->firstWhere('serial', '8.2');
         $row83 = collect($report['rows'])->firstWhere('serial', '8.3');
 
+        $this->assertNotNull($row81);
         $this->assertNotNull($row82);
         $this->assertNotNull($row83);
+        $this->assertSame(1, $row81['achievement']);
         $this->assertSame(1, $row82['achievement']);
         $this->assertSame(0, $row83['achievement']);
+        $this->assertGreaterThanOrEqual($row82['achievement'], $row81['achievement']);
 
         $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '8.2');
         $this->assertSame(1, $breakdown['total']);
@@ -3266,11 +3274,15 @@ class DeliverablesReportTest extends TestCase
         $scope = ProgramDeliverablesScope::forUser($staff);
         $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
 
+        $row81 = collect($report['rows'])->firstWhere('serial', '8.1');
         $row82 = collect($report['rows'])->firstWhere('serial', '8.2');
         $row83 = collect($report['rows'])->firstWhere('serial', '8.3');
+        $this->assertNotNull($row81);
         $this->assertNotNull($row82);
+        $this->assertSame(1, $row81['achievement']);
         $this->assertSame(1, $row82['achievement']);
         $this->assertSame(0, $row83['achievement'] ?? 0);
+        $this->assertGreaterThanOrEqual($row82['achievement'], $row81['achievement']);
     }
 
     public function test_staff_services_index_reap_support_8_2_filter_shows_unified_label(): void

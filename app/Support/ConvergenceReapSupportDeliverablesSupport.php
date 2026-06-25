@@ -44,6 +44,31 @@ final class ConvergenceReapSupportDeliverablesSupport
     }
 
     /**
+     * @param  list<int>|null  $districtIds
+     */
+    public static function countSchematicConvergenceCases(?array $districtIds, ?Carbon $periodFrom, ?Carbon $periodTo): int
+    {
+        if ($districtIds === [] || ! Schema::hasTable('service_cases') || ! Schema::hasTable('services')) {
+            return 0;
+        }
+
+        return (int) self::schematicConvergenceScopedQuery($districtIds, $periodFrom, $periodTo)->count();
+    }
+
+    /**
+     * All convergence-category services plus dedicated REAP-support services (MIS 8.1 superset of 8.2).
+     *
+     * @return list<int>
+     */
+    public static function schematicConvergenceServiceIds(): array
+    {
+        return array_values(array_unique(array_merge(
+            self::convergenceServiceIds(),
+            self::reapSupportServiceIds(),
+        )));
+    }
+
+    /**
      * @return list<int>
      */
     public static function reapSupportServiceIds(): array
@@ -70,12 +95,36 @@ final class ConvergenceReapSupportDeliverablesSupport
      */
     private static function scopedQuery(?array $districtIds, ?Carbon $periodFrom, ?Carbon $periodTo): Builder
     {
-        $convergenceServiceIds = self::convergenceServiceIds();
-        $reapSupportServiceIds = self::reapSupportServiceIds();
-        if ($convergenceServiceIds === [] && $reapSupportServiceIds === []) {
-            return DB::table('service_cases')->whereRaw('1 = 0');
-        }
+        return self::buildAchievementScopedQuery(
+            $districtIds,
+            $periodFrom,
+            $periodTo,
+            fn (Builder $query): Builder => tap($query, fn (Builder $q) => self::applyAchievementScope($q)),
+        );
+    }
 
+    /**
+     * @param  list<int>|null  $districtIds
+     */
+    private static function schematicConvergenceScopedQuery(?array $districtIds, ?Carbon $periodFrom, ?Carbon $periodTo): Builder
+    {
+        return self::buildAchievementScopedQuery(
+            $districtIds,
+            $periodFrom,
+            $periodTo,
+            fn (Builder $query): Builder => tap($query, fn (Builder $q) => self::applySchematicConvergenceAchievementScope($q)),
+        );
+    }
+
+    /**
+     * @param  callable(Builder): Builder  $applyScope
+     */
+    private static function buildAchievementScopedQuery(
+        ?array $districtIds,
+        ?Carbon $periodFrom,
+        ?Carbon $periodTo,
+        callable $applyScope,
+    ): Builder {
         $dateExpr = self::achievementDateExpression();
         $statuses = [ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_COMPLETED];
 
@@ -83,7 +132,7 @@ final class ConvergenceReapSupportDeliverablesSupport
             ->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
             ->whereIn('sc.status', $statuses);
 
-        self::applyAchievementScope($query);
+        $applyScope($query);
 
         if ($districtIds !== null) {
             app(\App\Services\LegacyApplicationServiceCaseSupport::class)
@@ -144,6 +193,23 @@ final class ConvergenceReapSupportDeliverablesSupport
                 });
             }
         });
+    }
+
+    /**
+     * MIS 8.1: all convergence service cases plus dedicated REAP-support services (no through_reap filter).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     */
+    public static function applySchematicConvergenceAchievementScope($query, string $tableAlias = 'sc'): void
+    {
+        $serviceIds = self::schematicConvergenceServiceIds();
+        if ($serviceIds === []) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $query->whereIn("{$tableAlias}.service_id", $serviceIds);
     }
 
     private static function achievementDateExpression(): string
