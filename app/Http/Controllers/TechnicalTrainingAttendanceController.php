@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
+use App\Models\CfaSubmission;
 use App\Models\TechnicalTraining;
+use App\Services\Cfa\CfaSubmissionListQuery;
 use App\Support\IncubateeAttendeeCounts;
 use App\Support\MisFieldActivityApproval;
 use App\Support\WorkshopDashboardCsvExport;
@@ -12,7 +14,6 @@ use App\Services\MisFieldActivityWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -35,13 +36,13 @@ class TechnicalTrainingAttendanceController extends Controller
         abort_unless($this->canSubmit($user->role), 403);
 
         $districtId = (int) ($user->district_id ?: 0);
-        $incubatees = $this->onboardedIncubateesForDistrict($districtId, trim((string) $request->query('q', '')))
+        $incubatees = $this->districtApplicantsForSelection($districtId, trim((string) $request->query('q', '')))
             ->values();
 
         return view('staff.technical-trainings.form', [
             'user' => $user,
             'incubatees' => $incubatees,
-            'totalOnboardedCount' => $this->onboardedIncubateesCountForDistrict($districtId),
+            'totalApplicantCount' => $this->districtApplicantCountForDistrict($districtId),
             'migrationMissing' => ! Schema::hasTable('technical_trainings'),
         ]);
     }
@@ -251,14 +252,15 @@ class TechnicalTrainingAttendanceController extends Controller
         $user = $request->user()->load('district');
         $this->assertCanEdit($technicalTraining, (int) $user->id);
 
-        $incubatees = $this->onboardedIncubateesForDistrict((int) ($technicalTraining->district_id ?: 0))
+        $districtId = (int) ($technicalTraining->district_id ?: 0);
+        $incubatees = $this->districtApplicantsForSelection($districtId)
             ->values();
 
         return view('staff.technical-trainings.edit', [
             'user' => $user,
             'row' => $technicalTraining,
             'incubatees' => $incubatees,
-            'totalOnboardedCount' => $this->onboardedIncubateesCountForDistrict((int) ($technicalTraining->district_id ?: 0)),
+            'totalApplicantCount' => $this->districtApplicantCountForDistrict($districtId),
             'selectedIds' => collect((array) $technicalTraining->selected_incubatee_ids)->map(fn ($id): int => (int) $id)->all(),
         ]);
     }
@@ -409,83 +411,80 @@ class TechnicalTrainingAttendanceController extends Controller
         return $mediaItems;
     }
 
-    private function onboardedIncubateesForDistrict(int $districtId, string $search = ''): Collection
+    private function districtApplicantsForSelection(int $districtId, string $search = '', ?Collection $onlyIds = null): Collection
     {
         if ($districtId <= 0) {
             return collect();
         }
 
-        return $this->onboardedPhase3ApplicantsForDistrict($districtId, $search)
-            ->sortBy(fn (array $row): string => mb_strtolower((string) ($row['name'] ?? '')))
-            ->values();
-    }
+        $query = CfaSubmission::query()
+            ->where('district_id', $districtId)
+            ->where(function ($q): void {
+                $q->whereNull('source')
+                    ->orWhere('source', '!=', 'legacy_phase2');
+            });
 
-    private function onboardedPhase3ApplicantsForDistrict(int $districtId, string $search = ''): Collection
-    {
-        $payloadValue = fn (string $path): string => DB::connection()->getDriverName() === 'sqlite'
-            ? "json_extract(cs.payload, '$.{$path}')"
-            : "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.{$path}'))";
+        CfaSubmissionListQuery::applyPhase3DashboardScope($query);
 
-        $query = DB::table('onboarding_batch_cfa as obc')
-            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
-            ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
-            ->where('ob.status', 'locked')
-            ->whereNotNull('ob.locked_at')
-            ->where('cs.district_id', $districtId)
-            ->selectRaw("
-                cs.id as incubatee_id,
-                cs.applicant_name as name,
-                cs.application_no as application_no,
-                cs.phone as phone,
-                {$payloadValue('gender')} as gender,
-                {$payloadValue('village')} as village,
-                {$payloadValue('block')} as block_name,
-                ob.id as onboarding_batch_id,
-                ob.name as onboarding_batch_name
-            ");
+        if ($onlyIds !== null && $onlyIds->isNotEmpty()) {
+            $query->whereIn('id', $onlyIds->all());
+        }
 
         if ($search !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
             $query->where(function ($q) use ($like): void {
-                $q->where('cs.applicant_name', 'like', $like)
-                    ->orWhere('cs.application_no', 'like', $like)
-                    ->orWhere('cs.phone', 'like', $like);
+                $q->where('applicant_name', 'like', $like)
+                    ->orWhere('application_no', 'like', $like)
+                    ->orWhere('phone', 'like', $like);
             });
         }
 
         return $query
-            ->orderByDesc('obc.created_at')
+            ->with(['onboardingBatchMembership.batch'])
+            ->orderByDesc('created_at')
             ->get()
-            ->map(fn ($row): array => [
-                'incubatee_id' => (int) $row->incubatee_id,
-                'source' => 'phase3',
-                'name' => (string) ($row->name ?? ''),
-                'application_no' => (string) ($row->application_no ?? ''),
-                'phone' => (string) ($row->phone ?? ''),
-                'gender' => (string) ($row->gender ?? ''),
-                'village' => (string) ($row->village ?? ''),
-                'block_name' => (string) ($row->block_name ?? ''),
-                'onboarding_batch_id' => (int) ($row->onboarding_batch_id ?? 0),
-                'onboarding_batch_name' => (string) ($row->onboarding_batch_name ?? ''),
-            ])
-            ->unique('incubatee_id')
+            ->map(function (CfaSubmission $row): array {
+                $payload = is_array($row->payload) ? $row->payload : [];
+                $batch = $row->onboardingBatchMembership?->batch;
+                $isOnboarded = $batch !== null
+                    && $batch->status === 'locked'
+                    && $batch->locked_at !== null;
+
+                return [
+                    'incubatee_id' => (int) $row->id,
+                    'source' => 'phase3',
+                    'name' => (string) ($row->applicant_name ?? ''),
+                    'application_no' => (string) ($row->application_no ?? ''),
+                    'phone' => (string) ($row->phone ?? ''),
+                    'gender' => (string) ($payload['gender'] ?? ''),
+                    'village' => (string) ($payload['village'] ?? ''),
+                    'block_name' => (string) ($payload['block'] ?? ''),
+                    'onboarding_batch_id' => $isOnboarded ? (int) $batch->id : 0,
+                    'onboarding_batch_name' => $isOnboarded ? (string) ($batch->name ?? '') : '',
+                    'onboard_status' => $isOnboarded ? 'onboarded' : 'non_onboarded',
+                    'onboard_label' => $isOnboarded ? 'Onboarded' : 'Not onboarded',
+                ];
+            })
+            ->sortBy(fn (array $row): string => mb_strtolower((string) ($row['name'] ?? '')))
             ->values();
     }
 
-    private function onboardedIncubateesCountForDistrict(int $districtId): int
+    private function districtApplicantCountForDistrict(int $districtId): int
     {
         if ($districtId <= 0) {
             return 0;
         }
 
-        return (int) DB::table('onboarding_batch_cfa as obc')
-            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
-            ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
-            ->where('ob.status', 'locked')
-            ->whereNotNull('ob.locked_at')
-            ->where('cs.district_id', $districtId)
-            ->distinct('cs.id')
-            ->count('cs.id');
+        $query = CfaSubmission::query()
+            ->where('district_id', $districtId)
+            ->where(function ($q): void {
+                $q->whereNull('source')
+                    ->orWhere('source', '!=', 'legacy_phase2');
+            });
+
+        CfaSubmissionListQuery::applyPhase3DashboardScope($query);
+
+        return (int) $query->count();
     }
 
     /**
@@ -502,7 +501,7 @@ class TechnicalTrainingAttendanceController extends Controller
 
     private function snapshotsForSelectedIncubatees(int $districtId, Collection $selectedIds): Collection
     {
-        $snapshotMap = $this->onboardedIncubateesForDistrict($districtId)
+        $snapshotMap = $this->districtApplicantsForSelection($districtId, '', $selectedIds)
             ->keyBy(fn (array $row): int => (int) $row['incubatee_id']);
 
         return $selectedIds
@@ -547,7 +546,7 @@ class TechnicalTrainingAttendanceController extends Controller
         $legacyDetailsById = $this->legacyApplications->applicantSnapshotsByLegacyApplicationIds($legacyApplicationIds);
         $legacyDetailsByApplicationNumber = $this->legacyApplications->applicantSnapshotsByLegacyApplicationNumbers($legacyApplicationNumbers);
 
-        return $snapshots
+        $enriched = $snapshots
             ->map(function (array $snap) use ($legacyDetailsById, $legacyDetailsByApplicationNumber): array {
                 if (! $this->snapshotNeedsLegacyDetailEnrichment($snap)) {
                     return $snap;
@@ -559,8 +558,81 @@ class TechnicalTrainingAttendanceController extends Controller
                 }
 
                 return $this->mergeLegacyApplicantDetailsIntoSnapshot($snap, $details);
+            });
+
+        return $this->enrichOnboardingStatusForSnapshots($enriched);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function enrichOnboardingStatusForSnapshots(Collection $snapshots): array
+    {
+        $phase3Ids = $snapshots
+            ->filter(fn (array $snap): bool => ($snap['source'] ?? '') !== 'legacy_phase2' && (int) ($snap['incubatee_id'] ?? 0) > 0)
+            ->map(fn (array $snap): int => (int) $snap['incubatee_id'])
+            ->unique()
+            ->values();
+
+        /** @var array<int, array<string, mixed>> $onboardingById */
+        $onboardingById = [];
+
+        if ($phase3Ids->isNotEmpty()) {
+            CfaSubmission::query()
+                ->whereIn('id', $phase3Ids->all())
+                ->with(['onboardingBatchMembership.batch'])
+                ->get()
+                ->each(function (CfaSubmission $row) use (&$onboardingById): void {
+                    $batch = $row->onboardingBatchMembership?->batch;
+                    $isOnboarded = $batch !== null
+                        && $batch->status === 'locked'
+                        && $batch->locked_at !== null;
+
+                    $onboardingById[(int) $row->id] = [
+                        'onboard_status' => $isOnboarded ? 'onboarded' : 'non_onboarded',
+                        'onboard_label' => $isOnboarded ? 'Onboarded' : 'Not onboarded',
+                        'onboarding_batch_id' => $isOnboarded ? (int) $batch->id : 0,
+                        'onboarding_batch_name' => $isOnboarded ? (string) ($batch->name ?? '') : '',
+                    ];
+                });
+        }
+
+        return $snapshots
+            ->map(function (array $snap) use ($onboardingById): array {
+                $incubateeId = (int) ($snap['incubatee_id'] ?? 0);
+                if ($incubateeId > 0 && isset($onboardingById[$incubateeId])) {
+                    return array_merge($snap, $onboardingById[$incubateeId]);
+                }
+
+                return $this->applyOnboardingStatusFallback($snap);
             })
             ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $snap
+     * @return array<string, mixed>
+     */
+    private function applyOnboardingStatusFallback(array $snap): array
+    {
+        if (trim((string) ($snap['onboard_label'] ?? '')) !== '') {
+            if (! isset($snap['onboard_status'])) {
+                $snap['onboard_status'] = trim((string) ($snap['onboarding_batch_name'] ?? '')) !== ''
+                    || (int) ($snap['onboarding_batch_id'] ?? 0) > 0
+                    ? 'onboarded'
+                    : 'non_onboarded';
+            }
+
+            return $snap;
+        }
+
+        $isOnboarded = trim((string) ($snap['onboarding_batch_name'] ?? '')) !== ''
+            || (int) ($snap['onboarding_batch_id'] ?? 0) > 0;
+
+        $snap['onboard_status'] = $isOnboarded ? 'onboarded' : 'non_onboarded';
+        $snap['onboard_label'] = $isOnboarded ? 'Onboarded' : 'Not onboarded';
+
+        return $snap;
     }
 
     private function snapshotNeedsLegacyDetailEnrichment(array $snap): bool

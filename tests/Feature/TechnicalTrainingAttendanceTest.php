@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\District;
+use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\TechnicalTraining;
 use App\Models\User;
@@ -43,6 +44,48 @@ class TechnicalTrainingAttendanceTest extends TestCase
             'submitted_by_user_id' => $staff->id,
             'status' => ServiceCase::STATUS_PENDING_APPROVAL,
         ]);
+    }
+
+    public function test_district_staff_can_submit_non_onboarded_applicant(): void
+    {
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $applicantId = $this->seedPhase3Applicant($district, 'Non Onboarded Applicant');
+
+        $response = $this->actingAs($staff)->post(route('staff.technical-trainings.store'), [
+            'session_date' => '2026-05-18',
+            'session_name' => 'Open session',
+            'selected_incubatees' => [$applicantId],
+        ]);
+
+        $response->assertRedirect(route('staff.technical-trainings.dashboard'));
+
+        $entry = TechnicalTraining::query()->firstOrFail();
+        $this->assertSame([$applicantId], (array) $entry->selected_incubatee_ids);
+        $this->assertSame('non_onboarded', $entry->selected_incubatees_snapshot[0]['onboard_status'] ?? null);
+    }
+
+    public function test_create_form_lists_non_onboarded_applicants(): void
+    {
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $this->seedOnboardedIncubatee($district);
+        $this->seedPhase3Applicant($district, 'Visible Non Onboarded');
+
+        $response = $this->actingAs($staff)->get(route('staff.technical-trainings.create'));
+
+        $response->assertOk();
+        $response->assertSee('Visible Non Onboarded');
+        $response->assertSee('Not onboarded');
+        $response->assertSee('rbiphase3 applicants in district');
     }
 
     public function test_district_staff_cannot_submit_without_district_assignment(): void
@@ -211,6 +254,53 @@ class TechnicalTrainingAttendanceTest extends TestCase
         Storage::assertExists((string) $entry->attendance_media_json[1]['path']);
     }
 
+    public function test_show_entry_displays_onboarding_status_for_each_selected_applicant(): void
+    {
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $onboardedId = $this->seedOnboardedIncubatee($district);
+        $notOnboardedId = $this->seedPhase3Applicant($district, 'Pending Applicant');
+
+        $entry = TechnicalTraining::query()->create([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => (string) $staff->name,
+            'event_date' => '2026-05-18',
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'session_name' => 'View session',
+            'attendance_media_json' => [],
+            'selected_incubatee_ids' => [$onboardedId, $notOnboardedId],
+            'selected_incubatees_snapshot' => [
+                [
+                    'incubatee_id' => $onboardedId,
+                    'source' => 'phase3',
+                    'name' => 'Onboarded Applicant',
+                    'application_no' => 'APP-onboarded',
+                ],
+                [
+                    'incubatee_id' => $notOnboardedId,
+                    'source' => 'phase3',
+                    'name' => 'Pending Applicant',
+                    'application_no' => 'APP-pending-applicant',
+                ],
+            ],
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.technical-trainings.show', $entry))
+            ->assertOk()
+            ->assertSee('Onboarding Status', false)
+            ->assertSee('Onboarded', false)
+            ->assertSee('Not onboarded', false)
+            ->assertSee('Onboarded Applicant', false)
+            ->assertSee('Pending Applicant', false);
+    }
+
     public function test_authorized_user_can_download_uploaded_attachment(): void
     {
         $district = $this->createDistrict();
@@ -303,14 +393,7 @@ class TechnicalTrainingAttendanceTest extends TestCase
 
     private function seedOnboardedIncubatee(District $district): int
     {
-        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
-            'district_id' => $district->id,
-            'applicant_name' => 'Test Applicant',
-            'phone' => '9999999999',
-            'payload' => json_encode(['gender' => 'M', 'village' => 'Village', 'block' => 'Block']),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $cfaId = $this->seedPhase3Applicant($district, 'Test Applicant');
 
         $batchId = (int) DB::table('onboarding_batches')->insertGetId([
             'hub_id' => $district->hub_id,
@@ -331,6 +414,22 @@ class TechnicalTrainingAttendanceTest extends TestCase
         ]);
 
         return $cfaId;
+    }
+
+    private function seedPhase3Applicant(District $district, string $name): int
+    {
+        $fiscalYearId = (int) (FiscalYear::phase3Default()?->id ?? 0);
+
+        return (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'fiscal_year_id' => $fiscalYearId > 0 ? $fiscalYearId : null,
+            'applicant_name' => $name,
+            'application_no' => 'APP-'.str_replace(' ', '-', strtolower($name)),
+            'phone' => '98'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
+            'payload' => json_encode(['gender' => 'M', 'village' => 'Village', 'block' => 'Block']),
+            'created_at' => '2026-05-01',
+            'updated_at' => now(),
+        ]);
     }
 
     private function createDistrict(string $slug = 'test-district', string $name = 'Test District'): District

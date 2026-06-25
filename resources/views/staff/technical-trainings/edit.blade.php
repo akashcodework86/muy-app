@@ -76,19 +76,24 @@
                 <div class="tp-two-col">
                     <div class="tp-col">
                         <p class="tp-note">
-                            rbiphase3 onboarded applicants in district: <strong>{{ (int) ($totalOnboardedCount ?? $incubatees->count()) }}</strong>
+                            rbiphase3 applicants in district: <strong>{{ (int) ($totalApplicantCount ?? $incubatees->count()) }}</strong>
                         </p>
-                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search rbiphase3 onboarded applicants by name/application/phone">
+                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search applicants by name, application no., or phone">
                         <div class="tp-list" id="tpSourceList">
                             @foreach ($incubatees as $item)
                                 @php $checked = in_array((int) $item['incubatee_id'], $oldSelectedIds, true); @endphp
-                                <label class="tp-item" data-search="{{ strtolower($item['name'].' '.$item['application_no'].' '.$item['phone']) }}">
+                                <label class="tp-item" data-search="{{ strtolower($item['name'].' '.$item['application_no'].' '.$item['phone'].' '.($item['onboard_label'] ?? '')) }}">
                                     <input type="checkbox" class="tp-check" value="{{ $item['incubatee_id'] }}" @checked($checked)>
                                     <div>
                                         <h4>{{ $item['name'] ?: 'Unnamed' }}</h4>
                                         <div class="tp-meta">
                                             <span class="tp-pill">App: {{ $item['application_no'] ?: 'NA' }}</span>
-                                            <span class="tp-pill">Batch: {{ $item['onboarding_batch_name'] ?: 'NA' }}</span>
+                                            @if (($item['onboard_status'] ?? '') === 'onboarded')
+                                                <span class="tp-pill">{{ $item['onboard_label'] ?? 'Onboarded' }}</span>
+                                                <span class="tp-pill">Batch: {{ $item['onboarding_batch_name'] ?: 'NA' }}</span>
+                                            @else
+                                                <span class="tp-pill tp-pill--muted">{{ $item['onboard_label'] ?? 'Not onboarded' }}</span>
+                                            @endif
                                         </div>
                                         <div class="tp-meta">Phone: {{ $item['phone'] ?: 'NA' }} | Block: {{ $item['block_name'] ?: 'NA' }} | Village: {{ $item['village'] ?: 'NA' }}</div>
                                     </div>

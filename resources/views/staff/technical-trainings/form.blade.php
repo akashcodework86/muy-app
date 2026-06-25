@@ -37,6 +37,7 @@
     .tp-item h4 { margin:0; font-size:0.86rem; line-height:1.35; }
     .tp-meta { margin-top:0.25rem; color:#64748b; font-size:0.76rem; line-height:1.4; }
     .tp-pill { display:inline-block; font-size:0.7rem; background:#eef2ff; color:#3730a3; border-radius:999px; padding:0.14rem 0.48rem; margin:0 0.3rem 0.25rem 0; }
+    .tp-pill--muted { background:#f1f5f9; color:#475569; }
     .tp-right-title { margin:0; font-size:0.86rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:0.45rem; }
     .tp-selected-count { display:inline-flex; align-items:center; justify-content:center; min-width:1.45rem; height:1.45rem; border-radius:999px; background:#4f46e5; color:#fff; font-size:0.72rem; font-weight:800; }
     .tp-selected-empty { margin:0; padding:0.75rem; color:#64748b; font-size:0.84rem; }
@@ -126,24 +127,29 @@
                 <div class="tp-two-col">
                     <div class="tp-col">
                         <p class="tp-note">
-                            rbiphase3 onboarded applicants in district: <strong>{{ (int) ($totalOnboardedCount ?? $incubatees->count()) }}</strong>
+                            rbiphase3 applicants in district: <strong>{{ (int) ($totalApplicantCount ?? $incubatees->count()) }}</strong>
                         </p>
-                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search rbiphase3 onboarded applicants by name/application/phone">
+                        <input id="tpSearch" class="tp-search" type="text" placeholder="Search applicants by name, application no., or phone">
                         <div class="tp-list" id="tpSourceList">
                             @forelse ($incubatees as $row)
-                                <label class="tp-item" data-search="{{ strtolower($row['name'].' '.$row['application_no'].' '.$row['phone']) }}">
+                                <label class="tp-item" data-search="{{ strtolower($row['name'].' '.$row['application_no'].' '.$row['phone'].' '.($row['onboard_label'] ?? '')) }}">
                                     <input type="checkbox" class="tp-check" value="{{ $row['incubatee_id'] }}" @checked(in_array((int) $row['incubatee_id'], $oldSelectedIds, true))>
                                     <div>
                                         <h4>{{ $row['name'] ?: 'Unnamed' }}</h4>
                                         <div class="tp-meta">
                                             <span class="tp-pill">App: {{ $row['application_no'] ?: 'NA' }}</span>
-                                            <span class="tp-pill">Batch: {{ $row['onboarding_batch_name'] ?: 'NA' }}</span>
+                                            @if (($row['onboard_status'] ?? '') === 'onboarded')
+                                                <span class="tp-pill">{{ $row['onboard_label'] ?? 'Onboarded' }}</span>
+                                                <span class="tp-pill">Batch: {{ $row['onboarding_batch_name'] ?: 'NA' }}</span>
+                                            @else
+                                                <span class="tp-pill tp-pill--muted">{{ $row['onboard_label'] ?? 'Not onboarded' }}</span>
+                                            @endif
                                         </div>
                                         <div class="tp-meta">Phone: {{ $row['phone'] ?: 'NA' }} | Block: {{ $row['block_name'] ?: 'NA' }} | Village: {{ $row['village'] ?: 'NA' }}</div>
                                     </div>
                                 </label>
                             @empty
-                                <p class="tp-selected-empty">No rbiphase3 onboarded applicants found for your district.</p>
+                                <p class="tp-selected-empty">No rbiphase3 applicants found for your district.</p>
                             @endforelse
                         </div>
                     </div>

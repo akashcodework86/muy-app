@@ -42,6 +42,17 @@
     .tp-show-source { display:inline-flex; align-items:center; padding:0.16rem 0.5rem; border-radius:999px; font-size:0.72rem; font-weight:800; }
     .tp-show-source--phase3 { background:#eef2ff; color:#3730a3; }
     .tp-show-source--legacy { background:#fff7ed; color:#9a3412; }
+    .tp-show-onboard {
+        display:inline-flex;
+        align-items:center;
+        padding:0.18rem 0.55rem;
+        border-radius:999px;
+        font-size:0.72rem;
+        font-weight:800;
+        white-space:nowrap;
+    }
+    .tp-show-onboard--onboarded { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+    .tp-show-onboard--pending { background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; }
     .tp-show-empty { padding:1rem; color:#64748b; }
 </style>
 @endpush
@@ -138,6 +149,7 @@
                 <th>Gender</th>
                 <th>Village</th>
                 <th>Block</th>
+                <th>Onboarding Status</th>
                 <th>Onboarding Batch</th>
             </tr>
             </thead>
@@ -166,11 +178,18 @@
                     <td>{{ trim((string) ($snap['gender'] ?? '')) !== '' ? $snap['gender'] : 'NA' }}</td>
                     <td>{{ trim((string) ($snap['village'] ?? '')) !== '' ? $snap['village'] : 'NA' }}</td>
                     <td>{{ trim((string) ($snap['block_name'] ?? '')) !== '' ? $snap['block_name'] : 'NA' }}</td>
-                    <td>{{ $snap['onboarding_batch_name'] ?? 'NA' }}</td>
+                    <td>
+                        @if (($snap['onboard_status'] ?? '') === 'onboarded')
+                            <span class="tp-show-onboard tp-show-onboard--onboarded">{{ $snap['onboard_label'] ?? 'Onboarded' }}</span>
+                        @else
+                            <span class="tp-show-onboard tp-show-onboard--pending">{{ $snap['onboard_label'] ?? 'Not onboarded' }}</span>
+                        @endif
+                    </td>
+                    <td>{{ trim((string) ($snap['onboarding_batch_name'] ?? '')) !== '' ? $snap['onboarding_batch_name'] : '—' }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="tp-show-empty">No selected applicants found in snapshot.</td>
+                    <td colspan="10" class="tp-show-empty">No selected applicants found in snapshot.</td>
                 </tr>
             @endforelse
             </tbody>
