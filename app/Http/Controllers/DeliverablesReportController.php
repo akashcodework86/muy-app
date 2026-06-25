@@ -325,6 +325,8 @@ class DeliverablesReportController extends Controller
             dateFrom: $filter->dateFrom,
             dateTo: $filter->dateTo,
             quarter: $filter->quarter,
+            indicatorType: $filter->indicatorType,
+            level: $filter->level,
         );
 
         $fiscalYears = FiscalYear::forUiDropdown();

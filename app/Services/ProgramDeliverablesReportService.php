@@ -133,10 +133,60 @@ class ProgramDeliverablesReportService
             $this->appendMatrixRows($rows, $pillar, [(string) $pillarIndex]);
         }
 
+        if ($filter->hasRowMetadataFilter()) {
+            $rows = $this->filterRowsByMetadata($rows, $filter);
+        }
+
         return [
             'fiscalYear' => $fiscalYear,
             'rows' => $rows,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function filterRowsByMetadata(array $rows, ProgramDeliverablesFilter $filter): array
+    {
+        $visibleLeafSerials = [];
+
+        foreach ($rows as $row) {
+            if (in_array($row['row_type'] ?? '', ['pillar', 'subcategory'], true)) {
+                continue;
+            }
+
+            if ($filter->indicatorType !== null && ($row['indicator_type'] ?? '') !== $filter->indicatorType) {
+                continue;
+            }
+
+            if ($filter->level !== null && ($row['level'] ?? '') !== $filter->level) {
+                continue;
+            }
+
+            $visibleLeafSerials[] = (string) $row['serial'];
+        }
+
+        if ($visibleLeafSerials === []) {
+            return [];
+        }
+
+        return array_values(array_filter($rows, function (array $row) use ($visibleLeafSerials): bool {
+            if (! in_array($row['row_type'] ?? '', ['pillar', 'subcategory'], true)) {
+                return in_array((string) $row['serial'], $visibleLeafSerials, true);
+            }
+
+            $headingSerial = (string) $row['serial'];
+            $prefix = $headingSerial.'.';
+
+            foreach ($visibleLeafSerials as $leafSerial) {
+                if ($leafSerial === $headingSerial || str_starts_with($leafSerial, $prefix)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }));
     }
 
     /**

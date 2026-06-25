@@ -41,6 +41,24 @@
             </div>
         @endif
         <div style="display:flex;flex-direction:column;gap:0.25rem;">
+            <label for="indicator_type" style="font-size:0.75rem;font-weight:600;color:#475569;">Type of Indicator</label>
+            <select name="indicator_type" id="indicator_type" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:10rem;">
+                <option value="">All types</option>
+                @foreach ($indicatorTypeOptions as $option)
+                    <option value="{{ $option }}" @selected(($filter->indicatorType ?? '') === $option)>{{ $option }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.25rem;">
+            <label for="level" style="font-size:0.75rem;font-weight:600;color:#475569;">Spoke/ Hub/ State</label>
+            <select name="level" id="level" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:11rem;">
+                <option value="">All levels</option>
+                @foreach ($levelOptions as $option)
+                    <option value="{{ $option }}" @selected(($filter->level ?? '') === $option)>{{ $option }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.25rem;">
             <label for="quarter" style="font-size:0.75rem;font-weight:600;color:#475569;">Quarter</label>
             <select name="quarter" id="quarter" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:10rem;">
                 <option value="">All quarters</option>

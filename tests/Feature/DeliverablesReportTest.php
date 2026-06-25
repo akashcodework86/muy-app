@@ -3016,6 +3016,69 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame('State', $row['level']);
     }
 
+    public function test_report_filters_rows_by_indicator_type_and_level(): void
+    {
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $service = app(ProgramDeliverablesReportService::class);
+
+        $allRows = $service->build(new ProgramDeliverablesFilter(null, null, null, null, null, null), $scope)['rows'];
+        $allLeafSerials = collect($allRows)
+            ->reject(fn (array $row) => in_array($row['row_type'], ['pillar', 'subcategory'], true))
+            ->pluck('serial')
+            ->all();
+
+        $stateLevelRows = $service->build(
+            new ProgramDeliverablesFilter(null, null, null, null, null, null, null, null, 'State'),
+            $scope,
+        )['rows'];
+        $stateLeafSerials = collect($stateLevelRows)
+            ->reject(fn (array $row) => in_array($row['row_type'], ['pillar', 'subcategory'], true))
+            ->pluck('serial')
+            ->all();
+
+        $this->assertNotEmpty($stateLeafSerials);
+        $this->assertContains('1.2', $stateLeafSerials);
+        $this->assertNotContains('1.1', $stateLeafSerials);
+        $this->assertContains('1', collect($stateLevelRows)->pluck('serial')->all());
+
+        $nonKeyRows = $service->build(
+            new ProgramDeliverablesFilter(null, null, null, null, null, null, null, 'Non-Key', null),
+            $scope,
+        )['rows'];
+        $nonKeyLeafSerials = collect($nonKeyRows)
+            ->reject(fn (array $row) => in_array($row['row_type'], ['pillar', 'subcategory'], true))
+            ->pluck('serial')
+            ->all();
+
+        $this->assertNotEmpty($nonKeyLeafSerials);
+        $this->assertNotContains('1.1', $nonKeyLeafSerials);
+        $this->assertLessThan(count($allLeafSerials), count($nonKeyLeafSerials));
+    }
+
+    public function test_deliverables_page_shows_indicator_metadata_filters(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.index'))
+            ->assertOk()
+            ->assertSee('Type of Indicator', false)
+            ->assertSee('Spoke/ Hub/ State', false)
+            ->assertSee('name="indicator_type"', false)
+            ->assertSee('name="level"', false);
+    }
+
+    public function test_deliverables_page_applies_indicator_metadata_filters_from_query(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.index', ['level' => 'State']))
+            ->assertOk()
+            ->assertSee('District Level Workshops')
+            ->assertDontSee('Call for Application');
+    }
+
     public function test_row_metadata_update_requires_edit_mode_enabled(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);

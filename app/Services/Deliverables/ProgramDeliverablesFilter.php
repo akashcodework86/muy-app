@@ -16,6 +16,8 @@ class ProgramDeliverablesFilter
         public readonly ?string $dateFrom,
         public readonly ?string $dateTo,
         public readonly ?int $quarter = null,
+        public readonly ?string $indicatorType = null,
+        public readonly ?string $level = null,
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -32,6 +34,8 @@ class ProgramDeliverablesFilter
             dateFrom: self::normalizeDate($request->query('date_from')),
             dateTo: self::normalizeDate($request->query('date_to')),
             quarter: $quarter !== null && $quarter !== '' ? (int) $quarter : null,
+            indicatorType: self::normalizeIndicatorType($request->query('indicator_type')),
+            level: self::normalizeLevel($request->query('level')),
         );
     }
 
@@ -126,6 +130,8 @@ class ProgramDeliverablesFilter
             dateFrom: $dates['dateFrom'],
             dateTo: $dates['dateTo'],
             quarter: $this->quarter,
+            indicatorType: $this->indicatorType,
+            level: $this->level,
         );
     }
 
@@ -142,7 +148,14 @@ class ProgramDeliverablesFilter
             'year' => $this->year,
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
+            'indicator_type' => $this->indicatorType,
+            'level' => $this->level,
         ], fn ($v) => $v !== null && $v !== '');
+    }
+
+    public function hasRowMetadataFilter(): bool
+    {
+        return $this->indicatorType !== null || $this->level !== null;
     }
 
     private static function normalizeDate(mixed $value): ?string
@@ -156,6 +169,28 @@ class ProgramDeliverablesFilter
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private static function normalizeIndicatorType(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return in_array($value, ProgramDeliverableRowMetadataService::INDICATOR_TYPES, true) ? $value : null;
+    }
+
+    private static function normalizeLevel(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return in_array($value, ProgramDeliverableRowMetadataService::LEVELS, true) ? $value : null;
     }
 
 }
