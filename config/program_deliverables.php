@@ -553,7 +553,7 @@ return [
             'serial' => '3.2',
             'code' => 'bst_participations',
             'name' => 'Incubatees taken Part in Business Modules Training',
-            'mis_entry_label' => 'BST unique participants',
+            'mis_entry_label' => 'BST module participations',
             'scope' => 'district',
             'sort_order' => 94,
         ],

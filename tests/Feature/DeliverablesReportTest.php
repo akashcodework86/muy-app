@@ -1877,7 +1877,7 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($participants);
         $this->assertSame(1, $sessions['target']);
         $this->assertSame(2, $sessions['achievement']);
-        $this->assertSame(3, $participants['achievement']);
+        $this->assertSame(4, $participants['achievement']);
 
         $sessionsBreakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '3.1');
         $this->assertSame(2, $sessionsBreakdown['total']);
@@ -1885,24 +1885,91 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame('Business skills training sessions (conducted)', $sessionsBreakdown['source_type_label']);
 
         $participantsBreakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '3.2');
-        $this->assertSame(3, $participantsBreakdown['total']);
-        $this->assertSame(3, $participants['achievement']);
-        $this->assertCount(3, $participantsBreakdown['records']);
+        $this->assertSame(4, $participantsBreakdown['total']);
+        $this->assertSame(4, $participants['achievement']);
+        $this->assertCount(4, $participantsBreakdown['records']);
         $this->assertCount(
             $participantsBreakdown['total'],
             $participantsBreakdown['records'],
-            'Breakdown records must include every unique incubatee, not a capped subset',
+            'Breakdown records must include every counted participation, not a capped subset',
         );
         $districtSum = collect($participantsBreakdown['by_district'])->sum('count');
-        $this->assertSame(3, $districtSum, 'District unique counts must sum to statewide unique total');
+        $this->assertSame(4, $districtSum, 'District participation counts must sum to statewide total');
 
-        $incubateeA = collect($participantsBreakdown['records'])->firstWhere('applicant', 'Incubatee A');
-        $this->assertNotNull($incubateeA);
-        $this->assertSame(2, (int) ($incubateeA['session_count'] ?? 0));
-        $this->assertCount(2, (array) ($incubateeA['sessions'] ?? []));
-        $sessionsText = implode("\n", (array) ($incubateeA['sessions'] ?? []));
+        $incubateeARecords = collect($participantsBreakdown['records'])->where('applicant', 'Incubatee A')->values();
+        $this->assertCount(2, $incubateeARecords);
+        $sessionsText = $incubateeARecords
+            ->flatMap(fn (array $row): array => (array) ($row['sessions'] ?? []))
+            ->implode("\n");
         $this->assertStringContainsString('Batch Alpha', $sessionsText);
         $this->assertStringContainsString('Batch Beta', $sessionsText);
+    }
+
+    public function test_program_deliverables_3_2_skips_repeat_module_sessions_and_counts_multi_module_once(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'bst-module-hub', 'name' => 'BST Module Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bst-module-district',
+            'name' => 'BST Module District',
+            'sort_order' => 1,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'hub_id' => $hub->id,
+            'is_active' => true,
+        ]);
+
+        $this->seedBstTrainingPackage($district, $staff, [
+            'event_date' => '2026-05-10',
+            'training_batch_name' => 'T1 first',
+            'training_packages' => ['t1'],
+            'selected_incubatee_ids' => [201, 202],
+            'selected_incubatees_snapshot' => [
+                ['incubatee_id' => 201, 'name' => 'Repeat T1'],
+                ['incubatee_id' => 202, 'name' => 'Only T1 once'],
+            ],
+        ]);
+        $this->seedBstTrainingPackage($district, $staff, [
+            'event_date' => '2026-05-20',
+            'training_batch_name' => 'T2 T3 combo',
+            'training_packages' => ['t2', 't3'],
+            'selected_incubatee_ids' => [201, 203],
+            'selected_incubatees_snapshot' => [
+                ['incubatee_id' => 201, 'name' => 'Repeat T1'],
+                ['incubatee_id' => 203, 'name' => 'New modules'],
+            ],
+        ]);
+        $this->seedBstTrainingPackage($district, $staff, [
+            'event_date' => '2026-06-05',
+            'training_batch_name' => 'T1 repeat',
+            'training_packages' => ['t1'],
+            'selected_incubatee_ids' => [201, 202, 204],
+            'selected_incubatees_snapshot' => [
+                ['incubatee_id' => 201, 'name' => 'Repeat T1'],
+                ['incubatee_id' => 202, 'name' => 'Only T1 once'],
+                ['incubatee_id' => 204, 'name' => 'Late T1'],
+            ],
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $participants = collect($report['rows'])->firstWhere('serial', '3.2');
+
+        $this->assertNotNull($participants);
+        $this->assertSame(5, $participants['achievement']);
     }
 
     public function test_program_deliverables_3_2_breakdown_includes_all_unique_participants_beyond_100(): void

@@ -561,7 +561,7 @@
             return `Female Participants <span style="font-weight:400;font-size:0.78rem;color:#be185d;margin-left:0.4rem;">${fmt(total)} entries</span>`;
         }
         if (isBst) {
-            return `Unique incubatees <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">${fmt(total)} people</span>`;
+            return `BST participations <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">${fmt(total)} counted</span>`;
         }
         if (isWS) return 'Activities';
         return 'Records';

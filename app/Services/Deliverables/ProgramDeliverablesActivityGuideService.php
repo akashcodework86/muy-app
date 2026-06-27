@@ -424,7 +424,7 @@ class ProgramDeliverablesActivityGuideService
             'district_workshop_sessions' => 'District workshop sessions',
             'edp_sessions' => 'EAP/EDP sessions',
             'bst_sessions' => 'BST sessions conducted',
-            'bst_participants' => 'BST unique participants',
+            'bst_participants' => 'BST module participations (once per session when a new module is covered)',
             'technical_training_sessions' => 'Technical training sessions',
             'technical_training_potential_lakhpati_sessions' => '3.3.1 Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',

@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * MIS 3.1 / 3.2 — conducted BST sessions (training_packages) and unique participants.
+ * MIS 3.1 / 3.2 — conducted BST sessions (training_packages) and module-aware participations.
+ *
+ * 3.2 counts each incubatee once per session when that session covers at least one module
+ * they have not completed before. Multi-module sessions still count as one per person.
  */
 final class BstTrainingDeliverablesSupport
 {
@@ -53,10 +56,9 @@ final class BstTrainingDeliverablesSupport
             return 0;
         }
 
-        $rows = self::scopedPackagesQuery($districtIds, $periodFrom, $periodTo)
-            ->get(['tp.selected_incubatee_ids']);
+        $packages = self::participantPackagesQuery($districtIds, $periodFrom, $periodTo)->get();
 
-        return count(self::uniqueIncubateeIdsFromPackageRows($rows));
+        return (int) self::moduleAwareParticipationBreakdownFromPackages($packages)['total'];
     }
 
     /**
@@ -112,7 +114,7 @@ final class BstTrainingDeliverablesSupport
             ->orderBy('tp.id')
             ->get();
 
-        $participantData = self::uniqueParticipantBreakdownFromPackages($packages);
+        $participantData = self::moduleAwareParticipationBreakdownFromPackages($packages);
         $total = (int) ($participantData['total'] ?? 0);
 
         $byDistrict = [];
@@ -366,7 +368,171 @@ final class BstTrainingDeliverablesSupport
     }
 
     /**
-     * Each incubatee is counted once statewide; district/month use the earliest session in scope.
+     * @param  list<int>|null  $districtIds
+     */
+    private static function participantPackagesQuery(?array $districtIds, ?Carbon $periodFrom, ?Carbon $periodTo): Builder
+    {
+        $hasLegacyModule = Schema::hasColumn('training_packages', 'training_package');
+        $moduleSelect = $hasLegacyModule ? 'tp.training_package' : 'NULL as training_package';
+
+        return self::scopedPackagesQuery($districtIds, $periodFrom, $periodTo)
+            ->select([
+                'tp.id as package_id',
+                'tp.selected_incubatee_ids',
+                'tp.training_packages',
+                DB::raw($moduleSelect),
+                'tp.event_date',
+            ])
+            ->orderBy('tp.'.self::eventDateColumn())
+            ->orderBy('tp.id');
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function sessionModuleKeys(mixed $trainingPackagesRaw, mixed $legacyPackage = null): array
+    {
+        $modules = self::moduleCodes($trainingPackagesRaw, $legacyPackage);
+
+        return $modules !== [] ? $modules : ['bst'];
+    }
+
+    /**
+     * Count participations in chronological session order.
+     * Each incubatee counts once per session when at least one session module is new to them.
+     *
+     * @param  iterable<object>  $packages
+     * @return array{
+     *   total: int,
+     *   by_district: array<string, int>,
+     *   hub_by_district: array<string, string>,
+     *   by_month: array<string, int>,
+     *   records: list<array<string, mixed>>
+     * }
+     */
+    public static function moduleAwareParticipationBreakdownFromPackages(iterable $packages): array
+    {
+        /** @var array<int, array<string, true>> $completedModules */
+        $completedModules = [];
+        $byDistrict = [];
+        $hubByDistrict = [];
+        $byMonth = [];
+        /** @var list<array<string, mixed>> $records */
+        $records = [];
+        /** @var array<int, array{name: string, application_no: string}> $profiles */
+        $profiles = [];
+
+        foreach ($packages as $pkg) {
+            $districtName = trim((string) ($pkg->district_name ?? 'Unknown'));
+            if ($districtName === '') {
+                $districtName = 'Unknown';
+            }
+            $hubName = trim((string) ($pkg->hub_name ?? ''));
+            $hubName = $hubName !== '' ? $hubName : '—';
+            $eventDate = (string) ($pkg->event_date ?? '');
+            $monthKey = $eventDate !== ''
+                ? Carbon::parse($eventDate)->format('Y-m')
+                : '';
+            $modules = self::sessionModuleKeys($pkg->training_packages ?? null, $pkg->training_package ?? null);
+            $session = [
+                'package_id' => (int) ($pkg->package_id ?? 0),
+                'district_name' => $districtName,
+                'hub_name' => $hubName,
+                'event_date' => $eventDate,
+                'session_name' => (string) ($pkg->session_name ?? ''),
+                'training_batch_name' => (string) ($pkg->training_batch_name ?? ''),
+                'training_packages' => $pkg->training_packages ?? null,
+                'training_package' => $pkg->training_package ?? null,
+                'snapshots' => $pkg->selected_incubatees_snapshot ?? null,
+            ];
+            $sessionLabel = self::formatSessionLabel($session);
+            $modulesLabel = self::modulesLabel($pkg->training_packages ?? null, $pkg->training_package ?? null);
+
+            foreach (self::parseIncubateeIds($pkg->selected_incubatee_ids ?? null) as $incubateeId) {
+                $done = $completedModules[$incubateeId] ?? [];
+                $hasNewModule = false;
+                foreach ($modules as $module) {
+                    if (! isset($done[$module])) {
+                        $hasNewModule = true;
+                        break;
+                    }
+                }
+                if (! $hasNewModule) {
+                    continue;
+                }
+
+                foreach ($modules as $module) {
+                    $completedModules[$incubateeId][$module] = true;
+                }
+
+                $byDistrict[$districtName] = ($byDistrict[$districtName] ?? 0) + 1;
+                $hubByDistrict[$districtName] = $hubName;
+                if ($monthKey !== '') {
+                    $byMonth[$monthKey] = ($byMonth[$monthKey] ?? 0) + 1;
+                }
+
+                if (! isset($profiles[$incubateeId])) {
+                    $profiles[$incubateeId] = self::participantProfileFromSnapshots(
+                        $pkg->selected_incubatees_snapshot ?? null,
+                        $incubateeId,
+                    );
+                }
+
+                $records[] = [
+                    'id' => $incubateeId,
+                    'reference' => '—',
+                    'applicant' => '—',
+                    'district' => $districtName,
+                    'hub' => $hubName,
+                    'service' => $sessionLabel !== '' ? $sessionLabel : '—',
+                    'sessions' => $sessionLabel !== '' ? [$sessionLabel] : [],
+                    'session_count' => 1,
+                    'spoc' => $modulesLabel,
+                    'status' => 'Counted participation',
+                    'date' => $eventDate !== ''
+                        ? Carbon::parse($eventDate)->format('d M Y')
+                        : '—',
+                    'sort_name' => '',
+                    'sort_date' => $eventDate !== '' ? $eventDate : '9999-12-31',
+                ];
+            }
+        }
+
+        self::enrichProfilesFromCfa(array_keys($profiles), $profiles);
+
+        foreach ($records as &$record) {
+            $profile = $profiles[(int) ($record['id'] ?? 0)] ?? ['name' => '—', 'application_no' => '—'];
+            $record['applicant'] = $profile['name'];
+            $record['reference'] = $profile['application_no'];
+            $record['sort_name'] = (string) $profile['name'];
+        }
+        unset($record);
+
+        usort(
+            $records,
+            static fn (array $a, array $b): int => [$a['sort_name'], $a['sort_date'], (int) ($a['id'] ?? 0)]
+                <=> [$b['sort_name'], $b['sort_date'], (int) ($b['id'] ?? 0)],
+        );
+
+        foreach ($records as &$record) {
+            unset($record['sort_name'], $record['sort_date']);
+        }
+        unset($record);
+
+        arsort($byDistrict);
+        ksort($byMonth);
+
+        return [
+            'total' => count($records),
+            'by_district' => $byDistrict,
+            'hub_by_district' => $hubByDistrict,
+            'by_month' => $byMonth,
+            'records' => $records,
+        ];
+    }
+
+    /**
+     * @deprecated Use moduleAwareParticipationBreakdownFromPackages()
      *
      * @param  iterable<object>  $packages
      * @return array{
@@ -379,131 +545,6 @@ final class BstTrainingDeliverablesSupport
      */
     public static function uniqueParticipantBreakdownFromPackages(iterable $packages): array
     {
-        /** @var array<int, list<array<string, mixed>>> $appearances */
-        $appearances = [];
-
-        foreach ($packages as $pkg) {
-            $districtName = trim((string) ($pkg->district_name ?? 'Unknown'));
-            if ($districtName === '') {
-                $districtName = 'Unknown';
-            }
-            $hubName = trim((string) ($pkg->hub_name ?? ''));
-            $eventDate = (string) ($pkg->event_date ?? '');
-            $eventSort = $eventDate !== '' ? $eventDate : '9999-12-31';
-
-            foreach (self::parseIncubateeIds($pkg->selected_incubatee_ids ?? null) as $incubateeId) {
-                $appearances[$incubateeId][] = [
-                    'package_id' => (int) ($pkg->package_id ?? 0),
-                    'district_name' => $districtName,
-                    'hub_name' => $hubName !== '' ? $hubName : '—',
-                    'event_date' => $eventDate,
-                    'event_sort' => $eventSort,
-                    'month_key' => $eventDate !== ''
-                        ? Carbon::parse($eventDate)->format('Y-m')
-                        : '',
-                    'session_name' => (string) ($pkg->session_name ?? ''),
-                    'training_batch_name' => (string) ($pkg->training_batch_name ?? ''),
-                    'training_packages' => $pkg->training_packages ?? null,
-                    'training_package' => $pkg->training_package ?? null,
-                    'snapshots' => $pkg->selected_incubatees_snapshot ?? null,
-                ];
-            }
-        }
-
-        /** @var array<int, array<string, mixed>> $participantMeta */
-        $participantMeta = [];
-        $byDistrict = [];
-        $hubByDistrict = [];
-        $byMonth = [];
-        /** @var array<int, array{name: string, application_no: string}> $profiles */
-        $profiles = [];
-
-        foreach ($appearances as $incubateeId => $sessions) {
-            $incubateeId = (int) $incubateeId;
-            $sessions = collect($sessions)->sortBy('event_sort')->values()->all();
-            $primary = $sessions[0];
-            $districtName = (string) $primary['district_name'];
-            $hubName = (string) $primary['hub_name'];
-            $monthKey = (string) $primary['month_key'];
-
-            $byDistrict[$districtName] = ($byDistrict[$districtName] ?? 0) + 1;
-            $hubByDistrict[$districtName] = $hubName;
-            if ($monthKey !== '') {
-                $byMonth[$monthKey] = ($byMonth[$monthKey] ?? 0) + 1;
-            }
-
-            if (! isset($profiles[$incubateeId])) {
-                $profiles[$incubateeId] = ['name' => '—', 'application_no' => '—'];
-            }
-            foreach ($sessions as $session) {
-                $fromSnap = self::participantProfileFromSnapshots($session['snapshots'] ?? null, $incubateeId);
-                if (($profiles[$incubateeId]['name'] ?? '—') === '—' && ($fromSnap['name'] ?? '—') !== '—') {
-                    $profiles[$incubateeId]['name'] = $fromSnap['name'];
-                }
-                if (($profiles[$incubateeId]['application_no'] ?? '—') === '—' && ($fromSnap['application_no'] ?? '—') !== '—') {
-                    $profiles[$incubateeId]['application_no'] = $fromSnap['application_no'];
-                }
-            }
-
-            /** @var array<int, true> $seenPackages */
-            $seenPackages = [];
-            $sessionLabels = [];
-            foreach ($sessions as $session) {
-                $packageId = (int) ($session['package_id'] ?? 0);
-                if ($packageId > 0 && isset($seenPackages[$packageId])) {
-                    continue;
-                }
-                if ($packageId > 0) {
-                    $seenPackages[$packageId] = true;
-                }
-                $sessionLabels[] = self::formatSessionLabel($session);
-            }
-
-            $sessionCount = count($sessionLabels);
-            $sessionsText = implode("\n", array_map(
-                fn (string $label, int $i) => ($sessionCount > 1 ? ($i + 1).'. ' : '').$label,
-                $sessionLabels,
-                array_keys($sessionLabels),
-            ));
-
-            $participantMeta[$incubateeId] = [
-                'id' => $incubateeId,
-                'reference' => '—',
-                'applicant' => '—',
-                'district' => $districtName,
-                'hub' => $hubName,
-                'service' => $sessionsText !== '' ? $sessionsText : '—',
-                'sessions' => $sessionLabels,
-                'session_count' => $sessionCount,
-                'spoc' => $sessionCount > 1 ? $sessionCount.' sessions' : '1 session',
-                'status' => 'Unique incubatee',
-                'date' => $primary['event_date'] !== ''
-                    ? Carbon::parse($primary['event_date'])->format('d M Y')
-                    : '—',
-            ];
-        }
-
-        self::enrichProfilesFromCfa(array_keys($participantMeta), $profiles);
-
-        foreach ($participantMeta as $incubateeId => &$record) {
-            $profile = $profiles[(int) $incubateeId] ?? ['name' => '—', 'application_no' => '—'];
-            $record['applicant'] = $profile['name'];
-            $record['reference'] = $profile['application_no'];
-        }
-        unset($record);
-
-        arsort($byDistrict);
-        ksort($byMonth);
-
-        $records = array_values($participantMeta);
-        usort($records, fn (array $a, array $b) => strcmp((string) $a['applicant'], (string) $b['applicant']));
-
-        return [
-            'total' => count($participantMeta),
-            'by_district' => $byDistrict,
-            'hub_by_district' => $hubByDistrict,
-            'by_month' => $byMonth,
-            'records' => $records,
-        ];
+        return self::moduleAwareParticipationBreakdownFromPackages($packages);
     }
 }

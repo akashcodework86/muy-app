@@ -1951,7 +1951,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'district_workshop_sessions' => 'District workshops',
             'edp_sessions' => 'EAP/EDP sessions',
             'bst_sessions' => 'Business skills training sessions (conducted)',
-            'bst_participants' => 'Unique BST participants',
+            'bst_participants' => 'BST module participations',
             'technical_training_sessions' => 'Technical training sessions',
             'technical_training_potential_lakhpati_sessions' => '3.3.1 Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
             'market_linkage_unique_partners' => 'Market linkage partners',
