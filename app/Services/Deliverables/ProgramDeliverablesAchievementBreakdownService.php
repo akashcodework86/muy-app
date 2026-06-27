@@ -20,6 +20,7 @@ use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\StakeholderConsultationWorkshopDeliverablesSupport;
 use App\Support\LineDepartmentMeetingDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
+use App\Support\MarketLinkageUnifiedListingSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
 use App\Support\MisFieldActivityApproval;
@@ -114,6 +115,23 @@ class ProgramDeliverablesAchievementBreakdownService
 
         $sourceTypeLabel = $this->sourceTypeLabel($sourceType, $source);
 
+        $insights = $this->buildInsights($total, $byDistrict, $byMonth, $breakdown['by_service'] ?? []);
+        if ($sourceType === 'market_linkage_incubatees') {
+            $offline = (int) ($breakdown['offline_incubatees'] ?? 0);
+            $online = (int) ($breakdown['online_incubatees'] ?? 0);
+            if ($offline > 0 || $online > 0) {
+                array_unshift($insights, [
+                    'label' => 'Offline incubatees',
+                    'value' => number_format($offline),
+                    'tone' => 'info',
+                ], [
+                    'label' => 'Online incubatees',
+                    'value' => number_format($online),
+                    'tone' => 'success',
+                ]);
+            }
+        }
+
         return [
             'serial' => $serial,
             'name' => (string) ($leaf['name'] ?? ''),
@@ -128,8 +146,10 @@ class ProgramDeliverablesAchievementBreakdownService
             'by_service' => $breakdown['by_service'] ?? [],
             'applied_amount_total' => $breakdown['applied_amount_total'] ?? null,
             'sanctioned_amount_total' => $breakdown['sanctioned_amount_total'] ?? null,
+            'offline_incubatees' => $breakdown['offline_incubatees'] ?? null,
+            'online_incubatees' => $breakdown['online_incubatees'] ?? null,
             'records' => $breakdown['records'] ?? [],
-            'insights' => $this->buildInsights($total, $byDistrict, $byMonth, $breakdown['by_service'] ?? []),
+            'insights' => $insights,
         ];
     }
 
@@ -2092,71 +2112,28 @@ class ProgramDeliverablesAchievementBreakdownService
      */
     private function marketLinkageIncubateesBreakdown(): array
     {
-        if (! Schema::hasTable('market_linkage_submissions') || ! Schema::hasTable('market_linkage_partners')) {
-            return $this->emptyBreakdown();
-        }
-
         if ($this->districtIds === []) {
             return $this->emptyBreakdown();
         }
 
-        $incubateeKeySql = <<<'SQL'
-CASE
-    WHEN mls.cfa_submission_id IS NOT NULL THEN CONCAT('c:', mls.cfa_submission_id)
-    WHEN mls.legacy_application_id IS NOT NULL THEN CONCAT('l:', mls.legacy_application_id)
-    ELSE CONCAT('s:', mls.id)
-END
-SQL;
+        if (
+            ! Schema::hasTable('market_linkage_submissions')
+            && MarketLinkageUnifiedListingSupport::marketLinkServiceIds() === []
+        ) {
+            return $this->emptyBreakdown();
+        }
 
-        $query = DB::table('market_linkage_submissions as mls')
-            ->join('districts as d', 'd.id', '=', 'mls.district_id')
-            ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
-            ->whereExists(function ($sub): void {
-                $sub->select(DB::raw('1'))
-                    ->from('market_linkage_partners as mlp')
-                    ->whereColumn('mlp.market_linkage_submission_id', 'mls.id');
-            })
-            ->selectRaw("{$incubateeKeySql} as incubatee_key, mls.incubatee_name, mls.application_no, d.name as district_name, h.name as hub_name, COUNT(mlp.id) as partner_count")
-            ->join('market_linkage_partners as mlp', 'mlp.market_linkage_submission_id', '=', 'mls.id');
-
-        $this->applyMarketLinkageApprovedScope($query);
-        $this->applyDistrictScope($query, 'mls.district_id');
-
-        $records = $query
-            ->groupBy('incubatee_key', 'mls.incubatee_name', 'mls.application_no', 'd.name', 'h.name')
-            ->orderBy('mls.incubatee_name')
-            ->limit(500)
-            ->get()
-            ->map(fn ($row) => [
-                'reference' => (string) ($row->application_no ?? '—'),
-                'applicant' => (string) ($row->incubatee_name ?: '—'),
-                'service' => 'Partners linked: '.(int) $row->partner_count,
-                'date' => '—',
-                'district' => (string) $row->district_name,
-                'hub' => (string) ($row->hub_name ?? ''),
-                'incubatee_name' => (string) $row->incubatee_name,
-                'application_no' => (string) ($row->application_no ?? ''),
-                'partner_count' => (int) $row->partner_count,
-            ])
-            ->all();
-
-        $totalQuery = DB::table('market_linkage_submissions as mls')
-            ->whereExists(function ($sub): void {
-                $sub->select(DB::raw('1'))
-                    ->from('market_linkage_partners as mlp')
-                    ->whereColumn('mlp.market_linkage_submission_id', 'mls.id');
-            });
-        $this->applyMarketLinkageApprovedScope($totalQuery);
-        $this->applyDistrictScope($totalQuery, 'mls.district_id');
-        $total = (int) $totalQuery->selectRaw("COUNT(DISTINCT {$incubateeKeySql}) as aggregate")->value('aggregate');
+        $modeCounts = MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds);
 
         return [
-            'total' => $total,
+            'total' => $modeCounts['total_incubatees'],
             'by_district' => [],
             'by_hub' => [],
             'by_month' => [],
-            'by_service' => [],
-            'records' => $records,
+            'by_service' => MarketLinkageUnifiedListingSupport::linkageModeBifurcationRows($this->districtIds),
+            'records' => MarketLinkageUnifiedListingSupport::unifiedApprovedIncubateeRecords($this->districtIds),
+            'offline_incubatees' => $modeCounts['offline_incubatees'],
+            'online_incubatees' => $modeCounts['online_incubatees'],
         ];
     }
 

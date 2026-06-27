@@ -496,7 +496,7 @@
 
         const serviceSection = (data.by_service || []).length ? `
             <div class="dlv-section">
-                <h3 class="dlv-section__title">Service bifurcation</h3>
+                <h3 class="dlv-section__title">${data.source_type === 'market_linkage_incubatees' ? 'Online / offline split (incubatees)' : 'Service bifurcation'}</h3>
                 <table class="dlv-table">
                     <thead><tr><th>Service</th><th>Count</th><th>Share</th><th>Applied Amount</th><th>Sanctioned Amount</th></tr></thead>
                     <tbody>${(data.by_service || []).map((row) => `<tr><td>${row.service}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td><td>${fmtCurrency(row.applied_amount || 0)}</td><td>${fmtCurrency(row.sanctioned_amount || 0)}</td></tr>`).join('')}</tbody>
@@ -550,8 +550,12 @@
         const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
         const isBst = _sourceType === 'bst_participants';
         const isPartners = _sourceType === 'market_linkage_unique_partners';
+        const isMarketIncubatees = _sourceType === 'market_linkage_incubatees';
         if (isPartners) {
             return `Partner names <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">${fmt(total)} unique</span>`;
+        }
+        if (isMarketIncubatees) {
+            return `Market linkages <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">${fmt(total)} incubatees · ${fmt(_allRecords.length)} partner rows</span>`;
         }
         if (isFP) {
             return `Female Participants <span style="font-weight:400;font-size:0.78rem;color:#be185d;margin-left:0.4rem;">${fmt(total)} entries</span>`;
@@ -576,6 +580,7 @@
         const isWS = _sourceType === 'field_work_workshops' || _sourceType === 'field_visit_sessions';
         const isBst = _sourceType === 'bst_participants';
         const isPartners = _sourceType === 'market_linkage_unique_partners';
+        const isMarketIncubatees = _sourceType === 'market_linkage_incubatees';
         const isPitchDeckCombined = _sourceType === 'pitch_deck_combined';
 
         const isFPPage = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
@@ -687,6 +692,28 @@
                     <th>Partner name</th>
                 </tr></thead>
                 <tbody>${rowsHtml || '<tr><td colspan="2">No partner names found.</td></tr>'}</tbody>
+            </table>`;
+        } else if (isMarketIncubatees) {
+            const rowsHtml = pageRecords.map((row, i) => {
+                const sr = globalOffset + i + 1;
+                const mode = escapeHtml(row.linkage_mode || '—');
+                const modeClass = String(row.linkage_mode || '').toLowerCase() === 'offline' ? 'dlv-type-chip--visit' : 'dlv-type-chip--workshop';
+                return `<tr>
+                    <td style="text-align:center;color:#94a3b8;font-weight:700;font-size:0.75rem;">${sr}</td>
+                    <td>${escapeHtml(row.reference)}</td>
+                    <td>${escapeHtml(row.applicant)}</td>
+                    <td>${escapeHtml(row.district)}</td>
+                    <td>${escapeHtml(row.service)}</td>
+                    <td><span class="dlv-type-chip ${modeClass}">${mode}</span></td>
+                    <td>${escapeHtml(row.date)}</td>
+                </tr>`;
+            }).join('');
+            tableHtml = `<table class="dlv-table">
+                <thead><tr>
+                    <th style="width:2rem;text-align:center;">#</th>
+                    <th>Application no.</th><th>Incubatee</th><th>District</th><th>Partner</th><th>Mode</th><th>Linkage date</th>
+                </tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="7">No market linkages found.</td></tr>'}</tbody>
             </table>`;
         } else if (isPitchDeckCombined) {
             const rowsHtml = pageRecords.map((row, i) => {

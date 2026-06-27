@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCaseAttachment;
 use App\Models\User;
+use App\Services\Admin\Phase3UnifiedMarketLinkageListBuilder;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Support\ConvergenceReapSupport;
 use App\Support\ConvergenceReapSupportDeliverablesSupport;
@@ -25,6 +26,10 @@ class Phase3ServiceCasesController extends Controller
     private bool $legacyPhase2JoinsApplied = false;
 
     private ?string $legacyPhase2DbSafe = null;
+
+    public function __construct(
+        private readonly Phase3UnifiedMarketLinkageListBuilder $unifiedMarketLinkageList,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -51,29 +56,41 @@ class Phase3ServiceCasesController extends Controller
             $filters['has_docs'] = '';
         }
 
-        $baseQuery = $this->buildFilteredQuery($filters);
-        $this->applyFilters($baseQuery, $filters);
+        $listResult = $this->unifiedMarketLinkageList->build(
+            $filters,
+            fn (array $activeFilters) => $this->buildFilteredQuery($activeFilters),
+            function ($query, array $activeFilters, bool $ignoreDistrictFilter = false, bool $ignoreStatusFilter = false): void {
+                $this->applyFilters(
+                    $query,
+                    $activeFilters,
+                    $ignoreDistrictFilter,
+                    $ignoreStatusFilter,
+                );
+            },
+        );
 
-        $cases = $baseQuery
-            ->orderByDesc('service_cases.created_at')
-            ->paginate(20)
-            ->withQueryString();
+        $cases = $listResult['items'];
+        $summary = $listResult['summary'];
+        $unifiedMarketLinkage = $listResult['unified'];
+        $uniqueIncubateesView = (bool) ($listResult['unique_incubatees'] ?? $filters['unique_incubatees']);
 
-        $summaryQuery = $this->buildFilteredQuery($filters);
-        $this->applyFilters($summaryQuery, $filters, ignoreStatusFilter: true);
+        if (! $unifiedMarketLinkage) {
+            $summaryQuery = $this->buildFilteredQuery($filters);
+            $this->applyFilters($summaryQuery, $filters, ignoreStatusFilter: true);
 
-        $summaryRows = (clone $summaryQuery)
-            ->select('service_cases.status', DB::raw('COUNT(DISTINCT service_cases.id) as total'))
-            ->groupBy('service_cases.status')
-            ->pluck('total', 'status');
+            $summaryRows = (clone $summaryQuery)
+                ->select('service_cases.status', DB::raw('COUNT(DISTINCT service_cases.id) as total'))
+                ->groupBy('service_cases.status')
+                ->pluck('total', 'status');
 
-        $summary = [
-            'total' => (int) $summaryRows->sum(),
-            'approved' => (int) ($summaryRows[ServiceCase::STATUS_APPROVED] ?? 0),
-            'pending_approval' => (int) ($summaryRows[ServiceCase::STATUS_PENDING_APPROVAL] ?? 0),
-            'sent_back' => (int) ($summaryRows[ServiceCase::STATUS_SENT_BACK] ?? 0),
-            'rejected' => (int) ($summaryRows[ServiceCase::STATUS_REJECTED] ?? 0),
-        ];
+            $summary = array_merge($summary, [
+                'total' => (int) $summaryRows->sum(),
+                'approved' => (int) ($summaryRows[ServiceCase::STATUS_APPROVED] ?? 0),
+                'pending_approval' => (int) ($summaryRows[ServiceCase::STATUS_PENDING_APPROVAL] ?? 0),
+                'sent_back' => (int) ($summaryRows[ServiceCase::STATUS_SENT_BACK] ?? 0),
+                'rejected' => (int) ($summaryRows[ServiceCase::STATUS_REJECTED] ?? 0),
+            ]);
+        }
 
         $statsQuery = $this->buildFilteredQuery($filters);
         $this->applyFilters($statsQuery, $filters, ignoreDistrictFilter: true, ignoreStatusFilter: true);
@@ -93,12 +110,16 @@ class Phase3ServiceCasesController extends Controller
                 ];
             });
 
-        $legacyPreviews = $this->buildLegacyPreviewMap($cases->getCollection());
+        $legacyPreviews = $unifiedMarketLinkage
+            ? $this->buildLegacyPreviewMapFromUnifiedRows($cases->getCollection())
+            : $this->buildLegacyPreviewMap($cases->getCollection());
 
         return view('admin.phase3-services.index', [
             'cases' => $cases,
             'summary' => $summary,
             'filters' => $filters,
+            'unifiedMarketLinkage' => $unifiedMarketLinkage,
+            'uniqueIncubateesView' => $uniqueIncubateesView,
             'services' => Service::query()->orderBy('name')->get(['id', 'name', 'service_category_id']),
             'districts' => District::query()->orderBy('name')->get(['id', 'name']),
             'districtCounts' => $districtCounts,
@@ -739,6 +760,19 @@ class Phase3ServiceCasesController extends Controller
     }
 
     /**
+     * @param  Collection<int, array<string, mixed>>|\Illuminate\Support\Collection<int, ServiceCase>  $cases
+     * @return array<int, array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string}>
+     */
+    private function buildLegacyPreviewMapFromUnifiedRows($cases): array
+    {
+        $serviceCases = $cases
+            ->map(fn ($row) => is_array($row) ? ($row['service_case'] ?? null) : $row)
+            ->filter(fn ($case) => $case instanceof ServiceCase);
+
+        return $this->buildLegacyPreviewMap($serviceCases);
+    }
+
+    /**
      * @param  Collection<int, ServiceCase>|\Illuminate\Database\Eloquent\Collection<int, ServiceCase>  $cases
      * @return array<int, array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string}>
      */
@@ -790,6 +824,7 @@ class Phase3ServiceCasesController extends Controller
             'sla_breached' => '',
             'date_from' => trim((string) $request->query('date_from', '')),
             'date_to' => trim((string) $request->query('date_to', '')),
+            'unique_incubatees' => $request->query('unique_incubatees') === '1',
         ];
     }
 

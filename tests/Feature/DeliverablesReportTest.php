@@ -2412,6 +2412,306 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(1, $incubatees['achievement']);
     }
 
+    public function test_market_linkage_incubatee_breakdown_splits_offline_and_online(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ml-mode-hub', 'name' => 'ML Mode Hub', 'sort_order' => 99]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-mode-dist', 'name' => 'ML Mode District', 'sort_order' => 99]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $cfaOffline = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-OFF-001',
+            'applicant_name' => 'Offline Incubatee',
+            'phone' => '9000000101',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $cfaOnline = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-ON-001',
+            'applicant_name' => 'Online Incubatee',
+            'phone' => '9000000102',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        foreach ([
+            [$cfaOffline, 'Offline Incubatee', 'ML-OFF-001', 'offline', 'Local Buyer'],
+            [$cfaOnline, 'Online Incubatee', 'ML-ON-001', 'online', 'Amazon'],
+        ] as [$cfaId, $name, $appNo, $mode, $partner]) {
+            $submissionId = (int) DB::table('market_linkage_submissions')->insertGetId([
+                'submitted_by_user_id' => $staff->id,
+                'submitted_by_name' => $staff->name,
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'cfa_submission_id' => $cfaId,
+                'incubatee_name' => $name,
+                'application_no' => $appNo,
+                'status' => 'approved',
+                'submitted_at' => now(),
+                'approved_at' => now(),
+                'approved_by' => $staff->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::table('market_linkage_partners')->insert([
+                'market_linkage_submission_id' => $submissionId,
+                'partner_name' => $partner,
+                'linkage_mode' => $mode,
+                'linkage_date' => '2026-05-16',
+                'sort_order' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $filter = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
+        $report = app(ProgramDeliverablesReportService::class)->build(
+            $filter,
+            ProgramDeliverablesScope::forUser($staff),
+        );
+        $row = collect($report['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
+        $this->assertNotNull($row);
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build(
+            $filter,
+            ProgramDeliverablesScope::forUser($staff),
+            (string) $row['serial'],
+        );
+
+        $this->assertSame(2, $breakdown['total']);
+        $this->assertSame(1, $breakdown['offline_incubatees'] ?? null);
+        $this->assertSame(1, $breakdown['online_incubatees'] ?? null);
+        $offlineRow = collect($breakdown['by_service'] ?? [])->firstWhere('service', 'Offline');
+        $onlineRow = collect($breakdown['by_service'] ?? [])->firstWhere('service', 'Online');
+        $this->assertSame(1, $offlineRow['count'] ?? null);
+        $this->assertSame(1, $onlineRow['count'] ?? null);
+        $this->assertSame('Offline', $breakdown['records'][0]['linkage_mode'] ?? null);
+    }
+
+    public function test_market_linkage_incubatee_deliverable_includes_orphan_service_cases(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ml-sc-hub', 'name' => 'ML SC Hub', 'sort_order' => 99]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-sc-dist', 'name' => 'ML SC District', 'sort_order' => 99]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $category = ServiceCategory::query()->create(['slug' => 'ml_sc_services', 'name' => 'ML SC Services', 'sort_order' => 99]);
+        $service = Service::query()->create([
+            'service_category_id' => $category->id,
+            'code' => 'incubatees_linked_to_online_offline_market',
+            'name' => 'Incubatees linked to online/offline Market',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $cfaOnline = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-SC-ON-001',
+            'applicant_name' => 'Online ML Incubatee',
+            'phone' => '9000000201',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $cfaOfflineSc = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-SC-OFF-001',
+            'applicant_name' => 'Offline SC Incubatee',
+            'phone' => '9000000202',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $submissionId = (int) DB::table('market_linkage_submissions')->insertGetId([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => $staff->name,
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'cfa_submission_id' => $cfaOnline,
+            'incubatee_name' => 'Online ML Incubatee',
+            'application_no' => 'ML-SC-ON-001',
+            'status' => 'approved',
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $staff->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('market_linkage_partners')->insert([
+            'market_linkage_submission_id' => $submissionId,
+            'partner_name' => 'Amazon',
+            'linkage_mode' => 'online',
+            'linkage_date' => '2026-05-16',
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaOfflineSc,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-ML-OFF-1',
+            'payload' => ['m' => 'offline', 'p' => 'Local Buyer'],
+            'submitted_at' => '2026-05-16 09:00:00',
+            'approved_at' => '2026-05-16 10:00:00',
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser($staff);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
+
+        $this->assertNotNull($row);
+        $this->assertSame(2, $row['achievement']);
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build(
+            $filter,
+            $scope,
+            (string) $row['serial'],
+        );
+
+        $this->assertSame(2, $breakdown['total']);
+        $this->assertSame(1, $breakdown['offline_incubatees'] ?? null);
+        $this->assertSame(1, $breakdown['online_incubatees'] ?? null);
+        $this->assertTrue(
+            collect($breakdown['records'] ?? [])->contains(
+                fn (array $record): bool => ($record['applicant'] ?? '') === 'Offline SC Incubatee'
+                    && ($record['linkage_mode'] ?? '') === 'Offline',
+            ),
+        );
+    }
+
+    public function test_market_linkage_incubatee_deliverable_does_not_double_count_when_both_ml_and_service_case_exist(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ml-dedupe-hub', 'name' => 'ML Dedupe Hub', 'sort_order' => 99]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-dedupe-dist', 'name' => 'ML Dedupe District', 'sort_order' => 99]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $category = ServiceCategory::query()->create(['slug' => 'ml_dedupe_services', 'name' => 'ML Dedupe Services', 'sort_order' => 99]);
+        $service = Service::query()->create([
+            'service_category_id' => $category->id,
+            'code' => 'incubatees_linked_to_online_offline_market',
+            'name' => 'Incubatees linked to online/offline Market',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-DEDUPE-001',
+            'applicant_name' => 'Shared Incubatee',
+            'phone' => '9000000301',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $submissionId = (int) DB::table('market_linkage_submissions')->insertGetId([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => $staff->name,
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'cfa_submission_id' => $cfaId,
+            'incubatee_name' => 'Shared Incubatee',
+            'application_no' => 'ML-DEDUPE-001',
+            'status' => 'approved',
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $staff->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('market_linkage_partners')->insert([
+            'market_linkage_submission_id' => $submissionId,
+            'partner_name' => 'Amazon',
+            'linkage_mode' => 'online',
+            'linkage_date' => '2026-05-16',
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-ML-DEDUPE-1',
+            'payload' => ['m' => 'offline', 'p' => 'Legacy Offline Partner'],
+            'submitted_at' => '2026-05-16 09:00:00',
+            'approved_at' => '2026-05-16 10:00:00',
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser($staff);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
+
+        $this->assertNotNull($row);
+        $this->assertSame(1, $row['achievement']);
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build(
+            $filter,
+            $scope,
+            (string) $row['serial'],
+        );
+
+        $this->assertSame(1, $breakdown['total']);
+        $this->assertSame(0, $breakdown['offline_incubatees'] ?? null);
+        $this->assertSame(1, $breakdown['online_incubatees'] ?? null);
+    }
+
     public function test_partner_outreach_deliverable_counts_outreach_and_onboarded_separately(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

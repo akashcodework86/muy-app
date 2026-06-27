@@ -30,6 +30,7 @@ use App\Support\PitchDeckCombinedDeliverablesSupport;
 use App\Support\PitchDeckPreparationsDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\BstTrainingMonthPlanTargetSupport;
+use App\Support\MarketLinkageUnifiedListingSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
 use App\Support\MisFieldActivityApproval;
@@ -1231,29 +1232,15 @@ class ProgramDeliverablesReportService
 
     private function marketLinkageIncubateesCount(): int
     {
-        if (! $this->marketLinkageTablesReady() || $this->districtIds === []) {
+        if ($this->districtIds === []) {
             return 0;
         }
 
-        $incubateeKeySql = <<<'SQL'
-CASE
-    WHEN mls.cfa_submission_id IS NOT NULL THEN CONCAT('c:', mls.cfa_submission_id)
-    WHEN mls.legacy_application_id IS NOT NULL THEN CONCAT('l:', mls.legacy_application_id)
-    ELSE CONCAT('s:', mls.id)
-END
-SQL;
+        if (! $this->marketLinkageTablesReady() && MarketLinkageUnifiedListingSupport::marketLinkServiceIds() === []) {
+            return 0;
+        }
 
-        $query = DB::table('market_linkage_submissions as mls')
-            ->whereExists(function ($sub): void {
-                $sub->select(DB::raw('1'))
-                    ->from('market_linkage_partners as mlp')
-                    ->whereColumn('mlp.market_linkage_submission_id', 'mls.id');
-            });
-
-        $this->applyMarketLinkageApprovedScope($query);
-        $this->applyDistrictScope($query, 'mls.district_id');
-
-        return (int) $query->selectRaw("COUNT(DISTINCT {$incubateeKeySql}) as aggregate")->value('aggregate');
+        return MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds)['total_incubatees'];
     }
 
     /**

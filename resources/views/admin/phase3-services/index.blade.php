@@ -23,6 +23,11 @@
         ];
         $activeFilterCount = collect($filters)->filter(fn ($v) => (string) $v !== '')->count();
         $legacyPreviews = $legacyPreviews ?? [];
+        $unifiedMarketLinkage = (bool) ($unifiedMarketLinkage ?? false);
+        $uniqueIncubateesView = (bool) ($uniqueIncubateesView ?? false);
+        $listQuery = request()->query();
+        $uniqueViewQuery = array_merge($listQuery, ['unique_incubatees' => '1', 'page' => null]);
+        $allRowsQuery = collect($listQuery)->except(['unique_incubatees', 'page'])->all();
     @endphp
 
     <style>
@@ -53,7 +58,105 @@
         .p3-link { color: #4338ca; font-weight: 600; text-decoration: none; }
         .p3-link:hover { text-decoration: underline; }
         .p3-btn { background: #fff; border: 1px solid #cbd5e1; color: #1e293b; padding: 0.24rem 0.5rem; border-radius: 6px; cursor: pointer; font-size: 0.76rem; font-weight: 600; }
+        .p3-pill--mode-offline { background:#fff7ed; border:1px solid #fed7aa; color:#c2410c; }
+        .p3-pill--mode-online { background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; }
         .p3-count-hint { margin-bottom: 0.65rem; color: #475569; font-size: 0.86rem; }
+        .p3-deliverable-highlight {
+            margin-bottom: 1rem;
+            padding: 0.9rem 1rem 1rem;
+            border-radius: 14px;
+            border: 2px solid #fdba74;
+            background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 45%, #eff6ff 100%);
+            box-shadow: 0 8px 24px rgba(194, 65, 12, 0.08);
+        }
+        .p3-deliverable-highlight__head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.85rem;
+        }
+        .p3-deliverable-highlight__title {
+            margin: 0;
+            font-size: 0.98rem;
+            font-weight: 800;
+            color: #9a3412;
+        }
+        .p3-deliverable-highlight__sub {
+            margin: 0.2rem 0 0;
+            font-size: 0.8rem;
+            color: #78716c;
+            max-width: 42rem;
+        }
+        .p3-deliverable-highlight__grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+        .p3-deliverable-stat {
+            border-radius: 12px;
+            padding: 0.85rem 0.95rem;
+            border: 2px solid transparent;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+        }
+        .p3-deliverable-stat--total {
+            background: #fff;
+            border-color: #fb923c;
+        }
+        .p3-deliverable-stat--offline {
+            background: #fff7ed;
+            border-color: #f97316;
+        }
+        .p3-deliverable-stat--online {
+            background: #eff6ff;
+            border-color: #3b82f6;
+        }
+        .p3-deliverable-stat__label {
+            font-size: 0.76rem;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+        .p3-deliverable-stat__value {
+            margin-top: 0.35rem;
+            font-size: 1.65rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .p3-deliverable-stat--total .p3-deliverable-stat__label,
+        .p3-deliverable-stat--total .p3-deliverable-stat__value { color: #c2410c; }
+        .p3-deliverable-stat--offline .p3-deliverable-stat__label,
+        .p3-deliverable-stat--offline .p3-deliverable-stat__value { color: #c2410c; }
+        .p3-deliverable-stat--online .p3-deliverable-stat__label,
+        .p3-deliverable-stat--online .p3-deliverable-stat__value { color: #1d4ed8; }
+        .p3-view-toggle {
+            display: inline-flex;
+            border: 1px solid #d4d4d8;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .p3-view-toggle__btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.45rem 0.8rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: #475569;
+            border-right: 1px solid #e5e7eb;
+        }
+        .p3-view-toggle__btn:last-child { border-right: none; }
+        .p3-view-toggle__btn.is-active {
+            background: #18181b;
+            color: #fff;
+        }
+        .p3-view-toggle__btn:hover:not(.is-active) {
+            background: #f8fafc;
+        }
+        @media (max-width: 900px) {
+            .p3-deliverable-highlight__grid { grid-template-columns: 1fr; }
+        }
     </style>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.7rem;margin-bottom:1rem;">
@@ -79,6 +182,44 @@
         </div>
     </div>
 
+    @if ($unifiedMarketLinkage)
+        <section class="p3-deliverable-highlight" aria-label="Deliverables 6.3 incubatee counts">
+            <div class="p3-deliverable-highlight__head">
+                <div>
+                    <h2 class="p3-deliverable-highlight__title">Deliverables 6.3 — unique incubatees (approved)</h2>
+                    <p class="p3-deliverable-highlight__sub">
+                        These three numbers match <strong>Admin → Deliverables</strong> row <em>Incubatees linked to online/offline Market</em>.
+                        Unified count from market linkage and approved service cases — each incubatee once (market linkage takes precedence when both exist).
+                    </p>
+                </div>
+                <div class="p3-view-toggle" role="group" aria-label="List view">
+                    <a
+                        href="{{ route('admin.phase3-services.index', $uniqueViewQuery) }}"
+                        class="p3-view-toggle__btn @if ($uniqueIncubateesView) is-active @endif"
+                    >Unique incubatees only</a>
+                    <a
+                        href="{{ route('admin.phase3-services.index', $allRowsQuery) }}"
+                        class="p3-view-toggle__btn @if (! $uniqueIncubateesView) is-active @endif"
+                    >All partner rows</a>
+                </div>
+            </div>
+            <div class="p3-deliverable-highlight__grid">
+                <div class="p3-deliverable-stat p3-deliverable-stat--total">
+                    <div class="p3-deliverable-stat__label">Deliverable incubatees (approved)</div>
+                    <div class="p3-deliverable-stat__value">{{ number_format((int) ($summary['deliverable_incubatees'] ?? 0)) }}</div>
+                </div>
+                <div class="p3-deliverable-stat p3-deliverable-stat--offline">
+                    <div class="p3-deliverable-stat__label">Offline incubatees</div>
+                    <div class="p3-deliverable-stat__value">{{ number_format((int) ($summary['offline_incubatees'] ?? 0)) }}</div>
+                </div>
+                <div class="p3-deliverable-stat p3-deliverable-stat--online">
+                    <div class="p3-deliverable-stat__label">Online incubatees</div>
+                    <div class="p3-deliverable-stat__value">{{ number_format((int) ($summary['online_incubatees'] ?? 0)) }}</div>
+                </div>
+            </div>
+        </section>
+    @endif
+
     <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.85rem;margin-bottom:1rem;">
         <div style="font-weight:700;margin-bottom:0.5rem;">District-wise count</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.45rem;">
@@ -103,6 +244,9 @@
     </div>
 
     <form id="phase3FilterForm" method="get" action="{{ route('admin.phase3-services.index') }}" style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.85rem;margin-bottom:1rem;">
+        @if ($unifiedMarketLinkage && $uniqueIncubateesView)
+            <input type="hidden" name="unique_incubatees" value="1">
+        @endif
         <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.6rem;flex-wrap:wrap;">
             <strong>Filters</strong>
             <div style="display:flex;gap:0.5rem;align-items:center;">
@@ -166,7 +310,23 @@
     </form>
 
     <div class="p3-count-hint">
-        Showing {{ number_format($cases->count()) }} of {{ number_format($cases->total()) }} cases
+        Showing {{ number_format($cases->count()) }} of {{ number_format($cases->total()) }}
+        @if ($unifiedMarketLinkage && $uniqueIncubateesView)
+            unique incubatees
+        @elseif ($unifiedMarketLinkage)
+            market linkage rows
+        @else
+            cases
+        @endif
+        @if ($unifiedMarketLinkage)
+            <span style="color:#64748b;">
+                @if ($uniqueIncubateesView)
+                    — one row per incubatee (matches deliverables 6.3 counts above).
+                @else
+                    — one row per partner; use <strong>Unique incubatees only</strong> to match deliverables counts.
+                @endif
+            </span>
+        @endif
     </div>
 
     <div class="p3-table-card">
@@ -180,6 +340,7 @@
                     <th>District</th>
                     <th>Batch</th>
                     <th>Service</th>
+                    <th>Linkage</th>
                     <th>Tier</th>
                     <th>Status</th>
                     <th>SPOC remark</th>
@@ -193,44 +354,102 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse ($cases as $case)
+                @forelse ($cases as $row)
                     @php
-                        $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
-                        $batchName = $case->cfaSubmission?->onboardingBatchMembership?->batch?->name
+                        $isUnifiedRow = is_array($row);
+                        $rowType = $isUnifiedRow ? (string) ($row['type'] ?? 'service_case') : 'service_case';
+                        $case = $isUnifiedRow ? ($row['service_case'] ?? null) : $row;
+                        $ml = $isUnifiedRow ? ($row['market_linkage'] ?? null) : null;
+                        $linkageMode = '—';
+                        if ($isUnifiedRow) {
+                            $linkageMode = (string) ($row['linkage_mode'] ?? '—');
+                        } elseif ($case instanceof \App\Models\ServiceCase) {
+                            $payload = is_array($case->payload) ? $case->payload : [];
+                            $modeLabels = \App\Support\MarketLinkageUnifiedListingSupport::linkageModeLabelsFromServiceCasePayload($payload);
+                            $linkageMode = $modeLabels !== [] ? implode(', ', $modeLabels) : '—';
+                        }
+                        $lp = $case ? ($legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null) : null;
+                        $batchName = $case?->cfaSubmission?->onboardingBatchMembership?->batch?->name
                             ?? (is_array($lp) ? ($lp['onboarding_batch_name'] ?? '') : '');
-                        $isLegacyBatch = $batchName !== '' && ! $case->cfaSubmission;
-                        $attachments = $case->attachments->map(fn ($a) => [
-                            'id' => (int) $a->id,
-                            'name' => (string) ($a->original_name ?: 'Attachment'),
-                            'size' => (int) ($a->size_bytes ?? 0),
-                            'url' => route('admin.phase3-services.attachments.view', ['service_case' => $case->id, 'attachment' => $a->id]),
-                        ])->values()->all();
-                        $isSlaBreached = $case->sla_deadline_at && \Illuminate\Support\Carbon::parse($case->sla_deadline_at)->isPast() && ! in_array($case->status, ['approved', 'rejected', 'cancelled'], true);
-                        $serviceCodeLower = strtolower((string) ($case->service?->code ?? ''));
-                        $serviceNameLower = strtolower((string) ($case->service?->name ?? ''));
-                        $isUdyamService = $serviceCodeLower === 'udyam_registration'
+                        $isLegacyBatch = $batchName !== '' && $case && ! $case->cfaSubmission;
+                        $attachments = $case
+                            ? $case->attachments->map(fn ($a) => [
+                                'id' => (int) $a->id,
+                                'name' => (string) ($a->original_name ?: 'Attachment'),
+                                'size' => (int) ($a->size_bytes ?? 0),
+                                'url' => route('admin.phase3-services.attachments.view', ['service_case' => $case->id, 'attachment' => $a->id]),
+                            ])->values()->all()
+                            : [];
+                        $rowStatus = in_array($rowType, ['market_linkage_partner', 'market_linkage_incubatee'], true)
+                            ? (string) ($ml?->status ?? '')
+                            : (string) ($case?->status ?? '');
+                        $isSlaBreached = $case
+                            && $case->sla_deadline_at
+                            && \Illuminate\Support\Carbon::parse($case->sla_deadline_at)->isPast()
+                            && ! in_array($case->status, ['approved', 'rejected', 'cancelled'], true);
+                        $serviceCodeLower = strtolower((string) ($case?->service?->code ?? ''));
+                        $serviceNameLower = strtolower((string) ($case?->service?->name ?? ''));
+                        $isUdyamService = $case && (
+                            $serviceCodeLower === 'udyam_registration'
                             || str_contains($serviceCodeLower, 'udyam')
-                            || str_contains($serviceNameLower, 'udyam');
-                        $udyamTypeLabel = match ((string) ($case->udyam_registration_type ?? '')) {
+                            || str_contains($serviceNameLower, 'udyam')
+                        );
+                        $udyamTypeLabel = match ((string) ($case?->udyam_registration_type ?? '')) {
                             'existing' => 'Existing',
                             'new' => 'New',
                             default => '',
                         };
                         $udyamTypeDisplay = $udyamTypeLabel !== ''
                             ? $udyamTypeLabel
-                            : (($isUdyamService && $case->status === 'pending_approval')
+                            : (($isUdyamService && $case?->status === 'pending_approval')
                                 ? 'Awaiting SPOC selection'
                                 : '');
                         $srNo = $loop->iteration + (($cases->currentPage() - 1) * $cases->perPage());
+                        $applicantName = $case?->cfaSubmission?->applicant_name
+                            ?? ($ml?->incubatee_name ?? null)
+                            ?? ($lp['applicant_name'] ?? null)
+                            ?: '—';
+                        $applicationNo = $case?->cfaSubmission?->application_no
+                            ?? ($ml?->application_no ?? null)
+                            ?? ($lp['application_no'] ?? null)
+                            ?: '—';
+                        $districtName = $case?->cfaSubmission?->district?->name
+                            ?? ($ml?->district_name ?? null)
+                            ?? ($lp['district'] ?? null)
+                            ?: '—';
+                        $referenceNumber = $case?->reference_number
+                            ?: ($rowType === 'market_linkage_incubatee'
+                                ? ($ml?->application_no ?: '—')
+                                : ($isUnifiedRow ? (string) ($row['partner_name'] ?? '—') : '—'));
+                        $serviceLabel = in_array($rowType, ['market_linkage_partner', 'market_linkage_incubatee'], true)
+                            ? \App\Models\MarketLinkageSubmission::SERVICE_LIST_LABEL
+                            : ($case?->service?->name ?? '—');
+                        $serviceSubLabel = $rowType === 'market_linkage_incubatee'
+                            ? (string) ($row['partner_name'] ?? '—')
+                            : ($rowType === 'market_linkage_partner'
+                                ? (string) ($row['partner_name'] ?? '—')
+                                : ($case?->service?->category?->name ?? '—'));
+                        $submittedAt = $case?->submitted_at ?? $ml?->submitted_at;
+                        $assignedBy = $case?->submitter?->name ?? $case?->creator?->name ?? $ml?->submitted_by_name ?? $ml?->submitter?->name ?? '—';
+                        $spocName = $case?->spoc?->name ?? $ml?->spoc?->name ?? 'Unassigned';
+                        $spocRemark = match ($rowStatus) {
+                            'sent_back' => $case?->sent_back_note ?? $ml?->sent_back_note,
+                            'rejected' => $case?->rejected_note ?? $ml?->rejected_note,
+                            default => null,
+                        };
+                        $slaDeadline = $case?->sla_deadline_at ?? $ml?->sla_deadline_at;
+                        $detailsUrl = $case
+                            ? route('admin.phase3-services.show', $case)
+                            : ($ml ? route('admin.market-linkages.show', $ml) : '#');
                     @endphp
-                    <tr class="p3-row--{{ $case->status }}">
+                    <tr class="p3-row--{{ $rowStatus ?: 'draft' }}">
                         <td class="p3-sr">{{ $srNo }}</td>
-                        <td><span style="font-weight:600;">{{ $case->reference_number ?: '—' }}</span></td>
+                        <td><span style="font-weight:600;">{{ $referenceNumber ?: '—' }}</span></td>
                         <td>
-                            <div class="p3-name">{{ $case->cfaSubmission?->applicant_name ?? ($lp['applicant_name'] ?? null) ?: '—' }}</div>
-                            <div class="p3-sub">{{ $case->cfaSubmission?->application_no ?? ($lp['application_no'] ?? null) ?: '—' }}</div>
+                            <div class="p3-name">{{ $applicantName }}</div>
+                            <div class="p3-sub">{{ $applicationNo }}</div>
                         </td>
-                        <td>{{ $case->cfaSubmission?->district?->name ?? ($lp['district'] ?? null) ?: '—' }}</td>
+                        <td>{{ $districtName }}</td>
                         <td>
                             @if ($batchName !== '')
                                 <span class="p3-pill p3-pill--batch">{{ $batchName }}</span>
@@ -242,12 +461,12 @@
                             @endif
                         </td>
                         <td>
-                            @include('staff.services.partials.reap-listing-service-cell', ['case' => $case])
-                            @if (! $case->displaysReapSupportRoute())
-                                <div class="p3-sub">{{ $case->service?->category?->name ?? '—' }}</div>
-                            @elseif ($case->service?->category?->name)
-                                <div class="p3-sub">{{ $case->service->category->name }}</div>
+                            @if ($case && ! $unifiedMarketLinkage)
+                                @include('staff.services.partials.reap-listing-service-cell', ['case' => $case])
+                            @else
+                                <strong>{{ $serviceLabel }}</strong>
                             @endif
+                            <div class="p3-sub">{{ $serviceSubLabel }}</div>
                             @if ($isUdyamService && $udyamTypeDisplay !== '')
                                 <div style="margin-top:0.26rem;">
                                     <span class="p3-pill" style="background:#fffbeb;border:1px solid #fcd34d;color:#92400e;">
@@ -257,60 +476,76 @@
                             @endif
                         </td>
                         <td>
-                            <span class="p3-pill" style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">
-                                {{ strtoupper((string) ($case->service?->reporting_tier ?? 'unset')) }}
-                            </span>
+                            @if ($linkageMode === '—')
+                                <span style="color:#94a3b8;">—</span>
+                            @else
+                                @foreach (array_filter(array_map('trim', explode(',', $linkageMode))) as $modePart)
+                                    <span class="p3-pill {{ str_contains(strtolower($modePart), 'offline') ? 'p3-pill--mode-offline' : 'p3-pill--mode-online' }}" style="margin-right:0.2rem;">
+                                        {{ $modePart }}
+                                    </span>
+                                @endforeach
+                            @endif
                         </td>
                         <td>
-                            <span class="p3-pill" style="{{ $statusStyle[$case->status] ?? $statusStyle['draft'] }}">
-                                {{ $statusLabel[$case->status] ?? ucfirst((string) $case->status) }}
+                            @if ($case?->service?->reporting_tier)
+                                <span class="p3-pill" style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">
+                                    {{ strtoupper((string) $case->service->reporting_tier) }}
+                                </span>
+                            @else
+                                <span style="color:#94a3b8;">—</span>
+                            @endif
+                        </td>
+                        <td>
+                            <span class="p3-pill" style="{{ $statusStyle[$rowStatus] ?? $statusStyle['draft'] }}">
+                                {{ $statusLabel[$rowStatus] ?? ucfirst(str_replace('_', ' ', $rowStatus)) }}
                             </span>
                         </td>
-                        <td class="p3-remark">
-                            @php
-                                $spocRemark = match ($case->status) {
-                                    'sent_back' => $case->sent_back_note,
-                                    'rejected' => $case->rejected_note,
-                                    default => null,
-                                };
-                            @endphp
-                            {{ $spocRemark ?: '—' }}
-                        </td>
+                        <td class="p3-remark">{{ $spocRemark ?: '—' }}</td>
                         <td style="{{ $isSlaBreached ? 'color:#b91c1c;font-weight:700;' : 'color:#475569;' }}">
-                            {{ $case->sla_deadline_at ? \Illuminate\Support\Carbon::parse($case->sla_deadline_at)->format('d M Y') : '—' }}
+                            {{ $slaDeadline ? \Illuminate\Support\Carbon::parse($slaDeadline)->format('d M Y') : '—' }}
                             @if ($isSlaBreached)
                                 <div class="p3-sub" style="color:#b91c1c;">Breached</div>
                             @endif
                         </td>
                         <td style="color:#475569;white-space:nowrap;">
-                            {{ $case->submitted_at ? \Illuminate\Support\Carbon::parse($case->submitted_at)->format('d M Y, h:i A') : '—' }}
+                            {{ $submittedAt ? \Illuminate\Support\Carbon::parse($submittedAt)->format('d M Y, h:i A') : '—' }}
                         </td>
-                        <td>{{ $case->submitter?->name ?? $case->creator?->name ?? '—' }}</td>
-                        <td>{{ $case->spoc?->name ?? 'Unassigned' }}</td>
+                        <td>{{ $assignedBy }}</td>
+                        <td>{{ $spocName }}</td>
                         <td style="white-space:nowrap;">
-                            <strong>{{ count($attachments) }}</strong>
-                            <button
-                                type="button"
-                                class="js-documents-open p3-btn"
-                                data-case-label="{{ $case->service?->name ?? 'Service case' }}"
-                                data-case-ref="{{ $case->reference_number ?: '—' }}"
-                                data-documents='@json($attachments)'
-                            >View</button>
+                            @if ($case)
+                                <strong>{{ count($attachments) }}</strong>
+                                <button
+                                    type="button"
+                                    class="js-documents-open p3-btn"
+                                    data-case-label="{{ $case->service?->name ?? 'Service case' }}"
+                                    data-case-ref="{{ $case->reference_number ?: '—' }}"
+                                    data-documents='@json($attachments)'
+                                >View</button>
+                            @else
+                                <span style="color:#94a3b8;">—</span>
+                            @endif
                         </td>
                         <td>
-                            @if ($case->cfaSubmission)
+                            @if ($case?->cfaSubmission)
                                 <a href="{{ route('admin.cfa.show', $case->cfaSubmission) }}" class="p3-link">View CFA</a>
+                            @elseif ($ml?->cfaSubmission)
+                                <a href="{{ route('admin.cfa.show', $ml->cfaSubmission) }}" class="p3-link">View CFA</a>
                             @else
                                 —
                             @endif
                         </td>
                         <td>
-                            <a href="{{ route('admin.phase3-services.show', $case) }}" class="p3-link" target="_blank" rel="noopener">View details</a>
+                            @if ($detailsUrl !== '#')
+                                <a href="{{ $detailsUrl }}" class="p3-link" target="_blank" rel="noopener">View details</a>
+                            @else
+                                —
+                            @endif
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="16" style="padding:1.2rem;color:#64748b;text-align:center;">No Phase 3 service cases found for selected filters.</td>
+                        <td colspan="17" style="padding:1.2rem;color:#64748b;text-align:center;">No Phase 3 service cases found for selected filters.</td>
                     </tr>
                 @endforelse
             </tbody>
