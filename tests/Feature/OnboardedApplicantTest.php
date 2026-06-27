@@ -211,6 +211,41 @@ class OnboardedApplicantTest extends TestCase
         $response->assertDontSee('Tehri Applicant');
     }
 
+    public function test_onboarded_at_uses_batch_creation_date(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('pithoragarh', 'Pithoragarh');
+
+        $this->seedOnboardedApplicant(
+            $district,
+            '40809001',
+            'Dated Applicant',
+            'female',
+            null,
+            'phase3',
+            null,
+            'Individual',
+            null,
+            null,
+            '2026-01-15',
+            '2026-06-21 09:00:00',
+            '2026-06-20 14:30:00',
+            '2026-05-22 00:40:11',
+        );
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
+
+        $response->assertOk();
+        $response->assertSee('22 May 2026, 00:40');
+        $response->assertDontSee('20 Jun 2026');
+        $response->assertDontSee('15 Jan 2026');
+        $response->assertDontSee('21 Jun 2026');
+    }
+
     private function seedOnboardedApplicant(
         District $district,
         string $applicationNo,
@@ -222,6 +257,10 @@ class OnboardedApplicantTest extends TestCase
         string $category = 'Individual',
         ?string $isMember = null,
         ?string $isShgMember = null,
+        ?string $onboardingDate = null,
+        ?string $membershipCreatedAt = null,
+        ?string $lockedAt = null,
+        ?string $batchCreatedAt = null,
     ): int {
         $payload = [
             'gender' => $gender,
@@ -259,16 +298,17 @@ class OnboardedApplicantTest extends TestCase
             'name' => $district->name.'-batch1',
             'target_size' => 1,
             'status' => 'locked',
-            'locked_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
+            'locked_at' => $lockedAt ?? now(),
+            'onboarding_date' => $onboardingDate,
+            'created_at' => $batchCreatedAt ?? now(),
+            'updated_at' => $batchCreatedAt ?? now(),
         ]);
 
         DB::table('onboarding_batch_cfa')->insert([
             'onboarding_batch_id' => $batchId,
             'cfa_submission_id' => $cfaId,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => $membershipCreatedAt ?? now(),
+            'updated_at' => $membershipCreatedAt ?? now(),
         ]);
 
         return $cfaId;

@@ -207,8 +207,10 @@ class OnboardedApplicantController extends Controller
         $districtJson = $this->payloadJson('$.district');
         $blockJson = $this->payloadJson('$.block');
 
+        $onboardedAtSql = $this->phase3OnboardedAtSql();
+
         return $query
-            ->orderByDesc('obc.created_at')
+            ->orderByDesc(DB::raw($onboardedAtSql))
             ->selectRaw("
                 CASE
                     WHEN LOWER(TRIM(COALESCE(cs.source, ''))) IN ('legacy_phase2', 'rbiphase2')
@@ -216,7 +218,7 @@ class OnboardedApplicantController extends Controller
                     ELSE 'phase3'
                 END as data_source,
                 obc.id as onboarded_row_id,
-                obc.created_at as onboarded_at,
+                {$onboardedAtSql} as onboarded_at,
                 cs.id as application_id,
                 cs.application_no as application_no,
                 cs.source as source,
@@ -310,6 +312,8 @@ class OnboardedApplicantController extends Controller
         $phase3OnboardedSql = $this->phase3OnboardedCountSql();
         $legacyOnboardedSql = $this->legacyOnboardedCountSql();
 
+        $onboardedAtSql = $this->phase3OnboardedAtSql();
+
         $row = (array) $query
             ->selectRaw("
                 COUNT(*) as total,
@@ -326,8 +330,8 @@ class OnboardedApplicantController extends Controller
                 {$phase3OnboardedSql} as phase3_onboarded_count,
                 {$legacyOnboardedSql} as legacy_onboarded_count,
                 {$potentialLakhpatiSql} as potential_lakhpati_count,
-                SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
-                SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as this_month
+                SUM(CASE WHEN {$onboardedAtSql} >= DATE(?) THEN 1 ELSE 0 END) as recent_7_days,
+                SUM(CASE WHEN {$onboardedAtSql} >= DATE(?) THEN 1 ELSE 0 END) as this_month
             ", [$sevenDaysAgo, $monthStart])
             ->first();
 
@@ -369,6 +373,8 @@ class OnboardedApplicantController extends Controller
         $phase3OnboardedSql = $this->phase3OnboardedCountSql();
         $legacyOnboardedSql = $this->legacyOnboardedCountSql();
 
+        $onboardedAtSql = $this->phase3OnboardedAtSql();
+
         $rows = $query
             ->selectRaw("
                 cs.district_id as district_id,
@@ -382,8 +388,8 @@ class OnboardedApplicantController extends Controller
                 {$phase3OnboardedSql} as phase3_onboarded_count,
                 {$legacyOnboardedSql} as legacy_onboarded_count,
                 {$potentialLakhpatiSql} as potential_lakhpati_count,
-                SUM(CASE WHEN obc.created_at >= ? THEN 1 ELSE 0 END) as recent_7_days,
-                MAX(obc.created_at) as last_onboarded_at
+                SUM(CASE WHEN {$onboardedAtSql} >= DATE(?) THEN 1 ELSE 0 END) as recent_7_days,
+                MAX({$onboardedAtSql}) as last_onboarded_at
             ", [$sevenDaysAgo])
             ->groupBy('cs.district_id')
             ->orderByDesc('total')
@@ -450,7 +456,7 @@ class OnboardedApplicantController extends Controller
 
         $query = DB::connection('legacy')
             ->table('rbi_onboarded_applicants as oa')
-            ->leftJoin('rbi_onboarding_batches as ob', 'ob.id', '=', 'oa.onboarding_batch_id')
+            ->leftJoin('rbi_onboarding_batches as lob', 'lob.id', '=', 'oa.onboarding_batch_id')
             ->leftJoin('rbi_applications as a', 'a.id', '=', 'oa.application_id')
             ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'oa.application_id')
             ->whereNotNull('oa.application_id');
@@ -469,7 +475,7 @@ class OnboardedApplicantController extends Controller
                 $filter->where('a.application_no', 'like', $like)
                     ->orWhere('d.applicant_name', 'like', $like)
                     ->orWhere('d.phone', 'like', $like)
-                    ->orWhere('ob.batch_name', 'like', $like);
+                    ->orWhere('lob.batch_name', 'like', $like);
                 if (ctype_digit($q)) {
                     $id = (int) $q;
                     $filter->orWhere('a.id', $id)
@@ -479,12 +485,14 @@ class OnboardedApplicantController extends Controller
             });
         }
 
+        $legacyOnboardedAtSql = $this->legacyOnboardedAtSql('oa', 'lob');
+
         return $query
             ->orderByDesc('oa.id')
             ->selectRaw("
                 'legacy_phase2' as data_source,
                 oa.id as onboarded_row_id,
-                a.submission_date as onboarded_at,
+                {$legacyOnboardedAtSql} as onboarded_at,
                 a.id as application_id,
                 a.application_no as application_no,
                 d.applicant_name as applicant_name,
@@ -495,8 +503,8 @@ class OnboardedApplicantController extends Controller
                 d.district as district,
                 d.block as block_name,
                 NULL as hub_name,
-                ob.id as onboarding_batch_id,
-                ob.batch_name as onboarding_batch_name,
+                lob.id as onboarding_batch_id,
+                lob.batch_name as onboarding_batch_name,
                 JSON_OBJECT(
                     'rbi_applications', JSON_OBJECT(
                         'id', a.id,
@@ -839,7 +847,6 @@ class OnboardedApplicantController extends Controller
             $row['dob'] = (string) ($legacyArr['dob'] ?? $row['dob'] ?? '');
             $row['district'] = (string) ($legacyArr['district'] ?? $row['district'] ?? '');
             $row['block_name'] = (string) ($legacyArr['block'] ?? $row['block_name'] ?? '');
-            $row['onboarded_at'] = (string) ($legacyArr['submission_date'] ?? $row['onboarded_at'] ?? '');
 
             $row['full_details_json'] = json_encode([
                 'rbi_applications' => [
@@ -898,6 +905,42 @@ class OnboardedApplicantController extends Controller
         }
 
         return "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '{$path}'))";
+    }
+
+    private function phase3OnboardedAtSql(string $obAlias = 'ob', string $obcAlias = 'obc'): string
+    {
+        return "{$obAlias}.created_at";
+    }
+
+    private function legacyOnboardedAtSql(string $oaAlias = 'oa', string $batchAlias = 'lob'): string
+    {
+        $parts = [];
+
+        try {
+            $schema = DB::connection('legacy')->getSchemaBuilder();
+            if ($schema->hasColumn('rbi_onboarded_applicants', 'onboarded_at')) {
+                $parts[] = "{$oaAlias}.onboarded_at";
+            }
+            if ($schema->hasColumn('rbi_onboarded_applicants', 'created_at')) {
+                $parts[] = "DATE({$oaAlias}.created_at)";
+            }
+            if ($schema->hasTable('rbi_onboarding_batches')) {
+                foreach (['onboarding_date', 'onboard_date'] as $column) {
+                    if ($schema->hasColumn('rbi_onboarding_batches', $column)) {
+                        $parts[] = "{$batchAlias}.{$column}";
+                        break;
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Ignore missing legacy schema.
+        }
+
+        if ($parts === []) {
+            return 'NULL';
+        }
+
+        return 'COALESCE('.implode(', ', $parts).')';
     }
 
     private function potentialLakhpatiCountSql(): string
