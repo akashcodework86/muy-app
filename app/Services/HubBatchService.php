@@ -16,8 +16,10 @@ use App\Models\OnboardingBatchDraftCfa;
 use App\Models\OnboardingBatchEditRequest;
 use App\Notifications\HubBatchUnlockRequestedNotification;
 use App\Models\User;
+use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -365,14 +367,60 @@ class HubBatchService
             return ['ok' => false, 'error' => 'District not found'];
         }
 
+        $poolFilter = trim((string) ($input['pool_filter'] ?? ''));
+        if ($poolFilter === 'phase1-2021-2024') {
+            return [
+                'ok' => true,
+                'data' => ['candidates' => $this->poolListFromLegacyPhase1(
+                    $hubId,
+                    $district,
+                    $q,
+                    '2021-01-01',
+                    '2024-12-31'
+                )],
+            ];
+        }
+        if ($poolFilter === 'phase1-all') {
+            return [
+                'ok' => true,
+                'data' => ['candidates' => $this->poolListFromLegacyPhase1($hubId, $district, $q)],
+            ];
+        }
+
+        $phase1Candidates = $this->poolListFromLegacyPhase1($hubId, $district, $q);
+
         // Hybrid source:
         // - FY 2025-26 uses legacy Phase-2 CFA rows.
         // - Current/new FYs use local cfa_submissions.
+        // Non-onboarded Phase-1 (tblapplication) rows are merged into every FY view.
         if ((string) $fy->code === '2025-26') {
-            return $this->poolListFromLegacy($hubId, $district, $fy, $q);
+            $primary = $this->poolListFromLegacy($hubId, $district, $fy, $q);
+            if (! $primary['ok']) {
+                if ($phase1Candidates === []) {
+                    return $primary;
+                }
+
+                return ['ok' => true, 'data' => ['candidates' => array_slice($phase1Candidates, 0, 200)]];
+            }
+
+            return [
+                'ok' => true,
+                'data' => ['candidates' => $this->mergePoolCandidates(
+                    $primary['data']['candidates'] ?? [],
+                    $phase1Candidates
+                )],
+            ];
         }
 
-        return $this->poolListFromLocal($hubId, (int) $district->id, (int) $fy->id, $q);
+        $primary = $this->poolListFromLocal($hubId, (int) $district->id, (int) $fy->id, $q);
+
+        return [
+            'ok' => true,
+            'data' => ['candidates' => $this->mergePoolCandidates(
+                $primary['data']['candidates'] ?? [],
+                $phase1Candidates
+            )],
+        ];
     }
 
     private function poolListFromLocal(int $hubId, int $districtId, int $fyId, string $q): array
@@ -407,7 +455,7 @@ class HubBatchService
             'application_no' => $c->application_no ?? (string) $c->id,
             'applicant_name' => $c->applicant_name,
             'stage' => strtoupper((string) ($c->payload['form_stage'] ?? $c->payload['stage'] ?? '—')),
-        ]);
+        ])->values()->all();
 
         return ['ok' => true, 'data' => ['candidates' => $rows]];
     }
@@ -474,9 +522,89 @@ class HubBatchService
             $localRows->push($this->syncLegacyCfaIntoLocal($row, (int) $district->id, (int) $fy->id));
         }
 
+        return ['ok' => true, 'data' => ['candidates' => $this->filterPoolCandidates($hubId, (int) $district->id, $localRows)]];
+    }
+
+    /**
+     * Non-onboarded Phase-1 CFA rows from legacy tblapplication, synced into cfa_submissions.
+     *
+     * @return list<array{id: int, application_no: string, applicant_name: string, stage: string}>
+     */
+    private function poolListFromLegacyPhase1(
+        int $hubId,
+        District $district,
+        string $q,
+        ?string $applicationDateFrom = null,
+        ?string $applicationDateTo = null,
+    ): array {
+        if ((string) config('database.connections.legacy_phase1.database', '') === '') {
+            return [];
+        }
+
+        try {
+            if (! Schema::connection('legacy_phase1')->hasTable('tblapplication')) {
+                return [];
+            }
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $fiscalYearId = (int) (FiscalYear::query()->where('code', '2024-25')->value('id') ?? 0);
+        if ($fiscalYearId <= 0) {
+            return [];
+        }
+
+        $query = DB::connection('legacy_phase1')->table('tblapplication');
+        LegacyPhase1DistrictResolver::applyDistrictFilter($query, (string) $district->name);
+        LegacyPhase1DistrictResolver::applyOnboardFilter($query, 'non_onboarded');
+
+        if ($applicationDateFrom !== null && $applicationDateTo !== null) {
+            $query->whereNotNull('ApplicationDate')
+                ->whereBetween(DB::raw('DATE(ApplicationDate)'), [$applicationDateFrom, $applicationDateTo]);
+        }
+
+        $query->select([
+            'ID as legacy_id',
+            'ApplicationNumber as application_no',
+            'FullName as applicant_name',
+            'MobileNumber as phone',
+            'ApplicationDate as application_date',
+            'FatherName as legacy_district',
+            'hub as legacy_region',
+            'City as legacy_block',
+        ]);
+
+        if ($q !== '') {
+            $like = '%'.$q.'%';
+            $query->where(function ($qq) use ($like): void {
+                $qq->where('ApplicationNumber', 'like', $like)
+                    ->orWhere('FullName', 'like', $like)
+                    ->orWhere('MobileNumber', 'like', $like);
+            });
+        }
+
+        $legacyRows = $query->orderByDesc('ApplicationDate')->orderByDesc('ID')->limit(300)->get();
+        if ($legacyRows->isEmpty()) {
+            return [];
+        }
+
+        $localRows = collect();
+        foreach ($legacyRows as $row) {
+            $localRows->push($this->syncLegacyPhase1CfaIntoLocal($row, (int) $district->id, $fiscalYearId));
+        }
+
+        return $this->filterPoolCandidates($hubId, (int) $district->id, $localRows);
+    }
+
+    /**
+     * @param  Collection<int, CfaSubmission>  $localRows
+     * @return list<array{id: int, application_no: string, applicant_name: string, stage: string}>
+     */
+    private function filterPoolCandidates(int $hubId, int $districtId, Collection $localRows, int $limit = 200): array
+    {
         $ids = $localRows->pluck('id')->map(fn ($v) => (int) $v)->all();
         if ($ids === []) {
-            return ['ok' => true, 'data' => ['candidates' => []]];
+            return [];
         }
 
         $lockedIds = OnboardingBatchCfa::query()
@@ -492,7 +620,7 @@ class HubBatchService
             ->all();
         $choiceBlocked = CfaHubChoiceState::query()
             ->where('hub_id', $hubId)
-            ->where('district_id', (int) $district->id)
+            ->where('district_id', $districtId)
             ->whereIn('cfa_submission_id', $ids)
             ->whereIn('state', ['reject', 'later'])
             ->pluck('cfa_submission_id')
@@ -501,18 +629,42 @@ class HubBatchService
 
         $exclude = array_flip(array_unique(array_merge($lockedIds, $draftIds, $choiceBlocked)));
 
-        $rows = $localRows
+        return $localRows
             ->reject(fn (CfaSubmission $c) => isset($exclude[(int) $c->id]))
-            ->take(200)
+            ->take($limit)
             ->map(fn (CfaSubmission $c) => [
                 'id' => $c->id,
                 'application_no' => $c->application_no ?? (string) $c->id,
                 'applicant_name' => $c->applicant_name,
                 'stage' => strtoupper((string) ($c->payload['form_stage'] ?? $c->payload['stage'] ?? '—')),
             ])
-            ->values();
+            ->values()
+            ->all();
+    }
 
-        return ['ok' => true, 'data' => ['candidates' => $rows]];
+    /**
+     * @param  list<array{id: int, application_no: string, applicant_name: string, stage: string}>  $primaryCandidates
+     * @param  list<array{id: int, application_no: string, applicant_name: string, stage: string}>  $phase1Candidates
+     * @return list<array{id: int, application_no: string, applicant_name: string, stage: string}>
+     */
+    private function mergePoolCandidates(array $primaryCandidates, array $phase1Candidates, int $limit = 200): array
+    {
+        $seen = [];
+        $merged = [];
+
+        foreach (array_merge($primaryCandidates, $phase1Candidates) as $row) {
+            $id = (int) ($row['id'] ?? 0);
+            if ($id <= 0 || isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            $merged[] = $row;
+            if (count($merged) >= $limit) {
+                break;
+            }
+        }
+
+        return $merged;
     }
 
     /**
@@ -576,6 +728,52 @@ class HubBatchService
                 'legacy_district' => (string) ($legacyRow->district ?? ''),
                 'legacy_block' => (string) ($legacyRow->block ?? ''),
                 'legacy_submission_date' => (string) ($legacyRow->submission_date ?? ''),
+            ],
+        ]);
+        $submission->save();
+
+        return $submission;
+    }
+
+    private function syncLegacyPhase1CfaIntoLocal(object $legacyRow, int $districtId, int $fiscalYearId): CfaSubmission
+    {
+        $applicationNo = trim((string) ($legacyRow->application_no ?? ''));
+        $legacyId = (int) ($legacyRow->legacy_id ?? 0);
+        $lookupNo = $applicationNo !== '' ? $applicationNo : ('legacy-p1-'.$legacyId);
+
+        /** @var CfaSubmission $submission */
+        $submission = CfaSubmission::query()->firstOrCreate(
+            [
+                'source' => 'legacy_phase1',
+                'application_no' => $lookupNo,
+            ],
+            [
+                'fiscal_year_id' => $fiscalYearId,
+                'district_id' => $districtId,
+                'referral_user_id' => null,
+                'applicant_name' => (string) ($legacyRow->applicant_name ?? 'Unknown'),
+                'phone' => (string) ($legacyRow->phone ?? ''),
+                'payload' => [
+                    'legacy_phase1_id' => $legacyId,
+                    'legacy_district' => (string) ($legacyRow->legacy_district ?? ''),
+                    'legacy_region' => (string) ($legacyRow->legacy_region ?? ''),
+                    'legacy_block' => (string) ($legacyRow->legacy_block ?? ''),
+                    'legacy_application_date' => (string) ($legacyRow->application_date ?? ''),
+                ],
+            ]
+        );
+
+        $submission->fill([
+            'fiscal_year_id' => $fiscalYearId,
+            'district_id' => $districtId,
+            'applicant_name' => (string) ($legacyRow->applicant_name ?? $submission->applicant_name),
+            'phone' => (string) ($legacyRow->phone ?? $submission->phone),
+            'payload' => [
+                'legacy_phase1_id' => $legacyId,
+                'legacy_district' => (string) ($legacyRow->legacy_district ?? ''),
+                'legacy_region' => (string) ($legacyRow->legacy_region ?? ''),
+                'legacy_block' => (string) ($legacyRow->legacy_block ?? ''),
+                'legacy_application_date' => (string) ($legacyRow->application_date ?? ''),
             ],
         ]);
         $submission->save();

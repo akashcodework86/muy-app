@@ -260,14 +260,20 @@
             </div>
             <div>
                 <div class="hb-card" style="margin-bottom:1rem">
-                    <div style="display:grid;grid-template-columns:1fr 200px;gap:0.6rem;align-items:end">
+                    <div style="display:grid;grid-template-columns:1fr 220px;gap:0.6rem;align-items:end">
                         <input type="search" id="inpSearch" class="hb-input" placeholder="Search application no., name, phone…">
                         <div>
-                            <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:0.28rem">Fiscal year</label>
+                            <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:0.28rem">Pool filter</label>
                             <select id="selFiscalYear" class="hb-select">
-                                @foreach ($fiscalYears as $fy)
-                                    <option value="{{ $fy->id }}" @selected((int) $selectedFiscalYearId === (int) $fy->id)>{{ $fy->code }}</option>
-                                @endforeach
+                                <optgroup label="Phase 1 (RBI)">
+                                    <option value="phase1-2021-2024">2021–2024</option>
+                                    <option value="phase1-all">All</option>
+                                </optgroup>
+                                <optgroup label="MIS fiscal year">
+                                    @foreach ($fiscalYears as $fy)
+                                        <option value="{{ $fy->id }}" @selected((int) $selectedFiscalYearId === (int) $fy->id)>{{ $fy->code }}</option>
+                                    @endforeach
+                                </optgroup>
                             </select>
                         </div>
                     </div>
@@ -440,6 +446,7 @@
         let blocked = @json($stats['blocked']);
         let searchTimer = null;
         let selectedFiscalYearId = parseInt(@json($selectedFiscalYearId), 10) || 0;
+        let selectedPoolFilter = '';
         let mixState = { seed: 0, early: 0, growth: 0, unknown: 0, count: 0, targetN: 0 };
         let latestPoolRows = [];
         let bulkAddBusy = false;
@@ -624,6 +631,17 @@
             return LETTER_VIEW_URL_TEMPLATE.replace('__BATCH_ID__', String(batchId || ''));
         }
 
+        function poolListRequestParams() {
+            const q = document.getElementById('inpSearch').value.trim();
+            const params = { district_id: currentDistrictId, q };
+            if (selectedPoolFilter) {
+                params.pool_filter = selectedPoolFilter;
+            } else {
+                params.fiscal_year_id = selectedFiscalYearId;
+            }
+            return params;
+        }
+
         async function loadPool() {
             const tbody = document.getElementById('poolBody');
             const q = document.getElementById('inpSearch').value.trim();
@@ -635,7 +653,7 @@
             }
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1.5rem">Loading…</td></tr>';
             try {
-                const data = await api('pool_list', { district_id: currentDistrictId, q, fiscal_year_id: selectedFiscalYearId });
+                const data = await api('pool_list', poolListRequestParams());
                 const rows = data.candidates || [];
                 latestPoolRows = rows.map(r => ({ id: parseInt(r.id, 10), stage_key: normalizeStageKey(r.stage) })).filter(r => Number.isFinite(r.id));
                 if (!rows.length) {
@@ -1233,7 +1251,14 @@
             searchTimer = setTimeout(loadPool, 280);
         });
         document.getElementById('selFiscalYear').addEventListener('change', (e) => {
-            selectedFiscalYearId = parseInt(e.target.value, 10) || 0;
+            const value = String(e.target.value || '');
+            if (value.startsWith('phase1-')) {
+                selectedPoolFilter = value;
+                selectedFiscalYearId = 0;
+            } else {
+                selectedPoolFilter = '';
+                selectedFiscalYearId = parseInt(value, 10) || 0;
+            }
             loadPool();
         });
 

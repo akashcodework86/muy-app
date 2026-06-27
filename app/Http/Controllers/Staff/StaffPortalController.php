@@ -20,6 +20,7 @@ use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
 use App\Services\LegacyPhase1\LegacyPhase1ListQuery;
 use App\Services\LegacyPhase2\LegacyPhase2DistrictResolver;
 use App\Services\LegacyPhase2\LegacyPhase2ListQuery;
+use App\Services\LegacyPhase1ApplicationDetailService;
 use App\Services\LegacyPhase2ApplicationDetailService;
 use App\Services\StaffMonthlyTargetsDashboardService;
 use Illuminate\Database\Eloquent\Builder;
@@ -353,6 +354,20 @@ class StaffPortalController extends Controller
             ->get()
             ->filter(fn (Service $s) => $s->category !== null)
             ->values();
+
+        $phase1Detail = app(LegacyPhase1ApplicationDetailService::class)->tryBuild($cfa_submission);
+        if (is_array($phase1Detail) && isset($phase1Detail['viewRow'])) {
+            return view('admin.cfa.phase1-legacy-detail', [
+                'submission' => $cfa_submission,
+                'legacyDetail' => $phase1Detail,
+                'cfaIndexUrl' => route('staff.applications'),
+                'serviceCasesUi' => [
+                    'cases' => $serviceCases,
+                    'pickerServices' => $pickerServices,
+                    'submission' => $cfa_submission,
+                ],
+            ]);
+        }
 
         $legacyDetail = app(LegacyPhase2ApplicationDetailService::class)->tryBuild($cfa_submission);
         if (is_array($legacyDetail) && isset($legacyDetail['viewRow'])) {

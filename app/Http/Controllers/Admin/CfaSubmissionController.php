@@ -11,6 +11,7 @@ use App\Models\DistrictBlock;
 use App\Services\Cfa\CfaFyOnboardingStatsService;
 use App\Services\Cfa\CfaSubmissionListQuery;
 use App\Services\CfaSubmissionAuditSnapshot;
+use App\Services\LegacyPhase1ApplicationDetailService;
 use App\Services\LegacyPhase2ApplicationDetailService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -250,6 +251,17 @@ class CfaSubmissionController extends Controller
             ->with('user')
             ->orderByDesc('created_at')
             ->get();
+
+        $phase1Detail = app(LegacyPhase1ApplicationDetailService::class)->tryBuild($cfa_submission);
+        if (is_array($phase1Detail) && isset($phase1Detail['viewRow'])) {
+            return view('admin.cfa.phase1-legacy-detail', [
+                'submission' => $cfa_submission,
+                'legacyDetail' => $phase1Detail,
+                'cfaIndexUrl' => route('admin.cfa.index', array_filter([
+                    'fiscal_year_id' => $cfa_submission->fiscal_year_id,
+                ])),
+            ]);
+        }
 
         $legacyDetail = app(LegacyPhase2ApplicationDetailService::class)->tryBuild($cfa_submission);
         if (is_array($legacyDetail) && isset($legacyDetail['viewRow'])) {
