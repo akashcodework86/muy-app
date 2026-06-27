@@ -56,7 +56,7 @@ class DeliverablesProgramCsvExport
                     DeliverablesExcelSupport::sanitizeCell($row['name'] ?? ''),
                     $isHeading ? '' : DeliverablesExcelSupport::sanitizeCell($row['indicator_type'] ?? ''),
                     $isHeading ? '' : DeliverablesExcelSupport::sanitizeCell($row['level'] ?? ''),
-                    $isHeading ? '' : ($row['target'] ?? ''),
+                    $isHeading ? '' : DeliverablesExcelSupport::formatTargetCell($row),
                     $isHeading ? '' : ($row['achievement'] ?? ''),
                     $isHeading ? '' : ($pct !== null ? $pct.'%' : ''),
                 ]);

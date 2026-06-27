@@ -258,6 +258,144 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(42, $row['target']);
     }
 
+    public function test_district_staff_sees_hub_target_label_instead_of_number_for_hub_only_indicators(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'hub-target-label-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'hub-target-label-district',
+            'name' => 'Hub Target Spoke District',
+            'sort_order' => 1,
+        ]);
+
+        Deliverable::query()->firstOrCreate(
+            ['code' => 'community_org_outreach'],
+            [
+                'sort_order' => 906,
+                'name' => 'Outreach through Community Organizations',
+                'mis_entry_label' => 'Community org outreach',
+                'is_active' => true,
+            ],
+        );
+
+        Deliverable::query()->firstOrCreate(
+            ['code' => 'utdb_registration'],
+            [
+                'sort_order' => 907,
+                'name' => 'UTDB',
+                'mis_entry_label' => 'UTDB',
+                'is_active' => true,
+            ],
+        );
+
+        $svcGst = Deliverable::query()->firstOrCreate(
+            ['code' => 'svc_gst'],
+            [
+                'sort_order' => 908,
+                'name' => 'GST',
+                'mis_entry_label' => 'GST',
+                'is_active' => true,
+            ],
+        );
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $svcGst->id,
+            'target_total' => 42,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser($staff);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $utdbRow = collect($report['rows'])->firstWhere('serial', '4.2.3');
+        $communityOrgRow = collect($report['rows'])->firstWhere('serial', '1.5');
+        $gstRow = collect($report['rows'])->firstWhere('serial', '4.2.4');
+
+        $this->assertNotNull($utdbRow);
+        $this->assertNull($utdbRow['target']);
+        $this->assertSame('HUB Target', $utdbRow['target_label']);
+        $this->assertNull($utdbRow['achievement_pct']);
+
+        $this->assertNotNull($communityOrgRow);
+        $this->assertNull($communityOrgRow['target']);
+        $this->assertSame('HUB Target', $communityOrgRow['target_label']);
+
+        $this->assertNotNull($gstRow);
+        $this->assertSame(42, $gstRow['target']);
+        $this->assertNull($gstRow['target_label'] ?? null);
+    }
+
+    public function test_hub_admin_still_sees_numeric_target_for_hub_only_indicators(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'hub-admin-utdb-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'hub-admin-utdb-district',
+            'name' => 'Hub Admin UTDB District',
+            'sort_order' => 1,
+        ]);
+
+        $utdb = Deliverable::query()->create([
+            'sort_order' => 18,
+            'code' => 'utdb_registration',
+            'name' => 'UTDB',
+            'mis_entry_label' => 'UTDB',
+            'is_active' => true,
+        ]);
+
+        DistrictDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $utdb->id,
+            'target_total' => 160,
+        ]);
+
+        $hubAdmin = User::factory()->create([
+            'role' => 'hub_admin',
+            'hub_id' => $hub->id,
+            'district_id' => null,
+            'is_active' => true,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser($hubAdmin);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $utdbRow = collect($report['rows'])->firstWhere('serial', '4.2.3');
+
+        $this->assertNotNull($utdbRow);
+        $this->assertSame(160, $utdbRow['target']);
+        $this->assertNull($utdbRow['target_label'] ?? null);
+    }
+
     public function test_district_staff_falls_back_to_staff_monthly_targets_when_no_district_row(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

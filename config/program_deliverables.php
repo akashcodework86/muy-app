@@ -445,6 +445,30 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Hub-only targets (official plan: Almora + Pauri Garhwal hub lines)
+    |--------------------------------------------------------------------------
+    |
+    | District staff see "HUB Target" instead of a spoke number on Deliverables.
+    |
+    */
+    'hub_target_serials' => [
+        '1.5',
+        '3.3',
+        '4.2.3',
+        '4.2.5',
+        '4.2.6',
+    ],
+
+    'hub_target_deliverable_codes' => [
+        'community_org_outreach',
+        'technical_training_sessions',
+        'utdb_registration',
+        'trademark',
+        'gi_seller',
+    ],
+
     'level_by_deliverable_code' => [
         'awareness_district' => 'State',
         'field_work_workshops' => 'Spoke & Hub',

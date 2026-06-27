@@ -77,7 +77,7 @@ class DeliverablesProgramExcelExport
             $sheet->setCellValue('B'.$rowNum, DeliverablesExcelSupport::sanitizeCell($row['name'] ?? ''));
             $sheet->setCellValue('C'.$rowNum, $isHeading ? '' : DeliverablesExcelSupport::sanitizeCell($row['indicator_type'] ?? ''));
             $sheet->setCellValue('D'.$rowNum, $isHeading ? '' : DeliverablesExcelSupport::sanitizeCell($row['level'] ?? ''));
-            $sheet->setCellValue('E'.$rowNum, $isHeading ? '' : ($row['target'] ?? ''));
+            $sheet->setCellValue('E'.$rowNum, $isHeading ? '' : DeliverablesExcelSupport::formatTargetCell($row));
             $sheet->setCellValue('F'.$rowNum, $isHeading ? '' : ($row['achievement'] ?? ''));
             $pct = $row['achievement_pct'] ?? null;
             $sheet->setCellValue('G'.$rowNum, $isHeading ? '' : ($pct !== null ? $pct.'%' : ''));

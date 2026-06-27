@@ -59,6 +59,21 @@ final class DeliverablesExcelSupport
         return substr($value, 0, 32000);
     }
 
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    public static function formatTargetCell(array $row): string
+    {
+        $label = $row['target_label'] ?? null;
+        if (is_string($label) && $label !== '') {
+            return self::sanitizeCell($label);
+        }
+
+        $target = $row['target'] ?? null;
+
+        return $target !== null ? self::sanitizeCell((string) $target) : '';
+    }
+
     public static function columnLetter(int $zeroBasedIndex): string
     {
         $index = $zeroBasedIndex;

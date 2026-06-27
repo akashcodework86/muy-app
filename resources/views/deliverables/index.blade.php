@@ -184,7 +184,13 @@
                                 {{ $isHeading ? '' : ($row['level'] ?: '—') }}
                             @endif
                         </td>
-                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ ! $isHeading && $row['target'] !== null ? number_format($row['target']) : '' }}</td>
+                        <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">
+                            @if (! $isHeading && ($row['target_label'] ?? null))
+                                <span style="font-size:0.78rem;font-weight:600;color:#1d4ed8;white-space:nowrap;">{{ $row['target_label'] }}</span>
+                            @elseif (! $isHeading && $row['target'] !== null)
+                                {{ number_format($row['target']) }}
+                            @endif
+                        </td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">
                             @if (! $isHeading && ($row['drilldown'] ?? false))
                                 <button

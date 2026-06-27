@@ -31,6 +31,7 @@ use App\Support\PitchDeckPreparationsDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\BstTrainingMonthPlanTargetSupport;
 use App\Support\MarketLinkageUnifiedListingSupport;
+use App\Support\HubTargetDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
 use App\Support\MisFieldActivityApproval;
@@ -85,6 +86,8 @@ class ProgramDeliverablesReportService
 
     private ?ProgramDeliverablesFilter $filter = null;
 
+    private string $viewerRole = 'guest';
+
     /**
      * @return array{
      *     fiscalYear: ?FiscalYear,
@@ -108,6 +111,7 @@ class ProgramDeliverablesReportService
         $fiscalYear = $fiscalYears->firstWhere('id', $resolvedFyId);
 
         $this->filter = $filter;
+        $this->viewerRole = $scope->role;
         $this->activeFiscalYear = $fiscalYear;
         $this->districtIds = $scope->effectiveDistrictIds($filter->districtId);
         // State-wide targets for state admin; when a district is selected, use that district's targets.
@@ -1824,7 +1828,16 @@ class ProgramDeliverablesReportService
     {
         $target = $metrics['target'];
         $achievement = $metrics['achievement'];
-        $achievementPct = $this->percent($target, $achievement);
+        $targetLabel = null;
+        $source = is_array($node['source'] ?? null) ? $node['source'] : [];
+
+        if ($this->viewerRole === 'district_staff'
+            && HubTargetDeliverablesSupport::isHubTargetRow($serial, $source)) {
+            $target = null;
+            $targetLabel = HubTargetDeliverablesSupport::LABEL;
+        }
+
+        $achievementPct = $targetLabel !== null ? null : $this->percent($target, $achievement);
 
         return [
             'row_type' => (string) ($node['row_type'] ?? 'leaf'),
@@ -1833,11 +1846,12 @@ class ProgramDeliverablesReportService
             'indicator_type' => $this->rowMetadata->resolveIndicatorType($node, $serial),
             'level' => $this->rowMetadata->resolveLevel($node, $serial),
             'target' => $target,
+            'target_label' => $targetLabel,
             'achievement' => $achievement,
             'achievement_pct' => $achievementPct,
-            'performance_tone' => $this->performanceTone($achievementPct),
-            'source_type' => (string) (($node['source'] ?? [])['type'] ?? 'none'),
-            'drilldown' => (($node['source'] ?? [])['type'] ?? 'none') !== 'none',
+            'performance_tone' => $achievementPct !== null ? $this->performanceTone($achievementPct) : null,
+            'source_type' => (string) ($source['type'] ?? 'none'),
+            'drilldown' => ($source['type'] ?? 'none') !== 'none',
         ];
     }
 
