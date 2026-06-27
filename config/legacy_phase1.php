@@ -37,4 +37,25 @@ return [
         'kumaon' => 'Kumaon (legacy region)',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Phase 1 service columns (tblapplication — wide table, not child rows)
+    |--------------------------------------------------------------------------
+    */
+    'service_fields' => [
+        ['column' => 'training', 'label' => 'Training', 'type' => 'yes'],
+        ['column' => 'technical_training', 'label' => 'Technical training', 'type' => 'yes'],
+        ['column' => 'bmc_support', 'label' => 'BMC support', 'type' => 'yes'],
+        ['column' => 'business_skillattained', 'label' => 'Business skills training', 'type' => 'yes'],
+        ['column' => 'loan', 'label' => 'Loan', 'type' => 'yes', 'detail' => 'loan_scheme'],
+        ['column' => 'registered', 'label' => 'Business registration', 'type' => 'yes', 'detail' => 'registration_type'],
+        ['column' => 'unitsetup', 'label' => 'Unit setup', 'type' => 'yes'],
+        ['column' => 'productlaunch_update', 'label' => 'Product launch', 'type' => 'yes'],
+        ['column' => 'mentorships_attained', 'label' => 'Mentorship', 'type' => 'text'],
+        ['column' => 'supportin_business', 'label' => 'Support in business', 'type' => 'text'],
+        ['column' => 'prior_bisupport', 'label' => 'Prior business support', 'type' => 'text'],
+        ['column' => 'othersupport_byrbi', 'label' => 'Other RBI support', 'type' => 'text'],
+        ['column' => 'application_status', 'label' => 'Loan / scheme', 'type' => 'text'],
+    ],
+
 ];

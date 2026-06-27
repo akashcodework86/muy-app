@@ -129,6 +129,36 @@
     }
     .m-table tbody td { padding: 0.7rem 0.9rem; font-size: 0.875rem; border-bottom: 1px solid #f1f5f9; color: #0f172a; }
     .m-table tbody tr:hover { background: rgba(20, 184, 166, 0.05); }
+    .svc-given { display: flex; flex-wrap: wrap; gap: 0.3rem; max-width: 22rem; }
+    .svc-chip {
+        display: inline-flex; align-items: center; gap: 0.25rem;
+        padding: 0.15rem 0.45rem; border-radius: 999px;
+        font-size: 0.68rem; font-weight: 600; line-height: 1.35;
+        border: 1px solid #e2e8f0; background: #f8fafc; color: #334155;
+    }
+    .svc-chip__phase {
+        font-size: 0.58rem; font-weight: 800; letter-spacing: 0.04em;
+        padding: 0.05rem 0.28rem; border-radius: 4px; line-height: 1.2;
+    }
+    .svc-chip__phase--p1 { background: #fef3c7; color: #92400e; }
+    .svc-chip__phase--p2 { background: #dbeafe; color: #1e40af; }
+    .svc-chip__phase--p3 { background: #ccfbf1; color: #0f766e; }
+    .svc-chip--approved { border-color: #86efac; background: #f0fdf4; }
+    .svc-chip--pending { border-color: #fde68a; background: #fffbeb; }
+    .svc-none { color: #94a3b8; font-size: 0.82rem; }
+    .svc-legend {
+        font-size: 0.78rem;
+        color: #475569;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.55rem 0.75rem;
+        margin: 0 0.9rem 0.65rem;
+        line-height: 1.45;
+    }
+    .svc-legend strong { color: #0f172a; font-weight: 700; }
+    .svc-legend__row { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin-top: 0.35rem; }
+    .svc-legend__item { display: inline-flex; align-items: center; gap: 0.3rem; }
 
     @media (max-width: 900px) {
         .batch-hero { grid-template-columns: 1fr; }
@@ -289,6 +319,14 @@
                 Service module is off — <strong>Add intervention</strong> is hidden. Use <strong>View</strong> to check applicant details. Ask state admin to enable services under <strong>More → Service module settings</strong>.
             </p>
         @endif
+        <div class="svc-legend" role="note" aria-label="Services given legend">
+            <strong>Services given — how to read the tags</strong>
+            <div class="svc-legend__row">
+                <span class="svc-legend__item"><span class="svc-chip svc-chip--approved" style="pointer-events:none;"><span class="svc-chip__phase svc-chip__phase--p3">P3</span> Service ✓</span> <strong>Approved</strong> — delivered in Phase 3</span>
+                <span class="svc-legend__item"><span class="svc-chip svc-chip--pending" style="pointer-events:none;"><span class="svc-chip__phase svc-chip__phase--p3">P3</span> Service</span> <strong>No tick</strong> — Phase 3 case in progress (draft / pending / sent back)</span>
+                <span class="svc-legend__item"><span class="svc-chip" style="pointer-events:none;"><span class="svc-chip__phase svc-chip__phase--p2">P2</span> Service</span> <strong>P1 / P2</strong> — legacy record (no approval tick)</span>
+            </div>
+        </div>
         <table class="m-table">
             <thead>
                 <tr>
@@ -298,12 +336,16 @@
                     <th>Phone</th>
                     <th>Stage</th>
                     <th>Business category</th>
+                    <th>Services given</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse ($members as $i => $m)
-                    <tr data-search="{{ Str::lower(($m['applicant_name'] ?? '').' '.($m['phone'] ?? '').' '.($m['application_no'] ?? '')) }}">
+                    @php
+                        $serviceSearch = collect($m['services'] ?? [])->map(fn ($s) => ($s['label'] ?? '').' '.($s['detail'] ?? ''))->implode(' ');
+                    @endphp
+                    <tr data-search="{{ Str::lower(($m['applicant_name'] ?? '').' '.($m['phone'] ?? '').' '.($m['application_no'] ?? '').' '.$serviceSearch) }}">
                         <td data-label="#">{{ $i + 1 }}</td>
                         <td data-label="Application no">{{ $m['application_no'] }}</td>
                         <td data-label="Applicant"><strong>{{ $m['applicant_name'] }}</strong></td>
@@ -318,6 +360,49 @@
                             ">{{ $m['stage_label'] }}</span>
                         </td>
                         <td data-label="Business">{{ $m['business_category'] }}</td>
+                        <td data-label="Services given">
+                            @if (empty($m['services']))
+                                <span class="svc-none">—</span>
+                            @else
+                                <div class="svc-given">
+                                    @foreach ($m['services'] as $svc)
+                                        @php
+                                            $phase = (string) ($svc['phase'] ?? 'phase3');
+                                            $phaseNum = match ($phase) {
+                                                'phase1' => '1',
+                                                'phase2' => '2',
+                                                default => '3',
+                                            };
+                                            $phaseClass = match ($phase) {
+                                                'phase1' => 'svc-chip__phase--p1',
+                                                'phase2' => 'svc-chip__phase--p2',
+                                                default => 'svc-chip__phase--p3',
+                                            };
+                                            $approved = ($svc['status'] ?? '') === 'approved';
+                                            $statusRaw = trim((string) ($svc['status'] ?? ''));
+                                            $statusLabel = $statusRaw !== '' ? ucfirst(str_replace('_', ' ', $statusRaw)) : null;
+                                            if ($phase === 'phase3' && $approved) {
+                                                $chipTitle = trim(collect([$svc['detail'] ?? null, 'Approved — service delivered'])->filter()->implode(' · '));
+                                            } elseif ($phase === 'phase3' && $statusLabel) {
+                                                $chipTitle = trim(collect([$svc['detail'] ?? null, 'Phase 3 — '.$statusLabel.' (not yet approved)'])->filter()->implode(' · '));
+                                            } elseif ($phase === 'phase2') {
+                                                $chipTitle = trim(collect([$svc['detail'] ?? null, 'Legacy Phase 2 — no approval tick'])->filter()->implode(' · '));
+                                            } elseif ($phase === 'phase1') {
+                                                $chipTitle = trim(collect([$svc['detail'] ?? null, 'Legacy Phase 1 — no approval tick'])->filter()->implode(' · '));
+                                            } else {
+                                                $chipTitle = trim(collect([$svc['detail'] ?? null, $statusLabel])->filter()->implode(' · '));
+                                            }
+                                            $chipPending = $phase === 'phase3' && ! $approved && $statusRaw !== '';
+                                        @endphp
+                                        <span class="svc-chip @if($approved) svc-chip--approved @elseif($chipPending) svc-chip--pending @endif" @if($chipTitle !== '') title="{{ $chipTitle }}" @endif>
+                                            <span class="svc-chip__phase {{ $phaseClass }}">P{{ $phaseNum }}</span>
+                                            {{ $svc['label'] }}
+                                            @if ($approved) <span aria-hidden="true">✓</span> @endif
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </td>
                         <td data-label="Actions" style="white-space:nowrap;">
                             @php $memberCfaId = (int) ($m['id'] ?? 0); @endphp
                             @if (auth()->user()->role === 'district_staff' && $memberCfaId > 0)
@@ -334,7 +419,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="padding:1.25rem; text-align:center; color:#64748b;">No members in this batch yet.</td>
+                        <td colspan="8" style="padding:1.25rem; text-align:center; color:#64748b;">No members in this batch yet.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -359,7 +444,7 @@
         emptyRow = document.createElement('tr');
         emptyRow.className = 'js-no-results';
         emptyRow.style.display = 'none';
-        emptyRow.innerHTML = '<td colspan="7" style="padding:1rem; text-align:center; color:#64748b;">No members match your search.</td>';
+        emptyRow.innerHTML = '<td colspan="8" style="padding:1rem; text-align:center; color:#64748b;">No members match your search.</td>';
         tbody.appendChild(emptyRow);
     }
 

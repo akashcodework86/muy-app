@@ -10,6 +10,7 @@ use App\Models\OnboardingBatchDocument;
 use App\Models\OnboardingBatchDraftCfa;
 use App\Models\User;
 use App\Services\AppSettingsService;
+use App\Services\BatchMemberInterventionsSummaryService;
 use App\Services\HubBatchService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +30,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class BatchReadOnlyController extends Controller
 {
-    public function __construct(private HubBatchService $batches) {}
+    public function __construct(
+        private HubBatchService $batches,
+        private BatchMemberInterventionsSummaryService $memberInterventions,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -283,12 +287,18 @@ class BatchReadOnlyController extends Controller
                     'application_no' => (string) ($cfa?->application_no ?? ($row->cfa_submission_id ?? '')),
                     'applicant_name' => (string) ($cfa?->applicant_name ?? 'N/A'),
                     'phone' => (string) ($cfa?->phone ?? ''),
+                    'source' => (string) ($cfa?->source ?? ''),
+                    'legacy_application_id' => (int) ($payload['legacy_application_id'] ?? 0),
+                    'legacy_phase1_id' => (int) ($payload['legacy_phase1_id'] ?? $payload['legacy_id'] ?? 0),
                     'stage_key' => $stageKey,
                     'stage_label' => $stageKey === 'unknown' ? '—' : strtoupper($stageKey),
                     'business_category' => $biz,
                 ];
             })
-            ->values();
+            ->values()
+            ->all();
+
+        $members = $this->memberInterventions->attachServices($members);
 
         $stageMix = ['seed' => 0, 'early' => 0, 'growth' => 0, 'unknown' => 0];
         $categoryMix = [];
