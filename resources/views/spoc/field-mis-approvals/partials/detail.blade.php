@@ -15,6 +15,9 @@
     .fma-detail-source { display: inline-flex; padding: 0.14rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; }
     .fma-detail-source--phase3 { background: #eef2ff; color: #3730a3; }
     .fma-detail-source--legacy { background: #fff7ed; color: #9a3412; }
+    .fma-onboard { display: inline-flex; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; }
+    .fma-onboard--yes { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .fma-onboard--no { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
     .coo-dl { display: grid; grid-template-columns: minmax(9rem, 34%) 1fr; gap: 0.55rem 1rem; font-size: 0.88rem; margin: 0; }
     .coo-dl dt { color: #64748b; font-weight: 600; margin: 0; }
     .coo-dl dd { margin: 0; color: #0f172a; }
@@ -69,6 +72,7 @@
                                 <th>Gender</th>
                                 <th>Village</th>
                                 <th>Block</th>
+                                <th>Onboarding status</th>
                                 <th>Onboarding batch</th>
                             </tr>
                         </thead>
@@ -97,10 +101,11 @@
                                     <td>{{ trim((string) ($snap['gender'] ?? '')) !== '' ? $snap['gender'] : '—' }}</td>
                                     <td>{{ trim((string) ($snap['village'] ?? '')) !== '' ? $snap['village'] : '—' }}</td>
                                     <td>{{ trim((string) ($snap['block_name'] ?? '')) !== '' ? $snap['block_name'] : '—' }}</td>
+                                    <td>@include('partials.onboarding-status-badge', ['row' => $snap])</td>
                                     <td>{{ $snap['onboarding_batch_name'] ?? '—' }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="9" style="color:#64748b;padding:1rem;">No selected applicants in snapshot.</td></tr>
+                                <tr><td colspan="10" style="color:#64748b;padding:1rem;">No selected applicants in snapshot.</td></tr>
                             @endforelse
                         </tbody>
                     </table>

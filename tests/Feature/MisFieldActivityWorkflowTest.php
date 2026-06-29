@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CommunityOrganizationOutreachVisit;
 use App\Models\District;
+use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\LineDepartmentMeeting;
 use App\Models\ServiceCase;
@@ -11,6 +12,7 @@ use App\Models\TechnicalTraining;
 use App\Models\User;
 use App\Services\AppSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -296,6 +298,47 @@ class MisFieldActivityWorkflowTest extends TestCase
             ->assertSee('Approval actions');
     }
 
+    public function test_field_mis_review_shows_onboarding_status_for_technical_training_applicants(): void
+    {
+        $district = $this->createDistrict();
+        $submitter = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $approver = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'aadil.ishrat@pwc.com',
+            'is_active' => true,
+        ]);
+        $onboardedId = $this->seedOnboardedApplicant($district, '9811111111');
+        $pendingId = $this->seedPhase3Applicant($district, 'Pending Applicant', '9822222222');
+
+        $training = TechnicalTraining::query()->create([
+            'submitted_by_user_id' => $submitter->id,
+            'submitted_by_name' => $submitter->name,
+            'event_date' => '2026-06-01',
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'session_name' => 'Onboarding review session',
+            'attendance_media_json' => [],
+            'selected_incubatee_ids' => [$onboardedId, $pendingId],
+            'selected_incubatees_snapshot' => [
+                ['incubatee_id' => $onboardedId, 'name' => 'Onboarded Applicant'],
+                ['incubatee_id' => $pendingId, 'name' => 'Pending Applicant'],
+            ],
+            'status' => ServiceCase::STATUS_PENDING_APPROVAL,
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs($approver)
+            ->get(route('spoc.field-mis-approvals.show', ['technical_training', $training->id]))
+            ->assertOk()
+            ->assertSee('Onboarding status', false)
+            ->assertSee('Onboarded', false)
+            ->assertSee('Not onboarded', false);
+    }
+
     public function test_dedicated_approver_can_view_community_org_outreach_record(): void
     {
         $district = $this->createDistrict('other-district', 'Other District');
@@ -350,5 +393,46 @@ class MisFieldActivityWorkflowTest extends TestCase
             'name' => $name,
             'sort_order' => 1,
         ]);
+    }
+
+    private function seedPhase3Applicant(District $district, string $name, string $phone): int
+    {
+        $fiscalYearId = (int) (FiscalYear::phase3Default()?->id ?? 0);
+
+        return (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'fiscal_year_id' => $fiscalYearId > 0 ? $fiscalYearId : null,
+            'applicant_name' => $name,
+            'application_no' => 'APP-'.str_replace(' ', '-', strtolower($name)),
+            'phone' => $phone,
+            'payload' => json_encode(['gender' => 'F', 'village' => 'Village', 'block' => 'Block']),
+            'created_at' => '2026-05-01',
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function seedOnboardedApplicant(District $district, string $phone): int
+    {
+        $cfaId = $this->seedPhase3Applicant($district, 'Onboarded Applicant', $phone);
+
+        $batchId = (int) DB::table('onboarding_batches')->insertGetId([
+            'hub_id' => $district->hub_id,
+            'district_id' => $district->id,
+            'name' => 'Batch 1',
+            'target_size' => 1,
+            'status' => 'locked',
+            'locked_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('onboarding_batch_cfa')->insert([
+            'onboarding_batch_id' => $batchId,
+            'cfa_submission_id' => $cfaId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $cfaId;
     }
 }

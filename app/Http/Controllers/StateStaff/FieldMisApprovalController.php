@@ -4,8 +4,9 @@ namespace App\Http\Controllers\StateStaff;
 
 use App\Http\Controllers\Controller;
 use App\Models\ServiceCase;
-use App\Support\MisFieldActivityApproval;
+use App\Services\ApplicantOnboardingEnrichmentService;
 use App\Services\MisFieldActivityWorkflowService;
+use App\Support\MisFieldActivityApproval;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -14,6 +15,7 @@ class FieldMisApprovalController extends Controller
 {
     public function __construct(
         private MisFieldActivityWorkflowService $workflow,
+        private ApplicantOnboardingEnrichmentService $applicantOnboarding,
     ) {}
 
     public function index(Request $request): RedirectResponse
@@ -34,13 +36,19 @@ class FieldMisApprovalController extends Controller
         $model = MisFieldActivityApproval::findRecord($module, $record);
         $this->loadRecordRelations($module, $model);
 
+        $applicantSnapshots = (array) ($model->selected_incubatees_snapshot ?? []);
+
+        if ($module === 'technical_training') {
+            $applicantSnapshots = $this->applicantOnboarding->enrichSnapshots($applicantSnapshots);
+        }
+
         return view('spoc.field-mis-approvals.show', [
             'moduleKey' => $module,
             'moduleMeta' => $meta,
             'record' => $model,
             'row' => $model,
             'currentRole' => 'state_staff',
-            'applicantSnapshots' => (array) ($model->selected_incubatees_snapshot ?? []),
+            'applicantSnapshots' => $applicantSnapshots,
         ]);
     }
 
