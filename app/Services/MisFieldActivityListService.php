@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\LineDepartmentMeeting;
 use App\Models\ServiceCase;
 use App\Models\User;
+use App\Support\LineDepartmentMeetingAccess;
 use App\Support\MisFieldActivityApproval;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -52,12 +54,10 @@ final class MisFieldActivityListService
         foreach ($this->moduleKeysForFilter($moduleFilter, $includeAllModules) as $moduleKey) {
             $query = $this->baseQuery($moduleKey);
 
-            if (Schema::hasColumn($query->getModel()->getTable(), 'district_id')) {
-                $query->where('district_id', $districtId);
-            }
-
             if ($scope === 'my') {
                 $query->where('submitted_by_user_id', $staffUserId);
+            } else {
+                $this->applyDistrictStaffAllScope($query, $districtId);
             }
 
             $this->applyStatusFilter($query, $status);
@@ -188,6 +188,37 @@ final class MisFieldActivityListService
         $class = MisFieldActivityApproval::modelClass($moduleKey);
 
         return $class::query()->with(['misFieldSpoc:id,name', 'submitter:id,name']);
+    }
+
+    /**
+     * Hub-level line department meetings may omit district_id; include district staff submitters.
+     *
+     * @param  Builder<Model>  $query
+     */
+    private function applyDistrictStaffAllScope(Builder $query, int $districtId): void
+    {
+        if ($districtId <= 0) {
+            return;
+        }
+
+        $table = $query->getModel()->getTable();
+        if (! Schema::hasColumn($table, 'district_id')) {
+            return;
+        }
+
+        if ($query->getModel() instanceof LineDepartmentMeeting) {
+            $submitterIds = LineDepartmentMeetingAccess::districtStaffSubmitterIds($districtId);
+            $query->where(function (Builder $q) use ($districtId, $submitterIds): void {
+                $q->where('district_id', $districtId);
+                if ($submitterIds->isNotEmpty()) {
+                    $q->orWhereIn('submitted_by_user_id', $submitterIds);
+                }
+            });
+
+            return;
+        }
+
+        $query->where('district_id', $districtId);
     }
 
     /**

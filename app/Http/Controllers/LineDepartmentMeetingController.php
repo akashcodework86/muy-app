@@ -341,9 +341,7 @@ class LineDepartmentMeetingController extends Controller
             return;
         }
 
-        if (LineDepartmentMeetingAccess::isIncubationManager($user)) {
-            $query->where('district_id', (int) $user->district_id);
-        }
+        LineDepartmentMeetingAccess::applyDistrictStaffVisibilityScope($query, $user);
     }
 
     private function canViewRecord(User $user, LineDepartmentMeeting $row): bool
@@ -357,12 +355,11 @@ class LineDepartmentMeetingController extends Controller
                 || ((int) $row->submitted_by_user_id === (int) $user->id);
         }
 
-        if (LineDepartmentMeetingAccess::isIncubationManager($user)) {
-            return (int) $row->district_id === (int) $user->district_id
-                || ((int) $row->submitted_by_user_id === (int) $user->id);
+        if (LineDepartmentMeetingAccess::districtStaffCanViewRecord($user, $row)) {
+            return true;
         }
 
-        return (int) $row->submitted_by_user_id === (int) $user->id;
+        return false;
     }
 
     /**
@@ -462,7 +459,7 @@ class LineDepartmentMeetingController extends Controller
         if ($level === 'spoke') {
             $district = District::query()->findOrFail((int) $validated['district_id']);
             abort_unless((int) $district->hub_id === (int) $hubId, 422);
-            if (LineDepartmentMeetingAccess::isIncubationManager($user)) {
+            if (LineDepartmentMeetingAccess::isDistrictStaffSubmitter($user)) {
                 abort_unless((int) $district->id === (int) $user->district_id, 422);
             }
             $districtId = (int) $district->id;
@@ -579,7 +576,7 @@ class LineDepartmentMeetingController extends Controller
             return District::query()->where('hub_id', (int) $user->hub_id)->orderBy('name')->get(['id', 'name', 'hub_id']);
         }
 
-        if (LineDepartmentMeetingAccess::isIncubationManager($user) && (int) ($user->district_id ?? 0) > 0) {
+        if (LineDepartmentMeetingAccess::isDistrictStaffSubmitter($user)) {
             return District::query()->where('id', (int) $user->district_id)->get(['id', 'name', 'hub_id']);
         }
 

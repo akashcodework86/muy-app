@@ -8,11 +8,13 @@ use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\LineDepartmentMeeting;
+use App\Models\ServiceCase;
 use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Services\MisMonthlyTargetIndicatorBootstrapService;
+use App\Services\AppSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -94,6 +96,41 @@ class LineDepartmentMeetingTest extends TestCase
         $this->assertDatabaseCount('line_department_meetings', 1);
     }
 
+    public function test_any_district_staff_can_store_spoke_meeting(): void
+    {
+        Storage::fake();
+
+        $hub = Hub::query()->create(['slug' => 'fc-hub', 'name' => 'FC Hub', 'sort_order' => 3]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'fc-district', 'name' => 'FC District', 'sort_order' => 3]);
+        $designation = Designation::query()->create(['name' => 'Field Coordinator', 'sort_order' => 2]);
+        $fieldCoordinator = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'designation_id' => $designation->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($fieldCoordinator)
+            ->post(route('staff.line-department-meetings.store'), [
+                'meeting_date' => now()->toDateString(),
+                'meeting_level' => 'spoke',
+                'hub_id' => $hub->id,
+                'district_id' => $district->id,
+                'meeting_mode' => 'physical',
+                'department_name' => 'Rural Development',
+                'official_name' => 'Official Name',
+                'official_designation' => 'BDO',
+                'muy_staff_present' => 'FC only',
+                'meeting_purpose' => 'onboarding_support',
+                'agenda_summary' => 'District coordination',
+                'outcome_decision' => 'Next steps agreed',
+                'proof_media' => [UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf')],
+            ])
+            ->assertRedirect(route('staff.line-department-meetings.dashboard'));
+
+        $this->assertDatabaseCount('line_department_meetings', 1);
+    }
+
     public function test_any_spoc_can_store_state_level_meeting(): void
     {
         Storage::fake();
@@ -123,6 +160,57 @@ class LineDepartmentMeetingTest extends TestCase
         $this->assertDatabaseCount('line_department_meetings', 1);
     }
 
+    public function test_hub_level_district_staff_meeting_appears_on_dashboard_and_services_list(): void
+    {
+        Storage::fake();
+
+        $hub = Hub::query()->create(['slug' => 'hub-list', 'name' => 'Hub List', 'sort_order' => 10]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'dist-list', 'name' => 'Dist List', 'sort_order' => 10]);
+        $designation = Designation::query()->create(['name' => 'Field Coordinator', 'sort_order' => 3]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'hub_id' => $hub->id,
+            'designation_id' => $designation->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)
+            ->post(route('staff.line-department-meetings.store'), [
+                'meeting_date' => now()->toDateString(),
+                'meeting_level' => 'hub',
+                'hub_id' => $hub->id,
+                'meeting_mode' => 'physical',
+                'department_name' => 'Tourism',
+                'official_name' => 'Official Name',
+                'official_designation' => 'Director',
+                'muy_staff_present' => 'Staff',
+                'meeting_purpose' => 'convergence',
+                'agenda_summary' => 'Hub coordination',
+                'outcome_decision' => 'Follow-up planned',
+                'proof_media' => [UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf')],
+            ])
+            ->assertRedirect(route('staff.line-department-meetings.dashboard'));
+
+        $meeting = LineDepartmentMeeting::query()->firstOrFail();
+        $this->assertNull($meeting->district_id);
+        $this->assertSame(ServiceCase::STATUS_PENDING_APPROVAL, $meeting->status);
+
+        $this->actingAs($staff)
+            ->get(route('staff.line-department-meetings.dashboard'))
+            ->assertOk()
+            ->assertSee('Tourism')
+            ->assertSee('Pending approval');
+
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.services.index', ['scope' => 'my']))
+            ->assertOk()
+            ->assertSee('12.2')
+            ->assertSee('Pending approval');
+    }
+
     public function test_program_deliverables_counts_meetings_for_indicator_12_2(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
@@ -149,6 +237,9 @@ class LineDepartmentMeetingTest extends TestCase
             'agenda_summary' => 'Agenda',
             'outcome_decision' => 'Outcome',
             'proof_media_json' => [['path' => 'x', 'original_name' => 'a.pdf']],
+            'status' => ServiceCase::STATUS_APPROVED,
+            'submitted_at' => now(),
+            'approved_at' => now(),
         ]);
 
         Deliverable::query()->where('code', 'line_department_meeting')->firstOrFail();

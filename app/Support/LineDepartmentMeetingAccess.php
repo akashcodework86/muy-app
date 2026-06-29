@@ -4,6 +4,8 @@ namespace App\Support;
 
 use App\Models\LineDepartmentMeeting;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 final class LineDepartmentMeetingAccess
 {
@@ -12,16 +14,9 @@ final class LineDepartmentMeetingAccess
         return $user !== null && $user->role === 'state_staff';
     }
 
-    public static function isIncubationManager(?User $user): bool
+    public static function isDistrictStaffSubmitter(?User $user): bool
     {
-        if (! $user || $user->role !== 'district_staff') {
-            return false;
-        }
-
-        $user->loadMissing('designationRecord');
-        $designation = strtolower(trim((string) ($user->designationRecord?->name ?? '')));
-
-        return str_contains($designation, 'incubation manager');
+        return $user?->role === 'district_staff' && (int) ($user->district_id ?? 0) > 0;
     }
 
     public static function canSubmit(?User $user): bool
@@ -38,7 +33,7 @@ final class LineDepartmentMeetingAccess
             return true;
         }
 
-        return self::isIncubationManager($user) && (int) ($user->district_id ?? 0) > 0;
+        return self::isDistrictStaffSubmitter($user);
     }
 
     public static function canViewDashboard(?User $user): bool
@@ -83,5 +78,67 @@ final class LineDepartmentMeetingAccess
             'district_staff' => 'staff.',
             default => 'spoc.',
         };
+    }
+
+    /**
+     * District staff may log hub-level meetings without a district_id; include those via submitter.
+     *
+     * @param  Builder<LineDepartmentMeeting>  $query
+     */
+    public static function applyDistrictStaffVisibilityScope(Builder $query, User $user): void
+    {
+        if (! self::isDistrictStaffSubmitter($user)) {
+            return;
+        }
+
+        $districtId = (int) $user->district_id;
+        $submitterIds = self::districtStaffSubmitterIds($districtId);
+
+        $query->where(function (Builder $q) use ($districtId, $submitterIds): void {
+            $q->where('district_id', $districtId);
+            if ($submitterIds->isNotEmpty()) {
+                $q->orWhereIn('submitted_by_user_id', $submitterIds);
+            }
+        });
+    }
+
+    public static function districtStaffCanViewRecord(User $user, LineDepartmentMeeting $row): bool
+    {
+        if (! self::isDistrictStaffSubmitter($user)) {
+            return false;
+        }
+
+        if ((int) $row->submitted_by_user_id === (int) $user->id) {
+            return true;
+        }
+
+        if ((int) $row->district_id === (int) $user->district_id) {
+            return true;
+        }
+
+        if ($row->district_id === null || (int) $row->district_id === 0) {
+            $submitterDistrict = User::query()
+                ->whereKey($row->submitted_by_user_id)
+                ->value('district_id');
+
+            return (int) $submitterDistrict === (int) $user->district_id;
+        }
+
+        return false;
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    public static function districtStaffSubmitterIds(int $districtId): Collection
+    {
+        if ($districtId <= 0) {
+            return collect();
+        }
+
+        return User::query()
+            ->where('district_id', $districtId)
+            ->where('role', 'district_staff')
+            ->pluck('id');
     }
 }
