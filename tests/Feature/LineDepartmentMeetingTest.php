@@ -48,11 +48,9 @@ class LineDepartmentMeetingTest extends TestCase
                 'department_name' => 'Tourism',
                 'official_name' => 'Rajesh Kumar',
                 'official_designation' => 'Director',
-                'muy_staff_present' => 'A, B',
                 'meeting_purpose' => 'convergence',
-                'agenda_summary' => 'Scheme alignment',
-                'outcome_decision' => 'Follow-up in April',
-                'proof_media' => [UploadedFile::fake()->create('minutes.pdf', 100, 'application/pdf')],
+                'agenda_remark_outcome' => 'Scheme alignment. Follow-up in April.',
+                'meeting_media' => [UploadedFile::fake()->create('minutes.pdf', 100, 'application/pdf')],
             ])
             ->assertRedirect(route('hub.line-department-meetings.dashboard'));
 
@@ -85,11 +83,9 @@ class LineDepartmentMeetingTest extends TestCase
                 'department_name' => 'Agriculture',
                 'official_name' => 'Official Name',
                 'official_designation' => 'DDO',
-                'muy_staff_present' => 'IM only',
                 'meeting_purpose' => 'onboarding_support',
-                'agenda_summary' => 'Support onboarding',
-                'outcome_decision' => 'Referrals agreed',
-                'proof_media' => [UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf')],
+                'agenda_remark_outcome' => 'Support onboarding. Referrals agreed.',
+                'meeting_media' => [UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf')],
             ])
             ->assertRedirect(route('staff.line-department-meetings.dashboard'));
 
@@ -120,11 +116,9 @@ class LineDepartmentMeetingTest extends TestCase
                 'department_name' => 'Rural Development',
                 'official_name' => 'Official Name',
                 'official_designation' => 'BDO',
-                'muy_staff_present' => 'FC only',
                 'meeting_purpose' => 'onboarding_support',
-                'agenda_summary' => 'District coordination',
-                'outcome_decision' => 'Next steps agreed',
-                'proof_media' => [UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf')],
+                'agenda_remark_outcome' => 'District coordination. Next steps agreed.',
+                'meeting_media' => [UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf')],
             ])
             ->assertRedirect(route('staff.line-department-meetings.dashboard'));
 
@@ -149,11 +143,9 @@ class LineDepartmentMeetingTest extends TestCase
                 'department_name' => 'Tourism',
                 'official_name' => 'Rajesh Kumar',
                 'official_designation' => 'Director',
-                'muy_staff_present' => 'SPOC team',
                 'meeting_purpose' => 'convergence',
-                'agenda_summary' => 'Scheme alignment',
-                'outcome_decision' => 'Follow-up in April',
-                'proof_media' => [UploadedFile::fake()->create('minutes.pdf', 100, 'application/pdf')],
+                'agenda_remark_outcome' => 'Scheme alignment. Follow-up in April.',
+                'meeting_media' => [UploadedFile::fake()->create('minutes.pdf', 100, 'application/pdf')],
             ])
             ->assertRedirect(route('spoc.line-department-meetings.dashboard'));
 
@@ -184,11 +176,9 @@ class LineDepartmentMeetingTest extends TestCase
                 'department_name' => 'Tourism',
                 'official_name' => 'Official Name',
                 'official_designation' => 'Director',
-                'muy_staff_present' => 'Staff',
                 'meeting_purpose' => 'convergence',
-                'agenda_summary' => 'Hub coordination',
-                'outcome_decision' => 'Follow-up planned',
-                'proof_media' => [UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf')],
+                'agenda_remark_outcome' => 'Hub coordination. Follow-up planned.',
+                'meeting_media' => [UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf')],
             ])
             ->assertRedirect(route('staff.line-department-meetings.dashboard'));
 
@@ -209,6 +199,31 @@ class LineDepartmentMeetingTest extends TestCase
             ->assertOk()
             ->assertSee('12.2')
             ->assertSee('Pending approval');
+    }
+
+    public function test_hub_admin_can_store_meeting_without_media(): void
+    {
+        $hub = Hub::query()->create(['slug' => 'no-media-hub', 'name' => 'No Media Hub', 'sort_order' => 11]);
+        $hubAdmin = User::factory()->create(['role' => 'hub_admin', 'hub_id' => $hub->id, 'is_active' => true]);
+
+        $this->actingAs($hubAdmin)
+            ->post(route('hub.line-department-meetings.store'), [
+                'meeting_date' => now()->toDateString(),
+                'meeting_level' => 'hub',
+                'hub_id' => $hub->id,
+                'meeting_mode' => 'physical',
+                'department_name' => 'Tourism',
+                'official_name' => 'Rajesh Kumar',
+                'official_designation' => 'Director',
+                'meeting_purpose' => 'convergence',
+                'agenda_remark_outcome' => 'Coordination meeting held.',
+            ])
+            ->assertRedirect(route('hub.line-department-meetings.dashboard'));
+
+        $meeting = LineDepartmentMeeting::query()->firstOrFail();
+        $this->assertSame([], $meeting->proof_media_json);
+        $this->assertNull($meeting->photos_json);
+        $this->assertFalse($meeting->hasMeetingMedia());
     }
 
     public function test_program_deliverables_counts_meetings_for_indicator_12_2(): void
@@ -232,8 +247,8 @@ class LineDepartmentMeetingTest extends TestCase
             'department_name' => 'Tourism',
             'official_name' => 'Official',
             'official_designation' => 'Director',
-            'muy_staff_present' => 'Staff',
             'meeting_purpose' => 'convergence',
+            'agenda_remark_outcome' => 'Agenda and outcome',
             'agenda_summary' => 'Agenda',
             'outcome_decision' => 'Outcome',
             'proof_media_json' => [['path' => 'x', 'original_name' => 'a.pdf']],

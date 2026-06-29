@@ -190,18 +190,13 @@
                     @if ($row->hub_name)<div><span class="fma-detail-label">Hub</span><span class="fma-detail-value">{{ $row->hub_name }}</span></div>@endif
                     @if ($row->district_name)<div><span class="fma-detail-label">District</span><span class="fma-detail-value">{{ $row->district_name }}</span></div>@endif
                     <div><span class="fma-detail-label">Official designation</span><span class="fma-detail-value">{{ $row->official_designation }}</span></div>
-                    <div class="fma-detail-full"><span class="fma-detail-label">MUY staff present</span><span class="fma-detail-value">{{ $row->muy_staff_present }}</span></div>
-                    <div class="fma-detail-full"><span class="fma-detail-label">Agenda</span><span class="fma-detail-value">{{ $row->agenda_summary }}</span></div>
-                    <div class="fma-detail-full"><span class="fma-detail-label">Outcome</span><span class="fma-detail-value">{{ $row->outcome_decision }}</span></div>
-                    @if (!empty($row->incubatees_discussed_json))
-                        <div class="fma-detail-full"><span class="fma-detail-label">Incubatees discussed</span><span class="fma-detail-value">{{ implode(', ', (array) $row->incubatees_discussed_json) }}</span></div>
-                    @endif
+                    <div class="fma-detail-full"><span class="fma-detail-label">Agenda/Remark/outcome</span><span class="fma-detail-value">{{ $row->agendaRemarkOutcomeDisplay() }}</span></div>
                 </div>
 
-                @if ($row->hasProofDocument())
-                    <h4 class="fma-detail-subtitle">Proof documents</h4>
+                @if ($row->hasMeetingMedia())
+                    <h4 class="fma-detail-subtitle">Meeting proof or photo</h4>
                     @include('staff.technical-trainings.partials.attendance-media-preview', [
-                        'mediaItems' => (array) $row->proof_media_json,
+                        'mediaItems' => $row->meetingMediaItems(),
                         'attachmentRoute' => $attachmentRoute,
                         'record' => $row,
                         'showEmptyMessage' => false,

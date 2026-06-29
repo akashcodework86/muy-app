@@ -51,20 +51,14 @@ class LineDepartmentMeetingController extends Controller
                 ->withErrors(['department_name' => 'Table not found. Please run migrations first.']);
         }
 
-        if ($uploadErrors = array_merge(
-            $this->proofMediaUploadErrors($request),
-            $this->photoUploadErrors($request),
-        )) {
+        if ($uploadErrors = $this->meetingMediaUploadErrors($request)) {
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $validated = $this->validateSubmission($request, requireProof: true);
+        $validated = $this->validateSubmission($request);
         $location = $this->resolveLocation($validated, $user);
 
-        $proofFiles = array_values(array_filter((array) $request->file('proof_media', [])));
-        if ($proofFiles === []) {
-            return back()->withInput()->withErrors(['proof_media' => 'Upload meeting proof (minutes, letter, or email).']);
-        }
+        $mediaFiles = $this->meetingMediaFiles($request);
 
         $meeting = LineDepartmentMeeting::query()->create(array_merge([
             'submitted_by_user_id' => (int) $user->id,
@@ -73,21 +67,22 @@ class LineDepartmentMeetingController extends Controller
             'meeting_level' => (string) $validated['meeting_level'],
             'meeting_mode' => (string) $validated['meeting_mode'],
             'venue' => trim((string) ($validated['venue'] ?? '')) ?: null,
-            'department_name' => trim((string) $validated['department_name']),
+            'department_name' => $this->resolvedDepartmentName($validated),
             'department_unit' => trim((string) ($validated['department_unit'] ?? '')) ?: null,
             'official_name' => trim((string) $validated['official_name']),
             'official_designation' => trim((string) $validated['official_designation']),
             'official_phone' => trim((string) ($validated['official_phone'] ?? '')) ?: null,
-            'muy_staff_present' => trim((string) $validated['muy_staff_present']),
+            'muy_staff_present' => null,
             'meeting_purpose' => (string) $validated['meeting_purpose'],
             'meeting_purpose_other' => (string) $validated['meeting_purpose'] === 'other'
                 ? trim((string) ($validated['meeting_purpose_other'] ?? ''))
                 : null,
-            'agenda_summary' => trim((string) $validated['agenda_summary']),
-            'outcome_decision' => trim((string) $validated['outcome_decision']),
-            'incubatees_discussed_json' => $this->normalizeIncubateesDiscussed($request),
-            'proof_media_json' => $this->storeUploadedMedia($proofFiles, 'line-department-meeting-proof'),
-            'photos_json' => $this->storeOptionalPhotos($request),
+            'agenda_remark_outcome' => trim((string) $validated['agenda_remark_outcome']),
+            'agenda_summary' => '',
+            'outcome_decision' => '',
+            'incubatees_discussed_json' => null,
+            'proof_media_json' => $this->storeUploadedMedia($mediaFiles, 'line-department-meeting-media'),
+            'photos_json' => null,
         ], $location));
 
         $this->misFieldWorkflow->submitForApproval($meeting, (int) $user->id);
@@ -166,36 +161,24 @@ class LineDepartmentMeetingController extends Controller
         abort_unless(LineDepartmentMeetingAccess::canEdit($user, $ldmMeeting), 403);
         $prefix = LineDepartmentMeetingAccess::routePrefixForUser($user);
 
-        if ($uploadErrors = array_merge(
-            $this->proofMediaUploadErrors($request),
-            $this->photoUploadErrors($request),
-        )) {
+        if ($uploadErrors = $this->meetingMediaUploadErrors($request)) {
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $hasExistingProof = $ldmMeeting->hasProofDocument();
-        $validated = $this->validateSubmission($request, requireProof: ! $hasExistingProof);
+        $validated = $this->validateSubmission($request);
         $location = $this->resolveLocation($validated, $user);
 
-        $newProof = array_values(array_filter((array) $request->file('proof_media', [])));
-        if ($newProof === [] && ! $hasExistingProof) {
-            return back()->withInput()->withErrors(['proof_media' => 'Upload meeting proof.']);
-        }
-        if ($newProof !== []) {
-            $existing = collect((array) $ldmMeeting->proof_media_json)->filter(fn ($item): bool => is_array($item))->values();
-            if ($existing->count() + count($newProof) > 5) {
-                return back()->withInput()->withErrors(['proof_media' => 'You can upload up to 5 proof files.']);
+        $newMedia = $this->meetingMediaFiles($request);
+        if ($newMedia !== []) {
+            $existing = collect($ldmMeeting->meetingMediaItems());
+            if ($existing->count() + count($newMedia) > 5) {
+                return back()->withInput()->withErrors(['meeting_media' => 'You can upload up to 5 files in total.']);
             }
-            $ldmMeeting->proof_media_json = $existing->merge($this->storeUploadedMedia($newProof, 'line-department-meeting-proof'))->values()->all();
-        }
-
-        $newPhotos = array_values(array_filter((array) $request->file('photos', [])));
-        if ($newPhotos !== []) {
-            $existingPhotos = collect((array) $ldmMeeting->photos_json)->filter(fn ($item): bool => is_array($item))->values();
-            if ($existingPhotos->count() + count($newPhotos) > 3) {
-                return back()->withInput()->withErrors(['photos' => 'You can upload up to 3 photos.']);
-            }
-            $ldmMeeting->photos_json = $existingPhotos->merge($this->storeUploadedMedia($newPhotos, 'line-department-meeting-photos'))->values()->all();
+            $ldmMeeting->proof_media_json = $existing
+                ->merge($this->storeUploadedMedia($newMedia, 'line-department-meeting-media'))
+                ->values()
+                ->all();
+            $ldmMeeting->photos_json = null;
         }
 
         $ldmMeeting->fill(array_merge([
@@ -203,19 +186,20 @@ class LineDepartmentMeetingController extends Controller
             'meeting_level' => (string) $validated['meeting_level'],
             'meeting_mode' => (string) $validated['meeting_mode'],
             'venue' => trim((string) ($validated['venue'] ?? '')) ?: null,
-            'department_name' => trim((string) $validated['department_name']),
+            'department_name' => $this->resolvedDepartmentName($validated),
             'department_unit' => trim((string) ($validated['department_unit'] ?? '')) ?: null,
             'official_name' => trim((string) $validated['official_name']),
             'official_designation' => trim((string) $validated['official_designation']),
             'official_phone' => trim((string) ($validated['official_phone'] ?? '')) ?: null,
-            'muy_staff_present' => trim((string) $validated['muy_staff_present']),
+            'muy_staff_present' => null,
             'meeting_purpose' => (string) $validated['meeting_purpose'],
             'meeting_purpose_other' => (string) $validated['meeting_purpose'] === 'other'
                 ? trim((string) ($validated['meeting_purpose_other'] ?? ''))
                 : null,
-            'agenda_summary' => trim((string) $validated['agenda_summary']),
-            'outcome_decision' => trim((string) $validated['outcome_decision']),
-            'incubatees_discussed_json' => $this->normalizeIncubateesDiscussed($request),
+            'agenda_remark_outcome' => trim((string) $validated['agenda_remark_outcome']),
+            'agenda_summary' => '',
+            'outcome_decision' => '',
+            'incubatees_discussed_json' => null,
         ], $location));
         $wasResubmit = $ldmMeeting->canBeEditedByMisFieldSubmitter();
         $ldmMeeting->save();
@@ -235,8 +219,7 @@ class LineDepartmentMeetingController extends Controller
         abort_unless(LineDepartmentMeetingAccess::canDelete($user, $ldmMeeting), 403);
         $prefix = LineDepartmentMeetingAccess::routePrefixForUser($user);
 
-        $this->deleteStoredMediaFiles((array) $ldmMeeting->proof_media_json);
-        $this->deleteStoredMediaFiles((array) $ldmMeeting->photos_json);
+        $this->deleteStoredMediaFiles($ldmMeeting->meetingMediaItems());
         $ldmMeeting->delete();
 
         return redirect()->route($prefix.'line-department-meetings.dashboard')->with('status', 'Meeting deleted.');
@@ -280,8 +263,7 @@ class LineDepartmentMeetingController extends Controller
         abort_unless($this->canViewRecord($request->user(), $ldmMeeting), 403);
 
         $index = max(0, (int) $request->query('index', 0));
-        $collection = (string) $request->query('collection', 'proof');
-        $items = $collection === 'photos' ? (array) $ldmMeeting->photos_json : (array) $ldmMeeting->proof_media_json;
+        $items = $ldmMeeting->meetingMediaItems();
         $media = collect($items)->get($index);
         abort_if(! is_array($media), 404);
 
@@ -321,6 +303,10 @@ class LineDepartmentMeetingController extends Controller
             'meetingLevels' => LineDepartmentMeeting::MEETING_LEVELS,
             'meetingModes' => LineDepartmentMeetingOptions::meetingModes(),
             'meetingPurposes' => LineDepartmentMeetingOptions::meetingPurposes(),
+            'departmentNames' => LineDepartmentMeetingOptions::departmentNames(),
+            'selectedDepartment' => $this->selectedDepartmentForForm($row),
+            'departmentNameOther' => $this->departmentNameOtherForForm($row),
+            'agendaRemarkOutcome' => $this->agendaRemarkOutcomeForForm($row),
             'defaultHubId' => (int) ($user?->hub_id ?? 0),
             'defaultDistrictId' => (int) ($user?->district_id ?? 0),
         ];
@@ -374,6 +360,7 @@ class LineDepartmentMeetingController extends Controller
                 $q->where('department_name', 'like', $like)
                     ->orWhere('official_name', 'like', $like)
                     ->orWhere('submitted_by_name', 'like', $like)
+                    ->orWhere('agenda_remark_outcome', 'like', $like)
                     ->orWhere('agenda_summary', 'like', $like);
             });
         }
@@ -391,11 +378,12 @@ class LineDepartmentMeetingController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateSubmission(Request $request, bool $requireProof = false): array
+    private function validateSubmission(Request $request): array
     {
         $levelKeys = array_keys(LineDepartmentMeeting::MEETING_LEVELS);
         $modeKeys = array_keys(LineDepartmentMeetingOptions::meetingModes());
         $purposeKeys = array_keys(LineDepartmentMeetingOptions::meetingPurposes());
+        $departmentKeys = array_keys(LineDepartmentMeetingOptions::departmentNames());
 
         $rules = [
             'meeting_date' => ['required', 'date'],
@@ -404,21 +392,17 @@ class LineDepartmentMeetingController extends Controller
             'district_id' => ['nullable', 'integer', 'exists:districts,id'],
             'meeting_mode' => ['required', 'string', Rule::in($modeKeys)],
             'venue' => ['nullable', 'string', 'max:191'],
-            'department_name' => ['required', 'string', 'max:191'],
+            'department_name' => ['required', 'string', Rule::in($departmentKeys)],
+            'department_name_other' => ['nullable', 'string', 'max:191', 'required_if:department_name,Other'],
             'department_unit' => ['nullable', 'string', 'max:191'],
             'official_name' => ['required', 'string', 'max:191'],
             'official_designation' => ['required', 'string', 'max:191'],
             'official_phone' => ['nullable', 'string', 'regex:/^[6-9]\d{9}$/'],
-            'muy_staff_present' => ['required', 'string', 'max:5000'],
             'meeting_purpose' => ['required', 'string', Rule::in($purposeKeys)],
             'meeting_purpose_other' => ['nullable', 'string', 'max:191', 'required_if:meeting_purpose,other'],
-            'agenda_summary' => ['required', 'string', 'max:5000'],
-            'outcome_decision' => ['required', 'string', 'max:5000'],
-            'incubatees_discussed' => ['nullable', 'string', 'max:5000'],
-            'proof_media' => [$requireProof ? 'required' : 'nullable', 'array', 'max:5'],
-            'proof_media.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:51200'],
-            'photos' => ['nullable', 'array', 'max:3'],
-            'photos.*' => ['file', 'mimes:jpg,jpeg,png,webp', 'max:51200'],
+            'agenda_remark_outcome' => ['required', 'string', 'max:5000'],
+            'meeting_media' => ['nullable', 'array', 'max:5'],
+            'meeting_media.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:51200'],
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -430,9 +414,75 @@ class LineDepartmentMeetingController extends Controller
             if ($level === 'spoke' && ! $request->filled('district_id')) {
                 $v->errors()->add('district_id', 'District is required for Spoke level meetings.');
             }
+            if ((string) $request->input('department_name') === 'Other'
+                && trim((string) $request->input('department_name_other', '')) === '') {
+                $v->errors()->add('department_name_other', 'Please specify the department name.');
+            }
         });
 
         return $validator->validate();
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function resolvedDepartmentName(array $validated): string
+    {
+        $name = trim((string) ($validated['department_name'] ?? ''));
+        if ($name === 'Other') {
+            return trim((string) ($validated['department_name_other'] ?? ''));
+        }
+
+        return $name;
+    }
+
+    private function selectedDepartmentForForm(?LineDepartmentMeeting $row): string
+    {
+        $selected = trim((string) old('department_name', ''));
+        if ($selected !== '') {
+            return $selected;
+        }
+
+        if (! $row) {
+            return '';
+        }
+
+        $existing = trim((string) $row->department_name);
+        if ($existing === '') {
+            return '';
+        }
+
+        if (array_key_exists($existing, LineDepartmentMeetingOptions::departmentNames())) {
+            return $existing;
+        }
+
+        return 'Other';
+    }
+
+    private function departmentNameOtherForForm(?LineDepartmentMeeting $row): string
+    {
+        $other = trim((string) old('department_name_other', ''));
+        if ($other !== '') {
+            return $other;
+        }
+
+        if (! $row) {
+            return '';
+        }
+
+        $existing = trim((string) $row->department_name);
+
+        return array_key_exists($existing, LineDepartmentMeetingOptions::departmentNames()) ? '' : $existing;
+    }
+
+    private function agendaRemarkOutcomeForForm(?LineDepartmentMeeting $row): string
+    {
+        $value = trim((string) old('agenda_remark_outcome', ''));
+        if ($value !== '') {
+            return $value;
+        }
+
+        return $row ? $row->agendaRemarkOutcomeDisplay() : '';
     }
 
     /**
@@ -475,48 +525,22 @@ class LineDepartmentMeetingController extends Controller
     }
 
     /**
-     * @return list<string>|null
+     * @return list<UploadedFile>
      */
-    private function normalizeIncubateesDiscussed(Request $request): ?array
+    private function meetingMediaFiles(Request $request): array
     {
-        $raw = trim((string) $request->input('incubatees_discussed', ''));
-        if ($raw === '') {
-            return null;
-        }
-
-        $parts = preg_split('/[\n,;]+/', $raw) ?: [];
-        $names = array_values(array_filter(array_map(
-            fn (string $part): string => trim($part),
-            $parts,
-        )));
-
-        return $names === [] ? null : $names;
+        return array_values(array_filter((array) $request->file('meeting_media', [])));
     }
 
     /**
      * @return array<string, string>
      */
-    private function proofMediaUploadErrors(Request $request): array
+    private function meetingMediaUploadErrors(Request $request): array
     {
         $errors = [];
-        foreach ((array) $request->file('proof_media', []) as $index => $file) {
+        foreach ((array) $request->file('meeting_media', []) as $index => $file) {
             if ($file instanceof UploadedFile && ! $file->isValid()) {
-                $errors['proof_media.'.$index] = $this->describeFailedUpload($file);
-            }
-        }
-
-        return $errors;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function photoUploadErrors(Request $request): array
-    {
-        $errors = [];
-        foreach ((array) $request->file('photos', []) as $index => $file) {
-            if ($file instanceof UploadedFile && ! $file->isValid()) {
-                $errors['photos.'.$index] = $this->describeFailedUpload($file);
+                $errors['meeting_media.'.$index] = $this->describeFailedUpload($file);
             }
         }
 
@@ -546,16 +570,6 @@ class LineDepartmentMeetingController extends Controller
         }
 
         return $items;
-    }
-
-    /**
-     * @return list<array<string, mixed>>|null
-     */
-    private function storeOptionalPhotos(Request $request): ?array
-    {
-        $files = array_values(array_filter((array) $request->file('photos', [])));
-
-        return $files === [] ? null : $this->storeUploadedMedia($files, 'line-department-meeting-photos');
     }
 
     private function exportRouteForUser(User $user): string

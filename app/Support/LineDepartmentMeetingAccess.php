@@ -74,6 +74,7 @@ final class LineDepartmentMeetingAccess
         }
 
         return match ($user->role) {
+            'state_admin' => 'admin.',
             'hub_admin' => 'hub.',
             'district_staff' => 'staff.',
             default => 'spoc.',

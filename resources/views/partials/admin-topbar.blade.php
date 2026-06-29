@@ -263,6 +263,7 @@
         str_starts_with($r, 'staff.line-department-meetings.show') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'admin.line-department-meetings.dashboard') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'admin.line-department-meetings.show') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'admin.line-department-meetings.destroy') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'spoc.pitch-deck-preparations.create') => 'pitch-deck-preparations-submit',
         str_starts_with($r, 'spoc.pitch-deck-preparations.index') => 'pitch-deck-preparations-submit',
         str_starts_with($r, 'spoc.pitch-deck-preparations.store') => 'pitch-deck-preparations-submit',

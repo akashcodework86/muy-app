@@ -1137,6 +1137,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('line-department-meetings/dashboard', [LineDepartmentMeetingController::class, 'dashboard'])->name('line-department-meetings.dashboard');
         Route::get('line-department-meetings', LineDepartmentMeetingLandingController::class)->name('line-department-meetings.index');
         Route::get('line-department-meetings/export', [LineDepartmentMeetingController::class, 'export'])->name('line-department-meetings.export');
+        Route::delete('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('line-department-meetings.destroy');
         Route::get('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'show'])->name('line-department-meetings.show');
         Route::get('line-department-meetings/{ldmMeeting}/attachment', [LineDepartmentMeetingController::class, 'downloadAttachment'])
             ->name('line-department-meetings.attachment');

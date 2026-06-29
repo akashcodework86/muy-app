@@ -39,6 +39,7 @@ class LineDepartmentMeeting extends Model
         'muy_staff_present',
         'meeting_purpose',
         'meeting_purpose_other',
+        'agenda_remark_outcome',
         'agenda_summary',
         'outcome_decision',
         'incubatees_discussed_json',
@@ -94,7 +95,41 @@ class LineDepartmentMeeting extends Model
 
     public function hasProofDocument(): bool
     {
-        return count((array) $this->proof_media_json) > 0;
+        return $this->hasMeetingMedia();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function meetingMediaItems(): array
+    {
+        $proof = collect((array) $this->proof_media_json)->filter(fn ($item): bool => is_array($item))->values();
+        $photos = collect((array) $this->photos_json)->filter(fn ($item): bool => is_array($item))->values();
+
+        return $proof->merge($photos)->values()->all();
+    }
+
+    public function hasMeetingMedia(): bool
+    {
+        return count($this->meetingMediaItems()) > 0;
+    }
+
+    public function agendaRemarkOutcomeDisplay(): string
+    {
+        $combined = trim((string) ($this->agenda_remark_outcome ?? ''));
+        if ($combined !== '') {
+            return $combined;
+        }
+
+        $parts = array_filter([
+            trim((string) ($this->agenda_summary ?? '')),
+            trim((string) ($this->outcome_decision ?? '')),
+            ! empty($this->incubatees_discussed_json)
+                ? 'Incubatees: '.implode(', ', (array) $this->incubatees_discussed_json)
+                : null,
+        ]);
+
+        return implode("\n\n", $parts);
     }
 
     public function submitter(): BelongsTo

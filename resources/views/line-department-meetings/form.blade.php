@@ -34,7 +34,9 @@
     $isEdit = isset($row);
     $selectedLevel = old('meeting_level', $isEdit ? $row->meeting_level : ($user->role === 'district_staff' ? 'spoke' : ($user->role === 'hub_admin' ? 'hub' : 'state')));
     $selectedPurpose = old('meeting_purpose', $isEdit ? $row->meeting_purpose : '');
-    $hasExistingProof = $isEdit && $row->hasProofDocument();
+    $selectedDepartment = $selectedDepartment ?? old('department_name', '');
+    $departmentNameOther = $departmentNameOther ?? old('department_name_other', '');
+    $agendaRemarkOutcome = $agendaRemarkOutcome ?? old('agenda_remark_outcome', '');
     $defaultHub = old('hub_id', $isEdit ? $row->hub_id : ($defaultHubId ?: ''));
     $defaultDistrict = old('district_id', $isEdit ? $row->district_id : ($defaultDistrictId ?: ''));
 @endphp
@@ -87,12 +89,23 @@
                     </select>
                 </div>
                 <div class="ldm-field"><label>Venue / location</label><input type="text" name="venue" maxlength="191" value="{{ old('venue', $isEdit ? $row->venue : '') }}"></div>
-                <div class="ldm-field"><label>Line department name <span class="ldm-req">*</span></label><input type="text" name="department_name" maxlength="191" required value="{{ old('department_name', $isEdit ? $row->department_name : '') }}"></div>
+                <div class="ldm-field">
+                    <label>Line department name <span class="ldm-req">*</span></label>
+                    <select id="ldmDepartment" name="department_name" required>
+                        <option value="">— Select —</option>
+                        @foreach ($departmentNames as $value => $label)
+                            <option value="{{ $value }}" @selected($selectedDepartment === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="ldm-field ldm-other" id="ldmDepartmentOtherWrap" @if($selectedDepartment !== 'Other') hidden @endif>
+                    <label>Specify other department <span class="ldm-req">*</span></label>
+                    <input type="text" name="department_name_other" maxlength="191" value="{{ $departmentNameOther }}">
+                </div>
                 <div class="ldm-field"><label>Department unit</label><input type="text" name="department_unit" maxlength="191" value="{{ old('department_unit', $isEdit ? $row->department_unit : '') }}"></div>
                 <div class="ldm-field"><label>Official met — name <span class="ldm-req">*</span></label><input type="text" name="official_name" maxlength="191" required value="{{ old('official_name', $isEdit ? $row->official_name : '') }}"></div>
                 <div class="ldm-field"><label>Official met — designation <span class="ldm-req">*</span></label><input type="text" name="official_designation" maxlength="191" required value="{{ old('official_designation', $isEdit ? $row->official_designation : '') }}"></div>
                 <div class="ldm-field"><label>Official contact phone</label><input type="tel" name="official_phone" maxlength="10" pattern="[6-9][0-9]{9}" value="{{ old('official_phone', $isEdit ? $row->official_phone : '') }}"></div>
-                <div class="ldm-field ldm-field--full"><label>MUY staff present <span class="ldm-req">*</span></label><textarea name="muy_staff_present" required maxlength="5000">{{ old('muy_staff_present', $isEdit ? $row->muy_staff_present : '') }}</textarea></div>
                 <div class="ldm-field">
                     <label>Purpose of meeting <span class="ldm-req">*</span></label>
                     <select id="ldmPurpose" name="meeting_purpose" required>
@@ -106,20 +119,14 @@
                     <label>Specify other purpose <span class="ldm-req">*</span></label>
                     <input type="text" name="meeting_purpose_other" maxlength="191" value="{{ old('meeting_purpose_other', $isEdit ? $row->meeting_purpose_other : '') }}">
                 </div>
-                <div class="ldm-field ldm-field--full"><label>Agenda summary <span class="ldm-req">*</span></label><textarea name="agenda_summary" required maxlength="5000">{{ old('agenda_summary', $isEdit ? $row->agenda_summary : '') }}</textarea></div>
-                <div class="ldm-field ldm-field--full"><label>Outcome / decision <span class="ldm-req">*</span></label><textarea name="outcome_decision" required maxlength="5000">{{ old('outcome_decision', $isEdit ? $row->outcome_decision : '') }}</textarea></div>
+                <div class="ldm-field ldm-field--full"><label>Agenda/Remark/outcome <span class="ldm-req">*</span></label><textarea name="agenda_remark_outcome" required maxlength="5000">{{ $agendaRemarkOutcome }}</textarea></div>
                 <div class="ldm-field ldm-field--full">
-                    <label>Incubatee(s) discussed</label>
-                    <textarea name="incubatees_discussed" maxlength="5000" placeholder="Optional — names separated by comma or new line">{{ old('incubatees_discussed', $isEdit ? implode(', ', (array) $row->incubatees_discussed_json) : '') }}</textarea>
-                </div>
-                <div class="ldm-field ldm-field--full">
-                    <label>Meeting proof @if(!$hasExistingProof)<span class="ldm-req">*</span>@endif</label>
-                    <input type="file" name="proof_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp" multiple @if(!$hasExistingProof) required @endif>
-                    <p style="margin:0.2rem 0 0;color:#64748b;font-size:0.78rem;">Minutes, letter, or email screenshot. Up to 5 files.</p>
-                </div>
-                <div class="ldm-field ldm-field--full">
-                    <label>Photos</label>
-                    <input type="file" name="photos[]" accept=".jpg,.jpeg,.png,.webp,image/*" multiple>
+                    <label>Meeting proof or photo</label>
+                    <input type="file" name="meeting_media[]" accept=".pdf,.jpg,.jpeg,.png,.webp,image/*" multiple>
+                    <p style="margin:0.2rem 0 0;color:#64748b;font-size:0.78rem;">Optional — minutes, letter, email screenshot, or photos. Up to 5 files.</p>
+                    @if ($isEdit && $row->hasMeetingMedia())
+                        <p style="margin:0.35rem 0 0;color:#64748b;font-size:0.78rem;">{{ count($row->meetingMediaItems()) }} file(s) already uploaded. Add more below (max 5 total).</p>
+                    @endif
                 </div>
             </div>
             <div class="ldm-actions">
@@ -141,6 +148,8 @@
     var districtSel = document.getElementById('district_id');
     var purposeSel = document.getElementById('ldmPurpose');
     var purposeOther = document.getElementById('ldmPurposeOtherWrap');
+    var departmentSel = document.getElementById('ldmDepartment');
+    var departmentOther = document.getElementById('ldmDepartmentOtherWrap');
 
     function filterDistricts() {
         if (!districtSel || !hubSel || hubSel.disabled) return;
@@ -165,6 +174,11 @@
     if (purposeSel && purposeOther) {
         purposeSel.addEventListener('change', function () {
             purposeOther.hidden = purposeSel.value !== 'other';
+        });
+    }
+    if (departmentSel && departmentOther) {
+        departmentSel.addEventListener('change', function () {
+            departmentOther.hidden = departmentSel.value !== 'Other';
         });
     }
     syncLevel();

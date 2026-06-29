@@ -39,17 +39,12 @@
         @if ($row->hub_name)<div><span class="ldm-show-label">Hub</span><span class="ldm-show-value">{{ $row->hub_name }}</span></div>@endif
         @if ($row->district_name)<div><span class="ldm-show-label">District</span><span class="ldm-show-value">{{ $row->district_name }}</span></div>@endif
         <div><span class="ldm-show-label">Official designation</span><span class="ldm-show-value">{{ $row->official_designation }}</span></div>
-        <div class="ldm-show-full"><span class="ldm-show-label">MUY staff present</span><span class="ldm-show-value">{{ $row->muy_staff_present }}</span></div>
-        <div class="ldm-show-full"><span class="ldm-show-label">Agenda</span><span class="ldm-show-value">{{ $row->agenda_summary }}</span></div>
-        <div class="ldm-show-full"><span class="ldm-show-label">Outcome</span><span class="ldm-show-value">{{ $row->outcome_decision }}</span></div>
-        @if (!empty($row->incubatees_discussed_json))
-            <div class="ldm-show-full"><span class="ldm-show-label">Incubatees discussed</span><span class="ldm-show-value">{{ implode(', ', (array) $row->incubatees_discussed_json) }}</span></div>
-        @endif
+        <div class="ldm-show-full"><span class="ldm-show-label">Agenda/Remark/outcome</span><span class="ldm-show-value">{{ $row->agendaRemarkOutcomeDisplay() }}</span></div>
     </div>
 
-    @if ($row->hasProofDocument())
-        <h4 style="margin:1.25rem 0 0.5rem;font-size:0.85rem;font-weight:800;">Proof documents</h4>
-        @include('staff.technical-trainings.partials.attendance-media-preview', ['mediaItems' => (array) $row->proof_media_json, 'attachmentRoute' => $attachmentRoute, 'record' => $row, 'showEmptyMessage' => false])
+    @if ($row->hasMeetingMedia())
+        <h4 style="margin:1.25rem 0 0.5rem;font-size:0.85rem;font-weight:800;">Meeting proof or photo</h4>
+        @include('staff.technical-trainings.partials.attendance-media-preview', ['mediaItems' => $row->meetingMediaItems(), 'attachmentRoute' => $attachmentRoute, 'record' => $row, 'showEmptyMessage' => false])
     @endif
 
     <div class="ldm-show-actions">

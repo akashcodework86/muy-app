@@ -31,4 +31,30 @@ final class LineDepartmentMeetingOptions
             'other' => 'Other',
         ];
     }
+
+    /** @return array<string, string> */
+    public static function departmentNames(): array
+    {
+        return [
+            'Agriculture' => 'Agriculture',
+            'Tourism' => 'Tourism',
+            'Rural Development' => 'Rural Development',
+            'USRLM' => 'USRLM',
+            'MSME / Industry' => 'MSME / Industry',
+            'Horticulture' => 'Horticulture',
+            'Animal Husbandry' => 'Animal Husbandry',
+            'Forest' => 'Forest',
+            'Education' => 'Education',
+            'Women and Child Development' => 'Women and Child Development',
+            'Commerce and Industry' => 'Commerce and Industry',
+            'REAP' => 'REAP',
+            'District Administration' => 'District Administration',
+            'Other' => 'Other',
+        ];
+    }
+
+    public static function departmentNameLabel(string $key): string
+    {
+        return self::departmentNames()[$key] ?? $key;
+    }
 }

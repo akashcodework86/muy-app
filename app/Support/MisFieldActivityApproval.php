@@ -153,7 +153,7 @@ final class MisFieldActivityApproval
         $summary = match ($moduleKey) {
             'technical_training' => trim((string) ($record->session_brief ?? '')),
             'lakhpati_technical_training' => trim((string) ($record->session_brief ?? '')),
-            'line_department_meeting' => trim((string) ($record->agenda_summary ?? '')),
+            'line_department_meeting' => trim((string) ($record->agenda_remark_outcome ?? $record->agenda_summary ?? '')),
             'community_org_outreach' => trim((string) ($record->remarks ?? '')),
             default => '',
         };
