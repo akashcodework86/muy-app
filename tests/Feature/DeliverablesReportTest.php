@@ -3529,6 +3529,62 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame('State', $row['level']);
     }
 
+    public function test_partnership_and_funding_indicators_use_state_flow_level(): void
+    {
+        $levelMap = config('program_deliverables.level_by_deliverable_code', []);
+        $this->assertSame('State', $levelMap['marketing_partners_onboarded'] ?? null);
+        $this->assertSame('State', $levelMap['acceleration_services'] ?? null);
+        $this->assertSame('State', $levelMap['pitch_deck_prep'] ?? null);
+
+        $metadata = app(ProgramDeliverableRowMetadataService::class);
+        ProgramDeliverableRowMetadataService::resetCacheForTesting();
+
+        foreach (['6.2', '7.2', '8.3'] as $serial) {
+            $node = $this->matrixLeafNodeForSerial($serial);
+            $this->assertSame('State', $metadata->resolveLevel($node, $serial));
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function matrixLeafNodeForSerial(string $targetSerial): array
+    {
+        $pillarIndex = 0;
+        foreach (config('program_deliverables.matrix', []) as $pillar) {
+            $pillarIndex++;
+            $found = $this->findMatrixNodeBySerial($pillar, [(string) $pillarIndex], $targetSerial);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        $this->fail('Missing matrix node for serial '.$targetSerial);
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     * @param  list<string>  $serialParts
+     * @return array<string, mixed>|null
+     */
+    private function findMatrixNodeBySerial(array $node, array $serialParts, string $targetSerial): ?array
+    {
+        if (implode('.', $serialParts) === $targetSerial) {
+            return $node;
+        }
+
+        $childIndex = 0;
+        foreach ($node['children'] ?? [] as $child) {
+            $childIndex++;
+            $found = $this->findMatrixNodeBySerial($child, [...$serialParts, (string) $childIndex], $targetSerial);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
+
     public function test_report_filters_rows_by_indicator_type_and_level(): void
     {
         $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
