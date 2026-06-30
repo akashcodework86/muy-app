@@ -1830,11 +1830,15 @@ class ProgramDeliverablesReportService
         $achievement = $metrics['achievement'];
         $targetLabel = null;
         $source = is_array($node['source'] ?? null) ? $node['source'] : [];
+        $level = $this->rowMetadata->resolveLevel($node, $serial);
 
         if ($this->viewerRole === 'district_staff'
             && HubTargetDeliverablesSupport::isHubTargetRow($serial, $source)) {
             $target = null;
             $targetLabel = HubTargetDeliverablesSupport::LABEL;
+        } elseif ($level === 'State') {
+            $target = null;
+            $targetLabel = 'State';
         }
 
         $achievementPct = $targetLabel !== null ? null : $this->percent($target, $achievement);
@@ -1844,7 +1848,7 @@ class ProgramDeliverablesReportService
             'serial' => $serial,
             'name' => (string) ($node['name'] ?? ''),
             'indicator_type' => $this->rowMetadata->resolveIndicatorType($node, $serial),
-            'level' => $this->rowMetadata->resolveLevel($node, $serial),
+            'level' => $level,
             'target' => $target,
             'target_label' => $targetLabel,
             'achievement' => $achievement,
