@@ -26,4 +26,12 @@ class HubTargetDeliverablesSupportTest extends TestCase
             'code' => 'gst',
         ]));
     }
+
+    public function test_primary_hub_district_slugs_are_almora_and_pauri_garhwal(): void
+    {
+        $this->assertSame(['almora', 'pauri-garhwal'], HubTargetDeliverablesSupport::primaryDistrictSlugs());
+        $this->assertTrue(HubTargetDeliverablesSupport::isPrimaryHubDistrictSlug('almora'));
+        $this->assertTrue(HubTargetDeliverablesSupport::isPrimaryHubDistrictSlug('pauri-garhwal'));
+        $this->assertFalse(HubTargetDeliverablesSupport::isPrimaryHubDistrictSlug('bageshwar'));
+    }
 }

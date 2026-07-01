@@ -273,8 +273,8 @@ class DeliverablesReportTest extends TestCase
         $hub = Hub::query()->create(['slug' => 'hub-target-label-hub', 'name' => 'Hub', 'sort_order' => 1]);
         $district = District::query()->create([
             'hub_id' => $hub->id,
-            'slug' => 'hub-target-label-district',
-            'name' => 'Hub Target Spoke District',
+            'slug' => 'almora',
+            'name' => 'Almora',
             'sort_order' => 1,
         ]);
 
@@ -342,6 +342,54 @@ class DeliverablesReportTest extends TestCase
         $this->assertNotNull($gstRow);
         $this->assertSame(42, $gstRow['target']);
         $this->assertNull($gstRow['target_label'] ?? null);
+    }
+
+    public function test_district_staff_in_non_primary_hub_district_does_not_see_hub_target_label(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'kumaon', 'name' => 'Kumaon', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bageshwar',
+            'name' => 'Bageshwar',
+            'sort_order' => 2,
+        ]);
+
+        Deliverable::query()->firstOrCreate(
+            ['code' => 'utdb_registration'],
+            [
+                'sort_order' => 907,
+                'name' => 'UTDB',
+                'mis_entry_label' => 'UTDB',
+                'is_active' => true,
+            ],
+        );
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser($staff);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $utdbRow = collect($report['rows'])->firstWhere('serial', '4.2.3');
+
+        $this->assertNotNull($utdbRow);
+        $this->assertSame(0, $utdbRow['target']);
+        $this->assertNull($utdbRow['target_label'] ?? null);
     }
 
     public function test_hub_admin_still_sees_numeric_target_for_hub_only_indicators(): void

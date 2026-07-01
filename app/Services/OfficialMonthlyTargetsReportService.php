@@ -7,6 +7,7 @@ use App\Models\FiscalYear;
 use App\Models\OfficialDistrictMonthlyTarget;
 use App\Models\OfficialHubMonthlyTarget;
 use App\Models\OfficialStateMonthlyTarget;
+use App\Support\HubTargetDeliverablesSupport;
 use Illuminate\Support\Facades\Schema;
 
 class OfficialMonthlyTargetsReportService
@@ -47,14 +48,18 @@ class OfficialMonthlyTargetsReportService
 
         $districtTotals = $this->sumDistrictMonthly($fiscalYear, $periodInfo, $districtIds, []);
 
-        $hubIds = District::query()
-            ->whereIn('id', $districtIds)
-            ->distinct()
-            ->pluck('hub_id')
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->values()
-            ->all();
+        $hubTargetDistrictIds = HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($districtIds);
+
+        $hubIds = $hubTargetDistrictIds !== []
+            ? District::query()
+                ->whereIn('id', $hubTargetDistrictIds)
+                ->distinct()
+                ->pluck('hub_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->values()
+                ->all()
+            : [];
 
         $hubTotals = $hubIds !== []
             ? $this->sumHubMonthly($fiscalYear, $periodInfo, $hubIds, [])

@@ -1833,9 +1833,12 @@ class ProgramDeliverablesReportService
         $level = $this->rowMetadata->resolveLevel($node, $serial);
 
         if ($this->viewerRole === 'district_staff'
-            && HubTargetDeliverablesSupport::isHubTargetRow($serial, $source)) {
+            && HubTargetDeliverablesSupport::isHubTargetRow($serial, $source)
+            && $this->scopeReceivesHubTargets()) {
             $target = null;
             $targetLabel = HubTargetDeliverablesSupport::LABEL;
+        } elseif ($this->isDistrictScopedNonPrimaryHubTargetRow($serial, $source)) {
+            $target = 0;
         } elseif ($level === 'State' && ! $this->viewerUsesStateTargetNumbers()) {
             $target = null;
             $targetLabel = 'State';
@@ -1866,6 +1869,29 @@ class ProgramDeliverablesReportService
     private function viewerUsesStateTargetNumbers(): bool
     {
         return in_array($this->viewerRole, ['state_admin', 'state_staff'], true);
+    }
+
+    /**
+     * Hub monthly targets apply only on Almora and Pauri Garhwal district lines.
+     */
+    private function scopeReceivesHubTargets(): bool
+    {
+        $districtIds = $this->districtIds ?? [];
+
+        return HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($districtIds) !== [];
+    }
+
+    /**
+     * District-scoped views, but not Almora / Pauri Garhwal — show target 0.
+     */
+    private function isDistrictScopedNonPrimaryHubTargetRow(string $serial, array $source): bool
+    {
+        if ($this->districtIds === null || $this->districtIds === []) {
+            return false;
+        }
+
+        return HubTargetDeliverablesSupport::isHubTargetRow($serial, $source)
+            && ! $this->scopeReceivesHubTargets();
     }
 
     /**

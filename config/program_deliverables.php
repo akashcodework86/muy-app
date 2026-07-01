@@ -469,6 +469,14 @@ return [
         'gi_seller',
     ],
 
+    /*
+    | Hub monthly targets are owned by the hub seat district only (not every spoke).
+    */
+    'hub_target_primary_district_slugs' => [
+        'almora',
+        'pauri-garhwal',
+    ],
+
     'level_by_deliverable_code' => [
         'awareness_district' => 'State',
         'field_work_workshops' => 'Spoke & Hub',

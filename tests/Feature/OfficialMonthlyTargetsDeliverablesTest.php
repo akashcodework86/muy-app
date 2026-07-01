@@ -7,6 +7,7 @@ use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\OfficialDistrictMonthlyTarget;
+use App\Models\OfficialHubMonthlyTarget;
 use App\Models\OfficialStateMonthlyTarget;
 use App\Models\User;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
@@ -587,5 +588,65 @@ class OfficialMonthlyTargetsDeliverablesTest extends TestCase
         $partialMonthRow = collect($partialMonthReport['rows'])->firstWhere('serial', '1.1');
         $this->assertNotNull($partialMonthRow);
         $this->assertSame(30, $partialMonthRow['target']);
+    }
+
+    public function test_deliverables_hub_targets_only_on_primary_hub_districts(): void
+    {
+        app(\App\Services\ServiceTargetDeliverableSyncService::class)->syncAllServices();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'kumaon', 'name' => 'Kumaon', 'sort_order' => 1]);
+        $almora = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'almora',
+            'name' => 'Almora',
+            'sort_order' => 1,
+        ]);
+        $bageshwar = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'bageshwar',
+            'name' => 'Bageshwar',
+            'sort_order' => 2,
+        ]);
+
+        $utdb = app(OfficialMonthlyTargetCodeResolver::class)
+            ->deliverableForMisSerial('4.2.3', 'UTDB');
+
+        foreach ([1 => 5, 2 => 7] as $month => $count) {
+            OfficialHubMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'hub_id' => $hub->id,
+                'deliverable_id' => $utdb->id,
+                'month_number' => $month,
+                'target_count' => $count,
+            ]);
+        }
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+
+        $almoraReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, $almora->id, null, null, null, null),
+            $scope,
+        );
+        $almoraRow = collect($almoraReport['rows'])->firstWhere('serial', '4.2.3');
+        $this->assertNotNull($almoraRow);
+        $this->assertSame(12, $almoraRow['target']);
+
+        $bageshwarReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, $bageshwar->id, null, null, null, null),
+            $scope,
+        );
+        $bageshwarRow = collect($bageshwarReport['rows'])->firstWhere('serial', '4.2.3');
+        $this->assertNotNull($bageshwarRow);
+        $this->assertSame(0, $bageshwarRow['target']);
     }
 }
