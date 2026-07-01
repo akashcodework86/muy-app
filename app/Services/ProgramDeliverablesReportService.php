@@ -1836,7 +1836,7 @@ class ProgramDeliverablesReportService
             && HubTargetDeliverablesSupport::isHubTargetRow($serial, $source)) {
             $target = null;
             $targetLabel = HubTargetDeliverablesSupport::LABEL;
-        } elseif ($level === 'State') {
+        } elseif ($level === 'State' && ! $this->viewerUsesStateTargetNumbers()) {
             $target = null;
             $targetLabel = 'State';
         }
@@ -1857,6 +1857,15 @@ class ProgramDeliverablesReportService
             'source_type' => (string) ($source['type'] ?? 'none'),
             'drilldown' => ($source['type'] ?? 'none') !== 'none',
         ];
+    }
+
+    /**
+     * State admin / state staff see numeric state targets on State-level indicators;
+     * district and hub viewers see the "State" label instead.
+     */
+    private function viewerUsesStateTargetNumbers(): bool
+    {
+        return in_array($this->viewerRole, ['state_admin', 'state_staff'], true);
     }
 
     /**

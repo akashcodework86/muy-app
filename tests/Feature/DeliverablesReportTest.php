@@ -800,6 +800,47 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(42, $districtRow['target']);
     }
 
+    public function test_state_admin_sees_numeric_target_for_state_level_indicators(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $deliverable = Deliverable::query()->firstOrCreate(
+            ['code' => 'awareness_district'],
+            [
+                'sort_order' => 90,
+                'name' => 'District Level Workshops',
+                'mis_entry_label' => 'District workshops',
+                'is_active' => true,
+            ],
+        );
+
+        StateDeliverableTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'deliverable_id' => $deliverable->id,
+            'target_total' => 240,
+        ]);
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, null, null, null, null),
+            $scope,
+        );
+        $row = collect($report['rows'])->firstWhere('serial', '1.2');
+
+        $this->assertNotNull($row);
+        $this->assertSame('State', $row['level']);
+        $this->assertSame(240, $row['target']);
+        $this->assertNull($row['target_label'] ?? null);
+    }
+
     public function test_state_monthly_targets_reflect_on_deliverables_report_without_annual_row(): void
     {
         app(StateMonthlyTargetIndicatorBootstrapService::class)->ensureDeliverables();
