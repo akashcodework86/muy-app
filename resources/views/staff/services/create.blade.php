@@ -109,6 +109,15 @@
             </ul>
         @endif
 
+        @if (! empty($reapTargetsProgress))
+            <div id="reap-targets-panel-template" hidden aria-hidden="true">
+                @include('partials.reap-incubatee-targets-panel', [
+                    'reapTargetsProgress' => $reapTargetsProgress,
+                    'reapTargetsInteractive' => true,
+                ])
+            </div>
+        @endif
+
         <div class="svc-create-grid">
             <form id="serviceSubmitForm" method="post" action="{{ route('staff.services.store') }}" enctype="multipart/form-data" style="max-width:56rem;">
                 @csrf
@@ -385,6 +394,20 @@
 
                 const REAP_DETAIL_SCHEMA = @json(\App\Support\ConvergenceReapSupport::reapDetailSchema());
 
+                function prependReapTargetsPanel(container) {
+                    if (!container || container.querySelector('[data-reap-targets-panel]')) return;
+                    const src = document.getElementById('reap-targets-panel-template');
+                    if (!src) return;
+                    const clone = src.cloneNode(true);
+                    clone.removeAttribute('id');
+                    clone.hidden = false;
+                    clone.removeAttribute('aria-hidden');
+                    container.insertBefore(clone, container.firstChild);
+                    if (typeof window.bindReapTargetPanels === 'function') {
+                        window.bindReapTargetPanels(container);
+                    }
+                }
+
                 function reapPayloadValue(key) {
                     const els = box.querySelectorAll('[name="payload[' + key + ']"], [name="payload[' + key + '][]"]');
                     if (!els.length) return '';
@@ -402,6 +425,7 @@
                 }
 
                 function populateReapDetailsWrap(detailsWrap, alwaysVisible) {
+                    prependReapTargetsPanel(detailsWrap);
                     REAP_DETAIL_SCHEMA.forEach(function (field) {
                         if ((field.type || '') === 'file') {
                             const fileWrap = document.createElement('div');
@@ -980,15 +1004,39 @@
                                     window.location.assign(nextUrl);
                                 }, 3000);
                             } else {
-                                if (textEl) textEl.textContent = 'Could not submit. Please check the form and retry.';
+                                let message = 'Could not submit. Please check the form and retry.';
+                                if (xhr.status === 422) {
+                                    try {
+                                        const body = JSON.parse(xhr.responseText || '{}');
+                                        const errors = body.errors || {};
+                                        const lines = Object.keys(errors).map(function (key) {
+                                            const msgs = errors[key];
+                                            return Array.isArray(msgs) ? msgs.join(' ') : String(msgs);
+                                        }).filter(Boolean);
+                                        if (lines.length) {
+                                            message = lines.join('\n');
+                                        }
+                                    } catch (parseErr) { /* keep default message */ }
+                                }
                                 if (overlay) overlay.style.display = 'none';
                                 resetSubmitButton();
                                 inFlight = false;
+                                alert(message);
                             }
                         });
                     };
 
                     const stepPlanDone = runStepPlan();
+
+                    const throughReapCb = form.querySelector('input[name="payload[through_reap]"][type="checkbox"]');
+                    const dedicatedReap = !throughReapCb && !!form.querySelector('input[name="payload[through_reap]"][value="1"]');
+                    const reapWrap = form.querySelector('#reap_details_wrap');
+                    if (reapWrap && (dedicatedReap || (throughReapCb && throughReapCb.checked))) {
+                        reapWrap.querySelectorAll('input,select,textarea').forEach(function (el) {
+                            el.disabled = false;
+                        });
+                    }
+
                     xhr.send(new FormData(form));
                 });
             })();
@@ -1038,5 +1086,8 @@
             });
         });
     </script>
+    @if (! empty($reapTargetsProgress))
+        @include('partials.reap-incubatee-targets-panel-script')
+    @endif
     @endpush
 @endsection

@@ -408,6 +408,14 @@
         </ul>
     @endif
 
+    @if (! empty($reapTargetsProgress))
+        @include('partials.reap-incubatee-targets-panel', [
+            'reapTargetsProgress' => $reapTargetsProgress,
+            'reapTargetsInteractive' => false,
+            'reapTargetsCompact' => false,
+        ])
+    @endif
+
     <div class="svc-status-tabs">
         @foreach ($tabs as $val => $label)
             <a href="{{ route('staff.services.index', array_filter(['scope' => $filterScope ?? 'my', 'status' => $val, 'service_id' => $serviceFilterParam])) }}"

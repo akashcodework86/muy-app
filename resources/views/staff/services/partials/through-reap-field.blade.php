@@ -19,5 +19,8 @@
             </span>
         </span>
     </label>
-    @include('staff.services.partials.through-reap-details-field', ['payload' => $payload ?? []])
+    @include('staff.services.partials.through-reap-details-field', [
+        'payload' => $payload ?? [],
+        'reapTargetsProgress' => $reapTargetsProgress ?? null,
+    ])
 </div>

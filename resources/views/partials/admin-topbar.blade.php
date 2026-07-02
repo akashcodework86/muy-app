@@ -90,6 +90,7 @@
         str_starts_with($r, 'admin.targets.state-monthly') => 'targets-state-monthly',
         str_starts_with($r, 'admin.targets.official-state-monthly') => 'targets-official-state-monthly',
         str_starts_with($r, 'admin.targets.official-hub-distribution-monthly') => 'targets-official-hub-distribution-monthly',
+        str_starts_with($r, 'admin.targets.reap-incubatee') => 'targets-reap-incubatee',
         str_starts_with($r, 'admin.targets.official-district-monthly') => 'targets-official-district-monthly',
         str_starts_with($r, 'admin.targets.state') => 'state',
         str_starts_with($r, 'admin.targets.district') => 'district',
@@ -317,7 +318,7 @@
         str_starts_with($r, 'notifications.') => 'notifications',
         default => '',
     };
-    $targetsAllocationActive = in_array($activeNav, ['targets-official-state-monthly', 'targets-official-district-monthly', 'targets-official-hub-distribution-monthly'], true);
+    $targetsAllocationActive = in_array($activeNav, ['targets-official-state-monthly', 'targets-official-district-monthly', 'targets-official-hub-distribution-monthly', 'targets-reap-incubatee'], true);
     $fyTargetsGroupActive = in_array($activeNav, ['fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
@@ -462,6 +463,9 @@
                     </a>
                     <a href="{{ route('admin.targets.official-hub-distribution-monthly') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'targets-official-hub-distribution-monthly') is-active @endif" role="menuitem">
                         {!! $i('calendar') !!}<span>Hub target distribution</span>
+                    </a>
+                    <a href="{{ route('admin.targets.reap-incubatee') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'targets-reap-incubatee') is-active @endif" role="menuitem">
+                        {!! $i('targets') !!}<span>REAP incubatee targets (8.2)</span>
                     </a>
                 </div>
             </details>

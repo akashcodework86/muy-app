@@ -5,6 +5,10 @@
     $reapSchema = ConvergenceReapSupport::reapDetailSchema();
 @endphp
 <div id="reap_details_wrap" style="display:{{ $throughReapChecked ? 'flex' : 'none' }};flex-direction:column;gap:0.65rem;margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid #fed7aa;">
+    @include('partials.reap-incubatee-targets-panel', [
+        'reapTargetsProgress' => $reapTargetsProgress ?? null,
+        'reapTargetsInteractive' => true,
+    ])
     @foreach ($reapSchema as $field)
         @php
             $key = $field['key'];

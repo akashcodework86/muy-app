@@ -906,6 +906,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('targets/official-hub-distribution-monthly', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('targets.official-hub-distribution-monthly');
         Route::get('targets/official-hub-distribution-monthly/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('targets.official-hub-distribution-monthly.export');
         Route::post('targets/official-hub-distribution-monthly/apply', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionApply'])->name('targets.official-hub-distribution-monthly.apply');
+        Route::get('targets/reap-incubatee', [\App\Http\Controllers\Admin\ReapIncubateeTargetsController::class, 'index'])->name('targets.reap-incubatee');
         Route::get('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state');
         Route::post('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state.update');
         Route::get('targets/district', fn () => redirect()->route('admin.targets.official-district-monthly'))->name('targets.district');

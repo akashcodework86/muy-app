@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MisFieldActivityListService;
+use App\Services\ReapIncubateeTargetProgressService;
 use App\Services\SchemaValidator;
 use App\Services\ServiceCaseRecorder;
 use App\Support\ConvergenceReapSupport;
@@ -38,6 +39,7 @@ class StaffServiceCaseController extends Controller
         private ServiceCaseRecorder $recorder,
         private LegacyApplicationServiceCaseSupport $legacyApplications,
         private MisFieldActivityListService $fieldMisList,
+        private ReapIncubateeTargetProgressService $reapTargetsProgress,
     ) {}
 
     public function index(Request $request): View
@@ -202,6 +204,9 @@ class StaffServiceCaseController extends Controller
             'filterRecordType' => $recordType,
             'filterScope' => $scope,
             'services' => $services,
+            'reapTargetsProgress' => $reapOnly
+                ? $this->reapTargetsProgress->districtProgress($districtId)
+                : null,
         ]);
     }
 
@@ -354,6 +359,7 @@ class StaffServiceCaseController extends Controller
             'priorCasesJson' => $priorCasesJson,
             'priorMarketLinkageJson' => $priorMarketLinkageJson,
             'marketLinkageCreateUrl' => route('staff.market-linkages.create'),
+            'reapTargetsProgress' => $this->reapTargetsProgress->districtProgress((int) $staff->district_id),
         ]);
     }
 
@@ -370,7 +376,6 @@ class StaffServiceCaseController extends Controller
             'delivered_on' => ['nullable', 'date'],
             'payload' => ['nullable', 'array'],
             'payload_files' => ['nullable', 'array'],
-            'payload_files.*' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
             'payload_files.reap_document' => ['nullable', 'file', 'max:5120'],
             'attachments' => ['nullable', 'array', 'max:3'],
             'attachments.*' => ['file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
@@ -493,6 +498,12 @@ class StaffServiceCaseController extends Controller
             $legacyIncubateePreview = $this->legacyApplications->incubateePreview((int) $service_case->legacy_application_id);
         }
 
+        $reapTargetsProgress = null;
+        if (ConvergenceReapSupport::serviceIsConvergence($service_case->service)
+            || ConvergenceReapSupport::serviceIsReapSupportService($service_case->service)) {
+            $reapTargetsProgress = $this->reapTargetsProgress->districtProgress((int) $staff->district_id);
+        }
+
         return view('staff.services.edit', [
             'case' => $service_case,
             'schema' => ServiceFieldTypes::normalizeSchema($service_case->service?->field_schema ?? []),
@@ -500,6 +511,7 @@ class StaffServiceCaseController extends Controller
             'legacyIncubateePreview' => $legacyIncubateePreview,
             'isConvergenceService' => ConvergenceReapSupport::serviceIsConvergence($service_case->service),
             'isReapSupportService' => ConvergenceReapSupport::serviceIsReapSupportService($service_case->service),
+            'reapTargetsProgress' => $reapTargetsProgress,
         ]);
     }
 
@@ -516,7 +528,6 @@ class StaffServiceCaseController extends Controller
             'delivered_on' => ['nullable', 'date'],
             'payload' => ['nullable', 'array'],
             'payload_files' => ['nullable', 'array'],
-            'payload_files.*' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
             'payload_files.reap_document' => ['nullable', 'file', 'max:5120'],
             'attachments' => ['nullable', 'array', 'max:3'],
             'attachments.*' => ['file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],

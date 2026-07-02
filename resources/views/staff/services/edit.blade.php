@@ -151,9 +151,15 @@
                 </div>
             @endif
             @if ($isReapSupportService ?? false)
-                @include('staff.services.partials.through-reap-dedicated-field', ['payload' => $payload])
+                @include('staff.services.partials.through-reap-dedicated-field', [
+                    'payload' => $payload,
+                    'reapTargetsProgress' => $reapTargetsProgress ?? null,
+                ])
             @elseif ($isConvergenceService ?? false)
-                @include('staff.services.partials.through-reap-field', ['payload' => $payload])
+                @include('staff.services.partials.through-reap-field', [
+                    'payload' => $payload,
+                    'reapTargetsProgress' => $reapTargetsProgress ?? null,
+                ])
             @endif
         </fieldset>
 
@@ -257,5 +263,8 @@
             syncVisibility();
         })();
     </script>
+    @if (! empty($reapTargetsProgress))
+        @include('partials.reap-incubatee-targets-panel-script')
+    @endif
 @endsection
 
