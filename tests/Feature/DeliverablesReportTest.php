@@ -332,19 +332,19 @@ class DeliverablesReportTest extends TestCase
 
         $this->assertNotNull($utdbRow);
         $this->assertNull($utdbRow['target']);
-        $this->assertSame('HUB Target', $utdbRow['target_label']);
+        $this->assertSame('HUB', $utdbRow['target_label']);
         $this->assertNull($utdbRow['achievement_pct']);
 
         $this->assertNotNull($communityOrgRow);
         $this->assertNull($communityOrgRow['target']);
-        $this->assertSame('HUB Target', $communityOrgRow['target_label']);
+        $this->assertSame('HUB', $communityOrgRow['target_label']);
 
         $this->assertNotNull($gstRow);
         $this->assertSame(42, $gstRow['target']);
         $this->assertNull($gstRow['target_label'] ?? null);
     }
 
-    public function test_district_staff_in_non_primary_hub_district_does_not_see_hub_target_label(): void
+    public function test_district_staff_in_non_primary_hub_district_sees_hub_label_for_hub_only_indicators(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
             ['code' => '2026-27'],
@@ -388,8 +388,9 @@ class DeliverablesReportTest extends TestCase
         $utdbRow = collect($report['rows'])->firstWhere('serial', '4.2.3');
 
         $this->assertNotNull($utdbRow);
-        $this->assertSame(0, $utdbRow['target']);
-        $this->assertNull($utdbRow['target_label'] ?? null);
+        $this->assertNull($utdbRow['target']);
+        $this->assertSame('HUB', $utdbRow['target_label']);
+        $this->assertNull($utdbRow['achievement_pct'] ?? null);
     }
 
     public function test_hub_admin_still_sees_numeric_target_for_hub_only_indicators(): void

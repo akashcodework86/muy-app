@@ -450,7 +450,7 @@ return [
     | Hub-only targets (official plan: Almora + Pauri Garhwal hub lines)
     |--------------------------------------------------------------------------
     |
-    | District staff see "HUB Target" instead of a spoke number on Deliverables.
+    | District staff see "HUB" instead of a spoke number on Deliverables.
     |
     */
     'hub_target_serials' => [
@@ -475,6 +475,47 @@ return [
     'hub_target_primary_district_slugs' => [
         'almora',
         'pauri-garhwal',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Need-based indicators (no fixed annual target on Deliverables page)
+    |--------------------------------------------------------------------------
+    |
+    | When no target is set, the Target column shows "(Need Based)".
+    |
+    */
+    'need_based_serials' => [
+        '3.3.1',
+        '4.2.7',
+        '5.2',
+        '9.2',
+    ],
+
+    'need_based_deliverable_codes' => [
+        'technical_training_potential_lakhpati',
+        'advance_licensing_support',
+        'mentorship_online_portal',
+    ],
+
+    'need_based_service_codes' => [
+        'other_support_services_labelling_packaging_logo_designing_etc',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | State-owned targets on Deliverables (district staff see "State" label)
+    |--------------------------------------------------------------------------
+    |
+    | District staff see the State label instead of spoke/hub monthly numbers.
+    |
+    */
+    'state_target_label_serials' => [
+        '12.2',
+    ],
+
+    'state_target_label_deliverable_codes' => [
+        'line_department_meeting',
     ],
 
     'level_by_deliverable_code' => [

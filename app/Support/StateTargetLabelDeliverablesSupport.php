@@ -2,72 +2,19 @@
 
 namespace App\Support;
 
-use App\Models\District;
-
 /**
- * Hub-only deliverables on the official monthly plan (Almora + Pauri Garhwal lines).
+ * Indicators whose target is owned at state level — district staff see "State" on Deliverables.
  */
-final class HubTargetDeliverablesSupport
+final class StateTargetLabelDeliverablesSupport
 {
-    public const LABEL = 'HUB';
-
-    /**
-     * Hub monthly targets apply only on these district lines (not every spoke in the hub).
-     *
-     * @return list<string>
-     */
-    public static function primaryDistrictSlugs(): array
-    {
-        $slugs = config('program_deliverables.hub_target_primary_district_slugs', ['almora', 'pauri-garhwal']);
-
-        return is_array($slugs) ? array_values(array_map('strval', $slugs)) : ['almora', 'pauri-garhwal'];
-    }
-
-    public static function isPrimaryHubDistrictSlug(?string $slug): bool
-    {
-        if ($slug === null || $slug === '') {
-            return false;
-        }
-
-        return in_array(strtolower(trim($slug)), self::primaryDistrictSlugs(), true);
-    }
-
-    public static function isPrimaryHubDistrictId(?int $districtId): bool
-    {
-        if ($districtId === null || $districtId <= 0) {
-            return false;
-        }
-
-        $slug = District::query()->whereKey($districtId)->value('slug');
-
-        return self::isPrimaryHubDistrictSlug(is_string($slug) ? $slug : null);
-    }
-
-    /**
-     * @param  list<int>  $districtIds
-     * @return list<int>
-     */
-    public static function filterDistrictIdsForHubTargets(array $districtIds): array
-    {
-        if ($districtIds === []) {
-            return [];
-        }
-
-        return District::query()
-            ->whereIn('id', $districtIds)
-            ->whereIn('slug', self::primaryDistrictSlugs())
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
-    }
+    public const LABEL = 'State';
 
     /**
      * @return list<string>
      */
     public static function serials(): array
     {
-        $serials = config('program_deliverables.hub_target_serials', []);
+        $serials = config('program_deliverables.state_target_label_serials', []);
 
         return is_array($serials) ? array_values(array_map('strval', $serials)) : [];
     }
@@ -77,12 +24,12 @@ final class HubTargetDeliverablesSupport
      */
     public static function deliverableCodes(): array
     {
-        $codes = config('program_deliverables.hub_target_deliverable_codes', []);
+        $codes = config('program_deliverables.state_target_label_deliverable_codes', []);
 
         return is_array($codes) ? array_values(array_map('strval', $codes)) : [];
     }
 
-    public static function isHubTargetRow(string $serial, array $source = []): bool
+    public static function isStateTargetLabelRow(string $serial, array $source = []): bool
     {
         if (in_array($serial, self::serials(), true)) {
             return true;

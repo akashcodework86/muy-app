@@ -32,6 +32,8 @@ use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\BstTrainingMonthPlanTargetSupport;
 use App\Support\MarketLinkageUnifiedListingSupport;
 use App\Support\HubTargetDeliverablesSupport;
+use App\Support\NeedBasedDeliverablesSupport;
+use App\Support\StateTargetLabelDeliverablesSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
 use App\Support\MisFieldActivityApproval;
@@ -1834,12 +1836,17 @@ class ProgramDeliverablesReportService
         $level = $this->rowMetadata->resolveLevel($node, $serial);
 
         if ($this->viewerRole === 'district_staff'
-            && HubTargetDeliverablesSupport::isHubTargetRow($serial, $source)
-            && $this->scopeReceivesHubTargets()) {
+            && HubTargetDeliverablesSupport::isHubTargetRow($serial, $source)) {
             $target = null;
             $targetLabel = HubTargetDeliverablesSupport::LABEL;
         } elseif ($this->isDistrictScopedNonPrimaryHubTargetRow($serial, $source)) {
             $target = 0;
+        } elseif ($this->viewerRole === 'district_staff'
+            && StateTargetLabelDeliverablesSupport::isStateTargetLabelRow($serial, $source)) {
+            $target = null;
+            $targetLabel = StateTargetLabelDeliverablesSupport::LABEL;
+        } elseif ($target === null && NeedBasedDeliverablesSupport::isNeedBasedRow($serial, $source)) {
+            $targetLabel = NeedBasedDeliverablesSupport::LABEL;
         } elseif ($level === 'State' && ! $this->viewerUsesStateTargetNumbers()) {
             $target = null;
             $targetLabel = 'State';
