@@ -422,6 +422,19 @@
                 max-width: none !important;
                 box-sizing: border-box;
             }
+            /* html2canvas 1.4.1 throws on linear-gradient when lineLength is 0 (tiny/zero-width bars). */
+            .dlv-screenshot-clone .dlv-screenshot-banner {
+                background: #eff6ff !important;
+            }
+            .dlv-screenshot-clone .dlv-pct-bar__fill--good {
+                background: #34d399 !important;
+            }
+            .dlv-screenshot-clone .dlv-pct-bar__fill--warn {
+                background: #f59e0b !important;
+            }
+            .dlv-screenshot-clone .dlv-pct-bar__fill--critical {
+                background: #f87171 !important;
+            }
             .dlv-screenshot-clone #deliverables-table-wrap {
                 overflow: visible !important;
                 width: 100% !important;
@@ -599,6 +612,13 @@
                         span.textContent = select.options[select.selectedIndex]?.text || '—';
                         span.style.display = 'inline-block';
                         select.replaceWith(span);
+                    });
+
+                    clone.querySelectorAll('.dlv-pct-bar__fill').forEach(function (fill) {
+                        const width = parseFloat(fill.style.width) || 0;
+                        if (width <= 0) {
+                            fill.style.display = 'none';
+                        }
                     });
 
                     clone.style.overflow = 'visible';
