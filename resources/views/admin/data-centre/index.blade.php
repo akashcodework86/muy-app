@@ -85,6 +85,7 @@
 .dc-view-toggle__btn:last-child { border-right:none; }
 .dc-view-toggle__btn:hover { background:#fff; color:#334155; }
 .dc-view-toggle__btn.is-active { background:#4f46e5; color:#fff; }
+.dc-view-toggle__btn.is-active--onboarded { background:#0f766e; color:#fff; }
 
 /* ── Application Analysis (slide-style) ────────────────────── */
 .dc-analysis { background:#fff; border:1px solid #e2e8f0; border-radius:1rem; padding:1.25rem 1.5rem 1.5rem; margin-bottom:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
@@ -120,7 +121,18 @@
 @section('content')
 @php
     $viewMode = $view_mode ?? 'all';
+    $dataScope = $data_scope ?? 'all';
     $isPhase3View = $viewMode === 'rbiphase3';
+    $isOnboardedOnly = $dataScope === 'onboarded';
+    $dcQuery = [];
+    if ($isPhase3View) {
+        $dcQuery['view'] = 'rbiphase3';
+    }
+    if ($isOnboardedOnly) {
+        $dcQuery['scope'] = 'onboarded';
+    }
+    $recordLabel = $isOnboardedOnly ? 'onboarded' : 'applications';
+    $recordLabelTitle = $isOnboardedOnly ? 'Onboarded incubatees' : 'CFA applications';
 @endphp
 <div class="dc-page">
 
@@ -133,18 +145,34 @@
     @endif
 
     {{-- ── View toggle ── --}}
-    <div class="dc-view-toggle" role="tablist" aria-label="Data centre view">
-        <a href="{{ route('admin.data-centre.index') }}"
+    <div class="dc-view-toggle" role="tablist" aria-label="Data centre phase view">
+        <a href="{{ route('admin.data-centre.index', $isOnboardedOnly ? ['scope' => 'onboarded'] : []) }}"
            class="dc-view-toggle__btn {{ ! $isPhase3View ? 'is-active' : '' }}"
            role="tab"
            aria-selected="{{ ! $isPhase3View ? 'true' : 'false' }}">
             All Phases
         </a>
-        <a href="{{ route('admin.data-centre.index', ['view' => 'rbiphase3']) }}"
+        <a href="{{ route('admin.data-centre.index', array_filter(['view' => 'rbiphase3', 'scope' => $isOnboardedOnly ? 'onboarded' : null])) }}"
            class="dc-view-toggle__btn {{ $isPhase3View ? 'is-active' : '' }}"
            role="tab"
            aria-selected="{{ $isPhase3View ? 'true' : 'false' }}">
             rbiphase3
+        </a>
+    </div>
+
+    {{-- ── Data scope toggle ── --}}
+    <div class="dc-view-toggle" role="tablist" aria-label="Data centre scope" style="margin-top:-.65rem;">
+        <a href="{{ route('admin.data-centre.index', $isPhase3View ? ['view' => 'rbiphase3'] : []) }}"
+           class="dc-view-toggle__btn {{ ! $isOnboardedOnly ? 'is-active' : '' }}"
+           role="tab"
+           aria-selected="{{ ! $isOnboardedOnly ? 'true' : 'false' }}">
+            All applications
+        </a>
+        <a href="{{ route('admin.data-centre.index', array_filter(['view' => $isPhase3View ? 'rbiphase3' : null, 'scope' => 'onboarded'])) }}"
+           class="dc-view-toggle__btn {{ $isOnboardedOnly ? 'is-active is-active--onboarded' : '' }}"
+           role="tab"
+           aria-selected="{{ $isOnboardedOnly ? 'true' : 'false' }}">
+            Onboarded only
         </a>
     </div>
 
@@ -155,6 +183,9 @@
                 Program Data Centre
                 @if ($isPhase3View)
                     <span style="font-size:.85rem;font-weight:600;color:#4f46e5;margin-left:.35rem;">· rbiphase3 only</span>
+                @endif
+                @if ($isOnboardedOnly)
+                    <span style="font-size:.85rem;font-weight:600;color:#0f766e;margin-left:.35rem;">· onboarded only</span>
                 @endif
             </div>
             <div class="dc-topbar__meta">
@@ -180,12 +211,15 @@
                 @if ($isPhase3View)
                     <input type="hidden" name="view" value="rbiphase3">
                 @endif
+                @if ($isOnboardedOnly)
+                    <input type="hidden" name="scope" value="onboarded">
+                @endif
                 <button type="submit" class="dc-btn dc-btn--refresh">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Refresh Data
                 </button>
             </form>
-            <a href="{{ route('admin.data-centre.export-all') }}" class="dc-btn dc-btn--export-all">
+            <a href="{{ route('admin.data-centre.export-all', $dcQuery) }}" class="dc-btn dc-btn--export-all">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
                 Export All (CSV)
             </a>
@@ -201,11 +235,11 @@
         <section class="dc-analysis" aria-labelledby="dc-analysis-title">
             <div class="dc-analysis__head">
                 <div>
-                    <div class="dc-analysis__title" id="dc-analysis-title">Call for Applications</div>
-                    <div class="dc-analysis__subtitle">Application Analysis — rbiphase3 ({{ $meta['phase3_fy'] ?? 'FY 2026-27' }})</div>
+                    <div class="dc-analysis__title" id="dc-analysis-title">{{ $isOnboardedOnly ? 'Onboarded Incubatees' : 'Call for Applications' }}</div>
+                    <div class="dc-analysis__subtitle">{{ $isOnboardedOnly ? 'Onboarded Analysis' : 'Application Analysis' }} — rbiphase3 ({{ $meta['phase3_fy'] ?? 'FY 2026-27' }})</div>
                 </div>
                 <div class="dc-analysis__total">
-                    <div class="dc-analysis__total-label">Total Number of Applications</div>
+                    <div class="dc-analysis__total-label">Total Number of {{ $isOnboardedOnly ? 'Onboarded' : 'Applications' }}</div>
                     <div class="dc-analysis__total-value">{{ number_format($analysis['total']) }}</div>
                 </div>
             </div>
@@ -243,7 +277,7 @@
                             <div class="dc-analysis__stat">
                                 <div class="dc-analysis__stat-pct">{{ number_format($row['pct'], 1) }}%</div>
                                 <div class="dc-analysis__stat-label">{{ $row['label'] }}</div>
-                                <div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem;">{{ number_format($row['count']) }} applications</div>
+                                <div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem;">{{ number_format($row['count']) }} {{ $recordLabel }}</div>
                             </div>
                         @endforeach
                     </div>
@@ -299,18 +333,18 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
                     </div>
                     <div>
-                        <div class="dc-section__name">CFA Applications — District-wise</div>
+                        <div class="dc-section__name">{{ $recordLabelTitle }} — District-wise</div>
                         <div class="dc-section__desc">
                             @if ($isPhase3View)
-                                Phase 3 (rbiphase3) counts per district — FY 2026–27 only
+                                Phase 3 (rbiphase3) {{ $isOnboardedOnly ? 'onboarded' : 'counts' }} per district — FY 2026–27 only
                             @else
-                                Phase 1 + Phase 2 + Phase 3 counts per district and combined total
+                                Phase 1 + Phase 2 + Phase 3 {{ $isOnboardedOnly ? 'onboarded totals' : 'counts' }} per district and combined total
                             @endif
                         </div>
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
-                    <a href="{{ route('admin.data-centre.export', 'cfa-by-district') }}" class="dc-btn dc-btn--export">
+                    <a href="{{ route('admin.data-centre.export', array_merge(['section' => 'cfa-by-district'], $dcQuery)) }}" class="dc-btn dc-btn--export">
                         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
                         Export CSV
                     </a>
@@ -373,9 +407,17 @@
                 </table>
                 <p class="dc-note">
                     @if ($isPhase3View)
-                        Phase 3 live MIS only. Excludes <code>source = legacy_phase2</code> imports. Fiscal year: {{ $meta['phase3_fy'] ?? 'FY 2026-27' }}.
+                        @if ($isOnboardedOnly)
+                            Phase 3 locked onboarding batches only (all locked members — matches Admin → Onboarded). Includes legacy Phase 2 imports onboarded via MIS.
+                        @else
+                            Phase 3 live MIS only. Excludes <code>source = legacy_phase2</code> imports. Fiscal year: {{ $meta['phase3_fy'] ?? 'FY 2026-27' }}.
+                        @endif
                     @else
-                        Phase 3 is live from MIS. Phase 1 district = <code>FatherName</code> field. Phase 2 FY 2025–26 only.
+                        @if ($isOnboardedOnly)
+                            Phase 1: <code>onboard=yes</code>. Phase 2: <code>rbi_onboarded_applicants</code> (FY 2025–26 window). Phase 3: locked MIS onboarding batches.
+                        @else
+                            Phase 3 is live from MIS. Phase 1 district = <code>FatherName</code> field. Phase 2 FY 2025–26 only.
+                        @endif
                     @endif
                 </p>
             </div>
@@ -400,7 +442,7 @@
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
-                    <a href="{{ route('admin.data-centre.export', 'gender-state') }}" class="dc-btn dc-btn--export">
+                    <a href="{{ route('admin.data-centre.export', array_merge(['section' => 'gender-state'], $dcQuery)) }}" class="dc-btn dc-btn--export">
                         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
                         Export CSV
                     </a>
@@ -438,7 +480,7 @@
                 </table>
                 <p class="dc-note">
                     @if ($isPhase3View)
-                        Phase 3 CFA submissions only ({{ number_format($meta['phase3_total'] ?? 0) }} total).
+                        Phase 3 {{ $isOnboardedOnly ? 'onboarded incubatees' : 'CFA submissions' }} only ({{ number_format($meta['phase3_total'] ?? 0) }} total).
                     @else
                         Phase 2 has {{ number_format(collect($gender_state)->firstWhere('phase', 'Phase 2 (FY 2025–26)')['NA/Blank'] ?? 0) }} rows with no gender in legacy data (shown as NA/Blank).
                     @endif
@@ -465,7 +507,7 @@
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
-                    <a href="{{ route('admin.data-centre.export', 'gender-district') }}" class="dc-btn dc-btn--export">
+                    <a href="{{ route('admin.data-centre.export', array_merge(['section' => 'gender-district'], $dcQuery)) }}" class="dc-btn dc-btn--export">
                         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
                         Export CSV
                     </a>
@@ -482,7 +524,7 @@
                             <th class="_num">NA</th>
                             <th class="_num">NA / Blank</th>
                             <th class="_num">Other</th>
-                            <th class="_num">Total CFA</th>
+                            <th class="_num">Total {{ $isOnboardedOnly ? 'onboarded' : 'CFA' }}</th>
                             <th class="_num">% Female</th>
                         </tr>
                     </thead>
@@ -523,7 +565,7 @@
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
-                    <a href="{{ route('admin.data-centre.export', 'education-state') }}" class="dc-btn dc-btn--export">
+                    <a href="{{ route('admin.data-centre.export', array_merge(['section' => 'education-state'], $dcQuery)) }}" class="dc-btn dc-btn--export">
                         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
                         Export CSV
                     </a>
@@ -586,7 +628,7 @@
                     </div>
                 </div>
                 <div class="dc-section__actions" onclick="event.stopPropagation()">
-                    <a href="{{ route('admin.data-centre.export', 'education-district') }}" class="dc-btn dc-btn--export">
+                    <a href="{{ route('admin.data-centre.export', array_merge(['section' => 'education-district'], $dcQuery)) }}" class="dc-btn dc-btn--export">
                         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
                         Export CSV
                     </a>
@@ -603,7 +645,7 @@
                             <th class="_num">Above 10th / Other</th>
                             <th class="_num">NA</th>
                             <th class="_num">NA / Blank</th>
-                            <th class="_num">Total CFA</th>
+                            <th class="_num">Total {{ $isOnboardedOnly ? 'onboarded' : 'CFA' }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -629,13 +671,23 @@
     <details class="dc-method" style="margin-top:1.5rem;">
         <summary>How counts are calculated (methodology)</summary>
         <ul>
-            <li><strong>Phase 1 (FY 2024–25):</strong> Reads <code>ukrbiin_rbi.tblapplication</code>. District = <code>FatherName</code> column (aliases: <code>US_Nagar</code> → Udham Singh Nagar, <code>Tehri_Garhwal</code> → Tehri Garhwal, <code>Pauri</code> → Pauri Garhwal).</li>
-            <li><strong>Phase 2 (FY 2025–26):</strong> Reads <code>rbiphase2.rbi_applications</code> joined with <code>rbi_applicant_details</code>. Filtered by <code>submission_date</code> between 2025-04-02 and 2026-04-01. District from <code>d.district</code>.</li>
-            <li><strong>Phase 3 (FY 2026–27 — live):</strong> Reads <code>cfa_submissions</code> for fiscal year {{ $meta['phase3_fy'] ?? 'FY 2026-27' }}. Excludes rows with <code>source = 'legacy_phase2'</code> to avoid double-counting Phase 2 applicants imported into this MIS.</li>
-            @if ($isPhase3View)
-                <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. Application Analysis uses live payload fields: <code>gender</code>, <code>form_stage</code>, <code>category</code>, <code>business_category</code>, <code>loan_taken</code>, <code>is_registered</code>, <code>turnover_last_fy</code>.</li>
+            @if ($isOnboardedOnly)
+                <li><strong>Onboarded only mode:</strong> Counts incubatees who completed onboarding — not all CFA applicants.</li>
+                <li><strong>Phase 1 (FY 2024–25):</strong> <code>tblapplication</code> where <code>onboard = yes</code>. District = <code>FatherName</code> (same aliases as CFA view).</li>
+                <li><strong>Phase 2 (FY 2025–26):</strong> <code>rbi_onboarded_applicants</code> with non-empty <code>status</code>, within Phase 2 FY <code>submission_date</code> window (2025-04-02 to 2026-04-01).</li>
+                <li><strong>Phase 3 (FY 2026–27 — live):</strong> Locked <code>onboarding_batches</code> via <code>onboarding_batch_cfa</code> — all locked members (same as Admin → Onboarded; not filtered by <code>fiscal_year_id</code>). Includes <code>legacy_phase2</code> imports onboarded through MIS.</li>
+                <li><strong>Combined onboarded:</strong> P1 legacy + P2 legacy onboarded + P3 MIS locked batches. Phase 3 includes Phase 2 imports onboarded only via the new MIS.</li>
+            @else
+                <li><strong>Phase 1 (FY 2024–25):</strong> Reads <code>ukrbiin_rbi.tblapplication</code>. District = <code>FatherName</code> column (aliases: <code>US_Nagar</code> → Udham Singh Nagar, <code>Tehri_Garhwal</code> → Tehri Garhwal, <code>Pauri</code> → Pauri Garhwal).</li>
+                <li><strong>Phase 2 (FY 2025–26):</strong> Reads <code>rbiphase2.rbi_applications</code> joined with <code>rbi_applicant_details</code>. Filtered by <code>submission_date</code> between 2025-04-02 and 2026-04-01. District from <code>d.district</code>.</li>
+                <li><strong>Phase 3 (FY 2026–27 — live):</strong> Reads <code>cfa_submissions</code> for fiscal year {{ $meta['phase3_fy'] ?? 'FY 2026-27' }}. Excludes rows with <code>source = 'legacy_phase2'</code> to avoid double-counting Phase 2 applicants imported into this MIS.</li>
             @endif
-            <li><strong>No double-counting:</strong> Phase 3 new-only count + Phase 2 = no overlap. 4,414 Phase 2 rows were imported into cfa_submissions and are excluded from Phase 3 counts.</li>
+            @if ($isPhase3View)
+                <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. {{ $isOnboardedOnly ? 'Onboarded analysis uses locked batch members.' : 'Application Analysis uses live payload fields: gender, form_stage, category, business_category, loan_taken, is_registered, turnover_last_fy.' }}</li>
+            @endif
+            @unless ($isOnboardedOnly)
+                <li><strong>No double-counting:</strong> Phase 3 new-only count + Phase 2 = no overlap. 4,414 Phase 2 rows were imported into cfa_submissions and are excluded from Phase 3 counts.</li>
+            @endunless
             <li><strong>10th pass (Phase 1):</strong> Legacy DB uses label <code>10th</code> (not <code>10th pass</code>). Both are counted as "10th pass".</li>
             <li><strong>Gender NA/Blank:</strong> Phase 2 legacy data has many blank gender fields — these appear as NA/Blank, not 0.</li>
         </ul>

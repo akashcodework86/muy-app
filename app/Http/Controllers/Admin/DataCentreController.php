@@ -17,8 +17,8 @@ class DataCentreController extends Controller
 
     public function index(Request $request): View
     {
-        $viewMode = $request->query('view') === 'rbiphase3' ? 'rbiphase3' : 'all';
-        $data = $this->service->build($viewMode);
+        [$viewMode, $dataScope] = $this->resolveParams($request);
+        $data = $this->service->build($viewMode, $dataScope);
 
         return view('admin.data-centre.index', $data);
     }
@@ -30,9 +30,9 @@ class DataCentreController extends Controller
     {
         $this->service->bustCache();
 
-        $viewMode = $request->input('view') === 'rbiphase3' ? 'rbiphase3' : 'all';
+        [$viewMode, $dataScope] = $this->resolveParams($request);
 
-        return redirect()->route('admin.data-centre.index', $viewMode === 'rbiphase3' ? ['view' => 'rbiphase3'] : [])
+        return redirect()->route('admin.data-centre.index', $this->routeParams($viewMode, $dataScope))
             ->with('flash_success', 'Data refreshed — latest counts loaded from the database.');
     }
 
@@ -46,8 +46,10 @@ class DataCentreController extends Controller
             abort(404, 'Unknown section.');
         }
 
-        $rows = $this->service->csvForSection($section);
-        $filename = 'data-centre-'.$section.'-'.now()->format('Ymd_His').'.csv';
+        [, $dataScope] = $this->resolveParams($request);
+        $rows = $this->service->csvForSection($section, $dataScope);
+        $scopeSuffix = $dataScope === 'onboarded' ? '-onboarded' : '';
+        $filename = 'data-centre-'.$section.$scopeSuffix.'-'.now()->format('Ymd_His').'.csv';
 
         return response()->streamDownload(function () use ($rows): void {
             $out = fopen('php://output', 'w');
@@ -65,11 +67,11 @@ class DataCentreController extends Controller
     /**
      * Export all sections as a single CSV workbook (multiple blocks separated by blank lines).
      */
-    public function exportAll(): StreamedResponse
+    public function exportAll(Request $request): StreamedResponse
     {
-        $districts = [];
-        $data = $this->service->build();
-        $filename = 'data-centre-all-sections-'.now()->format('Ymd_His').'.csv';
+        [, $dataScope] = $this->resolveParams($request);
+        $scopeSuffix = $dataScope === 'onboarded' ? '-onboarded' : '';
+        $filename = 'data-centre-all-sections'.$scopeSuffix.'-'.now()->format('Ymd_His').'.csv';
 
         $sections = [
             'Program Summary' => 'summary',
@@ -80,22 +82,25 @@ class DataCentreController extends Controller
             'Education - By District' => 'education-district',
         ];
 
-        return response()->streamDownload(function () use ($sections): void {
+        $note = $dataScope === 'onboarded'
+            ? 'Onboarded only: P1 onboard=yes, P2 rbi_onboarded_applicants, P3 locked onboarding batches (includes legacy_phase2 onboarded via MIS).'
+            : 'Combined counts exclude Phase 2 rows copied into Phase 3 (source=legacy_phase2).';
+
+        return response()->streamDownload(function () use ($sections, $dataScope, $note): void {
             $out = fopen('php://output', 'w');
             if ($out === false) {
                 return;
             }
             fwrite($out, "\xEF\xBB\xBF");
 
-            // Metadata header
             fputcsv($out, ['Program Data Centre — MUY MIS']);
             fputcsv($out, ['Generated at', now()->timezone('Asia/Kolkata')->format('d M Y, g:i A IST')]);
-            fputcsv($out, ['Note: Combined counts exclude Phase 2 rows copied into Phase 3 (source=legacy_phase2).']);
+            fputcsv($out, ['Note:', $note]);
             fputcsv($out, []);
 
             foreach ($sections as $label => $key) {
                 fputcsv($out, ['=== '.$label.' ===']);
-                $rows = $this->service->csvForSection($key);
+                $rows = $this->service->csvForSection($key, $dataScope);
                 foreach ($rows as $row) {
                     fputcsv($out, $row);
                 }
@@ -104,5 +109,32 @@ class DataCentreController extends Controller
 
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function resolveParams(Request $request): array
+    {
+        $viewMode = $request->query('view') === 'rbiphase3' || $request->input('view') === 'rbiphase3'
+            ? 'rbiphase3'
+            : 'all';
+        $dataScope = $request->query('scope') === 'onboarded' || $request->input('scope') === 'onboarded'
+            ? 'onboarded'
+            : 'all';
+
+        return [$viewMode, $dataScope];
+    }
+
+    /** @return array<string, string> */
+    private function routeParams(string $viewMode, string $dataScope): array
+    {
+        $params = [];
+        if ($viewMode === 'rbiphase3') {
+            $params['view'] = 'rbiphase3';
+        }
+        if ($dataScope === 'onboarded') {
+            $params['scope'] = 'onboarded';
+        }
+
+        return $params;
     }
 }

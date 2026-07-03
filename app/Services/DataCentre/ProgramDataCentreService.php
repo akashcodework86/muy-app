@@ -62,6 +62,8 @@ class ProgramDataCentreService
 
     private ?bool $hasCfaTable = null;
 
+    private string $dataScope = 'all';
+
     public function __construct()
     {
         $this->legacyPhase1Ok = $this->testConnection('legacy_phase1', 'tblapplication');
@@ -69,12 +71,14 @@ class ProgramDataCentreService
     }
 
     /** Master build: returns all section data arrays (cached for CACHE_TTL seconds). */
-    public function build(string $viewMode = 'all'): array
+    public function build(string $viewMode = 'all', string $dataScope = 'all'): array
     {
         $viewMode = $viewMode === 'rbiphase3' ? 'rbiphase3' : 'all';
-        $cacheKey = 'data_centre_build_v2_'.$viewMode;
+        $dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
+        $this->prepareScope($dataScope);
+        $cacheKey = 'data_centre_build_v3_'.$viewMode.'_'.$dataScope;
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode) {
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode, $dataScope) {
             $districts = $this->canonicalDistricts();
             $phase3Only = $viewMode === 'rbiphase3';
 
@@ -86,12 +90,14 @@ class ProgramDataCentreService
                 'phase3_fy' => FiscalYear::phase3Default()?->name ?? 'FY 2026-27',
                 'cache_ttl' => self::CACHE_TTL,
                 'view_mode' => $viewMode,
+                'data_scope' => $dataScope,
             ];
 
             if ($phase3Only) {
                 return [
                     'meta' => $meta,
                     'view_mode' => $viewMode,
+                    'data_scope' => $dataScope,
                     'summary' => $this->stateSummaryPhase3Only(),
                     'cfa_by_district' => $this->cfaByDistrictPhase3Only($districts),
                     'gender_state' => $this->genderStatePhase3Only($districts),
@@ -105,6 +111,7 @@ class ProgramDataCentreService
             return [
                 'meta' => $meta,
                 'view_mode' => $viewMode,
+                'data_scope' => $dataScope,
                 'summary' => $this->stateSummary($districts),
                 'cfa_by_district' => $this->cfaByDistrict($districts),
                 'gender_state' => $this->genderState($districts),
@@ -119,8 +126,11 @@ class ProgramDataCentreService
     /** Bust the page-level cache (used by the "Refresh Data" button). */
     public function bustCache(): void
     {
-        Cache::forget('data_centre_build_v2_all');
-        Cache::forget('data_centre_build_v2_rbiphase3');
+        foreach (['all', 'rbiphase3'] as $viewMode) {
+            foreach (['all', 'onboarded'] as $dataScope) {
+                Cache::forget('data_centre_build_v3_'.$viewMode.'_'.$dataScope);
+            }
+        }
     }
 
     /**
@@ -135,7 +145,7 @@ class ProgramDataCentreService
     public function phase3ApplicationAnalysis(): array
     {
         $total = $this->phase3Count();
-        if ($total === 0 || ! $this->hasCfaTable()) {
+        if ($total === 0) {
             return [
                 'total' => 0,
                 'entrepreneur' => [],
@@ -246,9 +256,12 @@ class ProgramDataCentreService
     {
         $p3 = $this->phase3Count();
         $fy = FiscalYear::phase3Default()?->name ?? 'FY 2026-27';
+        $source = $this->isOnboardedScope()
+            ? 'Live MIS – locked onboarding batches (rbiphase3)'
+            : 'Live MIS – cfa_submissions (rbiphase3)';
 
         return [
-            ['phase' => 'Phase 3 ('.$fy.')', 'source' => 'Live MIS – cfa_submissions (rbiphase3)', 'count' => $p3],
+            ['phase' => 'Phase 3 ('.$fy.')', 'source' => $source, 'count' => $p3],
         ];
     }
 
@@ -357,6 +370,15 @@ class ProgramDataCentreService
         $p1 = $this->sumP1All($districts);
         $p2 = $this->sumP2All($districts);
         $p3 = $this->phase3Count();
+
+        if ($this->isOnboardedScope()) {
+            return [
+                ['phase' => 'Phase 1 (FY 2024–25)', 'source' => 'Legacy DB – tblapplication (onboard=yes)', 'count' => $p1],
+                ['phase' => 'Phase 2 (FY 2025–26)', 'source' => 'Legacy DB – rbi_onboarded_applicants', 'count' => $p2],
+                ['phase' => 'Phase 3 (FY 2026–27)', 'source' => 'Live MIS – locked onboarding batches', 'count' => $p3],
+                ['phase' => 'Combined (no duplicate)', 'source' => 'P1 + P2 legacy + P3 MIS onboarded', 'count' => $p1 + $p2 + $p3],
+            ];
+        }
 
         return [
             ['phase' => 'Phase 1 (FY 2024–25)', 'source' => 'Legacy DB – tblapplication',    'count' => $p1],
@@ -524,8 +546,9 @@ class ProgramDataCentreService
     // CSV export helpers
     // ────────────────────────────────────────────────────────────────────────
 
-    public function csvForSection(string $section): array
+    public function csvForSection(string $section, string $dataScope = 'all'): array
     {
+        $this->prepareScope($dataScope);
         $districts = $this->canonicalDistricts();
 
         return match ($section) {
@@ -571,8 +594,7 @@ class ProgramDataCentreService
             return $this->p1Counts;
         }
 
-        foreach (DB::connection('legacy_phase1')
-            ->table('tblapplication')
+        foreach ($this->p1BaseQuery()
             ->selectRaw('LOWER(TRIM(FatherName)) as d, COUNT(*) as c')
             ->groupByRaw('LOWER(TRIM(FatherName))')
             ->get() as $r) {
@@ -593,8 +615,7 @@ class ProgramDataCentreService
             return $this->p1Gender;
         }
 
-        foreach (DB::connection('legacy_phase1')
-            ->table('tblapplication')
+        foreach ($this->p1BaseQuery()
             ->selectRaw('LOWER(TRIM(FatherName)) as d, gender, COUNT(*) as c')
             ->groupByRaw('LOWER(TRIM(FatherName)), gender')
             ->get() as $r) {
@@ -615,8 +636,7 @@ class ProgramDataCentreService
             return $this->p1Education;
         }
 
-        foreach (DB::connection('legacy_phase1')
-            ->table('tblapplication')
+        foreach ($this->p1BaseQuery()
             ->selectRaw('LOWER(TRIM(FatherName)) as d, education, COUNT(*) as c')
             ->groupByRaw('LOWER(TRIM(FatherName)), education')
             ->get() as $r) {
@@ -639,12 +659,12 @@ class ProgramDataCentreService
             return $this->p2Counts;
         }
 
-        foreach (DB::connection('legacy')
-            ->table('rbi_applications as a')
-            ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
+        if ($this->isOnboardedScope() && ! $this->legacyPhase2OnboardOk()) {
+            return $this->p2Counts;
+        }
+
+        foreach ($this->p2BaseQuery()
             ->selectRaw('LOWER(TRIM(d.district)) as dist, COUNT(DISTINCT a.id) as c')
-            ->whereNotNull('a.submission_date')
-            ->whereRaw('DATE(a.submission_date) BETWEEN ? AND ?', [self::P2_START, self::P2_END])
             ->groupByRaw('LOWER(TRIM(d.district))')
             ->get() as $r) {
             $this->p2Counts[(string) $r->dist] = (int) $r->c;
@@ -664,12 +684,12 @@ class ProgramDataCentreService
             return $this->p2Gender;
         }
 
-        foreach (DB::connection('legacy')
-            ->table('rbi_applications as a')
-            ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
+        if ($this->isOnboardedScope() && ! $this->legacyPhase2OnboardOk()) {
+            return $this->p2Gender;
+        }
+
+        foreach ($this->p2BaseQuery()
             ->selectRaw('LOWER(TRIM(d.district)) as dist, d.gender, COUNT(DISTINCT a.id) as c')
-            ->whereNotNull('a.submission_date')
-            ->whereRaw('DATE(a.submission_date) BETWEEN ? AND ?', [self::P2_START, self::P2_END])
             ->groupByRaw('LOWER(TRIM(d.district)), d.gender')
             ->get() as $r) {
             $this->p2Gender[(string) $r->dist][(string) ($r->gender ?? '')] = (int) $r->c;
@@ -689,12 +709,12 @@ class ProgramDataCentreService
             return $this->p2Education;
         }
 
-        foreach (DB::connection('legacy')
-            ->table('rbi_applications as a')
-            ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
+        if ($this->isOnboardedScope() && ! $this->legacyPhase2OnboardOk()) {
+            return $this->p2Education;
+        }
+
+        foreach ($this->p2BaseQuery()
             ->selectRaw('LOWER(TRIM(d.district)) as dist, d.education, COUNT(DISTINCT a.id) as c')
-            ->whereNotNull('a.submission_date')
-            ->whereRaw('DATE(a.submission_date) BETWEEN ? AND ?', [self::P2_START, self::P2_END])
             ->groupByRaw('LOWER(TRIM(d.district)), d.education')
             ->get() as $r) {
             $this->p2Education[(string) $r->dist][(string) ($r->education ?? '')] = (int) $r->c;
@@ -712,7 +732,11 @@ class ProgramDataCentreService
             return $this->p3Counts;
         }
         $this->p3Counts = [];
-        if (! $this->hasCfaTable()) {
+        if ($this->isOnboardedScope()) {
+            if (! $this->hasOnboardingTables()) {
+                return $this->p3Counts;
+            }
+        } elseif (! $this->hasCfaTable()) {
             return $this->p3Counts;
         }
 
@@ -735,7 +759,11 @@ class ProgramDataCentreService
             return $this->p3Gender;
         }
         $this->p3Gender = [];
-        if (! $this->hasCfaTable()) {
+        if ($this->isOnboardedScope()) {
+            if (! $this->hasOnboardingTables()) {
+                return $this->p3Gender;
+            }
+        } elseif (! $this->hasCfaTable()) {
             return $this->p3Gender;
         }
 
@@ -759,7 +787,11 @@ class ProgramDataCentreService
             return $this->p3Education;
         }
         $this->p3Education = [];
-        if (! $this->hasCfaTable()) {
+        if ($this->isOnboardedScope()) {
+            if (! $this->hasOnboardingTables()) {
+                return $this->p3Education;
+            }
+        } elseif (! $this->hasCfaTable()) {
             return $this->p3Education;
         }
 
@@ -959,7 +991,11 @@ class ProgramDataCentreService
 
     private function phase3Count(): int
     {
-        if (! $this->hasCfaTable()) {
+        if ($this->isOnboardedScope()) {
+            if (! $this->hasOnboardingTables()) {
+                return 0;
+            }
+        } elseif (! $this->hasCfaTable()) {
             return 0;
         }
 
@@ -975,11 +1011,91 @@ class ProgramDataCentreService
     {
         $fyId = $this->phase3FiscalYearId();
 
+        if ($this->isOnboardedScope()) {
+            if (! $this->hasOnboardingTables()) {
+                return DB::table('cfa_submissions as cs')->whereRaw('1 = 0');
+            }
+
+            // Match Admin → Onboarded: all locked batch members (no fiscal_year_id filter).
+            return DB::table('onboarding_batch_cfa as obc')
+                ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
+                ->where('ob.status', 'locked')
+                ->whereNotNull('ob.locked_at')
+                ->whereNotNull('obc.cfa_submission_id');
+        }
+
         return DB::table('cfa_submissions as cs')
             ->when($fyId > 0, fn (Builder $q) => $q->where('cs.fiscal_year_id', $fyId))
             ->where(function (Builder $q): void {
                 $q->whereNull('cs.source')->orWhere('cs.source', '<>', 'legacy_phase2');
             });
+    }
+
+    private function prepareScope(string $dataScope): void
+    {
+        $this->dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
+        $this->p1Counts = null;
+        $this->p1Gender = null;
+        $this->p1Education = null;
+        $this->p2Counts = null;
+        $this->p2Gender = null;
+        $this->p2Education = null;
+        $this->p3Counts = null;
+        $this->p3Gender = null;
+        $this->p3Education = null;
+    }
+
+    private function isOnboardedScope(): bool
+    {
+        return $this->dataScope === 'onboarded';
+    }
+
+    private function p1BaseQuery(): Builder
+    {
+        $query = DB::connection('legacy_phase1')->table('tblapplication');
+        if ($this->isOnboardedScope()) {
+            $query->whereRaw('LOWER(TRIM(onboard)) = ?', ['yes']);
+        }
+
+        return $query;
+    }
+
+    private function p2BaseQuery(): Builder
+    {
+        $query = DB::connection('legacy')
+            ->table('rbi_applications as a')
+            ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
+            ->whereNotNull('a.submission_date')
+            ->whereRaw('DATE(a.submission_date) BETWEEN ? AND ?', [self::P2_START, self::P2_END]);
+
+        if ($this->isOnboardedScope()) {
+            $query->join('rbi_onboarded_applicants as oa', 'oa.application_id', '=', 'a.id')
+                ->whereNotNull('oa.status')
+                ->where('oa.status', '!=', '');
+        }
+
+        return $query;
+    }
+
+    private function legacyPhase2OnboardOk(): bool
+    {
+        if (! $this->legacyPhase2Ok) {
+            return false;
+        }
+
+        try {
+            return DB::connection('legacy')->getSchemaBuilder()->hasTable('rbi_onboarded_applicants');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function hasOnboardingTables(): bool
+    {
+        return $this->hasCfaTable()
+            && Schema::hasTable('onboarding_batch_cfa')
+            && Schema::hasTable('onboarding_batches');
     }
 
     // ────────────────────────────────────────────────────────────────────────
