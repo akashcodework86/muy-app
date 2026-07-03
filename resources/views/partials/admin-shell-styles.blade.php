@@ -1346,6 +1346,27 @@
         border-radius: 10px;
         color: rgba(255, 255, 255, 0.95);
         white-space: nowrap;
+        overflow: visible;
+    }
+    .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__details {
+        position: relative;
+    }
+    .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__details[open] {
+        z-index: 420;
+    }
+    .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__dropdown-panel {
+        z-index: 430;
+        left: 0;
+        top: calc(100% + 0.35rem);
+    }
+    .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__dropdown-trigger {
+        list-style: none;
+        cursor: pointer;
+        padding-right: 1.7rem;
+        position: relative;
+    }
+    .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__dropdown-trigger::-webkit-details-marker {
+        display: none;
     }
     .admin-topbar--hub .admin-topbar__link-ico {
         width: 1.15rem;
@@ -1370,9 +1391,28 @@
     .admin-topbar--hub .admin-topbar__link.is-active .admin-topbar__link-ico {
         color: #d04a02 !important;
     }
-    .admin-topbar--hub .admin-topbar__dropdown-trigger::after {
-        border-color: currentColor;
-        opacity: 0.55;
+    .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__dropdown-trigger::after {
+        content: '';
+        position: absolute;
+        right: 0.55rem;
+        top: 50%;
+        width: 0.36rem;
+        height: 0.36rem;
+        margin-top: -0.2rem;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        opacity: 0.75;
+        z-index: 2;
+        pointer-events: none;
+        transition: transform 0.2s ease, margin-top 0.2s ease;
+    }
+    .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__details[open] > .admin-topbar__dropdown-trigger::after {
+        margin-top: -0.08rem;
+        transform: rotate(225deg);
+    }
+    .admin-topbar--hub .admin-topbar__nav--hub-admin .admin-topbar__link.is-active.admin-topbar__dropdown-trigger::after {
+        opacity: 0.85;
     }
     .admin-topbar--hub .admin-topbar__right {
         gap: 0.45rem;
