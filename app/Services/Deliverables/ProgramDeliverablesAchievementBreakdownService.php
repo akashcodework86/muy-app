@@ -1320,6 +1320,7 @@ class ProgramDeliverablesAchievementBreakdownService
         $data = LineDepartmentMeetingDeliverablesSupport::meetingsBreakdown(
             $this->periodFrom,
             $this->periodTo,
+            $this->districtIds,
         );
 
         return [

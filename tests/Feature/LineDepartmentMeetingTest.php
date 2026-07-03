@@ -265,4 +265,96 @@ class LineDepartmentMeetingTest extends TestCase
 
         $this->assertSame(1, $breakdown['total']);
     }
+
+    public function test_program_deliverables_scopes_meetings_by_district(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ldm-del-hub', 'name' => 'LDM Hub', 'sort_order' => 20]);
+        $districtA = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ldm-dist-a', 'name' => 'LDM District A', 'sort_order' => 20]);
+        $districtB = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ldm-dist-b', 'name' => 'LDM District B', 'sort_order' => 21]);
+
+        $staffA = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $districtA->id,
+            'is_active' => true,
+        ]);
+        $staffB = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $districtB->id,
+            'is_active' => true,
+        ]);
+
+        LineDepartmentMeeting::query()->create([
+            'submitted_by_user_id' => $staffA->id,
+            'submitted_by_name' => $staffA->name,
+            'meeting_date' => '2026-05-12',
+            'meeting_level' => 'spoke',
+            'hub_id' => $hub->id,
+            'hub_name' => $hub->name,
+            'district_id' => $districtA->id,
+            'district_name' => $districtA->name,
+            'meeting_mode' => 'physical',
+            'department_name' => 'Tourism',
+            'official_name' => 'Official A',
+            'official_designation' => 'Director',
+            'meeting_purpose' => 'convergence',
+            'agenda_remark_outcome' => 'Outcome A',
+            'agenda_summary' => '',
+            'outcome_decision' => '',
+            'proof_media_json' => [['path' => 'x', 'original_name' => 'a.pdf']],
+            'status' => ServiceCase::STATUS_APPROVED,
+            'submitted_at' => now(),
+            'approved_at' => now(),
+        ]);
+
+        LineDepartmentMeeting::query()->create([
+            'submitted_by_user_id' => $staffB->id,
+            'submitted_by_name' => $staffB->name,
+            'meeting_date' => '2026-05-13',
+            'meeting_level' => 'hub',
+            'hub_id' => $hub->id,
+            'hub_name' => $hub->name,
+            'district_id' => null,
+            'district_name' => null,
+            'meeting_mode' => 'physical',
+            'department_name' => 'Agriculture',
+            'official_name' => 'Official B',
+            'official_designation' => 'Director',
+            'meeting_purpose' => 'convergence',
+            'agenda_remark_outcome' => 'Outcome B',
+            'agenda_summary' => '',
+            'outcome_decision' => '',
+            'proof_media_json' => [['path' => 'y', 'original_name' => 'b.pdf']],
+            'status' => ServiceCase::STATUS_APPROVED,
+            'submitted_at' => now(),
+            'approved_at' => now(),
+        ]);
+
+        Deliverable::query()->where('code', 'line_department_meeting')->firstOrFail();
+
+        $filter = new ProgramDeliverablesFilter($fy->id, $districtA->id, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '12.2');
+
+        $this->assertSame(2, app(ProgramDeliverablesAchievementBreakdownService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, null, null, null, null),
+            $scope,
+            '12.2',
+        )['total']);
+
+        $this->assertSame(1, $breakdown['total']);
+        $this->assertSame('LDM District A', $breakdown['by_district'][0]['district'] ?? null);
+        $this->assertSame(1, $breakdown['by_district'][0]['count'] ?? 0);
+    }
 }

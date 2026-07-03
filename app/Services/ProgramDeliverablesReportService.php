@@ -1690,6 +1690,7 @@ class ProgramDeliverablesReportService
         return LineDepartmentMeetingDeliverablesSupport::countMeetings(
             $this->periodFrom,
             $this->periodTo,
+            $this->districtIds,
         );
     }
 
