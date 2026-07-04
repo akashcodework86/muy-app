@@ -418,7 +418,6 @@ class ProgramDeliverablesAchievementBreakdownService
             ])
             ->selectRaw("{$dateExpr} as achievement_date")
             ->orderByDesc(DB::raw($dateExpr))
-            ->limit(100)
             ->get()
             ->map(fn ($row) => $this->mapServiceCaseBreakdownRecord($row))
             ->all();
@@ -432,7 +431,7 @@ class ProgramDeliverablesAchievementBreakdownService
         );
 
         $rows = $this->mergeServiceCaseAggregateRows($cfaRows, $legacyRows);
-        $records = $this->mergeServiceCaseBreakdownRecords($cfaRecords, $legacyRecords, 100);
+        $records = $this->mergeServiceCaseBreakdownRecords($cfaRecords, $legacyRecords);
         $amountTotalsByServiceId = $this->mergeAmountTotalsByServiceId($cfaAmountTotals, $legacyAmountTotals);
         $breakdown = $this->aggregateGroupedRows($rows, includeService: true, records: $records);
         $breakdown['by_service'] = $this->bifurcationRowsForSource(
@@ -656,18 +655,23 @@ class ProgramDeliverablesAchievementBreakdownService
      * @param  list<array<string, mixed>>  $legacyRecords
      * @return list<array<string, mixed>>
      */
-    private function mergeServiceCaseBreakdownRecords(array $cfaRecords, array $legacyRecords, int $limit): array
+    private function mergeServiceCaseBreakdownRecords(array $cfaRecords, array $legacyRecords, ?int $limit = null): array
     {
         $combined = array_merge($cfaRecords, $legacyRecords);
         usort($combined, function (array $a, array $b): int {
             return strcmp((string) ($b['_sort_date'] ?? ''), (string) ($a['_sort_date'] ?? ''));
         });
 
+        // No hard cap by default — the drawer paginates client-side and exports receive every record.
+        if ($limit !== null) {
+            $combined = array_slice($combined, 0, $limit);
+        }
+
         return array_map(function (array $record): array {
             unset($record['_sort_date']);
 
             return $record;
-        }, array_slice($combined, 0, $limit));
+        }, $combined);
     }
 
     /**
