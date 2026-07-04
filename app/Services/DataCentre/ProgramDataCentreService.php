@@ -19,6 +19,9 @@ class ProgramDataCentreService
     /** Cache TTL in seconds (5 minutes). */
     private const CACHE_TTL = 300;
 
+    /** Legacy job-count columns are free-text; treat values above this as data-entry junk (excluded from the jobs sum). */
+    private const MAX_PLAUSIBLE_JOBS = 500;
+
     // ─── Phase 2 district aliases (legacy spelling variants) ─────────────
     private const P2_ALIASES = [
         'Udham Singh Nagar' => ['udham singh nagar', 'udham singh nagr', 'us nagar', 'u s nagar', 'u.s. nagar', 'u s n'],
@@ -76,7 +79,7 @@ class ProgramDataCentreService
         $viewMode = $viewMode === 'rbiphase3' ? 'rbiphase3' : 'all';
         $dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
         $this->prepareScope($dataScope);
-        $cacheKey = 'data_centre_build_v3_'.$viewMode.'_'.$dataScope;
+        $cacheKey = 'data_centre_build_v4_'.$viewMode.'_'.$dataScope;
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode, $dataScope) {
             $districts = $this->canonicalDistricts();
@@ -104,6 +107,7 @@ class ProgramDataCentreService
                     'gender_district' => $this->genderByDistrictPhase3Only($districts),
                     'education_state' => $this->educationStatePhase3Only($districts),
                     'education_district' => $this->educationByDistrictPhase3Only($districts),
+                    'employment_state' => $this->employmentStatePhase3Only(),
                     'application_analysis' => $this->phase3ApplicationAnalysis(),
                 ];
             }
@@ -118,6 +122,7 @@ class ProgramDataCentreService
                 'gender_district' => $this->genderByDistrict($districts),
                 'education_state' => $this->educationState($districts),
                 'education_district' => $this->educationByDistrict($districts),
+                'employment_state' => $this->employmentState(),
                 'application_analysis' => null,
             ];
         });
@@ -128,7 +133,7 @@ class ProgramDataCentreService
     {
         foreach (['all', 'rbiphase3'] as $viewMode) {
             foreach (['all', 'onboarded'] as $dataScope) {
-                Cache::forget('data_centre_build_v3_'.$viewMode.'_'.$dataScope);
+                Cache::forget('data_centre_build_v4_'.$viewMode.'_'.$dataScope);
             }
         }
     }
@@ -543,6 +548,114 @@ class ProgramDataCentreService
     }
 
     // ────────────────────────────────────────────────────────────────────────
+    // SECTION 7 — Employment generation (state, all phases)
+    // ────────────────────────────────────────────────────────────────────────
+
+    /** @return list<array<string, mixed>> */
+    public function employmentState(): array
+    {
+        $p1 = $this->employmentAggregatePhase('p1');
+        $p2 = $this->employmentAggregatePhase('p2');
+        $p3 = $this->employmentAggregatePhase('p3');
+
+        $rows = [
+            $this->employmentRow('Phase 1 (FY 2024–25)', $p1),
+            $this->employmentRow('Phase 2 (FY 2025–26)', $p2),
+            $this->employmentRow('Phase 3 (FY 2026–27)', $p3),
+        ];
+
+        $combined = $this->employmentRow('Combined', [
+            'employers' => $p1['employers'] + $p2['employers'] + $p3['employers'],
+            'jobs' => $p1['jobs'] + $p2['jobs'] + $p3['jobs'],
+            'total' => $p1['total'] + $p2['total'] + $p3['total'],
+        ]);
+        $combined['_is_total'] = true;
+        $rows[] = $combined;
+
+        return $rows;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function employmentStatePhase3Only(): array
+    {
+        return [$this->employmentRow('Phase 3 (FY 2026–27)', $this->employmentAggregatePhase('p3'))];
+    }
+
+    /**
+     * One phase's employment aggregate. Legacy count columns are free-text
+     * varchars containing junk/outliers, so non-numeric values and anything
+     * above MAX_PLAUSIBLE_JOBS are excluded from the jobs sum. The employer
+     * (Yes) count stays exact. Phase 3 is form-validated.
+     *
+     * @return array{employers: int, jobs: int, total: int}
+     */
+    private function employmentAggregatePhase(string $phase): array
+    {
+        $empty = ['employers' => 0, 'jobs' => 0, 'total' => 0];
+        $cap = self::MAX_PLAUSIBLE_JOBS;
+
+        if ($phase === 'p1') {
+            if (! $this->legacyPhase1Ok) {
+                return $empty;
+            }
+            $row = $this->p1BaseQuery()->selectRaw("
+                COUNT(*) as total,
+                SUM(LOWER(TRIM(job_offer)) = 'yes') as employers,
+                SUM(CASE WHEN job_count REGEXP '^[0-9]+$' AND CAST(job_count AS UNSIGNED) BETWEEN 1 AND {$cap}
+                         THEN CAST(job_count AS UNSIGNED) ELSE 0 END) as jobs
+            ")->first();
+        } elseif ($phase === 'p2') {
+            if (! $this->legacyPhase2Ok || ($this->isOnboardedScope() && ! $this->legacyPhase2OnboardOk())) {
+                return $empty;
+            }
+            $row = $this->p2BaseQuery()->selectRaw("
+                COUNT(DISTINCT a.id) as total,
+                SUM(d.current_employment = 'Yes') as employers,
+                SUM(CASE WHEN d.employed_count REGEXP '^[0-9]+$' AND CAST(d.employed_count AS UNSIGNED) BETWEEN 1 AND {$cap}
+                         THEN CAST(d.employed_count AS UNSIGNED) ELSE 0 END) as jobs
+            ")->first();
+        } else {
+            if ($this->isOnboardedScope()) {
+                if (! $this->hasOnboardingTables()) {
+                    return $empty;
+                }
+            } elseif (! $this->hasCfaTable()) {
+                return $empty;
+            }
+            $row = $this->phase3BaseQuery()->selectRaw("
+                COUNT(*) as total,
+                SUM(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.current_employment')) = 'Yes') as employers,
+                SUM(CASE WHEN CAST(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.employed_count')) AS UNSIGNED) BETWEEN 1 AND {$cap}
+                         THEN CAST(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.employed_count')) AS UNSIGNED) ELSE 0 END) as jobs
+            ")->first();
+        }
+
+        return [
+            'employers' => (int) ($row->employers ?? 0),
+            'jobs' => (int) ($row->jobs ?? 0),
+            'total' => (int) ($row->total ?? 0),
+        ];
+    }
+
+    /**
+     * @param  array{employers: int, jobs: int, total: int}  $agg
+     * @return array<string, mixed>
+     */
+    private function employmentRow(string $label, array $agg): array
+    {
+        $total = (int) $agg['total'];
+        $employers = (int) $agg['employers'];
+
+        return [
+            'phase' => $label,
+            'employers' => $employers,
+            'jobs' => (int) $agg['jobs'],
+            'total' => $total,
+            'pct' => $total > 0 ? round($employers * 100 / $total, 1) : 0.0,
+        ];
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
     // CSV export helpers
     // ────────────────────────────────────────────────────────────────────────
 
@@ -558,6 +671,7 @@ class ProgramDataCentreService
             'gender-district' => $this->toCsv($this->genderByDistrict($districts)),
             'education-state' => $this->toCsv($this->educationState($districts)),
             'education-district' => $this->toCsv($this->educationByDistrict($districts)),
+            'employment-state' => $this->toCsv($this->employmentState()),
             default => [['error' => 'Unknown section']],
         };
     }

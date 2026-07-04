@@ -41,7 +41,7 @@ class DataCentreController extends Controller
      */
     public function export(Request $request, string $section): StreamedResponse
     {
-        $allowed = ['summary', 'cfa-by-district', 'gender-state', 'gender-district', 'education-state', 'education-district'];
+        $allowed = ['summary', 'cfa-by-district', 'gender-state', 'gender-district', 'education-state', 'education-district', 'employment-state'];
         if (! in_array($section, $allowed, true)) {
             abort(404, 'Unknown section.');
         }
@@ -80,6 +80,7 @@ class DataCentreController extends Controller
             'Gender - By District' => 'gender-district',
             'Education - State Totals' => 'education-state',
             'Education - By District' => 'education-district',
+            'Employment Generation - State Totals' => 'employment-state',
         ];
 
         $note = $dataScope === 'onboarded'

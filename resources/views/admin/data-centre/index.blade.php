@@ -423,7 +423,62 @@
             </div>
         </details>
 
-        {{-- 2. Gender — State --}}
+        {{-- 2. Employment Generation --}}
+        <details class="dc-section" id="sec-employment">
+            <summary class="dc-section__head">
+                <div class="dc-section__head-left">
+                    <div class="dc-section__icon" style="background:#fef3c7;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="1.8"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>
+                    </div>
+                    <div>
+                        <div class="dc-section__name">Employment Generation</div>
+                        <div class="dc-section__desc">
+                            @if ($isPhase3View)
+                                Enterprises generating employment — Phase 3 (rbiphase3)
+                            @else
+                                Enterprises generating employment, jobs reported and % — per phase and combined
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <div class="dc-section__actions" onclick="event.stopPropagation()">
+                    <a href="{{ route('admin.data-centre.export', array_merge(['section' => 'employment-state'], $dcQuery)) }}" class="dc-btn dc-btn--export">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                        Export CSV
+                    </a>
+                    <svg class="dc-section__arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l5 5 5-5"/></svg>
+                </div>
+            </summary>
+            <div class="dc-table-wrap">
+                <table class="dc-table">
+                    <thead>
+                        <tr>
+                            <th>Phase</th>
+                            <th class="_num">Generating Employment</th>
+                            <th class="_num">Jobs Reported</th>
+                            <th class="_num">Total {{ $isOnboardedOnly ? 'Onboarded' : 'Applications' }}</th>
+                            <th class="_num">% Generating</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($employment_state as $row)
+                            <tr class="{{ !empty($row['_is_total']) ? '_total' : '' }}">
+                                <td>{{ $row['phase'] }}</td>
+                                <td class="_num">{{ number_format($row['employers']) }}</td>
+                                <td class="_num">{{ number_format($row['jobs']) }}</td>
+                                <td class="_num">{{ number_format($row['total']) }}</td>
+                                <td class="_num">{{ number_format($row['pct'], 1) }}%</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+                <p class="dc-note">
+                    <strong>Generating employment</strong> = applicants who answered "Yes". <strong>Jobs reported</strong> = sum of people employed — legacy Phase 1/2 are free-text fields, so non-numeric entries and outliers above 500 are excluded (Phase 3 is form-validated). <strong>% Generating</strong> = employers ÷ total {{ $isOnboardedOnly ? 'onboarded' : 'applications' }}.
+                </p>
+            </div>
+        </details>
+
+        {{-- 3. Gender — State --}}
         <details class="dc-section" id="sec-gender-state">
             <summary class="dc-section__head">
                 <div class="dc-section__head-left">
