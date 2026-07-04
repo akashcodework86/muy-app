@@ -555,7 +555,7 @@
             return `Partner names <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">${fmt(total)} unique</span>`;
         }
         if (isMarketIncubatees) {
-            return `Market linkages <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">${fmt(total)} incubatees · ${fmt(_allRecords.length)} partner rows</span>`;
+            return `Linked incubatees <span style="font-weight:400;font-size:0.78rem;color:#0369a1;margin-left:0.4rem;">${fmt(total)} incubatees</span>`;
         }
         if (isFP) {
             return `Female Participants <span style="font-weight:400;font-size:0.78rem;color:#be185d;margin-left:0.4rem;">${fmt(total)} entries</span>`;
@@ -711,9 +711,9 @@
             tableHtml = `<table class="dlv-table">
                 <thead><tr>
                     <th style="width:2rem;text-align:center;">#</th>
-                    <th>Application no.</th><th>Incubatee</th><th>District</th><th>Partner</th><th>Mode</th><th>Linkage date</th>
+                    <th>Application no.</th><th>Incubatee</th><th>District</th><th>Partner(s)</th><th>Mode</th><th>Latest linkage</th>
                 </tr></thead>
-                <tbody>${rowsHtml || '<tr><td colspan="7">No market linkages found.</td></tr>'}</tbody>
+                <tbody>${rowsHtml || '<tr><td colspan="7">No linked incubatees found.</td></tr>'}</tbody>
             </table>`;
         } else if (isPitchDeckCombined) {
             const rowsHtml = pageRecords.map((row, i) => {

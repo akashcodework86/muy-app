@@ -2802,7 +2802,7 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame('Offline', $breakdown['records'][0]['linkage_mode'] ?? null);
     }
 
-    public function test_market_linkage_incubatee_deliverable_includes_orphan_service_cases(): void
+    public function test_market_linkage_incubatee_deliverable_excludes_orphan_service_cases(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
             ['code' => '2026-27'],
@@ -2892,8 +2892,10 @@ class DeliverablesReportTest extends TestCase
         $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
         $row = collect($report['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
 
+        // Only the Market Linkage module submission is counted; the legacy market-link
+        // service case is excluded (deliverable now mirrors the Market Linkage dashboard).
         $this->assertNotNull($row);
-        $this->assertSame(2, $row['achievement']);
+        $this->assertSame(1, $row['achievement']);
 
         $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build(
             $filter,
@@ -2901,13 +2903,12 @@ class DeliverablesReportTest extends TestCase
             (string) $row['serial'],
         );
 
-        $this->assertSame(2, $breakdown['total']);
-        $this->assertSame(1, $breakdown['offline_incubatees'] ?? null);
+        $this->assertSame(1, $breakdown['total']);
+        $this->assertSame(0, $breakdown['offline_incubatees'] ?? null);
         $this->assertSame(1, $breakdown['online_incubatees'] ?? null);
-        $this->assertTrue(
+        $this->assertFalse(
             collect($breakdown['records'] ?? [])->contains(
-                fn (array $record): bool => ($record['applicant'] ?? '') === 'Offline SC Incubatee'
-                    && ($record['linkage_mode'] ?? '') === 'Offline',
+                fn (array $record): bool => ($record['applicant'] ?? '') === 'Offline SC Incubatee',
             ),
         );
     }

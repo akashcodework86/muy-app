@@ -333,7 +333,7 @@
                 @if ($createRoute)
                     <a href="{{ route($createRoute) }}" class="ml-btn ml-btn--primary">+ Add market linkage</a>
                 @endif
-                <a href="{{ route($exportRoute, request()->query()) }}" class="ml-btn ml-btn--export">⬇ Export CSV</a>
+                <a href="{{ route($exportRoute, request()->query()) }}" class="ml-btn ml-btn--export">⬇ Export Excel</a>
             </div>
         </div>
 

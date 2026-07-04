@@ -9,8 +9,10 @@ use App\Models\MarketLinkageSubmission;
 use App\Models\ServiceCase;
 use App\Models\User;
 use App\Services\AppSettingsService;
+use App\Services\Deliverables\Exports\DeliverablesExcelSupport;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MarketLinkagePartnerCatalogService;
+use App\Services\MarketLinkages\MarketLinkageDashboardExcelExport;
 use App\Services\MarketLinkageWorkflowService;
 use App\Support\MarketLinkageAccess;
 use Illuminate\Contracts\View\View;
@@ -243,38 +245,7 @@ class MarketLinkageController extends Controller
         }
 
         $filters = $this->validatedFilters($request);
-        $query = MarketLinkageSubmission::query()
-            ->approved()
-            ->with(['partners', 'submitter:id,name', 'district:id,name']);
-
-        $this->scopeDashboardQuery($query, $user);
-
-        if ($filters['district_id'] > 0) {
-            $query->where('district_id', $filters['district_id']);
-        }
-        if ($filters['linkage_mode'] !== '') {
-            $query->whereHas('partners', fn ($q) => $q->where('linkage_mode', $filters['linkage_mode']));
-        }
-        if ($filters['q'] !== '') {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']).'%';
-            $query->where(function ($q) use ($like): void {
-                $q->where('incubatee_name', 'like', $like)
-                    ->orWhere('application_no', 'like', $like)
-                    ->orWhere('submitted_by_name', 'like', $like)
-                    ->orWhereHas('partners', fn ($pq) => $pq->where('partner_name', 'like', $like));
-            });
-        }
-        if ($filters['from'] !== '') {
-            $query->whereHas('partners', fn ($q) => $q->whereDate('linkage_date', '>=', $filters['from']));
-        }
-        if ($filters['to'] !== '') {
-            $query->whereHas('partners', fn ($q) => $q->whereDate('linkage_date', '<=', $filters['to']));
-        }
-
-        $submissions = $query
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get();
+        $submissions = $this->dashboardSubmissionsQuery($user, $filters)->get();
 
         $grouped = $this->groupSubmissionsByIncubatee($submissions, $filters, $user);
         $stats = $this->computeDashboardStats($submissions, $filters);
@@ -349,59 +320,92 @@ class MarketLinkageController extends Controller
         abort_unless(MarketLinkageAccess::canViewDashboard($user), 403);
 
         $filters = $this->validatedFilters($request);
-        $query = MarketLinkageSubmission::query()->approved()->with(['partners', 'district:id,name']);
-        $this->scopeDashboardQuery($query, $user);
 
-        if ($filters['district_id'] > 0) {
-            $query->where('district_id', $filters['district_id']);
-        }
-        if ($filters['linkage_mode'] !== '') {
-            $query->whereHas('partners', fn ($q) => $q->where('linkage_mode', $filters['linkage_mode']));
-        }
-        if ($filters['q'] !== '') {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']).'%';
-            $query->where(function ($q) use ($like): void {
-                $q->where('incubatee_name', 'like', $like)
-                    ->orWhere('application_no', 'like', $like)
-                    ->orWhereHas('partners', fn ($pq) => $pq->where('partner_name', 'like', $like));
-            });
+        if (! Schema::hasTable('market_linkage_submissions')) {
+            $groups = collect();
+            $stats = $this->emptyDashboardStats();
+        } else {
+            // Build from the exact same filtered/grouped dataset the dashboard renders,
+            // so the export matches the view (incl. partner-level date/type filtering).
+            $submissions = $this->dashboardSubmissionsQuery($user, $filters)->get();
+            $groups = $this->groupSubmissionsByIncubatee($submissions, $filters, $user);
+            $stats = $this->computeDashboardStats($submissions, $filters);
         }
 
-        $submissions = $query->orderByDesc('created_at')->orderByDesc('id')->get();
+        $showDistrict = in_array($user->role, ['state_admin', 'hub_admin'], true);
+        $districtLabel = $this->exportDistrictLabel($filters);
 
+        if (DeliverablesExcelSupport::isAvailable()) {
+            return app(MarketLinkageDashboardExcelExport::class)
+                ->download($groups, $stats, $filters, $showDistrict, $districtLabel);
+        }
+
+        return $this->exportGroupedCsv($groups, $showDistrict);
+    }
+
+    /**
+     * @param  array{district_id: int}  $filters
+     */
+    private function exportDistrictLabel(array $filters): string
+    {
+        if (($filters['district_id'] ?? 0) > 0) {
+            return (string) (District::query()->whereKey($filters['district_id'])->value('name') ?? 'All districts');
+        }
+
+        return 'All districts';
+    }
+
+    /**
+     * CSV fallback (used only when PhpSpreadsheet / ext-zip is unavailable).
+     * Mirrors the dashboard: one row per matching partner, grouped by incubatee.
+     *
+     * @param  Collection<int, object>  $groups
+     */
+    private function exportGroupedCsv(Collection $groups, bool $showDistrict): StreamedResponse
+    {
         $filename = 'market-linkages-'.now()->format('Ymd_His').'.csv';
 
-        return response()->streamDownload(function () use ($submissions): void {
+        return response()->streamDownload(function () use ($groups, $showDistrict): void {
             $out = fopen('php://output', 'w');
-            fputcsv($out, [
-                'Submission ID',
-                'District',
+
+            $header = ['#'];
+            if ($showDistrict) {
+                $header[] = 'District';
+            }
+            $header = array_merge($header, [
                 'Incubatee',
                 'Application no',
-                'Submitted by',
-                'Submitted at',
                 'Partner name',
-                'Linkage mode',
+                'Linkage type',
                 'Linkage date',
-                'Link URL',
-                'Has document',
+                'Link / URL',
+                'Bill',
+                'Recorded at',
+                'Recorded by',
+                'Submission ID',
             ]);
+            fputcsv($out, $header);
 
-            foreach ($submissions as $submission) {
-                foreach ($submission->partners as $partner) {
-                    fputcsv($out, [
-                        $submission->id,
-                        $submission->district_name ?? $submission->district?->name ?? '',
-                        $submission->incubatee_name,
-                        $submission->application_no ?? '',
-                        $submission->submitted_by_name,
-                        optional($submission->created_at)->timezone(config('app.timezone'))->format('Y-m-d H:i'),
-                        $partner->partner_name,
-                        MarketLinkageSubmission::linkageModeLabel($partner->linkage_mode),
-                        $partner->linkage_date?->format('Y-m-d') ?? '',
-                        $partner->link_url ?? '',
-                        $partner->hasDocument() ? 'yes' : 'no',
-                    ]);
+            $serial = 0;
+            foreach ($groups as $group) {
+                $serial++;
+                $partners = is_array($group->partners ?? null) ? $group->partners : [];
+                foreach ($partners as $p) {
+                    $row = [$serial];
+                    if ($showDistrict) {
+                        $row[] = $group->district_name ?? '';
+                    }
+                    $row[] = $group->incubatee_name ?? '';
+                    $row[] = $group->application_no ?? '';
+                    $row[] = $p['partner_name'] ?? '';
+                    $row[] = $p['linkage_mode_label'] ?? '';
+                    $row[] = $p['linkage_date_display'] ?? ($p['linkage_date'] ?? '');
+                    $row[] = $p['link_url'] ?? '';
+                    $row[] = ! empty($p['has_document']) ? 'Yes' : 'No';
+                    $row[] = $p['recorded_at'] ?? '';
+                    $row[] = $p['recorded_by'] ?? '';
+                    $row[] = (int) ($p['submission_id'] ?? 0);
+                    fputcsv($out, $row);
                 }
             }
 
@@ -550,6 +554,47 @@ class MarketLinkageController extends Controller
         }
 
         return $normalized;
+    }
+
+    /**
+     * Base dashboard submissions query with every dashboard filter applied.
+     * Shared by dashboard() and export() so the export mirrors the view exactly
+     * (same district / linkage type / search / date-range filtering and ordering).
+     *
+     * @param  array{q: string, from: string, to: string, district_id: int, linkage_mode: string}  $filters
+     * @return Builder<MarketLinkageSubmission>
+     */
+    private function dashboardSubmissionsQuery(User $user, array $filters)
+    {
+        $query = MarketLinkageSubmission::query()
+            ->approved()
+            ->with(['partners', 'submitter:id,name', 'district:id,name']);
+
+        $this->scopeDashboardQuery($query, $user);
+
+        if ($filters['district_id'] > 0) {
+            $query->where('district_id', $filters['district_id']);
+        }
+        if ($filters['linkage_mode'] !== '') {
+            $query->whereHas('partners', fn ($q) => $q->where('linkage_mode', $filters['linkage_mode']));
+        }
+        if ($filters['q'] !== '') {
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']).'%';
+            $query->where(function ($q) use ($like): void {
+                $q->where('incubatee_name', 'like', $like)
+                    ->orWhere('application_no', 'like', $like)
+                    ->orWhere('submitted_by_name', 'like', $like)
+                    ->orWhereHas('partners', fn ($pq) => $pq->where('partner_name', 'like', $like));
+            });
+        }
+        if ($filters['from'] !== '') {
+            $query->whereHas('partners', fn ($q) => $q->whereDate('linkage_date', '>=', $filters['from']));
+        }
+        if ($filters['to'] !== '') {
+            $query->whereHas('partners', fn ($q) => $q->whereDate('linkage_date', '<=', $filters['to']));
+        }
+
+        return $query->orderByDesc('created_at')->orderByDesc('id');
     }
 
     private function scopeDashboardQuery($query, User $user): void

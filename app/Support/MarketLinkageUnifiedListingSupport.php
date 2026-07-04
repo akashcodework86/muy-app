@@ -6,6 +6,7 @@ use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -124,17 +125,21 @@ SQL;
     /**
      * Unified approved incubatee counts: market linkage + orphan service cases (each incubatee once).
      *
+     * When $periodFrom/$periodTo are provided, only linkages within that window are counted
+     * (market linkages by linkage_date, orphan service cases by approved/created date). When they
+     * are null the count is cumulative (all approved linkages regardless of date).
+     *
      * @param  list<int>|null  $districtIds  null = statewide
      * @return array{offline_incubatees: int, online_incubatees: int, total_incubatees: int}
      */
-    public static function approvedIncubateeModeCounts(?array $districtIds, bool $approvedOnly = true): array
+    public static function approvedIncubateeModeCounts(?array $districtIds, bool $approvedOnly = true, ?Carbon $periodFrom = null, ?Carbon $periodTo = null, bool $includeServiceCaseOrphans = true): array
     {
         if ($districtIds === []) {
             return ['offline_incubatees' => 0, 'online_incubatees' => 0, 'total_incubatees' => 0];
         }
 
         return self::countIncubateeModeMap(
-            self::buildUnifiedIncubateeModeMap($districtIds, $approvedOnly),
+            self::buildUnifiedIncubateeModeMap($districtIds, $approvedOnly, $periodFrom, $periodTo, $includeServiceCaseOrphans),
         );
     }
 
@@ -142,9 +147,9 @@ SQL;
      * @param  list<int>|null  $districtIds
      * @return list<array{service: string, count: int, share_pct: int}>
      */
-    public static function linkageModeBifurcationRows(?array $districtIds, bool $approvedOnly = true): array
+    public static function linkageModeBifurcationRows(?array $districtIds, bool $approvedOnly = true, ?Carbon $periodFrom = null, ?Carbon $periodTo = null, bool $includeServiceCaseOrphans = true): array
     {
-        $counts = self::approvedIncubateeModeCounts($districtIds, $approvedOnly);
+        $counts = self::approvedIncubateeModeCounts($districtIds, $approvedOnly, $periodFrom, $periodTo, $includeServiceCaseOrphans);
         $rows = [];
 
         foreach ([
@@ -175,13 +180,15 @@ SQL;
      *     hub: string
      * }>
      */
-    public static function unifiedApprovedIncubateeRecords(?array $districtIds, bool $approvedOnly = true, int $limit = 500): array
+    public static function unifiedApprovedIncubateeRecords(?array $districtIds, bool $approvedOnly = true, int $limit = 500, ?Carbon $periodFrom = null, ?Carbon $periodTo = null, bool $includeServiceCaseOrphans = true): array
     {
         if ($districtIds === []) {
             return [];
         }
 
-        $records = [];
+        // Aggregate to ONE row per incubatee (an incubatee may have several partner
+        // linkages) so the number of rows matches the incubatee achievement total.
+        $incubatees = [];
 
         if (Schema::hasTable('market_linkage_submissions') && Schema::hasTable('market_linkage_partners')) {
             $keySql = self::INCUBATEE_KEY_SQL;
@@ -202,27 +209,50 @@ SQL;
                 ');
 
             self::applyMarketLinkageDistrictAndStatusScopes($query, $districtIds, $approvedOnly);
+            self::applyMarketLinkagePartnerPeriodScope($query, $periodFrom, $periodTo);
 
-            foreach ($query->orderBy('mls.incubatee_name')->orderBy('mlp.sort_order')->orderBy('mlp.id')->limit($limit)->get() as $row) {
-                $records[] = [
-                    'reference' => (string) ($row->application_no ?? '—'),
-                    'applicant' => (string) ($row->incubatee_name ?: '—'),
-                    'service' => (string) ($row->partner_name ?: '—'),
-                    'linkage_mode' => self::linkageModeLabelFromPartnerMode((string) ($row->linkage_mode ?? '')),
-                    'date' => $row->linkage_date
-                        ? \Carbon\Carbon::parse((string) $row->linkage_date)->format('d M Y')
-                        : '—',
-                    'district' => (string) $row->district_name,
-                    'hub' => (string) ($row->hub_name ?? ''),
-                ];
+            foreach ($query->orderBy('mls.incubatee_name')->orderBy('mlp.sort_order')->orderBy('mlp.id')->get() as $row) {
+                $key = (string) ($row->incubatee_key ?? '');
+                if ($key === '') {
+                    continue;
+                }
+
+                if (! isset($incubatees[$key])) {
+                    $incubatees[$key] = self::newIncubateeAggregate(
+                        (string) ($row->application_no ?? '—'),
+                        (string) ($row->incubatee_name ?: '—'),
+                        (string) $row->district_name,
+                        (string) ($row->hub_name ?? ''),
+                    );
+                }
+
+                self::pushIncubateeAggregate(
+                    $incubatees[$key],
+                    (string) ($row->partner_name ?? ''),
+                    [self::linkageModeLabelFromPartnerMode((string) ($row->linkage_mode ?? ''))],
+                    $row->linkage_date ? (string) $row->linkage_date : null,
+                );
             }
         }
 
-        $remaining = max(0, $limit - count($records));
-        if ($remaining > 0) {
-            foreach (self::orphanServiceCaseRecordRows($districtIds, $approvedOnly, $remaining) as $row) {
-                $records[] = $row;
+        if ($includeServiceCaseOrphans) {
+            foreach (self::orphanServiceCaseIncubateeAggregates($districtIds, $approvedOnly, $periodFrom, $periodTo) as $key => $agg) {
+                // A Market Linkage module record for the same incubatee always wins.
+                if (! isset($incubatees[$key])) {
+                    $incubatees[$key] = $agg;
+                }
             }
+        }
+
+        $records = array_map(
+            static fn (array $agg): array => self::formatIncubateeRecord($agg),
+            array_values($incubatees),
+        );
+
+        usort($records, static fn (array $a, array $b): int => strcasecmp((string) $a['applicant'], (string) $b['applicant']));
+
+        if ($limit > 0 && count($records) > $limit) {
+            $records = array_slice($records, 0, $limit);
         }
 
         return $records;
@@ -245,11 +275,15 @@ SQL;
      * @param  list<int>|null  $districtIds
      * @return array<string, list<string>>
      */
-    private static function buildUnifiedIncubateeModeMap(?array $districtIds, bool $approvedOnly): array
+    private static function buildUnifiedIncubateeModeMap(?array $districtIds, bool $approvedOnly, ?Carbon $periodFrom = null, ?Carbon $periodTo = null, bool $includeServiceCaseOrphans = true): array
     {
-        $map = self::marketLinkageIncubateeModeMap($districtIds, $approvedOnly);
+        $map = self::marketLinkageIncubateeModeMap($districtIds, $approvedOnly, $periodFrom, $periodTo);
 
-        foreach (self::orphanServiceCaseIncubateeModeMap($districtIds, $approvedOnly) as $key => $modes) {
+        if (! $includeServiceCaseOrphans) {
+            return $map;
+        }
+
+        foreach (self::orphanServiceCaseIncubateeModeMap($districtIds, $approvedOnly, $periodFrom, $periodTo) as $key => $modes) {
             if (! isset($map[$key])) {
                 $map[$key] = $modes;
             }
@@ -262,7 +296,7 @@ SQL;
      * @param  list<int>|null  $districtIds
      * @return array<string, list<string>>
      */
-    private static function marketLinkageIncubateeModeMap(?array $districtIds, bool $approvedOnly): array
+    private static function marketLinkageIncubateeModeMap(?array $districtIds, bool $approvedOnly, ?Carbon $periodFrom = null, ?Carbon $periodTo = null): array
     {
         if (! Schema::hasTable('market_linkage_submissions') || ! Schema::hasTable('market_linkage_partners')) {
             return [];
@@ -275,6 +309,7 @@ SQL;
             ->selectRaw("{$keySql} as incubatee_key, mlp.linkage_mode as linkage_mode");
 
         self::applyMarketLinkageDistrictAndStatusScopes($query, $districtIds, $approvedOnly);
+        self::applyMarketLinkagePartnerPeriodScope($query, $periodFrom, $periodTo);
 
         $map = [];
         foreach ($query->get() as $row) {
@@ -304,7 +339,7 @@ SQL;
      * @param  list<int>|null  $districtIds
      * @return array<string, list<string>>
      */
-    private static function orphanServiceCaseIncubateeModeMap(?array $districtIds, bool $approvedOnly): array
+    private static function orphanServiceCaseIncubateeModeMap(?array $districtIds, bool $approvedOnly, ?Carbon $periodFrom = null, ?Carbon $periodTo = null): array
     {
         $serviceIds = self::marketLinkServiceIds();
         if ($serviceIds === [] || ! Schema::hasTable('service_cases')) {
@@ -329,7 +364,8 @@ SQL;
                 ->applyAchievementDistrictScopeToServiceCaseQuery($query, $districtIds);
         }
 
-        self::applyOrphanExclusionAgainstMarketLinkage($query, $districtIds, $approvedOnly);
+        self::applyOrphanServiceCasePeriodScope($query, $periodFrom, $periodTo);
+        self::applyOrphanExclusionAgainstMarketLinkage($query, $districtIds, $approvedOnly, $periodFrom, $periodTo);
 
         $map = [];
         foreach ($query->get() as $row) {
@@ -355,18 +391,12 @@ SQL;
     }
 
     /**
+     * Orphan (legacy service-case) market linkages aggregated to one entry per incubatee.
+     *
      * @param  list<int>|null  $districtIds
-     * @return list<array{
-     *     reference: string,
-     *     applicant: string,
-     *     service: string,
-     *     linkage_mode: string,
-     *     date: string,
-     *     district: string,
-     *     hub: string
-     * }>
+     * @return array<string, array{reference: string, applicant: string, district: string, hub: string, partners: list<string>, modes: list<string>, latest_date: ?string}>
      */
-    private static function orphanServiceCaseRecordRows(?array $districtIds, bool $approvedOnly, int $limit): array
+    private static function orphanServiceCaseIncubateeAggregates(?array $districtIds, bool $approvedOnly, ?Carbon $periodFrom = null, ?Carbon $periodTo = null): array
     {
         $serviceIds = self::marketLinkServiceIds();
         if ($serviceIds === [] || ! Schema::hasTable('service_cases')) {
@@ -383,6 +413,8 @@ SQL;
                     ->orWhereNotNull('sc.legacy_application_id');
             })
             ->select(
+                'sc.cfa_submission_id',
+                'sc.legacy_application_id',
                 'sc.payload',
                 'sc.approved_at',
                 'sc.created_at',
@@ -401,10 +433,19 @@ SQL;
                 ->applyAchievementDistrictScopeToServiceCaseQuery($query, $districtIds);
         }
 
-        self::applyOrphanExclusionAgainstMarketLinkage($query, $districtIds, $approvedOnly);
+        self::applyOrphanServiceCasePeriodScope($query, $periodFrom, $periodTo);
+        self::applyOrphanExclusionAgainstMarketLinkage($query, $districtIds, $approvedOnly, $periodFrom, $periodTo);
 
-        $records = [];
-        foreach ($query->orderBy('cs.applicant_name')->orderBy('sc.id')->limit($limit)->get() as $row) {
+        $aggregates = [];
+        foreach ($query->orderBy('cs.applicant_name')->orderBy('sc.id')->get() as $row) {
+            $key = self::incubateeKeyFromIds(
+                isset($row->cfa_submission_id) ? (int) $row->cfa_submission_id : null,
+                isset($row->legacy_application_id) ? (int) $row->legacy_application_id : null,
+            );
+            if ($key === null) {
+                continue;
+            }
+
             $payload = is_string($row->payload) ? json_decode($row->payload, true) : [];
             $payload = is_array($payload) ? $payload : [];
             $modes = self::linkageModeLabelsFromServiceCasePayload($payload);
@@ -412,34 +453,103 @@ SQL;
                 continue;
             }
 
+            if (! isset($aggregates[$key])) {
+                $aggregates[$key] = self::newIncubateeAggregate(
+                    (string) ($row->application_no ?? '—'),
+                    (string) ($row->applicant_name ?: '—'),
+                    (string) ($row->district_name ?? ''),
+                    (string) ($row->hub_name ?? ''),
+                );
+            }
+
             $dateRaw = $row->approved_at ?? $row->created_at;
-            $records[] = [
-                'reference' => (string) ($row->application_no ?? '—'),
-                'applicant' => (string) ($row->applicant_name ?: '—'),
-                'service' => trim((string) ($payload['p'] ?? '')) !== '' ? (string) $payload['p'] : '—',
-                'linkage_mode' => implode(', ', $modes),
-                'date' => $dateRaw
-                    ? \Carbon\Carbon::parse((string) $dateRaw)->format('d M Y')
-                    : '—',
-                'district' => (string) ($row->district_name ?? ''),
-                'hub' => (string) ($row->hub_name ?? ''),
-            ];
+            self::pushIncubateeAggregate(
+                $aggregates[$key],
+                trim((string) ($payload['p'] ?? '')),
+                $modes,
+                $dateRaw ? Carbon::parse((string) $dateRaw)->toDateString() : null,
+            );
         }
 
-        return $records;
+        return $aggregates;
+    }
+
+    /**
+     * @return array{reference: string, applicant: string, district: string, hub: string, partners: list<string>, modes: list<string>, latest_date: ?string}
+     */
+    private static function newIncubateeAggregate(string $reference, string $applicant, string $district, string $hub): array
+    {
+        return [
+            'reference' => $reference !== '' ? $reference : '—',
+            'applicant' => $applicant !== '' ? $applicant : '—',
+            'district' => $district,
+            'hub' => $hub,
+            'partners' => [],
+            'modes' => [],
+            'latest_date' => null,
+        ];
+    }
+
+    /**
+     * @param  array{reference: string, applicant: string, district: string, hub: string, partners: list<string>, modes: list<string>, latest_date: ?string}  $aggregate
+     * @param  list<string>  $modeLabels
+     */
+    private static function pushIncubateeAggregate(array &$aggregate, string $partnerName, array $modeLabels, ?string $dateRaw): void
+    {
+        $partnerName = trim($partnerName);
+        if ($partnerName !== '' && ! in_array($partnerName, $aggregate['partners'], true)) {
+            $aggregate['partners'][] = $partnerName;
+        }
+
+        foreach ($modeLabels as $label) {
+            if ($label !== '' && ! in_array($label, $aggregate['modes'], true)) {
+                $aggregate['modes'][] = $label;
+            }
+        }
+
+        if ($dateRaw !== null && ($aggregate['latest_date'] === null || $dateRaw > $aggregate['latest_date'])) {
+            $aggregate['latest_date'] = $dateRaw;
+        }
+    }
+
+    /**
+     * @param  array{reference: string, applicant: string, district: string, hub: string, partners: list<string>, modes: list<string>, latest_date: ?string}  $aggregate
+     * @return array{reference: string, applicant: string, service: string, linkage_mode: string, date: string, district: string, hub: string}
+     */
+    private static function formatIncubateeRecord(array $aggregate): array
+    {
+        // Present modes in a stable order (Offline, Online) regardless of insertion order.
+        $modes = [];
+        foreach (['Offline', 'Online'] as $mode) {
+            if (in_array($mode, $aggregate['modes'], true)) {
+                $modes[] = $mode;
+            }
+        }
+
+        return [
+            'reference' => $aggregate['reference'] !== '' ? $aggregate['reference'] : '—',
+            'applicant' => $aggregate['applicant'] !== '' ? $aggregate['applicant'] : '—',
+            'service' => $aggregate['partners'] !== [] ? implode(', ', $aggregate['partners']) : '—',
+            'linkage_mode' => $modes !== [] ? implode(', ', $modes) : '—',
+            'date' => $aggregate['latest_date']
+                ? Carbon::parse($aggregate['latest_date'])->format('d M Y')
+                : '—',
+            'district' => $aggregate['district'],
+            'hub' => $aggregate['hub'],
+        ];
     }
 
     /**
      * @param  \Illuminate\Database\Query\Builder  $query
      * @param  list<int>|null  $districtIds
      */
-    private static function applyOrphanExclusionAgainstMarketLinkage($query, ?array $districtIds, bool $approvedOnly): void
+    private static function applyOrphanExclusionAgainstMarketLinkage($query, ?array $districtIds, bool $approvedOnly, ?Carbon $periodFrom = null, ?Carbon $periodTo = null): void
     {
         if (! Schema::hasTable('market_linkage_submissions')) {
             return;
         }
 
-        $query->whereNotExists(function ($sub) use ($districtIds, $approvedOnly): void {
+        $query->whereNotExists(function ($sub) use ($districtIds, $approvedOnly, $periodFrom, $periodTo): void {
             $sub->from('market_linkage_submissions as mls')
                 ->where(function ($match): void {
                     $match->where(function ($cfa): void {
@@ -452,6 +562,14 @@ SQL;
                 });
 
             self::applyMarketLinkageDistrictAndStatusScopes($sub, $districtIds, $approvedOnly);
+
+            // When a period is active, only treat an incubatee as "already linked" if the
+            // market linkage falls within the same window — so an in-period orphan service
+            // case is not wrongly excluded by an out-of-period market linkage.
+            if ($periodFrom && $periodTo && Schema::hasTable('market_linkage_partners')) {
+                $sub->join('market_linkage_partners as mlp', 'mlp.market_linkage_submission_id', '=', 'mls.id');
+                self::applyMarketLinkagePartnerPeriodScope($sub, $periodFrom, $periodTo);
+            }
         });
     }
 
@@ -468,6 +586,37 @@ SQL;
         if ($districtIds !== null) {
             $query->whereIn('mls.district_id', $districtIds);
         }
+    }
+
+    /**
+     * Restrict market linkage partner rows to a date window (no-op when either bound is null).
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private static function applyMarketLinkagePartnerPeriodScope($query, ?Carbon $periodFrom, ?Carbon $periodTo, string $column = 'mlp.linkage_date'): void
+    {
+        if (! $periodFrom || ! $periodTo) {
+            return;
+        }
+
+        $query->whereBetween($column, [$periodFrom->toDateString(), $periodTo->toDateString()]);
+    }
+
+    /**
+     * Restrict orphan service cases to a date window by approved/created date (no-op when null).
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private static function applyOrphanServiceCasePeriodScope($query, ?Carbon $periodFrom, ?Carbon $periodTo): void
+    {
+        if (! $periodFrom || ! $periodTo) {
+            return;
+        }
+
+        $query->whereBetween(
+            DB::raw('COALESCE(sc.approved_at, sc.created_at)'),
+            [$periodFrom->toDateTimeString(), $periodTo->toDateTimeString()],
+        );
     }
 
     /**

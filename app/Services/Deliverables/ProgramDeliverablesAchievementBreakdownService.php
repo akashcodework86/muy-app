@@ -2128,18 +2128,37 @@ class ProgramDeliverablesAchievementBreakdownService
             return $this->emptyBreakdown();
         }
 
-        $modeCounts = MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds);
+        [$from, $to] = $this->explicitMarketLinkagePeriod();
+
+        // Count only linkages recorded through the Market Linkage module (matches the module
+        // dashboard). Legacy market-link service cases are excluded.
+        $modeCounts = MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds, true, $from, $to, false);
 
         return [
             'total' => $modeCounts['total_incubatees'],
             'by_district' => [],
             'by_hub' => [],
             'by_month' => [],
-            'by_service' => MarketLinkageUnifiedListingSupport::linkageModeBifurcationRows($this->districtIds),
-            'records' => MarketLinkageUnifiedListingSupport::unifiedApprovedIncubateeRecords($this->districtIds),
+            'by_service' => MarketLinkageUnifiedListingSupport::linkageModeBifurcationRows($this->districtIds, true, $from, $to, false),
+            'records' => MarketLinkageUnifiedListingSupport::unifiedApprovedIncubateeRecords($this->districtIds, true, 5000, $from, $to, false),
             'offline_incubatees' => $modeCounts['offline_incubatees'],
             'online_incubatees' => $modeCounts['online_incubatees'],
         ];
+    }
+
+    /**
+     * Market linkage counts are cumulative by default; only apply a date window when the user
+     * explicitly narrows the period (quarter/month/date range).
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    private function explicitMarketLinkagePeriod(): array
+    {
+        if (($this->filter?->hasExplicitDateFilter() ?? false) && $this->periodFrom && $this->periodTo) {
+            return [$this->periodFrom, $this->periodTo];
+        }
+
+        return [null, null];
     }
 
     /**

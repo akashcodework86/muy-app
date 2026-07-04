@@ -1246,7 +1246,26 @@ class ProgramDeliverablesReportService
             return 0;
         }
 
-        return MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds)['total_incubatees'];
+        [$from, $to] = $this->explicitMarketLinkagePeriod();
+
+        // Count only linkages recorded through the Market Linkage module (matches the module
+        // dashboard). Legacy market-link service cases are excluded.
+        return MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds, true, $from, $to, false)['total_incubatees'];
+    }
+
+    /**
+     * Market linkage counts are cumulative by default; only apply a date window when the user
+     * explicitly narrows the period (quarter/month/date range).
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    private function explicitMarketLinkagePeriod(): array
+    {
+        if (($this->filter?->hasExplicitDateFilter() ?? false) && $this->periodFrom && $this->periodTo) {
+            return [$this->periodFrom, $this->periodTo];
+        }
+
+        return [null, null];
     }
 
     /**
