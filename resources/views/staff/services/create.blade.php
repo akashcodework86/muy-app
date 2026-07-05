@@ -515,57 +515,6 @@
                     populateReapDetailsWrap(detailsWrap, true);
                 }
 
-                function appendThroughReapField(container) {
-                    const wrap = document.createElement('div');
-                    wrap.style.cssText = 'margin-top:0.85rem;padding:0.65rem 0.75rem;border:1px solid #fed7aa;border-radius:8px;background:#fff7ed;';
-                    wrap.innerHTML =
-                        '<label style="display:flex;align-items:flex-start;gap:0.45rem;cursor:pointer;margin:0;">' +
-                        '<input type="hidden" name="payload[through_reap]" value="0">' +
-                        '<input type="checkbox" name="payload[through_reap]" value="1" id="payload_through_reap" style="margin-top:0.15rem;width:1rem;height:1rem;accent-color:#ea580c;">' +
-                        '<span><strong style="font-size:0.84rem;color:#7c2d12;">Through REAP</strong>' +
-                        '<span style="display:block;font-size:0.76rem;color:#9a3412;margin-top:0.12rem;">Tick for MIS 8.2 after SPOC approval.</span></span>' +
-                        '</label>';
-                    container.appendChild(wrap);
-
-                    const detailsWrap = document.createElement('div');
-                    detailsWrap.id = 'reap_details_wrap';
-                    detailsWrap.style.cssText = 'display:none;margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid #fed7aa;flex-direction:column;gap:0.65rem;';
-                    wrap.appendChild(detailsWrap);
-
-                    populateReapDetailsWrap(detailsWrap, false);
-
-                    const checked = OLD_PAYLOAD && (OLD_PAYLOAD.through_reap === '1' || OLD_PAYLOAD.through_reap === 1 || OLD_PAYLOAD.through_reap === true || OLD_PAYLOAD.through_reap === 'true');
-                    const cb = wrap.querySelector('#payload_through_reap');
-                    if (cb && checked) cb.checked = true;
-
-                    function toggleReapDetails() {
-                        const show = cb && cb.checked;
-                        detailsWrap.style.display = show ? 'flex' : 'none';
-                        detailsWrap.querySelectorAll('input,select,textarea').forEach(function (el) {
-                            if (!show) {
-                                el.dataset.wasRequired = (el.dataset.reapRequired === '1' || el.required) ? '1' : '0';
-                                el.required = false;
-                                el.disabled = true;
-                                if (el.type === 'file') {
-                                    el.value = '';
-                                } else if (el.tagName !== 'SELECT') {
-                                    el.value = '';
-                                } else {
-                                    el.selectedIndex = 0;
-                                }
-                            } else {
-                                el.disabled = false;
-                                if (el.dataset.reapRequired === '1' || el.dataset.wasRequired === '1') {
-                                    el.required = true;
-                                }
-                            }
-                        });
-                    }
-
-                    if (cb) cb.addEventListener('change', toggleReapDetails);
-                    toggleReapDetails();
-                }
-
                 function render() {
                     const id = parseInt(selSvc.value || '0', 10);
                     const subId = parseInt(selSub ? (selSub.value || '0') : '0', 10);
@@ -790,8 +739,6 @@
 
                     if (svc.counts_toward_reap_support) {
                         appendReapDedicatedField(box);
-                    } else if (svc.is_convergence) {
-                        appendThroughReapField(box);
                     }
                 }
 
