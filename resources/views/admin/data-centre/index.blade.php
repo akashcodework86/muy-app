@@ -95,16 +95,17 @@
 .dc-analysis__total { text-align:right; }
 .dc-analysis__total-label { font-size:.72rem; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
 .dc-analysis__total-value { font-size:2.4rem; font-weight:900; color:#ea580c; line-height:1.1; font-variant-numeric:tabular-nums; }
-.dc-analysis__grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem; }
+.dc-analysis__grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem; align-items:start; }
 @media (max-width:960px) { .dc-analysis__grid { grid-template-columns:1fr; } }
-.dc-analysis__col { border-left:2px dotted #cbd5e1; padding-left:1rem; }
+.dc-analysis__col { border-left:2px dotted #cbd5e1; padding-left:1rem; min-width:0; }
 .dc-analysis__col:first-child { border-left:none; padding-left:0; }
+.dc-analysis__col--business { display:flex; flex-direction:column; gap:0; }
 .dc-analysis__col-title { font-size:.72rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem; }
 .dc-analysis__row { display:grid; grid-template-columns:1fr auto auto; gap:.5rem 1rem; align-items:center; padding:.45rem 0; border-bottom:1px solid #f8fafc; font-size:.84rem; color:#334155; }
 .dc-analysis__row:last-child { border-bottom:none; }
 .dc-analysis__row strong { font-weight:800; color:#991b1b; font-variant-numeric:tabular-nums; text-align:right; }
 .dc-analysis__row span.dc-analysis__pct { font-weight:700; color:#991b1b; font-variant-numeric:tabular-nums; text-align:right; min-width:3rem; }
-.dc-analysis__stats { display:flex; flex-direction:column; gap:1.25rem; justify-content:center; height:100%; }
+.dc-analysis__stats { display:flex; flex-direction:column; gap:1.25rem; justify-content:flex-start; flex-shrink:0; }
 .dc-analysis__stat { text-align:center; }
 .dc-analysis__stat-pct { font-size:2rem; font-weight:900; color:#991b1b; line-height:1; font-variant-numeric:tabular-nums; }
 .dc-analysis__stat-label { font-size:.78rem; font-weight:600; color:#334155; margin-top:.35rem; line-height:1.35; }
@@ -115,6 +116,23 @@
 .dc-analysis__check-dot { width:.55rem; height:.55rem; border-radius:50%; flex-shrink:0; }
 .dc-analysis__check-dot--pass { background:#22c55e; }
 .dc-analysis__check-dot--fail { background:#ef4444; }
+
+/* ── Phase 3 filters ─────────────────────────────────────────── */
+.dc-filters { background:#fff; border:1px solid #e2e8f0; border-radius:.75rem; padding:1rem 1.1rem; margin-bottom:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+.dc-filters__title { font-size:.78rem; font-weight:700; color:#4f46e5; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.75rem; }
+.dc-filters__grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.65rem .75rem; align-items:end; }
+.dc-filters__field label { display:block; font-size:.72rem; font-weight:600; color:#475569; margin-bottom:.25rem; }
+.dc-filters__field select,
+.dc-filters__field input[type="date"] { width:100%; padding:.42rem .55rem; border:1px solid #d4d4d8; border-radius:.5rem; font-size:.82rem; color:#334155; background:#fff; }
+.dc-filters__actions { display:flex; gap:.45rem; flex-wrap:wrap; }
+.dc-analysis__income-block { margin-top:1rem; padding-top:1rem; border-top:1px solid #e2e8f0; flex-shrink:0; }
+.dc-analysis__income-title { font-size:.68rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin:0 0 .5rem; }
+.dc-analysis__income-rows { display:flex; flex-direction:column; gap:0; }
+.dc-analysis__income-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:.35rem .65rem; align-items:center; padding:.35rem 0; border-bottom:1px solid #f1f5f9; font-size:.78rem; color:#475569; line-height:1.35; }
+.dc-analysis__income-row:last-child { border-bottom:none; }
+.dc-analysis__income-row span:first-child { min-width:0; word-break:break-word; }
+.dc-analysis__income-row strong { font-weight:700; color:#991b1b; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.dc-analysis__income-row span.dc-analysis__pct { font-weight:600; color:#991b1b; text-align:right; min-width:2.75rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
 </style>
 @endpush
 
@@ -124,10 +142,14 @@
     $dataScope = $data_scope ?? 'all';
     $isPhase3View = $viewMode === 'rbiphase3';
     $isOnboardedOnly = $dataScope === 'onboarded';
+    $filterQuery = ($filter ?? \App\Services\DataCentre\DataCentreFilter::empty())->queryParams();
     $dcQuery = [];
     if ($isPhase3View) {
         $dcQuery['view'] = 'rbiphase3';
+        $dcQuery = array_merge($dcQuery, $filterQuery);
     }
+    $phase3ToggleQuery = array_merge(['view' => 'rbiphase3'], $filterQuery);
+    $phase3OnboardedQuery = array_merge($phase3ToggleQuery, ['scope' => 'onboarded']);
     if ($isOnboardedOnly) {
         $dcQuery['scope'] = 'onboarded';
     }
@@ -152,7 +174,7 @@
            aria-selected="{{ ! $isPhase3View ? 'true' : 'false' }}">
             All Phases
         </a>
-        <a href="{{ route('admin.data-centre.index', array_filter(['view' => 'rbiphase3', 'scope' => $isOnboardedOnly ? 'onboarded' : null])) }}"
+        <a href="{{ route('admin.data-centre.index', $isOnboardedOnly ? $phase3OnboardedQuery : $phase3ToggleQuery) }}"
            class="dc-view-toggle__btn {{ $isPhase3View ? 'is-active' : '' }}"
            role="tab"
            aria-selected="{{ $isPhase3View ? 'true' : 'false' }}">
@@ -162,19 +184,81 @@
 
     {{-- ── Data scope toggle ── --}}
     <div class="dc-view-toggle" role="tablist" aria-label="Data centre scope" style="margin-top:-.65rem;">
-        <a href="{{ route('admin.data-centre.index', $isPhase3View ? ['view' => 'rbiphase3'] : []) }}"
+        <a href="{{ route('admin.data-centre.index', $isPhase3View ? $phase3ToggleQuery : []) }}"
            class="dc-view-toggle__btn {{ ! $isOnboardedOnly ? 'is-active' : '' }}"
            role="tab"
            aria-selected="{{ ! $isOnboardedOnly ? 'true' : 'false' }}">
             All applications
         </a>
-        <a href="{{ route('admin.data-centre.index', array_filter(['view' => $isPhase3View ? 'rbiphase3' : null, 'scope' => 'onboarded'])) }}"
+        <a href="{{ route('admin.data-centre.index', $isPhase3View ? $phase3OnboardedQuery : ['scope' => 'onboarded']) }}"
            class="dc-view-toggle__btn {{ $isOnboardedOnly ? 'is-active is-active--onboarded' : '' }}"
            role="tab"
            aria-selected="{{ $isOnboardedOnly ? 'true' : 'false' }}">
             Onboarded only
         </a>
     </div>
+
+    {{-- ── Phase 3 filters (FY 2026-27 only) ── --}}
+    @if ($isPhase3View)
+        @php
+            $dcFilter = $filter ?? \App\Services\DataCentre\DataCentreFilter::empty();
+            $dcFilterDates = $filter_form_dates ?? ['dateFrom' => null, 'dateTo' => null];
+            $dcFilterResetQuery = array_filter(['view' => 'rbiphase3', 'scope' => $isOnboardedOnly ? 'onboarded' : null]);
+        @endphp
+        <form method="get" action="{{ route('admin.data-centre.index') }}" class="dc-filters" id="dc-filters-form">
+            <input type="hidden" name="view" value="rbiphase3">
+            @if ($isOnboardedOnly)
+                <input type="hidden" name="scope" value="onboarded">
+            @endif
+            <div class="dc-filters__title">Filters — Phase 3 ({{ $phase3_fy->name ?? 'FY 2026-27' }})</div>
+            <div class="dc-filters__grid">
+                <div class="dc-filters__field">
+                    <label for="dc-district">District</label>
+                    <select name="district_id" id="dc-district">
+                        <option value="">All districts</option>
+                        @foreach ($districts ?? [] as $dist)
+                            <option value="{{ $dist->id }}" @selected((int) ($dcFilter->districtId ?? 0) === (int) $dist->id)>{{ $dist->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="dc-filters__field">
+                    <label for="dc-quarter">Quarter</label>
+                    <select name="quarter" id="dc-quarter">
+                        <option value="">All quarters</option>
+                        @foreach (range(1, 4) as $q)
+                            <option value="{{ $q }}" @selected((int) ($dcFilter->quarter ?? 0) === $q)>
+                                Q{{ $q }}@if (!empty($phase3_fy)) ({{ $phase3_fy->fiscalQuarterLabel($q) }})@endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="dc-filters__field">
+                    <label for="dc-fiscal-month">Month</label>
+                    <select name="fiscal_month" id="dc-fiscal-month">
+                        <option value="">All months</option>
+                        @foreach ($fiscal_month_options ?? [] as $opt)
+                            <option value="{{ $opt['value'] }}" @selected((int) ($dcFilter->fiscalMonth ?? 0) === (int) $opt['value'])>{{ $opt['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="dc-filters__field">
+                    <label for="dc-date-from">From date</label>
+                    <input type="date" name="date_from" id="dc-date-from" value="{{ $dcFilterDates['dateFrom'] ?? '' }}">
+                </div>
+                <div class="dc-filters__field">
+                    <label for="dc-date-to">To date</label>
+                    <input type="date" name="date_to" id="dc-date-to" value="{{ $dcFilterDates['dateTo'] ?? '' }}">
+                </div>
+                <div class="dc-filters__actions">
+                    <button type="submit" class="dc-btn dc-btn--export-all">Apply</button>
+                    <a href="{{ route('admin.data-centre.index', $dcFilterResetQuery) }}" class="dc-btn" style="background:#fff;border-color:#d4d4d8;color:#475569;">Reset</a>
+                </div>
+            </div>
+            @if (!empty($meta['filter_active']))
+                <p class="dc-note" style="margin:.65rem 0 0;padding:0;">Filtered view — counts reflect selected district and/or date range within {{ $phase3_fy->name ?? 'FY 2026-27' }}.</p>
+            @endif
+        </form>
+    @endif
 
     {{-- ── Top bar ── --}}
     <div class="dc-topbar">
@@ -210,6 +294,9 @@
                 @csrf
                 @if ($isPhase3View)
                     <input type="hidden" name="view" value="rbiphase3">
+                    @foreach (($filter ?? null)?->queryParams() ?? [] as $fk => $fv)
+                        <input type="hidden" name="{{ $fk }}" value="{{ $fv }}">
+                    @endforeach
                 @endif
                 @if ($isOnboardedOnly)
                     <input type="hidden" name="scope" value="onboarded">
@@ -252,7 +339,11 @@
                         <div class="dc-analysis__row">
                             <span>{{ $row['label'] }}</span>
                             <strong>{{ number_format($row['count']) }}</strong>
-                            <span class="dc-analysis__pct">{{ number_format($row['pct'], 1) }}%</span>
+                            @if (array_key_exists('pct', $row) && $row['pct'] !== null)
+                                <span class="dc-analysis__pct">{{ number_format($row['pct'], 1) }}%</span>
+                            @else
+                                <span class="dc-analysis__pct">—</span>
+                            @endif
                         </div>
                     @endforeach
                 </div>
@@ -270,7 +361,7 @@
                 </div>
 
                 {{-- Business statistics --}}
-                <div class="dc-analysis__col">
+                <div class="dc-analysis__col dc-analysis__col--business">
                     <div class="dc-analysis__col-title">Business Statistics</div>
                     <div class="dc-analysis__stats">
                         @foreach ($analysis['business_stats'] as $row)
@@ -281,6 +372,20 @@
                             </div>
                         @endforeach
                     </div>
+                    @if (! empty($analysis['income_slabs']))
+                        <div class="dc-analysis__income-block">
+                            <div class="dc-analysis__income-title">Income / Turnover (last FY)</div>
+                            <div class="dc-analysis__income-rows">
+                                @foreach ($analysis['income_slabs'] as $row)
+                                    <div class="dc-analysis__income-row">
+                                        <span>{{ $row['label'] }}</span>
+                                        <strong>{{ number_format($row['count']) }}</strong>
+                                        <span class="dc-analysis__pct">{{ number_format($row['pct'], 1) }}%</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -436,7 +541,7 @@
                             @if ($isPhase3View)
                                 Enterprises generating employment — Phase 3 (rbiphase3)
                             @else
-                                Enterprises generating employment, jobs reported and % — per phase and combined
+                                Enterprises generating employment, employment generated and % — per phase and combined
                             @endif
                         </div>
                     </div>
@@ -455,7 +560,7 @@
                         <tr>
                             <th>Phase</th>
                             <th class="_num">Generating Employment</th>
-                            <th class="_num">Jobs Reported</th>
+                            <th class="_num">Employment Generated</th>
                             <th class="_num">Total {{ $isOnboardedOnly ? 'Onboarded' : 'Applications' }}</th>
                             <th class="_num">% Generating</th>
                         </tr>
@@ -473,7 +578,7 @@
                     </tbody>
                 </table>
                 <p class="dc-note">
-                    <strong>Generating employment</strong> = applicants who answered "Yes". <strong>Jobs reported</strong> = sum of people employed — legacy Phase 1/2 are free-text fields, so non-numeric entries and outliers above 500 are excluded (Phase 3 is form-validated). <strong>% Generating</strong> = employers ÷ total {{ $isOnboardedOnly ? 'onboarded' : 'applications' }}.
+                    <strong>Generating employment</strong> = applicants who answered "Yes". <strong>Employment generated</strong> = sum of people employed — legacy Phase 1/2 are free-text fields, so non-numeric entries and outliers above 500 are excluded (Phase 3 is form-validated). <strong>% Generating</strong> = employers ÷ total {{ $isOnboardedOnly ? 'onboarded' : 'applications' }}.
                 </p>
             </div>
         </details>
@@ -738,7 +843,7 @@
                 <li><strong>Phase 3 (FY 2026–27 — live):</strong> Reads <code>cfa_submissions</code> for fiscal year {{ $meta['phase3_fy'] ?? 'FY 2026-27' }}. Excludes rows with <code>source = 'legacy_phase2'</code> to avoid double-counting Phase 2 applicants imported into this MIS.</li>
             @endif
             @if ($isPhase3View)
-                <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. {{ $isOnboardedOnly ? 'Onboarded analysis uses locked batch members.' : 'Application Analysis uses live payload fields: gender, form_stage, category, business_category, loan_taken, is_registered, turnover_last_fy.' }}</li>
+                <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. {{ $isOnboardedOnly ? 'Onboarded analysis uses locked batch members.' : 'Application Analysis uses live payload fields: gender, form_stage, category, business_category, loan_taken, is_registered, turnover_last_fy, current_employment.' }} Filters (district / quarter / month / date) apply within FY 2026-27 only on this view.</li>
             @endif
             @unless ($isOnboardedOnly)
                 <li><strong>No double-counting:</strong> Phase 3 new-only count + Phase 2 = no overlap. 4,414 Phase 2 rows were imported into cfa_submissions and are excluded from Phase 3 counts.</li>
@@ -749,4 +854,80 @@
     </details>
 
 </div>
+
+@if ($isPhase3View ?? false)
+@push('scripts')
+<script>
+(function () {
+    const quarterEl = document.getElementById('dc-quarter');
+    const monthEl = document.getElementById('dc-fiscal-month');
+    const dateFromEl = document.getElementById('dc-date-from');
+    const dateToEl = document.getElementById('dc-date-to');
+    if (!quarterEl || !monthEl || !dateFromEl || !dateToEl) return;
+
+    const fyQuarterMonths = @json($fy_quarter_periods ?? []);
+    const fiscalMonthOptions = @json($fiscal_month_options ?? []);
+    let syncingPresetDates = false;
+
+    function setDateRange(fromIso, toIso) {
+        syncingPresetDates = true;
+        dateFromEl.value = fromIso || '';
+        dateToEl.value = toIso || '';
+        syncingPresetDates = false;
+    }
+
+    function clearPeriodFields() {
+        setDateRange('', '');
+    }
+
+    function syncDatesFromMonth() {
+        const fiscalMonth = parseInt(monthEl.value, 10);
+        if (!fiscalMonth || fiscalMonth < 1 || fiscalMonth > 12) {
+            if (!quarterEl.value) clearPeriodFields();
+            return;
+        }
+        const opt = fiscalMonthOptions.find(function (o) { return parseInt(o.value, 10) === fiscalMonth; });
+        if (!opt) return;
+        const parts = String(opt.label).split(' ');
+        const monthNames = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+        const m = monthNames[parts[0]] || 1;
+        const y = parseInt(parts[1], 10);
+        const lastDay = new Date(y, m, 0).getDate();
+        const pad = function (n) { return String(n).padStart(2, '0'); };
+        setDateRange(y + '-' + pad(m) + '-01', y + '-' + pad(m) + '-' + pad(lastDay));
+    }
+
+    function syncDatesFromQuarter() {
+        const quarter = parseInt(quarterEl.value, 10);
+        if (!quarter || quarter < 1 || quarter > 4) {
+            if (!monthEl.value) clearPeriodFields();
+            return;
+        }
+        const range = fyQuarterMonths[quarter];
+        if (!range) { clearPeriodFields(); return; }
+        setDateRange(range.from, range.to);
+    }
+
+    function onManualDateChange() {
+        if (syncingPresetDates) return;
+        quarterEl.value = '';
+        monthEl.value = '';
+    }
+
+    quarterEl.addEventListener('change', function () {
+        if (quarterEl.value) monthEl.value = '';
+        syncDatesFromQuarter();
+    });
+
+    monthEl.addEventListener('change', function () {
+        if (monthEl.value) quarterEl.value = '';
+        syncDatesFromMonth();
+    });
+
+    dateFromEl.addEventListener('change', onManualDateChange);
+    dateToEl.addEventListener('change', onManualDateChange);
+})();
+</script>
+@endpush
+@endif
 @endsection

@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\District;
+use App\Models\FiscalYear;
+use App\Services\DataCentre\DataCentreFilter;
 use App\Services\DataCentre\ProgramDataCentreService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,9 +21,18 @@ class DataCentreController extends Controller
     public function index(Request $request): View
     {
         [$viewMode, $dataScope] = $this->resolveParams($request);
-        $data = $this->service->build($viewMode, $dataScope);
+        $filter = $viewMode === 'rbiphase3' ? DataCentreFilter::fromRequest($request) : DataCentreFilter::empty();
+        $phase3Fy = FiscalYear::phase3Default();
+        $data = $this->service->build($viewMode, $dataScope, $filter);
 
-        return view('admin.data-centre.index', $data);
+        return view('admin.data-centre.index', array_merge($data, [
+            'filter' => $filter,
+            'phase3_fy' => $phase3Fy,
+            'districts' => District::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'fiscal_month_options' => DataCentreFilter::fiscalMonthOptions($phase3Fy),
+            'fy_quarter_periods' => $phase3Fy?->fiscalQuarterPeriodsForJs() ?? [],
+            'filter_form_dates' => $filter->formDates($phase3Fy),
+        ]));
     }
 
     /**
@@ -31,8 +43,9 @@ class DataCentreController extends Controller
         $this->service->bustCache();
 
         [$viewMode, $dataScope] = $this->resolveParams($request);
+        $filter = $viewMode === 'rbiphase3' ? DataCentreFilter::fromRequest($request) : DataCentreFilter::empty();
 
-        return redirect()->route('admin.data-centre.index', $this->routeParams($viewMode, $dataScope))
+        return redirect()->route('admin.data-centre.index', $this->routeParams($viewMode, $dataScope, $filter))
             ->with('flash_success', 'Data refreshed — latest counts loaded from the database.');
     }
 
@@ -46,8 +59,9 @@ class DataCentreController extends Controller
             abort(404, 'Unknown section.');
         }
 
-        [, $dataScope] = $this->resolveParams($request);
-        $rows = $this->service->csvForSection($section, $dataScope);
+        [$viewMode, $dataScope] = $this->resolveParams($request);
+        $filter = $viewMode === 'rbiphase3' ? DataCentreFilter::fromRequest($request) : DataCentreFilter::empty();
+        $rows = $this->service->csvForSection($section, $dataScope, $filter, $viewMode);
         $scopeSuffix = $dataScope === 'onboarded' ? '-onboarded' : '';
         $filename = 'data-centre-'.$section.$scopeSuffix.'-'.now()->format('Ymd_His').'.csv';
 
@@ -69,7 +83,8 @@ class DataCentreController extends Controller
      */
     public function exportAll(Request $request): StreamedResponse
     {
-        [, $dataScope] = $this->resolveParams($request);
+        [$viewMode, $dataScope] = $this->resolveParams($request);
+        $filter = $viewMode === 'rbiphase3' ? DataCentreFilter::fromRequest($request) : DataCentreFilter::empty();
         $scopeSuffix = $dataScope === 'onboarded' ? '-onboarded' : '';
         $filename = 'data-centre-all-sections'.$scopeSuffix.'-'.now()->format('Ymd_His').'.csv';
 
@@ -87,7 +102,7 @@ class DataCentreController extends Controller
             ? 'Onboarded only: P1 onboard=yes, P2 rbi_onboarded_applicants, P3 locked onboarding batches (includes legacy_phase2 onboarded via MIS).'
             : 'Combined counts exclude Phase 2 rows copied into Phase 3 (source=legacy_phase2).';
 
-        return response()->streamDownload(function () use ($sections, $dataScope, $note): void {
+        return response()->streamDownload(function () use ($sections, $dataScope, $note, $filter, $viewMode): void {
             $out = fopen('php://output', 'w');
             if ($out === false) {
                 return;
@@ -101,7 +116,7 @@ class DataCentreController extends Controller
 
             foreach ($sections as $label => $key) {
                 fputcsv($out, ['=== '.$label.' ===']);
-                $rows = $this->service->csvForSection($key, $dataScope);
+                $rows = $this->service->csvForSection($key, $dataScope, $filter, $viewMode);
                 foreach ($rows as $row) {
                     fputcsv($out, $row);
                 }
@@ -125,12 +140,14 @@ class DataCentreController extends Controller
         return [$viewMode, $dataScope];
     }
 
-    /** @return array<string, string> */
-    private function routeParams(string $viewMode, string $dataScope): array
+    /** @return array<string, int|string> */
+    private function routeParams(string $viewMode, string $dataScope, ?DataCentreFilter $filter = null): array
     {
+        $filter ??= DataCentreFilter::empty();
         $params = [];
         if ($viewMode === 'rbiphase3') {
             $params['view'] = 'rbiphase3';
+            $params = array_merge($params, $filter->queryParams());
         }
         if ($dataScope === 'onboarded') {
             $params['scope'] = 'onboarded';

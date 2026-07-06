@@ -67,21 +67,28 @@ class ProgramDataCentreService
 
     private string $dataScope = 'all';
 
+    private string $viewMode = 'all';
+
+    private DataCentreFilter $filter;
+
     public function __construct()
     {
         $this->legacyPhase1Ok = $this->testConnection('legacy_phase1', 'tblapplication');
         $this->legacyPhase2Ok = $this->testConnection('legacy', 'rbi_applications');
+        $this->filter = DataCentreFilter::empty();
     }
 
     /** Master build: returns all section data arrays (cached for CACHE_TTL seconds). */
-    public function build(string $viewMode = 'all', string $dataScope = 'all'): array
+    public function build(string $viewMode = 'all', string $dataScope = 'all', ?DataCentreFilter $filter = null): array
     {
         $viewMode = $viewMode === 'rbiphase3' ? 'rbiphase3' : 'all';
         $dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
-        $this->prepareScope($dataScope);
-        $cacheKey = 'data_centre_build_v4_'.$viewMode.'_'.$dataScope;
+        $filter = $filter ?? DataCentreFilter::empty();
+        $this->prepareContext($dataScope, $viewMode, $filter);
+        $cacheKey = 'data_centre_build_v5_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode, $dataScope) {
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode, $dataScope, $filter) {
+            $this->prepareContext($dataScope, $viewMode, $filter);
             $districts = $this->canonicalDistricts();
             $phase3Only = $viewMode === 'rbiphase3';
 
@@ -94,6 +101,7 @@ class ProgramDataCentreService
                 'cache_ttl' => self::CACHE_TTL,
                 'view_mode' => $viewMode,
                 'data_scope' => $dataScope,
+                'filter_active' => $filter->isActive(),
             ];
 
             if ($phase3Only) {
@@ -133,7 +141,7 @@ class ProgramDataCentreService
     {
         foreach (['all', 'rbiphase3'] as $viewMode) {
             foreach (['all', 'onboarded'] as $dataScope) {
-                Cache::forget('data_centre_build_v4_'.$viewMode.'_'.$dataScope);
+                Cache::forget('data_centre_build_v5_'.$viewMode.'_'.$dataScope.'_none');
             }
         }
     }
@@ -144,6 +152,7 @@ class ProgramDataCentreService
      *   entrepreneur: list<array{label: string, count: int, pct: float}>,
      *   sectors: list<array{sector: string, count: int, pct: float}>,
      *   business_stats: list<array{label: string, count: int, pct: float}>,
+     *   income_slabs: list<array{label: string, count: int, pct: float}>,
      *   accuracy_checks: list<array{label: string, expected: int, actual: int, pass: bool}>
      * }
      */
@@ -156,6 +165,7 @@ class ProgramDataCentreService
                 'entrepreneur' => [],
                 'sectors' => [],
                 'business_stats' => [],
+                'income_slabs' => [],
                 'accuracy_checks' => [],
             ];
         }
@@ -177,6 +187,10 @@ class ProgramDataCentreService
         $cbo = (int) (clone $this->phase3BaseQuery())
             ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')) = 'CBO'")
             ->count();
+
+        $employment = $this->employmentAggregatePhase('p3');
+        $employers = (int) $employment['employers'];
+        $jobsGenerated = (int) $employment['jobs'];
 
         $sectorRows = (clone $this->phase3BaseQuery())
             ->selectRaw("COALESCE(NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.business_category'))), ''), 'Not specified') as sector, COUNT(*) as count")
@@ -200,12 +214,8 @@ class ProgramDataCentreService
         $unorganized = (int) (clone $this->phase3BaseQuery())
             ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.is_registered')) = 'No'")
             ->count();
-        $turnoverLt5L = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("CAST(REPLACE(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.turnover_last_fy')), ',', '') AS DECIMAL(15,2)) < 500000")
-            ->count();
-        $turnoverGte5L = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("CAST(REPLACE(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.turnover_last_fy')), ',', '') AS DECIMAL(15,2)) >= 500000")
-            ->count();
+        $incomeSlabs = $this->phase3IncomeSlabs($pct);
+        $incomeSlabSum = array_sum(array_column($incomeSlabs, 'count'));
         $loanYes = (int) (clone $this->phase3BaseQuery())
             ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.loan_taken')) = 'Yes'")
             ->count();
@@ -224,7 +234,7 @@ class ProgramDataCentreService
             ['label' => 'All sectors sum', 'expected' => $total, 'actual' => $sectorSum],
             ['label' => 'Loan No + Yes', 'expected' => $total, 'actual' => $noCredit + $loanYes],
             ['label' => 'Registered No + Yes', 'expected' => $total, 'actual' => $unorganized + $registeredYes],
-            ['label' => 'Turnover <5L + ≥5L', 'expected' => $total, 'actual' => $turnoverLt5L + $turnoverGte5L],
+            ['label' => 'Income slabs sum', 'expected' => $total, 'actual' => $incomeSlabSum],
             ['label' => 'Female + Male + Other/NA', 'expected' => $total, 'actual' => $female + $male + $genderOther],
         ];
 
@@ -245,13 +255,15 @@ class ProgramDataCentreService
                 ['label' => 'Early-Stage Entrepreneurs', 'count' => $early, 'pct' => $pct($early)],
                 ['label' => 'Growth-Stage Entrepreneurs', 'count' => $growth, 'pct' => $pct($growth)],
                 ['label' => 'CBOs', 'count' => $cbo, 'pct' => $pct($cbo)],
+                ['label' => 'Generating Employment', 'count' => $employers, 'pct' => $pct($employers)],
+                ['label' => 'Employment Generated', 'count' => $jobsGenerated, 'pct' => null, 'is_jobs_total' => true],
             ],
             'sectors' => $sectors,
             'business_stats' => [
                 ['label' => 'No Credit History', 'count' => $noCredit, 'pct' => $pct($noCredit)],
                 ['label' => 'Businesses are unorganized', 'count' => $unorganized, 'pct' => $pct($unorganized)],
-                ['label' => 'Income < INR 5 Lakh', 'count' => $turnoverLt5L, 'pct' => $pct($turnoverLt5L)],
             ],
+            'income_slabs' => $incomeSlabs,
             'accuracy_checks' => $accuracyChecks,
         ];
     }
@@ -659,10 +671,26 @@ class ProgramDataCentreService
     // CSV export helpers
     // ────────────────────────────────────────────────────────────────────────
 
-    public function csvForSection(string $section, string $dataScope = 'all'): array
+    public function csvForSection(string $section, string $dataScope = 'all', ?DataCentreFilter $filter = null, string $viewMode = 'all'): array
     {
-        $this->prepareScope($dataScope);
+        $viewMode = $viewMode === 'rbiphase3' ? 'rbiphase3' : 'all';
+        $filter = $filter ?? DataCentreFilter::empty();
+        $this->prepareContext($dataScope, $viewMode, $filter);
         $districts = $this->canonicalDistricts();
+        $phase3Only = $viewMode === 'rbiphase3';
+
+        if ($phase3Only) {
+            return match ($section) {
+                'summary' => $this->toCsv($this->stateSummaryPhase3Only()),
+                'cfa-by-district' => $this->toCsv($this->cfaByDistrictPhase3Only($districts)),
+                'gender-state' => $this->toCsv($this->genderStatePhase3Only($districts)),
+                'gender-district' => $this->toCsv($this->genderByDistrictPhase3Only($districts)),
+                'education-state' => $this->toCsv($this->educationStatePhase3Only($districts)),
+                'education-district' => $this->toCsv($this->educationByDistrictPhase3Only($districts)),
+                'employment-state' => $this->toCsv($this->employmentStatePhase3Only()),
+                default => [['error' => 'Unknown section']],
+            };
+        }
 
         return match ($section) {
             'summary' => $this->toCsv($this->stateSummary($districts)),
@@ -1131,24 +1159,54 @@ class ProgramDataCentreService
             }
 
             // Match Admin → Onboarded: all locked batch members (no fiscal_year_id filter).
-            return DB::table('onboarding_batch_cfa as obc')
+            $query = DB::table('onboarding_batch_cfa as obc')
                 ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
                 ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
                 ->where('ob.status', 'locked')
                 ->whereNotNull('ob.locked_at')
                 ->whereNotNull('obc.cfa_submission_id');
+
+            return $this->applyPhase3Filters($query);
         }
 
-        return DB::table('cfa_submissions as cs')
+        $query = DB::table('cfa_submissions as cs')
             ->when($fyId > 0, fn (Builder $q) => $q->where('cs.fiscal_year_id', $fyId))
             ->where(function (Builder $q): void {
                 $q->whereNull('cs.source')->orWhere('cs.source', '<>', 'legacy_phase2');
             });
+
+        return $this->applyPhase3Filters($query);
     }
 
-    private function prepareScope(string $dataScope): void
+    private function applyPhase3Filters(Builder $query): Builder
+    {
+        if (! $this->filter->isActive()) {
+            return $query;
+        }
+
+        if ($this->filter->districtId !== null && $this->filter->districtId > 0) {
+            $query->where('cs.district_id', $this->filter->districtId);
+        }
+
+        if ($this->filter->hasDateFilter()) {
+            [$from, $to] = $this->filter->resolveDatePeriod(FiscalYear::phase3Default());
+            if ($from !== null && $to !== null) {
+                if ($this->isOnboardedScope()) {
+                    $query->whereBetween('ob.locked_at', [$from, $to]);
+                } else {
+                    $query->whereBetween('cs.created_at', [$from, $to]);
+                }
+            }
+        }
+
+        return $query;
+    }
+
+    private function prepareContext(string $dataScope, string $viewMode, DataCentreFilter $filter): void
     {
         $this->dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
+        $this->viewMode = $viewMode === 'rbiphase3' ? 'rbiphase3' : 'all';
+        $this->filter = $filter;
         $this->p1Counts = null;
         $this->p1Gender = null;
         $this->p1Education = null;
@@ -1158,6 +1216,53 @@ class ProgramDataCentreService
         $this->p3Counts = null;
         $this->p3Gender = null;
         $this->p3Education = null;
+    }
+
+    /**
+     * @param  callable(int): float  $pct
+     * @return list<array{label: string, count: int, pct: float}>
+     */
+    private function phase3IncomeSlabs(callable $pct): array
+    {
+        $raw = "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.turnover_last_fy'))";
+        $num = "CAST(REPLACE({$raw}, ',', '') AS DECIMAL(15,2))";
+        $valid = "({$raw} REGEXP '^[0-9,]+$' AND TRIM({$raw}) <> '')";
+
+        $row = (clone $this->phase3BaseQuery())->selectRaw("
+            SUM(CASE WHEN {$valid} AND {$num} = 0 THEN 1 ELSE 0 END) as income_zero,
+            SUM(CASE WHEN {$valid} AND {$num} > 0 AND {$num} < 100000 THEN 1 ELSE 0 END) as income_0_1l,
+            SUM(CASE WHEN {$valid} AND {$num} >= 100000 AND {$num} < 500000 THEN 1 ELSE 0 END) as income_1_5l,
+            SUM(CASE WHEN {$valid} AND {$num} >= 500000 AND {$num} < 1000000 THEN 1 ELSE 0 END) as income_5_10l,
+            SUM(CASE WHEN {$valid} AND {$num} >= 1000000 AND {$num} < 2500000 THEN 1 ELSE 0 END) as income_10_25l,
+            SUM(CASE WHEN {$valid} AND {$num} >= 2500000 THEN 1 ELSE 0 END) as income_25l_plus,
+            SUM(CASE WHEN NOT ({$valid}) THEN 1 ELSE 0 END) as income_invalid
+        ")->first();
+
+        $counts = [
+            'Zero income' => (int) ($row->income_zero ?? 0),
+            'INR > 0 – 1 Lakh' => (int) ($row->income_0_1l ?? 0),
+            'INR 1 – 5 Lakh' => (int) ($row->income_1_5l ?? 0),
+            'INR 5 – 10 Lakh' => (int) ($row->income_5_10l ?? 0),
+            'INR 10 – 25 Lakh' => (int) ($row->income_10_25l ?? 0),
+            'INR 25 Lakh+' => (int) ($row->income_25l_plus ?? 0),
+            'Invalid / blank' => (int) ($row->income_invalid ?? 0),
+        ];
+
+        $slabs = [];
+        foreach ($counts as $label => $count) {
+            $slabs[] = [
+                'label' => $label,
+                'count' => $count,
+                'pct' => $pct($count),
+            ];
+        }
+
+        return $slabs;
+    }
+
+    private function prepareScope(string $dataScope): void
+    {
+        $this->prepareContext($dataScope, $this->viewMode, $this->filter);
     }
 
     private function isOnboardedScope(): bool
