@@ -95,6 +95,9 @@
 .dc-analysis__total { text-align:right; }
 .dc-analysis__total-label { font-size:.72rem; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
 .dc-analysis__total-value { font-size:2.4rem; font-weight:900; color:#ea580c; line-height:1.1; font-variant-numeric:tabular-nums; }
+.dc-analysis__filter-scope { margin-top:.35rem; font-size:.72rem; color:#b45309; font-weight:700; }
+.dc-analysis__filter-chips { margin-top:.35rem; display:flex; flex-wrap:wrap; gap:.3rem; justify-content:flex-end; }
+.dc-analysis__filter-chip { font-size:.65rem; font-weight:700; color:#7c2d12; background:#ffedd5; border:1px solid #fdba74; border-radius:999px; padding:.15rem .5rem; }
 .dc-analysis__grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem; align-items:start; }
 @media (max-width:960px) { .dc-analysis__grid { grid-template-columns:1fr; } }
 .dc-analysis__col { border-left:2px dotted #cbd5e1; padding-left:1rem; min-width:0; }
@@ -105,6 +108,9 @@
 .dc-analysis__row:last-child { border-bottom:none; }
 .dc-analysis__row strong { font-weight:800; color:#991b1b; font-variant-numeric:tabular-nums; text-align:right; }
 .dc-analysis__row span.dc-analysis__pct { font-weight:700; color:#991b1b; font-variant-numeric:tabular-nums; text-align:right; min-width:3rem; }
+.dc-analysis__stages { margin:.35rem 0 .65rem; padding:.5rem .65rem; background:#fff7ed; border:1px solid #fed7aa; border-radius:.5rem; }
+.dc-analysis__stages .dc-analysis__row { border-bottom-color:#ffedd5; }
+.dc-analysis__stages .dc-analysis__row:last-child { border-bottom:none; }
 .dc-analysis__stats { display:flex; flex-direction:column; gap:1.25rem; justify-content:flex-start; flex-shrink:0; }
 .dc-analysis__stat { text-align:center; }
 .dc-analysis__stat-pct { font-size:2rem; font-weight:900; color:#991b1b; line-height:1; font-variant-numeric:tabular-nums; }
@@ -143,13 +149,16 @@
     $isPhase3View = $viewMode === 'rbiphase3';
     $isOnboardedOnly = $dataScope === 'onboarded';
     $filterQuery = ($filter ?? \App\Services\DataCentre\DataCentreFilter::empty())->queryParams();
+    $onboardedFilterQuery = array_filter([
+        'district_id' => ($filter ?? null)?->districtId,
+    ], fn ($v) => $v !== null && $v !== '');
     $dcQuery = [];
     if ($isPhase3View) {
         $dcQuery['view'] = 'rbiphase3';
         $dcQuery = array_merge($dcQuery, $filterQuery);
     }
     $phase3ToggleQuery = array_merge(['view' => 'rbiphase3'], $filterQuery);
-    $phase3OnboardedQuery = array_merge($phase3ToggleQuery, ['scope' => 'onboarded']);
+    $phase3OnboardedQuery = array_merge(['view' => 'rbiphase3', 'scope' => 'onboarded'], $onboardedFilterQuery);
     if ($isOnboardedOnly) {
         $dcQuery['scope'] = 'onboarded';
     }
@@ -210,7 +219,13 @@
             @if ($isOnboardedOnly)
                 <input type="hidden" name="scope" value="onboarded">
             @endif
-            <div class="dc-filters__title">Filters — Phase 3 ({{ $phase3_fy->name ?? 'FY 2026-27' }})</div>
+            <div class="dc-filters__title">
+                @if ($isOnboardedOnly)
+                    Filters — onboarded cohort (district only)
+                @else
+                    Filters — Phase 3 ({{ $phase3_fy->name ?? 'FY 2026-27' }})
+                @endif
+            </div>
             <div class="dc-filters__grid">
                 <div class="dc-filters__field">
                     <label for="dc-district">District</label>
@@ -221,6 +236,7 @@
                         @endforeach
                     </select>
                 </div>
+                @unless ($isOnboardedOnly)
                 <div class="dc-filters__field">
                     <label for="dc-quarter">Quarter</label>
                     <select name="quarter" id="dc-quarter">
@@ -249,13 +265,39 @@
                     <label for="dc-date-to">To date</label>
                     <input type="date" name="date_to" id="dc-date-to" value="{{ $dcFilterDates['dateTo'] ?? '' }}">
                 </div>
+                @endunless
                 <div class="dc-filters__actions">
                     <button type="submit" class="dc-btn dc-btn--export-all">Apply</button>
                     <a href="{{ route('admin.data-centre.index', $dcFilterResetQuery) }}" class="dc-btn" style="background:#fff;border-color:#d4d4d8;color:#475569;">Reset</a>
                 </div>
             </div>
-            @if (!empty($meta['filter_active']))
-                <p class="dc-note" style="margin:.65rem 0 0;padding:0;">Filtered view — counts reflect selected district and/or date range within {{ $phase3_fy->name ?? 'FY 2026-27' }}.</p>
+            @if ($isOnboardedOnly)
+                <p class="dc-note" style="margin:.65rem 0 0;padding:0;">
+                    Onboarded view always shows the <strong>full locked cohort</strong> (MIS + rbiphase2 legacy together).
+                    Quarter / month / date filters apply only on “All applications”.
+                    @if (!empty($meta['filter_active']))
+                        District filter active — counts are for the selected district only.
+                    @endif
+                </p>
+            @elseif (!empty($meta['filter_active']))
+                @php
+                    $dcFilterBarDistrict = $dcFilter->districtId
+                        ? (($districts ?? collect())->firstWhere('id', $dcFilter->districtId)?->name)
+                        : null;
+                    $dcFilterBarLabels = $dcFilter->activeLabels($phase3_fy ?? null, $dcFilterBarDistrict);
+                @endphp
+                <p class="dc-note" style="margin:.65rem 0 0;padding:0;">
+                    Filtered view — counts reflect
+                    @if (! empty($dcFilterBarLabels))
+                        {{ implode(' · ', $dcFilterBarLabels) }}
+                    @else
+                        selected filters
+                    @endif
+                    within {{ $phase3_fy->name ?? 'FY 2026-27' }}.
+                    @if ($isOnboardedOnly)
+                        Onboarded date uses batch <code>locked_at</code>.
+                    @endif
+                </p>
             @endif
         </form>
     @endif
@@ -318,6 +360,15 @@
         @php
             $analysis = $application_analysis;
             $allChecksPass = collect($analysis['accuracy_checks'] ?? [])->every(fn ($c) => ! empty($c['pass']));
+            $dcFilter = $filter ?? \App\Services\DataCentre\DataCentreFilter::empty();
+            $dcFilterDistrictName = $dcFilter->districtId
+                ? (($districts ?? collect())->firstWhere('id', $dcFilter->districtId)?->name)
+                : null;
+            $dcActiveFilterLabels = $dcFilter->activeLabels($phase3_fy ?? null, $dcFilterDistrictName);
+            $stageRowLabels = ['Seed-Stage Entrepreneurs', 'Early-Stage Entrepreneurs', 'Growth-Stage Entrepreneurs', 'Stage not specified'];
+            $entrepreneurWomen = collect($analysis['entrepreneur'] ?? [])->filter(fn ($row) => ($row['label'] ?? '') === 'Women Entrepreneurs')->values();
+            $entrepreneurStages = collect($analysis['entrepreneur'] ?? [])->filter(fn ($row) => in_array($row['label'] ?? '', $stageRowLabels, true))->values();
+            $entrepreneurOther = collect($analysis['entrepreneur'] ?? [])->reject(fn ($row) => ($row['label'] ?? '') === 'Women Entrepreneurs' || in_array($row['label'] ?? '', $stageRowLabels, true))->values();
         @endphp
         <section class="dc-analysis" aria-labelledby="dc-analysis-title">
             <div class="dc-analysis__head">
@@ -328,6 +379,18 @@
                 <div class="dc-analysis__total">
                     <div class="dc-analysis__total-label">Total Number of {{ $isOnboardedOnly ? 'Onboarded' : 'Applications' }}</div>
                     <div class="dc-analysis__total-value">{{ number_format($analysis['total']) }}</div>
+                    @if (! empty($analysis['full_total']) && (int) $analysis['full_total'] !== (int) $analysis['total'])
+                        <div class="dc-analysis__filter-scope">
+                            {{ number_format($analysis['total']) }} of {{ number_format($analysis['full_total']) }} total onboarded (filter applied)
+                        </div>
+                    @endif
+                    @if (! empty($dcActiveFilterLabels))
+                        <div class="dc-analysis__filter-chips">
+                            @foreach ($dcActiveFilterLabels as $chip)
+                                <span class="dc-analysis__filter-chip">{{ $chip }}</span>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -335,7 +398,33 @@
                 {{-- Entrepreneur categories --}}
                 <div class="dc-analysis__col">
                     <div class="dc-analysis__col-title">Entrepreneur Categories</div>
-                    @foreach ($analysis['entrepreneur'] as $row)
+                    @if ($entrepreneurStages->isNotEmpty())
+                        <div class="dc-analysis__stages">
+                            @foreach ($entrepreneurStages as $row)
+                                <div class="dc-analysis__row">
+                                    <span>{{ $row['label'] }}</span>
+                                    <strong>{{ number_format($row['count']) }}</strong>
+                                    @if (array_key_exists('pct', $row) && $row['pct'] !== null)
+                                        <span class="dc-analysis__pct">{{ number_format($row['pct'], 1) }}%</span>
+                                    @else
+                                        <span class="dc-analysis__pct">—</span>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                    @foreach ($entrepreneurWomen as $row)
+                        <div class="dc-analysis__row">
+                            <span>{{ $row['label'] }}</span>
+                            <strong>{{ number_format($row['count']) }}</strong>
+                            @if (array_key_exists('pct', $row) && $row['pct'] !== null)
+                                <span class="dc-analysis__pct">{{ number_format($row['pct'], 1) }}%</span>
+                            @else
+                                <span class="dc-analysis__pct">—</span>
+                            @endif
+                        </div>
+                    @endforeach
+                    @foreach ($entrepreneurOther as $row)
                         <div class="dc-analysis__row">
                             <span>{{ $row['label'] }}</span>
                             <strong>{{ number_format($row['count']) }}</strong>
@@ -358,6 +447,7 @@
                             <span class="dc-analysis__pct">{{ number_format($row['pct'], 1) }}%</span>
                         </div>
                     @endforeach
+                    <p class="dc-note" style="margin:.5rem 0 0;padding:0;font-size:.68rem;">Sector counts sum to {{ number_format($analysis['total']) }}.</p>
                 </div>
 
                 {{-- Business statistics --}}
@@ -384,6 +474,7 @@
                                     </div>
                                 @endforeach
                             </div>
+                            <p class="dc-note" style="margin:.45rem 0 0;padding:0;font-size:.68rem;">Income slabs sum to {{ number_format($analysis['total']) }}.</p>
                         </div>
                     @endif
                 </div>
@@ -843,7 +934,7 @@
                 <li><strong>Phase 3 (FY 2026–27 — live):</strong> Reads <code>cfa_submissions</code> for fiscal year {{ $meta['phase3_fy'] ?? 'FY 2026-27' }}. Excludes rows with <code>source = 'legacy_phase2'</code> to avoid double-counting Phase 2 applicants imported into this MIS.</li>
             @endif
             @if ($isPhase3View)
-                <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. {{ $isOnboardedOnly ? 'Onboarded analysis uses locked batch members.' : 'Application Analysis uses live payload fields: gender, form_stage, category, business_category, loan_taken, is_registered, turnover_last_fy, current_employment.' }} Filters (district / quarter / month / date) apply within FY 2026-27 only on this view.</li>
+                <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. {{ $isOnboardedOnly ? 'Onboarded view shows the full locked cohort (MIS + rbiphase2 legacy = total onboarded). All analysis sections calculate against this combined total. Only district filter applies on onboarded; quarter / month / date filters apply on “All applications” only.' : 'Application Analysis uses live payload fields with Phase 2 legacy fallback (rbiphase2 DB) for sector, turnover, loan and registration when MIS payload is sparse. Filters (district / quarter / month / date) apply within FY 2026-27 on this view.' }}</li>
             @endif
             @unless ($isOnboardedOnly)
                 <li><strong>No double-counting:</strong> Phase 3 new-only count + Phase 2 = no overlap. 4,414 Phase 2 rows were imported into cfa_submissions and are excluded from Phase 3 counts.</li>

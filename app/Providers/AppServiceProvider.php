@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\AccelerationServiceItemMedia;
+use App\Models\AccelerationServiceSession;
 use App\Models\BusinessAccelerationPartnerOutreachEntry;
 use App\Models\CaseStudyEntry;
 use App\Models\DemoDay;
@@ -38,6 +40,8 @@ class AppServiceProvider extends ServiceProvider
         Route::bind('scwWorkshop', fn (string $value) => StakeholderConsultationWorkshop::query()->findOrFail($value));
         Route::bind('ldmMeeting', fn (string $value) => LineDepartmentMeeting::query()->findOrFail($value));
         Route::bind('baPartnerOutreach', fn (string $value) => BusinessAccelerationPartnerOutreachEntry::query()->findOrFail($value));
+        Route::bind('accelerationSession', fn (string $value) => AccelerationServiceSession::query()->findOrFail($value));
+        Route::bind('accelerationMedia', fn (string $value) => AccelerationServiceItemMedia::query()->findOrFail($value));
         Route::bind('demoDay', fn (string $value) => DemoDay::query()->findOrFail($value));
         Route::bind('fundingPartnerOutreach', fn (string $value) => FundingSchematicPartnerOutreachEntry::query()->findOrFail($value));
         Route::bind('caseStudyEntry', fn (string $value) => CaseStudyEntry::query()->findOrFail($value));

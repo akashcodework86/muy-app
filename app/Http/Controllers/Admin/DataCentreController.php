@@ -21,7 +21,7 @@ class DataCentreController extends Controller
     public function index(Request $request): View
     {
         [$viewMode, $dataScope] = $this->resolveParams($request);
-        $filter = $viewMode === 'rbiphase3' ? DataCentreFilter::fromRequest($request) : DataCentreFilter::empty();
+        $filter = $this->resolveFilter($request, $viewMode, $dataScope);
         $phase3Fy = FiscalYear::phase3Default();
         $data = $this->service->build($viewMode, $dataScope, $filter);
 
@@ -43,7 +43,7 @@ class DataCentreController extends Controller
         $this->service->bustCache();
 
         [$viewMode, $dataScope] = $this->resolveParams($request);
-        $filter = $viewMode === 'rbiphase3' ? DataCentreFilter::fromRequest($request) : DataCentreFilter::empty();
+        $filter = $this->resolveFilter($request, $viewMode, $dataScope);
 
         return redirect()->route('admin.data-centre.index', $this->routeParams($viewMode, $dataScope, $filter))
             ->with('flash_success', 'Data refreshed — latest counts loaded from the database.');
@@ -60,7 +60,7 @@ class DataCentreController extends Controller
         }
 
         [$viewMode, $dataScope] = $this->resolveParams($request);
-        $filter = $viewMode === 'rbiphase3' ? DataCentreFilter::fromRequest($request) : DataCentreFilter::empty();
+        $filter = $this->resolveFilter($request, $viewMode, $dataScope);
         $rows = $this->service->csvForSection($section, $dataScope, $filter, $viewMode);
         $scopeSuffix = $dataScope === 'onboarded' ? '-onboarded' : '';
         $filename = 'data-centre-'.$section.$scopeSuffix.'-'.now()->format('Ymd_His').'.csv';
@@ -84,7 +84,7 @@ class DataCentreController extends Controller
     public function exportAll(Request $request): StreamedResponse
     {
         [$viewMode, $dataScope] = $this->resolveParams($request);
-        $filter = $viewMode === 'rbiphase3' ? DataCentreFilter::fromRequest($request) : DataCentreFilter::empty();
+        $filter = $this->resolveFilter($request, $viewMode, $dataScope);
         $scopeSuffix = $dataScope === 'onboarded' ? '-onboarded' : '';
         $filename = 'data-centre-all-sections'.$scopeSuffix.'-'.now()->format('Ymd_His').'.csv';
 
@@ -138,6 +138,21 @@ class DataCentreController extends Controller
             : 'all';
 
         return [$viewMode, $dataScope];
+    }
+
+    private function resolveFilter(Request $request, string $viewMode, string $dataScope): DataCentreFilter
+    {
+        if ($viewMode !== 'rbiphase3') {
+            return DataCentreFilter::empty();
+        }
+
+        $filter = DataCentreFilter::fromRequest($request);
+
+        if ($dataScope === 'onboarded') {
+            return $filter->onboardedScopeOnly();
+        }
+
+        return $filter;
     }
 
     /** @return array<string, int|string> */

@@ -23,6 +23,8 @@
     $canViewPartnerOutreach = $u && \App\Support\PartnerOutreachAccess::canViewDashboard($u);
     $canSubmitBaPartnersOutreach = $u && \App\Support\BusinessAccelerationPartnersOutreachAccess::canSubmit($u);
     $canViewBaPartnersOutreach = $u && \App\Support\BusinessAccelerationPartnersOutreachAccess::canViewDashboard($u);
+    $canSubmitAccelerationServices = $u && \App\Support\AccelerationServicesAccess::canSubmit($u);
+    $canViewAccelerationServices = $u && \App\Support\AccelerationServicesAccess::canViewDashboard($u);
     $isFieldMisApprover = $u && \App\Support\MisFieldActivityApproval::isDedicatedApprover($u);
     $canManageCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canSubmit($u);
     $canViewCapacityBuildingStakeholders = $u && \App\Support\CapacityBuildingStakeholdersAccess::canViewDashboard($u);
@@ -220,6 +222,12 @@
         str_starts_with($r, 'spoc.business-acceleration-partners-outreach.show') => 'ba-partners-outreach-dashboard',
         str_starts_with($r, 'admin.business-acceleration-partners-outreach.dashboard') => 'ba-partners-outreach-dashboard',
         str_starts_with($r, 'admin.business-acceleration-partners-outreach.show') => 'ba-partners-outreach-dashboard',
+        str_starts_with($r, 'spoc.acceleration-services.dashboard') => 'acceleration-services-dashboard',
+        str_starts_with($r, 'spoc.acceleration-services.store') => 'acceleration-services-dashboard',
+        str_starts_with($r, 'spoc.acceleration-services.show') => 'acceleration-services-dashboard',
+        str_starts_with($r, 'spoc.acceleration-services.index') => 'acceleration-services-dashboard',
+        str_starts_with($r, 'admin.acceleration-services.dashboard') => 'acceleration-services-dashboard',
+        str_starts_with($r, 'admin.acceleration-services.show') => 'acceleration-services-dashboard',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.create') => 'capacity-building-stakeholders-submit',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.index') => 'capacity-building-stakeholders-submit',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.store') => 'capacity-building-stakeholders-submit',
@@ -356,6 +364,7 @@
     $spocPartnerOutreachActive = in_array($activeNav, ['partner-outreach-submit', 'partner-outreach-dashboard'], true);
     $spocBrandingCommunicationActive = in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard'], true);
     $spocBaPartnersOutreachActive = in_array($activeNav, ['ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
+    $spocAccelerationServicesActive = $activeNav === 'acceleration-services-dashboard';
     $fundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-dashboard', 'demo-days-dashboard', 'funding-partners-outreach-dashboard'], true);
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
 
@@ -664,6 +673,11 @@
                                 {!! $i('bars') !!}<span>BA partners outreach (7.1)</span>
                             </a>
                             @endif
+                            @if ($canViewAccelerationServices)
+                            <a href="{{ route('admin.acceleration-services.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'acceleration-services-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Acceleration services (7.2)</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -802,6 +816,11 @@
                     </a>
                 </div>
             </details>
+            @endif
+            @if ($canSubmitAccelerationServices || $canViewAccelerationServices)
+            <a href="{{ route('spoc.acceleration-services.dashboard') }}" class="admin-topbar__link @if ($spocAccelerationServicesActive) is-active @endif">
+                {!! $i('pin') !!}<span class="admin-topbar__link-text">Acceleration services (7.2)</span>
+            </a>
             @endif
             @if ($canManageCapacityBuildingStakeholders)
             <details class="admin-topbar__details">

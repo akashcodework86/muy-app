@@ -21,6 +21,7 @@ use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Support\DemoDaysDeliverablesSupport;
 use App\Support\FundingSchematicPartnersOutreachDeliverablesSupport;
 use App\Support\BusinessAccelerationPartnersOutreachDeliverablesSupport;
+use App\Support\AccelerationServicesDeliverablesSupport;
 use App\Support\ConvergenceReapSupportDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\StakeholderConsultationWorkshopDeliverablesSupport;
@@ -826,6 +827,7 @@ class ProgramDeliverablesReportService
             'marketing_partner_outreach_count' => $this->marketingPartnerOutreachCount(),
             'marketing_partner_onboarded_count' => $this->marketingPartnerOnboardedCount(),
             'business_acceleration_partners_outreach_count' => $this->businessAccelerationPartnersOutreachCount(),
+            'acceleration_services_initiation_count' => $this->accelerationServicesInitiationCount(),
             'demo_days_count' => $this->demoDaysCount(),
             'funding_schematic_partners_outreach_count' => $this->fundingSchematicPartnersOutreachCount(),
             'muy_newsletter_count' => $this->muyNewsletterEntriesCount(),
@@ -858,7 +860,7 @@ class ProgramDeliverablesReportService
             'bst_sessions' => $this->useOfficialMonthlyTargets
                 ? $this->resolveStateTargetForCodes([(string) ($source['deliverable_code'] ?? 'bst_sessions')])
                 : $this->bstSessionsPlannedTargetCount(),
-            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'stakeholder_consultation_workshop_sessions', 'line_department_meeting_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'schematic_convergence_services', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'demo_days_count', 'funding_schematic_partners_outreach_count', 'muy_newsletter_count', 'media_campaigns_count' => $this->resolveStateTargetForCodes([
+            'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count', 'district_workshop_sessions', 'edp_sessions', 'bst_participants', 'field_work_workshops', 'field_work_participants', 'technical_training_sessions', 'technical_training_potential_lakhpati_sessions', 'capacity_building_stakeholder_sessions', 'stakeholder_consultation_workshop_sessions', 'line_department_meeting_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'schematic_convergence_services', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'acceleration_services_initiation_count', 'demo_days_count', 'funding_schematic_partners_outreach_count', 'muy_newsletter_count', 'media_campaigns_count' => $this->resolveStateTargetForCodes([
                 (string) ($source['deliverable_code'] ?? ''),
             ]),
             'none' => ($source['deliverable_code'] ?? '') !== ''
@@ -1097,6 +1099,20 @@ class ProgramDeliverablesReportService
             return $this->caseStudyEntriesCount();
         }
 
+        if ($code === 'buyer_seller_meets') {
+            return $this->deliverableAchievementFromServiceCases($code)
+                + AccelerationServicesDeliverablesSupport::countBuyerSellerMeets($this->periodFrom, $this->periodTo);
+        }
+
+        if ($code === 'acceleration_services') {
+            return AccelerationServicesDeliverablesSupport::countUniqueInitiations($this->periodFrom, $this->periodTo);
+        }
+
+        return $this->deliverableAchievementFromServiceCases($code);
+    }
+
+    private function deliverableAchievementFromServiceCases(string $code): int
+    {
         foreach ($this->candidateCodesForLookup($code) as $candidate) {
             $keys = [$candidate];
             if (str_starts_with($candidate, 'svc_')) {
@@ -1586,6 +1602,14 @@ class ProgramDeliverablesReportService
     private function businessAccelerationPartnersOutreachCount(): int
     {
         return BusinessAccelerationPartnersOutreachDeliverablesSupport::countUniquePartners(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    private function accelerationServicesInitiationCount(): int
+    {
+        return AccelerationServicesDeliverablesSupport::countUniqueInitiations(
             $this->periodFrom,
             $this->periodTo,
         );

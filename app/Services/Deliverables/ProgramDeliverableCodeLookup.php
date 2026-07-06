@@ -65,7 +65,7 @@ class ProgramDeliverableCodeLookup
             'cfa_count', 'onboarding_count', 'potential_lakhpati_onboarding_count',
             'district_workshop_sessions', 'edp_sessions', 'bst_sessions', 'bst_participants',
             'field_work_workshops', 'field_work_participants', 'technical_training_sessions',
-            'technical_training_potential_lakhpati_sessions', 'technical_training_potential_lakhpati_participations', 'community_org_outreach_count', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'capacity_building_stakeholder_sessions', 'stakeholder_consultation_workshop_sessions', 'line_department_meeting_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'demo_days_count', 'funding_schematic_partners_outreach_count' => array_filter([(string) ($source['deliverable_code'] ?? '')]),
+            'technical_training_potential_lakhpati_sessions', 'technical_training_potential_lakhpati_participations', 'community_org_outreach_count', 'marketing_partner_outreach_count', 'marketing_partner_onboarded_count', 'business_acceleration_partners_outreach_count', 'acceleration_services_initiation_count', 'capacity_building_stakeholder_sessions', 'stakeholder_consultation_workshop_sessions', 'line_department_meeting_sessions', 'pitch_deck_preparations', 'pitch_deck_combined', 'demo_days_count', 'funding_schematic_partners_outreach_count' => array_filter([(string) ($source['deliverable_code'] ?? '')]),
             'none' => array_filter([(string) ($source['deliverable_code'] ?? '')]),
             default => [],
         };

@@ -114,6 +114,7 @@ final class HubTargetDeliverablesSupport
             'demo_days_count', 'funding_schematic_partners_outreach_count',
             'marketing_partner_outreach_count', 'marketing_partner_onboarded_count',
             'business_acceleration_partners_outreach_count' => array_filter([(string) ($source['deliverable_code'] ?? '')]),
+            'acceleration_services_initiation_count' => array_filter([(string) ($source['deliverable_code'] ?? '')]),
             'none' => array_filter([(string) ($source['deliverable_code'] ?? '')]),
             default => [],
         };

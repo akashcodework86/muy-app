@@ -741,6 +741,22 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:30,1')
             ->name('business-acceleration-partners-outreach.destroy');
 
+        Route::post('acceleration-services', [\App\Http\Controllers\AccelerationServiceController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('acceleration-services.store');
+        Route::get('acceleration-services/incubatees/search', [\App\Http\Controllers\AccelerationServiceController::class, 'searchIncubatees'])
+            ->name('acceleration-services.incubatees.search');
+        Route::get('acceleration-services/incubatees/history', [\App\Http\Controllers\AccelerationServiceController::class, 'incubateeHistory'])
+            ->name('acceleration-services.incubatees.history');
+        Route::get('acceleration-services', \App\Http\Controllers\AccelerationServicesLandingController::class)->name('acceleration-services.index');
+        Route::get('acceleration-services/dashboard', [\App\Http\Controllers\AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
+        Route::get('acceleration-services/export', [\App\Http\Controllers\AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
+        Route::get('acceleration-services/media/{accelerationMedia}', [\App\Http\Controllers\AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
+        Route::get('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
+        Route::delete('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('acceleration-services.destroy');
+
         Route::get('capacity-building-stakeholders/create', [StakeholderCapacityBuildingSessionController::class, 'create'])->name('capacity-building-stakeholders.create');
         Route::post('capacity-building-stakeholders', [StakeholderCapacityBuildingSessionController::class, 'store'])
             ->middleware('throttle:30,1')
@@ -1120,6 +1136,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('business-acceleration-partners-outreach', BusinessAccelerationPartnersOutreachLandingController::class)->name('business-acceleration-partners-outreach.index');
         Route::get('business-acceleration-partners-outreach/export', [BusinessAccelerationPartnerOutreachController::class, 'export'])->name('business-acceleration-partners-outreach.export');
         Route::get('business-acceleration-partners-outreach/{baPartnerOutreach}', [BusinessAccelerationPartnerOutreachController::class, 'show'])->name('business-acceleration-partners-outreach.show');
+
+        Route::get('acceleration-services/dashboard', [\App\Http\Controllers\AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
+        Route::get('acceleration-services', \App\Http\Controllers\AccelerationServicesLandingController::class)->name('acceleration-services.index');
+        Route::get('acceleration-services/export', [\App\Http\Controllers\AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
+        Route::get('acceleration-services/media/{accelerationMedia}', [\App\Http\Controllers\AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
+        Route::get('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
 
         Route::get('capacity-building-stakeholders/dashboard', [StakeholderCapacityBuildingSessionController::class, 'dashboard'])->name('capacity-building-stakeholders.dashboard');
         Route::get('capacity-building-stakeholders', CapacityBuildingStakeholdersLandingController::class)->name('capacity-building-stakeholders.index');

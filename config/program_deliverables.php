@@ -282,7 +282,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Key Indicator',
                     'level' => 'State',
-                    'source' => ['type' => 'deliverable', 'code' => 'acceleration_services'],
+                    'source' => ['type' => 'acceleration_services_initiation_count', 'deliverable_code' => 'acceleration_services'],
                 ],
             ],
         ],

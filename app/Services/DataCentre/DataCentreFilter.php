@@ -21,6 +21,21 @@ class DataCentreFilter
         return new self(null, null, null, null, null);
     }
 
+    /**
+     * Onboarded view uses the full locked-batch cohort (all 2,881+).
+     * Only district drill-down is allowed — no quarter / month / date slicing.
+     */
+    public function onboardedScopeOnly(): self
+    {
+        return new self(
+            districtId: $this->districtId,
+            quarter: null,
+            fiscalMonth: null,
+            dateFrom: null,
+            dateTo: null,
+        );
+    }
+
     public static function fromRequest(Request $request): self
     {
         $quarter = $request->query('quarter');
@@ -82,6 +97,40 @@ class DataCentreFilter
         return $this->quarter !== null
             || $this->fiscalMonth !== null
             || ($this->dateFrom !== null && $this->dateTo !== null);
+    }
+
+    /**
+     * Human-readable description of active filters (for UI).
+     *
+     * @return list<string>
+     */
+    public function activeLabels(?FiscalYear $fiscalYear = null, ?string $districtName = null): array
+    {
+        if (! $this->isActive()) {
+            return [];
+        }
+
+        $labels = [];
+
+        if ($this->districtId !== null && $this->districtId > 0) {
+            $labels[] = 'District: '.($districtName ?: 'Selected');
+        }
+
+        if ($this->quarter !== null && $this->quarter >= 1 && $this->quarter <= 4) {
+            $range = $fiscalYear?->fiscalQuarterLabel($this->quarter);
+            $labels[] = 'Q'.$this->quarter.($range ? " ({$range})" : '');
+        }
+
+        if ($this->fiscalMonth !== null && $this->fiscalMonth >= 1 && $this->fiscalMonth <= 12 && $fiscalYear?->starts_on) {
+            $monthStart = Carbon::parse($fiscalYear->starts_on)->startOfMonth()->addMonths($this->fiscalMonth - 1);
+            $labels[] = 'Month: '.$monthStart->format('M Y');
+        }
+
+        if ($this->dateFrom && $this->dateTo) {
+            $labels[] = 'Dates: '.$this->dateFrom.' – '.$this->dateTo;
+        }
+
+        return $labels;
     }
 
     /**

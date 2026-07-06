@@ -14,6 +14,7 @@ use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\ServiceTargetDeliverableSyncService;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
 use App\Support\BusinessAccelerationPartnersOutreachDeliverablesSupport;
+use App\Support\AccelerationServicesDeliverablesSupport;
 use App\Support\DemoDaysDeliverablesSupport;
 use App\Support\FundingSchematicPartnersOutreachDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
@@ -96,6 +97,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'marketing_partner_outreach_count' => $this->marketingPartnerOutreachBreakdown(),
             'marketing_partner_onboarded_count' => $this->marketingPartnerOnboardedBreakdown(),
             'business_acceleration_partners_outreach_count' => $this->businessAccelerationPartnersOutreachBreakdown(),
+            'acceleration_services_initiation_count' => $this->accelerationServicesInitiationBreakdown(),
             'demo_days_count' => $this->demoDaysBreakdown(),
             'funding_schematic_partners_outreach_count' => $this->fundingSchematicPartnersOutreachBreakdown(),
             'muy_newsletter_count' => $this->muyNewsletterEntriesBreakdown(),
@@ -165,6 +167,15 @@ class ProgramDeliverablesAchievementBreakdownService
 
         if (strtolower(trim((string) ($source['code'] ?? ''))) === 'case_studies') {
             return $this->caseStudyEntriesBreakdown();
+        }
+
+        if (strtolower(trim((string) ($source['code'] ?? ''))) === 'buyer_seller_meets') {
+            $base = $this->serviceCaseBreakdown($source);
+            $accel = AccelerationServicesDeliverablesSupport::buyerSellerRecords($this->periodFrom, $this->periodTo);
+            $base['records'] = array_merge($accel, $base['records'] ?? []);
+            $base['total'] = count($base['records']);
+
+            return $base;
         }
 
         return $this->serviceCaseBreakdown($source);
@@ -332,6 +343,17 @@ class ProgramDeliverablesAchievementBreakdownService
     private function businessAccelerationPartnersOutreachBreakdown(): array
     {
         return BusinessAccelerationPartnersOutreachDeliverablesSupport::breakdown(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function accelerationServicesInitiationBreakdown(): array
+    {
+        return AccelerationServicesDeliverablesSupport::initiationBreakdown(
             $this->periodFrom,
             $this->periodTo,
         );
@@ -1965,6 +1987,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'marketing_partner_outreach_count' => 'Marketing partner outreach entries',
             'marketing_partner_onboarded_count' => 'Marketing partners onboarded (LoA/LoI/MoU)',
             'business_acceleration_partners_outreach_count' => '7.1 BA partners outreach (unique)',
+            'acceleration_services_initiation_count' => '7.2 Acceleration initiation (unique incubatees)',
             'demo_days_count' => '8.4 Demo Days (state team)',
             'funding_schematic_partners_outreach_count' => '8.5 Funding partners outreach (unique)',
             'muy_newsletter_count' => '10.3 MUY Newsletter entries',

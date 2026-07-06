@@ -22,6 +22,28 @@ class LegacyPhase1ApplicationDetailService
      *   district_mismatch_warning: ?string
      * }|null
      */
+    /**
+     * @return list<array{label: string, detail: ?string}>
+     */
+    public function servicesForLegacyId(int $legacyId): array
+    {
+        if ($legacyId <= 0 || ! $this->legacyAvailable()) {
+            return [];
+        }
+
+        try {
+            $row = $this->fetchRowById($legacyId);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if ($row === null) {
+            return [];
+        }
+
+        return $this->extractServices((array) $row);
+    }
+
     public function tryBuild(CfaSubmission $submission): ?array
     {
         if (! $this->isPhase1Source((string) ($submission->source ?? ''))) {

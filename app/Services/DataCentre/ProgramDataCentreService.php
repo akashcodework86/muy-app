@@ -85,7 +85,7 @@ class ProgramDataCentreService
         $dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
         $filter = $filter ?? DataCentreFilter::empty();
         $this->prepareContext($dataScope, $viewMode, $filter);
-        $cacheKey = 'data_centre_build_v5_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
+        $cacheKey = 'data_centre_build_v10_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode, $dataScope, $filter) {
             $this->prepareContext($dataScope, $viewMode, $filter);
@@ -101,6 +101,8 @@ class ProgramDataCentreService
                 'cache_ttl' => self::CACHE_TTL,
                 'view_mode' => $viewMode,
                 'data_scope' => $dataScope,
+                'legacy_phase2_enrichment' => $this->phase3LegacyEnrichmentEnabled(),
+                'legacy_phase2_database' => $this->phase3LegacyEnrichmentEnabled() ? $this->phase3LegacyDatabase() : null,
                 'filter_active' => $filter->isActive(),
             ];
 
@@ -141,7 +143,7 @@ class ProgramDataCentreService
     {
         foreach (['all', 'rbiphase3'] as $viewMode) {
             foreach (['all', 'onboarded'] as $dataScope) {
-                Cache::forget('data_centre_build_v5_'.$viewMode.'_'.$dataScope.'_none');
+                Cache::forget('data_centre_build_v10_'.$viewMode.'_'.$dataScope.'_none');
             }
         }
     }
@@ -172,28 +174,26 @@ class ProgramDataCentreService
 
         $pct = fn (int $n): float => round($n * 100 / $total, 1);
 
-        $female = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.gender')) = 'Female'")
+        $stages = $this->phase3StageCounts();
+        $seed = $stages['seed'];
+        $early = $stages['early'];
+        $growth = $stages['growth'];
+        $stageUnknown = $stages['unknown'];
+
+        $female = (int) (clone $this->phase3AnalysisQuery())
+            ->whereRaw($this->phase3NormalizedGenderExpr()." = 'Female'")
             ->count();
-        $seed = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.form_stage')) = 'Seed'")
-            ->count();
-        $early = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.form_stage')) = 'Early'")
-            ->count();
-        $growth = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.form_stage')) = 'Growth'")
-            ->count();
-        $cbo = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')) = 'CBO'")
+        $cbo = (int) (clone $this->phase3AnalysisQuery())
+            ->whereRaw($this->phase3IsCboExpr())
             ->count();
 
-        $employment = $this->employmentAggregatePhase('p3');
+        $employment = $this->phase3AnalysisEmploymentAggregate();
         $employers = (int) $employment['employers'];
         $jobsGenerated = (int) $employment['jobs'];
 
-        $sectorRows = (clone $this->phase3BaseQuery())
-            ->selectRaw("COALESCE(NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.business_category'))), ''), 'Not specified') as sector, COUNT(*) as count")
+        $sectorExpr = $this->phase3SectorExpr();
+        $sectorRows = (clone $this->phase3AnalysisQuery())
+            ->selectRaw("{$sectorExpr} as sector, COUNT(*) as count")
             ->groupBy('sector')
             ->orderByDesc('count')
             ->get();
@@ -208,32 +208,30 @@ class ProgramDataCentreService
             ];
         }
 
-        $noCredit = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.loan_taken')) = 'No'")
-            ->count();
-        $unorganized = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.is_registered')) = 'No'")
-            ->count();
+        $loanCounts = $this->phase3YesNoFieldCounts('loan_taken');
+        $registeredCounts = $this->phase3YesNoFieldCounts('is_registered');
+        $noCredit = $loanCounts['no'];
+        $loanYes = $loanCounts['yes'];
+        $loanUnspecified = $loanCounts['unspecified'];
+        $unorganized = $registeredCounts['no'];
+        $registeredYes = $registeredCounts['yes'];
+        $registeredUnspecified = $registeredCounts['unspecified'];
         $incomeSlabs = $this->phase3IncomeSlabs($pct);
         $incomeSlabSum = array_sum(array_column($incomeSlabs, 'count'));
-        $loanYes = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.loan_taken')) = 'Yes'")
-            ->count();
-        $registeredYes = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.is_registered')) = 'Yes'")
-            ->count();
-        $male = (int) (clone $this->phase3BaseQuery())
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.gender')) = 'Male'")
+        $male = (int) (clone $this->phase3AnalysisQuery())
+            ->whereRaw($this->phase3NormalizedGenderExpr()." = 'Male'")
             ->count();
         $genderOther = $total - $female - $male;
 
         $sectorSum = array_sum(array_column($sectors, 'count'));
 
+        $stageSum = $seed + $early + $growth + $stageUnknown;
+
         $checks = [
-            ['label' => 'Seed + Early + Growth', 'expected' => $total, 'actual' => $seed + $early + $growth],
+            ['label' => 'Seed + Early + Growth (+ unspecified)', 'expected' => $total, 'actual' => $stageSum],
             ['label' => 'All sectors sum', 'expected' => $total, 'actual' => $sectorSum],
-            ['label' => 'Loan No + Yes', 'expected' => $total, 'actual' => $noCredit + $loanYes],
-            ['label' => 'Registered No + Yes', 'expected' => $total, 'actual' => $unorganized + $registeredYes],
+            ['label' => 'Loan No + Yes + unspecified', 'expected' => $total, 'actual' => $noCredit + $loanYes + $loanUnspecified],
+            ['label' => 'Registered No + Yes + unspecified', 'expected' => $total, 'actual' => $unorganized + $registeredYes + $registeredUnspecified],
             ['label' => 'Income slabs sum', 'expected' => $total, 'actual' => $incomeSlabSum],
             ['label' => 'Female + Male + Other/NA', 'expected' => $total, 'actual' => $female + $male + $genderOther],
         ];
@@ -247,23 +245,34 @@ class ProgramDataCentreService
             ];
         }, $checks);
 
+        $entrepreneur = [
+            ['label' => 'Women Entrepreneurs', 'count' => $female, 'pct' => $pct($female)],
+            ['label' => 'Seed-Stage Entrepreneurs', 'count' => $seed, 'pct' => $pct($seed)],
+            ['label' => 'Early-Stage Entrepreneurs', 'count' => $early, 'pct' => $pct($early)],
+            ['label' => 'Growth-Stage Entrepreneurs', 'count' => $growth, 'pct' => $pct($growth)],
+        ];
+        if ($stageUnknown > 0) {
+            $entrepreneur[] = ['label' => 'Stage not specified', 'count' => $stageUnknown, 'pct' => $pct($stageUnknown)];
+        }
+        $entrepreneur[] = ['label' => 'CBOs', 'count' => $cbo, 'pct' => $pct($cbo)];
+        $entrepreneur[] = ['label' => 'Generating Employment', 'count' => $employers, 'pct' => $pct($employers)];
+        $entrepreneur[] = ['label' => 'Employment Generated', 'count' => $jobsGenerated, 'pct' => null, 'is_jobs_total' => true];
+
         return [
             'total' => $total,
-            'entrepreneur' => [
-                ['label' => 'Women Entrepreneurs', 'count' => $female, 'pct' => $pct($female)],
-                ['label' => 'Seed-Stage Entrepreneurs', 'count' => $seed, 'pct' => $pct($seed)],
-                ['label' => 'Early-Stage Entrepreneurs', 'count' => $early, 'pct' => $pct($early)],
-                ['label' => 'Growth-Stage Entrepreneurs', 'count' => $growth, 'pct' => $pct($growth)],
-                ['label' => 'CBOs', 'count' => $cbo, 'pct' => $pct($cbo)],
-                ['label' => 'Generating Employment', 'count' => $employers, 'pct' => $pct($employers)],
-                ['label' => 'Employment Generated', 'count' => $jobsGenerated, 'pct' => null, 'is_jobs_total' => true],
-            ],
+            'full_total' => $this->filter->isActive() ? $this->phase3CountUnfiltered() : null,
+            'entrepreneur' => $entrepreneur,
             'sectors' => $sectors,
             'business_stats' => [
                 ['label' => 'No Credit History', 'count' => $noCredit, 'pct' => $pct($noCredit)],
                 ['label' => 'Businesses are unorganized', 'count' => $unorganized, 'pct' => $pct($unorganized)],
             ],
             'income_slabs' => $incomeSlabs,
+            'onboarding_breakdown' => $this->isOnboardedScope() ? $this->phase3OnboardingBreakdown() : [],
+            'legacy_enrichment' => [
+                'enabled' => $this->phase3LegacyEnrichmentEnabled(),
+                'database' => $this->phase3LegacyDatabase(),
+            ],
             'accuracy_checks' => $accuracyChecks,
         ];
     }
@@ -273,12 +282,21 @@ class ProgramDataCentreService
     {
         $p3 = $this->phase3Count();
         $fy = FiscalYear::phase3Default()?->name ?? 'FY 2026-27';
-        $source = $this->isOnboardedScope()
-            ? 'Live MIS – locked onboarding batches (rbiphase3)'
-            : 'Live MIS – cfa_submissions (rbiphase3)';
+
+        if ($this->isOnboardedScope()) {
+            $breakdown = $this->phase3OnboardingBreakdown();
+            $misNative = (int) ($breakdown[0]['count'] ?? 0);
+            $legacy = (int) ($breakdown[1]['count'] ?? 0);
+
+            return [
+                ['phase' => 'Phase 3 MIS (new CFA)', 'source' => 'Referral & public form — locked batches', 'count' => $misNative],
+                ['phase' => 'rbiphase2 legacy (imported)', 'source' => 'legacy_phase2 onboarded via MIS', 'count' => $legacy],
+                ['phase' => 'Total onboarded ('.$fy.')', 'source' => 'All locked onboarding batches — rbiphase3', 'count' => $p3],
+            ];
+        }
 
         return [
-            ['phase' => 'Phase 3 ('.$fy.')', 'source' => $source, 'count' => $p3],
+            ['phase' => 'Phase 3 ('.$fy.')', 'source' => 'Live MIS – cfa_submissions (rbiphase3)', 'count' => $p3],
         ];
     }
 
@@ -1144,6 +1162,20 @@ class ProgramDataCentreService
         return (int) $this->phase3BaseQuery()->count();
     }
 
+    private function phase3CountUnfiltered(): int
+    {
+        if (! $this->filter->isActive()) {
+            return $this->phase3Count();
+        }
+
+        $saved = $this->filter;
+        $this->filter = DataCentreFilter::empty();
+        $count = $this->phase3Count();
+        $this->filter = $saved;
+
+        return $count;
+    }
+
     private function phase3FiscalYearId(): int
     {
         return (int) (FiscalYear::phase3Default()?->id ?? 0);
@@ -1188,14 +1220,10 @@ class ProgramDataCentreService
             $query->where('cs.district_id', $this->filter->districtId);
         }
 
-        if ($this->filter->hasDateFilter()) {
+        if ($this->filter->hasDateFilter() && ! $this->isOnboardedScope()) {
             [$from, $to] = $this->filter->resolveDatePeriod(FiscalYear::phase3Default());
             if ($from !== null && $to !== null) {
-                if ($this->isOnboardedScope()) {
-                    $query->whereBetween('ob.locked_at', [$from, $to]);
-                } else {
-                    $query->whereBetween('cs.created_at', [$from, $to]);
-                }
+                $query->whereBetween('cs.created_at', [$from, $to]);
             }
         }
 
@@ -1219,23 +1247,211 @@ class ProgramDataCentreService
     }
 
     /**
+     * @return array{seed: int, early: int, growth: int, unknown: int}
+     */
+    private function phase3StageCounts(): array
+    {
+        $stageExpr = $this->phase3ResolvedStageExpr();
+        $counts = ['seed' => 0, 'early' => 0, 'growth' => 0, 'unknown' => 0];
+
+        foreach ((clone $this->phase3AnalysisQuery())
+            ->selectRaw("{$stageExpr} as stage_key, COUNT(*) as aggregate_count")
+            ->groupBy('stage_key')
+            ->get() as $row) {
+            $key = (string) ($row->stage_key ?? 'unknown');
+            if (! array_key_exists($key, $counts)) {
+                $key = 'unknown';
+            }
+            $counts[$key] += (int) $row->aggregate_count;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @return array{yes: int, no: int, unspecified: int}
+     */
+    private function phase3YesNoFieldCounts(string $field): array
+    {
+        $expr = match ($field) {
+            'loan_taken' => $this->phase3LoanTakenExpr(),
+            'is_registered' => $this->phase3IsRegisteredExpr(),
+            default => $this->phase3PayloadExpr('$.'.$field),
+        };
+        $row = (clone $this->phase3AnalysisQuery())->selectRaw("
+            SUM(CASE WHEN {$expr} = 'Yes' THEN 1 ELSE 0 END) as yes_count,
+            SUM(CASE WHEN {$expr} = 'No' THEN 1 ELSE 0 END) as no_count,
+            SUM(CASE WHEN {$expr} NOT IN ('Yes', 'No') OR {$expr} IS NULL OR TRIM({$expr}) = '' OR {$expr} = 'null' THEN 1 ELSE 0 END) as unspecified_count
+        ")->first();
+
+        return [
+            'yes' => (int) ($row->yes_count ?? 0),
+            'no' => (int) ($row->no_count ?? 0),
+            'unspecified' => (int) ($row->unspecified_count ?? 0),
+        ];
+    }
+
+    private function phase3AnalysisQuery(): Builder
+    {
+        return $this->applyPhase3LegacyEnrichment($this->phase3BaseQuery());
+    }
+
+    private function applyPhase3LegacyEnrichment(Builder $query): Builder
+    {
+        if (! $this->phase3LegacyEnrichmentEnabled()) {
+            return $query;
+        }
+
+        $legacyDb = $this->phase3LegacyDatabase();
+        $legacyIdExpr = 'CAST(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, \'$.legacy_application_id\')) AS UNSIGNED)';
+
+        $query->leftJoin("{$legacyDb}.rbi_applications as leg_a", 'leg_a.id', '=', DB::raw($legacyIdExpr));
+
+        $query->leftJoin(DB::raw("(
+            SELECT e1.application_id, e1.turnover_last_year, e1.is_registered
+            FROM {$legacyDb}.rbi_enterprise_details e1
+            INNER JOIN (
+                SELECT application_id, MAX(id) AS max_id
+                FROM {$legacyDb}.rbi_enterprise_details
+                GROUP BY application_id
+            ) t ON t.application_id = e1.application_id AND t.max_id = e1.id
+        ) as leg_ed"), 'leg_ed.application_id', '=', 'leg_a.id');
+
+        $query->leftJoin(DB::raw("(
+            SELECT d.application_id, d.loan_taken, d.gender, d.current_employment, d.employed_count
+            FROM {$legacyDb}.rbi_applicant_details d
+            INNER JOIN (
+                SELECT application_id, MAX(id) AS max_id
+                FROM {$legacyDb}.rbi_applicant_details
+                GROUP BY application_id
+            ) t ON t.application_id = d.application_id AND t.max_id = d.id
+        ) as leg_d"), 'leg_d.application_id', '=', 'leg_a.id');
+
+        return $query;
+    }
+
+    private function phase3LegacyDatabase(): string
+    {
+        return trim((string) config('database.connections.legacy.database', ''));
+    }
+
+    private function phase3LegacyEnrichmentEnabled(): bool
+    {
+        return $this->legacyPhase2Ok && $this->phase3LegacyDatabase() !== '';
+    }
+
+    private function phase3PayloadExpr(string $jsonPath): string
+    {
+        return "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '{$jsonPath}'))";
+    }
+
+    private function phase3PayloadTurnoverValidExpr(): string
+    {
+        $raw = $this->phase3PayloadExpr('$.turnover_last_fy');
+
+        return "({$raw} REGEXP '^[0-9,]+$' AND TRIM({$raw}) <> '' AND {$raw} IS NOT NULL AND {$raw} <> 'null')";
+    }
+
+    private function phase3TurnoverNumExpr(): string
+    {
+        $raw = $this->phase3PayloadExpr('$.turnover_last_fy');
+        $payloadNum = "CASE WHEN {$this->phase3PayloadTurnoverValidExpr()} THEN CAST(REPLACE({$raw}, ',', '') AS DECIMAL(15,2)) ELSE NULL END";
+
+        if ($this->phase3LegacyEnrichmentEnabled()) {
+            return "COALESCE({$payloadNum}, leg_ed.turnover_last_year)";
+        }
+
+        return $payloadNum;
+    }
+
+    private function phase3TurnoverKnownExpr(): string
+    {
+        return '('.$this->phase3TurnoverNumExpr().' IS NOT NULL)';
+    }
+
+    private function phase3SectorExpr(): string
+    {
+        $payload = "NULLIF(TRIM({$this->phase3PayloadExpr('$.business_category')}), '')";
+
+        if ($this->phase3LegacyEnrichmentEnabled()) {
+            return "COALESCE({$payload}, NULLIF(TRIM(leg_a.business_category), ''), NULLIF(TRIM(leg_a.product), ''), NULLIF(TRIM(leg_a.other_product), ''), 'Not specified')";
+        }
+
+        return "COALESCE({$payload}, 'Not specified')";
+    }
+
+    private function phase3LoanTakenExpr(): string
+    {
+        $payload = "NULLIF(TRIM({$this->phase3PayloadExpr('$.loan_taken')}), '')";
+
+        if ($this->phase3LegacyEnrichmentEnabled()) {
+            return "COALESCE({$payload}, NULLIF(TRIM(leg_d.loan_taken), ''))";
+        }
+
+        return $payload;
+    }
+
+    private function phase3IsRegisteredExpr(): string
+    {
+        $payload = "NULLIF(TRIM({$this->phase3PayloadExpr('$.is_registered')}), '')";
+
+        if (! $this->phase3LegacyEnrichmentEnabled()) {
+            return $payload;
+        }
+
+        $legacy = "CASE
+            WHEN leg_ed.is_registered IN ('Yes', 'yes') THEN 'Yes'
+            WHEN leg_ed.is_registered IN ('No', 'no', '0') THEN 'No'
+            ELSE NULL
+        END";
+
+        return "COALESCE({$payload}, {$legacy})";
+    }
+
+    private function phase3StoredStageExpr(): string
+    {
+        $formStage = $this->phase3PayloadExpr('$.form_stage');
+        $stage = $this->phase3PayloadExpr('$.stage');
+
+        return "LOWER(TRIM(COALESCE(NULLIF({$formStage}, 'null'), NULLIF({$stage}, 'null'), '')))";
+    }
+
+    /**
+     * Resolve business stage: stored form_stage/stage (any case), else compute from registration + turnover.
+     */
+    private function phase3ResolvedStageExpr(): string
+    {
+        $stored = $this->phase3StoredStageExpr();
+        $registered = $this->phase3IsRegisteredExpr();
+        $turnover = $this->phase3TurnoverNumExpr();
+        $turnoverKnown = $this->phase3TurnoverKnownExpr();
+
+        return "CASE
+            WHEN {$stored} IN ('seed', 'early', 'growth') THEN {$stored}
+            WHEN {$registered} = 'No' AND (NOT ({$turnoverKnown}) OR COALESCE({$turnover}, 0) = 0) THEN 'seed'
+            WHEN {$registered} = 'No' AND {$turnoverKnown} AND COALESCE({$turnover}, 0) > 0 THEN 'early'
+            WHEN {$registered} = 'Yes' AND {$turnoverKnown} AND COALESCE({$turnover}, 0) > 0 AND COALESCE({$turnover}, 0) <= 500000 THEN 'early'
+            WHEN {$registered} = 'Yes' AND {$turnoverKnown} AND COALESCE({$turnover}, 0) > 500000 THEN 'growth'
+            ELSE 'unknown'
+        END";
+    }
+
+    /**
      * @param  callable(int): float  $pct
      * @return list<array{label: string, count: int, pct: float}>
      */
     private function phase3IncomeSlabs(callable $pct): array
     {
-        $raw = "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.turnover_last_fy'))";
-        $num = "CAST(REPLACE({$raw}, ',', '') AS DECIMAL(15,2))";
-        $valid = "({$raw} REGEXP '^[0-9,]+$' AND TRIM({$raw}) <> '')";
+        $turnover = $this->phase3TurnoverNumExpr();
 
-        $row = (clone $this->phase3BaseQuery())->selectRaw("
-            SUM(CASE WHEN {$valid} AND {$num} = 0 THEN 1 ELSE 0 END) as income_zero,
-            SUM(CASE WHEN {$valid} AND {$num} > 0 AND {$num} < 100000 THEN 1 ELSE 0 END) as income_0_1l,
-            SUM(CASE WHEN {$valid} AND {$num} >= 100000 AND {$num} < 500000 THEN 1 ELSE 0 END) as income_1_5l,
-            SUM(CASE WHEN {$valid} AND {$num} >= 500000 AND {$num} < 1000000 THEN 1 ELSE 0 END) as income_5_10l,
-            SUM(CASE WHEN {$valid} AND {$num} >= 1000000 AND {$num} < 2500000 THEN 1 ELSE 0 END) as income_10_25l,
-            SUM(CASE WHEN {$valid} AND {$num} >= 2500000 THEN 1 ELSE 0 END) as income_25l_plus,
-            SUM(CASE WHEN NOT ({$valid}) THEN 1 ELSE 0 END) as income_invalid
+        $row = (clone $this->phase3AnalysisQuery())->selectRaw("
+            SUM(CASE WHEN {$turnover} IS NOT NULL AND {$turnover} = 0 THEN 1 ELSE 0 END) as income_zero,
+            SUM(CASE WHEN {$turnover} IS NOT NULL AND {$turnover} > 0 AND {$turnover} < 100000 THEN 1 ELSE 0 END) as income_0_1l,
+            SUM(CASE WHEN {$turnover} IS NOT NULL AND {$turnover} >= 100000 AND {$turnover} < 500000 THEN 1 ELSE 0 END) as income_1_5l,
+            SUM(CASE WHEN {$turnover} IS NOT NULL AND {$turnover} >= 500000 AND {$turnover} < 1000000 THEN 1 ELSE 0 END) as income_5_10l,
+            SUM(CASE WHEN {$turnover} IS NOT NULL AND {$turnover} >= 1000000 AND {$turnover} < 2500000 THEN 1 ELSE 0 END) as income_10_25l,
+            SUM(CASE WHEN {$turnover} IS NOT NULL AND {$turnover} >= 2500000 THEN 1 ELSE 0 END) as income_25l_plus,
+            SUM(CASE WHEN {$turnover} IS NULL THEN 1 ELSE 0 END) as income_invalid
         ")->first();
 
         $counts = [
@@ -1245,8 +1461,12 @@ class ProgramDataCentreService
             'INR 5 – 10 Lakh' => (int) ($row->income_5_10l ?? 0),
             'INR 10 – 25 Lakh' => (int) ($row->income_10_25l ?? 0),
             'INR 25 Lakh+' => (int) ($row->income_25l_plus ?? 0),
-            'Invalid / blank' => (int) ($row->income_invalid ?? 0),
         ];
+
+        $invalid = (int) ($row->income_invalid ?? 0);
+        if ($invalid > 0) {
+            $counts['Not specified'] = $invalid;
+        }
 
         $slabs = [];
         foreach ($counts as $label => $count) {
@@ -1258,6 +1478,107 @@ class ProgramDataCentreService
         }
 
         return $slabs;
+    }
+
+    private function phase3GenderSourceExpr(): string
+    {
+        $payload = "NULLIF(TRIM({$this->phase3PayloadExpr('$.gender')}), '')";
+
+        if ($this->phase3LegacyEnrichmentEnabled()) {
+            return "COALESCE({$payload}, NULLIF(TRIM(leg_d.gender), ''))";
+        }
+
+        return $payload;
+    }
+
+    private function phase3NormalizedGenderExpr(): string
+    {
+        $src = "LOWER(TRIM(COALESCE({$this->phase3GenderSourceExpr()}, '')))";
+
+        return "CASE
+            WHEN {$src} IN ('female', 'f') THEN 'Female'
+            WHEN {$src} IN ('male', 'm') THEN 'Male'
+            ELSE 'Other'
+        END";
+    }
+
+    private function phase3IsCboExpr(): string
+    {
+        $payload = "LOWER(TRIM(COALESCE({$this->phase3PayloadExpr('$.category')}, '')))";
+
+        if ($this->phase3LegacyEnrichmentEnabled()) {
+            return "({$payload} = 'cbo' OR LOWER(TRIM(COALESCE(leg_a.category, ''))) = 'cbo')";
+        }
+
+        return "{$payload} = 'cbo'";
+    }
+
+    private function phase3CurrentEmploymentExpr(): string
+    {
+        $payload = "NULLIF(TRIM({$this->phase3PayloadExpr('$.current_employment')}), '')";
+
+        if ($this->phase3LegacyEnrichmentEnabled()) {
+            return "COALESCE({$payload}, NULLIF(TRIM(leg_d.current_employment), ''))";
+        }
+
+        return $payload;
+    }
+
+    private function phase3EmployedCountExpr(): string
+    {
+        $payload = "NULLIF(TRIM({$this->phase3PayloadExpr('$.employed_count')}), '')";
+
+        if ($this->phase3LegacyEnrichmentEnabled()) {
+            return "COALESCE({$payload}, leg_d.employed_count)";
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array{total: int, employers: int, jobs: int}
+     */
+    private function phase3AnalysisEmploymentAggregate(): array
+    {
+        $cap = self::MAX_PLAUSIBLE_JOBS;
+        $empExpr = $this->phase3CurrentEmploymentExpr();
+        $countExpr = $this->phase3EmployedCountExpr();
+
+        $row = (clone $this->phase3AnalysisQuery())->selectRaw("
+            COUNT(*) as total,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE({$empExpr}, ''))) = 'yes' THEN 1 ELSE 0 END) as employers,
+            SUM(CASE
+                WHEN CAST({$countExpr} AS UNSIGNED) BETWEEN 1 AND {$cap}
+                THEN CAST({$countExpr} AS UNSIGNED)
+                ELSE 0
+            END) as jobs
+        ")->first();
+
+        return [
+            'total' => (int) ($row->total ?? 0),
+            'employers' => (int) ($row->employers ?? 0),
+            'jobs' => (int) ($row->jobs ?? 0),
+        ];
+    }
+
+    /**
+     * @return list<array{label: string, count: int}>
+     */
+    private function phase3OnboardingBreakdown(): array
+    {
+        $row = (clone $this->phase3BaseQuery())->selectRaw("
+            COUNT(*) as total,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(cs.source, ''))) = 'legacy_phase2' THEN 1 ELSE 0 END) as legacy_phase2
+        ")->first();
+
+        $total = (int) ($row->total ?? 0);
+        $legacy = (int) ($row->legacy_phase2 ?? 0);
+        $misNative = $total - $legacy;
+
+        return [
+            ['label' => 'Phase 3 MIS (new CFA)', 'count' => $misNative],
+            ['label' => 'rbiphase2 legacy (imported)', 'count' => $legacy],
+        ];
     }
 
     private function prepareScope(string $dataScope): void
