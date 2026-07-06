@@ -21,21 +21,6 @@ class DataCentreFilter
         return new self(null, null, null, null, null);
     }
 
-    /**
-     * Onboarded view uses the full locked-batch cohort (all 2,881+).
-     * Only district drill-down is allowed — no quarter / month / date slicing.
-     */
-    public function onboardedScopeOnly(): self
-    {
-        return new self(
-            districtId: $this->districtId,
-            quarter: null,
-            fiscalMonth: null,
-            dateFrom: null,
-            dateTo: null,
-        );
-    }
-
     public static function fromRequest(Request $request): self
     {
         $quarter = $request->query('quarter');

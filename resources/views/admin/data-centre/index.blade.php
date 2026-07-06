@@ -149,16 +149,13 @@
     $isPhase3View = $viewMode === 'rbiphase3';
     $isOnboardedOnly = $dataScope === 'onboarded';
     $filterQuery = ($filter ?? \App\Services\DataCentre\DataCentreFilter::empty())->queryParams();
-    $onboardedFilterQuery = array_filter([
-        'district_id' => ($filter ?? null)?->districtId,
-    ], fn ($v) => $v !== null && $v !== '');
     $dcQuery = [];
     if ($isPhase3View) {
         $dcQuery['view'] = 'rbiphase3';
         $dcQuery = array_merge($dcQuery, $filterQuery);
     }
     $phase3ToggleQuery = array_merge(['view' => 'rbiphase3'], $filterQuery);
-    $phase3OnboardedQuery = array_merge(['view' => 'rbiphase3', 'scope' => 'onboarded'], $onboardedFilterQuery);
+    $phase3OnboardedQuery = array_merge($phase3ToggleQuery, ['scope' => 'onboarded']);
     if ($isOnboardedOnly) {
         $dcQuery['scope'] = 'onboarded';
     }
@@ -219,13 +216,7 @@
             @if ($isOnboardedOnly)
                 <input type="hidden" name="scope" value="onboarded">
             @endif
-            <div class="dc-filters__title">
-                @if ($isOnboardedOnly)
-                    Filters — onboarded cohort (district only)
-                @else
-                    Filters — Phase 3 ({{ $phase3_fy->name ?? 'FY 2026-27' }})
-                @endif
-            </div>
+            <div class="dc-filters__title">Filters — Phase 3 ({{ $phase3_fy->name ?? 'FY 2026-27' }})</div>
             <div class="dc-filters__grid">
                 <div class="dc-filters__field">
                     <label for="dc-district">District</label>
@@ -236,7 +227,6 @@
                         @endforeach
                     </select>
                 </div>
-                @unless ($isOnboardedOnly)
                 <div class="dc-filters__field">
                     <label for="dc-quarter">Quarter</label>
                     <select name="quarter" id="dc-quarter">
@@ -265,21 +255,12 @@
                     <label for="dc-date-to">To date</label>
                     <input type="date" name="date_to" id="dc-date-to" value="{{ $dcFilterDates['dateTo'] ?? '' }}">
                 </div>
-                @endunless
                 <div class="dc-filters__actions">
                     <button type="submit" class="dc-btn dc-btn--export-all">Apply</button>
                     <a href="{{ route('admin.data-centre.index', $dcFilterResetQuery) }}" class="dc-btn" style="background:#fff;border-color:#d4d4d8;color:#475569;">Reset</a>
                 </div>
             </div>
-            @if ($isOnboardedOnly)
-                <p class="dc-note" style="margin:.65rem 0 0;padding:0;">
-                    Onboarded view always shows the <strong>full locked cohort</strong> (MIS + rbiphase2 legacy together).
-                    Quarter / month / date filters apply only on “All applications”.
-                    @if (!empty($meta['filter_active']))
-                        District filter active — counts are for the selected district only.
-                    @endif
-                </p>
-            @elseif (!empty($meta['filter_active']))
+            @if (!empty($meta['filter_active']))
                 @php
                     $dcFilterBarDistrict = $dcFilter->districtId
                         ? (($districts ?? collect())->firstWhere('id', $dcFilter->districtId)?->name)
@@ -934,7 +915,7 @@
                 <li><strong>Phase 3 (FY 2026–27 — live):</strong> Reads <code>cfa_submissions</code> for fiscal year {{ $meta['phase3_fy'] ?? 'FY 2026-27' }}. Excludes rows with <code>source = 'legacy_phase2'</code> to avoid double-counting Phase 2 applicants imported into this MIS.</li>
             @endif
             @if ($isPhase3View)
-                <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. {{ $isOnboardedOnly ? 'Onboarded view shows the full locked cohort (MIS + rbiphase2 legacy = total onboarded). All analysis sections calculate against this combined total. Only district filter applies on onboarded; quarter / month / date filters apply on “All applications” only.' : 'Application Analysis uses live payload fields with Phase 2 legacy fallback (rbiphase2 DB) for sector, turnover, loan and registration when MIS payload is sparse. Filters (district / quarter / month / date) apply within FY 2026-27 on this view.' }}</li>
+                <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. {{ $isOnboardedOnly ? 'Onboarded analysis uses locked batch members (MIS + rbiphase2 legacy). Filters (district / quarter / month / date) apply within FY 2026-27; onboarded date uses batch locked_at.' : 'Application Analysis uses live payload fields with Phase 2 legacy fallback (rbiphase2 DB) for sector, turnover, loan and registration when MIS payload is sparse. Filters (district / quarter / month / date) apply within FY 2026-27 on this view.' }}</li>
             @endif
             @unless ($isOnboardedOnly)
                 <li><strong>No double-counting:</strong> Phase 3 new-only count + Phase 2 = no overlap. 4,414 Phase 2 rows were imported into cfa_submissions and are excluded from Phase 3 counts.</li>

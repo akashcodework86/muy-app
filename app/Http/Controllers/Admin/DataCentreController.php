@@ -148,10 +148,6 @@ class DataCentreController extends Controller
 
         $filter = DataCentreFilter::fromRequest($request);
 
-        if ($dataScope === 'onboarded') {
-            return $filter->onboardedScopeOnly();
-        }
-
         return $filter;
     }
 

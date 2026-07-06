@@ -85,7 +85,7 @@ class ProgramDataCentreService
         $dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
         $filter = $filter ?? DataCentreFilter::empty();
         $this->prepareContext($dataScope, $viewMode, $filter);
-        $cacheKey = 'data_centre_build_v10_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
+        $cacheKey = 'data_centre_build_v11_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode, $dataScope, $filter) {
             $this->prepareContext($dataScope, $viewMode, $filter);
@@ -143,7 +143,7 @@ class ProgramDataCentreService
     {
         foreach (['all', 'rbiphase3'] as $viewMode) {
             foreach (['all', 'onboarded'] as $dataScope) {
-                Cache::forget('data_centre_build_v10_'.$viewMode.'_'.$dataScope.'_none');
+                Cache::forget('data_centre_build_v11_'.$viewMode.'_'.$dataScope.'_none');
             }
         }
     }
@@ -1220,10 +1220,14 @@ class ProgramDataCentreService
             $query->where('cs.district_id', $this->filter->districtId);
         }
 
-        if ($this->filter->hasDateFilter() && ! $this->isOnboardedScope()) {
+        if ($this->filter->hasDateFilter()) {
             [$from, $to] = $this->filter->resolveDatePeriod(FiscalYear::phase3Default());
             if ($from !== null && $to !== null) {
-                $query->whereBetween('cs.created_at', [$from, $to]);
+                if ($this->isOnboardedScope()) {
+                    $query->whereBetween('ob.locked_at', [$from, $to]);
+                } else {
+                    $query->whereBetween('cs.created_at', [$from, $to]);
+                }
             }
         }
 
