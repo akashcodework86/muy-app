@@ -212,6 +212,57 @@
         cursor: pointer;
         font-family: inherit;
     }
+    .sdci-history-reason-btn {
+        padding: 0.3rem 0.65rem;
+        border-radius: 6px;
+        background: #fff7ed;
+        color: #c2410c;
+        border: 1px solid #fdba74;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        white-space: nowrap;
+    }
+    .sdci-history-reason-btn:hover { background: #ffedd5; }
+    .sdci-status {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .sdci-status--present { background: #ecfdf5; color: #047857; }
+    .sdci-status--absent { background: #fef2f2; color: #b91c1c; }
+    .sdci-status--pending { background: #fff7ed; color: #c2410c; }
+    .sdci-absent-reason-text { color: #334155; line-height: 1.4; max-width: 220px; }
+</style>
+@include('partials.staff-monthly-attendance-grid-styles')
+<style>
+    .sdci-absent-form {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 12px;
+        background: #fff7ed;
+        border: 1px solid #fdba74;
+    }
+    .sdci-absent-form label { display: block; font-size: 0.8rem; font-weight: 700; color: #9a3412; margin-bottom: 0.35rem; }
+    .sdci-absent-form textarea {
+        width: 100%; min-height: 80px; border: 1px solid #fdba74; border-radius: 10px;
+        padding: 0.6rem 0.75rem; font-family: inherit; font-size: 0.86rem; resize: vertical;
+    }
+    .sdci-absent-form .sdci-btn { margin-top: 0.65rem; width: auto; }
+    .sdci-month-filter { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end; margin-bottom: 1rem; }
+    .sdci-monthly { margin-bottom: 1.5rem; }
+    .sdci-month-filter label { font-size: 0.72rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.25rem; }
+    .sdci-month-filter input { padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; }
+    .sdci-modal[hidden] { display: none; }
+    .sdci-modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .sdci-modal__backdrop { position: absolute; inset: 0; background: rgba(15,23,42,0.5); }
+    .sdci-modal__panel { position: relative; background: #fff; border-radius: 16px; padding: 1.25rem; width: min(100%, 480px); box-shadow: 0 20px 50px rgba(15,23,42,0.2); }
+    .sdci-modal__close { position: absolute; top: 0.5rem; right: 0.65rem; border: none; background: #f1f5f9; width: 2rem; height: 2rem; border-radius: 999px; cursor: pointer; }
 </style>
 @endpush
 
@@ -223,14 +274,62 @@
             <strong>{{ number_format($stats['total_days']) }}</strong>
         </div>
         <div class="sdci-stat">
-            <span>This month</span>
+            <span>This month present</span>
             <strong>{{ number_format($stats['this_month']) }}</strong>
         </div>
         <div class="sdci-stat">
+            <span>This month absent</span>
+            <strong>{{ number_format($stats['absent_month']) }}</strong>
+        </div>
+        <div class="sdci-stat">
             <span>Today</span>
-            <strong>{{ $todayCheckIn ? 'Present' : 'Pending' }}</strong>
+            <strong>{{ $todayCheckIn ? 'Present' : ($todayAbsenceReason ? 'Absent (reason given)' : 'Pending') }}</strong>
         </div>
     </div>
+
+    <section class="sdci-monthly">
+        <p class="sdci-kicker">Monthly sheet</p>
+        <h2>Your attendance — {{ $month->format('F Y') }}</h2>
+
+        <form method="get" class="sdci-month-filter">
+            <div>
+                <label for="month">Month</label>
+                <input type="month" name="month" id="month" value="{{ $month->format('Y-m') }}">
+            </div>
+            <button type="submit" class="sdci-btn" style="width:auto;padding:0.52rem 1rem;">View month</button>
+        </form>
+
+        @if ($canReportTodayAbsent)
+            <form method="post" action="{{ route('staff-daily-check-in.absence-reason.store') }}" class="sdci-absent-form">
+                @csrf
+                <input type="hidden" name="absence_date" value="{{ now()->toDateString() }}">
+                <input type="hidden" name="month" value="{{ $month->format('Y-m') }}">
+                <label for="today_absence_reason">Report today’s absence (reason required)</label>
+                <textarea id="today_absence_reason" name="reason" required minlength="3" maxlength="500" placeholder="e.g. Medical leave, official duty, personal emergency…">{{ old('reason', $todayAbsenceReason) }}</textarea>
+                @error('reason')<p class="sdci-error">{{ $message }}</p>@enderror
+                <button type="submit" class="sdci-btn">{{ $todayAbsenceReason ? 'Update absence reason' : 'Submit absence reason' }}</button>
+            </form>
+        @elseif ($todayAbsenceReason && ! $todayCheckIn)
+            <div class="sdci-highlight sdci-highlight--pending" style="margin-top:1rem;">
+                <strong>Absence reason submitted for today</strong><br>{{ $todayAbsenceReason }}
+            </div>
+        @endif
+
+        <div class="satt-grid-card">
+            <div class="satt-grid-card__head">
+                <h3 class="satt-grid-card__title">Attendance calendar</h3>
+                <div class="satt-legend">
+                    <span class="satt-legend__item"><span class="satt-mark satt-mark--present">✓</span> Present</span>
+                    <span class="satt-legend__item"><span class="satt-mark satt-mark--absent">✗</span> Absent (tap to add reason)</span>
+                </div>
+            </div>
+            @include('partials.staff-monthly-attendance-grid', [
+                'monthlyGrid' => $monthlyGrid,
+                'month' => $month,
+                'gridContext' => 'staff',
+            ])
+        </div>
+    </section>
 
     <div class="sdci-grid">
         <div class="sdci-panel">
@@ -311,6 +410,22 @@
         </div>
     </div>
 
+    <div class="sdci-modal" id="sdci-absent-modal" hidden>
+        <div class="sdci-modal__backdrop" data-sdci-absent-close></div>
+        <div class="sdci-modal__panel">
+            <button type="button" class="sdci-modal__close" data-sdci-absent-close aria-label="Close">&times;</button>
+            <h2 style="margin:0 0 0.35rem;font-size:1.05rem;">Absence reason</h2>
+            <p id="sdci-absent-date-label" style="margin:0 0 0.75rem;color:#64748b;font-size:0.85rem;"></p>
+            <form method="post" action="{{ route('staff-daily-check-in.absence-reason.store') }}" id="sdci-absent-form">
+                @csrf
+                <input type="hidden" name="absence_date" id="sdci-absent-date-input">
+                <input type="hidden" name="month" value="{{ $month->format('Y-m') }}">
+                <textarea name="reason" id="sdci-absent-reason-input" required minlength="3" maxlength="500" style="width:100%;min-height:90px;border:1px solid #cbd5e1;border-radius:10px;padding:0.65rem;font-family:inherit;"></textarea>
+                <button type="submit" class="sdci-btn" style="margin-top:0.65rem;width:auto;">Save reason</button>
+            </form>
+        </div>
+    </div>
+
     <section class="sdci-history" id="history">
         <p class="sdci-kicker">Your records</p>
         <h2>Attendance history</h2>
@@ -320,35 +435,85 @@
                     <tr>
                         <th>#</th>
                         <th>Date</th>
+                        <th>Status</th>
                         <th>Time</th>
                         <th>Coordinates</th>
                         <th>Accuracy</th>
+                        <th>Absent reason</th>
                         <th>Map</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($history as $i => $record)
+                    @forelse ($history as $i => $row)
+                        @php
+                            $record = $row['check_in'];
+                            $date = $row['date'];
+                        @endphp
                         <tr>
                             <td>{{ $i + 1 }}</td>
-                            <td>{{ $record->check_in_date->format('d M Y') }}</td>
-                            <td>{{ $record->marked_at->timezone(config('app.timezone'))->format('g:i A') }}</td>
-                            <td class="sdci-coords" style="margin:0;">
-                                {{ number_format((float) $record->latitude, 5) }}, {{ number_format((float) $record->longitude, 5) }}
-                            </td>
-                            <td>{{ $record->accuracy_m ? '±'.number_format((float) $record->accuracy_m, 0).' m' : '—' }}</td>
+                            <td>{{ $date->format('d M Y') }}</td>
                             <td>
-                                <button type="button" class="sdci-history-map-btn"
-                                    data-lat="{{ $record->latitude }}"
-                                    data-lng="{{ $record->longitude }}"
-                                    data-label="{{ $record->check_in_date->format('d M Y') }}">
-                                    View on map
-                                </button>
-                                <a href="{{ $record->googleMapsUrl() }}" target="_blank" rel="noopener" class="sdci-map-link" style="margin-left:0.35rem;">↗</a>
+                                @if ($row['present'])
+                                    <span class="sdci-status sdci-status--present">Present</span>
+                                @else
+                                    <span class="sdci-status sdci-status--absent">Absent</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($record)
+                                    {{ $record->marked_at->timezone(config('app.timezone'))->format('g:i A') }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td class="sdci-coords" style="margin:0;">
+                                @if ($record)
+                                    {{ number_format((float) $record->latitude, 5) }}, {{ number_format((float) $record->longitude, 5) }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td>
+                                @if ($record && $record->accuracy_m)
+                                    ±{{ number_format((float) $record->accuracy_m, 0) }} m
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td>
+                                @if ($row['present'])
+                                    —
+                                @elseif ($row['absence_reason'])
+                                    <span class="sdci-absent-reason-text">{{ $row['absence_reason'] }}</span>
+                                @elseif ($row['can_fill_reason'])
+                                    <button type="button"
+                                        class="sdci-history-reason-btn satt-absent-action"
+                                        data-date="{{ $date->toDateString() }}"
+                                        data-date-label="{{ $date->format('d M Y') }}"
+                                        data-reason="">
+                                        Add reason
+                                    </button>
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td>
+                                @if ($record)
+                                    <button type="button" class="sdci-history-map-btn"
+                                        data-lat="{{ $record->latitude }}"
+                                        data-lng="{{ $record->longitude }}"
+                                        data-label="{{ $date->format('d M Y') }}">
+                                        View on map
+                                    </button>
+                                    <a href="{{ $record->googleMapsUrl() }}" target="_blank" rel="noopener" class="sdci-map-link" style="margin-left:0.35rem;">↗</a>
+                                @else
+                                    —
+                                @endif
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" style="text-align:center;color:#64748b;padding:1.5rem;">No attendance history yet.</td>
+                            <td colspan="8" style="text-align:center;color:#64748b;padding:1.5rem;">No attendance history yet.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -449,6 +614,26 @@
         setStep(1);
     }
     @endif
+
+    document.querySelectorAll('.satt-absent-action').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const modal = document.getElementById('sdci-absent-modal');
+            document.getElementById('sdci-absent-date-label').textContent = 'Absent on ' + (btn.dataset.dateLabel || '');
+            document.getElementById('sdci-absent-date-input').value = btn.dataset.date || '';
+            document.getElementById('sdci-absent-reason-input').value = btn.dataset.reason || '';
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+        });
+    });
+    const absentModal = document.getElementById('sdci-absent-modal');
+    if (absentModal) {
+        absentModal.querySelectorAll('[data-sdci-absent-close]').forEach(function (el) {
+            el.addEventListener('click', function () {
+                absentModal.hidden = true;
+                document.body.style.overflow = '';
+            });
+        });
+    }
 
     setTimeout(function () { map.invalidateSize(); }, 200);
 })();

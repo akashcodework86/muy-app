@@ -100,6 +100,11 @@ class User extends Authenticatable
         return $this->hasMany(DistrictServiceSpoc::class, 'state_staff_user_id');
     }
 
+    public function staffAbsenceReasons(): HasMany
+    {
+        return $this->hasMany(StaffAbsenceReason::class);
+    }
+
     public function staffCheckIns(): HasMany
     {
         return $this->hasMany(StaffCheckIn::class);

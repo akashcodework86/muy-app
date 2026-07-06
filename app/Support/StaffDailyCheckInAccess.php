@@ -9,13 +9,23 @@ final class StaffDailyCheckInAccess
     /** Roles that must mark daily attendance with GPS (all internal staff except state admin & incubatee). */
     private const EXCLUDED_ROLES = ['state_admin', 'incubatee'];
 
+    public const EXCLUDED_DESIGNATION = 'CDO';
+
     public static function isRequired(?User $user): bool
     {
         if (! $user || ! $user->is_active) {
             return false;
         }
 
-        return ! in_array((string) $user->role, self::EXCLUDED_ROLES, true);
+        if (in_array((string) $user->role, self::EXCLUDED_ROLES, true)) {
+            return false;
+        }
+
+        if ($user->designationRecord?->name === self::EXCLUDED_DESIGNATION) {
+            return false;
+        }
+
+        return true;
     }
 
     public static function reminderHour(): int

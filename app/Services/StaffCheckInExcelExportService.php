@@ -85,6 +85,7 @@ class StaffCheckInExcelExportService
             'Status',
             'Check-in date',
             'Check-in time',
+            'Absent reason',
             'Latitude',
             'Longitude',
             'Accuracy (m)',
@@ -123,14 +124,15 @@ class StaffCheckInExcelExportService
             $sheet->setCellValue('J'.$dataRow, $present && $checkIn
                 ? $checkIn->marked_at->timezone($tz)->format('H:i:s')
                 : '—');
-            $sheet->setCellValue('K'.$dataRow, $present && $checkIn ? (float) $checkIn->latitude : '');
-            $sheet->setCellValue('L'.$dataRow, $present && $checkIn ? (float) $checkIn->longitude : '');
-            $sheet->setCellValue('M'.$dataRow, $present && $checkIn && $checkIn->accuracy_m
+            $sheet->setCellValue('K'.$dataRow, ! $present ? (string) ($item['absent_reason'] ?? '') : '');
+            $sheet->setCellValue('L'.$dataRow, $present && $checkIn ? (float) $checkIn->latitude : '');
+            $sheet->setCellValue('M'.$dataRow, $present && $checkIn ? (float) $checkIn->longitude : '');
+            $sheet->setCellValue('N'.$dataRow, $present && $checkIn && $checkIn->accuracy_m
                 ? (float) $checkIn->accuracy_m
                 : '');
             if ($present && $checkIn) {
-                $sheet->setCellValue('N'.$dataRow, $checkIn->googleMapsUrl());
-                $sheet->getCell('N'.$dataRow)->getHyperlink()->setUrl($checkIn->googleMapsUrl());
+                $sheet->setCellValue('O'.$dataRow, $checkIn->googleMapsUrl());
+                $sheet->getCell('O'.$dataRow)->getHyperlink()->setUrl($checkIn->googleMapsUrl());
             }
 
             $bg = $present ? 'ECFDF5' : 'FEF2F2';
@@ -176,7 +178,7 @@ class StaffCheckInExcelExportService
             // UTF-8 BOM so Excel opens Hindi/UTF-8 text correctly.
             fwrite($out, "\xEF\xBB\xBF");
 
-            fputcsv($out, ['S.N.', 'Staff name', 'Email', 'Role', 'Designation', 'Hub', 'District', 'Status', 'Check-in date', 'Check-in time', 'Latitude', 'Longitude', 'Accuracy (m)', 'Google Maps']);
+            fputcsv($out, ['S.N.', 'Staff name', 'Email', 'Role', 'Designation', 'Hub', 'District', 'Status', 'Check-in date', 'Check-in time', 'Absent reason', 'Latitude', 'Longitude', 'Accuracy (m)', 'Google Maps']);
 
             $sn = 1;
             foreach ($summary['rows'] as $item) {
@@ -195,6 +197,7 @@ class StaffCheckInExcelExportService
                     $present ? 'Present' : 'Absent',
                     $present && $checkIn ? (string) $checkIn->check_in_date->format('Y-m-d') : '—',
                     $present && $checkIn ? (string) $checkIn->marked_at->timezone($tz)->format('H:i:s') : '—',
+                    $present ? '' : (string) ($item['absent_reason'] ?? ''),
                     $present && $checkIn ? (string) $checkIn->latitude : '',
                     $present && $checkIn ? (string) $checkIn->longitude : '',
                     $present && $checkIn && $checkIn->accuracy_m ? (string) $checkIn->accuracy_m : '',

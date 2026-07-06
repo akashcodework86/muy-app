@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\StaffCheckIn;
 use App\Services\StaffCheckInService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -14,20 +15,33 @@ class StaffCheckInController extends Controller
         private readonly StaffCheckInService $checkInService,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $user = auth()->user();
         $todayCheckIn = $this->checkInService->todayForUser($user);
 
-        $history = $user->staffCheckIns()
-            ->orderByDesc('check_in_date')
-            ->orderByDesc('marked_at')
-            ->limit(60)
-            ->get();
+        $monthInput = (string) $request->query('month', now()->format('Y-m'));
+        try {
+            $month = Carbon::createFromFormat('Y-m', $monthInput)->startOfMonth();
+        } catch (\Throwable) {
+            $month = now()->startOfMonth();
+        }
+
+        $monthlyGrid = $this->checkInService->adminMonthlyGrid($month, null, null, null, (int) $user->id);
+        $today = now()->startOfDay();
+        $canReportTodayAbsent = $this->checkInService->canSubmitAbsenceReason($user, $today);
+        $todayAbsenceReason = \Illuminate\Support\Facades\Schema::hasTable('staff_absence_reasons')
+            ? $user->staffAbsenceReasons()
+                ->whereDate('absence_date', $today)
+                ->value('reason')
+            : null;
+
+        $history = $this->checkInService->attendanceHistoryForUser($user, 60);
 
         $stats = [
-            'total_days' => $history->count(),
-            'this_month' => $history->filter(fn ($c) => $c->check_in_date->isSameMonth(now()))->count(),
+            'total_days' => $user->staffCheckIns()->count(),
+            'this_month' => (int) ($monthlyGrid['rows']->first()['present_count'] ?? 0),
+            'absent_month' => (int) ($monthlyGrid['rows']->first()['absent_count'] ?? 0),
         ];
 
         return view('staff-daily-check-in.index', [
@@ -35,6 +49,10 @@ class StaffCheckInController extends Controller
             'showReminder' => $this->checkInService->shouldShowReminder($user),
             'history' => $history,
             'stats' => $stats,
+            'month' => $month,
+            'monthlyGrid' => $monthlyGrid,
+            'canReportTodayAbsent' => $canReportTodayAbsent,
+            'todayAbsenceReason' => $todayAbsenceReason,
         ]);
     }
 
@@ -68,5 +86,29 @@ class StaffCheckInController extends Controller
         return redirect()
             ->route('staff-daily-check-in.index')
             ->with('status', 'Attendance marked successfully with your current location.');
+    }
+
+    public function storeAbsenceReason(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'absence_date' => ['required', 'date', 'before_or_equal:today'],
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+            'month' => ['nullable', 'date_format:Y-m'],
+        ]);
+
+        try {
+            $date = Carbon::parse($validated['absence_date'])->startOfDay();
+            $this->checkInService->saveAbsenceReason($user, $date, $validated['reason']);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->withErrors(['reason' => $e->getMessage()]);
+        }
+
+        $month = $validated['month'] ?? $date->format('Y-m');
+
+        return redirect()
+            ->route('staff-daily-check-in.index', ['month' => $month])
+            ->with('status', 'Absence reason saved for '.$date->format('d M Y').'.');
     }
 }

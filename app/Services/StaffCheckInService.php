@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\StaffAbsenceReason;
 use App\Models\StaffCheckIn;
 use App\Models\User;
 use App\Support\StaffDailyCheckInAccess;
@@ -46,6 +47,10 @@ class StaffCheckInService
         return User::query()
             ->where('is_active', true)
             ->whereNotIn('role', ['state_admin', 'incubatee'])
+            ->whereDoesntHave(
+                'designationRecord',
+                fn ($q) => $q->where('name', StaffDailyCheckInAccess::EXCLUDED_DESIGNATION),
+            )
             ->with([
                 'designationRecord:id,name',
                 'hub:id,name',
@@ -54,12 +59,10 @@ class StaffCheckInService
     }
 
     /**
-     * @return array{total: int, present: int, absent: int, rows: Collection<int, array<string, mixed>>}
+     * @param  \Illuminate\Database\Eloquent\Builder<User>  $query
      */
-    public function adminSummaryForDate(Carbon $date, ?string $roleFilter = null, ?int $hubId = null, ?int $districtId = null, ?string $statusFilter = null): array
+    private function applyAdminFilters($query, ?string $roleFilter, ?int $hubId, ?int $districtId): void
     {
-        $query = $this->staffUsersQuery()->orderBy('name');
-
         if ($roleFilter !== null && $roleFilter !== '') {
             $query->where('role', $roleFilter);
         }
@@ -69,6 +72,153 @@ class StaffCheckInService
         if ($districtId !== null && $districtId > 0) {
             $query->where('district_id', $districtId);
         }
+    }
+
+    /**
+     * Monthly attendance grid for admin dashboard (employee × day matrix).
+     *
+     * @return array{
+     *     month: Carbon,
+     *     days_in_month: int,
+     *     rows: Collection<int, array{user: User, days: array<int, string|null>, present_count: int, absent_count: int}>,
+     *     total_staff: int,
+     *     total_present: int,
+     *     total_absent: int,
+     *     rate_pct: float,
+     *     elapsed_days: int
+     * }
+     */
+    public function adminMonthlyGrid(
+        Carbon $month,
+        ?string $roleFilter = null,
+        ?int $hubId = null,
+        ?int $districtId = null,
+        ?int $userId = null,
+    ): array {
+        $start = $month->copy()->startOfMonth();
+        $daysInMonth = $start->daysInMonth;
+        $today = now()->startOfDay();
+        $monthEnd = $start->copy()->endOfMonth();
+
+        $query = $this->staffUsersQuery()->orderBy('name');
+        $this->applyAdminFilters($query, $roleFilter, $hubId, $districtId);
+        if ($userId !== null && $userId > 0) {
+            $query->whereKey($userId);
+        }
+        $staff = $query->get();
+
+        $presentByUserDay = StaffCheckIn::query()
+            ->whereBetween('check_in_date', [$start->toDateString(), $monthEnd->toDateString()])
+            ->whereIn('user_id', $staff->pluck('id'))
+            ->get()
+            ->mapWithKeys(fn (StaffCheckIn $checkIn) => [
+                $checkIn->user_id.'|'.$checkIn->check_in_date->format('Y-m-d') => true,
+            ]);
+
+        $reasonByUserDay = $this->absenceReasonsForRange(
+            $staff->pluck('id')->all(),
+            $start,
+            $monthEnd,
+        );
+
+        $totalPresent = 0;
+        $totalAbsent = 0;
+
+        $rows = $staff->map(function (User $user) use (
+            $start,
+            $daysInMonth,
+            $today,
+            $presentByUserDay,
+            $reasonByUserDay,
+            &$totalPresent,
+            &$totalAbsent,
+        ) {
+            $days = [];
+            $absentReasons = [];
+            $presentCount = 0;
+            $absentCount = 0;
+
+            for ($d = 1; $d <= $daysInMonth; $d++) {
+                $date = $start->copy()->day($d);
+                $key = $user->id.'|'.$date->format('Y-m-d');
+
+                if ($date->isSunday()) {
+                    $days[$d] = 'sunday';
+
+                    continue;
+                }
+
+                if ($date->gt($today)) {
+                    $days[$d] = null;
+                } elseif ($presentByUserDay->has($key)) {
+                    $days[$d] = 'present';
+                    $presentCount++;
+                    $totalPresent++;
+                } else {
+                    $days[$d] = 'absent';
+                    $absentCount++;
+                    $totalAbsent++;
+                    $absentReasons[$d] = $reasonByUserDay[$key] ?? null;
+                }
+            }
+
+            return [
+                'user' => $user,
+                'days' => $days,
+                'absent_reasons' => $absentReasons,
+                'present_count' => $presentCount,
+                'absent_count' => $absentCount,
+            ];
+        });
+
+        $totalSlots = $totalPresent + $totalAbsent;
+        $workingDaysInMonth = 0;
+        $elapsedWorkingDays = 0;
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $date = $start->copy()->day($d);
+            if ($date->isSunday()) {
+                continue;
+            }
+            $workingDaysInMonth++;
+            if ($date->lte($today)) {
+                $elapsedWorkingDays++;
+            }
+        }
+
+        $sundayDays = [];
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            if ($start->copy()->day($d)->isSunday()) {
+                $sundayDays[] = $d;
+            }
+        }
+
+        $sundayLabels = array_map(
+            fn (int $d) => $start->copy()->day($d)->format('d M Y (D)'),
+            $sundayDays,
+        );
+
+        return [
+            'month' => $start,
+            'days_in_month' => $daysInMonth,
+            'sunday_days' => $sundayDays,
+            'sunday_labels' => $sundayLabels,
+            'working_days_in_month' => $workingDaysInMonth,
+            'rows' => $rows,
+            'total_staff' => $staff->count(),
+            'total_present' => $totalPresent,
+            'total_absent' => $totalAbsent,
+            'rate_pct' => $totalSlots > 0 ? round(($totalPresent / $totalSlots) * 100, 1) : 0.0,
+            'elapsed_days' => $elapsedWorkingDays,
+        ];
+    }
+
+    /**
+     * @return array{total: int, present: int, absent: int, rows: Collection<int, array<string, mixed>>}
+     */
+    public function adminSummaryForDate(Carbon $date, ?string $roleFilter = null, ?int $hubId = null, ?int $districtId = null, ?string $statusFilter = null): array
+    {
+        $query = $this->staffUsersQuery()->orderBy('name');
+        $this->applyAdminFilters($query, $roleFilter, $hubId, $districtId);
 
         $staff = $query->get();
         $checkIns = StaffCheckIn::query()
@@ -77,13 +227,26 @@ class StaffCheckInService
             ->get()
             ->keyBy('user_id');
 
-        $rows = $staff->map(function (User $user) use ($checkIns) {
+        $absenceReasons = $this->absenceReasonsTableExists()
+            ? StaffAbsenceReason::query()
+                ->whereDate('absence_date', $date)
+                ->whereIn('user_id', $staff->pluck('id'))
+                ->get()
+                ->keyBy('user_id')
+            : collect();
+
+        $rows = $staff->map(function (User $user) use ($checkIns, $absenceReasons, $date) {
             $checkIn = $checkIns->get($user->id);
+            $present = $checkIn !== null;
+            $absenceReason = $absenceReasons->get($user->id);
 
             return [
                 'user' => $user,
                 'check_in' => $checkIn,
-                'present' => $checkIn !== null,
+                'present' => $present,
+                'absent_reason' => ! $present && ! $date->isSunday()
+                    ? ($absenceReason?->reason)
+                    : null,
             ];
         });
 
@@ -102,6 +265,133 @@ class StaffCheckInService
             'absent' => max(0, $total - $presentCount),
             'rows' => $rows,
         ];
+    }
+
+    private function absenceReasonsTableExists(): bool
+    {
+        return Schema::hasTable('staff_absence_reasons');
+    }
+
+    /**
+     * @param  list<int>  $userIds
+     * @return array<string, string>
+     */
+    private function absenceReasonsForRange(array $userIds, Carbon $start, Carbon $end): array
+    {
+        if ($userIds === [] || ! $this->absenceReasonsTableExists()) {
+            return [];
+        }
+
+        return StaffAbsenceReason::query()
+            ->whereIn('user_id', $userIds)
+            ->whereBetween('absence_date', [$start->toDateString(), $end->toDateString()])
+            ->get()
+            ->mapWithKeys(fn (StaffAbsenceReason $row) => [
+                $row->user_id.'|'.$row->absence_date->format('Y-m-d') => (string) $row->reason,
+            ])
+            ->all();
+    }
+
+    public function canSubmitAbsenceReason(User $user, Carbon $date): bool
+    {
+        if (! StaffDailyCheckInAccess::isRequired($user)) {
+            return false;
+        }
+
+        $day = $date->copy()->startOfDay();
+        if ($day->isSunday() || $day->gt(now()->startOfDay())) {
+            return false;
+        }
+
+        if ($this->todayForUserOnDate($user, $day) !== null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function todayForUserOnDate(User $user, Carbon $date): ?StaffCheckIn
+    {
+        return StaffCheckIn::query()
+            ->where('user_id', $user->id)
+            ->whereDate('check_in_date', $date)
+            ->first();
+    }
+
+    public function saveAbsenceReason(User $user, Carbon $date, string $reason): StaffAbsenceReason
+    {
+        if (! $this->absenceReasonsTableExists()) {
+            throw new \InvalidArgumentException('Absence reasons are not available yet. Please run database migrations.');
+        }
+
+        if (! $this->canSubmitAbsenceReason($user, $date)) {
+            throw new \InvalidArgumentException('Cannot submit an absence reason for this date.');
+        }
+
+        return StaffAbsenceReason::query()->updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'absence_date' => $date->toDateString(),
+            ],
+            ['reason' => trim($reason)],
+        );
+    }
+
+    /**
+     * Recent attendance rows (present + absent weekdays), newest first.
+     *
+     * @return Collection<int, array{
+     *     date: Carbon,
+     *     present: bool,
+     *     check_in: ?StaffCheckIn,
+     *     absence_reason: ?string,
+     *     can_fill_reason: bool,
+     * }>
+     */
+    public function attendanceHistoryForUser(User $user, int $limit = 60): Collection
+    {
+        $checkInsByDate = StaffCheckIn::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('check_in_date')
+            ->get()
+            ->keyBy(fn (StaffCheckIn $checkIn) => $checkIn->check_in_date->format('Y-m-d'));
+
+        $absenceReasonsByDate = collect();
+        if ($this->absenceReasonsTableExists()) {
+            $absenceReasonsByDate = StaffAbsenceReason::query()
+                ->where('user_id', $user->id)
+                ->get()
+                ->keyBy(fn (StaffAbsenceReason $row) => $row->absence_date->format('Y-m-d'));
+        }
+
+        $rows = collect();
+        $cursor = now()->startOfDay();
+        $minDate = $cursor->copy()->subDays(150);
+
+        while ($rows->count() < $limit && $cursor->gte($minDate)) {
+            $dateKey = $cursor->format('Y-m-d');
+            $checkIn = $checkInsByDate->get($dateKey);
+            $present = $checkIn !== null;
+            $isSunday = $cursor->isSunday();
+
+            if ($present || (! $isSunday && $cursor->lte(now()->startOfDay()))) {
+                $absenceReason = ! $present ? ($absenceReasonsByDate->get($dateKey)?->reason) : null;
+
+                $rows->push([
+                    'date' => $cursor->copy(),
+                    'present' => $present,
+                    'check_in' => $checkIn,
+                    'absence_reason' => $absenceReason,
+                    'can_fill_reason' => ! $present
+                        && blank($absenceReason)
+                        && $this->canSubmitAbsenceReason($user, $cursor),
+                ]);
+            }
+
+            $cursor->subDay();
+        }
+
+        return $rows;
     }
 
     /**

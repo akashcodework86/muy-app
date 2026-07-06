@@ -167,6 +167,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/', [StaffCheckInController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('store');
+        Route::post('absence-reason', [StaffCheckInController::class, 'storeAbsenceReason'])
+            ->middleware('throttle:20,1')
+            ->name('absence-reason.store');
     });
 
     Route::prefix('api/live-ops')->name('live-ops.')->middleware('throttle:120,1')->group(function (): void {
@@ -1044,6 +1047,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('staff-check-ins/export', [StaffCheckInAdminController::class, 'export'])
             ->middleware('throttle:15,1')
             ->name('staff-check-ins.export');
+        Route::get('staff-check-ins/monthly-export/excel', [StaffCheckInAdminController::class, 'monthlyExportExcel'])
+            ->middleware('throttle:15,1')
+            ->name('staff-check-ins.monthly-export.excel');
+        Route::get('staff-check-ins/monthly-export/pdf', [StaffCheckInAdminController::class, 'monthlyExportPdf'])
+            ->middleware('throttle:15,1')
+            ->name('staff-check-ins.monthly-export.pdf');
         Route::get('live-map', [StateLiveMapController::class, 'index'])->name('live-map.index');
         Route::get('live-map/data', [StateLiveMapController::class, 'data'])
             ->middleware('throttle:60,1')
