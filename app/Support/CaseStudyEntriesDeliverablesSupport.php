@@ -41,7 +41,7 @@ final class CaseStudyEntriesDeliverablesSupport
             ])
             ->orderByDesc('t.story_date')
             ->orderByDesc('t.id')
-            ->limit(500)
+
             ->get();
 
         return self::buildBreakdown($rows, 'story_date', function ($row): array {

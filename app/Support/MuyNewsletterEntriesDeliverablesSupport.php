@@ -41,7 +41,7 @@ final class MuyNewsletterEntriesDeliverablesSupport
             ])
             ->orderByDesc('t.issue_date')
             ->orderByDesc('t.id')
-            ->limit(500)
+
             ->get();
 
         return self::buildBreakdown($rows, 'issue_date', function ($row): array {

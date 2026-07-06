@@ -50,7 +50,7 @@ final class BusinessAccelerationPartnersOutreachDeliverablesSupport
             ])
             ->orderByDesc('t.outreach_date')
             ->orderByDesc('t.id')
-            ->limit(500)
+
             ->get();
 
         $catalog = app(MarketLinkagePartnerCatalogService::class);

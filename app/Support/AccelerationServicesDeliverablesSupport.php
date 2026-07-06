@@ -54,7 +54,7 @@ final class AccelerationServicesDeliverablesSupport
             ])
             ->orderByDesc('s.service_date')
             ->orderByDesc('s.id')
-            ->limit(500)
+
             ->get();
 
         $records = [];
@@ -136,7 +136,7 @@ final class AccelerationServicesDeliverablesSupport
             ])
             ->orderByDesc('s.service_date')
             ->orderByDesc('i.id')
-            ->limit(500)
+
             ->get();
 
         $records = [];

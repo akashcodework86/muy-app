@@ -208,7 +208,6 @@ class ProgramDeliverablesAchievementBreakdownService
         $records = (clone $query)
             ->select(['smp.id', 'smp.posted_on', 'smp.post_url', 'smp.submitted_by_name'])
             ->orderByDesc('smp.posted_on')
-            ->limit(100)
             ->get()
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
@@ -297,7 +296,6 @@ class ProgramDeliverablesAchievementBreakdownService
                 'v.submitted_by_name',
             ])
             ->orderByDesc('v.visit_date')
-            ->limit(100)
             ->get()
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
@@ -727,7 +725,6 @@ class ProgramDeliverablesAchievementBreakdownService
         $records = (clone $query)
             ->select(['cs.id', 'cs.application_no', 'cs.applicant_name', 'cs.phone', 'd.name as district_name', 'h.name as hub_name', 'cs.created_at'])
             ->orderByDesc('cs.created_at')
-            ->limit(100)
             ->get()
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
@@ -788,7 +785,6 @@ class ProgramDeliverablesAchievementBreakdownService
                 'ob.name as batch_name',
             ])
             ->orderByDesc('ob.onboarding_date')
-            ->limit(100)
             ->get()
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
@@ -853,7 +849,6 @@ class ProgramDeliverablesAchievementBreakdownService
                 'ob.name as batch_name',
             ])
             ->orderByDesc('ob.onboarding_date')
-            ->limit(100)
             ->get()
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
@@ -1218,7 +1213,6 @@ class ProgramDeliverablesAchievementBreakdownService
                 fn ($q) => $q->addSelect('tp.selected_incubatee_ids')
             )
             ->orderByDesc('tp.'.$dateCol)
-            ->limit(100)
             ->get()
             ->map(function ($row) use ($dateCol): array {
                 $participantCount = BstTrainingDeliverablesSupport::parseIncubateeIds($row->selected_incubatee_ids ?? null);
@@ -1453,7 +1447,6 @@ class ProgramDeliverablesAchievementBreakdownService
             ->select(['t.id', 't.'.$dateCol.' as event_date'])
             ->when($hasDistrict, fn ($q) => $q->addSelect(['d.name as district_name', 'h.name as hub_name']))
             ->orderByDesc('t.'.$dateCol)
-            ->limit(100)
             ->get()
             ->map(fn ($row) => [
                 'id' => (int) $row->id,

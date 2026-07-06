@@ -46,7 +46,7 @@ final class DemoDaysDeliverablesSupport
             ])
             ->orderByDesc('t.event_date')
             ->orderByDesc('t.id')
-            ->limit(500)
+
             ->get();
 
         $records = [];

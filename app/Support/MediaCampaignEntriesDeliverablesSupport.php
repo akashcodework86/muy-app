@@ -41,7 +41,7 @@ final class MediaCampaignEntriesDeliverablesSupport
             ])
             ->orderByDesc('t.campaign_date')
             ->orderByDesc('t.id')
-            ->limit(500)
+
             ->get();
 
         return self::buildBreakdown($rows, 'campaign_date', function ($row): array {

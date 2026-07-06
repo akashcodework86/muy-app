@@ -91,7 +91,7 @@ final class MarketingPartnerOutreachDeliverablesSupport
             ])
             ->orderByDesc($dateColumn === 'onboarding_date' ? 't.onboarding_date' : 't.outreach_date')
             ->orderByDesc('t.id')
-            ->limit(500)
+
             ->get();
 
         $total = $rows->count();
