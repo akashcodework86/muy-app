@@ -95,20 +95,37 @@ class Phase3ServiceCasesController extends Controller
         $statsQuery = $this->buildFilteredQuery($filters);
         $this->applyFilters($statsQuery, $filters, ignoreDistrictFilter: true, ignoreStatusFilter: true);
 
-        $districtCounts = District::query()
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(function (District $district) use ($statsQuery): array {
-                $row = clone $statsQuery;
-                $this->constrainToLaravelDistrict($row, (int) $district->id);
-                $total = $this->countDistinctServiceCases($row);
+        $unifiedDistrictCounts = $this->unifiedMarketLinkageList->districtCounts(
+            $filters,
+            fn (array $activeFilters) => $this->buildFilteredQuery($activeFilters),
+            function ($query, array $activeFilters, bool $ignoreDistrictFilter = false, bool $ignoreStatusFilter = false): void {
+                $this->applyFilters(
+                    $query,
+                    $activeFilters,
+                    $ignoreDistrictFilter,
+                    $ignoreStatusFilter,
+                );
+            },
+        );
 
-                return [
-                    'id' => (int) $district->id,
-                    'name' => (string) $district->name,
-                    'total' => $total,
-                ];
-            });
+        if ($unifiedDistrictCounts !== null) {
+            $districtCounts = collect($unifiedDistrictCounts);
+        } else {
+            $districtCounts = District::query()
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(function (District $district) use ($statsQuery): array {
+                    $row = clone $statsQuery;
+                    $this->constrainToLaravelDistrict($row, (int) $district->id);
+                    $total = $this->countDistinctServiceCases($row);
+
+                    return [
+                        'id' => (int) $district->id,
+                        'name' => (string) $district->name,
+                        'total' => $total,
+                    ];
+                });
+        }
 
         $legacyPreviews = $unifiedMarketLinkage
             ? $this->buildLegacyPreviewMapFromUnifiedRows($cases->getCollection())

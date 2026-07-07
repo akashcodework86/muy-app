@@ -2,8 +2,10 @@
 
 namespace App\Services\Admin;
 
+use App\Models\District;
 use App\Models\MarketLinkageSubmission;
 use App\Models\ServiceCase;
+use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Support\MarketLinkageUnifiedListingSupport;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -54,9 +56,91 @@ class Phase3UnifiedMarketLinkageListBuilder
         $this->applyMarketLinkageFilters($mlQuery, $filters);
         $marketLinkages = $mlQuery->orderByDesc('updated_at')->get();
 
+        $uniqueOnly = ! empty($filters['unique_incubatees']);
+        $sorted = $this->buildUnifiedRows($serviceCases, $marketLinkages, $uniqueOnly)
+            ->sortByDesc(fn (array $row) => $row['updated_at']?->timestamp ?? 0)
+            ->values();
+        $page = max(1, (int) request()->query('page', 1));
+        $perPage = 20;
+        $total = $sorted->count();
+        $slice = $sorted->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $paginator = new LengthAwarePaginator(
+            $slice,
+            $total,
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()],
+        );
+
+        $summary = $this->summarizeUnifiedRows($sorted, $filters);
+
+        return [
+            'items' => $paginator,
+            'summary' => $summary,
+            'unified' => true,
+            'unique_incubatees' => $uniqueOnly,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<array{id: int, name: string, total: int}>|null
+     */
+    public function districtCounts(array $filters, callable $buildServiceCaseQuery, callable $applyServiceCaseFilters): ?array
+    {
+        $serviceId = is_numeric($filters['service_id'] ?? '') ? (int) $filters['service_id'] : 0;
+        if (! MarketLinkageUnifiedListingSupport::isMarketLinkServiceId($serviceId)) {
+            return null;
+        }
+
+        if (! Schema::hasTable('market_linkage_submissions') || ! MarketLinkageSubmission::supportsWorkflow()) {
+            return null;
+        }
+
+        $statsFilters = $filters;
+        $statsFilters['district_id'] = 0;
+        $statsFilters['status'] = '';
+
+        $caseQuery = $buildServiceCaseQuery($statsFilters);
+        $applyServiceCaseFilters($caseQuery, $statsFilters, true, true);
+        $serviceCases = $caseQuery->get();
+
+        $mlQuery = MarketLinkageSubmission::query()->with(['partners']);
+        $this->applyMarketLinkageFilters($mlQuery, $statsFilters, ignoreDistrictFilter: true, ignoreStatusFilter: true);
+        $marketLinkages = $mlQuery->get();
+
+        $rows = $this->buildUnifiedRows($serviceCases, $marketLinkages, ! empty($filters['unique_incubatees']));
+
+        $totals = [];
+        foreach ($rows as $row) {
+            $districtId = $this->districtIdForUnifiedRow($row);
+            if ($districtId === null || $districtId < 1) {
+                continue;
+            }
+            $totals[$districtId] = ($totals[$districtId] ?? 0) + 1;
+        }
+
+        return District::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (District $district): array => [
+                'id' => (int) $district->id,
+                'name' => (string) $district->name,
+                'total' => (int) ($totals[(int) $district->id] ?? 0),
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, ServiceCase>|\Illuminate\Database\Eloquent\Collection<int, ServiceCase>  $serviceCases
+     * @param  Collection<int, MarketLinkageSubmission>|\Illuminate\Database\Eloquent\Collection<int, MarketLinkageSubmission>  $marketLinkages
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function buildUnifiedRows(Collection $serviceCases, Collection $marketLinkages, bool $uniqueOnly): Collection
+    {
         $mlIncubateeKeys = MarketLinkageUnifiedListingSupport::incubateeKeysFromSubmissions($marketLinkages);
         $items = collect();
-        $uniqueOnly = ! empty($filters['unique_incubatees']);
 
         foreach ($marketLinkages as $submission) {
             if ($uniqueOnly) {
@@ -128,35 +212,49 @@ class Phase3UnifiedMarketLinkageListBuilder
             ]);
         }
 
-        $sorted = $items->sortByDesc(fn (array $row) => $row['updated_at']?->timestamp ?? 0)->values();
-        $page = max(1, (int) request()->query('page', 1));
-        $perPage = 20;
-        $total = $sorted->count();
-        $slice = $sorted->slice(($page - 1) * $perPage, $perPage)->values();
+        return $items;
+    }
 
-        $paginator = new LengthAwarePaginator(
-            $slice,
-            $total,
-            $perPage,
-            $page,
-            ['path' => request()->url(), 'query' => request()->query()],
-        );
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function districtIdForUnifiedRow(array $row): ?int
+    {
+        $ml = $row['market_linkage'] ?? null;
+        if ($ml instanceof MarketLinkageSubmission) {
+            $districtId = (int) ($ml->district_id ?? 0);
 
-        $summary = $this->summarizeUnifiedRows($sorted, $filters);
+            return $districtId > 0 ? $districtId : null;
+        }
 
-        return [
-            'items' => $paginator,
-            'summary' => $summary,
-            'unified' => true,
-            'unique_incubatees' => $uniqueOnly,
-        ];
+        $case = $row['service_case'] ?? null;
+        if (! $case instanceof ServiceCase) {
+            return null;
+        }
+
+        $cfaDistrictId = (int) ($case->cfaSubmission?->district_id ?? 0);
+        if ($cfaDistrictId > 0) {
+            return $cfaDistrictId;
+        }
+
+        $legacyId = (int) ($case->legacy_application_id ?? 0);
+        if ($legacyId > 0 && ! $case->cfa_submission_id) {
+            return app(LegacyApplicationServiceCaseSupport::class)
+                ->laravelDistrictIdForLegacyApplication($legacyId);
+        }
+
+        return null;
     }
 
     /**
      * @param  array<string, mixed>  $filters
      */
-    private function applyMarketLinkageFilters(Builder $query, array $filters): void
-    {
+    private function applyMarketLinkageFilters(
+        Builder $query,
+        array $filters,
+        bool $ignoreDistrictFilter = false,
+        bool $ignoreStatusFilter = false,
+    ): void {
         if ($filters['q'] !== '') {
             $like = '%'.$filters['q'].'%';
             $query->where(function ($q) use ($like): void {
@@ -168,7 +266,7 @@ class Phase3UnifiedMarketLinkageListBuilder
             });
         }
 
-        if ($filters['district_id'] > 0) {
+        if (! $ignoreDistrictFilter && $filters['district_id'] > 0) {
             $query->where('district_id', (int) $filters['district_id']);
         }
 
@@ -178,7 +276,7 @@ class Phase3UnifiedMarketLinkageListBuilder
             $query->where('spoc_user_id', (int) $filters['spoc_id']);
         }
 
-        if ($filters['status'] !== '') {
+        if (! $ignoreStatusFilter && $filters['status'] !== '') {
             $query->where('status', $filters['status']);
         }
 
