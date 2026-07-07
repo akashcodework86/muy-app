@@ -1264,8 +1264,9 @@ class ProgramDeliverablesReportService
 
         [$from, $to] = $this->explicitMarketLinkagePeriod();
 
-        // Market Linkage module + approved orphan market-link service cases (each incubatee once).
-        return MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds, true, $from, $to, true)['total_incubatees'];
+        // Count only linkages recorded through the Market Linkage module (matches the module
+        // dashboard). Legacy market-link service cases are excluded.
+        return MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds, true, $from, $to, false)['total_incubatees'];
     }
 
     /**
