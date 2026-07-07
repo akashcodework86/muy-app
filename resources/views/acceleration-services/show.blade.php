@@ -3,20 +3,20 @@
 @section('title', 'Acceleration session detail')
 @section('heading', 'Acceleration session detail')
 
+@include('acceleration-services.partials.styles')
+
 @push('styles')
 <style>
-    .accel-show { display:flex; flex-direction:column; gap:1rem; max-width:56rem; }
-    .accel-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.1rem 1.25rem; }
-    .accel-meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.65rem; font-size:0.86rem; }
-    .accel-meta dt { font-weight:700; color:#64748b; font-size:0.72rem; text-transform:uppercase; }
-    .accel-meta dd { margin:0.15rem 0 0; color:#0f172a; }
-    .accel-item-card { border:1px solid #e2e8f0; border-radius:10px; padding:0.75rem; margin-bottom:0.55rem; background:#f8fafc; }
+    .accel-show { display:flex; flex-direction:column; gap:1.15rem; max-width:56rem; }
+    .accel-meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.75rem; font-size:0.86rem; }
+    .accel-meta dt { font-weight:700; color:#64748b; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; }
+    .accel-meta dd { margin:0.15rem 0 0; color:#0f172a; font-weight:500; }
+    .accel-item-card { border:1px solid #e2e8f0; border-radius:12px; padding:0.8rem 0.9rem; margin-bottom:0.55rem; background:#f8fafc; }
     .accel-media-list { display:flex; flex-wrap:wrap; gap:0.45rem; margin-top:0.45rem; }
-    .accel-media-list a { font-size:0.8rem; color:#0f766e; font-weight:700; text-decoration:none; background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:0.3rem 0.5rem; }
-    .accel-badge { display:inline-block; font-size:0.68rem; font-weight:700; padding:0.12rem 0.4rem; border-radius:999px; }
-    .accel-badge--init { background:#dcfce7; color:#166534; }
-    .accel-badge--follow { background:#f1f5f9; color:#475569; }
-    .accel-link { color:#0f766e; font-weight:700; text-decoration:none; }
+    .accel-media-list a { font-size:0.8rem; color:#0f766e; font-weight:700; text-decoration:none; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.32rem 0.55rem; }
+    .accel-media-list a:hover { background:#f0fdfa; border-color:#99f6e4; }
+    .accel-danger-btn { background:#fff; border:1px solid #fecaca; color:#b91c1c; padding:0.5rem 0.85rem; border-radius:10px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .accel-danger-btn:hover { background:#fef2f2; }
 </style>
 @endpush
 
@@ -75,7 +75,7 @@
             <form method="post" action="{{ route($destroyRoute, $session) }}" onsubmit="return confirm('Delete this session?');">
                 @csrf
                 @method('DELETE')
-                <button type="submit" style="background:#fff;border:1px solid #fecaca;color:#b91c1c;padding:0.45rem 0.75rem;border-radius:8px;font-weight:700;cursor:pointer;">Delete session</button>
+                <button type="submit" class="accel-danger-btn">Delete session</button>
             </form>
         @endif
     </div>

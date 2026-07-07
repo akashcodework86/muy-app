@@ -2146,17 +2146,16 @@ class ProgramDeliverablesAchievementBreakdownService
 
         [$from, $to] = $this->explicitMarketLinkagePeriod();
 
-        // Count only linkages recorded through the Market Linkage module (matches the module
-        // dashboard). Legacy market-link service cases are excluded.
-        $modeCounts = MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds, true, $from, $to, false);
+        // Market Linkage module + approved orphan market-link service cases (each incubatee once).
+        $modeCounts = MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds, true, $from, $to, true);
 
         return [
             'total' => $modeCounts['total_incubatees'],
             'by_district' => [],
             'by_hub' => [],
             'by_month' => [],
-            'by_service' => MarketLinkageUnifiedListingSupport::linkageModeBifurcationRows($this->districtIds, true, $from, $to, false),
-            'records' => MarketLinkageUnifiedListingSupport::unifiedApprovedIncubateeRecords($this->districtIds, true, 5000, $from, $to, false),
+            'by_service' => MarketLinkageUnifiedListingSupport::linkageModeBifurcationRows($this->districtIds, true, $from, $to, true),
+            'records' => MarketLinkageUnifiedListingSupport::unifiedApprovedIncubateeRecords($this->districtIds, true, 5000, $from, $to, true),
             'offline_incubatees' => $modeCounts['offline_incubatees'],
             'online_incubatees' => $modeCounts['online_incubatees'],
         ];
