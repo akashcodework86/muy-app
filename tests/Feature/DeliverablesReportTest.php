@@ -3080,6 +3080,82 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(1, $onboarded['achievement']);
     }
 
+    public function test_marketing_partner_onboarded_deliverable_includes_approved_service_cases(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'mpo-hub', 'name' => 'MPO Hub', 'sort_order' => 97]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'mpo-district',
+            'name' => 'MPO District',
+            'sort_order' => 97,
+        ]);
+
+        $category = ServiceCategory::query()->create(['slug' => 'mpo-category', 'name' => 'Partnerships', 'sort_order' => 97]);
+        $svcDeliverable = Deliverable::query()->create([
+            'sort_order' => 197,
+            'code' => 'svc_marketing_partners_onboarded_through_lo_a_lo_i_mo_u',
+            'name' => 'Marketing Partners Onboarded through (LoA/LoI/MoU)',
+            'mis_entry_label' => 'Marketing partners onboarded (LoA/LoI/MoU)',
+            'is_active' => true,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $category->id,
+            'deliverable_id' => $svcDeliverable->id,
+            'code' => 'marketing_partners_onboarded_through_lo_a_lo_i_mo_u',
+            'name' => 'Marketing Partners Onboarded through (LoA/LoI/MoU)',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Test SHG',
+            'application_no' => 'MPO-001',
+            'phone' => '9999999900',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'approved_at' => '2026-06-15 10:00:00',
+            'reference_number' => 'MoU with Test Partner',
+        ]);
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $onboarded = collect($report['rows'])->firstWhere('name', 'Marketing Partners Onboarded through (LoA/LoI/MoU)');
+
+        $this->assertNotNull($onboarded);
+        $this->assertSame(1, $onboarded['achievement']);
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '6.2');
+
+        $this->assertSame(1, $breakdown['total']);
+        $this->assertCount(2, $breakdown['by_service']);
+        $this->assertSame(
+            \App\Support\MarketingPartnerOnboardedCombinedDeliverablesSupport::LABEL_SERVICES,
+            $breakdown['by_service'][0]['service'] ?? null,
+        );
+        $this->assertSame(1, $breakdown['by_service'][0]['count'] ?? null);
+    }
+
     public function test_market_linkage_partner_names_no_longer_count_toward_partner_outreach_deliverable(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

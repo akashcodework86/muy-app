@@ -26,6 +26,7 @@ use App\Support\ConvergenceReapSupportDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\StakeholderConsultationWorkshopDeliverablesSupport;
 use App\Support\LineDepartmentMeetingDeliverablesSupport;
+use App\Support\MarketingPartnerOnboardedCombinedDeliverablesSupport;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
 use App\Support\PitchDeckCombinedDeliverablesSupport;
 use App\Support\PitchDeckPreparationsDeliverablesSupport;
@@ -1593,9 +1594,10 @@ class ProgramDeliverablesReportService
 
     private function marketingPartnerOnboardedCount(): int
     {
-        return MarketingPartnerOutreachDeliverablesSupport::countOnboarded(
+        return MarketingPartnerOnboardedCombinedDeliverablesSupport::combinedCount(
             $this->periodFrom,
             $this->periodTo,
+            $this->districtIds,
         );
     }
 

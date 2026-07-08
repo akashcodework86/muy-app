@@ -843,6 +843,7 @@ return [
     */
     'target_code_aliases' => [
         'pitch_deck_prep' => ['pitch_deck', 'pitch_decks'],
+        'marketing_partners_onboarded' => ['marketing_partners_onboarded_through_lo_a_lo_i_mo_u'],
         'advance_licensing_support' => ['mandi_license', 'seed_license', 'pan_card', 'lab_testing'],
         'pitchathon_demo' => ['demo_days'],
         'funding_schematic_partners_outreach' => ['funding_partners_outreach'],
@@ -865,6 +866,7 @@ return [
     */
     'achievement_deliverable_keywords' => [
         'pitch_deck_prep' => ['pitch deck'],
+        'marketing_partners_onboarded' => ['marketing partners onboarded', 'loa/loi/mou'],
         'fssai' => ['fssai'],
         'gst' => ['gst'],
         'bmc' => ['business model canvas', 'bmc'],

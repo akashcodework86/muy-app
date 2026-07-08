@@ -582,6 +582,7 @@
         const isPartners = _sourceType === 'market_linkage_unique_partners';
         const isMarketIncubatees = _sourceType === 'market_linkage_incubatees';
         const isPitchDeckCombined = _sourceType === 'pitch_deck_combined';
+        const isMarketingPartnerOnboardedCombined = _sourceType === 'marketing_partner_onboarded_count';
 
         const isFPPage = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const pageSize = (isFPPage || isBst) ? PAGE_SIZE_PARTICIPANTS : PAGE_SIZE_DEFAULT;
@@ -715,7 +716,7 @@
                 </tr></thead>
                 <tbody>${rowsHtml || '<tr><td colspan="7">No linked incubatees found.</td></tr>'}</tbody>
             </table>`;
-        } else if (isPitchDeckCombined) {
+        } else if (isPitchDeckCombined || isMarketingPartnerOnboardedCombined) {
             const rowsHtml = pageRecords.map((row, i) => {
                 const sr = globalOffset + i + 1;
                 return `<tr>

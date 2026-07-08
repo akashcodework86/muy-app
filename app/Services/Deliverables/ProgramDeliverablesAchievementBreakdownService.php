@@ -12,6 +12,7 @@ use App\Models\ServiceCase;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\ServiceTargetDeliverableSyncService;
+use App\Support\MarketingPartnerOnboardedCombinedDeliverablesSupport;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
 use App\Support\BusinessAccelerationPartnersOutreachDeliverablesSupport;
 use App\Support\AccelerationServicesDeliverablesSupport;
@@ -329,10 +330,20 @@ class ProgramDeliverablesAchievementBreakdownService
      */
     private function marketingPartnerOnboardedBreakdown(): array
     {
-        return MarketingPartnerOutreachDeliverablesSupport::onboardedBreakdown(
+        $data = MarketingPartnerOnboardedCombinedDeliverablesSupport::combinedBreakdown(
             $this->periodFrom,
             $this->periodTo,
+            $this->districtIds,
         );
+
+        return [
+            'total' => (int) ($data['total'] ?? 0),
+            'by_district' => $data['by_district'] ?? [],
+            'by_hub' => $data['by_hub'] ?? [],
+            'by_month' => $data['by_month'] ?? [],
+            'by_service' => $data['by_service'] ?? [],
+            'records' => $data['records'] ?? [],
+        ];
     }
 
     /**
@@ -1978,7 +1989,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'market_linkage_incubatees' => 'Market linkage incubatees',
             'community_org_outreach_count' => 'Community organization outreach visits',
             'marketing_partner_outreach_count' => 'Marketing partner outreach entries',
-            'marketing_partner_onboarded_count' => 'Marketing partners onboarded (LoA/LoI/MoU)',
+            'marketing_partner_onboarded_count' => '6.2 Marketing partners onboarded (LoA/LoI/MoU) — partner outreach + service cases',
             'business_acceleration_partners_outreach_count' => '7.1 BA partners outreach (unique)',
             'acceleration_services_initiation_count' => '7.2 Acceleration initiation (unique incubatees)',
             'demo_days_count' => '8.4 Demo Days (state team)',
