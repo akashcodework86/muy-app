@@ -157,6 +157,85 @@
         @media (max-width: 900px) {
             .p3-deliverable-highlight__grid { grid-template-columns: 1fr; }
         }
+        .p3-staff-breakdown {
+            margin-bottom: 1rem;
+            background: #fff;
+            border: 1px solid #c7d2fe;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+        }
+        .p3-staff-breakdown__head {
+            padding: 0.85rem 1rem;
+            background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+            border-bottom: 1px solid #e0e7ff;
+        }
+        .p3-staff-breakdown__title {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #312e81;
+        }
+        .p3-staff-breakdown__sub {
+            margin: 0.2rem 0 0;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        .p3-staff-breakdown__totals {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin-top: 0.65rem;
+        }
+        .p3-staff-breakdown__total-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.28rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+        .p3-staff-breakdown__total-pill--approved {
+            background: #ecfdf5;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+        }
+        .p3-staff-breakdown__total-pill--pending {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+        }
+        .p3-staff-breakdown__total-pill--all {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #334155;
+        }
+        .p3-staff-breakdown__table-wrap { overflow-x: auto; }
+        .p3-staff-breakdown__table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+            min-width: 520px;
+        }
+        .p3-staff-breakdown__table th {
+            text-align: left;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            background: #f8fafc;
+            padding: 0.55rem 0.85rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .p3-staff-breakdown__table td {
+            padding: 0.55rem 0.85rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .p3-staff-breakdown__table tr:last-child td { border-bottom: none; }
+        .p3-staff-breakdown__num { font-weight: 800; text-align: right; white-space: nowrap; }
+        .p3-staff-breakdown__num--approved { color: #166534; }
+        .p3-staff-breakdown__num--pending { color: #9a3412; }
     </style>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.7rem;margin-bottom:1rem;">
@@ -181,6 +260,52 @@
             <div style="font-size:1.3rem;font-weight:800;color:#b91c1c;">{{ number_format($summary['rejected']) }}</div>
         </div>
     </div>
+
+    @if (! empty($givenByBreakdown) && $givenByStaff)
+        <section class="p3-staff-breakdown" aria-label="Services given by staff breakdown">
+            <div class="p3-staff-breakdown__head">
+                <h2 class="p3-staff-breakdown__title">Services given by {{ $givenByStaff->name }}</h2>
+                <p class="p3-staff-breakdown__sub">Breakdown by service type — approved and pending approval counts (other filters still apply).</p>
+                <div class="p3-staff-breakdown__totals">
+                    <span class="p3-staff-breakdown__total-pill p3-staff-breakdown__total-pill--all">
+                        Total cases: {{ number_format((int) ($givenByBreakdown['totals']['total'] ?? 0)) }}
+                    </span>
+                    <span class="p3-staff-breakdown__total-pill p3-staff-breakdown__total-pill--approved">
+                        Approved: {{ number_format((int) ($givenByBreakdown['totals']['approved'] ?? 0)) }}
+                    </span>
+                    <span class="p3-staff-breakdown__total-pill p3-staff-breakdown__total-pill--pending">
+                        Pending: {{ number_format((int) ($givenByBreakdown['totals']['pending'] ?? 0)) }}
+                    </span>
+                </div>
+            </div>
+            <div class="p3-staff-breakdown__table-wrap">
+                <table class="p3-staff-breakdown__table">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th style="text-align:right;">Approved</th>
+                            <th style="text-align:right;">Pending</th>
+                            <th style="text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($givenByBreakdown['rows'] ?? [] as $serviceRow)
+                            <tr>
+                                <td style="font-weight:600;color:#0f172a;">{{ $serviceRow['service_name'] }}</td>
+                                <td class="p3-staff-breakdown__num p3-staff-breakdown__num--approved">{{ number_format((int) $serviceRow['approved']) }}</td>
+                                <td class="p3-staff-breakdown__num p3-staff-breakdown__num--pending">{{ number_format((int) $serviceRow['pending']) }}</td>
+                                <td class="p3-staff-breakdown__num">{{ number_format((int) $serviceRow['total']) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" style="padding:0.85rem;color:#64748b;text-align:center;">No service cases found for this staff member with current filters.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    @endif
 
     @if ($unifiedMarketLinkage)
         <section class="p3-deliverable-highlight" aria-label="Deliverables 6.3 incubatee counts">
@@ -280,6 +405,13 @@
                 @endforeach
             </select>
 
+            <select name="given_by_id" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
+                <option value="0">All staff (service given by)</option>
+                @foreach ($districtStaff as $staff)
+                    <option value="{{ $staff->id }}" @selected((int) ($filters['given_by_id'] ?? 0) === (int) $staff->id)>{{ $staff->name }}</option>
+                @endforeach
+            </select>
+
             <select name="status" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
                 <option value="">All statuses</option>
                 @foreach ($statusLabel as $statusKey => $statusText)
@@ -346,7 +478,7 @@
                     <th>SPOC remark</th>
                     <th>SLA</th>
                     <th>Submitted</th>
-                    <th>Assigned by</th>
+                    <th>Service given by</th>
                     <th>SPOC</th>
                     <th>Docs</th>
                     <th>CFA</th>

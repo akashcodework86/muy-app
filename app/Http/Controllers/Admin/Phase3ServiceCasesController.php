@@ -131,6 +131,13 @@ class Phase3ServiceCasesController extends Controller
             ? $this->buildLegacyPreviewMapFromUnifiedRows($cases->getCollection())
             : $this->buildLegacyPreviewMap($cases->getCollection());
 
+        $givenByStaff = null;
+        $givenByBreakdown = null;
+        if ($filters['given_by_id'] > 0) {
+            $givenByStaff = User::query()->find($filters['given_by_id'], ['id', 'name']);
+            $givenByBreakdown = $this->buildGivenByServiceBreakdown($filters);
+        }
+
         return view('admin.phase3-services.index', [
             'cases' => $cases,
             'summary' => $summary,
@@ -144,6 +151,12 @@ class Phase3ServiceCasesController extends Controller
                 ->where('role', 'state_staff')
                 ->orderBy('name')
                 ->get(['id', 'name']),
+            'districtStaff' => User::query()
+                ->where('role', 'district_staff')
+                ->orderBy('name')
+                ->get(['id', 'name']),
+            'givenByStaff' => $givenByStaff,
+            'givenByBreakdown' => $givenByBreakdown,
             'legacyPreviews' => $legacyPreviews,
         ]);
     }
@@ -674,6 +687,14 @@ class Phase3ServiceCasesController extends Controller
             $query->where('service_cases.spoc_user_id', (int) $filters['spoc_id']);
         }
 
+        if ($filters['given_by_id'] > 0) {
+            $staffId = (int) $filters['given_by_id'];
+            $query->where(function ($q) use ($staffId): void {
+                $q->where('service_cases.submitted_by', $staffId)
+                    ->orWhere('service_cases.created_by', $staffId);
+            });
+        }
+
         if (! $ignoreStatusFilter && $filters['status'] !== '') {
             $query->where('service_cases.status', $filters['status']);
         }
@@ -835,6 +856,7 @@ class Phase3ServiceCasesController extends Controller
             'category_id' => 0,
             'service_id' => trim((string) $request->query('service_id', '')),
             'spoc_id' => trim((string) $request->query('spoc_id', '')),
+            'given_by_id' => (int) $request->query('given_by_id', 0),
             'status' => trim((string) $request->query('status', '')),
             'reporting_tier' => trim((string) $request->query('reporting_tier', '')),
             'has_docs' => trim((string) $request->query('has_docs', '')),
@@ -842,6 +864,71 @@ class Phase3ServiceCasesController extends Controller
             'date_from' => trim((string) $request->query('date_from', '')),
             'date_to' => trim((string) $request->query('date_to', '')),
             'unique_incubatees' => $request->query('unique_incubatees') === '1',
+        ];
+    }
+
+    /**
+     * @return array{
+     *   rows: list<array{service_id: int, service_name: string, approved: int, pending: int, total: int}>,
+     *   totals: array{approved: int, pending: int, total: int}
+     * }
+     */
+    private function buildGivenByServiceBreakdown(array $filters): array
+    {
+        $breakdownFilters = $filters;
+        $breakdownFilters['status'] = '';
+        $breakdownFilters['service_id'] = '';
+
+        $query = $this->buildFilteredQuery($breakdownFilters);
+        $this->applyFilters($query, $breakdownFilters, ignoreStatusFilter: true);
+
+        $rawRows = (clone $query)
+            ->join('services', 'services.id', '=', 'service_cases.service_id')
+            ->select(
+                'service_cases.service_id',
+                'services.name as service_name',
+                'service_cases.status',
+                DB::raw('COUNT(DISTINCT service_cases.id) as total'),
+            )
+            ->groupBy('service_cases.service_id', 'services.name', 'service_cases.status')
+            ->orderBy('services.name')
+            ->get();
+
+        $byService = [];
+        foreach ($rawRows as $row) {
+            $serviceId = (int) $row->service_id;
+            if (! isset($byService[$serviceId])) {
+                $byService[$serviceId] = [
+                    'service_id' => $serviceId,
+                    'service_name' => (string) $row->service_name,
+                    'approved' => 0,
+                    'pending' => 0,
+                    'total' => 0,
+                ];
+            }
+
+            $count = (int) $row->total;
+            $byService[$serviceId]['total'] += $count;
+
+            if ($row->status === ServiceCase::STATUS_APPROVED) {
+                $byService[$serviceId]['approved'] += $count;
+            } elseif ($row->status === ServiceCase::STATUS_PENDING_APPROVAL) {
+                $byService[$serviceId]['pending'] += $count;
+            }
+        }
+
+        $rows = collect($byService)
+            ->sortBy('service_name')
+            ->values()
+            ->all();
+
+        return [
+            'rows' => $rows,
+            'totals' => [
+                'approved' => (int) collect($rows)->sum('approved'),
+                'pending' => (int) collect($rows)->sum('pending'),
+                'total' => (int) collect($rows)->sum('total'),
+            ],
         ];
     }
 

@@ -276,6 +276,10 @@ class Phase3UnifiedMarketLinkageListBuilder
             $query->where('spoc_user_id', (int) $filters['spoc_id']);
         }
 
+        if (($filters['given_by_id'] ?? 0) > 0) {
+            $query->where('submitted_by_user_id', (int) $filters['given_by_id']);
+        }
+
         if (! $ignoreStatusFilter && $filters['status'] !== '') {
             $query->where('status', $filters['status']);
         }
