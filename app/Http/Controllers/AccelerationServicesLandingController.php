@@ -16,6 +16,10 @@ class AccelerationServicesLandingController extends Controller
             return redirect()->route('admin.acceleration-services.dashboard');
         }
 
+        if (AccelerationServicesAccess::canSubmit($request->user())) {
+            return redirect()->route('spoc.acceleration-services.create');
+        }
+
         return redirect()->route('spoc.acceleration-services.dashboard');
     }
 }

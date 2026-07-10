@@ -24,6 +24,7 @@ class AccelerationServicesTest extends TestCase
 
         app(MisMonthlyTargetIndicatorBootstrapService::class)->ensureDeliverables();
         $this->artisan('migrate', ['--path' => 'database/migrations/2026_07_06_120000_create_acceleration_service_tables.php']);
+        $this->artisan('migrate', ['--path' => 'database/migrations/2026_07_10_120000_add_payload_to_acceleration_service_items.php']);
     }
 
     public function test_ankur_can_open_dashboard_and_store_session(): void
@@ -57,9 +58,14 @@ class AccelerationServicesTest extends TestCase
         });
 
         $this->actingAs($ankur)
-            ->get(route('spoc.acceleration-services.dashboard'))
+            ->get(route('spoc.acceleration-services.create'))
             ->assertOk()
             ->assertSee('7.2');
+
+        $this->actingAs($ankur)
+            ->get(route('spoc.acceleration-services.dashboard'))
+            ->assertOk()
+            ->assertSee('Dashboard');
 
         $this->actingAs($ankur)
             ->post(route('spoc.acceleration-services.store'), [
@@ -67,17 +73,32 @@ class AccelerationServicesTest extends TestCase
                 'legacy_phase1_application_id' => 101,
                 'service_detail' => ['business_formalization', 'soft_skills'],
                 'cross_cutting' => ['buyer_seller_meet'],
-                'remarks' => [
-                    'business_formalization' => 'Udyam guidance',
-                    'buyer_seller_meet' => 'Local meet',
+                'payload' => [
+                    'business_formalization' => [
+                        'service_item_date' => '2026-05-18',
+                        'registration_type' => 'udyam',
+                        'registration_no' => 'UDYAM-UK-00-0000000',
+                    ],
+                    'soft_skills' => [
+                        'service_item_date' => '2026-05-19',
+                        'topic' => 'communication',
+                    ],
+                    'buyer_seller_meet' => [
+                        'service_item_date' => '2026-05-20',
+                        'meet_name' => 'Local meet',
+                        'outcome_type' => 'sales',
+                        'buyer_name' => 'Local buyer',
+                    ],
                 ],
             ])
-            ->assertRedirect(route('spoc.acceleration-services.dashboard'));
+            ->assertRedirect(route('spoc.acceleration-services.create'));
 
         $session = AccelerationServiceSession::query()->first();
         $this->assertNotNull($session);
         $this->assertTrue($session->counts_for_7_2);
         $this->assertSame(3, $session->items()->count());
+        $bf = $session->items()->where('item_key', 'business_formalization')->first();
+        $this->assertSame('udyam', $bf->payload['registration_type'] ?? null);
     }
 
     public function test_follow_up_session_does_not_recount_7_2_for_same_incubatee(): void
@@ -135,6 +156,16 @@ class AccelerationServicesTest extends TestCase
                 'service_date' => '2026-06-10',
                 'legacy_phase1_application_id' => 55,
                 'partnership' => ['tbi_graphic_era'],
+                'payload' => [
+                    'tbi_graphic_era' => [
+                        'service_item_date' => '2026-06-10',
+                        'domain' => 'food',
+                        'start_date' => '2026-06-01',
+                        'end_date' => '2026-08-01',
+                        'duration_term' => 'long_term',
+                        'support_types' => ['mentoring', 'market_access'],
+                    ],
+                ],
             ])
             ->assertRedirect();
 

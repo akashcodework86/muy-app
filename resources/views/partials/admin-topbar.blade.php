@@ -222,10 +222,11 @@
         str_starts_with($r, 'spoc.business-acceleration-partners-outreach.show') => 'ba-partners-outreach-dashboard',
         str_starts_with($r, 'admin.business-acceleration-partners-outreach.dashboard') => 'ba-partners-outreach-dashboard',
         str_starts_with($r, 'admin.business-acceleration-partners-outreach.show') => 'ba-partners-outreach-dashboard',
+        str_starts_with($r, 'spoc.acceleration-services.create') => 'acceleration-services-submit',
+        str_starts_with($r, 'spoc.acceleration-services.store') => 'acceleration-services-submit',
         str_starts_with($r, 'spoc.acceleration-services.dashboard') => 'acceleration-services-dashboard',
-        str_starts_with($r, 'spoc.acceleration-services.store') => 'acceleration-services-dashboard',
         str_starts_with($r, 'spoc.acceleration-services.show') => 'acceleration-services-dashboard',
-        str_starts_with($r, 'spoc.acceleration-services.index') => 'acceleration-services-dashboard',
+        str_starts_with($r, 'spoc.acceleration-services.index') => 'acceleration-services-submit',
         str_starts_with($r, 'admin.acceleration-services.dashboard') => 'acceleration-services-dashboard',
         str_starts_with($r, 'admin.acceleration-services.show') => 'acceleration-services-dashboard',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.create') => 'capacity-building-stakeholders-submit',
@@ -364,7 +365,7 @@
     $spocPartnerOutreachActive = in_array($activeNav, ['partner-outreach-submit', 'partner-outreach-dashboard'], true);
     $spocBrandingCommunicationActive = in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard'], true);
     $spocBaPartnersOutreachActive = in_array($activeNav, ['ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
-    $spocAccelerationServicesActive = $activeNav === 'acceleration-services-dashboard';
+    $spocAccelerationServicesActive = in_array($activeNav, ['acceleration-services-submit', 'acceleration-services-dashboard'], true);
     $fundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-dashboard', 'demo-days-dashboard', 'funding-partners-outreach-dashboard'], true);
     $hubDisplayName = $showHubNav ? trim((string) ($u->hub?->name ?? 'Hub')) : '';
 
@@ -817,7 +818,21 @@
                 </div>
             </details>
             @endif
-            @if ($canSubmitAccelerationServices || $canViewAccelerationServices)
+            @if ($canSubmitAccelerationServices)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($spocAccelerationServicesActive) is-active @endif">
+                    {!! $i('pin') !!}<span class="admin-topbar__link-text">Acceleration services (7.2)</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <a href="{{ route('spoc.acceleration-services.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'acceleration-services-submit') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>New entry</span>
+                    </a>
+                    <a href="{{ route('spoc.acceleration-services.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'acceleration-services-dashboard') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>View dashboard</span>
+                    </a>
+                </div>
+            </details>
+            @elseif ($canViewAccelerationServices)
             <a href="{{ route('spoc.acceleration-services.dashboard') }}" class="admin-topbar__link @if ($spocAccelerationServicesActive) is-active @endif">
                 {!! $i('pin') !!}<span class="admin-topbar__link-text">Acceleration services (7.2)</span>
             </a>

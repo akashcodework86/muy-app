@@ -28,6 +28,35 @@ class AccelerationServiceController extends Controller
         private readonly AccelerationServicesIncubateeService $incubatees,
     ) {}
 
+    public function create(Request $request): View
+    {
+        $user = $this->submitterOrAbort($request);
+
+        $migrationMissing = ! Schema::hasTable('acceleration_service_sessions');
+
+        $prefillApplicant = null;
+        $prefillFromSessionId = (int) $request->query('from_session', 0);
+        if ($prefillFromSessionId > 0 && ! $migrationMissing) {
+            $fromSession = AccelerationServiceSession::query()->find($prefillFromSessionId);
+            if ($fromSession) {
+                $prefillApplicant = $this->incubatees->findPhase1Applicant((int) $fromSession->legacy_phase1_application_id);
+            }
+        }
+
+        return view('acceleration-services.create', [
+            'migrationMissing' => $migrationMissing,
+            'canSubmit' => true,
+            'catalog' => AccelerationServicesOptions::allSections(),
+            'legacyPhase1Available' => (string) config('database.connections.legacy_phase1.database', '') !== '',
+            'prefillApplicant' => $prefillApplicant,
+            'prefillFromSessionId' => $prefillFromSessionId,
+            'storeRoute' => 'spoc.acceleration-services.store',
+            'dashboardRoute' => 'spoc.acceleration-services.dashboard',
+            'searchRoute' => 'spoc.acceleration-services.incubatees.search',
+            'historyRoute' => 'spoc.acceleration-services.incubatees.history',
+        ]);
+    }
+
     public function dashboard(Request $request): View
     {
         $user = $request->user();
@@ -43,20 +72,17 @@ class AccelerationServiceController extends Controller
             'to' => (string) $request->query('to', ''),
         ];
 
-        $prefillApplicant = null;
-        $prefillFromSessionId = (int) $request->query('from_session', 0);
-        if ($prefillFromSessionId > 0 && ! $migrationMissing) {
-            $fromSession = AccelerationServiceSession::query()->find($prefillFromSessionId);
-            if ($fromSession) {
-                $prefillApplicant = $this->incubatees->findPhase1Applicant((int) $fromSession->legacy_phase1_application_id);
-            }
-        }
-
         $rows = collect();
         $totals = ['sessions' => 0, 'initiations_fy' => 0, 'buyer_seller_ticks' => 0];
 
         if (! $migrationMissing) {
-            $query = AccelerationServiceSession::query()->withCount('items');
+            $query = AccelerationServiceSession::query()
+                ->with([
+                    'items' => fn ($q) => $q
+                        ->orderBy('id')
+                        ->select(['id', 'session_id', 'section', 'item_key', 'item_label']),
+                ])
+                ->withCount('items');
             if ($user->role === 'state_staff') {
                 $query->where('submitted_by_user_id', (int) $user->id);
             }
@@ -102,22 +128,16 @@ class AccelerationServiceController extends Controller
             'currentRole' => (string) $user->role,
             'filters' => $filters,
             'totals' => $totals,
-            'catalog' => AccelerationServicesOptions::allSections(),
-            'legacyPhase1Available' => (string) config('database.connections.legacy_phase1.database', '') !== '',
-            'prefillApplicant' => $prefillApplicant,
-            'prefillFromSessionId' => $prefillFromSessionId,
             'dashboardRoute' => $isAdmin
                 ? 'admin.acceleration-services.dashboard'
                 : 'spoc.acceleration-services.dashboard',
-            'storeRoute' => 'spoc.acceleration-services.store',
+            'createRoute' => $canSubmit ? 'spoc.acceleration-services.create' : null,
             'exportRoute' => $isAdmin
                 ? 'admin.acceleration-services.export'
                 : 'spoc.acceleration-services.export',
             'showRoute' => $isAdmin
                 ? 'admin.acceleration-services.show'
                 : 'spoc.acceleration-services.show',
-            'searchRoute' => 'spoc.acceleration-services.incubatees.search',
-            'historyRoute' => 'spoc.acceleration-services.incubatees.history',
             'mediaRoute' => $isAdmin
                 ? 'admin.acceleration-services.media'
                 : 'spoc.acceleration-services.media',
@@ -137,7 +157,7 @@ class AccelerationServiceController extends Controller
             : $count.' follow-up service(s) logged (7.2 initiation already recorded this FY).';
 
         return redirect()
-            ->route('spoc.acceleration-services.dashboard')
+            ->route('spoc.acceleration-services.create')
             ->with('status', $message);
     }
 
@@ -161,7 +181,7 @@ class AccelerationServiceController extends Controller
                 : 'spoc.acceleration-services.dashboard',
             'destroyRoute' => $isAdmin ? null : 'spoc.acceleration-services.destroy',
             'addServicesRoute' => AccelerationServicesAccess::canSubmit($user)
-                ? 'spoc.acceleration-services.dashboard'
+                ? 'spoc.acceleration-services.create'
                 : null,
             'mediaRoute' => $isAdmin
                 ? 'admin.acceleration-services.media'

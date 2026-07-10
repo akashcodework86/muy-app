@@ -7,6 +7,7 @@ use App\Models\AccelerationServiceItemCatalog;
 use App\Models\AccelerationServiceItemMedia;
 use App\Models\AccelerationServiceSession;
 use App\Models\User;
+use App\Support\AccelerationItemSchemas;
 use App\Support\AccelerationServicesOptions;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -18,6 +19,7 @@ class AccelerationServiceRecorder
 {
     public function __construct(
         private readonly AccelerationServicesIncubateeService $incubatees,
+        private readonly SchemaValidator $schemaValidator,
     ) {}
 
     /**
@@ -40,8 +42,7 @@ class AccelerationServiceRecorder
             'cross_cutting.*' => ['string', 'max:64'],
             'partnership' => ['nullable', 'array'],
             'partnership.*' => ['string', 'max:64'],
-            'remarks' => ['nullable', 'array'],
-            'remarks.*' => ['nullable', 'string', 'max:5000'],
+            'payload' => ['nullable', 'array'],
             'custom_service_detail' => ['nullable', 'array'],
             'custom_service_detail.*' => ['nullable', 'string', 'max:191'],
             'custom_cross_cutting' => ['nullable', 'array'],
@@ -88,7 +89,7 @@ class AccelerationServiceRecorder
 
             $itemCount = 0;
             foreach ($items as $item) {
-                $itemRow = AccelerationServiceItem::query()->create([
+                $create = [
                     'session_id' => $session->id,
                     'section' => (string) $item['section'],
                     'item_key' => (string) $item['item_key'],
@@ -96,7 +97,13 @@ class AccelerationServiceRecorder
                     'remarks' => trim((string) ($item['remarks'] ?? '')) ?: null,
                     'is_custom' => (bool) ($item['is_custom'] ?? false),
                     'is_buyer_seller_meet' => (string) $item['item_key'] === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY,
-                ]);
+                ];
+
+                if (Schema::hasColumn('acceleration_service_items', 'payload')) {
+                    $create['payload'] = $item['payload'] ?? [];
+                }
+
+                $itemRow = AccelerationServiceItem::query()->create($create);
 
                 $this->storeMediaForItem($request, (string) $item['item_key'], (int) $itemRow->id, (int) $user->id);
                 $itemCount++;
@@ -116,7 +123,7 @@ class AccelerationServiceRecorder
     private function buildItemsFromRequest(Request $request, array $validated): array
     {
         $items = [];
-        $remarks = is_array($validated['remarks'] ?? null) ? $validated['remarks'] : [];
+        $allPayload = is_array($validated['payload'] ?? null) ? $validated['payload'] : [];
 
         $sectionMap = [
             AccelerationServicesOptions::SECTION_SERVICE_DETAIL => array_merge(
@@ -164,11 +171,34 @@ class AccelerationServiceRecorder
                     ? (string) ($entry['label'] ?? '')
                     : AccelerationServicesOptions::labelForKey($section, $key);
 
+                $schema = AccelerationItemSchemas::forKey($key, $section);
+                $rawPayload = is_array($allPayload[$key] ?? null) ? $allPayload[$key] : [];
+
+                try {
+                    $cleanPayload = $this->schemaValidator->validate($schema, $rawPayload);
+                } catch (ValidationException $e) {
+                    $messages = [];
+                    foreach ($e->errors() as $field => $errs) {
+                        foreach ($errs as $err) {
+                            $messages['payload.'.$key.'.'.$field] = $err;
+                        }
+                    }
+                    throw ValidationException::withMessages($messages !== [] ? $messages : [
+                        'payload.'.$key => 'Please complete the required fields for '.$label.'.',
+                    ]);
+                }
+
+                $itemDate = trim((string) ($cleanPayload['service_item_date'] ?? ''));
+                $remarks = $itemDate !== ''
+                    ? 'Date: '.$itemDate
+                    : null;
+
                 $items[] = [
                     'section' => $section,
                     'item_key' => $key,
                     'item_label' => $label,
-                    'remarks' => trim((string) ($remarks[$key] ?? '')),
+                    'remarks' => $remarks,
+                    'payload' => $cleanPayload,
                     'is_custom' => $isCustom,
                 ];
             }

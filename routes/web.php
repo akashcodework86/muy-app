@@ -747,6 +747,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('acceleration-services', [\App\Http\Controllers\AccelerationServiceController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('acceleration-services.store');
+        Route::get('acceleration-services/create', [\App\Http\Controllers\AccelerationServiceController::class, 'create'])
+            ->name('acceleration-services.create');
         Route::get('acceleration-services/incubatees/search', [\App\Http\Controllers\AccelerationServiceController::class, 'searchIncubatees'])
             ->name('acceleration-services.incubatees.search');
         Route::get('acceleration-services/incubatees/history', [\App\Http\Controllers\AccelerationServiceController::class, 'incubateeHistory'])

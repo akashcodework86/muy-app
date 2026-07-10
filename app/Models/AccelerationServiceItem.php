@@ -14,6 +14,7 @@ class AccelerationServiceItem extends Model
         'item_key',
         'item_label',
         'remarks',
+        'payload',
         'is_custom',
         'is_buyer_seller_meet',
     ];
@@ -23,6 +24,7 @@ class AccelerationServiceItem extends Model
         return [
             'is_custom' => 'boolean',
             'is_buyer_seller_meet' => 'boolean',
+            'payload' => 'array',
         ];
     }
 

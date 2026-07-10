@@ -1,0 +1,525 @@
+<?php
+
+namespace App\Support;
+
+use App\Support\ServiceFieldTypes as T;
+
+/**
+ * Per-tick field schemas for MUY Acceleration Services (MIS 7.2).
+ * Every schema starts with a required service_item_date.
+ */
+final class AccelerationItemSchemas
+{
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function forKey(string $itemKey, ?string $section = null): array
+    {
+        $map = self::all();
+
+        if (isset($map[$itemKey])) {
+            return ServiceFieldTypes::normalizeSchema($map[$itemKey]);
+        }
+
+        if ($section === AccelerationServicesOptions::SECTION_PARTNERSHIP) {
+            return ServiceFieldTypes::normalizeSchema(self::partnershipSchema());
+        }
+
+        return ServiceFieldTypes::normalizeSchema(self::customFallback());
+    }
+
+    /**
+     * @return array<string, list<array<string, mixed>>>
+     */
+    public static function allKeyed(): array
+    {
+        $out = [];
+        foreach (array_keys(self::all()) as $key) {
+            $out[$key] = self::forKey($key);
+        }
+        $out['_partnership'] = ServiceFieldTypes::normalizeSchema(self::partnershipSchema());
+        $out['_custom'] = ServiceFieldTypes::normalizeSchema(self::customFallback());
+
+        return $out;
+    }
+
+    /**
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private static function all(): array
+    {
+        return [
+            'business_formalization' => self::businessFormalization(),
+            'coaching_mentorship' => self::coachingMentorship(),
+            'funding_investment_support' => self::fundingConvergence(),
+            'business_model_refinement' => self::businessModelRefinement(),
+            'market_linkage' => self::marketLinkage(),
+            'industry_connections' => self::industryConnections(),
+            'soft_skills' => self::softSkills(),
+            AccelerationServicesOptions::BUYER_SELLER_MEET_KEY => self::buyerSellerMeet(),
+            'tbi_graphic_era' => self::partnershipSchema(),
+            'uplift_foundation' => self::partnershipSchema(),
+            'sse_india' => self::partnershipSchema(),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function dateField(): array
+    {
+        return [
+            [
+                'key' => 'service_item_date',
+                'label' => 'Service date',
+                'type' => T::DATE,
+                'required' => true,
+            ],
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function businessFormalization(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'registration_type',
+                'label' => 'Registration type',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'udyam', 'label' => 'Udyam Registration'],
+                    ['value' => 'shop_establishment', 'label' => 'Shop & Establishment'],
+                    ['value' => 'utdb', 'label' => 'UTDB Registration'],
+                    ['value' => 'company', 'label' => 'Company Registration'],
+                    ['value' => 'uk_firm', 'label' => 'UK Firm Registration'],
+                    ['value' => 'cooperative', 'label' => 'Cooperative'],
+                    ['value' => 'already_registered', 'label' => 'Already Registered'],
+                    ['value' => 'other', 'label' => 'Other'],
+                ],
+            ],
+            [
+                'key' => 'registration_no',
+                'label' => 'Registration number',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'registration_date',
+                'label' => 'Registration / issue date',
+                'type' => T::DATE,
+                'required' => false,
+            ],
+            [
+                'key' => 'enterprise_name',
+                'label' => 'Enterprise name (as registered)',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function coachingMentorship(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'mentor_name',
+                'label' => 'Mentor name',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'session_mode',
+                'label' => 'Session mode',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'one_to_one', 'label' => 'One to one'],
+                    ['value' => 'group', 'label' => 'Group'],
+                    ['value' => 'online', 'label' => 'Online'],
+                    ['value' => 'offline', 'label' => 'Offline'],
+                ],
+            ],
+            [
+                'key' => 'focus_area',
+                'label' => 'Focus area',
+                'type' => T::TEXT,
+                'required' => false,
+                'help' => 'e.g. product, finance, marketing, operations',
+            ],
+            [
+                'key' => 'duration_hours',
+                'label' => 'Duration',
+                'type' => T::NUMBER,
+                'required' => false,
+                'min' => 0,
+                'help' => 'Session length in hours',
+            ],
+            [
+                'key' => 'guidance_summary',
+                'label' => 'Key guidance / outcomes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function fundingConvergence(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'funding_type',
+                'label' => 'Type (Convergence)',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'equity', 'label' => 'Equity'],
+                    ['value' => 'low_cost_debt', 'label' => 'Low-cost debt'],
+                    ['value' => 'grant', 'label' => 'Grant'],
+                ],
+            ],
+            [
+                'key' => 'amount',
+                'label' => 'How much',
+                'type' => T::AMOUNT,
+                'required' => true,
+            ],
+            [
+                'key' => 'by_whom',
+                'label' => 'By whom',
+                'type' => T::TEXT,
+                'required' => true,
+                'help' => 'Investor, lender, scheme, or institution',
+            ],
+            [
+                'key' => 'to_whom',
+                'label' => 'To whom',
+                'type' => T::TEXT,
+                'required' => true,
+                'help' => 'Usually the selected incubatee / enterprise',
+            ],
+            [
+                'key' => 'scheme_or_instrument',
+                'label' => 'Scheme / instrument (optional)',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function businessModelRefinement(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'refinement_areas',
+                'label' => 'Areas refined',
+                'type' => T::MULTISELECT,
+                'required' => true,
+                'help' => 'Tick every BMC / model area you worked on in this session.',
+                'options' => [
+                    ['value' => 'value_proposition', 'label' => 'Value proposition'],
+                    ['value' => 'revenue_model', 'label' => 'Revenue model'],
+                    ['value' => 'pricing', 'label' => 'Pricing'],
+                    ['value' => 'customer_segment', 'label' => 'Customer segment'],
+                    ['value' => 'channels', 'label' => 'Channels'],
+                    ['value' => 'cost_structure', 'label' => 'Cost structure'],
+                    ['value' => 'other', 'label' => 'Other'],
+                ],
+            ],
+            [
+                'key' => 'facilitator',
+                'label' => 'Facilitator / mentor',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'summary',
+                'label' => 'Summary of changes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function marketLinkage(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'market_type',
+                'label' => 'Market type',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'online', 'label' => 'Online'],
+                    ['value' => 'offline', 'label' => 'Offline'],
+                    ['value' => 'both', 'label' => 'Both'],
+                ],
+            ],
+            [
+                'key' => 'partner_or_buyer',
+                'label' => 'Partner / buyer / platform',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'order_value',
+                'label' => 'Order value',
+                'type' => T::AMOUNT,
+                'required' => false,
+            ],
+            [
+                'key' => 'link_url',
+                'label' => 'Link / URL (if online)',
+                'type' => T::URL,
+                'required' => false,
+                'help' => 'Storefront, catalogue, or order link',
+            ],
+            [
+                'key' => 'brief',
+                'label' => 'Brief description',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function industryConnections(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'connection_type',
+                'label' => 'Connection type',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'buyer', 'label' => 'Buyer'],
+                    ['value' => 'supplier', 'label' => 'Supplier'],
+                    ['value' => 'expert', 'label' => 'Industry expert'],
+                    ['value' => 'association', 'label' => 'Association / body'],
+                    ['value' => 'other', 'label' => 'Other'],
+                ],
+            ],
+            [
+                'key' => 'org_or_person',
+                'label' => 'Organisation / person',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'purpose',
+                'label' => 'Purpose',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'outcome',
+                'label' => 'Outcome',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function softSkills(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'topic',
+                'label' => 'Topic',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'communication', 'label' => 'Communication'],
+                    ['value' => 'negotiation', 'label' => 'Negotiation'],
+                    ['value' => 'leadership', 'label' => 'Leadership'],
+                    ['value' => 'digital_literacy', 'label' => 'Digital literacy'],
+                    ['value' => 'presentation', 'label' => 'Presentation / pitch'],
+                    ['value' => 'other', 'label' => 'Other'],
+                ],
+            ],
+            [
+                'key' => 'trainer',
+                'label' => 'Trainer / facilitator',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'mode',
+                'label' => 'Mode',
+                'type' => T::SELECT,
+                'required' => false,
+                'options' => [
+                    ['value' => 'online', 'label' => 'Online'],
+                    ['value' => 'offline', 'label' => 'Offline'],
+                    ['value' => 'hybrid', 'label' => 'Hybrid'],
+                ],
+            ],
+            [
+                'key' => 'duration_hours',
+                'label' => 'Duration',
+                'type' => T::NUMBER,
+                'required' => false,
+                'min' => 0,
+                'help' => 'Session length in hours',
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function buyerSellerMeet(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'meet_name',
+                'label' => 'Meet name / venue',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'outcome_type',
+                'label' => 'Outcome type',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'sales', 'label' => 'Sales'],
+                    ['value' => 'po', 'label' => 'Purchase Order (PO)'],
+                    ['value' => 'both', 'label' => 'Sales + PO'],
+                    ['value' => 'lead', 'label' => 'Lead / interest only'],
+                ],
+            ],
+            [
+                'key' => 'buyer_name',
+                'label' => 'Buyer name',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'order_value',
+                'label' => 'Order / PO value',
+                'type' => T::AMOUNT,
+                'required' => false,
+            ],
+            [
+                'key' => 'po_number',
+                'label' => 'PO number',
+                'type' => T::TEXT,
+                'required' => false,
+                'help' => 'Required when outcome includes a PO',
+            ],
+            [
+                'key' => 'outcome_summary',
+                'label' => 'Outcome summary',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function partnershipSchema(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'domain',
+                'label' => 'Domain',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'food', 'label' => 'Food / agri'],
+                    ['value' => 'handicraft', 'label' => 'Handicraft'],
+                    ['value' => 'tourism', 'label' => 'Tourism / hospitality'],
+                    ['value' => 'tech', 'label' => 'Tech / digital'],
+                    ['value' => 'manufacturing', 'label' => 'Manufacturing'],
+                    ['value' => 'services', 'label' => 'Services'],
+                    ['value' => 'other', 'label' => 'Other'],
+                ],
+            ],
+            [
+                'key' => 'start_date',
+                'label' => 'Start date',
+                'type' => T::DATE,
+                'required' => true,
+            ],
+            [
+                'key' => 'end_date',
+                'label' => 'End date',
+                'type' => T::DATE,
+                'required' => true,
+                'help' => 'Less than 1 month = Short term; 1 month or more = Long term',
+            ],
+            [
+                'key' => 'duration_term',
+                'label' => 'Duration period',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'short_term', 'label' => 'Short term (< 1 month)'],
+                    ['value' => 'long_term', 'label' => 'Long term (≥ 1 month)'],
+                ],
+            ],
+            [
+                'key' => 'support_types',
+                'label' => 'Types of support given',
+                'type' => T::MULTISELECT,
+                'required' => true,
+                'help' => 'Tick all support types provided by this co-incubation partner.',
+                'options' => [
+                    ['value' => 'mentoring', 'label' => 'Mentoring'],
+                    ['value' => 'workspace', 'label' => 'Workspace / incubation space'],
+                    ['value' => 'market_access', 'label' => 'Market access'],
+                    ['value' => 'funding_connect', 'label' => 'Funding / investor connect'],
+                    ['value' => 'technical', 'label' => 'Technical / product support'],
+                    ['value' => 'compliance', 'label' => 'Compliance / legal'],
+                    ['value' => 'other', 'label' => 'Other'],
+                ],
+            ],
+            [
+                'key' => 'poc_name',
+                'label' => 'Partner POC name',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function customFallback(): array
+    {
+        return array_merge(self::dateField(), [
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+}

@@ -20,8 +20,8 @@ final class AccelerationServicesOptions
     private const SYSTEM_ITEMS = [
         self::SECTION_SERVICE_DETAIL => [
             ['key' => 'business_formalization', 'label' => 'Business Formalization'],
-            ['key' => 'coaching_mentorship', 'label' => 'One to One Coaching & Mentorship'],
-            ['key' => 'funding_investment_support', 'label' => 'Funding and Investment Support (equity & low-cost debt models)'],
+            ['key' => 'coaching_mentorship', 'label' => 'One to One Coaching & Mentorship (Specialized Mentorship Support)'],
+            ['key' => 'funding_investment_support', 'label' => 'Convergence — Funding and Investment Support'],
             ['key' => 'business_model_refinement', 'label' => 'Business Model Refinement'],
             ['key' => 'market_linkage', 'label' => 'Market Linkage'],
             ['key' => 'industry_connections', 'label' => 'Building Industry Connections'],

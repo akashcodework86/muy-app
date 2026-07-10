@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', \App\Models\AccelerationServiceSession::MODULE_LABEL)
-@section('heading', \App\Models\AccelerationServiceSession::MODULE_LABEL)
+@section('title', \App\Models\AccelerationServiceSession::MODULE_LABEL.' — Dashboard')
+@section('heading', \App\Models\AccelerationServiceSession::MODULE_LABEL.' — Dashboard')
 
 @include('acceleration-services.partials.styles')
 
@@ -16,13 +16,6 @@
 
     @if (session('status'))
         <div class="accel-alert accel-alert--success">{{ session('status') }}</div>
-    @endif
-
-    @if ($errors->any())
-        <div class="accel-alert accel-alert--error">
-            <strong>Please fix:</strong>
-            <ul style="margin:0.35rem 0 0 1rem;">@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
-        </div>
     @endif
 
     <div class="accel-alert accel-alert--info">
@@ -45,16 +38,17 @@
         </div>
     </div>
 
-    @if (!empty($canSubmit) && empty($migrationMissing))
-        @include('acceleration-services.partials.form')
-    @endif
-
     <div class="accel-card">
         <div class="accel-card__toolbar">
             <h3 class="accel-card__title" style="margin:0;">
                 @if (!empty($isAdminView)) All acceleration sessions (state) @else Your acceleration sessions @endif
             </h3>
-            <a href="{{ route($exportRoute, $filterQuery) }}" class="accel-btn accel-btn--secondary">Export CSV</a>
+            <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+                @if (!empty($createRoute))
+                    <a href="{{ route($createRoute) }}" class="accel-btn">New entry</a>
+                @endif
+                <a href="{{ route($exportRoute, $filterQuery) }}" class="accel-btn accel-btn--secondary">Export CSV</a>
+            </div>
         </div>
 
         <form method="get" action="{{ route($dashboardRoute) }}" class="accel-filter-form">
@@ -79,6 +73,7 @@
             <table class="accel-table">
                 <thead>
                     <tr>
+                        <th style="width:3rem;">#</th>
                         <th>Date</th>
                         <th>Applicant</th>
                         <th>App no</th>
@@ -90,13 +85,46 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($rows as $row)
+                    @php
+                        $rowStart = method_exists($rows, 'firstItem') ? (int) ($rows->firstItem() ?? 1) : 1;
+                    @endphp
+                    @forelse ($rows as $index => $row)
+                        @php
+                            $items = $row->items ?? collect();
+                            $sectionCounts = $items->groupBy('section')->map->count();
+                            $categoryBits = [];
+                            foreach ([
+                                'service_detail' => 'In-house',
+                                'cross_cutting' => 'Cross-cutting',
+                                'partnership' => 'Partners',
+                            ] as $sectionKey => $shortLabel) {
+                                $n = (int) ($sectionCounts[$sectionKey] ?? 0);
+                                if ($n > 0) {
+                                    $categoryBits[] = $shortLabel.' '.$n;
+                                }
+                            }
+                        @endphp
                         <tr>
+                            <td class="accel-table__num">{{ $rowStart + $index }}</td>
                             <td>{{ $row->service_date?->format('d M Y') }}</td>
                             <td>{{ $row->applicant_name }}</td>
                             <td>{{ $row->application_no ?: '—' }}</td>
                             <td>{{ $row->district_name ?: '—' }}</td>
-                            <td>{{ (int) ($row->items_count ?? 0) }} item(s)</td>
+                            <td class="accel-services-cell">
+                                @if ($items->isEmpty())
+                                    <span class="accel-services-cell__empty">No services</span>
+                                @else
+                                    <ul class="accel-services-cell__names">
+                                        @foreach ($items as $item)
+                                            <li>{{ $item->item_label }}</li>
+                                        @endforeach
+                                    </ul>
+                                    <div class="accel-services-cell__cats">
+                                        {{ implode(' · ', $categoryBits) }}
+                                        <span class="accel-services-cell__total">· {{ (int) ($row->items_count ?? $items->count()) }} total</span>
+                                    </div>
+                                @endif
+                            </td>
                             <td>
                                 @if ($row->counts_for_7_2)
                                     <span class="accel-badge accel-badge--init">Initiation</span>
@@ -107,13 +135,13 @@
                             <td>{{ $row->submitted_by_name }}</td>
                             <td style="white-space:nowrap;">
                                 <a class="accel-link" href="{{ route($showRoute, $row) }}">View</a>
-                                @if (!empty($canSubmit))
-                                    · <a class="accel-link" href="{{ route('spoc.acceleration-services.dashboard', ['from_session' => $row->id]) }}#accel-form">Add services</a>
+                                @if (!empty($createRoute))
+                                    · <a class="accel-link" href="{{ route($createRoute, ['from_session' => $row->id]) }}#accel-form">Add services</a>
                                 @endif
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="accel-table__empty">No sessions yet.</td></tr>
+                        <tr><td colspan="9" class="accel-table__empty">No sessions yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
