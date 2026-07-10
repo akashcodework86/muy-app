@@ -18,7 +18,11 @@
     <main class="admin-main">
         <div class="admin-page-head">
             <h1>@yield('heading')</h1>
-            <p class="admin-page-meta">{{ auth()->user()->name }} · <span class="pill">{{ auth()->user()->role ?? '—' }}</span></p>
+            @hasSection('page_meta')
+                @yield('page_meta')
+            @else
+                <p class="admin-page-meta">{{ auth()->user()->name }} · <span class="pill">{{ auth()->user()->role ?? '—' }}</span></p>
+            @endif
         </div>
         @if (session('status'))
             <div class="banner">{{ session('status') }}</div>

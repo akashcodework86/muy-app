@@ -3,6 +3,14 @@
 @section('title', 'Deliverables')
 @section('heading', 'Deliverables')
 
+@if (auth()->user()?->role === 'state_admin')
+@section('page_meta')
+    <p class="admin-page-meta">
+        <span class="dlv-state-viewer-badge" aria-label="Viewing as State Admin">State Admin</span>
+    </p>
+@endsection
+@endif
+
 @section('content')
     @php
         $queryParams = $filter->queryParams();
@@ -236,6 +244,18 @@
 
     @push('styles')
         <style>
+            .dlv-state-viewer-badge {
+                display: inline-block;
+                background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+                color: #065f46;
+                border: 1px solid #6ee7b7;
+                padding: 0.2rem 0.65rem;
+                border-radius: 999px;
+                font-size: 0.8rem;
+                font-weight: 700;
+                letter-spacing: 0.01em;
+                box-shadow: 0 1px 2px rgba(6, 95, 70, 0.12);
+            }
             .dlv-screenshot-banner {
                 display: none;
                 margin-bottom: 0.85rem;
