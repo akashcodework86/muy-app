@@ -5,8 +5,11 @@
 
 @if (auth()->user()?->role === 'state_admin')
 @section('page_meta')
-    <p class="admin-page-meta">
-        <span class="dlv-state-viewer-badge" aria-label="Viewing as State Admin">State Admin</span>
+    <p class="admin-page-meta dlv-page-meta">
+        <span class="dlv-state-viewer-badge" aria-label="Viewing as State Admin">
+            <span class="dlv-state-viewer-badge__dot" aria-hidden="true"></span>
+            <span class="dlv-state-viewer-badge__label">State Admin</span>
+        </span>
     </p>
 @endsection
 @endif
@@ -244,17 +247,38 @@
 
     @push('styles')
         <style>
+            .dlv-page-meta {
+                margin: 0;
+            }
             .dlv-state-viewer-badge {
-                display: inline-block;
-                background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-                color: #065f46;
-                border: 1px solid #6ee7b7;
-                padding: 0.2rem 0.65rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.45rem;
+                padding: 0.38rem 0.85rem 0.38rem 0.7rem;
                 border-radius: 999px;
-                font-size: 0.8rem;
+                font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+                font-size: 0.78rem;
                 font-weight: 700;
-                letter-spacing: 0.01em;
-                box-shadow: 0 1px 2px rgba(6, 95, 70, 0.12);
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: #fff;
+                background: linear-gradient(135deg, #26a69a 0%, #00897b 48%, #00695c 100%);
+                border: 1px solid rgba(255, 255, 255, 0.22);
+                box-shadow:
+                    0 1px 2px rgba(0, 77, 64, 0.18),
+                    0 6px 18px rgba(0, 105, 92, 0.22),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+            }
+            .dlv-state-viewer-badge__dot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: #a7f3d0;
+                box-shadow: 0 0 0 3px rgba(167, 243, 208, 0.28);
+                flex-shrink: 0;
+            }
+            .dlv-state-viewer-badge__label {
+                line-height: 1;
             }
             .dlv-screenshot-banner {
                 display: none;
