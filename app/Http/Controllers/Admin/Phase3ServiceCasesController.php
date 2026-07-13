@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\District;
+use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCaseAttachment;
@@ -189,274 +190,177 @@ class Phase3ServiceCasesController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $filters = $this->validatedFilters($request);
+
+        @ini_set('memory_limit', '256M');
+        @set_time_limit(120);
+
+        $unifiedRows = $this->unifiedMarketLinkageList->allRowsForExport(
+            $filters,
+            fn (array $activeFilters) => $this->buildFilteredQuery($activeFilters),
+            function ($query, array $activeFilters, bool $ignoreDistrictFilter = false, bool $ignoreStatusFilter = false): void {
+                $this->applyFilters($query, $activeFilters, $ignoreDistrictFilter, $ignoreStatusFilter);
+            },
+        );
+
+        if ($unifiedRows !== null) {
+            $legacyPreviews = $this->buildLegacyPreviewMapFromUnifiedRows($unifiedRows);
+            $matrix = [];
+            $sn = 0;
+            foreach ($unifiedRows as $row) {
+                $sn++;
+                $matrix[] = $this->exportUnifiedRowValues($row, $sn, $legacyPreviews);
+            }
+
+            return $this->downloadExcelOrCsv($matrix, 'phase3-market-linkage-'.now()->format('Ymd_His'));
+        }
+
         $query = $this->buildFilteredQuery($filters);
         $this->applyFilters($query, $filters);
+        $query->setEagerLoads([])
+            ->with([
+                'service.category:id,name,slug',
+                'cfaSubmission:id,application_no,applicant_name,district_id,phone,payload',
+                'cfaSubmission.district:id,name',
+                'submitter:id,name',
+                'spoc:id,name',
+                'approver:id,name',
+            ])
+            ->withCount('attachments');
 
-        $rows = $query->orderByDesc('service_cases.created_at')->get();
-        $legacyPreviews = $this->buildLegacyPreviewMap($rows);
-        $legacyDetails = $this->buildLegacyPhase2ExportMap($rows);
+        // Collect filtered rows in chunks so joins + filters still return every matching case.
+        $matrix = [];
+        $sn = 0;
+        (clone $query)
+            ->reorder()
+            ->orderBy('service_cases.id')
+            ->chunkById(250, function ($rows) use (&$matrix, &$sn): void {
+                $legacyPreviews = $this->buildLegacyPreviewMap($rows);
+                $legacyDetails = $this->buildLegacyPhase2ExportMap($rows);
 
-        if (! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
-            return $this->exportAsCsv($rows, $legacyPreviews, $legacyDetails);
-        }
+                foreach ($rows as $case) {
+                    $sn++;
+                    $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
+                    $legacyId = (int) ($case->legacy_application_id ?? 0);
+                    $legacyRow = ($legacyId > 0 && ! $case->cfa_submission_id)
+                        ? ($legacyDetails[$legacyId] ?? null)
+                        : null;
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
-        $spreadsheet->getProperties()
-            ->setCreator('MUY Admin')
-            ->setTitle('Phase 3 Service Cases')
-            ->setSubject('Phase 3 Service Cases Export')
-            ->setDescription('Exported on '.now()->format('d M Y H:i'));
-
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Service Cases');
-
-        $headers = [
-            'A' => ['label' => '#',                    'width' => 6],
-            'B' => ['label' => 'Reference Number',     'width' => 22],
-            'C' => ['label' => 'Application Number',   'width' => 22],
-            'D' => ['label' => 'Applicant Name',       'width' => 26],
-            'E' => ['label' => 'District',             'width' => 18],
-            'F' => ['label' => 'Applicant Phone',      'width' => 16],
-            'G' => ['label' => 'Block',                'width' => 18],
-            'H' => ['label' => 'Sector',               'width' => 22],
-            'I' => ['label' => 'Product',              'width' => 22],
-            'J' => ['label' => 'Village',              'width' => 18],
-            'K' => ['label' => 'Pincode',              'width' => 12],
-            'L' => ['label' => 'Service Category',     'width' => 22],
-            'M' => ['label' => 'Service Name',         'width' => 28],
-            'N' => ['label' => 'Reporting Tier',       'width' => 12],
-            'O' => ['label' => 'Status',               'width' => 14],
-            'P' => ['label' => 'SLA Deadline',         'width' => 14],
-            'Q' => ['label' => 'Submitted At',         'width' => 18],
-            'R' => ['label' => 'Submitted By',         'width' => 20],
-            'S' => ['label' => 'SPOC',                 'width' => 20],
-            'T' => ['label' => 'Approved By',          'width' => 20],
-            'U' => ['label' => 'Created At',           'width' => 18],
-            'V' => ['label' => 'Documents Count',      'width' => 12],
-            'W' => ['label' => 'SPOC remark',          'width' => 40],
-        ];
-
-        foreach ($headers as $col => $meta) {
-            $sheet->setCellValue($col.'1', $meta['label']);
-            $sheet->getColumnDimension($col)->setWidth($meta['width']);
-        }
-
-        $lastCol = array_key_last($headers);
-        $headerRange = 'A1:'.$lastCol.'1';
-
-        $sheet->getStyle($headerRange)->applyFromArray([
-            'font' => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
-            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
-            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
-        ]);
-        $sheet->getRowDimension(1)->setRowHeight(22);
-        $sheet->setAutoFilter('A1:'.$lastCol.'1');
-        $sheet->freezePane('A2');
-
-        $statusColors = [
-            'approved' => 'D1FAE5',
-            'pending_approval' => 'FEF3C7',
-            'sent_back' => 'FFEDD5',
-            'rejected' => 'FEE2E2',
-            'draft' => 'F3F4F6',
-            'cancelled' => 'F1F5F9',
-        ];
-
-        $rowNum = 2;
-        $rawSheet = $spreadsheet->createSheet();
-        $rawSheet->setTitle('Raw payload');
-        $rawSheet->setCellValue('A1', 'Reference Number');
-        $rawSheet->setCellValue('B1', 'Application Number');
-        $rawSheet->setCellValue('C1', 'Applicant payload (JSON)');
-        $rawSheet->getStyle('A1:C1')->applyFromArray([
-            'font' => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A5F']],
-            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
-            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
-        ]);
-        $rawSheet->getRowDimension(1)->setRowHeight(22);
-        $rawSheet->getColumnDimension('A')->setWidth(22);
-        $rawSheet->getColumnDimension('B')->setWidth(22);
-        $rawSheet->getColumnDimension('C')->setWidth(80);
-        $rawRowNum = 2;
-        foreach ($rows as $case) {
-            $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
-            $legacyId = (int) ($case->legacy_application_id ?? 0);
-            $legacyRow = ($legacyId > 0 && ! $case->cfa_submission_id)
-                ? ($legacyDetails[$legacyId] ?? null)
-                : null;
-
-            $payload = is_array($case->cfaSubmission?->payload) ? $case->cfaSubmission->payload : [];
-            $product = '';
-            $sector = '';
-            $block = '';
-            $village = '';
-            $pincode = '';
-            $phone = '';
-            $district = '';
-            $applicationNo = '';
-            $applicantName = '';
-
-            if (is_array($legacyRow)) {
-                // Phase 2 (rbiphase2) — pull from rbi_applicant_details + rbi_applications
-                $applicationNo = (string) ($legacyRow['application_no'] ?? '');
-                $applicantName = (string) ($legacyRow['applicant_name'] ?? '');
-                $district = (string) ($legacyRow['district'] ?? '');
-                $phone = (string) ($legacyRow['phone'] ?? '');
-                $block = (string) ($legacyRow['block'] ?? '');
-                $village = (string) ($legacyRow['village'] ?? '');
-                $sector = (string) ($legacyRow['business_category'] ?? '');
-                $product = (string) ($legacyRow['product'] ?? '');
-            } else {
-                // Phase 3 (current) — pull from cfa_submissions + payload
-                $applicationNo = (string) ($case->cfaSubmission?->application_no ?? ($lp['application_no'] ?? ''));
-                $applicantName = (string) ($case->cfaSubmission?->applicant_name ?? ($lp['applicant_name'] ?? ''));
-                $district = (string) ($case->cfaSubmission?->district?->name ?? ($lp['district'] ?? ''));
-                $phone = (string) ($case->cfaSubmission?->phone ?? '');
-
-                $block = (string) ($payload['block'] ?? '');
-                $sector = (string) ($payload['business_category'] ?? '');
-                $product = trim((string) ($payload['product'] ?? ''));
-                if ($product === 'Others') {
-                    $product = trim((string) ($payload['other_product'] ?? ''));
+                    $matrix[] = $this->exportRowValues($case, $sn, $lp, $legacyRow);
                 }
-                $village = (string) ($payload['village'] ?? '');
-                $pincode = (string) ($payload['pincode'] ?? '');
-            }
+            }, 'service_cases.id', 'id');
 
-            // Preserve leading zeros / avoid scientific notation in Excel
-            if ($phone !== '' && preg_match('/^[\\d\\s+\\-]{10,}$/', $phone)) {
-                $phone = "\t".$phone;
-            }
-
-            $sheet->setCellValue('A'.$rowNum, $rowNum - 1);
-            $sheet->setCellValue('B'.$rowNum, (string) ($case->reference_number ?: ''));
-            $sheet->setCellValue('C'.$rowNum, $applicationNo);
-            $sheet->setCellValue('D'.$rowNum, $applicantName);
-            $sheet->setCellValue('E'.$rowNum, $district);
-            $sheet->setCellValue('F'.$rowNum, $phone);
-            $sheet->setCellValue('G'.$rowNum, $block);
-            $sheet->setCellValue('H'.$rowNum, $sector);
-            $sheet->setCellValue('I'.$rowNum, $product);
-            $sheet->setCellValue('J'.$rowNum, $village);
-            $sheet->setCellValue('K'.$rowNum, $pincode);
-            $sheet->setCellValue('L'.$rowNum, (string) ($case->service?->category?->name ?? ''));
-            $sheet->setCellValue('M'.$rowNum, (string) ($case->service?->name ?? ''));
-            $sheet->setCellValue('N'.$rowNum, strtoupper((string) ($case->service?->reporting_tier ?? 'UNSET')));
-            $sheet->setCellValue('O'.$rowNum, ucfirst(str_replace('_', ' ', (string) $case->status)));
-            $sheet->setCellValue('P'.$rowNum, $this->fmtDate($case->sla_deadline_at));
-            $sheet->setCellValue('Q'.$rowNum, $this->fmtDate($case->submitted_at));
-            $sheet->setCellValue('R'.$rowNum, (string) ($case->submitter?->name ?? ''));
-            $sheet->setCellValue('S'.$rowNum, (string) ($case->spoc?->name ?? 'Unassigned'));
-            $sheet->setCellValue('T'.$rowNum, (string) ($case->approver?->name ?? ''));
-            $sheet->setCellValue('U'.$rowNum, $this->fmtDate($case->created_at));
-            $sheet->setCellValue('V'.$rowNum, (int) $case->attachments->count());
-
-            $docParts = [];
-            foreach ($case->attachments as $idx => $attachment) {
-                $url = route('admin.phase3-services.attachments.view', [
-                    'service_case' => $case->id,
-                    'attachment' => $attachment->id,
-                ]);
-                $label = ($attachment->original_name ?: 'Doc '.($idx + 1));
-                $docParts[] = $url.' ('.$label.')';
-            }
-            // Keep the main sheet clean: links can be long; store them in Raw payload sheet instead.
-
-            $spocRemark = match ($case->status) {
-                ServiceCase::STATUS_SENT_BACK => (string) ($case->sent_back_note ?? ''),
-                ServiceCase::STATUS_REJECTED => (string) ($case->rejected_note ?? ''),
-                default => '',
-            };
-            $sheet->setCellValue('W'.$rowNum, $spocRemark);
-            if ($spocRemark !== '') {
-                $sheet->getStyle('W'.$rowNum)->getAlignment()->setWrapText(true);
-            }
-
-            $jsonPayload = '';
-            if (is_array($legacyRow)) {
-                $jsonPayload = json_encode($legacyRow, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            } elseif ($payload !== []) {
-                $jsonPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            }
-            $rawSheet->setCellValue('A'.$rawRowNum, (string) ($case->reference_number ?: ''));
-            $rawSheet->setCellValue('B'.$rawRowNum, $applicationNo);
-            $rawSheet->setCellValue('C'.$rawRowNum, $jsonPayload);
-            if ($jsonPayload !== '') {
-                $rawSheet->getStyle('C'.$rawRowNum)->getAlignment()->setWrapText(true);
-            }
-            // Also store document links in the raw sheet (below JSON for readability).
-            if (! empty($docParts)) {
-                $rawSheet->setCellValue('C'.$rawRowNum, $jsonPayload."\n\nDocument links:\n".implode("\n", $docParts));
-                $rawSheet->getStyle('C'.$rawRowNum)->getAlignment()->setWrapText(true);
-            }
-            $rawRowNum++;
-
-            $bgColor = $statusColors[$case->status] ?? 'FFFFFF';
-            $sheet->getStyle('A'.$rowNum.':'.$lastCol.$rowNum)->applyFromArray([
-                'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => $bgColor]],
-                'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
-                'alignment' => ['vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP],
-            ]);
-
-            $sheet->getStyle('A'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('V'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-
-            $rowNum++;
-        }
-
-        $rawSheet->setAutoFilter('A1:C1');
-        $rawSheet->freezePane('A2');
-
-        $fileName = 'phase3-service-cases-'.now()->format('Ymd_His').'.xlsx';
-
-        return response()->streamDownload(function () use ($spreadsheet): void {
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-            $writer->save('php://output');
-        }, $fileName, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'max-age=0',
-        ]);
+        return $this->downloadExcelOrCsv($matrix, 'phase3-service-cases-'.now()->format('Ymd_His'));
     }
 
     /**
-     * CSV fallback when PhpSpreadsheet is not installed on the server (opens in Excel).
-     *
-     * @param  Collection<int, ServiceCase>|\Illuminate\Database\Eloquent\Collection<int, ServiceCase>  $rows
-     * @param  array<int, array{applicant_name: string, application_no: string, district: string}|null>  $legacyPreviews
-     * @param  array<int, array<string, string>>  $legacyDetails
+     * @param  list<list<string|int>>  $matrix
      */
-    private function exportAsCsv($rows, array $legacyPreviews, array $legacyDetails): StreamedResponse
+    private function downloadExcelOrCsv(array $matrix, string $baseName): StreamedResponse
     {
         $headers = $this->exportColumnLabels();
-        $fileName = 'phase3-service-cases-'.now()->format('Ymd_His').'.csv';
 
-        return response()->streamDownload(function () use ($rows, $legacyPreviews, $legacyDetails, $headers): void {
+        if (class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Export');
+            $sheet->fromArray($headers, null, 'A1');
+
+            $rowNum = 2;
+            foreach (array_chunk($matrix, 500) as $chunk) {
+                $sheet->fromArray($chunk, null, 'A'.$rowNum);
+                $rowNum += count($chunk);
+            }
+
+            $sheet->freezePane('A2');
+            $fileName = $baseName.'.xlsx';
+
+            return response()->streamDownload(function () use ($spreadsheet): void {
+                $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+                $writer->setPreCalculateFormulas(false);
+                $writer->save('php://output');
+            }, $fileName, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Cache-Control' => 'max-age=0',
+            ]);
+        }
+
+        $fileName = $baseName.'.csv';
+
+        return response()->streamDownload(function () use ($headers, $matrix): void {
             $out = fopen('php://output', 'w');
             if ($out === false) {
                 return;
             }
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, $headers);
-
-            $sn = 0;
-            foreach ($rows as $case) {
-                $sn++;
-                $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
-                $legacyId = (int) ($case->legacy_application_id ?? 0);
-                $legacyRow = ($legacyId > 0 && ! $case->cfa_submission_id)
-                    ? ($legacyDetails[$legacyId] ?? null)
-                    : null;
-
-                fputcsv($out, $this->exportRowValues($case, $sn, $lp, $legacyRow));
+            fputcsv($out, $headers, ',', '"', '\\');
+            foreach ($matrix as $row) {
+                fputcsv($out, $row, ',', '"', '\\');
             }
-
             fclose($out);
         }, $fileName, [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'max-age=0',
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<int, array{applicant_name: string, application_no: string, district: string}|null>  $legacyPreviews
+     * @return list<string|int>
+     */
+    private function exportUnifiedRowValues(array $row, int $sn, array $legacyPreviews): array
+    {
+        $case = $row['service_case'] ?? null;
+        $ml = $row['market_linkage'] ?? null;
+        $partner = $row['partner'] ?? null;
+
+        if ($case instanceof ServiceCase) {
+            $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
+
+            return $this->exportRowValues($case, $sn, $lp, null);
+        }
+
+        $applicationNo = (string) ($ml?->application_no ?? '');
+        $applicantName = (string) ($ml?->incubatee_name ?? '');
+        $district = (string) ($ml?->district_name ?? $ml?->cfaSubmission?->district?->name ?? '');
+        $phone = (string) ($ml?->cfaSubmission?->phone ?? '');
+        $partnerName = (string) ($row['partner_name'] ?? ($partner?->partner_name ?? ''));
+        $linkageMode = (string) ($row['linkage_mode'] ?? '');
+        $status = (string) ($ml?->status ?? '');
+
+        if ($phone !== '' && preg_match('/^[\d\s+\-]{10,}$/', $phone)) {
+            $phone = "\t".$phone;
+        }
+
+        return [
+            $sn,
+            (string) ($ml?->application_no ?: ''),
+            $applicationNo,
+            $applicantName,
+            $district,
+            $phone,
+            '',
+            '',
+            $partnerName,
+            '',
+            '',
+            'Market Linkage',
+            MarketLinkageSubmission::SERVICE_LIST_LABEL.($linkageMode !== '' && $linkageMode !== '—' ? ' ('.$linkageMode.')' : ''),
+            'KEY',
+            ucfirst(str_replace('_', ' ', $status)),
+            $this->fmtDate($ml?->sla_deadline_at),
+            $this->fmtDate($ml?->submitted_at),
+            (string) ($ml?->submitted_by_name ?? $ml?->submitter?->name ?? ''),
+            (string) ($ml?->spoc?->name ?? 'Unassigned'),
+            (string) ($ml?->approver?->name ?? ''),
+            $this->fmtDate($ml?->created_at),
+            0,
+            match ($status) {
+                ServiceCase::STATUS_SENT_BACK => (string) ($ml?->sent_back_note ?? ''),
+                ServiceCase::STATUS_REJECTED => (string) ($ml?->rejected_note ?? ''),
+                default => '',
+            },
+        ];
     }
 
     /**
@@ -557,7 +461,7 @@ class Phase3ServiceCasesController extends Controller
             (string) ($case->spoc?->name ?? 'Unassigned'),
             (string) ($case->approver?->name ?? ''),
             $this->fmtDate($case->created_at),
-            (int) $case->attachments->count(),
+            (int) ($case->attachments_count ?? $case->attachments->count()),
             $spocRemark,
         ];
     }

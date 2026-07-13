@@ -326,8 +326,8 @@
         </div>
 
         <div class="ml-toolbar">
-            <p style="margin:0;font-size:0.82rem;color:#64748b;max-width:36rem;">
-                Totals reflect current filters. One table row per incubatee; partner details are combined in that row.
+            <p style="margin:0;font-size:0.82rem;color:#64748b;max-width:40rem;">
+                Totals reflect current filters. Includes Market Linkage module records and approved orphan service-case linkages (same set as phase3-services market-link filter). One table row per incubatee.
             </p>
             <div class="ml-toolbar__actions">
                 @if ($createRoute)
@@ -428,7 +428,9 @@
                                 @if ($row->application_no)
                                     <div style="font-size:0.78rem;color:#64748b;">{{ $row->application_no }}</div>
                                 @endif
-                                @if ($row->submission_count > 1)
+                                @if (($row->source ?? '') === 'service_case')
+                                    <div style="font-size:0.72rem;color:#b45309;margin-top:0.2rem;font-weight:700;">Service case</div>
+                                @elseif ($row->submission_count > 1)
                                     <div style="font-size:0.76rem;color:#6d28d9;margin-top:0.2rem;">{{ $row->submission_count }} submissions</div>
                                 @endif
                             </td>
@@ -468,7 +470,11 @@
                                             </span>
                                             <span class="ml-dash-partner__meta" style="grid-column:1 / -1;">
                                                 Recorded {{ $p['recorded_at'] }} · {{ $p['recorded_by'] }}
-                                                · <a href="{{ $p['show_url'] }}">Submission</a>
+                                                @if (!empty($p['show_url']))
+                                                    · <a href="{{ $p['show_url'] }}">{{ !empty($p['service_case_id']) ? 'Service case' : 'Submission' }}</a>
+                                                @elseif (!empty($p['service_case_id']))
+                                                    · <span>Service case</span>
+                                                @endif
                                             </span>
                                         </div>
                                     @endforeach

@@ -84,6 +84,38 @@ class Phase3UnifiedMarketLinkageListBuilder
     }
 
     /**
+     * All unified market-linkage rows for the active filters (no pagination).
+     * Returns null when the filter is not a market-link service (caller should use service_cases).
+     *
+     * @param  array<string, mixed>  $filters
+     * @return Collection<int, array<string, mixed>>|null
+     */
+    public function allRowsForExport(array $filters, callable $buildServiceCaseQuery, callable $applyServiceCaseFilters): ?Collection
+    {
+        $serviceId = is_numeric($filters['service_id'] ?? '') ? (int) $filters['service_id'] : 0;
+        if (! MarketLinkageUnifiedListingSupport::isMarketLinkServiceId($serviceId)) {
+            return null;
+        }
+
+        if (! Schema::hasTable('market_linkage_submissions') || ! MarketLinkageSubmission::supportsWorkflow()) {
+            return null;
+        }
+
+        $caseQuery = $buildServiceCaseQuery($filters);
+        $applyServiceCaseFilters($caseQuery, $filters);
+        $serviceCases = $caseQuery->orderByDesc('service_cases.created_at')->get();
+
+        $mlQuery = MarketLinkageSubmission::query()
+            ->with(['partners', 'spoc:id,name', 'submitter:id,name', 'approver:id,name', 'cfaSubmission.district:id,name']);
+        $this->applyMarketLinkageFilters($mlQuery, $filters);
+        $marketLinkages = $mlQuery->orderByDesc('updated_at')->get();
+
+        return $this->buildUnifiedRows($serviceCases, $marketLinkages, ! empty($filters['unique_incubatees']))
+            ->sortByDesc(fn (array $row) => $row['updated_at']?->timestamp ?? 0)
+            ->values();
+    }
+
+    /**
      * @param  array<string, mixed>  $filters
      * @return list<array{id: int, name: string, total: int}>|null
      */

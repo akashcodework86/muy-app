@@ -15,6 +15,7 @@ use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\MarketLinkages\MarketLinkageDashboardExcelExport;
 use App\Services\MarketLinkageWorkflowService;
 use App\Support\MarketLinkageAccess;
+use App\Support\MarketLinkageUnifiedListingSupport;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -248,7 +249,8 @@ class MarketLinkageController extends Controller
         $submissions = $this->dashboardSubmissionsQuery($user, $filters)->get();
 
         $grouped = $this->groupSubmissionsByIncubatee($submissions, $filters, $user);
-        $stats = $this->computeDashboardStats($submissions, $filters);
+        $grouped = $this->mergeOrphanServiceCaseGroups($grouped, $filters, $user);
+        $stats = $this->computeDashboardStatsFromGroups($grouped);
         $rows = $this->paginateGroupedIncubatees($request, $grouped, 25);
 
         $districtCounts = $this->districtCounts($user, $filters);
@@ -326,10 +328,11 @@ class MarketLinkageController extends Controller
             $stats = $this->emptyDashboardStats();
         } else {
             // Build from the exact same filtered/grouped dataset the dashboard renders,
-            // so the export matches the view (incl. partner-level date/type filtering).
+            // so the export matches the view (incl. partner-level date/type filtering + orphans).
             $submissions = $this->dashboardSubmissionsQuery($user, $filters)->get();
             $groups = $this->groupSubmissionsByIncubatee($submissions, $filters, $user);
-            $stats = $this->computeDashboardStats($submissions, $filters);
+            $groups = $this->mergeOrphanServiceCaseGroups($groups, $filters, $user);
+            $stats = $this->computeDashboardStatsFromGroups($groups);
         }
 
         $showDistrict = in_array($user->role, ['state_admin', 'hub_admin'], true);
@@ -777,6 +780,91 @@ class MarketLinkageController extends Controller
     }
 
     /**
+     * Append approved orphan market-link service cases (same incubatees shown on phase3-services
+     * for market-link service filters) that are not already covered by a Market Linkage module row.
+     *
+     * @param  Collection<int, object>  $grouped
+     * @param  array{q: string, from: string, to: string, district_id: int, linkage_mode: string}  $filters
+     * @return Collection<int, object>
+     */
+    private function mergeOrphanServiceCaseGroups(Collection $grouped, array $filters, User $user): Collection
+    {
+        $districtIds = $this->dashboardDistrictScopeIds($user, $filters);
+        $orphans = MarketLinkageUnifiedListingSupport::orphanDashboardGroups($districtIds, [
+            'q' => $filters['q'],
+            'from' => $filters['from'],
+            'to' => $filters['to'],
+            'linkage_mode' => $filters['linkage_mode'],
+        ]);
+
+        if ($orphans === []) {
+            return $grouped;
+        }
+
+        $existingKeys = $grouped->pluck('key')->all();
+        $canOpenServiceCase = $user->role === 'state_admin' && \Illuminate\Support\Facades\Route::has('admin.phase3-services.show');
+
+        foreach ($orphans as $orphan) {
+            $key = (string) ($orphan['key'] ?? '');
+            if ($key === '' || in_array($key, $existingKeys, true)) {
+                continue;
+            }
+
+            $partners = [];
+            foreach ($orphan['partners'] as $partner) {
+                if ($canOpenServiceCase && ! empty($partner['service_case_id'])) {
+                    $partner['show_url'] = route('admin.phase3-services.show', (int) $partner['service_case_id']);
+                }
+                $partners[] = $partner;
+            }
+
+            $grouped->push((object) [
+                'key' => $key,
+                'incubatee_name' => (string) ($orphan['incubatee_name'] ?? '—'),
+                'application_no' => $orphan['application_no'] ?? null,
+                'district_id' => (int) ($orphan['district_id'] ?? 0),
+                'district_name' => $orphan['district_name'] ?? null,
+                'cfa_submission_id' => $orphan['cfa_submission_id'] ?? null,
+                'legacy_application_id' => $orphan['legacy_application_id'] ?? null,
+                'partner_count' => count($partners),
+                'submission_count' => 1,
+                'last_recorded_at' => $orphan['last_recorded_at'] ?? null,
+                'partners' => $partners,
+                'source' => 'service_case',
+            ]);
+            $existingKeys[] = $key;
+        }
+
+        return $grouped
+            ->filter(fn ($g) => (int) ($g->partner_count ?? 0) > 0)
+            ->sortByDesc(fn ($g) => $g->last_recorded_at?->timestamp ?? 0)
+            ->values();
+    }
+
+    /**
+     * @param  array{q: string, from: string, to: string, district_id: int, linkage_mode: string}  $filters
+     * @return list<int>|null
+     */
+    private function dashboardDistrictScopeIds(User $user, array $filters): ?array
+    {
+        if ($filters['district_id'] > 0) {
+            return [$filters['district_id']];
+        }
+
+        if ($user->role === 'district_staff') {
+            $districtId = (int) ($user->district_id ?: 0);
+
+            return $districtId > 0 ? [$districtId] : [];
+        }
+
+        if ($user->role === 'hub_admin') {
+            return $this->hubDistrictIds((int) ($user->hub_id ?: 0));
+        }
+
+        return null;
+    }
+
+    /**
      * @param  array{q: string, from: string, to: string, district_id: int, linkage_mode: string}  $filters
      */
     private function partnerMatchesFilters(MarketLinkagePartner $partner, array $filters): bool
@@ -886,48 +974,36 @@ class MarketLinkageController extends Controller
     }
 
     /**
-     * @param  Collection<int, MarketLinkageSubmission>  $submissions
-     * @param  array{q: string, from: string, to: string, district_id: int, linkage_mode: string}  $filters
+     * @param  Collection<int, object>  $groups
      * @return array{unique_partners: int, linked_incubatees: int, partner_records: int, online_partners: int, offline_partners: int}
      */
-    private function computeDashboardStats(Collection $submissions, array $filters): array
+    private function computeDashboardStatsFromGroups(Collection $groups): array
     {
         $uniquePartners = [];
-        $incubateeKeys = [];
         $partnerRecords = 0;
         $onlinePartners = 0;
         $offlinePartners = 0;
 
-        foreach ($submissions as $submission) {
-            $hasMatchingPartner = false;
-
-            foreach ($submission->partners as $partner) {
-                if (! $this->partnerMatchesFilters($partner, $filters)) {
-                    continue;
-                }
-
-                $hasMatchingPartner = true;
+        foreach ($groups as $group) {
+            foreach ($group->partners ?? [] as $partner) {
                 $partnerRecords++;
-                $partnerKey = $this->partnerCatalog->normalizePartnerKey((string) $partner->partner_name);
-                if ($partnerKey !== '') {
+                $partnerKey = $this->partnerCatalog->normalizePartnerKey((string) ($partner['partner_name'] ?? ''));
+                if ($partnerKey !== '' && $partnerKey !== '—') {
                     $uniquePartners[$partnerKey] = true;
                 }
 
-                if ($partner->linkage_mode === MarketLinkageSubmission::LINKAGE_ONLINE) {
+                $mode = (string) ($partner['linkage_mode'] ?? '');
+                if ($mode === MarketLinkageSubmission::LINKAGE_ONLINE) {
                     $onlinePartners++;
-                } elseif ($partner->linkage_mode === MarketLinkageSubmission::LINKAGE_OFFLINE) {
+                } elseif ($mode === MarketLinkageSubmission::LINKAGE_OFFLINE) {
                     $offlinePartners++;
                 }
-            }
-
-            if ($hasMatchingPartner) {
-                $incubateeKeys[$this->incubateeKey($submission)] = true;
             }
         }
 
         return [
             'unique_partners' => count($uniquePartners),
-            'linked_incubatees' => count($incubateeKeys),
+            'linked_incubatees' => $groups->count(),
             'partner_records' => $partnerRecords,
             'online_partners' => $onlinePartners,
             'offline_partners' => $offlinePartners,
@@ -957,21 +1033,21 @@ class MarketLinkageController extends Controller
             return [];
         }
 
-        $query = MarketLinkageSubmission::query()->approved();
-        $this->scopeDashboardQuery($query, $user);
+        // Build the same unified incubatee set the list uses (ML module + orphans), then count by district.
+        $countFilters = $filters;
+        $countFilters['district_id'] = 0;
+        $submissions = $this->dashboardSubmissionsQuery($user, $countFilters)->get();
+        $grouped = $this->groupSubmissionsByIncubatee($submissions, $countFilters, $user);
+        $grouped = $this->mergeOrphanServiceCaseGroups($grouped, $countFilters, $user);
 
-        if ($filters['q'] !== '') {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']).'%';
-            $query->where(function ($q) use ($like): void {
-                $q->where('incubatee_name', 'like', $like)
-                    ->orWhere('application_no', 'like', $like);
-            });
+        $totals = [];
+        foreach ($grouped as $group) {
+            $districtId = (int) ($group->district_id ?? 0);
+            if ($districtId < 1) {
+                continue;
+            }
+            $totals[$districtId] = ($totals[$districtId] ?? 0) + 1;
         }
-
-        $totals = $query
-            ->get(['district_id', 'cfa_submission_id', 'legacy_application_id', 'id'])
-            ->groupBy('district_id')
-            ->map(fn (Collection $rows) => $rows->unique(fn (MarketLinkageSubmission $s) => $this->incubateeKey($s))->count());
 
         $districtQuery = District::query()->orderBy('sort_order')->orderBy('name');
         if ($user->role === 'hub_admin') {
@@ -983,7 +1059,7 @@ class MarketLinkageController extends Controller
             ->map(fn (District $d) => [
                 'id' => (int) $d->id,
                 'name' => (string) $d->name,
-                'total' => (int) ($totals->get((int) $d->id) ?? 0),
+                'total' => (int) ($totals[(int) $d->id] ?? 0),
             ])
             ->all();
     }

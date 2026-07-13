@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\District;
 use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
@@ -586,6 +587,208 @@ SQL;
         if ($districtIds !== null) {
             $query->whereIn('mls.district_id', $districtIds);
         }
+    }
+
+    /**
+     * Approved orphan market-link service cases (no matching Market Linkage module record),
+     * shaped for the market-linkage dashboard list (one group per incubatee).
+     *
+     * @param  list<int>|null  $districtIds  null = statewide
+     * @param  array{q?: string, from?: string, to?: string, linkage_mode?: string}  $filters
+     * @return list<array{
+     *   key: string,
+     *   incubatee_name: string,
+     *   application_no: ?string,
+     *   district_id: int,
+     *   district_name: ?string,
+     *   cfa_submission_id: ?int,
+     *   legacy_application_id: ?int,
+     *   service_case_id: int,
+     *   partner_count: int,
+     *   submission_count: int,
+     *   last_recorded_at: ?Carbon,
+     *   partners: list<array<string, mixed>>,
+     *   source: string
+     * }>
+     */
+    public static function orphanDashboardGroups(?array $districtIds, array $filters = []): array
+    {
+        if ($districtIds === []) {
+            return [];
+        }
+
+        $serviceIds = self::marketLinkServiceIds();
+        if ($serviceIds === [] || ! Schema::hasTable('service_cases')) {
+            return [];
+        }
+
+        $periodFrom = ! empty($filters['from']) ? Carbon::parse((string) $filters['from'])->startOfDay() : null;
+        $periodTo = ! empty($filters['to']) ? Carbon::parse((string) $filters['to'])->endOfDay() : null;
+        $q = trim((string) ($filters['q'] ?? ''));
+        $linkageMode = strtolower(trim((string) ($filters['linkage_mode'] ?? '')));
+
+        $query = DB::table('service_cases as sc')
+            ->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
+            ->leftJoin('districts as d', 'd.id', '=', 'cs.district_id')
+            ->whereIn('sc.service_id', $serviceIds)
+            ->where('sc.status', ServiceCase::STATUS_APPROVED)
+            ->where(function ($w): void {
+                $w->whereNotNull('sc.cfa_submission_id')
+                    ->orWhereNotNull('sc.legacy_application_id');
+            })
+            ->select(
+                'sc.id as service_case_id',
+                'sc.cfa_submission_id',
+                'sc.legacy_application_id',
+                'sc.payload',
+                'sc.approved_at',
+                'sc.created_at',
+                'sc.submitted_at',
+                'cs.application_no',
+                'cs.applicant_name',
+                'cs.district_id as cfa_district_id',
+                'd.name as district_name',
+            );
+
+        if ($districtIds !== null) {
+            app(LegacyApplicationServiceCaseSupport::class)
+                ->applyAchievementDistrictScopeToServiceCaseQuery($query, $districtIds);
+        }
+
+        self::applyOrphanServiceCasePeriodScope($query, $periodFrom, $periodTo);
+        self::applyOrphanExclusionAgainstMarketLinkage($query, $districtIds, true, $periodFrom, $periodTo);
+
+        if ($q !== '') {
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q).'%';
+            $query->where(function ($w) use ($like): void {
+                $w->where('cs.applicant_name', 'like', $like)
+                    ->orWhere('cs.application_no', 'like', $like)
+                    ->orWhere('sc.reference_number', 'like', $like)
+                    ->orWhere('sc.payload', 'like', $like);
+            });
+        }
+
+        $groups = [];
+        foreach ($query->orderByDesc('sc.approved_at')->orderByDesc('sc.id')->get() as $row) {
+            $key = self::incubateeKeyFromIds(
+                isset($row->cfa_submission_id) ? (int) $row->cfa_submission_id : null,
+                isset($row->legacy_application_id) ? (int) $row->legacy_application_id : null,
+            );
+            if ($key === null) {
+                continue;
+            }
+
+            $payload = is_string($row->payload) ? json_decode($row->payload, true) : [];
+            $payload = is_array($payload) ? $payload : [];
+            $modes = self::linkageModeLabelsFromServiceCasePayload($payload);
+            if ($modes === []) {
+                continue;
+            }
+
+            if ($linkageMode !== '') {
+                $wanted = match ($linkageMode) {
+                    MarketLinkageSubmission::LINKAGE_ONLINE, 'online' => 'Online',
+                    MarketLinkageSubmission::LINKAGE_OFFLINE, 'offline' => 'Offline',
+                    default => '',
+                };
+                if ($wanted !== '' && ! in_array($wanted, $modes, true)) {
+                    continue;
+                }
+            }
+
+            $partnerName = trim((string) ($payload['p'] ?? ''));
+            if ($partnerName === '') {
+                $partnerName = '—';
+            }
+
+            $recorded = $row->approved_at ?? $row->submitted_at ?? $row->created_at;
+            $recordedAt = $recorded ? Carbon::parse((string) $recorded) : null;
+            // One partner detail row per mode so online/offline filters and stats stay accurate.
+            $partnerRows = [];
+            foreach ($modes as $modeLabel) {
+                $modeCode = $modeLabel === 'Online'
+                    ? MarketLinkageSubmission::LINKAGE_ONLINE
+                    : MarketLinkageSubmission::LINKAGE_OFFLINE;
+                if ($linkageMode !== ''
+                    && $linkageMode !== $modeCode
+                    && strtolower($linkageMode) !== strtolower($modeLabel)
+                ) {
+                    continue;
+                }
+                $partnerRows[] = [
+                    'partner_name' => $partnerName,
+                    'linkage_mode' => $modeCode,
+                    'linkage_mode_label' => $modeLabel,
+                    'linkage_date' => $recordedAt?->toDateString() ?? '',
+                    'linkage_date_display' => $recordedAt?->format('d M Y') ?? '',
+                    'link_url' => null,
+                    'link_href' => null,
+                    'has_document' => false,
+                    'document_url' => null,
+                    'recorded_at' => $recordedAt?->timezone(config('app.timezone'))->format('d M Y H:i') ?? '',
+                    'recorded_by' => 'Service case',
+                    'submission_id' => null,
+                    'show_url' => null,
+                    'service_case_id' => (int) $row->service_case_id,
+                ];
+            }
+
+            if ($partnerRows === []) {
+                continue;
+            }
+
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'key' => $key,
+                    'incubatee_name' => (string) ($row->applicant_name ?: '—'),
+                    'application_no' => $row->application_no ? (string) $row->application_no : null,
+                    'district_id' => (int) ($row->cfa_district_id ?? 0),
+                    'district_name' => $row->district_name ? (string) $row->district_name : null,
+                    'cfa_submission_id' => $row->cfa_submission_id ? (int) $row->cfa_submission_id : null,
+                    'legacy_application_id' => $row->legacy_application_id ? (int) $row->legacy_application_id : null,
+                    'service_case_id' => (int) $row->service_case_id,
+                    'partner_count' => 0,
+                    'submission_count' => 1,
+                    'last_recorded_at' => $recordedAt,
+                    'partners' => [],
+                    'source' => 'service_case',
+                ];
+            }
+
+            foreach ($partnerRows as $partnerRow) {
+                $groups[$key]['partners'][] = $partnerRow;
+                $groups[$key]['partner_count']++;
+            }
+
+            if ($recordedAt && (
+                $groups[$key]['last_recorded_at'] === null
+                || $recordedAt->gt($groups[$key]['last_recorded_at'])
+            )) {
+                $groups[$key]['last_recorded_at'] = $recordedAt;
+            }
+        }
+
+        // Resolve legacy district when CFA district is missing.
+        $legacySupport = app(LegacyApplicationServiceCaseSupport::class);
+        foreach ($groups as &$group) {
+            if (($group['district_id'] ?? 0) > 0) {
+                continue;
+            }
+            $legacyId = (int) ($group['legacy_application_id'] ?? 0);
+            if ($legacyId < 1) {
+                continue;
+            }
+            $laravelDistrictId = $legacySupport->laravelDistrictIdForLegacyApplication($legacyId);
+            if ($laravelDistrictId !== null && $laravelDistrictId > 0) {
+                $group['district_id'] = $laravelDistrictId;
+                if (($group['district_name'] ?? null) === null || $group['district_name'] === '') {
+                    $group['district_name'] = District::query()->where('id', $laravelDistrictId)->value('name');
+                }
+            }
+        }
+        unset($group);
+
+        return array_values($groups);
     }
 
     /**
