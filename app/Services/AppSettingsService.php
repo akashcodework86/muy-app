@@ -33,6 +33,8 @@ class AppSettingsService
         // Service module (maker-checker workflow)
         'service_module.enabled' => false,
         'service_module.eligibility' => 'onboarded_only', // 'all' | 'onboarded_only'
+        // District staff — show Delete on /my/services (and related destroy routes)
+        'service_module.staff_delete_enabled' => true,
 
         // District staff — Phase 3 attendance modules (top bar + routes)
         'staff_nav.training_package.visible' => true,

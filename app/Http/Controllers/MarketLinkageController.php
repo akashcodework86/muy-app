@@ -281,7 +281,8 @@ class MarketLinkageController extends Controller
                 && (int) $marketLinkage->submitted_by_user_id === (int) $user->id
                 ? 'staff.market-linkages.edit'
                 : null,
-            'canDelete' => MarketLinkageAccess::canSubmit($user)
+            'canDelete' => $this->settings->isEnabled('service_module.staff_delete_enabled')
+                && MarketLinkageAccess::canSubmit($user)
                 && (int) $marketLinkage->submitted_by_user_id === (int) $user->id
                 && $marketLinkage->canBeDeletedByStaff(),
             'deleteRoute' => 'staff.market-linkages.destroy',
@@ -290,6 +291,11 @@ class MarketLinkageController extends Controller
 
     public function destroy(Request $request, MarketLinkageSubmission $marketLinkage): RedirectResponse
     {
+        abort_unless(
+            $this->settings->isEnabled('service_module.staff_delete_enabled'),
+            403,
+            'Deleting service records is turned off. Ask your state admin to enable it under Service module settings.'
+        );
         $staff = $this->staffOrAbort($request);
         MarketLinkageAccess::canAccessSubmission($staff, $marketLinkage);
         abort_unless((int) $marketLinkage->submitted_by_user_id === (int) $staff->id, 403);

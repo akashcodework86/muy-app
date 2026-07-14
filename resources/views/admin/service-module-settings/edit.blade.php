@@ -71,6 +71,27 @@
             </label>
         </section>
 
+        {{-- District staff delete button --}}
+        <section style="background:#fff; border:1px solid #e4e4e7; border-radius:12px; padding:1rem 1.1rem; margin-bottom:1rem;">
+            <header style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;">
+                <div>
+                    <h3 style="margin:0 0 0.25rem; font-size:1rem; color:#18181b;">District staff — Delete button</h3>
+                    <p style="margin:0; font-size:0.82rem; color:#52525b; line-height:1.45;">
+                        When <strong>ON</strong>, district staff see a <em>Delete</em> action on
+                        <em>Services</em> (list and detail) for their own eligible records.<br>
+                        When <strong>OFF</strong>, the Delete button is hidden and delete requests are blocked.
+                    </p>
+                </div>
+                <label style="display:inline-flex; align-items:center; gap:0.5rem; cursor:pointer; flex-shrink:0;">
+                    <input type="hidden" name="staff_delete_enabled" value="0">
+                    <input type="checkbox" name="staff_delete_enabled" value="1" @checked($staffDeleteEnabled) style="width:1.1rem; height:1.1rem; accent-color:#4f46e5; cursor:pointer;">
+                    <span style="font-weight:600; font-size:0.92rem; color:{{ $staffDeleteEnabled ? '#166534' : '#991b1b' }};">
+                        {{ $staffDeleteEnabled ? 'ENABLED' : 'DISABLED' }}
+                    </span>
+                </label>
+            </header>
+        </section>
+
         {{-- Deliverables inline edit --}}
         <section style="background:#fff; border:1px solid #e4e4e7; border-radius:12px; padding:1rem 1.1rem; margin-bottom:1rem;">
             <header style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;">

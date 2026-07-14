@@ -3883,7 +3883,9 @@ class DeliverablesReportTest extends TestCase
             ->get(route('admin.service-module-settings.edit'))
             ->assertOk()
             ->assertSee('Deliverables page — edit mode', false)
-            ->assertSee('deliverables_indicator_metadata_editable', false);
+            ->assertSee('deliverables_indicator_metadata_editable', false)
+            ->assertSee('District staff — Delete button', false)
+            ->assertSee('staff_delete_enabled', false);
     }
 
     public function test_spoc_deliverables_scope_is_statewide(): void

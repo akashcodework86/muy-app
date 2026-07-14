@@ -15,15 +15,17 @@ use Illuminate\View\View;
  * runtime behaviour. Changes are DB-backed via AppSettingsService, so they
  * take effect immediately without a redeploy.
  *
- * Two knobs:
- *   - service_module.enabled       Master on/off for the workflow.
- *                                  When OFF: staff cannot CREATE new cases;
- *                                  existing draft / pending / sent_back cases
- *                                  remain editable so they can be closed out.
- *   - service_module.eligibility   Who staff can raise cases for:
- *                                    'all'             = any CFA submission in their district
- *                                    'onboarded_only'  = only CFAs linked to at least one
- *                                                        onboarding batch
+ * Knobs:
+ *   - service_module.enabled              Master on/off for the workflow.
+ *                                         When OFF: staff cannot CREATE new cases;
+ *                                         existing draft / pending / sent_back cases
+ *                                         remain editable so they can be closed out.
+ *   - service_module.eligibility          Who staff can raise cases for:
+ *                                           'all'             = any CFA submission in their district
+ *                                           'onboarded_only'  = only CFAs linked to at least one
+ *                                                               onboarding batch
+ *   - service_module.staff_delete_enabled Show Delete in district staff Services actions
+ *                                         (list + detail) and allow destroy routes.
  */
 class ServiceModuleSettingsController extends Controller
 {
@@ -37,6 +39,7 @@ class ServiceModuleSettingsController extends Controller
         return view('admin.service-module-settings.edit', [
             'enabled' => $this->settings->isEnabled('service_module.enabled'),
             'eligibility' => $this->settings->get('service_module.eligibility', 'onboarded_only'),
+            'staffDeleteEnabled' => $this->settings->isEnabled('service_module.staff_delete_enabled'),
             'deliverablesIndicatorMetadataEditable' => $this->settings->isEnabled('deliverables.indicator_metadata_editable'),
             'targetsAllocationEditable' => $this->settings->isEnabled('targets.allocation_editable'),
         ]);
@@ -47,6 +50,7 @@ class ServiceModuleSettingsController extends Controller
         $validated = $request->validate([
             'enabled' => ['nullable', 'boolean'],
             'eligibility' => ['required', Rule::in(['all', 'onboarded_only'])],
+            'staff_delete_enabled' => ['nullable', 'boolean'],
             'deliverables_indicator_metadata_editable' => ['nullable', 'boolean'],
             'targets_allocation_editable' => ['nullable', 'boolean'],
         ]);
@@ -54,6 +58,7 @@ class ServiceModuleSettingsController extends Controller
         $before = [
             'enabled' => $this->settings->isEnabled('service_module.enabled'),
             'eligibility' => $this->settings->get('service_module.eligibility', 'onboarded_only'),
+            'staff_delete_enabled' => $this->settings->isEnabled('service_module.staff_delete_enabled'),
             'deliverables_indicator_metadata_editable' => $this->settings->isEnabled('deliverables.indicator_metadata_editable'),
             'targets_allocation_editable' => $this->settings->isEnabled('targets.allocation_editable'),
         ];
@@ -61,6 +66,7 @@ class ServiceModuleSettingsController extends Controller
         $after = [
             'enabled' => (bool) ($validated['enabled'] ?? false),
             'eligibility' => $validated['eligibility'],
+            'staff_delete_enabled' => (bool) ($validated['staff_delete_enabled'] ?? false),
             'deliverables_indicator_metadata_editable' => (bool) ($validated['deliverables_indicator_metadata_editable'] ?? false),
             'targets_allocation_editable' => (bool) ($validated['targets_allocation_editable'] ?? false),
         ];
@@ -68,6 +74,7 @@ class ServiceModuleSettingsController extends Controller
         $this->settings->setMany([
             'service_module.enabled' => $after['enabled'],
             'service_module.eligibility' => $after['eligibility'],
+            'service_module.staff_delete_enabled' => $after['staff_delete_enabled'],
             'deliverables.indicator_metadata_editable' => $after['deliverables_indicator_metadata_editable'],
             'targets.allocation_editable' => $after['targets_allocation_editable'],
         ], auth()->id());

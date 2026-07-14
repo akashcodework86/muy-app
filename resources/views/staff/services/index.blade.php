@@ -621,7 +621,7 @@
                                         @if (($filterScope ?? 'my') === 'my' && $ml->canBeEditedByStaff())
                                             <a href="{{ route('staff.market-linkages.edit', $ml) }}" class="svc-btn-xs svc-btn-xs--edit">Edit</a>
                                         @endif
-                                        @if (($filterScope ?? 'my') === 'my' && $ml->canBeDeletedByStaff() && (int) $ml->submitted_by_user_id === (int) auth()->id())
+                                        @if (($staffDeleteEnabled ?? true) && ($filterScope ?? 'my') === 'my' && $ml->canBeDeletedByStaff() && (int) $ml->submitted_by_user_id === (int) auth()->id())
                                             <form method="post" action="{{ route('staff.market-linkages.destroy', $ml) }}" style="display:inline;" onsubmit="return confirm('Delete this market linkage submission?');">
                                                 @csrf
                                                 @method('DELETE')
@@ -733,7 +733,7 @@
                                                 View document
                                             </button>
                                         @endif
-                                        @if (($filterScope ?? 'my') === 'my' && $case->canBeDeletedByStaff())
+                                        @if (($staffDeleteEnabled ?? true) && ($filterScope ?? 'my') === 'my' && $case->canBeDeletedByStaff())
                                             <form method="post" action="{{ route('staff.services.destroy', $case) }}" style="display:inline;" onsubmit="return confirm('Delete this case?');">
                                                 @csrf
                                                 @method('DELETE')

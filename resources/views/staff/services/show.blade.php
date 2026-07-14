@@ -209,7 +209,7 @@
         'docButtonClass' => 'svc-doc-btn js-doc-open',
     ])
 
-    @if ($case->canBeDeletedByStaff())
+    @if (($staffDeleteEnabled ?? true) && $case->canBeDeletedByStaff())
         <form method="post" action="{{ route('staff.services.destroy', $case) }}" onsubmit="return confirm('Delete this case?');" style="margin-top:0.5rem;">
             @csrf
             @method('DELETE')

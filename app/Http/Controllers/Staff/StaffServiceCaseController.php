@@ -204,6 +204,7 @@ class StaffServiceCaseController extends Controller
             'filterRecordType' => $recordType,
             'filterScope' => $scope,
             'services' => $services,
+            'staffDeleteEnabled' => $this->settings->isEnabled('service_module.staff_delete_enabled'),
             'reapTargetsProgress' => $reapOnly
                 ? $this->reapTargetsProgress->districtProgress($districtId)
                 : null,
@@ -476,6 +477,7 @@ class StaffServiceCaseController extends Controller
         return view('staff.services.show', [
             'case' => $service_case,
             'legacyIncubateePreview' => $legacyIncubateePreview,
+            'staffDeleteEnabled' => $this->settings->isEnabled('service_module.staff_delete_enabled'),
         ]);
     }
 
@@ -603,6 +605,11 @@ class StaffServiceCaseController extends Controller
     public function destroy(Request $request, ServiceCase $service_case): RedirectResponse
     {
         $this->ensureModuleOn();
+        abort_unless(
+            $this->settings->isEnabled('service_module.staff_delete_enabled'),
+            403,
+            'Deleting service cases is turned off. Ask your state admin to enable it under Service module settings.'
+        );
         $staff = $this->staffOrAbort($request);
         $this->assertCaseInDistrict($staff, $service_case);
         $this->assertCaseOwnedByStaff($staff, $service_case);
