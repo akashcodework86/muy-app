@@ -89,6 +89,60 @@ class ProgramDeliverablesFilter
     }
 
     /**
+     * Cumulative window from fiscal-year start through the end of the filter's
+     * last calendar month (selected month, quarter end, or date-to month).
+     */
+    public function toCumulativeThroughPeriodEnd(?FiscalYear $fiscalYear): self
+    {
+        [, $periodTo] = $this->resolvePeriod($fiscalYear);
+
+        $cumulFrom = $fiscalYear?->starts_on
+            ? $fiscalYear->starts_on->copy()->startOfDay()
+            : null;
+        $cumulTo = $periodTo?->copy()->endOfMonth()->endOfDay();
+
+        if ($cumulFrom === null && $periodTo !== null) {
+            $cumulFrom = $periodTo->copy()->startOfMonth()->startOfDay();
+        }
+
+        if ($fiscalYear?->ends_on && $cumulTo !== null && $cumulTo->gt($fiscalYear->ends_on->copy()->endOfDay())) {
+            $cumulTo = $fiscalYear->ends_on->copy()->endOfDay();
+        }
+
+        if ($cumulFrom !== null && $cumulTo !== null && $cumulFrom->gt($cumulTo)) {
+            $cumulTo = $cumulFrom->copy()->endOfDay();
+        }
+
+        return new self(
+            fiscalYearId: $this->fiscalYearId,
+            districtId: $this->districtId,
+            month: null,
+            year: null,
+            dateFrom: $cumulFrom?->toDateString(),
+            dateTo: $cumulTo?->toDateString(),
+            quarter: null,
+            indicatorType: $this->indicatorType,
+            level: $this->level,
+        );
+    }
+
+    /** Short label for the cumulative end month, e.g. "till May 2026". */
+    public function cumulativeThroughLabel(?FiscalYear $fiscalYear): ?string
+    {
+        [, $periodTo] = $this->resolvePeriod($fiscalYear);
+        if ($periodTo === null) {
+            return null;
+        }
+
+        $end = $periodTo->copy()->endOfMonth();
+        if ($fiscalYear?->ends_on && $end->gt($fiscalYear->ends_on)) {
+            $end = $fiscalYear->ends_on->copy();
+        }
+
+        return 'till '.$end->format('M Y');
+    }
+
+    /**
      * @return array{dateFrom: ?string, dateTo: ?string, year: ?int}
      */
     public function formDates(?FiscalYear $fiscalYear): array

@@ -61,15 +61,20 @@ final class DeliverablesExcelSupport
 
     /**
      * @param  array<string, mixed>  $row
+     * @param  'target'|'cumul_target'  $targetKey
+     * @param  'target_label'|'cumul_target_label'  $labelKey
      */
-    public static function formatTargetCell(array $row): string
-    {
-        $label = $row['target_label'] ?? null;
+    public static function formatTargetCell(
+        array $row,
+        string $targetKey = 'target',
+        string $labelKey = 'target_label',
+    ): string {
+        $label = $row[$labelKey] ?? null;
         if (is_string($label) && $label !== '') {
             return self::sanitizeCell($label);
         }
 
-        $target = $row['target'] ?? null;
+        $target = $row[$targetKey] ?? null;
 
         return $target !== null ? self::sanitizeCell((string) $target) : '';
     }

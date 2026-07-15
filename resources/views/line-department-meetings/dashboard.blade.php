@@ -58,14 +58,20 @@
 
         <div class="ldm-list-table-wrap">
             <table class="ldm-list-table">
-                <thead><tr><th>Date</th><th>Level</th><th>Department</th><th>Official</th><th>District</th><th>Entered by</th>
+                <thead><tr><th>#</th><th>Date</th><th>Level</th><th>Department</th><th>Official</th><th>District</th><th>Entered by</th>
                 @if (\App\Models\LineDepartmentMeeting::supportsMisFieldWorkflow())
                 <th>Approval status</th><th>Assigned SPOC</th>
                 @endif
                 <th></th></tr></thead>
                 <tbody>
                     @forelse ($rows as $row)
+                        @php
+                            $serial = method_exists($rows, 'firstItem') && $rows->firstItem()
+                                ? (int) $rows->firstItem() + $loop->index
+                                : $loop->iteration;
+                        @endphp
                         <tr>
+                            <td>{{ $serial }}</td>
                             <td>{{ $row->meeting_date?->format('d M Y') }}</td>
                             <td>{{ $row->meetingLevelLabel() }}</td>
                             <td>{{ $row->department_name }}</td>
@@ -85,7 +91,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="ldm-list-empty">No meetings logged yet.</td></tr>
+                        <tr><td colspan="10" class="ldm-list-empty">No meetings logged yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

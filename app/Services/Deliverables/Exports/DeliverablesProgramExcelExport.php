@@ -33,12 +33,18 @@ class DeliverablesProgramExcelExport
             return $this->csvExport->download($rows, $filter, $scopeLabel, $periodLabel, $fiscalYearLabel);
         }
 
+        $showCumulative = $filter->hasExplicitDateFilter();
+        $lastHeaderCol = $showCumulative ? 'J' : 'G';
+        $cumulLabel = $showCumulative
+            ? ($filter->cumulativeThroughLabel(null) ?? 'cumulative')
+            : '';
+
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Deliverables');
 
         $sheet->setCellValue('A1', 'Program deliverables report');
-        $sheet->mergeCells('A1:G1');
+        $sheet->mergeCells('A1:'.$lastHeaderCol.'1');
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => [
@@ -58,15 +64,28 @@ class DeliverablesProgramExcelExport
         ]);
 
         $headerRow = $metaEnd + 1;
-        $headers = [
-            'S.N.',
-            'Indicator',
-            'Type of Indicator',
-            'Spoke/ Hub/ State',
-            'Targets',
-            'Achievement',
-            'Achievement (%)',
-        ];
+        $headers = $showCumulative
+            ? [
+                'S.N.',
+                'Indicator',
+                'Type of Indicator',
+                'Spoke/ Hub/ State',
+                'Target (period)',
+                'Achievement (period)',
+                'Achievement % (period)',
+                'Target ('.$cumulLabel.')',
+                'Achievement ('.$cumulLabel.')',
+                'Achievement % ('.$cumulLabel.')',
+            ]
+            : [
+                'S.N.',
+                'Indicator',
+                'Type of Indicator',
+                'Spoke/ Hub/ State',
+                'Targets',
+                'Achievement',
+                'Achievement (%)',
+            ];
         $lastCol = DeliverablesExcelSupport::writeTableHeader($sheet, $headerRow, $headers);
 
         $rowNum = $headerRow + 1;
@@ -82,18 +101,28 @@ class DeliverablesProgramExcelExport
             $pct = $row['achievement_pct'] ?? null;
             $sheet->setCellValue('G'.$rowNum, $isHeading ? '' : ($pct !== null ? $pct.'%' : ''));
 
+            if ($showCumulative) {
+                $sheet->setCellValue(
+                    'H'.$rowNum,
+                    $isHeading ? '' : DeliverablesExcelSupport::formatTargetCell($row, 'cumul_target', 'cumul_target_label'),
+                );
+                $sheet->setCellValue('I'.$rowNum, $isHeading ? '' : ($row['cumul_achievement'] ?? ''));
+                $cumulPct = $row['cumul_achievement_pct'] ?? null;
+                $sheet->setCellValue('J'.$rowNum, $isHeading ? '' : ($cumulPct !== null ? $cumulPct.'%' : ''));
+            }
+
             if ($isHeading) {
-                DeliverablesExcelSupport::applyHeadingRowStyle($sheet, 'A'.$rowNum.':G'.$rowNum);
+                DeliverablesExcelSupport::applyHeadingRowStyle($sheet, 'A'.$rowNum.':'.$lastHeaderCol.$rowNum);
             }
 
             $rowNum++;
         }
 
         if ($rowNum > $dataStart) {
-            DeliverablesExcelSupport::applyDataRowBorders($sheet, 'A'.$dataStart.':G'.($rowNum - 1));
+            DeliverablesExcelSupport::applyDataRowBorders($sheet, 'A'.$dataStart.':'.$lastHeaderCol.($rowNum - 1));
             $sheet->getStyle('A'.$dataStart.':A'.($rowNum - 1))
                 ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('C'.$dataStart.':G'.($rowNum - 1))
+            $sheet->getStyle('C'.$dataStart.':'.$lastHeaderCol.($rowNum - 1))
                 ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
 

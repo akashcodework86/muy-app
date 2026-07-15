@@ -971,6 +971,86 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(7, $mayRow['target']);
     }
 
+    public function test_month_filtered_report_includes_cumulative_target_and_achievement_columns(): void
+    {
+        app(StateMonthlyTargetIndicatorBootstrapService::class)->ensureDeliverables();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $deliverable = Deliverable::query()->where('code', 'social_media')->firstOrFail();
+
+        StateDeliverableTarget::query()->updateOrCreate(
+            ['fiscal_year_id' => $fy->id, 'deliverable_id' => $deliverable->id],
+            ['target_total' => 120],
+        );
+
+        foreach (range(1, 12) as $month) {
+            StateMonthlyTarget::query()->updateOrCreate(
+                [
+                    'fiscal_year_id' => $fy->id,
+                    'deliverable_id' => $deliverable->id,
+                    'month_number' => $month,
+                ],
+                ['target_count' => $month === 1 ? 5 : ($month === 2 ? 7 : 10)],
+            );
+        }
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+
+        $fullYearFilter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $fullYearReport = app(ProgramDeliverablesReportService::class)->build($fullYearFilter, $scope);
+        $this->assertFalse($fullYearReport['show_cumulative_columns']);
+        $fullYearRow = collect($fullYearReport['rows'])->firstWhere('serial', '10.1');
+        $this->assertNotNull($fullYearRow);
+        $this->assertArrayNotHasKey('cumul_target', $fullYearRow);
+
+        // May (FY month 2): period target = 7; cumulative Apr+May = 5+7 = 12
+        $mayFilter = new ProgramDeliverablesFilter($fy->id, null, 5, 2026, null, null);
+        $mayReport = app(ProgramDeliverablesReportService::class)->build($mayFilter, $scope);
+        $this->assertTrue($mayReport['show_cumulative_columns']);
+        $mayRow = collect($mayReport['rows'])->firstWhere('serial', '10.1');
+        $this->assertNotNull($mayRow);
+        $this->assertSame(7, $mayRow['target']);
+        $this->assertSame(12, $mayRow['cumul_target']);
+        $this->assertSame('till May 2026', $mayFilter->cumulativeThroughLabel($fy));
+
+        // Cumulative should be less than full-year sum (5+7+10*10 = 112)
+        $this->assertLessThan((int) $fullYearRow['target'], (int) $mayRow['cumul_target']);
+    }
+
+    public function test_deliverables_page_shows_period_and_cumulative_columns_when_month_filtered(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.index', [
+                'fiscal_year_id' => $fy->id,
+                'month' => 5,
+                'year' => 2026,
+            ]))
+            ->assertOk()
+            ->assertSee('(period)', false)
+            ->assertSee('till May 2026', false);
+    }
+
     public function test_state_monthly_partner_outreach_uses_exact_month_on_deliverables_report(): void
     {
         app(StateMonthlyTargetIndicatorBootstrapService::class)->ensureDeliverables();

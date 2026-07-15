@@ -272,6 +272,10 @@ class DeliverablesReportController extends Controller
             'fiscalYearId' => $report['fiscalYear']?->id,
             'fiscalYear' => $report['fiscalYear'],
             'rows' => $report['rows'],
+            'showCumulativeColumns' => (bool) ($report['show_cumulative_columns'] ?? false),
+            'cumulativeThroughLabel' => $safeFilter->hasExplicitDateFilter()
+                ? ($safeFilter->cumulativeThroughLabel($report['fiscalYear']) ?? 'cumulative')
+                : null,
             'districts' => $scope->districtsForDropdown(),
             'canPickDistrict' => $scope->canPickDistrict(),
             'scopeLabel' => $scope->scopeLabel($safeFilter->districtId),

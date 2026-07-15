@@ -104,11 +104,15 @@ class ProgramDeliverablesReportService
      *         target: ?int,
      *         achievement: int,
      *         achievement_pct: ?int,
-     *         performance_tone: ?string
-     *     }>
+     *         performance_tone: ?string,
+     *         cumul_target?: ?int,
+     *         cumul_achievement?: ?int,
+     *         cumul_achievement_pct?: ?int
+     *     }>,
+     *     show_cumulative_columns: bool
      * }
      */
-    public function build(ProgramDeliverablesFilter $filter, ProgramDeliverablesScope $scope): array
+    public function build(ProgramDeliverablesFilter $filter, ProgramDeliverablesScope $scope, bool $attachCompanionColumns = true): array
     {
         $fiscalYears = FiscalYear::forUiDropdown();
         [$resolvedFyId] = FiscalYear::resolveIdForUi($filter->fiscalYearId);
@@ -146,10 +150,65 @@ class ProgramDeliverablesReportService
             $rows = $this->filterRowsByMetadata($rows, $filter);
         }
 
+        if ($attachCompanionColumns && $filter->hasExplicitDateFilter()) {
+            $rows = $this->mergeCumulativeMetrics($rows, $filter, $scope, $fiscalYear);
+        }
+
         return [
             'fiscalYear' => $fiscalYear,
             'rows' => $rows,
+            'show_cumulative_columns' => $attachCompanionColumns && $filter->hasExplicitDateFilter(),
         ];
+    }
+
+    /**
+     * When a month/quarter/date filter is active, also attach cumulative (FY start →
+     * end of selected/last filter month) target/achievement for side-by-side comparison.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function mergeCumulativeMetrics(
+        array $rows,
+        ProgramDeliverablesFilter $filter,
+        ProgramDeliverablesScope $scope,
+        ?FiscalYear $fiscalYear,
+    ): array {
+        $cumulReport = $this->build(
+            $filter->toCumulativeThroughPeriodEnd($fiscalYear),
+            $scope,
+            attachCompanionColumns: false,
+        );
+        $cumulBySerial = [];
+        foreach ($cumulReport['rows'] as $cumulRow) {
+            $serial = (string) ($cumulRow['serial'] ?? '');
+            if ($serial !== '') {
+                $cumulBySerial[$serial] = $cumulRow;
+            }
+        }
+
+        foreach ($rows as &$row) {
+            $serial = (string) ($row['serial'] ?? '');
+            $cumulRow = $cumulBySerial[$serial] ?? null;
+            if ($cumulRow === null) {
+                $row['cumul_target'] = null;
+                $row['cumul_target_label'] = null;
+                $row['cumul_achievement'] = null;
+                $row['cumul_achievement_pct'] = null;
+                $row['cumul_performance_tone'] = null;
+
+                continue;
+            }
+
+            $row['cumul_target'] = $cumulRow['target'] ?? null;
+            $row['cumul_target_label'] = $cumulRow['target_label'] ?? null;
+            $row['cumul_achievement'] = $cumulRow['achievement'] ?? null;
+            $row['cumul_achievement_pct'] = $cumulRow['achievement_pct'] ?? null;
+            $row['cumul_performance_tone'] = $cumulRow['performance_tone'] ?? null;
+        }
+        unset($row);
+
+        return $rows;
     }
 
     /**

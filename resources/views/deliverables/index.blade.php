@@ -148,19 +148,37 @@
     </p>
 
     <div id="deliverables-table-wrap" style="overflow-x:auto;">
-        <table id="deliverables-table" class="deliverables-report-table" style="width:100%;min-width:72rem;border-collapse:collapse;font-size:0.86rem;background:#fff;table-layout:fixed;">
+        @php
+            $showCumulativeColumns = $showCumulativeColumns ?? false;
+            $cumulativeThroughLabel = $cumulativeThroughLabel ?? 'cumulative';
+            $tableColCount = $showCumulativeColumns ? 10 : 7;
+            $tableMinWidth = $showCumulativeColumns ? '96rem' : '72rem';
+        @endphp
+        <table id="deliverables-table" class="deliverables-report-table" style="width:100%;min-width:{{ $tableMinWidth }};border-collapse:collapse;font-size:0.86rem;background:#fff;table-layout:fixed;">
             <thead>
                 <tr>
                     <th style="padding:0.55rem 0.45rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:3.5rem;">S.N.</th>
                     <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:left;min-width:16rem;">Indicator</th>
                     <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:8rem;">Type of Indicator</th>
                     <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:8rem;">Spoke/ Hub/ State</th>
-                    <th
-                        style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;"
-                        @if ($filter->hasExplicitDateFilter()) title="Targets are summed from the official monthly plan for the selected fiscal months." @endif
-                    >Targets{!! $filter->hasExplicitDateFilter() ? '<span style="font-weight:400;font-size:0.7rem;opacity:0.85;display:block;line-height:1;margin-top:0.15rem;">(period)</span>' : '' !!}</th>
-                    <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement</th>
-                    <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement (%)</th>
+                    @if ($showCumulativeColumns)
+                        <th
+                            style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;"
+                            title="Targets for the selected month, quarter, or date range."
+                        >Target<span style="font-weight:400;font-size:0.7rem;opacity:0.85;display:block;line-height:1;margin-top:0.15rem;">(period)</span></th>
+                        <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement<span style="font-weight:400;font-size:0.7rem;opacity:0.85;display:block;line-height:1;margin-top:0.15rem;">(period)</span></th>
+                        <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement (%)<span style="font-weight:400;font-size:0.7rem;opacity:0.85;display:block;line-height:1;margin-top:0.15rem;">(period)</span></th>
+                        <th
+                            style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#b45309;color:#fff;font-weight:700;text-align:center;min-width:6rem;"
+                            title="Cumulative from fiscal year start through {{ $cumulativeThroughLabel }}."
+                        >Target<span style="font-weight:400;font-size:0.7rem;opacity:0.85;display:block;line-height:1;margin-top:0.15rem;">({{ $cumulativeThroughLabel }})</span></th>
+                        <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#b45309;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement<span style="font-weight:400;font-size:0.7rem;opacity:0.85;display:block;line-height:1;margin-top:0.15rem;">({{ $cumulativeThroughLabel }})</span></th>
+                        <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#b45309;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement (%)<span style="font-weight:400;font-size:0.7rem;opacity:0.85;display:block;line-height:1;margin-top:0.15rem;">({{ $cumulativeThroughLabel }})</span></th>
+                    @else
+                        <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Targets</th>
+                        <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement</th>
+                        <th style="padding:0.55rem 0.65rem;border:1px solid #1c1917;background:#9a3412;color:#fff;font-weight:700;text-align:center;min-width:6rem;">Achievement (%)</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -195,6 +213,7 @@
                                 {{ $isHeading ? '' : ($row['level'] ?: '—') }}
                             @endif
                         </td>
+                        {{-- Period (or only) target / achievement --}}
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">
                             @if (! $isHeading && ($row['target_label'] ?? null))
                                 <span style="font-size:0.78rem;font-weight:600;color:#1d4ed8;white-space:nowrap;">{{ $row['target_label'] }}</span>
@@ -232,10 +251,40 @@
                                 </div>
                             @endif
                         </td>
+                        @if ($showCumulativeColumns)
+                            <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;background:#fffbeb;">
+                                @if (! $isHeading && ($row['cumul_target_label'] ?? null))
+                                    <span style="font-size:0.78rem;font-weight:600;color:#1d4ed8;white-space:nowrap;">{{ $row['cumul_target_label'] }}</span>
+                                @elseif (! $isHeading && ($row['cumul_target'] ?? null) !== null)
+                                    {{ number_format($row['cumul_target']) }}
+                                @endif
+                            </td>
+                            <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;background:#fffbeb;">
+                                @if (! $isHeading && ($row['cumul_achievement'] ?? null) !== null)
+                                    <span class="dlv-ach-static">{{ number_format((int) $row['cumul_achievement']) }}</span>
+                                @endif
+                            </td>
+                            <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;background:#fffbeb;">
+                                @if (! $isHeading && ($row['cumul_achievement_pct'] ?? null) !== null)
+                                    @php
+                                        $cumulTone = $row['cumul_performance_tone'] ?? 'critical';
+                                        $cumulBarWidth = min(100, (int) $row['cumul_achievement_pct']);
+                                    @endphp
+                                    <div class="dlv-pct-stack">
+                                        <div class="dlv-pct-bar" role="presentation" aria-hidden="true">
+                                            <div class="dlv-pct-bar__fill dlv-pct-bar__fill--{{ $cumulTone }}" style="width:{{ $cumulBarWidth }}%"></div>
+                                        </div>
+                                        <span class="dlv-pct-badge dlv-pct-badge--{{ $cumulTone }}">
+                                            {{ $row['cumul_achievement_pct'] }}%
+                                        </span>
+                                    </div>
+                                @endif
+                            </td>
+                        @endif
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="padding:1.25rem;text-align:center;color:#64748b;border:1px solid #d4d4d8;">No data for this scope.</td>
+                        <td colspan="{{ $tableColCount }}" style="padding:1.25rem;text-align:center;color:#64748b;border:1px solid #d4d4d8;">No data for this scope.</td>
                     </tr>
                 @endforelse
             </tbody>

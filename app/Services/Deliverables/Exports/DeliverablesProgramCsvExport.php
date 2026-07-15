@@ -21,8 +21,12 @@ class DeliverablesProgramCsvExport
     ): StreamedResponse {
         $fileName = $this->buildFileName($fiscalYearLabel, $filter);
         $tz = config('app.timezone');
+        $showCumulative = $filter->hasExplicitDateFilter();
+        $cumulLabel = $showCumulative
+            ? ($filter->cumulativeThroughLabel(null) ?? 'cumulative')
+            : '';
 
-        return response()->streamDownload(function () use ($rows, $scopeLabel, $periodLabel, $fiscalYearLabel, $tz): void {
+        return response()->streamDownload(function () use ($rows, $scopeLabel, $periodLabel, $fiscalYearLabel, $tz, $showCumulative, $cumulLabel): void {
             $out = fopen('php://output', 'w');
             if ($out === false) {
                 return;
@@ -37,21 +41,34 @@ class DeliverablesProgramCsvExport
             fputcsv($out, ['Generated at', now()->timezone($tz)->format('d M Y, g:i A T')]);
             fputcsv($out, []);
 
-            fputcsv($out, [
-                'S.N.',
-                'Indicator',
-                'Type of Indicator',
-                'Spoke/ Hub/ State',
-                'Targets',
-                'Achievement',
-                'Achievement (%)',
-            ]);
+            fputcsv($out, $showCumulative
+                ? [
+                    'S.N.',
+                    'Indicator',
+                    'Type of Indicator',
+                    'Spoke/ Hub/ State',
+                    'Target (period)',
+                    'Achievement (period)',
+                    'Achievement % (period)',
+                    'Target ('.$cumulLabel.')',
+                    'Achievement ('.$cumulLabel.')',
+                    'Achievement % ('.$cumulLabel.')',
+                ]
+                : [
+                    'S.N.',
+                    'Indicator',
+                    'Type of Indicator',
+                    'Spoke/ Hub/ State',
+                    'Targets',
+                    'Achievement',
+                    'Achievement (%)',
+                ]);
 
             foreach ($rows as $row) {
                 $isHeading = in_array($row['row_type'] ?? '', ['pillar', 'subcategory'], true);
                 $pct = $row['achievement_pct'] ?? null;
 
-                fputcsv($out, [
+                $cells = [
                     DeliverablesExcelSupport::sanitizeCell($row['serial'] ?? ''),
                     DeliverablesExcelSupport::sanitizeCell($row['name'] ?? ''),
                     $isHeading ? '' : DeliverablesExcelSupport::sanitizeCell($row['indicator_type'] ?? ''),
@@ -59,7 +76,16 @@ class DeliverablesProgramCsvExport
                     $isHeading ? '' : DeliverablesExcelSupport::formatTargetCell($row),
                     $isHeading ? '' : ($row['achievement'] ?? ''),
                     $isHeading ? '' : ($pct !== null ? $pct.'%' : ''),
-                ]);
+                ];
+
+                if ($showCumulative) {
+                    $cumulPct = $row['cumul_achievement_pct'] ?? null;
+                    $cells[] = $isHeading ? '' : DeliverablesExcelSupport::formatTargetCell($row, 'cumul_target', 'cumul_target_label');
+                    $cells[] = $isHeading ? '' : ($row['cumul_achievement'] ?? '');
+                    $cells[] = $isHeading ? '' : ($cumulPct !== null ? $cumulPct.'%' : '');
+                }
+
+                fputcsv($out, $cells);
             }
 
             fclose($out);
