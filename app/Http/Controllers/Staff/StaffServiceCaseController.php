@@ -57,6 +57,8 @@ class StaffServiceCaseController extends Controller
         $serviceId = 0;
         if ($serviceIdRaw === 'market_linkage') {
             $recordType = 'market_linkage';
+        } elseif ($serviceIdRaw === 'acceleration_services') {
+            $recordType = 'acceleration_services';
         } elseif ($serviceIdRaw === ConvergenceReapSupport::MIS_8_2_LIST_FILTER) {
             $recordType = ConvergenceReapSupport::MIS_8_2_LIST_FILTER;
         } elseif (MisFieldActivityListService::isListFilterValue($serviceIdRaw)) {
@@ -76,9 +78,11 @@ class StaffServiceCaseController extends Controller
 
         $reapOnly = $recordType === ConvergenceReapSupport::MIS_8_2_LIST_FILTER;
         $fieldMisOnly = $recordType !== '' && MisFieldActivityListService::isListFilterValue($recordType);
-        $includeFieldMis = ! $reapOnly && ($fieldMisOnly || ($recordType === '' && $serviceId <= 0 && $recordType !== 'market_linkage'));
+        $accelOnly = $recordType === 'acceleration_services';
+        $includeFieldMis = ! $reapOnly && ! $accelOnly && ($fieldMisOnly || ($recordType === '' && $serviceId <= 0 && $recordType !== 'market_linkage'));
+        $includeAcceleration = $accelOnly || ($recordType === '' && $serviceId <= 0 && ! $reapOnly && ! $fieldMisOnly);
 
-        if (! $fieldMisOnly && $recordType !== 'market_linkage') {
+        if (! $fieldMisOnly && ! $accelOnly && $recordType !== 'market_linkage') {
             $q = ServiceCase::query()
                 ->where(function ($outer) use ($districtId, $legacyIds): void {
                     $outer->whereHas('cfaSubmission', fn ($qq) => $qq->where('district_id', $districtId));
@@ -131,7 +135,7 @@ class StaffServiceCaseController extends Controller
             }
         }
 
-        $includeMarketLinkage = ! $fieldMisOnly && ($recordType === 'market_linkage' || (! $reapOnly && $serviceId <= 0));
+        $includeMarketLinkage = ! $fieldMisOnly && ! $accelOnly && ($recordType === 'market_linkage' || (! $reapOnly && $serviceId <= 0));
         if ($includeMarketLinkage && Schema::hasTable('market_linkage_submissions') && MarketLinkageSubmission::supportsWorkflow()) {
             $mlq = MarketLinkageSubmission::query()
                 ->where('district_id', $districtId)
@@ -175,6 +179,56 @@ class StaffServiceCaseController extends Controller
                     'field_mis' => $fm,
                     'field_mis_module' => $this->fieldMisList->moduleKeyForRecord($fm),
                     'updated_at' => $fm->updated_at,
+                ]);
+            }
+        }
+
+        if ($includeAcceleration && Schema::hasTable('acceleration_service_sessions')) {
+            $accelQuery = \App\Models\AccelerationServiceSession::query()->withCount('items');
+
+            if ($scope === 'my') {
+                $accelQuery->where('submitted_by_user_id', (int) $staff->id);
+            } else {
+                $districtName = trim((string) ($staff->district?->name ?? ''));
+                $accelQuery->where(function ($q) use ($staff, $districtName): void {
+                    $q->where('submitted_by_user_id', (int) $staff->id);
+                    if ($districtName !== '') {
+                        $q->orWhere('district_name', $districtName);
+                    }
+                });
+                // Other makers' drafts stay private.
+                if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
+                    $accelQuery->where(function ($q) use ($staff): void {
+                        $q->where('is_draft', false)->orWhere('submitted_by_user_id', (int) $staff->id);
+                    });
+                }
+            }
+
+            if ($status !== '' && \App\Support\AccelerationServicesApproval::workflowReady()) {
+                $accelStatuses = match ($status) {
+                    ServiceCase::STATUS_DRAFT => [\App\Support\AccelerationServicesApproval::STATUS_DRAFT],
+                    ServiceCase::STATUS_PENDING_APPROVAL => [
+                        \App\Support\AccelerationServicesApproval::STATUS_PENDING_REVIEW,
+                        \App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL,
+                    ],
+                    ServiceCase::STATUS_SENT_BACK => [\App\Support\AccelerationServicesApproval::STATUS_SENT_BACK],
+                    ServiceCase::STATUS_APPROVED => [\App\Support\AccelerationServicesApproval::STATUS_APPROVED],
+                    default => [],
+                };
+                if ($accelStatuses === []) {
+                    $accelQuery->whereRaw('1 = 0');
+                } else {
+                    $accelQuery->whereIn('status', $accelStatuses);
+                }
+            }
+
+            foreach ($accelQuery->orderByDesc('updated_at')->get() as $accel) {
+                $listItems->push([
+                    'type' => 'acceleration',
+                    'service_case' => null,
+                    'market_linkage' => null,
+                    'acceleration' => $accel,
+                    'updated_at' => $accel->updated_at,
                 ]);
             }
         }

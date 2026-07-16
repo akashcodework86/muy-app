@@ -51,6 +51,8 @@
         .sq-table tr.sq-row--market_linkage td { background: #faf5ff; }
         .sq-table tr.sq-row--field_mis td { background: #f0f9ff; }
         .sq-table tr.sq-row--field_mis td.sq-cell--approval { background: #fffbeb; box-shadow: inset 3px 0 0 #d97706; }
+        .sq-table tr.sq-row--acceleration td { background: #f0fdfa; }
+        .sq-table tr.sq-row--acceleration td.sq-cell--approval { background: #fffbeb; box-shadow: inset 3px 0 0 #0d9488; }
         .sq-table tr.sq-row--through_reap td {
             background: linear-gradient(90deg, #fff7ed 0%, #fffbeb 100%);
             border-top: 1px solid #fdba74;
@@ -166,6 +168,7 @@
             'district_id' => (int) ($filterDistrictId ?? 0) ?: null,
             'batch_id' => (int) ($filterBatchId ?? 0) ?: null,
             'service_id' => match (true) {
+                ($filterRecordType ?? '') === 'acceleration_services' => 'acceleration_services',
                 ($filterRecordType ?? '') !== '' && \App\Services\MisFieldActivityListService::isListFilterValue((string) ($filterRecordType ?? '')) => $filterRecordType,
                 (int) ($filterServiceId ?? 0) > 0 => (int) $filterServiceId,
                 default => null,
@@ -211,7 +214,7 @@
         </div>
     </div>
 
-    @if (($spocDistrictIds ?? []) === [] && ! ($isFieldMisApprover ?? false))
+    @if (($spocDistrictIds ?? []) === [] && ! ($isFieldMisApprover ?? false) && ! ($isAccelerationApprover ?? false))
         <p style="color:#b45309;font-size:0.9rem;background:#fffbeb;border:1px solid #fcd34d;padding:0.65rem 0.85rem;border-radius:8px;">
             No districts are assigned to you yet. Ask the state admin to assign you on <strong>Service SPOCs</strong> before you can review submissions.
         </p>
@@ -249,6 +252,11 @@
                         </select>
                         <select name="service_id" class="sq-search" style="max-width:none;">
                             <option value="">All services</option>
+                            @if ($isAccelerationApprover ?? false)
+                                <option value="acceleration_services" @selected(($filterRecordType ?? '') === 'acceleration_services')>
+                                    7.2 — Acceleration services
+                                </option>
+                            @endif
                             @foreach (\App\Support\MisFieldActivityApproval::modules() as $moduleKey => $moduleMeta)
                                 <option value="{{ $moduleKey }}" @selected(($filterRecordType ?? '') === $moduleKey)>
                                     {{ ($moduleMeta['serial'] ?? '').' — '.($moduleMeta['label'] ?? $moduleKey) }}
@@ -321,9 +329,70 @@
                             $ml = is_array($row) ? ($row['market_linkage'] ?? null) : null;
                             $fm = is_array($row) ? ($row['field_mis'] ?? null) : null;
                             $fmModule = is_array($row) ? (string) ($row['field_mis_module'] ?? '') : '';
+                            $accel = is_array($row) ? ($row['acceleration'] ?? null) : null;
                             $srNo = $loop->iteration + (($cases->currentPage() - 1) * $cases->perPage());
                         @endphp
-                        @if ($rowKind === 'field_mis' && $fm && $fmModule !== '')
+                        @if ($rowKind === 'acceleration' && $accel)
+                        @php
+                            $accelStatus = (string) ($accel->status ?? 'approved');
+                            $statusClass = match ($accelStatus) {
+                                'pending_review', 'pending_final' => 'pending_approval',
+                                'sent_back' => 'sent_back',
+                                'approved' => 'approved',
+                                default => 'pending_approval',
+                            };
+                            $accelCanAct = \App\Support\AccelerationServicesApproval::canApprove(auth()->user(), $accel);
+                            $accelRemark = match ($accelStatus) {
+                                'sent_back' => $accel->sent_back_remarks,
+                                'approved' => $accel->final_approved_by_name
+                                    ? 'Approved by '.$accel->final_approved_by_name.($accel->final_approved_at ? ' · '.$accel->final_approved_at->format('d M Y') : '')
+                                    : null,
+                                'pending_final' => $accel->first_approved_by_name
+                                    ? 'Reviewed by '.$accel->first_approved_by_name.($accel->first_approved_at ? ' · '.$accel->first_approved_at->format('d M Y') : '')
+                                    : null,
+                                default => null,
+                            };
+                        @endphp
+                        <tr class="sq-row--acceleration sq-row--{{ $statusClass }}">
+                            <td class="sq-sr">{{ $srNo }}</td>
+                            @if ($canBulkApprove ?? false)
+                                <td></td>
+                            @endif
+                            <td>
+                                <div class="sq-name">{{ $accel->applicant_name }}</div>
+                                <div class="sq-muted">
+                                    {{ $accel->application_no ?: '—' }}
+                                    · Acceleration 7.2
+                                </div>
+                            </td>
+                            <td>
+                                Acceleration services (7.2)
+                                <span class="sq-muted">({{ (int) ($accel->items_count ?? 0) }} service{{ (int) ($accel->items_count ?? 0) === 1 ? '' : 's' }})</span>
+                            </td>
+                            <td>{{ $accel->district_name ?: '—' }}</td>
+                            <td>—</td>
+                            <td>{{ $accel->submitted_by_name }}</td>
+                            <td class="sq-cell--approval">
+                                <span class="sq-status sq-status--{{ $statusClass }}">{{ $accel->statusLabel() }}</span>
+                                @if ($accelStatus === 'pending_review')
+                                    <div class="sq-muted" style="margin-top:0.2rem;">Awaiting state review</div>
+                                @elseif ($accelStatus === 'pending_final')
+                                    <div class="sq-muted" style="margin-top:0.2rem;">Awaiting final approval</div>
+                                @elseif ($accelStatus === 'approved' && $accel->final_approved_by_name)
+                                    <div class="sq-muted" style="margin-top:0.2rem;">{{ $accel->final_approved_by_name }}</div>
+                                @endif
+                            </td>
+                            <td class="sq-remark">{{ $accelRemark ? \Illuminate\Support\Str::limit($accelRemark, 120) : '—' }}</td>
+                            <td style="white-space:nowrap;">{{ $accel->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
+                            <td>
+                                <div class="sq-actions">
+                                    <a href="{{ route('spoc.acceleration-services.show', $accel) }}" class="sq-btn {{ $accelCanAct ? 'sq-btn--primary' : '' }}">
+                                        {{ $accelCanAct ? 'Review' : 'Open' }}
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        @elseif ($rowKind === 'field_mis' && $fm && $fmModule !== '')
                         @php
                             $statusClass = strtolower((string) $fm->status);
                             $fmMeta = \App\Support\MisFieldActivityApproval::module($fmModule);

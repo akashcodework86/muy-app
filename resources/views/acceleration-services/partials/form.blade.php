@@ -1,5 +1,9 @@
 @php
     $prefill = $prefillApplicant ?? null;
+    $editingSession = $editingSession ?? null;
+    $prefillPayloads = $prefillPayloads ?? [];
+    $existingMedia = $existingMedia ?? [];
+    $checkedKeys = $checkedKeys ?? ['service_detail' => [], 'cross_cutting' => [], 'partnership' => []];
     $sections = [
         'service_detail' => ['title' => 'In-house — Service details', 'input' => 'service_detail', 'custom' => 'custom_service_detail'],
         'cross_cutting' => ['title' => 'Cross-cutting initiative', 'input' => 'cross_cutting', 'custom' => 'custom_cross_cutting'],
@@ -13,6 +17,10 @@
     }
     $itemSchemas['_partnership'] = \App\Support\AccelerationItemSchemas::forKey('tbi_graphic_era', 'partnership');
     $itemSchemas['_custom'] = \App\Support\AccelerationItemSchemas::forKey('custom_fallback');
+    $formAction = $editingSession && !empty($updateRoute)
+        ? route($updateRoute, $editingSession)
+        : route($storeRoute);
+    $sessionDateDefault = old('service_date', $editingSession?->service_date?->toDateString() ?? now()->toDateString());
 @endphp
 @include('acceleration-services.partials.styles')
 
@@ -20,23 +28,43 @@
     <div class="accel-form-wrap">
     <div class="accel-card accel-card--form">
         <div class="accel-card__head">
-            <h3 class="accel-card__title">New acceleration entry</h3>
-            <p class="accel-card__sub">Phase 1 applicants only. Tick a service to fill its details. Each service needs its own date.</p>
+            <h3 class="accel-card__title">{{ $editingSession ? 'Edit acceleration entry' : 'New acceleration entry' }}</h3>
+            <p class="accel-card__sub">
+                Phase 1 applicants only. Tick a service to fill its details. Each service needs its own date.
+                <span id="accel_autosave_status" class="accel-autosave-status" aria-live="polite"></span>
+            </p>
+            @if (!empty($inHouseOnly))
+                <div class="accel-alert accel-alert--info" style="margin-top:0.75rem;">
+                    District staff can record <strong>In-house — Service details</strong> only.
+                    Cross-cutting and co-incubation partners are filled by the state SPOC.
+                </div>
+            @endif
+            @if ($editingSession && (string) ($editingSession->status ?? '') === \App\Support\AccelerationServicesApproval::STATUS_SENT_BACK && $editingSession->sent_back_remarks)
+                <div class="accel-alert accel-alert--warning" style="margin-top:0.75rem;">
+                    <strong>Sent back by {{ $editingSession->sent_back_by_name ?: 'checker' }}:</strong>
+                    {{ $editingSession->sent_back_remarks }}
+                    <br><span style="font-size:0.8rem;">Fix the entry and save — it will be resubmitted for approval.</span>
+                </div>
+            @endif
         </div>
 
         @if (empty($legacyPhase1Available))
             <div class="accel-alert accel-alert--warning">Legacy Phase 1 database is not configured. Applicant search will be empty.</div>
         @endif
 
-        <form method="post" action="{{ route($storeRoute) }}" enctype="multipart/form-data" id="accelSubmitForm">
+        <form method="post" action="{{ $formAction }}" enctype="multipart/form-data" id="accelSubmitForm">
             @csrf
+            @if ($editingSession && !empty($updateRoute))
+                @method('PUT')
+            @endif
+            <input type="hidden" name="session_id" id="accel_session_id" value="{{ old('session_id', $editingSession?->id) }}">
 
             <div class="accel-block">
                 <p class="accel-block__title">1. Session &amp; applicant</p>
                 <div class="accel-form-top">
                     <div class="accel-field">
                         <label for="service_date">Session date <span class="accel-required">*</span></label>
-                        <input type="date" id="service_date" name="service_date" value="{{ old('service_date', now()->toDateString()) }}" required>
+                        <input type="date" id="service_date" name="service_date" value="{{ $sessionDateDefault }}" required>
                         <p class="accel-field-hint">Overall visit / logging date for this entry.</p>
                     </div>
                     <div class="accel-field">
@@ -74,6 +102,7 @@
             </div>
 
             @foreach ($sections as $sectionKey => $meta)
+                @continue(empty($catalog[$sectionKey]))
                 <div class="accel-block">
                     <p class="accel-block__title">{{ $loop->iteration + 1 }}. {{ $meta['title'] }}</p>
                     <div class="accel-section__items">
@@ -81,7 +110,8 @@
                             @php
                                 $key = $item['key'];
                                 $schema = $itemSchemas[$key] ?? [];
-                                $oldChecked = in_array($key, (array) old($meta['input'], []), true);
+                                $sectionChecked = (array) ($checkedKeys[$sectionKey] ?? []);
+                                $oldChecked = in_array($key, (array) old($meta['input'], $sectionChecked), true);
                             @endphp
                             <div class="accel-item {{ $oldChecked ? 'is-checked' : '' }}" data-item-key="{{ $key }}" data-section="{{ $sectionKey }}">
                                 <div class="accel-item__head">
@@ -93,11 +123,41 @@
                                         @foreach ($schema as $field)
                                             @php
                                                 $fkey = $field['key'];
+                                                // Per-support-type specify fields are rendered inline next to ticks.
+                                                if (str_starts_with($fkey, 'support_topic_')) {
+                                                    continue;
+                                                }
                                                 $ftype = $field['type'] ?? 'text';
                                                 $fname = 'payload['.$key.']['.$fkey.']';
-                                                $oldVal = old('payload.'.$key.'.'.$fkey);
+                                                $savedVal = $prefillPayloads[$key][$fkey] ?? null;
+                                                $oldVal = old('payload.'.$key.'.'.$fkey, $savedVal);
+                                                $vif = $field['visible_if'] ?? null;
+                                                $htmlInput = $field['html_input'] ?? null;
+                                                $condHidden = false;
+                                                if (! empty($vif['field'])) {
+                                                    $depSaved = old('payload.'.$key.'.'.$vif['field'], $prefillPayloads[$key][$vif['field']] ?? null);
+                                                    if (! empty($vif['any'])) {
+                                                        $condHidden = empty($depSaved);
+                                                    } else {
+                                                        if (is_array($depSaved)) {
+                                                            $condHidden = ! in_array((string) ($vif['value'] ?? ''), array_map('strval', $depSaved), true);
+                                                        } else {
+                                                            $condHidden = (string) ($depSaved ?? '') !== (string) ($vif['value'] ?? '');
+                                                        }
+                                                    }
+                                                }
+                                                $isSupportTypes = $fkey === 'support_types' && $ftype === 'multiselect';
                                             @endphp
-                                            <div class="accel-field">
+                                            <div
+                                                class="accel-field{{ $condHidden ? ' is-cond-hidden' : '' }}"
+                                                data-field-key="{{ $fkey }}"
+                                                @if ($condHidden) hidden @endif
+                                                @if (!empty($vif['field']))
+                                                    data-visible-if-field="{{ $vif['field'] }}"
+                                                    @if (!empty($vif['any'])) data-visible-if-any="1" @endif
+                                                    @if (isset($vif['value'])) data-visible-if-value="{{ $vif['value'] }}" @endif
+                                                @endif
+                                            >
                                                 <label>
                                                     {{ $field['label'] ?? $fkey }}
                                                     @if (!empty($field['required'])) <span class="accel-required">*</span> @endif
@@ -107,7 +167,7 @@
                                                 @endif
 
                                                 @if ($ftype === 'textarea')
-                                                    <textarea name="{{ $fname }}" rows="2" @if(!empty($field['required'])) data-schema-required="1" @endif>{{ $oldVal }}</textarea>
+                                                    <textarea name="{{ $fname }}" rows="2" @if(!empty($field['required'])) data-schema-required="1" @endif>{{ is_array($oldVal) ? '' : $oldVal }}</textarea>
                                                 @elseif ($ftype === 'select')
                                                     <select name="{{ $fname }}" @if(!empty($field['required'])) data-schema-required="1" @endif>
                                                         <option value="">—</option>
@@ -115,6 +175,51 @@
                                                             <option value="{{ $opt['value'] }}" @selected((string) $oldVal === (string) $opt['value'])>{{ $opt['label'] ?? $opt['value'] }}</option>
                                                         @endforeach
                                                     </select>
+                                                @elseif ($isSupportTypes)
+                                                    <div class="accel-support-types" data-multiselect-required="{{ !empty($field['required']) ? '1' : '0' }}">
+                                                        @foreach ($field['options'] ?? [] as $opt)
+                                                            @php
+                                                                $optVal = (string) ($opt['value'] ?? '');
+                                                                $topicKey = 'support_topic_'.$optVal;
+                                                                $topicName = 'payload['.$key.']['.$topicKey.']';
+                                                                $topicSaved = $prefillPayloads[$key][$topicKey] ?? null;
+                                                                $topicVal = old('payload.'.$key.'.'.$topicKey, $topicSaved);
+                                                                $optChecked = is_array($oldVal) && in_array($optVal, $oldVal, true);
+                                                            @endphp
+                                                            <div class="accel-support-type{{ $optChecked ? ' is-on' : '' }}" data-support-opt="{{ $optVal }}">
+                                                                <label class="accel-support-type__tick">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        name="{{ $fname }}[]"
+                                                                        value="{{ $optVal }}"
+                                                                        class="accel-multi-check accel-support-type-check"
+                                                                        @checked($optChecked)
+                                                                    >
+                                                                    <span>{{ $opt['label'] ?? $optVal }}</span>
+                                                                </label>
+                                                                <div
+                                                                    class="accel-support-type__specify{{ $optChecked ? '' : ' is-cond-hidden' }}"
+                                                                    data-field-key="{{ $topicKey }}"
+                                                                    data-visible-if-field="support_types"
+                                                                    data-visible-if-value="{{ $optVal }}"
+                                                                    @if (! $optChecked) hidden @endif
+                                                                >
+                                                                    <label>
+                                                                        Specify — what topic / what taught
+                                                                        <span class="accel-required">*</span>
+                                                                    </label>
+                                                                    <textarea
+                                                                        name="{{ $topicName }}"
+                                                                        rows="2"
+                                                                        placeholder="What was taught / topics covered…"
+                                                                        data-schema-required="1"
+                                                                        @if (! $optChecked) disabled @endif
+                                                                    >{{ is_array($topicVal) ? '' : $topicVal }}</textarea>
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                    <p class="accel-field-hint">Tick a type to open its specify box beside it.</p>
                                                 @elseif ($ftype === 'multiselect')
                                                     <div class="accel-check-grid" data-multiselect-required="{{ !empty($field['required']) ? '1' : '0' }}">
                                                         @foreach ($field['options'] ?? [] as $opt)
@@ -148,29 +253,43 @@
                                                 @elseif ($ftype === 'amount')
                                                     <div class="accel-input-affix">
                                                         <span class="accel-input-affix__prefix">₹</span>
-                                                        <input type="number" step="0.01" min="0" name="{{ $fname }}" value="{{ $oldVal }}" placeholder="0.00" @if(!empty($field['required'])) data-schema-required="1" @endif>
+                                                        <input type="number" step="0.01" min="0" name="{{ $fname }}" value="{{ is_array($oldVal) ? '' : $oldVal }}" placeholder="0.00" class="{{ $fkey === 'order_value' ? 'accel-order-value' : '' }}" @if(!empty($field['required'])) data-schema-required="1" @endif>
                                                     </div>
                                                 @elseif ($ftype === 'number')
                                                     <div class="accel-input-affix">
-                                                        <input type="number" step="any" min="0" name="{{ $fname }}" value="{{ $oldVal }}" placeholder="0" @if(!empty($field['required'])) data-schema-required="1" @endif>
-                                                        @if (str_contains($fkey, 'duration') || str_contains(strtolower((string) ($field['label'] ?? '')), 'hour'))
-                                                            <span class="accel-input-affix__suffix">hours</span>
+                                                        <input type="number" step="any" min="0" name="{{ $fname }}" value="{{ is_array($oldVal) ? '' : $oldVal }}" placeholder="0" @if(!empty($field['required'])) data-schema-required="1" @endif>
+                                                        @if (str_contains($fkey, 'duration_days') || str_contains(strtolower((string) ($field['label'] ?? '')), 'day'))
+                                                            <span class="accel-input-affix__suffix">days</span>
                                                         @endif
                                                     </div>
                                                 @elseif ($ftype === 'date')
-                                                    <input type="date" name="{{ $fname }}" value="{{ $oldVal }}" @if(!empty($field['required'])) data-schema-required="1" @endif>
+                                                    <input type="date" name="{{ $fname }}" value="{{ is_array($oldVal) ? '' : $oldVal }}" @if(!empty($field['required'])) data-schema-required="1" @endif>
                                                 @elseif ($ftype === 'url')
-                                                    <input type="url" name="{{ $fname }}" value="{{ $oldVal }}" placeholder="https://…" @if(!empty($field['required'])) data-schema-required="1" @endif>
+                                                    <input type="url" name="{{ $fname }}" value="{{ is_array($oldVal) ? '' : $oldVal }}" placeholder="https://…" @if(!empty($field['required'])) data-schema-required="1" @endif>
                                                 @else
-                                                    <input type="{{ $ftype === 'email' ? 'email' : ($ftype === 'phone' ? 'tel' : 'text') }}" name="{{ $fname }}" value="{{ $oldVal }}" @if(!empty($field['required'])) data-schema-required="1" @endif>
+                                                    <input type="{{ $htmlInput === 'month' ? 'month' : ($ftype === 'email' ? 'email' : ($ftype === 'phone' ? 'tel' : 'text')) }}" name="{{ $fname }}" value="{{ is_array($oldVal) ? '' : $oldVal }}" @if(!empty($field['required'])) data-schema-required="1" @endif>
                                                 @endif
                                             </div>
                                         @endforeach
                                     </div>
-                                    <div class="accel-field">
-                                        <label>Documents / photos (optional)</label>
-                                        <input type="file" name="media[{{ $key }}][]" accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" multiple class="accel-media-input" data-preview="preview_{{ $key }}">
+                                    <div class="accel-field accel-media-field {{ in_array($key, ['market_linkage', 'buyer_seller_meet'], true) ? 'accel-media-field--order-proof' : '' }}" data-media-for="{{ $key }}">
+                                        <label>
+                                            Documents / photos
+                                            @if (in_array($key, ['market_linkage', 'buyer_seller_meet'], true))
+                                                <span class="accel-proof-note" hidden> — <strong>Proof of order / PO required</strong> when order value is entered</span>
+                                            @else
+                                                <span style="font-weight:500;color:#64748b;">(optional)</span>
+                                            @endif
+                                        </label>
+                                        <input type="file" name="media[{{ $key }}][]" accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" multiple class="accel-media-input" data-preview="preview_{{ $key }}" data-item-key="{{ $key }}">
                                         <div id="preview_{{ $key }}" class="accel-media-preview"></div>
+                                        @if (!empty($existingMedia[$key]))
+                                            <div class="accel-existing-media">
+                                                @foreach ($existingMedia[$key] as $mediaRow)
+                                                    <a class="accel-link" href="{{ route($mediaRoute, $mediaRow['id']) }}" target="_blank" rel="noopener">{{ $mediaRow['name'] }}</a>
+                                                @endforeach
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -183,7 +302,8 @@
             @endforeach
 
             <div class="accel-form-actions">
-                <button type="submit" class="accel-btn">Save entry</button>
+                <button type="submit" class="accel-btn">{{ $editingSession ? 'Update entry' : 'Save entry' }}</button>
+                <span class="accel-field-hint" style="margin:0;">Drafts autosave after you select an applicant.</span>
             </div>
         </form>
     </div>
@@ -205,7 +325,10 @@
 (function () {
     const searchUrl = @json(route($searchRoute));
     const historyUrl = @json(route($historyRoute));
+    const autosaveUrl = @json(!empty($autosaveRoute) ? route($autosaveRoute) : null);
+    const csrfToken = @json(csrf_token());
     const prefillApplicant = @json($prefill ?? null);
+    const existingMediaMap = @json($existingMedia ?? []);
     const searchInput = document.getElementById('accel_search');
     const searchResults = document.getElementById('accel_search_results');
     const selectedPanel = document.getElementById('accel_selected_applicant');
@@ -214,12 +337,17 @@
     const detailEmpty = document.getElementById('accel_detail_empty');
     const detailBody = document.getElementById('accel_detail_body');
     const tickedList = document.getElementById('accel_ticked_list');
+    const sessionIdInput = document.getElementById('accel_session_id');
+    const autosaveStatus = document.getElementById('accel_autosave_status');
+    const form = document.getElementById('accelSubmitForm');
     let searchTimer = null;
+    let autosaveTimer = null;
     let applicants = [];
     let focusedId = null;
     let lockedId = null;
     let selectedId = null;
     const servicesCache = {};
+    let autosaveBusy = false;
 
     function collectTickedServices() {
         const items = [];
@@ -257,14 +385,107 @@
         }).join('');
     }
 
+    function fieldDepValue(schemaRoot, depField) {
+        const controls = schemaRoot.querySelectorAll('input, select, textarea');
+        const multi = [];
+        let single = null;
+        controls.forEach((el) => {
+            const name = el.getAttribute('name') || '';
+            if (name.endsWith('[' + depField + '][]')) {
+                multi.push(el);
+            } else if (name.endsWith('[' + depField + ']')) {
+                single = el;
+            }
+        });
+        if (multi.length) {
+            return multi.filter((el) => el.checked).map((el) => el.value);
+        }
+        if (!single) return null;
+        if (single.type === 'checkbox' || single.type === 'radio') {
+            if (single.type === 'radio') {
+                const checked = Array.from(controls).find((el) => {
+                    const name = el.getAttribute('name') || '';
+                    return name.endsWith('[' + depField + ']') && el.checked;
+                });
+                return checked ? checked.value : null;
+            }
+            return single.checked ? single.value : null;
+        }
+        return single.value;
+    }
+
+    function syncVisibleIf(wrap) {
+        const schemaRoot = wrap.querySelector('.accel-item__schema');
+        if (!schemaRoot) return;
+        schemaRoot.querySelectorAll('[data-visible-if-field]').forEach((row) => {
+            const dep = row.getAttribute('data-visible-if-field') || '';
+            const any = row.getAttribute('data-visible-if-any') === '1';
+            const expected = row.getAttribute('data-visible-if-value') || '';
+            const actual = fieldDepValue(schemaRoot, dep);
+            let show = false;
+            if (any) {
+                show = Array.isArray(actual) ? actual.length > 0 : !!(actual && String(actual).trim() !== '');
+            } else if (Array.isArray(actual)) {
+                show = actual.map(String).includes(String(expected));
+            } else {
+                show = String(actual ?? '') === String(expected);
+            }
+            row.hidden = !show;
+            row.classList.toggle('is-cond-hidden', !show);
+            const parentType = row.closest('.accel-support-type');
+            if (parentType) {
+                parentType.classList.toggle('is-on', show);
+            }
+            row.querySelectorAll('input, select, textarea').forEach((el) => {
+                if (!show) {
+                    el.disabled = true;
+                    el.required = false;
+                }
+            });
+        });
+        const check = wrap.querySelector('.accel-item-check');
+        syncItemRequired(wrap, !!(check && check.checked));
+    }
+
     function syncItemRequired(wrap, checked) {
-        wrap.querySelectorAll('[data-schema-required="1"]').forEach((el) => {
-            el.required = !!checked;
-            el.disabled = !checked;
+        wrap.querySelectorAll('.accel-field, .accel-support-type__specify').forEach((field) => {
+            if (field.hidden || field.classList.contains('is-cond-hidden')) {
+                field.querySelectorAll('input, select, textarea').forEach((el) => {
+                    el.disabled = true;
+                    el.required = false;
+                });
+                return;
+            }
+            field.querySelectorAll('[data-schema-required="1"]').forEach((el) => {
+                el.required = !!checked;
+                el.disabled = !checked;
+            });
         });
         wrap.querySelectorAll('.accel-multi-check, .accel-media-input').forEach((el) => {
             el.disabled = !checked;
         });
+        syncOrderProofMedia(wrap);
+    }
+
+    function syncOrderProofMedia(wrap) {
+        if (!wrap) return;
+        const itemKey = wrap.getAttribute('data-item-key') || '';
+        if (itemKey !== 'market_linkage' && itemKey !== 'buyer_seller_meet') return;
+        const orderInput = wrap.querySelector('.accel-order-value');
+        const mediaField = wrap.querySelector('.accel-media-field--order-proof');
+        const mediaInput = wrap.querySelector('.accel-media-input');
+        const note = wrap.querySelector('.accel-proof-note');
+        const checked = !!(wrap.querySelector('.accel-item-check') || {}).checked;
+        const orderVal = parseFloat(orderInput && orderInput.value ? orderInput.value : '0') || 0;
+        const needsProof = checked && orderVal > 0;
+        const existing = existingMediaMap[itemKey];
+        const hasExisting = Array.isArray(existing) && existing.length > 0;
+        if (mediaField) mediaField.classList.toggle('is-required-proof', needsProof);
+        if (note) note.hidden = !needsProof;
+        if (mediaInput) {
+            mediaInput.required = needsProof && !hasExisting;
+            mediaInput.disabled = !checked;
+        }
     }
 
     function bindItemChecks() {
@@ -272,12 +493,88 @@
             const wrap = el.closest('.accel-item');
             const sync = () => {
                 wrap.classList.toggle('is-checked', el.checked);
-                syncItemRequired(wrap, el.checked);
+                syncVisibleIf(wrap);
                 renderTickedNow();
+                scheduleAutosave();
             };
             el.addEventListener('change', sync);
+            wrap.querySelectorAll('input, select, textarea').forEach((input) => {
+                if (input.classList.contains('accel-item-check')) return;
+                input.addEventListener('change', () => {
+                    syncVisibleIf(wrap);
+                    scheduleAutosave();
+                });
+                input.addEventListener('input', () => {
+                    if (input.classList.contains('accel-order-value')) syncOrderProofMedia(wrap);
+                    scheduleAutosave();
+                });
+            });
             sync();
         });
+    }
+
+    function setAutosaveStatus(text, isError) {
+        if (!autosaveStatus) return;
+        autosaveStatus.textContent = text ? ' · ' + text : '';
+        autosaveStatus.style.color = isError ? '#b91c1c' : '#0f766e';
+    }
+
+    function scheduleAutosave() {
+        if (!autosaveUrl || !form) return;
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(runAutosave, 1200);
+    }
+
+    function runAutosave() {
+        if (!autosaveUrl || !form || autosaveBusy) return;
+        if (!legacyInput || !legacyInput.value) {
+            setAutosaveStatus('Select an applicant to autosave', false);
+            return;
+        }
+        autosaveBusy = true;
+        setAutosaveStatus('Saving draft…', false);
+        const data = new FormData(form);
+        data.set('_token', csrfToken);
+        // Autosave should not send _method PUT confusion for create drafts
+        data.delete('_method');
+        fetch(autosaveUrl, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: data,
+        })
+            .then(async (r) => {
+                const json = await r.json().catch(() => ({}));
+                if (!r.ok || !json.ok) {
+                    throw new Error((json.errors && Object.values(json.errors).flat()[0]) || 'Autosave failed');
+                }
+                if (sessionIdInput && json.session_id) {
+                    sessionIdInput.value = String(json.session_id);
+                }
+                if (json.update_url && form) {
+                    form.action = json.update_url;
+                    if (!form.querySelector('input[name="_method"]')) {
+                        const methodInput = document.createElement('input');
+                        methodInput.type = 'hidden';
+                        methodInput.name = '_method';
+                        methodInput.value = 'PUT';
+                        form.appendChild(methodInput);
+                    }
+                }
+                if (json.edit_url && window.history && window.history.replaceState && !String(window.location.pathname).includes('/edit')) {
+                    window.history.replaceState({}, '', json.edit_url);
+                }
+                setAutosaveStatus('Draft saved', false);
+            })
+            .catch((err) => {
+                setAutosaveStatus(err.message || 'Autosave failed', true);
+            })
+            .finally(() => {
+                autosaveBusy = false;
+            });
     }
 
     function bindMediaPreviews() {
@@ -299,6 +596,9 @@
                         preview.appendChild(chip);
                     }
                 });
+                const wrap = this.closest('.accel-item');
+                syncOrderProofMedia(wrap);
+                scheduleAutosave();
             });
         });
     }
@@ -432,6 +732,7 @@
         renderSelectedApplicant(app);
         showApplicantDetail(app, true);
         highlightListRows();
+        scheduleAutosave();
     }
 
     function renderApplicantList(list) {

@@ -379,6 +379,7 @@
         ];
         $serviceFilterParam = match ($filterRecordType ?? '') {
             'market_linkage' => 'market_linkage',
+            'acceleration_services' => 'acceleration_services',
             ConvergenceReapSupport::MIS_8_2_LIST_FILTER => ConvergenceReapSupport::MIS_8_2_LIST_FILTER,
             default => \App\Services\MisFieldActivityListService::isListFilterValue((string) ($filterRecordType ?? ''))
                 ? $filterRecordType
@@ -440,6 +441,7 @@
         <select name="service_id" class="svc-select" onchange="this.form.submit()">
             <option value="" @selected(($filterRecordType ?? '') === '' && (int) ($filterServiceId ?? 0) === 0)>All services</option>
             <option value="market_linkage" @selected(($filterRecordType ?? '') === 'market_linkage')>{{ \App\Models\MarketLinkageSubmission::SERVICE_LIST_LABEL }}</option>
+            <option value="acceleration_services" @selected(($filterRecordType ?? '') === 'acceleration_services')>7.2 — Acceleration services</option>
             <option value="{{ ConvergenceReapSupport::MIS_8_2_LIST_FILTER }}" @selected(($filterRecordType ?? '') === ConvergenceReapSupport::MIS_8_2_LIST_FILTER)>{{ ConvergenceReapSupport::MIS_8_2_LIST_LABEL }}</option>
             @foreach (\App\Support\MisFieldActivityApproval::modules() as $moduleKey => $moduleMeta)
                 <option value="{{ $moduleKey }}" @selected(($filterRecordType ?? '') === $moduleKey)>
@@ -485,6 +487,7 @@
                                 $ml = is_array($row) ? ($row['market_linkage'] ?? null) : null;
                                 $fm = is_array($row) ? ($row['field_mis'] ?? null) : null;
                                 $fmModule = is_array($row) ? (string) ($row['field_mis_module'] ?? '') : '';
+                                $accel = is_array($row) ? ($row['acceleration'] ?? null) : null;
                             @endphp
                             @if ($rowType === 'field_mis' && $fm && $fmModule !== '')
                             @php
@@ -541,6 +544,87 @@
                                 <td>
                                     <div class="svc-action-group">
                                         <a href="{{ $fmShowRoute }}" class="svc-btn-xs svc-btn-xs--view">View</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            @php $listSrNo++; @endphp
+                            @elseif ($rowType === 'acceleration' && $accel)
+                            @php
+                                $accelStatus = (string) ($accel->status ?? 'approved');
+                                $accelStatusSlug = match ($accelStatus) {
+                                    'pending_review', 'pending_final' => 'pending_approval',
+                                    'sent_back' => 'sent_back',
+                                    'approved' => 'approved',
+                                    'draft' => 'draft',
+                                    default => 'approved',
+                                };
+                                $accelChecker = match ($accelStatus) {
+                                    'pending_review' => 'State SPOC review',
+                                    'pending_final' => 'Final approver',
+                                    default => $accel->final_approved_by_name ?: ($accel->first_approved_by_name ?: 'State SPOC'),
+                                };
+                                $accelResponder = $accel->final_approved_by_name
+                                    ?: ($accelStatus === 'sent_back' ? $accel->sent_back_by_name : $accel->first_approved_by_name);
+                                $accelResponse = match ($accelStatus) {
+                                    'approved' => 'Approved',
+                                    'sent_back' => ($accel->sent_back_remarks ?: 'Sent back for changes.'),
+                                    'draft' => 'Draft — not submitted',
+                                    default => 'Awaiting approval',
+                                };
+                                $accelResponseClass = match ($accelStatus) {
+                                    'approved' => 'svc-response--approved',
+                                    'sent_back' => 'svc-response--sent-back',
+                                    default => 'svc-response--none',
+                                };
+                                $accelIsMine = (int) ($accel->submitted_by_user_id ?? 0) === (int) auth()->id();
+                                $accelSearch = strtolower(trim(
+                                    ($accel->applicant_name ?? '').' '.
+                                    ($accel->application_no ?? '').' '.
+                                    'acceleration services 7.2 '.
+                                    ($accel->submitted_by_name ?? '').' '.
+                                    str_replace('_', ' ', $accelStatus).' '.
+                                    $accel->statusLabel().' '.
+                                    $accelResponse
+                                ));
+                            @endphp
+                            <tr class="svc-row" data-search="{{ $accelSearch }}">
+                                <td class="svc-table__sr">{{ $listSrNo }}</td>
+                                <td>
+                                    <strong>{{ $accel->applicant_name }}</strong>
+                                    <div class="svc-muted">
+                                        {{ $accel->application_no ?: '—' }}
+                                        @if ($accel->district_name) · {{ $accel->district_name }} @endif
+                                    </div>
+                                </td>
+                                <td>
+                                    Acceleration services (7.2)
+                                    <span class="svc-muted">({{ (int) ($accel->items_count ?? 0) }} service{{ (int) ($accel->items_count ?? 0) === 1 ? '' : 's' }})</span>
+                                </td>
+                                <td>{{ $accel->submitted_by_name }}</td>
+                                <td>
+                                    <span class="svc-spoc-pill">{{ $accelChecker }}</span>
+                                </td>
+                                <td>{{ $accelResponder ?: '—' }}</td>
+                                <td>
+                                    <span class="svc-response {{ $accelResponseClass }}">
+                                        @if ($accelStatus === 'approved')
+                                            <span aria-hidden="true">&#10003;</span>
+                                        @endif
+                                        {{ $accelResponse }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="svc-status-pill svc-status-pill--{{ $accelStatusSlug }}">
+                                        {{ $accel->statusLabel() }}
+                                    </span>
+                                </td>
+                                <td style="white-space:nowrap;">{{ $accel->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
+                                <td>
+                                    <div class="svc-action-group">
+                                        <a href="{{ route('staff.acceleration-services.show', $accel) }}" class="svc-btn-xs svc-btn-xs--view">View</a>
+                                        @if ($accelIsMine && $accelStatus !== 'approved')
+                                            <a href="{{ route('staff.acceleration-services.edit', $accel) }}" class="svc-btn-xs svc-btn-xs--edit">Edit</a>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

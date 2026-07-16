@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'New acceleration entry')
-@section('heading', 'New acceleration entry')
+@section('title', !empty($editingSession) ? 'Edit acceleration entry' : 'New acceleration entry')
+@section('heading', !empty($editingSession) ? 'Edit acceleration entry' : 'New acceleration entry')
 
 @include('acceleration-services.partials.styles')
 
@@ -25,8 +25,14 @@
     <div class="accel-alert accel-alert--info">
         MIS <strong>7.2</strong> — Initiation of acceleration &amp; co-incubation services.
         Counts <strong>unique Phase 1 incubatees per FY</strong> on first initiation; follow-up visits add services without re-counting 7.2.
+        @if (!empty($inHouseOnly))
+            <span style="display:block;margin-top:0.35rem;">You can log <strong>In-house service details</strong> only.</span>
+        @endif
         <span style="display:block;margin-top:0.35rem;">
             <a class="accel-link" href="{{ route($dashboardRoute) }}">View dashboard →</a>
+            @if (!empty($editingSession) && !empty($showRoute))
+                · <a class="accel-link" href="{{ route($showRoute, $editingSession) }}">View detail →</a>
+            @endif
         </span>
     </div>
 

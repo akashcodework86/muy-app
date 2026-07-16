@@ -99,6 +99,13 @@
     .accel-badge--init { background:#dcfce7; color:#166534; }
     .accel-badge--follow { background:#f1f5f9; color:#475569; }
 
+    .accel-status { display:inline-flex; align-items:center; font-size:0.7rem; font-weight:800; padding:0.18rem 0.55rem; border-radius:999px; border:1px solid transparent; white-space:nowrap; }
+    .accel-status--draft { background:#f1f5f9; color:#475569; border-color:#cbd5e1; }
+    .accel-status--pending_review { background:#fffbeb; color:#92400e; border-color:#fcd34d; }
+    .accel-status--pending_final { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+    .accel-status--approved { background:#dcfce7; color:#166534; border-color:#86efac; }
+    .accel-status--sent_back { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+
     .accel-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:1.15rem; align-items:start; }
     .accel-form-top { display:grid; grid-template-columns:1fr; gap:0.75rem; align-items:start; }
 
@@ -201,6 +208,78 @@
         cursor:pointer;
     }
 
+    .accel-support-types {
+        display:flex;
+        flex-direction:column;
+        gap:0.55rem;
+        padding:0.65rem 0.75rem;
+        border:1px solid #e2e8f0;
+        border-radius:10px;
+        background:#f8fafc;
+    }
+    .accel-support-type {
+        display:grid;
+        grid-template-columns:minmax(12rem, 34%) minmax(0, 1fr);
+        gap:0.55rem 0.75rem;
+        align-items:start;
+        padding:0.45rem 0.55rem;
+        border:1px solid transparent;
+        border-radius:8px;
+    }
+    .accel-support-type.is-on {
+        background:#fff;
+        border-color:#99f6e4;
+        box-shadow:0 1px 2px rgba(13,148,136,0.08);
+    }
+    .accel-support-type__tick {
+        display:flex;
+        align-items:flex-start;
+        gap:0.4rem;
+        font-size:0.84rem;
+        font-weight:600;
+        color:#0f172a;
+        cursor:pointer;
+        line-height:1.35;
+        margin:0;
+        padding-top:0.25rem;
+    }
+    .accel-support-type__tick input[type="checkbox"] {
+        width:1rem;
+        height:1rem;
+        margin-top:0.12rem;
+        accent-color:#0d9488;
+        flex-shrink:0;
+        cursor:pointer;
+    }
+    .accel-support-type__specify {
+        min-width:0;
+    }
+    .accel-support-type__specify label {
+        display:block;
+        margin:0 0 0.25rem;
+        font-size:0.74rem;
+        font-weight:700;
+        color:#0f766e;
+    }
+    .accel-support-type__specify textarea {
+        width:100%;
+        box-sizing:border-box;
+        border:1px solid #cbd5e1;
+        border-radius:8px;
+        padding:0.45rem 0.55rem;
+        font:inherit;
+        font-size:0.84rem;
+        background:#fff;
+        resize:vertical;
+        min-height:2.6rem;
+    }
+    .accel-support-type__specify.is-cond-hidden,
+    .accel-support-type__specify[hidden] { display:none !important; }
+
+    @media (max-width: 720px) {
+        .accel-support-type { grid-template-columns:1fr; }
+    }
+
     .accel-search-input {
         background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='5.5'/%3E%3Cpath d='M12.5 12.5L16 16'/%3E%3C/svg%3E") no-repeat 0.75rem center;
         padding-left:2.35rem !important;
@@ -265,6 +344,8 @@
     .accel-item__schema { display:flex; flex-direction:column; gap:0.15rem; }
     .accel-item__extra .accel-field { margin-bottom:0.65rem; }
     .accel-item__extra .accel-field:last-child { margin-bottom:0; }
+    .accel-field.is-cond-hidden,
+    .accel-field[hidden] { display:none !important; }
     .accel-radio-row { display:flex; flex-wrap:wrap; gap:0.65rem 1rem; }
     .accel-radio-row label { display:inline-flex; align-items:center; gap:0.3rem; font-size:0.84rem; font-weight:500; cursor:pointer; }
 
@@ -490,6 +571,18 @@
 
     .accel-link { color:#0f766e; font-weight:700; text-decoration:none; }
     .accel-link:hover { text-decoration:underline; }
+    .accel-autosave-status { font-size:0.78rem; font-weight:600; color:#0f766e; }
+    .accel-media-field--order-proof.is-required-proof {
+        border:1px solid #f59e0b;
+        background:#fffbeb;
+        border-radius:10px;
+        padding:0.75rem 0.85rem;
+        box-shadow:0 0 0 3px rgba(245,158,11,0.15);
+    }
+    .accel-media-field--order-proof.is-required-proof label { color:#92400e; }
+    .accel-proof-note { color:#b45309; }
+    .accel-existing-media { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.45rem; }
+    .accel-form-actions { display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem; }
 
     @media (max-width: 960px) {
         .accel-entry-layout { grid-template-columns:1fr; }

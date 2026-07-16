@@ -54,7 +54,9 @@ class SpocServiceCaseController extends Controller
         $serviceIdRaw = (string) $request->query('service_id', '');
         $recordType = '';
         $serviceId = 0;
-        if (MisFieldActivityListService::isListFilterValue($serviceIdRaw)) {
+        if ($serviceIdRaw === 'acceleration_services') {
+            $recordType = 'acceleration_services';
+        } elseif (MisFieldActivityListService::isListFilterValue($serviceIdRaw)) {
             $recordType = $serviceIdRaw;
         } else {
             $serviceId = (int) $serviceIdRaw;
@@ -73,7 +75,10 @@ class SpocServiceCaseController extends Controller
 
         $districtIds = $this->spocDistrictIds((int) $spoc->id);
         $isFieldMisApprover = MisFieldActivityApproval::isDedicatedApprover($spoc);
-        $includeFieldMis = $isFieldMisApprover && ($recordType !== '' || $serviceId <= 0);
+        $isAccelerationApprover = \App\Support\AccelerationServicesApproval::isApprover($spoc)
+            && \App\Support\AccelerationServicesApproval::workflowReady();
+        $accelOnly = $recordType === 'acceleration_services';
+        $includeFieldMis = $isFieldMisApprover && ! $accelOnly && ($recordType !== '' || $serviceId <= 0);
         $fieldMisOnly = $recordType !== '' && MisFieldActivityListService::isListFilterValue($recordType);
 
         if ($districtId > 0 && ! in_array($districtId, $districtIds, true)) {
@@ -132,7 +137,7 @@ class SpocServiceCaseController extends Controller
             $scopeBase->whereDate('updated_at', '<=', $dateTo);
         }
 
-        $tabCounts = $fieldMisOnly ? [
+        $tabCounts = ($fieldMisOnly || $accelOnly) ? [
             '' => 0,
             ServiceCase::STATUS_PENDING_APPROVAL => 0,
             ServiceCase::STATUS_SENT_BACK => 0,
@@ -152,7 +157,7 @@ class SpocServiceCaseController extends Controller
         ];
 
         $casesCollection = collect();
-        if (! $fieldMisOnly) {
+        if (! $fieldMisOnly && ! $accelOnly) {
             $q = (clone $scopeBase)
                 ->with([
                     'cfaSubmission:id,applicant_name,application_no,district_id',
@@ -215,7 +220,7 @@ class SpocServiceCaseController extends Controller
         $marketLinkageWorkflowReady = Schema::hasTable('market_linkage_submissions')
             && Schema::hasColumn('market_linkage_submissions', 'status');
 
-        if (! $fieldMisOnly && $marketLinkageWorkflowReady && $districtIds !== []) {
+        if (! $fieldMisOnly && ! $accelOnly && $marketLinkageWorkflowReady && $districtIds !== []) {
             $mlBase = MarketLinkageSubmission::query()->whereIn('district_id', $districtIds);
             if ($districtId > 0) {
                 $mlBase->where('district_id', $districtId);
@@ -289,7 +294,87 @@ class SpocServiceCaseController extends Controller
             );
         }
 
-        $cases = $this->buildMergedSpocQueue($casesCollection, $marketLinkages, $fieldMisRecords, $request);
+        // Acceleration Services (7.2): pending approvals + history in the same queue table.
+        $accelerationSessions = collect();
+        if ($isAccelerationApprover && ($accelOnly || ($recordType === '' && $serviceId <= 0))) {
+            $accelBase = \App\Models\AccelerationServiceSession::query()
+                ->withCount('items')
+                ->when(
+                    Schema::hasColumn('acceleration_service_sessions', 'is_draft'),
+                    fn ($q) => $q->where('is_draft', false),
+                );
+
+            // History + pending for this checker (exclude own submissions from the queue).
+            $accelBase->where('submitted_by_user_id', '!=', (int) $spoc->id);
+
+            if ($districtId > 0) {
+                $districtName = (string) (District::query()->whereKey($districtId)->value('name') ?? '');
+                if ($districtName !== '') {
+                    $accelBase->where('district_name', $districtName);
+                }
+            }
+
+            $mapTabToAccelStatuses = function (string $tabKey) use ($spoc): array {
+                $pendingMine = \App\Support\AccelerationServicesApproval::pendingStatusesFor($spoc);
+                $isFirst = \App\Support\AccelerationServicesApproval::isFirstApprover($spoc);
+
+                return match ($tabKey) {
+                    ServiceCase::STATUS_PENDING_APPROVAL => $pendingMine,
+                    ServiceCase::STATUS_SENT_BACK => [\App\Support\AccelerationServicesApproval::STATUS_SENT_BACK],
+                    ServiceCase::STATUS_APPROVED => [\App\Support\AccelerationServicesApproval::STATUS_APPROVED],
+                    ServiceCase::STATUS_REJECTED => [],
+                    // All: each checker's pending + approved/sent-back history.
+                    // First reviewer also sees entries already forwarded to final.
+                    default => array_values(array_unique(array_merge(
+                        $pendingMine,
+                        $isFirst ? [\App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL] : [],
+                        [
+                            \App\Support\AccelerationServicesApproval::STATUS_SENT_BACK,
+                            \App\Support\AccelerationServicesApproval::STATUS_APPROVED,
+                        ],
+                    ))),
+                };
+            };
+
+            foreach ([
+                '',
+                ServiceCase::STATUS_PENDING_APPROVAL,
+                ServiceCase::STATUS_SENT_BACK,
+                ServiceCase::STATUS_APPROVED,
+                ServiceCase::STATUS_REJECTED,
+            ] as $tabKey) {
+                $statuses = $mapTabToAccelStatuses($tabKey);
+                if ($statuses === []) {
+                    continue;
+                }
+                $tabCounts[$tabKey] = (int) ($tabCounts[$tabKey] ?? 0)
+                    + (clone $accelBase)->whereIn('status', $statuses)->count();
+            }
+
+            $accelStatuses = $mapTabToAccelStatuses($status);
+            if ($accelStatuses !== []) {
+                $accelq = (clone $accelBase)->whereIn('status', $accelStatuses);
+                if ($searchQ !== '') {
+                    $like = '%'.$searchQ.'%';
+                    $accelq->where(function ($w) use ($like): void {
+                        $w->where('applicant_name', 'like', $like)
+                            ->orWhere('application_no', 'like', $like)
+                            ->orWhere('district_name', 'like', $like)
+                            ->orWhere('submitted_by_name', 'like', $like)
+                            ->orWhere('phone', 'like', $like);
+                    });
+                }
+                if ($dateFrom !== '') {
+                    $accelq->whereDate('updated_at', '>=', $dateFrom);
+                }
+                if ($dateTo !== '') {
+                    $accelq->whereDate('updated_at', '<=', $dateTo);
+                }
+                $accelerationSessions = $accelq->orderByDesc('updated_at')->get();
+            }
+        }
+
+        $cases = $this->buildMergedSpocQueue($casesCollection, $marketLinkages, $fieldMisRecords, $accelerationSessions, $request);
 
         $serviceScope = ServiceCase::query()
             ->where(function ($outer) use ($districtIds, $legacyAppIds): void {
@@ -327,7 +412,7 @@ class SpocServiceCaseController extends Controller
 
         $reapPendingQuery = (clone $scopeBase)->where('status', ServiceCase::STATUS_PENDING_APPROVAL);
         ConvergenceReapSupport::applyThroughReapEloquentScope($reapPendingQuery);
-        $reapPendingCount = $fieldMisOnly ? 0 : (int) $reapPendingQuery->count();
+        $reapPendingCount = ($fieldMisOnly || $accelOnly) ? 0 : (int) $reapPendingQuery->count();
 
         return view('spoc.service-cases.index', [
             'cases' => $cases,
@@ -335,6 +420,7 @@ class SpocServiceCaseController extends Controller
             'marketLinkageWorkflowReady' => $marketLinkageWorkflowReady,
             'spocDistrictIds' => $districtIds,
             'isFieldMisApprover' => $isFieldMisApprover,
+            'isAccelerationApprover' => $isAccelerationApprover,
             'filterStatus' => $status,
             'filterDistrictId' => $districtId,
             'filterBatchId' => $batchId,
@@ -468,8 +554,13 @@ class SpocServiceCaseController extends Controller
      * @param  Collection<int, \Illuminate\Database\Eloquent\Model>  $fieldMisRecords
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    private function buildMergedSpocQueue(Collection $cases, Collection $marketLinkages, Collection $fieldMisRecords, Request $request): LengthAwarePaginator
-    {
+    private function buildMergedSpocQueue(
+        Collection $cases,
+        Collection $marketLinkages,
+        Collection $fieldMisRecords,
+        Collection $accelerationSessions,
+        Request $request,
+    ): LengthAwarePaginator {
         $items = collect();
 
         foreach ($marketLinkages as $ml) {
@@ -479,6 +570,7 @@ class SpocServiceCaseController extends Controller
                 'market_linkage' => $ml,
                 'field_mis' => null,
                 'field_mis_module' => null,
+                'acceleration' => null,
                 'updated_at' => $ml->updated_at,
             ]);
         }
@@ -491,7 +583,20 @@ class SpocServiceCaseController extends Controller
                 'market_linkage' => null,
                 'field_mis' => $fm,
                 'field_mis_module' => $moduleKey,
+                'acceleration' => null,
                 'updated_at' => $fm->updated_at,
+            ]);
+        }
+
+        foreach ($accelerationSessions as $accel) {
+            $items->push([
+                'kind' => 'acceleration',
+                'service_case' => null,
+                'market_linkage' => null,
+                'field_mis' => null,
+                'field_mis_module' => null,
+                'acceleration' => $accel,
+                'updated_at' => $accel->updated_at,
             ]);
         }
 
@@ -502,6 +607,7 @@ class SpocServiceCaseController extends Controller
                 'market_linkage' => null,
                 'field_mis' => null,
                 'field_mis_module' => null,
+                'acceleration' => null,
                 'updated_at' => $case->updated_at,
             ]);
         }
@@ -513,19 +619,23 @@ class SpocServiceCaseController extends Controller
             ServiceCase::STATUS_REJECTED => 3,
         ];
 
-        $sorted = $items->sort(function (array $a, array $b) use ($statusPriority): int {
-            $statusA = match ($a['kind']) {
-                'market_linkage' => (string) ($a['market_linkage']?->status ?? ''),
-                'field_mis' => (string) ($a['field_mis']?->status ?? ''),
-                default => (string) ($a['service_case']?->status ?? ''),
+        $sortStatus = static function (array $row): string {
+            return match ($row['kind']) {
+                'market_linkage' => (string) ($row['market_linkage']?->status ?? ''),
+                'field_mis' => (string) ($row['field_mis']?->status ?? ''),
+                'acceleration' => match ((string) ($row['acceleration']?->status ?? '')) {
+                    'pending_review', 'pending_final' => ServiceCase::STATUS_PENDING_APPROVAL,
+                    'sent_back' => ServiceCase::STATUS_SENT_BACK,
+                    'approved' => ServiceCase::STATUS_APPROVED,
+                    default => (string) ($row['acceleration']?->status ?? ''),
+                },
+                default => (string) ($row['service_case']?->status ?? ''),
             };
-            $statusB = match ($b['kind']) {
-                'market_linkage' => (string) ($b['market_linkage']?->status ?? ''),
-                'field_mis' => (string) ($b['field_mis']?->status ?? ''),
-                default => (string) ($b['service_case']?->status ?? ''),
-            };
-            $priorityA = $statusPriority[$statusA] ?? 9;
-            $priorityB = $statusPriority[$statusB] ?? 9;
+        };
+
+        $sorted = $items->sort(function (array $a, array $b) use ($statusPriority, $sortStatus): int {
+            $priorityA = $statusPriority[$sortStatus($a)] ?? 9;
+            $priorityB = $statusPriority[$sortStatus($b)] ?? 9;
             if ($priorityA !== $priorityB) {
                 return $priorityA <=> $priorityB;
             }

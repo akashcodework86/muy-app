@@ -226,7 +226,14 @@
         str_starts_with($r, 'spoc.acceleration-services.store') => 'acceleration-services-submit',
         str_starts_with($r, 'spoc.acceleration-services.dashboard') => 'acceleration-services-dashboard',
         str_starts_with($r, 'spoc.acceleration-services.show') => 'acceleration-services-dashboard',
+        str_starts_with($r, 'spoc.acceleration-services.edit') => 'acceleration-services-submit',
         str_starts_with($r, 'spoc.acceleration-services.index') => 'acceleration-services-submit',
+        str_starts_with($r, 'staff.acceleration-services.create') => 'acceleration-services-submit',
+        str_starts_with($r, 'staff.acceleration-services.store') => 'acceleration-services-submit',
+        str_starts_with($r, 'staff.acceleration-services.dashboard') => 'acceleration-services-dashboard',
+        str_starts_with($r, 'staff.acceleration-services.show') => 'acceleration-services-dashboard',
+        str_starts_with($r, 'staff.acceleration-services.edit') => 'acceleration-services-submit',
+        str_starts_with($r, 'staff.acceleration-services.index') => 'acceleration-services-submit',
         str_starts_with($r, 'admin.acceleration-services.dashboard') => 'acceleration-services-dashboard',
         str_starts_with($r, 'admin.acceleration-services.show') => 'acceleration-services-dashboard',
         str_starts_with($r, 'spoc.capacity-building-stakeholders.create') => 'capacity-building-stakeholders-submit',
@@ -349,7 +356,7 @@
         || $staffNavDistrictWorkshop;
     $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'staff-batches'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
-    $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'field-coordinator-report'], true)
+    $staffServiceGroupActive = in_array($activeNav, ['staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true)
         || $staffFieldWorkActive;
 
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
@@ -1122,6 +1129,25 @@
                     <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Market linkage</span>
                     </a>
+                    @if ($canSubmitAccelerationServices)
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['acceleration-services-submit', 'acceleration-services-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('pin') !!}<span>Acceleration services (7.2)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('staff.acceleration-services.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'acceleration-services-submit') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>New entry</span>
+                            </a>
+                            <a href="{{ route('staff.acceleration-services.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'acceleration-services-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @elseif ($canViewAccelerationServices)
+                    <a href="{{ route('staff.acceleration-services.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'acceleration-services-dashboard') is-active @endif" role="menuitem">
+                        {!! $i('pin') !!}<span>Acceleration services (7.2)</span>
+                    </a>
+                    @endif
                     <a href="{{ route('staff.field-coordinator-reports.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'field-coordinator-report') is-active @endif" role="menuitem">
                         {!! $i('calendar') !!}<span>Field coordinator report</span>
                     </a>

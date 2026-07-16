@@ -2,7 +2,11 @@
 
 namespace App\Support;
 
+use App\Models\District;
+use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Support\ServiceFieldTypes as T;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Per-tick field schemas for MUY Acceleration Services (MIS 7.2).
@@ -55,7 +59,6 @@ final class AccelerationItemSchemas
             'business_model_refinement' => self::businessModelRefinement(),
             'market_linkage' => self::marketLinkage(),
             'industry_connections' => self::industryConnections(),
-            'soft_skills' => self::softSkills(),
             AccelerationServicesOptions::BUYER_SELLER_MEET_KEY => self::buyerSellerMeet(),
             'tbi_graphic_era' => self::partnershipSchema(),
             'uplift_foundation' => self::partnershipSchema(),
@@ -76,6 +79,104 @@ final class AccelerationItemSchemas
         ];
     }
 
+    /** @return list<array{value: string, label: string}> */
+    public static function districtOptions(): array
+    {
+        if (! Schema::hasTable('districts')) {
+            return [];
+        }
+
+        return District::query()
+            ->orderBy('name')
+            ->get(['name'])
+            ->map(fn (District $d) => [
+                'value' => (string) $d->name,
+                'label' => (string) $d->name,
+            ])
+            ->all();
+    }
+
+    /** @return list<array{value: string, label: string}> */
+    public static function governmentSchemeOptions(): array
+    {
+        $fallback = [
+            ['value' => 'MSY', 'label' => 'MSY'],
+            ['value' => 'MSY NaNo', 'label' => 'MSY NaNo'],
+            ['value' => 'PMEGP', 'label' => 'PMEGP'],
+            ['value' => 'MSME', 'label' => 'MSME'],
+            ['value' => 'MUDRA', 'label' => 'MUDRA'],
+            ['value' => 'DDU Grah Awas Yojana (Homestay)', 'label' => 'DDU Grah Awas Yojana (Homestay)'],
+            ['value' => 'Veer Chandra Singh Garhwali Self Empl.', 'label' => 'Veer Chandra Singh Garhwali Self Empl.'],
+            ['value' => 'PMFME', 'label' => 'PMFME'],
+        ];
+
+        if (! Schema::hasTable('services') || ! Schema::hasTable('service_categories')) {
+            return $fallback;
+        }
+
+        $categoryIds = ServiceCategory::query()
+            ->whereIn('slug', ConvergenceReapSupport::CONVERGENCE_CATEGORY_SLUGS)
+            ->pluck('id');
+
+        if ($categoryIds->isEmpty()) {
+            return $fallback;
+        }
+
+        $excludeCodes = array_merge(
+            ConvergenceReapSupport::knownReapSupportServiceCodes(),
+            ['support_application', 'support_muy_incubatee_reap'],
+        );
+
+        $rows = Service::query()
+            ->whereIn('service_category_id', $categoryIds)
+            ->where('is_active', true)
+            ->whereNotIn('code', $excludeCodes)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['name', 'code']);
+
+        if ($rows->isEmpty()) {
+            return $fallback;
+        }
+
+        $out = [];
+        $seen = [];
+        foreach ($rows as $row) {
+            $name = trim((string) $row->name);
+            if ($name === '' || isset($seen[$name])) {
+                continue;
+            }
+            $seen[$name] = true;
+            $out[] = ['value' => $name, 'label' => $name];
+        }
+
+        return $out !== [] ? $out : $fallback;
+    }
+
+    /** @return list<array{value: string, label: string}> */
+    private static function durationMinutesOptions(): array
+    {
+        $mins = [15, 30, 45, 60, 90, 120, 150, 180, 210, 240, 300, 360];
+        $out = [];
+        foreach ($mins as $m) {
+            $label = $m < 60
+                ? $m.' min'
+                : (intdiv($m, 60) === 1 && $m % 60 === 0
+                    ? '60 min (1 hr)'
+                    : ($m % 60 === 0 ? ($m / 60).' hrs ('.$m.' min)' : $m.' min'));
+            if ($m === 30) {
+                $label = '30 min';
+            } elseif ($m === 60) {
+                $label = '60 min';
+            } elseif ($m === 120) {
+                $label = '120 min';
+            }
+            $out[] = ['value' => (string) $m, 'label' => $label];
+        }
+
+        return $out;
+    }
+
     /** @return list<array<string, mixed>> */
     private static function businessFormalization(): array
     {
@@ -92,7 +193,6 @@ final class AccelerationItemSchemas
                     ['value' => 'company', 'label' => 'Company Registration'],
                     ['value' => 'uk_firm', 'label' => 'UK Firm Registration'],
                     ['value' => 'cooperative', 'label' => 'Cooperative'],
-                    ['value' => 'already_registered', 'label' => 'Already Registered'],
                     ['value' => 'other', 'label' => 'Other'],
                 ],
             ],
@@ -153,12 +253,11 @@ final class AccelerationItemSchemas
                 'help' => 'e.g. product, finance, marketing, operations',
             ],
             [
-                'key' => 'duration_hours',
-                'label' => 'Duration',
-                'type' => T::NUMBER,
-                'required' => false,
-                'min' => 0,
-                'help' => 'Session length in hours',
+                'key' => 'duration_minutes',
+                'label' => 'Duration (minutes)',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => self::durationMinutesOptions(),
             ],
             [
                 'key' => 'guidance_summary',
@@ -174,40 +273,29 @@ final class AccelerationItemSchemas
     {
         return array_merge(self::dateField(), [
             [
-                'key' => 'funding_type',
-                'label' => 'Type (Convergence)',
+                'key' => 'scheme_name',
+                'label' => 'Name of scheme',
                 'type' => T::SELECT,
                 'required' => true,
-                'options' => [
-                    ['value' => 'equity', 'label' => 'Equity'],
-                    ['value' => 'low_cost_debt', 'label' => 'Low-cost debt'],
-                    ['value' => 'grant', 'label' => 'Grant'],
-                ],
+                'help' => 'Government schemes only (MSY, PMEGP, etc.).',
+                'options' => self::governmentSchemeOptions(),
             ],
             [
-                'key' => 'amount',
-                'label' => 'How much',
+                'key' => 'scheme_registration_date',
+                'label' => 'Date of scheme registration',
+                'type' => T::DATE,
+                'required' => true,
+            ],
+            [
+                'key' => 'applied_amount',
+                'label' => 'Applied amount (₹)',
                 'type' => T::AMOUNT,
-                'required' => true,
+                'required' => false,
             ],
             [
-                'key' => 'by_whom',
-                'label' => 'By whom',
-                'type' => T::TEXT,
-                'required' => true,
-                'help' => 'Investor, lender, scheme, or institution',
-            ],
-            [
-                'key' => 'to_whom',
-                'label' => 'To whom',
-                'type' => T::TEXT,
-                'required' => true,
-                'help' => 'Usually the selected incubatee / enterprise',
-            ],
-            [
-                'key' => 'scheme_or_instrument',
-                'label' => 'Scheme / instrument (optional)',
-                'type' => T::TEXT,
+                'key' => 'sanctioned_amount',
+                'label' => 'Sanctioned amount (₹)',
+                'type' => T::AMOUNT,
                 'required' => false,
             ],
             [
@@ -280,6 +368,7 @@ final class AccelerationItemSchemas
                 'label' => 'Order value',
                 'type' => T::AMOUNT,
                 'required' => false,
+                'help' => 'If an order value is entered, upload proof of order documents below (mandatory).',
             ],
             [
                 'key' => 'link_url',
@@ -336,61 +425,16 @@ final class AccelerationItemSchemas
     }
 
     /** @return list<array<string, mixed>> */
-    private static function softSkills(): array
-    {
-        return array_merge(self::dateField(), [
-            [
-                'key' => 'topic',
-                'label' => 'Topic',
-                'type' => T::SELECT,
-                'required' => true,
-                'options' => [
-                    ['value' => 'communication', 'label' => 'Communication'],
-                    ['value' => 'negotiation', 'label' => 'Negotiation'],
-                    ['value' => 'leadership', 'label' => 'Leadership'],
-                    ['value' => 'digital_literacy', 'label' => 'Digital literacy'],
-                    ['value' => 'presentation', 'label' => 'Presentation / pitch'],
-                    ['value' => 'other', 'label' => 'Other'],
-                ],
-            ],
-            [
-                'key' => 'trainer',
-                'label' => 'Trainer / facilitator',
-                'type' => T::TEXT,
-                'required' => false,
-            ],
-            [
-                'key' => 'mode',
-                'label' => 'Mode',
-                'type' => T::SELECT,
-                'required' => false,
-                'options' => [
-                    ['value' => 'online', 'label' => 'Online'],
-                    ['value' => 'offline', 'label' => 'Offline'],
-                    ['value' => 'hybrid', 'label' => 'Hybrid'],
-                ],
-            ],
-            [
-                'key' => 'duration_hours',
-                'label' => 'Duration',
-                'type' => T::NUMBER,
-                'required' => false,
-                'min' => 0,
-                'help' => 'Session length in hours',
-            ],
-            [
-                'key' => 'notes',
-                'label' => 'Notes',
-                'type' => T::TEXTAREA,
-                'required' => false,
-            ],
-        ]);
-    }
-
-    /** @return list<array<string, mixed>> */
     private static function buyerSellerMeet(): array
     {
         return array_merge(self::dateField(), [
+            [
+                'key' => 'district',
+                'label' => 'District',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => self::districtOptions(),
+            ],
             [
                 'key' => 'meet_name',
                 'label' => 'Meet name / venue',
@@ -400,13 +444,15 @@ final class AccelerationItemSchemas
             [
                 'key' => 'outcome_type',
                 'label' => 'Outcome type',
-                'type' => T::SELECT,
+                'type' => T::MULTISELECT,
                 'required' => true,
+                'help' => 'Select all outcomes that apply.',
                 'options' => [
                     ['value' => 'sales', 'label' => 'Sales'],
                     ['value' => 'po', 'label' => 'Purchase Order (PO)'],
-                    ['value' => 'both', 'label' => 'Sales + PO'],
                     ['value' => 'lead', 'label' => 'Lead / interest only'],
+                    ['value' => 'mou', 'label' => 'MoU / intent letter'],
+                    ['value' => 'other', 'label' => 'Other'],
                 ],
             ],
             [
@@ -420,6 +466,7 @@ final class AccelerationItemSchemas
                 'label' => 'Order / PO value',
                 'type' => T::AMOUNT,
                 'required' => false,
+                'help' => 'If an order / PO value is entered, upload proof documents below (mandatory).',
             ],
             [
                 'key' => 'po_number',
@@ -437,10 +484,44 @@ final class AccelerationItemSchemas
         ]);
     }
 
+    /** @return list<array{value: string, label: string}> */
+    private static function monthRangeOptions(): array
+    {
+        $out = [];
+        // Cover FY window around now: 18 months back, 24 months ahead
+        $start = now()->startOfMonth()->subMonths(18);
+        for ($i = 0; $i < 43; $i++) {
+            $m = $start->copy()->addMonths($i);
+            $out[] = [
+                'value' => $m->format('Y-m'),
+                'label' => $m->format('M Y'),
+            ];
+        }
+
+        return $out;
+    }
+
+    /** @return list<array{value: string, label: string}> */
+    private static function supportTypeOptions(): array
+    {
+        return [
+            ['value' => 'mentoring', 'label' => 'Mentoring'],
+            ['value' => 'workspace', 'label' => 'Workspace / incubation space'],
+            ['value' => 'market_access', 'label' => 'Market access'],
+            ['value' => 'funding_connect', 'label' => 'Funding / investor connect'],
+            ['value' => 'technical', 'label' => 'Technical / product support'],
+            ['value' => 'compliance', 'label' => 'Compliance / legal'],
+            ['value' => 'other', 'label' => 'Other'],
+        ];
+    }
+
     /** @return list<array<string, mixed>> */
     private static function partnershipSchema(): array
     {
-        return array_merge(self::dateField(), [
+        $monthOptions = self::monthRangeOptions();
+        $supportOptions = self::supportTypeOptions();
+
+        $fields = array_merge(self::dateField(), [
             [
                 'key' => 'domain',
                 'label' => 'Domain',
@@ -467,7 +548,6 @@ final class AccelerationItemSchemas
                 'label' => 'End date',
                 'type' => T::DATE,
                 'required' => true,
-                'help' => 'Less than 1 month = Short term; 1 month or more = Long term',
             ],
             [
                 'key' => 'duration_term',
@@ -480,34 +560,67 @@ final class AccelerationItemSchemas
                 ],
             ],
             [
+                'key' => 'duration_days',
+                'label' => 'Duration (days)',
+                'type' => T::NUMBER,
+                'required' => true,
+                'min' => 1,
+                'help' => 'Number of days for short-term support',
+                'visible_if' => ['field' => 'duration_term', 'value' => 'short_term'],
+            ],
+            [
+                'key' => 'period_from_month',
+                'label' => 'From month',
+                'type' => T::SELECT,
+                'required' => true,
+                'help' => 'Start of long-term month range',
+                'options' => $monthOptions,
+                'visible_if' => ['field' => 'duration_term', 'value' => 'long_term'],
+            ],
+            [
+                'key' => 'period_to_month',
+                'label' => 'To month',
+                'type' => T::SELECT,
+                'required' => true,
+                'help' => 'End of long-term month range',
+                'options' => $monthOptions,
+                'visible_if' => ['field' => 'duration_term', 'value' => 'long_term'],
+            ],
+            [
                 'key' => 'support_types',
                 'label' => 'Types of support given',
                 'type' => T::MULTISELECT,
                 'required' => true,
-                'help' => 'Tick all support types provided by this co-incubation partner.',
-                'options' => [
-                    ['value' => 'mentoring', 'label' => 'Mentoring'],
-                    ['value' => 'workspace', 'label' => 'Workspace / incubation space'],
-                    ['value' => 'market_access', 'label' => 'Market access'],
-                    ['value' => 'funding_connect', 'label' => 'Funding / investor connect'],
-                    ['value' => 'technical', 'label' => 'Technical / product support'],
-                    ['value' => 'compliance', 'label' => 'Compliance / legal'],
-                    ['value' => 'other', 'label' => 'Other'],
-                ],
-            ],
-            [
-                'key' => 'poc_name',
-                'label' => 'Partner POC name',
-                'type' => T::TEXT,
-                'required' => false,
-            ],
-            [
-                'key' => 'notes',
-                'label' => 'Notes',
-                'type' => T::TEXTAREA,
-                'required' => false,
+                'help' => 'Tick a support type to specify what topic / what was taught next to it.',
+                'options' => $supportOptions,
             ],
         ]);
+
+        foreach ($supportOptions as $opt) {
+            $fields[] = [
+                'key' => 'support_topic_'.$opt['value'],
+                'label' => 'Specify — '.$opt['label'].' (what topic / what taught)',
+                'type' => T::TEXTAREA,
+                'required' => true,
+                'help' => 'Mandatory for this support type.',
+                'visible_if' => ['field' => 'support_types', 'value' => $opt['value']],
+            ];
+        }
+
+        $fields[] = [
+            'key' => 'poc_name',
+            'label' => 'Partner POC name',
+            'type' => T::TEXT,
+            'required' => false,
+        ];
+        $fields[] = [
+            'key' => 'notes',
+            'label' => 'Notes',
+            'type' => T::TEXTAREA,
+            'required' => false,
+        ];
+
+        return $fields;
     }
 
     /** @return list<array<string, mixed>> */

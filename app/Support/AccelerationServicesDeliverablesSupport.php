@@ -15,6 +15,14 @@ final class AccelerationServicesDeliverablesSupport
             return 0;
         }
 
+        // With the approval workflow, count unique approved incubatees directly
+        // so a rejected first entry doesn't block a later approved one.
+        if (Schema::hasColumn('acceleration_service_sessions', 'status')) {
+            return (int) self::scopedSessionsQuery($periodFrom, $periodTo)
+                ->distinct()
+                ->count('s.incubatee_key');
+        }
+
         $query = self::scopedSessionsQuery($periodFrom, $periodTo)
             ->where('s.counts_for_7_2', true);
 
@@ -41,10 +49,13 @@ final class AccelerationServicesDeliverablesSupport
             return self::emptyBreakdown();
         }
 
+        $hasStatus = Schema::hasColumn('acceleration_service_sessions', 'status');
+
         $rows = self::scopedSessionsQuery($periodFrom, $periodTo)
-            ->where('s.counts_for_7_2', true)
+            ->when(! $hasStatus, fn ($q) => $q->where('s.counts_for_7_2', true))
             ->select([
                 's.id',
+                's.incubatee_key',
                 's.service_date',
                 's.applicant_name',
                 's.application_no',
@@ -52,10 +63,16 @@ final class AccelerationServicesDeliverablesSupport
                 's.onboard_label',
                 's.submitted_by_name',
             ])
-            ->orderByDesc('s.service_date')
-            ->orderByDesc('s.id')
-
+            ->orderBy('s.service_date')
+            ->orderBy('s.id')
             ->get();
+
+        // One record per incubatee — the first approved session in the period.
+        if ($hasStatus) {
+            $rows = $rows->unique(fn ($row) => (string) $row->incubatee_key)->values();
+        }
+
+        $rows = $rows->sortByDesc(fn ($row) => [(string) $row->service_date, (int) $row->id])->values();
 
         $records = [];
         $byMonth = [];
@@ -186,6 +203,17 @@ final class AccelerationServicesDeliverablesSupport
     {
         $query = DB::table('acceleration_service_sessions as s');
 
+        if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
+            $query->where(function ($q): void {
+                $q->where('s.is_draft', false)->orWhereNull('s.is_draft');
+            });
+        }
+
+        // Maker–checker workflow: only fully approved entries count.
+        if (Schema::hasColumn('acceleration_service_sessions', 'status')) {
+            $query->where('s.status', AccelerationServicesApproval::STATUS_APPROVED);
+        }
+
         if ($periodFrom && $periodTo) {
             $query->whereBetween('s.service_date', [
                 $periodFrom->toDateString(),
@@ -200,6 +228,16 @@ final class AccelerationServicesDeliverablesSupport
     {
         $query = DB::table('acceleration_service_items as i')
             ->join('acceleration_service_sessions as s', 's.id', '=', 'i.session_id');
+
+        if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
+            $query->where(function ($q): void {
+                $q->where('s.is_draft', false)->orWhereNull('s.is_draft');
+            });
+        }
+
+        if (Schema::hasColumn('acceleration_service_sessions', 'status')) {
+            $query->where('s.status', AccelerationServicesApproval::STATUS_APPROVED);
+        }
 
         if ($periodFrom && $periodTo) {
             $query->whereBetween('s.service_date', [

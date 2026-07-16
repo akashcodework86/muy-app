@@ -25,7 +25,6 @@ final class AccelerationServicesOptions
             ['key' => 'business_model_refinement', 'label' => 'Business Model Refinement'],
             ['key' => 'market_linkage', 'label' => 'Market Linkage'],
             ['key' => 'industry_connections', 'label' => 'Building Industry Connections'],
-            ['key' => 'soft_skills', 'label' => 'Soft Skills'],
         ],
         self::SECTION_CROSS_CUTTING => [
             ['key' => self::BUYER_SELLER_MEET_KEY, 'label' => 'Buyer Seller Meet'],

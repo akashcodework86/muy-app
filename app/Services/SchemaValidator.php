@@ -250,11 +250,18 @@ class SchemaValidator
             return true;
         }
         $depField = isset($cond['field']) ? (string) $cond['field'] : '';
-        $depValue = isset($cond['value']) ? (string) $cond['value'] : '';
         if ($depField === '' || ! array_key_exists($depField, $input)) {
-            return true;
+            return empty($cond['any']);
         }
         $actual = $input[$depField];
+        if (! empty($cond['any'])) {
+            if (is_array($actual)) {
+                return array_filter($actual, static fn ($v) => $v !== null && $v !== '') !== [];
+            }
+
+            return $actual !== null && $actual !== '' && $actual !== false;
+        }
+        $depValue = isset($cond['value']) ? (string) $cond['value'] : '';
         if (is_array($actual)) {
             return in_array($depValue, array_map('strval', $actual), true);
         }

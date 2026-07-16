@@ -182,12 +182,42 @@
 
 @section('content')
 <div class="accel-show">
+    @if (session('status'))
+        <div class="accel-alert accel-alert--success">{{ session('status') }}</div>
+    @endif
+    @if ($errors->any())
+        <div class="accel-alert accel-alert--warning">
+            @foreach ($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    @endif
+
     <div class="accel-show__nav">
         <a href="{{ route($dashboardRoute) }}" class="accel-link">← Back to dashboard</a>
-        @if (!empty($addServicesRoute))
-            <a href="{{ route($addServicesRoute, ['from_session' => $session->id]) }}#accel-form" class="accel-btn accel-btn--secondary">+ Add more services</a>
-        @endif
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+            @if (!empty($editRoute))
+                <a href="{{ route($editRoute, $session) }}" class="accel-btn">Edit entry</a>
+            @endif
+            @if (!empty($addServicesRoute))
+                <a href="{{ route($addServicesRoute, ['from_session' => $session->id]) }}#accel-form" class="accel-btn accel-btn--secondary">+ Add more services</a>
+            @endif
+        </div>
     </div>
+
+    @if (!empty($workflowReady) && (string) $session->status === \App\Support\AccelerationServicesApproval::STATUS_SENT_BACK && $session->sent_back_remarks)
+        <div class="accel-alert accel-alert--warning">
+            <strong>Sent back by {{ $session->sent_back_by_name ?: 'checker' }}</strong>
+            @if ($session->sent_back_at) ({{ $session->sent_back_at->format('d M Y H:i') }}) @endif
+            — {{ $session->sent_back_remarks }}
+        </div>
+    @endif
+
+    @if (!empty($workflowReady) && $session->isLocked())
+        <div class="accel-alert accel-alert--success" style="margin:0;">
+            This entry is <strong>approved and locked</strong>. To record more services for this incubatee, use “Add more services” — the new entry goes through approval again.
+        </div>
+    @endif
 
     <div class="accel-show__hero">
         <div class="accel-show__hero-top">
@@ -199,11 +229,16 @@
                     @if ($session->district_name) · {{ $session->district_name }} @endif
                 </p>
             </div>
-            @if ($session->counts_for_7_2)
-                <span class="accel-badge accel-badge--init">7.2 Initiation</span>
-            @else
-                <span class="accel-badge accel-badge--follow">Follow-up session</span>
-            @endif
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem;">
+                @if (!empty($workflowReady))
+                    <span class="accel-status accel-status--{{ (string) ($session->status ?? 'approved') }}">{{ $session->statusLabel() }}</span>
+                @endif
+                @if ($session->counts_for_7_2)
+                    <span class="accel-badge accel-badge--init">7.2 Initiation</span>
+                @else
+                    <span class="accel-badge accel-badge--follow">Follow-up session</span>
+                @endif
+            </div>
         </div>
 
         <div class="accel-show__chips">
@@ -224,8 +259,44 @@
             <div><dt>Onboarding</dt><dd>{{ $session->onboard_label ?: '—' }}</dd></div>
             <div><dt>Submitted by</dt><dd>{{ $session->submitted_by_name }}</dd></div>
             <div><dt>Logged at</dt><dd>{{ $session->created_at?->format('d M Y H:i') }}</dd></div>
+            @if (!empty($workflowReady))
+                <div><dt>State review</dt><dd>{{ $session->first_approved_by_name ? $session->first_approved_by_name.' · '.$session->first_approved_at?->format('d M Y H:i') : 'Pending' }}</dd></div>
+                <div><dt>Final approval</dt><dd>{{ $session->final_approved_by_name ? $session->final_approved_by_name.' · '.$session->final_approved_at?->format('d M Y H:i') : 'Pending' }}</dd></div>
+            @endif
         </dl>
     </div>
+
+    @if (!empty($canApprove) && !empty($approveRoute) && !empty($sendBackRoute))
+        <div class="accel-card" style="border-left:4px solid #4f46e5;">
+            <h3 class="accel-card__title" style="margin:0 0 0.35rem;">Approval action needed</h3>
+            <p class="accel-card__sub" style="margin:0 0 0.85rem;">
+                @if ((string) $session->status === \App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL)
+                    This entry is awaiting <strong>final approval</strong>. Approving makes it count towards the 7.2 deliverable and locks the entry.
+                @else
+                    This entry is awaiting <strong>state review</strong>. Approving forwards it for final approval.
+                @endif
+            </p>
+            <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start;">
+                <form method="post" action="{{ route($approveRoute, $session) }}" onsubmit="return confirm('Approve this entry?');">
+                    @csrf
+                    <button type="submit" class="accel-btn">
+                        @if ((string) $session->status === \App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL)
+                            Approve entry (final)
+                        @else
+                            Review &amp; forward
+                        @endif
+                    </button>
+                </form>
+                <form method="post" action="{{ route($sendBackRoute, $session) }}" style="flex:1;min-width:16rem;display:flex;flex-direction:column;gap:0.45rem;">
+                    @csrf
+                    <textarea name="remarks" rows="2" required placeholder="Remarks for the maker (required to send back)" style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:0.5rem 0.65rem;font-family:inherit;font-size:0.86rem;resize:vertical;">{{ old('remarks') }}</textarea>
+                    <div>
+                        <button type="submit" class="accel-danger-btn" onclick="return confirm('Send this entry back to {{ $session->submitted_by_name }}?');">Send back with remarks</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 
     <div class="accel-card">
         <div class="accel-card__head" style="margin-bottom:1rem;">
@@ -336,9 +407,48 @@
         @endif
     </div>
 
+    @if (!empty($workflowReady))
+        <div class="accel-card">
+            <h3 class="accel-card__title" style="margin:0 0 0.75rem;">Activity log</h3>
+            @if (($events ?? collect())->isEmpty())
+                <p style="color:#64748b;margin:0;font-size:0.86rem;">
+                    No workflow events recorded yet.
+                    @if ($session->isLocked()) This entry predates the approval workflow and is treated as approved. @endif
+                </p>
+            @else
+                <div style="display:flex;flex-direction:column;">
+                    @foreach ($events as $event)
+                        <div style="display:flex;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #f1f5f9;">
+                            <div style="flex-shrink:0;width:8.5rem;font-size:0.74rem;color:#64748b;font-weight:600;">
+                                {{ $event->created_at?->format('d M Y H:i') }}
+                            </div>
+                            <div style="min-width:0;">
+                                <div style="font-size:0.85rem;font-weight:700;color:#0f172a;">
+                                    {{ \App\Support\AccelerationServicesApproval::actionLabel((string) $event->action) }}
+                                </div>
+                                <div style="font-size:0.76rem;color:#64748b;margin-top:0.1rem;">
+                                    {{ $event->actor_name }}
+                                    @if ($event->actor_role) · {{ str_replace('_', ' ', $event->actor_role) }} @endif
+                                </div>
+                                @if ($event->remarks)
+                                    <div style="font-size:0.8rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:0.35rem 0.55rem;margin-top:0.3rem;">
+                                        {{ $event->remarks }}
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    @endif
+
     <div class="accel-show__actions">
+        @if (!empty($editRoute))
+            <a href="{{ route($editRoute, $session) }}" class="accel-btn">Edit entry</a>
+        @endif
         @if (!empty($addServicesRoute))
-            <a href="{{ route($addServicesRoute, ['from_session' => $session->id]) }}#accel-form" class="accel-btn">+ Add more services</a>
+            <a href="{{ route($addServicesRoute, ['from_session' => $session->id]) }}#accel-form" class="accel-btn accel-btn--secondary">+ Add more services</a>
         @endif
         <a href="{{ route($dashboardRoute) }}" class="accel-btn accel-btn--secondary">Back to dashboard</a>
         @if (!empty($canDelete) && !empty($destroyRoute))

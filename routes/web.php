@@ -562,6 +562,32 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('community-org-outreach.destroy');
+
+        Route::post('acceleration-services', [\App\Http\Controllers\AccelerationServiceController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('acceleration-services.store');
+        Route::post('acceleration-services/autosave', [\App\Http\Controllers\AccelerationServiceController::class, 'autosave'])
+            ->middleware('throttle:120,1')
+            ->name('acceleration-services.autosave');
+        Route::get('acceleration-services/create', [\App\Http\Controllers\AccelerationServiceController::class, 'create'])
+            ->name('acceleration-services.create');
+        Route::get('acceleration-services/incubatees/search', [\App\Http\Controllers\AccelerationServiceController::class, 'searchIncubatees'])
+            ->name('acceleration-services.incubatees.search');
+        Route::get('acceleration-services/incubatees/history', [\App\Http\Controllers\AccelerationServiceController::class, 'incubateeHistory'])
+            ->name('acceleration-services.incubatees.history');
+        Route::get('acceleration-services', \App\Http\Controllers\AccelerationServicesLandingController::class)->name('acceleration-services.index');
+        Route::get('acceleration-services/dashboard', [\App\Http\Controllers\AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
+        Route::get('acceleration-services/export', [\App\Http\Controllers\AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
+        Route::get('acceleration-services/media/{accelerationMedia}', [\App\Http\Controllers\AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
+        Route::get('acceleration-services/{accelerationSession}/edit', [\App\Http\Controllers\AccelerationServiceController::class, 'edit'])
+            ->name('acceleration-services.edit');
+        Route::put('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('acceleration-services.update');
+        Route::get('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
+        Route::delete('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('acceleration-services.destroy');
     });
 
     /** State Staff (SPOC) — maker-checker approval queue */
@@ -747,6 +773,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('acceleration-services', [\App\Http\Controllers\AccelerationServiceController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('acceleration-services.store');
+        Route::post('acceleration-services/autosave', [\App\Http\Controllers\AccelerationServiceController::class, 'autosave'])
+            ->middleware('throttle:120,1')
+            ->name('acceleration-services.autosave');
         Route::get('acceleration-services/create', [\App\Http\Controllers\AccelerationServiceController::class, 'create'])
             ->name('acceleration-services.create');
         Route::get('acceleration-services/incubatees/search', [\App\Http\Controllers\AccelerationServiceController::class, 'searchIncubatees'])
@@ -757,10 +786,21 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('acceleration-services/dashboard', [\App\Http\Controllers\AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
         Route::get('acceleration-services/export', [\App\Http\Controllers\AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
         Route::get('acceleration-services/media/{accelerationMedia}', [\App\Http\Controllers\AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
+        Route::get('acceleration-services/{accelerationSession}/edit', [\App\Http\Controllers\AccelerationServiceController::class, 'edit'])
+            ->name('acceleration-services.edit');
+        Route::put('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('acceleration-services.update');
         Route::get('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
         Route::delete('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('acceleration-services.destroy');
+        Route::post('acceleration-services/{accelerationSession}/approve', [\App\Http\Controllers\AccelerationServiceController::class, 'approve'])
+            ->middleware('throttle:60,1')
+            ->name('acceleration-services.approve');
+        Route::post('acceleration-services/{accelerationSession}/send-back', [\App\Http\Controllers\AccelerationServiceController::class, 'sendBack'])
+            ->middleware('throttle:60,1')
+            ->name('acceleration-services.send-back');
 
         Route::get('capacity-building-stakeholders/create', [StakeholderCapacityBuildingSessionController::class, 'create'])->name('capacity-building-stakeholders.create');
         Route::post('capacity-building-stakeholders', [StakeholderCapacityBuildingSessionController::class, 'store'])

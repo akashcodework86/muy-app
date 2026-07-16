@@ -313,15 +313,27 @@ class ServiceFieldTypes
                     ? trim($row['visible_if']['field'])
                     : '';
                 $visibleValue = $row['visible_if']['value'] ?? null;
-                if ($visibleField !== '' && is_scalar($visibleValue)) {
+                $visibleAny = ! empty($row['visible_if']['any']);
+                if ($visibleField !== '') {
                     $visibleField = strtolower(preg_replace('/[^a-z0-9_]+/i', '_', $visibleField));
                     if ($visibleField !== '' && $visibleField !== $key) {
-                        $normalised['visible_if'] = [
-                            'field' => $visibleField,
-                            'value' => (string) $visibleValue,
-                        ];
+                        if ($visibleAny) {
+                            $normalised['visible_if'] = [
+                                'field' => $visibleField,
+                                'any' => true,
+                            ];
+                        } elseif (is_scalar($visibleValue)) {
+                            $normalised['visible_if'] = [
+                                'field' => $visibleField,
+                                'value' => (string) $visibleValue,
+                            ];
+                        }
                     }
                 }
+            }
+
+            if (isset($row['html_input']) && is_string($row['html_input']) && trim($row['html_input']) !== '') {
+                $normalised['html_input'] = strtolower(trim($row['html_input']));
             }
 
             $out[] = $normalised;

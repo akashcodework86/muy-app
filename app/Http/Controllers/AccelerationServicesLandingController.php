@@ -12,14 +12,12 @@ class AccelerationServicesLandingController extends Controller
     {
         abort_unless(AccelerationServicesAccess::canViewDashboard($request->user()), 403);
 
-        if ($request->user()?->role === 'state_admin') {
-            return redirect()->route('admin.acceleration-services.dashboard');
-        }
+        $prefix = AccelerationServicesAccess::routePrefixForUser($request->user());
 
         if (AccelerationServicesAccess::canSubmit($request->user())) {
-            return redirect()->route('spoc.acceleration-services.create');
+            return redirect()->route($prefix.'acceleration-services.create');
         }
 
-        return redirect()->route('spoc.acceleration-services.dashboard');
+        return redirect()->route($prefix.'acceleration-services.dashboard');
     }
 }
