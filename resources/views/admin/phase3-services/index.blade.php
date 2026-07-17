@@ -236,6 +236,112 @@
         .p3-staff-breakdown__num { font-weight: 800; text-align: right; white-space: nowrap; }
         .p3-staff-breakdown__num--approved { color: #166534; }
         .p3-staff-breakdown__num--pending { color: #9a3412; }
+        .p3-doc-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 80;
+            padding: 1rem;
+        }
+        .p3-doc-modal.is-open { display: flex; }
+        .p3-doc-modal__card {
+            width: min(980px, 96vw);
+            max-height: 92vh;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28);
+            display: flex;
+            flex-direction: column;
+        }
+        .p3-doc-modal__head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0.8rem;
+            padding: 0.7rem 0.9rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .p3-doc-modal__title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .p3-doc-modal__ref { font-size: 0.8rem; color: #64748b; margin-top: 0.15rem; }
+        .p3-doc-modal__close {
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #0f172a;
+            border-radius: 8px;
+            padding: 0.25rem 0.55rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .p3-doc-modal__tabs {
+            display: none;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            padding: 0.65rem 0.9rem 0;
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .p3-doc-modal__tabs.is-visible { display: flex; padding-bottom: 0.65rem; }
+        .p3-doc-modal__tab {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #334155;
+            border-radius: 999px;
+            padding: 0.28rem 0.7rem;
+            font-size: 0.76rem;
+            font-weight: 700;
+            cursor: pointer;
+            max-width: 16rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .p3-doc-modal__tab.is-active {
+            background: #18181b;
+            border-color: #18181b;
+            color: #fff;
+        }
+        .p3-doc-modal__body {
+            padding: 0.8rem;
+            overflow: auto;
+            background: #f8fafc;
+            min-height: 320px;
+        }
+        .p3-doc-modal__frame {
+            width: 100%;
+            min-height: 72vh;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+        }
+        .p3-doc-modal__img {
+            max-width: 100%;
+            max-height: 72vh;
+            display: block;
+            margin: 0 auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+        }
+        .p3-doc-modal__empty {
+            margin: 0;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        .p3-doc-modal__fallback {
+            font-size: 0.86rem;
+            color: #334155;
+        }
     </style>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.7rem;margin-bottom:1rem;">
@@ -514,6 +620,7 @@
                                 'id' => (int) $a->id,
                                 'name' => (string) ($a->original_name ?: 'Attachment'),
                                 'size' => (int) ($a->size_bytes ?? 0),
+                                'mime' => (string) ($a->mime_type ?? ''),
                                 'url' => route('admin.phase3-services.attachments.view', ['service_case' => $case->id, 'attachment' => $a->id]),
                             ])->values()->all()
                             : [];
@@ -694,19 +801,17 @@
         <div style="margin-top:1rem;">{{ $cases->links() }}</div>
     @endif
 
-    <div id="docModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:70;padding:1rem;">
-        <div style="max-width:42rem;margin:2rem auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
-            <div style="padding:0.75rem 0.9rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+    <div id="docModal" class="p3-doc-modal" aria-hidden="true">
+        <div class="p3-doc-modal__card" role="dialog" aria-modal="true" aria-label="Document preview">
+            <div class="p3-doc-modal__head">
                 <div>
-                    <div style="font-weight:700;" id="docModalTitle">Documents</div>
-                    <div style="font-size:0.8rem;color:#64748b;" id="docModalRef"></div>
+                    <div class="p3-doc-modal__title" id="docModalTitle">Documents</div>
+                    <div class="p3-doc-modal__ref" id="docModalRef"></div>
                 </div>
-                <button type="button" id="docModalClose" style="background:none;border:none;font-size:1.2rem;line-height:1;cursor:pointer;">×</button>
+                <button type="button" id="docModalClose" class="p3-doc-modal__close">Close</button>
             </div>
-            <div id="docModalBody" style="padding:0.75rem 0.9rem;max-height:24rem;overflow:auto;"></div>
-            <div style="padding:0.75rem 0.9rem;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;">
-                <button type="button" id="docModalFooterClose" style="border:1px solid #d1d5db;background:#fff;padding:0.4rem 0.75rem;border-radius:7px;cursor:pointer;">Close</button>
-            </div>
+            <div id="docModalTabs" class="p3-doc-modal__tabs" aria-label="Choose document"></div>
+            <div id="docModalBody" class="p3-doc-modal__body"></div>
         </div>
     </div>
 
@@ -759,44 +864,140 @@
             const modal = document.getElementById('docModal');
             const modalTitle = document.getElementById('docModalTitle');
             const modalRef = document.getElementById('docModalRef');
+            const modalTabs = document.getElementById('docModalTabs');
             const modalBody = document.getElementById('docModalBody');
             const closeBtn = document.getElementById('docModalClose');
-            const footerCloseBtn = document.getElementById('docModalFooterClose');
+
+            function escapeHtml(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
 
             function closeModal() {
-                modal.style.display = 'none';
+                if (!modal) return;
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+                modalBody.innerHTML = '';
+                modalTabs.innerHTML = '';
+                modalTabs.classList.remove('is-visible');
                 document.body.style.overflow = '';
             }
-            function openModal() {
-                modal.style.display = 'block';
+
+            function openModalShell() {
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
                 document.body.style.overflow = 'hidden';
+            }
+
+            function isPdf(doc) {
+                const mime = String(doc.mime || '').toLowerCase();
+                const name = String(doc.name || doc.url || '').toLowerCase();
+                return mime === 'application/pdf' || name.endsWith('.pdf');
+            }
+
+            function isImage(doc) {
+                const mime = String(doc.mime || '').toLowerCase();
+                const name = String(doc.name || doc.url || '').toLowerCase();
+                return mime.indexOf('image/') === 0 || /\.(png|jpg|jpeg|webp|gif)$/i.test(name);
+            }
+
+            function renderPreview(doc) {
+                modalBody.innerHTML = '';
+                if (!doc || !doc.url) {
+                    modalBody.innerHTML = '<p class="p3-doc-modal__empty">No document to preview.</p>';
+                    return;
+                }
+
+                if (isPdf(doc)) {
+                    const frame = document.createElement('iframe');
+                    frame.className = 'p3-doc-modal__frame';
+                    frame.src = doc.url;
+                    frame.title = doc.name || 'Document';
+                    modalBody.appendChild(frame);
+                    return;
+                }
+
+                if (isImage(doc)) {
+                    const img = document.createElement('img');
+                    img.className = 'p3-doc-modal__img';
+                    img.alt = doc.name || 'Document image';
+                    img.src = doc.url;
+                    modalBody.appendChild(img);
+                    return;
+                }
+
+                const fallback = document.createElement('div');
+                fallback.className = 'p3-doc-modal__fallback';
+                fallback.innerHTML = 'Preview not supported for this file type. '
+                    + '<a href="' + escapeHtml(doc.url) + '" target="_blank" rel="noopener">Open document</a>.';
+                modalBody.appendChild(fallback);
+            }
+
+            function setActiveTab(tabs, activeIndex) {
+                Array.prototype.forEach.call(tabs, function (tab, idx) {
+                    tab.classList.toggle('is-active', idx === activeIndex);
+                });
+            }
+
+            function showDocuments(docs, caseLabel, caseRef) {
+                modalTitle.textContent = 'Documents — ' + (caseLabel || 'Service case');
+                modalRef.textContent = 'Case Ref: ' + (caseRef || '—');
+                modalTabs.innerHTML = '';
+                modalTabs.classList.remove('is-visible');
+
+                if (!docs.length) {
+                    modalBody.innerHTML = '<p class="p3-doc-modal__empty">No documents uploaded for this case.</p>';
+                    openModalShell();
+                    return;
+                }
+
+                if (docs.length > 1) {
+                    modalTabs.classList.add('is-visible');
+                    docs.forEach(function (doc, idx) {
+                        const tab = document.createElement('button');
+                        tab.type = 'button';
+                        tab.className = 'p3-doc-modal__tab' + (idx === 0 ? ' is-active' : '');
+                        tab.textContent = (idx + 1) + '. ' + (doc.name || ('Document ' + (idx + 1)));
+                        tab.title = doc.name || ('Document ' + (idx + 1));
+                        tab.addEventListener('click', function () {
+                            setActiveTab(modalTabs.querySelectorAll('.p3-doc-modal__tab'), idx);
+                            renderPreview(doc);
+                        });
+                        modalTabs.appendChild(tab);
+                    });
+                }
+
+                renderPreview(docs[0]);
+                openModalShell();
             }
 
             document.querySelectorAll('.js-documents-open').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    const docs = JSON.parse(btn.dataset.documents || '[]');
-                    modalTitle.textContent = 'Documents — ' + (btn.dataset.caseLabel || 'Service case');
-                    modalRef.textContent = 'Case Ref: ' + (btn.dataset.caseRef || '—');
-
-                    if (!docs.length) {
-                        modalBody.innerHTML = '<p style="margin:0;color:#6b7280;">No documents uploaded for this case.</p>';
-                    } else {
-                        modalBody.innerHTML = docs.map(function (doc, idx) {
-                            const kb = Math.max(1, Math.round((Number(doc.size || 0) / 1024)));
-                            return '<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid #f1f5f9;">'
-                                + '<div><div style="font-weight:600;">' + (idx + 1) + '. ' + doc.name + '</div><div style="font-size:0.75rem;color:#64748b;">' + kb + ' KB</div></div>'
-                                + '<a href="' + doc.url + '" target="_blank" rel="noopener" style="text-decoration:none;border:1px solid #cbd5e1;padding:0.25rem 0.55rem;border-radius:6px;">View</a>'
-                                + '</div>';
-                        }).join('');
+                    let docs = [];
+                    try {
+                        docs = JSON.parse(btn.dataset.documents || '[]');
+                    } catch (e) {
+                        docs = [];
                     }
-                    openModal();
+                    if (!Array.isArray(docs)) {
+                        docs = [];
+                    }
+                    showDocuments(docs, btn.dataset.caseLabel || 'Service case', btn.dataset.caseRef || '—');
                 });
             });
 
             closeBtn && closeBtn.addEventListener('click', closeModal);
-            footerCloseBtn && footerCloseBtn.addEventListener('click', closeModal);
             modal && modal.addEventListener('click', function (event) {
                 if (event.target === modal) closeModal();
+            });
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && modal && modal.classList.contains('is-open')) {
+                    closeModal();
+                }
             });
         })();
     </script>
