@@ -563,8 +563,11 @@
                                     'pending_final' => 'Final approver',
                                     default => $accel->final_approved_by_name ?: ($accel->first_approved_by_name ?: 'State SPOC'),
                                 };
-                                $accelResponder = $accel->final_approved_by_name
-                                    ?: ($accelStatus === 'sent_back' ? $accel->sent_back_by_name : $accel->first_approved_by_name);
+                                $accelResponder = ($accel->final_approved_by_name
+                                    || ($accelStatus === 'sent_back' && $accel->sent_back_by_name)
+                                    || $accel->first_approved_by_name)
+                                    ? 'State Team'
+                                    : null;
                                 $accelResponse = match ($accelStatus) {
                                     'approved' => 'Approved',
                                     'sent_back' => ($accel->sent_back_remarks ?: 'Sent back for changes.'),
@@ -639,7 +642,9 @@
                                         ? $pendingSince->copy()->startOfDay()->diffInDays(now()->startOfDay())
                                         : 0;
                                 }
-                                $responderName = $ml->approver?->name ?? $ml->rejector?->name ?? null;
+                                $responderName = ($ml->approver?->name ?? $ml->rejector?->name ?? null)
+                                    ? 'State Team'
+                                    : null;
                                 $assignedByName = $ml->submitted_by_name ?? $ml->submitter?->name ?? '—';
                                 $responseText = '—';
                                 $responseClass = 'svc-response--none';
@@ -727,10 +732,11 @@
                                         ? $pendingSince->copy()->startOfDay()->diffInDays(now()->startOfDay())
                                         : 0;
                                 }
-                                $responderName = $case->approver?->name
+                                $rawResponder = $case->approver?->name
                                     ?? $case->rejector?->name
                                     ?? (($case->status === \App\Models\ServiceCase::STATUS_SENT_BACK) ? $case->spoc?->name : null)
                                     ?? null;
+                                $responderName = $rawResponder ? 'State Team' : null;
                                 $assignedByName = $case->submitter?->name
                                     ?? $case->creator?->name
                                     ?? '—';

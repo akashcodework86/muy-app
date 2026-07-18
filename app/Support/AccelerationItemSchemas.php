@@ -20,9 +20,10 @@ final class AccelerationItemSchemas
     public static function forKey(string $itemKey, ?string $section = null): array
     {
         $map = self::all();
+        $baseKey = AccelerationServicesOptions::baseItemKey($itemKey);
 
-        if (isset($map[$itemKey])) {
-            return ServiceFieldTypes::normalizeSchema($map[$itemKey]);
+        if (isset($map[$baseKey])) {
+            return ServiceFieldTypes::normalizeSchema($map[$baseKey]);
         }
 
         if ($section === AccelerationServicesOptions::SECTION_PARTNERSHIP) {
@@ -146,6 +147,10 @@ final class AccelerationItemSchemas
             if ($name === '' || isset($seen[$name])) {
                 continue;
             }
+            // Not a government scheme — keep scheme list govt-only.
+            if (strcasecmp($name, 'Other Convergence Support') === 0) {
+                continue;
+            }
             $seen[$name] = true;
             $out[] = ['value' => $name, 'label' => $name];
         }
@@ -200,13 +205,13 @@ final class AccelerationItemSchemas
                 'key' => 'registration_no',
                 'label' => 'Registration number',
                 'type' => T::TEXT,
-                'required' => false,
+                'required' => true,
             ],
             [
                 'key' => 'registration_date',
                 'label' => 'Registration / issue date',
                 'type' => T::DATE,
-                'required' => false,
+                'required' => true,
             ],
             [
                 'key' => 'enterprise_name',
@@ -290,7 +295,7 @@ final class AccelerationItemSchemas
                 'key' => 'applied_amount',
                 'label' => 'Applied amount (₹)',
                 'type' => T::AMOUNT,
-                'required' => false,
+                'required' => true,
             ],
             [
                 'key' => 'sanctioned_amount',

@@ -11,6 +11,7 @@ use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Services\MisMonthlyTargetIndicatorBootstrapService;
 use App\Services\ProgramDeliverablesReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -80,6 +81,7 @@ class AccelerationServicesTest extends TestCase
                         'service_item_date' => '2026-05-18',
                         'registration_type' => 'udyam',
                         'registration_no' => 'UDYAM-UK-00-0000000',
+                        'registration_date' => '2026-05-01',
                     ],
                     'market_linkage' => [
                         'service_item_date' => '2026-05-19',
@@ -93,6 +95,9 @@ class AccelerationServicesTest extends TestCase
                         'outcome_type' => ['sales'],
                         'buyer_name' => 'Local buyer',
                     ],
+                ],
+                'media' => [
+                    'business_formalization' => [UploadedFile::fake()->image('reg.jpg')],
                 ],
             ])
             ->assertRedirect();
@@ -252,6 +257,9 @@ class AccelerationServicesTest extends TestCase
             ->get(route('staff.acceleration-services.create'))
             ->assertOk()
             ->assertSee('In-house')
+            ->assertSee('Add another market linkage')
+            ->assertDontSee('Soft skill', false)
+            ->assertDontSee('Other Convergence Support', false)
             ->assertDontSee('Cross-cutting initiative', false)
             ->assertDontSee('External — Co-incubation partners', false);
 
@@ -270,6 +278,8 @@ class AccelerationServicesTest extends TestCase
                     'business_formalization' => [
                         'service_item_date' => '2026-05-18',
                         'registration_type' => 'udyam',
+                        'registration_no' => 'UDYAM-UK-00-0000001',
+                        'registration_date' => '2026-05-01',
                     ],
                     'buyer_seller_meet' => [
                         'service_item_date' => '2026-05-20',
@@ -278,6 +288,9 @@ class AccelerationServicesTest extends TestCase
                         'outcome_type' => ['sales'],
                         'buyer_name' => 'Buyer',
                     ],
+                ],
+                'media' => [
+                    'business_formalization' => [UploadedFile::fake()->image('reg.jpg')],
                 ],
             ])
             ->assertRedirect();
@@ -393,7 +406,12 @@ class AccelerationServicesTest extends TestCase
                     'business_formalization' => [
                         'service_item_date' => '2026-05-18',
                         'registration_type' => 'udyam',
+                        'registration_no' => 'UDYAM-UK-00-0000001',
+                        'registration_date' => '2026-05-01',
                     ],
+                ],
+                'media' => [
+                    'business_formalization' => [UploadedFile::fake()->image('reg.jpg')],
                 ],
             ])
             ->assertRedirect();
@@ -443,7 +461,11 @@ class AccelerationServicesTest extends TestCase
                         'service_item_date' => '2026-05-18',
                         'registration_type' => 'udyam',
                         'registration_no' => 'UDYAM-UK-01-0000001',
+                        'registration_date' => '2026-05-01',
                     ],
+                ],
+                'media' => [
+                    'business_formalization' => [UploadedFile::fake()->image('reg.jpg')],
                 ],
             ])
             ->assertRedirect();
@@ -498,6 +520,8 @@ class AccelerationServicesTest extends TestCase
                     'business_formalization' => [
                         'service_item_date' => '2026-05-18',
                         'registration_type' => 'udyam',
+                        'registration_no' => 'UDYAM-UK-00-0000001',
+                        'registration_date' => '2026-05-01',
                     ],
                 ],
             ])
@@ -558,7 +582,12 @@ class AccelerationServicesTest extends TestCase
                     'business_formalization' => [
                         'service_item_date' => '2026-05-18',
                         'registration_type' => 'udyam',
+                        'registration_no' => 'UDYAM-UK-00-0000001',
+                        'registration_date' => '2026-05-01',
                     ],
+                ],
+                'media' => [
+                    'business_formalization' => [UploadedFile::fake()->image('reg.jpg')],
                 ],
             ])
             ->assertRedirect();

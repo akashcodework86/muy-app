@@ -174,13 +174,13 @@
                                 <td>
                                     <span class="accel-status accel-status--{{ $rowStatus }}">{{ $row->statusLabel() }}</span>
                                     @if ($row->first_approved_by_name)
-                                        <div style="font-size:0.7rem;color:#64748b;margin-top:0.2rem;">Reviewed: {{ $row->first_approved_by_name }} · {{ $row->first_approved_at?->format('d M') }}</div>
+                                        <div style="font-size:0.7rem;color:#64748b;margin-top:0.2rem;">Reviewed: State Team · {{ $row->first_approved_at?->format('d M') }}</div>
                                     @endif
                                     @if ($row->final_approved_by_name)
-                                        <div style="font-size:0.7rem;color:#64748b;margin-top:0.1rem;">Approved: {{ $row->final_approved_by_name }} · {{ $row->final_approved_at?->format('d M') }}</div>
+                                        <div style="font-size:0.7rem;color:#64748b;margin-top:0.1rem;">Approved: State Team · {{ $row->final_approved_at?->format('d M') }}</div>
                                     @endif
                                     @if ($rowStatus === 'sent_back' && $row->sent_back_by_name)
-                                        <div style="font-size:0.7rem;color:#b91c1c;margin-top:0.1rem;">By {{ $row->sent_back_by_name }} · {{ $row->sent_back_at?->format('d M') }}</div>
+                                        <div style="font-size:0.7rem;color:#b91c1c;margin-top:0.1rem;">By State Team · {{ $row->sent_back_at?->format('d M') }}</div>
                                     @endif
                                 </td>
                             @endif

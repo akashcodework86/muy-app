@@ -105,18 +105,60 @@
                 @continue(empty($catalog[$sectionKey]))
                 <div class="accel-block">
                     <p class="accel-block__title">{{ $loop->iteration + 1 }}. {{ $meta['title'] }}</p>
-                    <div class="accel-section__items">
-                        @foreach ($catalog[$sectionKey] ?? [] as $item)
+                    <div class="accel-section__items" @if ($sectionKey === 'service_detail') id="accel_service_detail_items" @endif>
+                        @php
+                            $sectionChecked = (array) ($checkedKeys[$sectionKey] ?? []);
+                            $postedChecked = (array) old($meta['input'], $sectionChecked);
+                            $renderItems = [];
+                            foreach ($catalog[$sectionKey] ?? [] as $item) {
+                                if (($item['key'] ?? '') === 'soft_skills') {
+                                    continue;
+                                }
+                                if (($item['key'] ?? '') === 'market_linkage') {
+                                    $mlKeys = array_values(array_unique(array_filter(
+                                        $postedChecked,
+                                        static fn ($k) => \App\Support\AccelerationServicesOptions::isMarketLinkageKey((string) $k)
+                                    )));
+                                    if ($mlKeys === []) {
+                                        $mlKeys = ['market_linkage'];
+                                    }
+                                    usort($mlKeys, static function (string $a, string $b): int {
+                                        $na = $a === 'market_linkage' ? 1 : (int) (preg_replace('/\D+/', '', $a) ?: 99);
+                                        $nb = $b === 'market_linkage' ? 1 : (int) (preg_replace('/\D+/', '', $b) ?: 99);
+
+                                        return $na <=> $nb;
+                                    });
+                                    foreach ($mlKeys as $mlKey) {
+                                        $renderItems[] = [
+                                            'key' => $mlKey,
+                                            'label' => \App\Support\AccelerationServicesOptions::labelForKey($sectionKey, $mlKey),
+                                            'is_custom' => false,
+                                            'is_market_repeat' => $mlKey !== 'market_linkage',
+                                        ];
+                                    }
+                                    continue;
+                                }
+                                $renderItems[] = $item;
+                            }
+                        @endphp
+                        @foreach ($renderItems as $item)
                             @php
                                 $key = $item['key'];
-                                $schema = $itemSchemas[$key] ?? [];
-                                $sectionChecked = (array) ($checkedKeys[$sectionKey] ?? []);
-                                $oldChecked = in_array($key, (array) old($meta['input'], $sectionChecked), true);
+                                $schema = $itemSchemas[\App\Support\AccelerationServicesOptions::baseItemKey($key)]
+                                    ?? $itemSchemas[$key]
+                                    ?? \App\Support\AccelerationItemSchemas::forKey($key, $sectionKey);
+                                $oldChecked = in_array($key, $postedChecked, true);
+                                $isMarketLinkage = \App\Support\AccelerationServicesOptions::isMarketLinkageKey($key);
+                                $docsRequiredAlways = in_array($key, ['business_formalization', 'funding_investment_support'], true);
+                                $docsOrderProof = $isMarketLinkage || $key === 'buyer_seller_meet';
                             @endphp
-                            <div class="accel-item {{ $oldChecked ? 'is-checked' : '' }}" data-item-key="{{ $key }}" data-section="{{ $sectionKey }}">
+                            <div class="accel-item {{ $oldChecked ? 'is-checked' : '' }}" data-item-key="{{ $key }}" data-section="{{ $sectionKey }}" @if ($isMarketLinkage) data-market-linkage="1" @endif>
                                 <div class="accel-item__head">
                                     <input type="checkbox" name="{{ $meta['input'] }}[]" value="{{ $key }}" id="item_{{ $key }}" class="accel-item-check" @checked($oldChecked)>
                                     <label for="item_{{ $key }}">{{ $item['label'] }}</label>
+                                    @if (!empty($item['is_market_repeat']))
+                                        <button type="button" class="accel-link accel-remove-market-linkage" style="margin-left:auto;font-size:0.78rem;">Remove</button>
+                                    @endif
                                 </div>
                                 <div class="accel-item__extra">
                                     <div class="accel-item__schema" data-schema-for="{{ $key }}">
@@ -251,10 +293,31 @@
                                                         @endforeach
                                                     </div>
                                                 @elseif ($ftype === 'amount')
+                                                    @php
+                                                        $showAmountWords = in_array($fkey, ['applied_amount', 'sanctioned_amount'], true);
+                                                        $amountWordsSeed = is_numeric($oldVal) ? (float) $oldVal : null;
+                                                    @endphp
                                                     <div class="accel-input-affix">
                                                         <span class="accel-input-affix__prefix">₹</span>
-                                                        <input type="number" step="0.01" min="0" name="{{ $fname }}" value="{{ is_array($oldVal) ? '' : $oldVal }}" placeholder="0.00" class="{{ $fkey === 'order_value' ? 'accel-order-value' : '' }}" @if(!empty($field['required'])) data-schema-required="1" @endif>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            name="{{ $fname }}"
+                                                            value="{{ is_array($oldVal) ? '' : $oldVal }}"
+                                                            placeholder="0.00"
+                                                            class="{{ $fkey === 'order_value' ? 'accel-order-value' : '' }}{{ $showAmountWords ? ' accel-amount-words-input' : '' }}"
+                                                            @if ($showAmountWords) data-amount-words-for="words_{{ $key }}_{{ $fkey }}" @endif
+                                                            @if(!empty($field['required'])) data-schema-required="1" @endif
+                                                        >
                                                     </div>
+                                                    @if ($showAmountWords)
+                                                        <p class="accel-amount-words" id="words_{{ $key }}_{{ $fkey }}" aria-live="polite">
+                                                            @if ($amountWordsSeed !== null && $amountWordsSeed > 0)
+                                                                {{-- filled by JS on load; server placeholder --}}
+                                                            @endif
+                                                        </p>
+                                                    @endif
                                                 @elseif ($ftype === 'number')
                                                     <div class="accel-input-affix">
                                                         <input type="number" step="any" min="0" name="{{ $fname }}" value="{{ is_array($oldVal) ? '' : $oldVal }}" placeholder="0" @if(!empty($field['required'])) data-schema-required="1" @endif>
@@ -272,16 +335,18 @@
                                             </div>
                                         @endforeach
                                     </div>
-                                    <div class="accel-field accel-media-field {{ in_array($key, ['market_linkage', 'buyer_seller_meet'], true) ? 'accel-media-field--order-proof' : '' }}" data-media-for="{{ $key }}">
+                                    <div class="accel-field accel-media-field {{ $docsOrderProof ? 'accel-media-field--order-proof' : '' }}{{ $docsRequiredAlways ? ' accel-media-field--always-required' : '' }}" data-media-for="{{ $key }}">
                                         <label>
                                             Documents / photos
-                                            @if (in_array($key, ['market_linkage', 'buyer_seller_meet'], true))
+                                            @if ($docsRequiredAlways)
+                                                <span class="accel-required">*</span>
+                                            @elseif ($docsOrderProof)
                                                 <span class="accel-proof-note" hidden> — <strong>Proof of order / PO required</strong> when order value is entered</span>
                                             @else
                                                 <span style="font-weight:500;color:#64748b;">(optional)</span>
                                             @endif
                                         </label>
-                                        <input type="file" name="media[{{ $key }}][]" accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" multiple class="accel-media-input" data-preview="preview_{{ $key }}" data-item-key="{{ $key }}">
+                                        <input type="file" name="media[{{ $key }}][]" accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" multiple class="accel-media-input" data-preview="preview_{{ $key }}" data-item-key="{{ $key }}" @if ($docsRequiredAlways) data-media-always-required="1" @endif>
                                         <div id="preview_{{ $key }}" class="accel-media-preview"></div>
                                         @if (!empty($existingMedia[$key]))
                                             <div class="accel-existing-media">
@@ -291,6 +356,12 @@
                                             </div>
                                         @endif
                                     </div>
+                                    @if ($key === 'market_linkage')
+                                        <div class="accel-market-linkage-actions">
+                                            <button type="button" class="accel-btn accel-btn--secondary" id="accel_add_market_linkage">+ Add another market linkage</button>
+                                            <span class="accel-field-hint" style="margin:0;">One incubatee can have multiple market linkages on the same entry.</span>
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         @endforeach
@@ -326,6 +397,7 @@
     const searchUrl = @json(route($searchRoute));
     const historyUrl = @json(route($historyRoute));
     const autosaveUrl = @json(!empty($autosaveRoute) ? route($autosaveRoute) : null);
+    const mediaBaseUrl = @json(route($mediaRoute, ['accelerationMedia' => '__ID__']));
     const csrfToken = @json(csrf_token());
     const prefillApplicant = @json($prefill ?? null);
     const existingMediaMap = @json($existingMedia ?? []);
@@ -467,25 +539,235 @@
         syncOrderProofMedia(wrap);
     }
 
+    function indianAmountInWords(raw) {
+        const n = Math.floor(Math.abs(parseFloat(String(raw).replace(/,/g, '')) || 0));
+        if (!raw && raw !== 0) return '';
+        if (!Number.isFinite(n) || n <= 0) return '';
+        const a = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+            'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+        const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+        function numToWords(x) {
+            if (x < 20) return a[x];
+            if (x < 100) return b[Math.floor(x / 10)] + (x % 10 ? '-' + a[x % 10] : '');
+            if (x < 1000) return a[Math.floor(x / 100)] + ' hundred' + (x % 100 ? ' and ' + numToWords(x % 100) : '');
+            if (x < 100000) return numToWords(Math.floor(x / 1000)) + ' thousand ' + numToWords(x % 1000);
+            if (x < 10000000) return numToWords(Math.floor(x / 100000)) + ' lakh ' + numToWords(x % 100000);
+            return numToWords(Math.floor(x / 10000000)) + ' crore ' + numToWords(x % 10000000);
+        }
+        const paisePart = (() => {
+            const m = String(raw).match(/\.(\d{1,2})/);
+            if (!m) return '';
+            const p = parseInt((m[1] + '0').slice(0, 2), 10);
+            if (!p) return '';
+            return ' and ' + numToWords(p) + ' paise';
+        })();
+        const words = (numToWords(n) + paisePart).replace(/\s+/g, ' ').trim();
+        return words ? ('₹ ' + words.charAt(0).toUpperCase() + words.slice(1) + ' only') : '';
+    }
+
+    function syncAmountWords(input) {
+        if (!input) return;
+        const targetId = input.getAttribute('data-amount-words-for');
+        if (!targetId) return;
+        const out = document.getElementById(targetId);
+        if (!out) return;
+        const text = indianAmountInWords(input.value);
+        out.textContent = text;
+        out.hidden = !text;
+    }
+
+    function bindAmountWords() {
+        document.querySelectorAll('.accel-amount-words-input').forEach((input) => {
+            const run = () => syncAmountWords(input);
+            input.addEventListener('input', run);
+            input.addEventListener('change', run);
+            run();
+        });
+    }
+
     function syncOrderProofMedia(wrap) {
         if (!wrap) return;
         const itemKey = wrap.getAttribute('data-item-key') || '';
-        if (itemKey !== 'market_linkage' && itemKey !== 'buyer_seller_meet') return;
-        const orderInput = wrap.querySelector('.accel-order-value');
-        const mediaField = wrap.querySelector('.accel-media-field--order-proof');
+        const mediaField = wrap.querySelector('.accel-media-field');
         const mediaInput = wrap.querySelector('.accel-media-input');
         const note = wrap.querySelector('.accel-proof-note');
         const checked = !!(wrap.querySelector('.accel-item-check') || {}).checked;
-        const orderVal = parseFloat(orderInput && orderInput.value ? orderInput.value : '0') || 0;
-        const needsProof = checked && orderVal > 0;
         const existing = existingMediaMap[itemKey];
         const hasExisting = Array.isArray(existing) && existing.length > 0;
+        const alwaysRequired = !!(mediaInput && mediaInput.getAttribute('data-media-always-required') === '1')
+            || itemKey === 'business_formalization'
+            || itemKey === 'funding_investment_support';
+
+        if (alwaysRequired) {
+            if (mediaField) mediaField.classList.toggle('is-required-proof', checked);
+            if (mediaInput) {
+                mediaInput.required = checked && !hasExisting;
+                mediaInput.disabled = !checked;
+            }
+            return;
+        }
+
+        const isMarket = /^market_linkage(_\d+)?$/.test(itemKey);
+        if (!isMarket && itemKey !== 'buyer_seller_meet') return;
+
+        const orderInput = wrap.querySelector('.accel-order-value');
+        const orderVal = parseFloat(orderInput && orderInput.value ? orderInput.value : '0') || 0;
+        const needsProof = checked && orderVal > 0;
         if (mediaField) mediaField.classList.toggle('is-required-proof', needsProof);
         if (note) note.hidden = !needsProof;
         if (mediaInput) {
             mediaInput.required = needsProof && !hasExisting;
             mediaInput.disabled = !checked;
         }
+    }
+
+    function nextMarketLinkageKey() {
+        let max = 1;
+        document.querySelectorAll('[data-market-linkage="1"]').forEach((el) => {
+            const key = el.getAttribute('data-item-key') || '';
+            if (key === 'market_linkage') {
+                max = Math.max(max, 1);
+                return;
+            }
+            const m = key.match(/^market_linkage_(\d+)$/);
+            if (m) max = Math.max(max, parseInt(m[1], 10));
+        });
+        return 'market_linkage_' + (max + 1);
+    }
+
+    function rewriteMarketLinkageClone(clone, newKey) {
+        const n = newKey === 'market_linkage' ? 1 : parseInt(newKey.replace(/\D+/g, ''), 10) || 2;
+        const label = newKey === 'market_linkage' ? 'Market Linkage' : ('Market Linkage #' + n);
+        clone.setAttribute('data-item-key', newKey);
+        clone.classList.add('is-checked');
+        const check = clone.querySelector('.accel-item-check');
+        if (check) {
+            check.value = newKey;
+            check.id = 'item_' + newKey;
+            check.checked = true;
+            check.name = 'service_detail[]';
+        }
+        const labelEl = clone.querySelector('.accel-item__head label');
+        if (labelEl) {
+            labelEl.setAttribute('for', 'item_' + newKey);
+            labelEl.textContent = label;
+        }
+        let removeBtn = clone.querySelector('.accel-remove-market-linkage');
+        if (!removeBtn && newKey !== 'market_linkage') {
+            removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'accel-link accel-remove-market-linkage';
+            removeBtn.style.cssText = 'margin-left:auto;font-size:0.78rem;';
+            removeBtn.textContent = 'Remove';
+            const head = clone.querySelector('.accel-item__head');
+            if (head) head.appendChild(removeBtn);
+        }
+        clone.querySelectorAll('[name]').forEach((el) => {
+            const name = el.getAttribute('name') || '';
+            if (name.startsWith('payload[market_linkage')) {
+                el.setAttribute('name', name.replace(/payload\[market_linkage(?:_\d+)?]/, 'payload[' + newKey + ']'));
+            } else if (name.startsWith('media[market_linkage')) {
+                el.setAttribute('name', 'media[' + newKey + '][]');
+            }
+            if (el.type === 'checkbox' && el.classList.contains('accel-item-check')) return;
+            if (el.type === 'file') {
+                el.value = '';
+                el.setAttribute('data-item-key', newKey);
+                el.setAttribute('data-preview', 'preview_' + newKey);
+            } else if (el.type === 'checkbox' || el.type === 'radio') {
+                el.checked = false;
+            } else {
+                el.value = '';
+            }
+        });
+        const preview = clone.querySelector('.accel-media-preview');
+        if (preview) {
+            preview.id = 'preview_' + newKey;
+            preview.innerHTML = '';
+        }
+        const mediaField = clone.querySelector('.accel-media-field');
+        if (mediaField) mediaField.setAttribute('data-media-for', newKey);
+        const existing = clone.querySelector('.accel-existing-media');
+        if (existing) existing.remove();
+        const actions = clone.querySelector('.accel-market-linkage-actions');
+        if (actions) actions.remove();
+        const schemaRoot = clone.querySelector('.accel-item__schema');
+        if (schemaRoot) schemaRoot.setAttribute('data-schema-for', newKey);
+    }
+
+    function bindMarketLinkageControls() {
+        const addBtn = document.getElementById('accel_add_market_linkage');
+        const container = document.getElementById('accel_service_detail_items');
+        if (addBtn && container) {
+            addBtn.addEventListener('click', () => {
+                const template = container.querySelector('[data-market-linkage="1"][data-item-key="market_linkage"]')
+                    || container.querySelector('[data-market-linkage="1"]');
+                if (!template) return;
+                const newKey = nextMarketLinkageKey();
+                const clone = template.cloneNode(true);
+                rewriteMarketLinkageClone(clone, newKey);
+                const marketItems = container.querySelectorAll('[data-market-linkage="1"]');
+                const last = marketItems[marketItems.length - 1] || template;
+                last.after(clone);
+                const check = clone.querySelector('.accel-item-check');
+                if (check) {
+                    // Re-bind like bindItemChecks for this clone only
+                    const wrap = clone;
+                    const sync = () => {
+                        wrap.classList.toggle('is-checked', check.checked);
+                        syncVisibleIf(wrap);
+                        renderTickedNow();
+                        scheduleAutosave();
+                    };
+                    check.addEventListener('change', sync);
+                    wrap.querySelectorAll('input, select, textarea').forEach((input) => {
+                        if (input.classList.contains('accel-item-check')) return;
+                        input.addEventListener('change', () => {
+                            syncVisibleIf(wrap);
+                            scheduleAutosave();
+                        });
+                        input.addEventListener('input', () => {
+                            if (input.classList.contains('accel-order-value')) syncOrderProofMedia(wrap);
+                            scheduleAutosave();
+                        });
+                    });
+                    const mediaInput = wrap.querySelector('.accel-media-input');
+                    if (mediaInput) {
+                        mediaInput.addEventListener('change', function () {
+                            const preview = document.getElementById(this.getAttribute('data-preview'));
+                            if (preview) {
+                                preview.innerHTML = '';
+                                Array.from(this.files || []).forEach((file) => {
+                                    if (file.type && file.type.startsWith('image/')) {
+                                        const img = document.createElement('img');
+                                        img.src = URL.createObjectURL(file);
+                                        preview.appendChild(img);
+                                    } else {
+                                        const chip = document.createElement('span');
+                                        chip.className = 'accel-media-chip';
+                                        chip.textContent = file.name;
+                                        preview.appendChild(chip);
+                                    }
+                                });
+                            }
+                            scheduleAutosave();
+                        });
+                    }
+                    sync();
+                }
+                scheduleAutosave();
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.accel-remove-market-linkage');
+            if (!btn) return;
+            const wrap = btn.closest('.accel-item');
+            if (!wrap || wrap.getAttribute('data-item-key') === 'market_linkage') return;
+            wrap.remove();
+            renderTickedNow();
+            scheduleAutosave();
+        });
     }
 
     function bindItemChecks() {
@@ -566,6 +848,36 @@
                 }
                 if (json.edit_url && window.history && window.history.replaceState && !String(window.location.pathname).includes('/edit')) {
                     window.history.replaceState({}, '', json.edit_url);
+                }
+                // After files are stored, clear file inputs so the next autosave/save
+                // does not re-upload the same documents.
+                if (json.existing_media && typeof json.existing_media === 'object') {
+                    Object.keys(json.existing_media).forEach((key) => {
+                        existingMediaMap[key] = json.existing_media[key];
+                    });
+                    form.querySelectorAll('.accel-media-input').forEach((input) => {
+                        if (input.files && input.files.length) {
+                            input.value = '';
+                            const preview = document.getElementById(input.getAttribute('data-preview') || '');
+                            if (preview) preview.innerHTML = '';
+                        }
+                        const wrap = input.closest('.accel-item');
+                        if (wrap) syncOrderProofMedia(wrap);
+                    });
+                    Object.keys(json.existing_media).forEach((key) => {
+                        const mediaField = form.querySelector('.accel-media-field[data-media-for="' + key + '"]');
+                        if (!mediaField) return;
+                        let list = mediaField.querySelector('.accel-existing-media');
+                        if (!list) {
+                            list = document.createElement('div');
+                            list.className = 'accel-existing-media';
+                            mediaField.appendChild(list);
+                        }
+                        list.innerHTML = (json.existing_media[key] || []).map((row) => (
+                            '<a class="accel-link" href="' + mediaBaseUrl.replace('__ID__', String(row.id)) + '" target="_blank" rel="noopener">'
+                            + String(row.name || 'file').replace(/</g, '&lt;') + '</a>'
+                        )).join('');
+                    });
                 }
                 setAutosaveStatus('Draft saved', false);
             })
@@ -831,6 +1143,8 @@
     }
 
     bindItemChecks();
+    bindMarketLinkageControls();
+    bindAmountWords();
     bindMediaPreviews();
 
     if (prefillApplicant && prefillApplicant.legacy_phase1_application_id) {

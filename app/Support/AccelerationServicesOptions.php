@@ -46,6 +46,9 @@ final class AccelerationServicesOptions
 
         foreach (self::SYSTEM_ITEMS[$section] ?? [] as $row) {
             $key = (string) $row['key'];
+            if ($key === 'soft_skills') {
+                continue;
+            }
             $items[] = ['key' => $key, 'label' => (string) $row['label'], 'is_custom' => false];
             $seen[$key] = true;
         }
@@ -59,6 +62,9 @@ final class AccelerationServicesOptions
 
             foreach ($custom as $row) {
                 $key = (string) $row->item_key;
+                if ($key === 'soft_skills' || str_contains(strtolower((string) $row->item_label), 'soft skill')) {
+                    continue;
+                }
                 if (isset($seen[$key])) {
                     continue;
                 }
@@ -92,10 +98,36 @@ final class AccelerationServicesOptions
 
     public static function labelForKey(string $section, string $key): string
     {
+        if (self::isMarketLinkageKey($key)) {
+            if ($key === 'market_linkage') {
+                return 'Market Linkage';
+            }
+            if (preg_match('/^market_linkage_(\d+)$/', $key, $m)) {
+                return 'Market Linkage #'.(int) $m[1];
+            }
+        }
+
         foreach (self::itemsForSection($section) as $item) {
             if ($item['key'] === $key) {
                 return $item['label'];
             }
+        }
+
+        return $key;
+    }
+
+    public static function isMarketLinkageKey(string $key): bool
+    {
+        return (bool) preg_match('/^market_linkage(_\d+)?$/', $key);
+    }
+
+    /**
+     * Resolve schema/catalog base key (e.g. market_linkage_2 → market_linkage).
+     */
+    public static function baseItemKey(string $key): string
+    {
+        if (preg_match('/^(market_linkage)_\d+$/', $key, $m)) {
+            return $m[1];
         }
 
         return $key;

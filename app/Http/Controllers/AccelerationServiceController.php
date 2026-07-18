@@ -186,15 +186,25 @@ class AccelerationServiceController extends Controller
             ], 422);
         }
 
+        $session = $result['session']->load(['items.media']);
+        $existingMedia = [];
+        foreach ($session->items as $item) {
+            $existingMedia[(string) $item->item_key] = $item->media->map(fn ($m) => [
+                'id' => (int) $m->id,
+                'name' => (string) $m->original_name,
+            ])->values()->all();
+        }
+
         $prefix = AccelerationServicesAccess::routePrefixForUser($user);
 
         return response()->json([
             'ok' => true,
-            'session_id' => (int) $result['session']->id,
+            'session_id' => (int) $session->id,
             'item_count' => (int) $result['item_count'],
-            'is_draft' => (bool) ($result['session']->is_draft ?? true),
-            'edit_url' => route($prefix.'acceleration-services.edit', $result['session']),
-            'update_url' => route($prefix.'acceleration-services.update', $result['session']),
+            'is_draft' => (bool) ($session->is_draft ?? true),
+            'existing_media' => $existingMedia,
+            'edit_url' => route($prefix.'acceleration-services.edit', $session),
+            'update_url' => route($prefix.'acceleration-services.update', $session),
         ]);
     }
 

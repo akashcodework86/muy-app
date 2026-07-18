@@ -580,6 +580,32 @@
         box-shadow:0 0 0 3px rgba(245,158,11,0.15);
     }
     .accel-media-field--order-proof.is-required-proof label { color:#92400e; }
+    .accel-media-field--always-required.is-required-proof {
+        border:1px solid #f59e0b;
+        background:#fffbeb;
+        border-radius:10px;
+        padding:0.75rem 0.85rem;
+        box-shadow:0 0 0 3px rgba(245,158,11,0.15);
+    }
+    .accel-media-field--always-required.is-required-proof label { color:#92400e; }
+    .accel-market-linkage-actions {
+        display:flex;
+        flex-wrap:wrap;
+        gap:0.65rem;
+        align-items:center;
+        margin-top:0.75rem;
+        padding-top:0.75rem;
+        border-top:1px dashed #99f6e4;
+    }
+    .accel-amount-words {
+        margin:0.35rem 0 0;
+        font-size:0.78rem;
+        font-weight:600;
+        color:#0f766e;
+        line-height:1.35;
+    }
+    .accel-amount-words:empty,
+    .accel-amount-words[hidden] { display:none; }
     .accel-proof-note { color:#b45309; }
     .accel-existing-media { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.45rem; }
     .accel-form-actions { display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem; }

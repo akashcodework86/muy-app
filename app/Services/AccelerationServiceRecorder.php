@@ -362,17 +362,31 @@ class AccelerationServiceRecorder
                     ]);
                 }
 
-                if (! $asDraft && in_array($key, ['market_linkage', AccelerationServicesOptions::BUYER_SELLER_MEET_KEY], true)) {
+                if (! $asDraft && (
+                    $key === 'business_formalization'
+                    || $key === 'funding_investment_support'
+                    || AccelerationServicesOptions::isMarketLinkageKey($key)
+                    || $key === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY
+                )) {
+                    $needsMediaAlways = in_array($key, ['business_formalization', 'funding_investment_support'], true);
                     $orderValue = (float) ($cleanPayload['order_value'] ?? 0);
-                    if ($orderValue > 0) {
+                    $needsMedia = $needsMediaAlways || $orderValue > 0;
+
+                    if ($needsMedia) {
                         $hasNewFiles = $this->requestHasMediaForKey($request, $key);
                         $hasExisting = isset($existingMediaKeys[$key]);
                         if (! $hasNewFiles && ! $hasExisting) {
-                            $labelHint = $key === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY
-                                ? 'Buyer Seller Meet'
-                                : 'Market Linkage';
+                            $message = match ($key) {
+                                'business_formalization' => 'Upload registration documents / photos for Business Formalization.',
+                                'funding_investment_support' => 'Upload scheme application / sanction documents for Convergence — Funding and Investment Support.',
+                                default => (
+                                    AccelerationServicesOptions::isMarketLinkageKey($key) || $key === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY
+                                        ? 'Upload proof of order / PO documents when Order / PO value is filled for '.$label.'.'
+                                        : 'Upload documents for '.$label.'.'
+                                ),
+                            };
                             throw ValidationException::withMessages([
-                                'media.'.$key => 'Upload proof of order / PO documents when Order / PO value is filled for '.$labelHint.'.',
+                                'media.'.$key => $message,
                             ]);
                         }
                     }
@@ -458,19 +472,35 @@ class AccelerationServiceRecorder
             $files = $files ? [$files] : [];
         }
 
+        $existingFingerprints = AccelerationServiceItemMedia::query()
+            ->where('item_id', $itemId)
+            ->get(['original_name', 'size_bytes'])
+            ->map(static fn ($m) => strtolower((string) $m->original_name).'|'.(int) $m->size_bytes)
+            ->flip()
+            ->all();
+
         foreach ($files as $file) {
             if (! $file instanceof UploadedFile || ! $file->isValid()) {
                 continue;
             }
+
+            $originalName = $file->getClientOriginalName() ?: 'upload';
+            $sizeBytes = (int) $file->getSize();
+            $fingerprint = strtolower($originalName).'|'.$sizeBytes;
+            // Autosave + final save (or repeated autosaves) can resend the same file input.
+            if (isset($existingFingerprints[$fingerprint])) {
+                continue;
+            }
+            $existingFingerprints[$fingerprint] = true;
 
             $path = $file->store('acceleration-service-media/'.$itemId, 'local');
             AccelerationServiceItemMedia::query()->create([
                 'item_id' => $itemId,
                 'disk' => 'local',
                 'path' => $path,
-                'original_name' => $file->getClientOriginalName() ?: 'upload',
+                'original_name' => $originalName,
                 'mime_type' => $file->getMimeType(),
-                'size_bytes' => (int) $file->getSize(),
+                'size_bytes' => $sizeBytes,
                 'uploaded_by_user_id' => $userId,
             ]);
         }
