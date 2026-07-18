@@ -58,6 +58,103 @@ class AccelerationServicesIncubateeService
     }
 
     /**
+     * Prior acceleration form items for an incubatee (for prefill on a new entry).
+     * Latest non-draft item wins per item_key. Optionally exclude the session being edited.
+     *
+     * @return list<array{
+     *   item_key: string,
+     *   section: string,
+     *   item_label: string,
+     *   payload: array<string, mixed>,
+     *   assigned_by: string,
+     *   service_date: string|null,
+     *   status: string|null,
+     *   session_id: int,
+     *   media: list<array{id:int,name:string}>
+     * }>
+     */
+    public function priorAccelerationFormItems(string $incubateeKey, ?int $excludeSessionId = null): array
+    {
+        if ($incubateeKey === '' || ! Schema::hasTable('acceleration_service_sessions') || ! Schema::hasTable('acceleration_service_items')) {
+            return [];
+        }
+
+        $sessionsQuery = DB::table('acceleration_service_sessions as s')
+            ->where('s.incubatee_key', $incubateeKey)
+            ->orderBy('s.service_date')
+            ->orderBy('s.id');
+
+        if ($excludeSessionId !== null && $excludeSessionId > 0) {
+            $sessionsQuery->where('s.id', '!=', $excludeSessionId);
+        }
+        if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
+            $sessionsQuery->where('s.is_draft', false);
+        } elseif (Schema::hasColumn('acceleration_service_sessions', 'status')) {
+            $sessionsQuery->where('s.status', '!=', 'draft');
+        }
+
+        $sessions = $sessionsQuery->get(['s.id', 's.service_date', 's.submitted_by_name', 's.status']);
+        if ($sessions->isEmpty()) {
+            return [];
+        }
+
+        $sessionIds = $sessions->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $sessionMeta = $sessions->keyBy('id');
+
+        $items = DB::table('acceleration_service_items')
+            ->whereIn('session_id', $sessionIds)
+            ->orderBy('id')
+            ->get();
+
+        $mediaByItem = collect();
+        if (Schema::hasTable('acceleration_service_item_media')) {
+            $mediaByItem = DB::table('acceleration_service_item_media')
+                ->whereIn('item_id', $items->pluck('id')->all())
+                ->orderBy('id')
+                ->get(['id', 'item_id', 'original_name'])
+                ->groupBy('item_id');
+        }
+
+        /** @var array<string, array<string, mixed>> $byKey */
+        $byKey = [];
+        foreach ($items as $item) {
+            $key = (string) ($item->item_key ?? '');
+            if ($key === '' || $key === 'soft_skills') {
+                continue;
+            }
+
+            $session = $sessionMeta->get($item->session_id);
+            $payload = $item->payload ?? [];
+            if (is_string($payload)) {
+                $decoded = json_decode($payload, true);
+                $payload = is_array($decoded) ? $decoded : [];
+            } elseif (! is_array($payload)) {
+                $payload = [];
+            }
+
+            $mediaRows = $mediaByItem->get((int) $item->id, collect());
+            $byKey[$key] = [
+                'item_key' => $key,
+                'section' => (string) ($item->section ?? 'service_detail'),
+                'item_label' => (string) ($item->item_label ?? $key),
+                'payload' => $payload,
+                'assigned_by' => (string) ($session->submitted_by_name ?? '—'),
+                'service_date' => $session && $session->service_date
+                    ? Carbon::parse($session->service_date)->format('d M Y')
+                    : null,
+                'status' => isset($session->status) ? (string) $session->status : null,
+                'session_id' => (int) $item->session_id,
+                'media' => $mediaRows->map(static fn ($m) => [
+                    'id' => (int) $m->id,
+                    'name' => (string) $m->original_name,
+                ])->values()->all(),
+            ];
+        }
+
+        return array_values($byKey);
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function phase1LegacyServiceRows(int $legacyPhase1ApplicationId, string $applicationDate, int $sortBase): array

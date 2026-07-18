@@ -607,9 +607,15 @@ class AccelerationServiceController extends Controller
             $key = \App\Support\AccelerationServicesOptions::incubateeKey($legacyPhase1ApplicationId);
         }
 
+        $excludeSessionId = (int) $request->query('exclude_session_id', 0);
+
         return response()->json([
             'ok' => true,
             'services' => $this->incubatees->allServicesGiven($legacyPhase1ApplicationId, $key),
+            'prior_form_items' => $this->incubatees->priorAccelerationFormItems(
+                $key,
+                $excludeSessionId > 0 ? $excludeSessionId : null,
+            ),
         ]);
     }
 

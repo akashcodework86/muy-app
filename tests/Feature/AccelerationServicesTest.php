@@ -606,4 +606,97 @@ class AccelerationServicesTest extends TestCase
         $session->refresh();
         $this->assertSame('approved', (string) $session->status);
     }
+
+    public function test_prior_form_items_expose_district_assigned_service_for_ankur_prefill(): void
+    {
+        $fy = FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+
+        $sessionId = DB::table('acceleration_service_sessions')->insertGetId([
+            'service_date' => '2026-05-10',
+            'fiscal_year_id' => $fy->id,
+            'legacy_phase1_application_id' => 916460916,
+            'incubatee_key' => 'p1:916460916',
+            'incubatee_source' => 'phase1',
+            'applicant_name' => 'Vikas Pant',
+            'application_no' => '916460916',
+            'phone' => '9000000000',
+            'district_name' => 'Almora',
+            'onboard_label' => 'Onboarded',
+            'counts_for_7_2' => true,
+            'is_draft' => false,
+            'status' => 'pending_review',
+            'submitted_by_user_id' => 99,
+            'submitted_by_name' => 'District Staff',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('acceleration_service_items')->insert([
+            'session_id' => $sessionId,
+            'section' => 'service_detail',
+            'item_key' => 'market_linkage',
+            'item_label' => 'Market Linkage',
+            'remarks' => null,
+            'is_custom' => false,
+            'is_buyer_seller_meet' => false,
+            'payload' => json_encode([
+                'service_item_date' => '2026-05-10',
+                'buyer_name' => 'Test Buyer',
+                'order_value' => '5000',
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $prior = app(AccelerationServicesIncubateeService::class)
+            ->priorAccelerationFormItems('p1:916460916');
+
+        $this->assertCount(1, $prior);
+        $this->assertSame('market_linkage', $prior[0]['item_key']);
+        $this->assertSame('District Staff', $prior[0]['assigned_by']);
+        $this->assertSame('Test Buyer', $prior[0]['payload']['buyer_name'] ?? null);
+
+        $draftId = DB::table('acceleration_service_sessions')->insertGetId([
+            'service_date' => '2026-05-11',
+            'fiscal_year_id' => $fy->id,
+            'legacy_phase1_application_id' => 916460916,
+            'incubatee_key' => 'p1:916460916',
+            'incubatee_source' => 'phase1',
+            'applicant_name' => 'Vikas Pant',
+            'application_no' => '916460916',
+            'phone' => '9000000000',
+            'district_name' => 'Almora',
+            'onboard_label' => 'Onboarded',
+            'counts_for_7_2' => false,
+            'is_draft' => true,
+            'status' => 'draft',
+            'submitted_by_user_id' => 1,
+            'submitted_by_name' => 'Draft User',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('acceleration_service_items')->insert([
+            'session_id' => $draftId,
+            'section' => 'partnership',
+            'item_key' => 'tbi_graphic_era',
+            'item_label' => 'TBI Graphic Era',
+            'remarks' => null,
+            'is_custom' => false,
+            'is_buyer_seller_meet' => false,
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $priorAgain = app(AccelerationServicesIncubateeService::class)
+            ->priorAccelerationFormItems('p1:916460916');
+        $this->assertCount(1, $priorAgain);
+        $this->assertSame('market_linkage', $priorAgain[0]['item_key']);
+    }
 }

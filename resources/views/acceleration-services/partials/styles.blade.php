@@ -315,6 +315,23 @@
         background:#f0fdfa;
         box-shadow:inset 3px 0 0 #0d9488;
     }
+    .accel-item.is-prior {
+        border-color:#94a3b8;
+        background:#f8fafc;
+        box-shadow:inset 3px 0 0 #64748b;
+    }
+    .accel-item.is-prior .accel-item__extra {
+        border-color:#cbd5e1;
+        background:#fff;
+    }
+    .accel-prior-badge {
+        display:block;
+        margin:0.35rem 0 0;
+        font-size:0.72rem;
+        font-weight:600;
+        color:#475569;
+        line-height:1.35;
+    }
     .accel-item__head { display:flex; gap:0.6rem; align-items:flex-start; }
     .accel-item__head input[type="checkbox"] {
         width:1.05rem;

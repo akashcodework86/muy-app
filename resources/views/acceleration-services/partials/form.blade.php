@@ -401,6 +401,7 @@
     const csrfToken = @json(csrf_token());
     const prefillApplicant = @json($prefill ?? null);
     const existingMediaMap = @json($existingMedia ?? []);
+    const isEditingSession = @json(!empty($editingSession));
     const searchInput = document.getElementById('accel_search');
     const searchResults = document.getElementById('accel_search_results');
     const selectedPanel = document.getElementById('accel_selected_applicant');
@@ -419,6 +420,7 @@
     let lockedId = null;
     let selectedId = null;
     const servicesCache = {};
+    const priorFormCache = {};
     let autosaveBusy = false;
 
     function collectTickedServices() {
@@ -430,10 +432,13 @@
             const sectionTitle = sectionBlock
                 ? String((sectionBlock.querySelector('.accel-block__title') || {}).textContent || '').replace(/^\d+\.\s*/, '').trim()
                 : '';
+            const badge = wrap ? wrap.querySelector('.accel-prior-badge') : null;
             items.push({
                 key: el.value,
                 label: labelEl ? labelEl.textContent.trim() : el.value,
                 section: sectionTitle,
+                prior: !!(wrap && wrap.getAttribute('data-prior-locked') === '1'),
+                priorNote: badge ? badge.textContent : '',
             });
         });
         return items;
@@ -452,6 +457,7 @@
                 + '<span class="accel-ticked-chip__body">'
                 + '<strong>' + item.label + '</strong>'
                 + (item.section ? '<span class="accel-ticked-chip__section">' + item.section + '</span>' : '')
+                + (item.prior && item.priorNote ? '<span class="accel-ticked-chip__section">' + item.priorNote + '</span>' : '')
                 + '</span>'
                 + '</div>';
         }).join('');
@@ -520,6 +526,17 @@
     }
 
     function syncItemRequired(wrap, checked) {
+        if (wrap.getAttribute('data-prior-locked') === '1') {
+            wrap.querySelectorAll('input, select, textarea, button').forEach((el) => {
+                if (el.classList.contains('accel-remove-market-linkage')) {
+                    el.hidden = true;
+                    return;
+                }
+                el.disabled = true;
+                if ('required' in el) el.required = false;
+            });
+            return;
+        }
         wrap.querySelectorAll('.accel-field, .accel-support-type__specify').forEach((field) => {
             if (field.hidden || field.classList.contains('is-cond-hidden')) {
                 field.querySelectorAll('input, select, textarea').forEach((el) => {
@@ -587,6 +604,14 @@
 
     function syncOrderProofMedia(wrap) {
         if (!wrap) return;
+        if (wrap.getAttribute('data-prior-locked') === '1') {
+            const mediaInput = wrap.querySelector('.accel-media-input');
+            if (mediaInput) {
+                mediaInput.required = false;
+                mediaInput.disabled = true;
+            }
+            return;
+        }
         const itemKey = wrap.getAttribute('data-item-key') || '';
         const mediaField = wrap.querySelector('.accel-media-field');
         const mediaInput = wrap.querySelector('.accel-media-input');
@@ -958,26 +983,251 @@
 
     function loadServices(app) {
         if (!app) {
-            return Promise.resolve([]);
+            return Promise.resolve({ services: [], prior: [] });
         }
         const legacyId = applicantId(app);
         const key = String(app.incubatee_key || '');
-        const cacheKey = legacyId + ':' + key;
+        const excludeId = sessionIdInput && sessionIdInput.value ? String(sessionIdInput.value) : '';
+        const cacheKey = legacyId + ':' + key + ':' + excludeId;
         if (servicesCache[cacheKey]) {
-            return Promise.resolve(servicesCache[cacheKey]);
+            return Promise.resolve({
+                services: servicesCache[cacheKey],
+                prior: priorFormCache[cacheKey] || [],
+            });
         }
         const params = new URLSearchParams({
             legacy_phase1_application_id: legacyId,
             incubatee_key: key,
         });
+        if (excludeId) {
+            params.set('exclude_session_id', excludeId);
+        }
         return fetch(historyUrl + '?' + params.toString(), { headers: { 'Accept': 'application/json' } })
             .then((r) => r.json())
             .then((data) => {
                 const items = data.services || [];
+                const prior = data.prior_form_items || [];
                 servicesCache[cacheKey] = items;
-                return items;
+                priorFormCache[cacheKey] = prior;
+                return { services: items, prior: prior };
             })
-            .catch(() => []);
+            .catch(() => ({ services: [], prior: [] }));
+    }
+
+    function clearPriorFormItems() {
+        document.querySelectorAll('.accel-item[data-prior-locked="1"]').forEach((wrap) => {
+            const key = wrap.getAttribute('data-item-key') || '';
+            if (/^market_linkage_\d+$/.test(key)) {
+                wrap.remove();
+                return;
+            }
+            wrap.removeAttribute('data-prior-locked');
+            wrap.classList.remove('is-prior', 'is-checked');
+            const badge = wrap.querySelector('.accel-prior-badge');
+            if (badge) badge.remove();
+            const check = wrap.querySelector('.accel-item-check');
+            if (check) {
+                check.checked = false;
+                check.disabled = false;
+            }
+            wrap.querySelectorAll('input, select, textarea').forEach((el) => {
+                if (el.classList.contains('accel-item-check')) return;
+                el.disabled = false;
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    el.checked = false;
+                } else if (el.type === 'file') {
+                    el.value = '';
+                } else {
+                    el.value = '';
+                }
+            });
+            const existing = wrap.querySelector('.accel-existing-media');
+            if (existing) existing.innerHTML = '';
+            if (key) delete existingMediaMap[key];
+            syncVisibleIf(wrap);
+            syncItemRequired(wrap, false);
+        });
+        const addBtn = document.getElementById('accel_add_market_linkage');
+        if (addBtn) addBtn.hidden = false;
+        renderTickedNow();
+    }
+
+    function ensureItemWrap(itemKey) {
+        let wrap = form.querySelector('.accel-item[data-item-key="' + itemKey + '"]');
+        if (wrap) return wrap;
+
+        if (!/^market_linkage(_\d+)?$/.test(itemKey)) {
+            return null;
+        }
+
+        const container = document.getElementById('accel_service_detail_items');
+        if (!container) return null;
+
+        if (itemKey === 'market_linkage') {
+            return container.querySelector('[data-market-linkage="1"][data-item-key="market_linkage"]')
+                || container.querySelector('[data-market-linkage="1"]');
+        }
+
+        let guard = 0;
+        while (guard++ < 20) {
+            wrap = form.querySelector('.accel-item[data-item-key="' + itemKey + '"]');
+            if (wrap) return wrap;
+
+            const template = container.querySelector('[data-market-linkage="1"][data-item-key="market_linkage"]')
+                || container.querySelector('[data-market-linkage="1"]');
+            if (!template) return null;
+
+            const newKey = nextMarketLinkageKey();
+            const clone = template.cloneNode(true);
+            rewriteMarketLinkageClone(clone, newKey);
+            const marketItems = container.querySelectorAll('[data-market-linkage="1"]');
+            const last = marketItems[marketItems.length - 1] || template;
+            last.after(clone);
+
+            const check = clone.querySelector('.accel-item-check');
+            if (check) {
+                check.addEventListener('change', () => {
+                    if (clone.getAttribute('data-prior-locked') === '1') {
+                        check.checked = true;
+                        return;
+                    }
+                    clone.classList.toggle('is-checked', check.checked);
+                    syncVisibleIf(clone);
+                    renderTickedNow();
+                    scheduleAutosave();
+                });
+            }
+
+            if (newKey === itemKey) {
+                return clone;
+            }
+        }
+
+        return form.querySelector('.accel-item[data-item-key="' + itemKey + '"]');
+    }
+
+    function setFieldValue(wrap, itemKey, fieldKey, value) {
+        const base = 'payload[' + itemKey + '][' + fieldKey + ']';
+        const multiName = base + '[]';
+        const multiBoxes = wrap.querySelectorAll('input[type="checkbox"][name="' + multiName + '"]');
+        if (multiBoxes.length) {
+            const values = Array.isArray(value) ? value.map(String) : (value != null && value !== '' ? [String(value)] : []);
+            multiBoxes.forEach((el) => {
+                el.checked = values.includes(String(el.value));
+            });
+            return;
+        }
+        const radios = wrap.querySelectorAll('input[type="radio"][name="' + base + '"]');
+        if (radios.length) {
+            radios.forEach((el) => {
+                el.checked = String(el.value) === String(value ?? '');
+            });
+            return;
+        }
+        const singleCheck = wrap.querySelector('input[type="checkbox"][name="' + base + '"]');
+        if (singleCheck) {
+            singleCheck.checked = !!value && String(value) !== '0' && String(value) !== 'false';
+            return;
+        }
+        const el = wrap.querySelector('[name="' + base + '"]');
+        if (!el) return;
+        if (el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.type === 'text' || el.type === 'number' || el.type === 'date' || el.type === 'email' || !el.type) {
+            el.value = value == null ? '' : String(value);
+        } else {
+            el.value = value == null ? '' : String(value);
+        }
+        if (el.classList.contains('accel-amount-words-input')) {
+            syncAmountWords(el);
+        }
+        if (el.classList.contains('accel-order-value')) {
+            syncOrderProofMedia(wrap);
+        }
+    }
+
+    function fillItemPayload(wrap, itemKey, payload) {
+        if (!payload || typeof payload !== 'object') return;
+        Object.keys(payload).forEach((fieldKey) => {
+            setFieldValue(wrap, itemKey, fieldKey, payload[fieldKey]);
+        });
+    }
+
+    function renderPriorMedia(wrap, itemKey, mediaRows) {
+        existingMediaMap[itemKey] = Array.isArray(mediaRows) ? mediaRows : [];
+        const mediaField = wrap.querySelector('.accel-media-field');
+        if (!mediaField) return;
+        let list = mediaField.querySelector('.accel-existing-media');
+        if (!list) {
+            list = document.createElement('div');
+            list.className = 'accel-existing-media';
+            mediaField.appendChild(list);
+        }
+        list.innerHTML = (existingMediaMap[itemKey] || []).map((row) => (
+            '<a class="accel-link" href="' + mediaBaseUrl.replace('__ID__', String(row.id)) + '" target="_blank" rel="noopener">'
+            + String(row.name || 'file').replace(/</g, '&lt;') + '</a>'
+        )).join('');
+    }
+
+    function lockPriorItem(wrap, meta) {
+        wrap.setAttribute('data-prior-locked', '1');
+        wrap.classList.add('is-checked', 'is-prior');
+        const check = wrap.querySelector('.accel-item-check');
+        if (check) {
+            check.checked = true;
+            check.disabled = true;
+        }
+        let badge = wrap.querySelector('.accel-prior-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'accel-prior-badge';
+            const head = wrap.querySelector('.accel-item__head');
+            if (head) head.appendChild(badge);
+        }
+        const bits = ['Already assigned'];
+        if (meta.assigned_by) bits.push('by ' + meta.assigned_by);
+        if (meta.service_date) bits.push('· ' + meta.service_date);
+        badge.textContent = bits.join(' ');
+
+        const removeBtn = wrap.querySelector('.accel-remove-market-linkage');
+        if (removeBtn) removeBtn.hidden = true;
+
+        syncVisibleIf(wrap);
+        wrap.querySelectorAll('input, select, textarea').forEach((el) => {
+            el.disabled = true;
+            if ('required' in el) el.required = false;
+        });
+        if (check) check.disabled = true;
+    }
+
+    function applyPriorFormItems(priorItems) {
+        clearPriorFormItems();
+        if (isEditingSession || !Array.isArray(priorItems) || !priorItems.length) {
+            renderTickedNow();
+            return;
+        }
+
+        // Ensure market linkage extras exist first (sorted so base comes before _2…)
+        const sorted = priorItems.slice().sort((a, b) => {
+            const ka = String(a.item_key || '');
+            const kb = String(b.item_key || '');
+            const rank = (k) => {
+                if (k === 'market_linkage') return 1;
+                const m = k.match(/^market_linkage_(\d+)$/);
+                return m ? parseInt(m[1], 10) : 1000;
+            };
+            return rank(ka) - rank(kb) || ka.localeCompare(kb);
+        });
+
+        sorted.forEach((row) => {
+            const itemKey = String(row.item_key || '');
+            if (!itemKey) return;
+            const wrap = ensureItemWrap(itemKey);
+            if (!wrap) return;
+
+            fillItemPayload(wrap, itemKey, row.payload || {});
+            renderPriorMedia(wrap, itemKey, row.media || []);
+            lockPriorItem(wrap, row);
+        });
+        renderTickedNow();
     }
 
     function renderDetail(app, serviceItems) {
@@ -1011,7 +1261,12 @@
             lockedId = id;
         }
         highlightListRows();
-        loadServices(app).then((items) => renderDetail(app, items));
+        loadServices(app).then((result) => {
+            renderDetail(app, result.services || []);
+            if (lock && !isEditingSession) {
+                applyPriorFormItems(result.prior || []);
+            }
+        });
     }
 
     function highlightListRows() {
@@ -1042,6 +1297,9 @@
         legacyInput.value = id;
         incubateeKeyInput.value = String(app.incubatee_key || '');
         renderSelectedApplicant(app);
+        if (!isEditingSession) {
+            clearPriorFormItems();
+        }
         showApplicantDetail(app, true);
         highlightListRows();
         scheduleAutosave();
