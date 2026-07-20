@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class StateAdminDashboardService
 {
@@ -390,6 +391,8 @@ class StateAdminDashboardService
             cfaLast30: $cfaLast30,
         );
 
+        $fieldHighlights = $this->approvedFieldActivityHighlights($activeFy, $phase3FloorDate);
+
         $stateFyPaceChart = $this->stateFyPaceChart(
             $activeFy,
             $phase3FloorDate,
@@ -471,8 +474,180 @@ class StateAdminDashboardService
             'estimatedSavings' => $estimatedSavings,
             'insights' => $insights,
             'groundActivityTicker' => $groundActivityTicker,
+            'fieldHighlights' => $fieldHighlights,
             'stateFyPaceChart' => $stateFyPaceChart,
         ];
+    }
+
+    /**
+     * Latest approved, browser-displayable field activity photos for the dashboard carousel.
+     *
+     * @return list<array{module: string, title: string, district: string, date: string, image_url: string, detail_url: string}>
+     */
+    private function approvedFieldActivityHighlights(?FiscalYear $activeFy, Carbon $phase3FloorDate): array
+    {
+        $from = $activeFy?->starts_on
+            ? Carbon::parse($activeFy->starts_on)->startOfDay()
+            : $phase3FloorDate->copy()->startOfDay();
+        $fyEnd = $activeFy?->ends_on
+            ? Carbon::parse($activeFy->ends_on)->endOfDay()
+            : now()->endOfDay();
+        $to = $fyEnd->min(now()->endOfDay());
+
+        $sources = [
+            [
+                'table' => 'technical_trainings',
+                'date' => 'event_date',
+                'title' => 'session_name',
+                'module' => 'Technical Training',
+                'collections' => ['attendance_media_json'],
+                'image_route' => 'admin.technical-trainings.attachment',
+                'image_param' => 'technicalTraining',
+                'detail_route' => 'admin.technical-trainings.show',
+                'detail_param' => 'technicalTraining',
+            ],
+            [
+                'table' => 'potential_lakhpati_technical_trainings',
+                'date' => 'session_date',
+                'title' => 'session_title',
+                'module' => 'Lakhpati Technical Training',
+                'collections' => ['workshop_photos_json'],
+                'image_route' => 'admin.lakhpati-technical-trainings.attachment',
+                'image_param' => 'lakhpatiTechnicalTraining',
+                'detail_route' => 'admin.lakhpati-technical-trainings.show',
+                'detail_param' => 'lakhpatiTechnicalTraining',
+                'image_query' => ['collection' => 'photos'],
+            ],
+            [
+                'table' => 'line_department_meetings',
+                'date' => 'meeting_date',
+                'title' => 'department_name',
+                'module' => 'Line Department Meeting',
+                'collections' => ['proof_media_json', 'photos_json'],
+                'image_route' => 'admin.line-department-meetings.attachment',
+                'image_param' => 'ldmMeeting',
+                'detail_route' => 'admin.line-department-meetings.show',
+                'detail_param' => 'ldmMeeting',
+            ],
+            [
+                'table' => 'community_organization_outreach_visits',
+                'date' => 'visit_date',
+                'title' => 'organization_name',
+                'module' => 'Community Outreach',
+                'collections' => ['photos_json'],
+                'image_route' => 'admin.community-org-outreach.photo',
+                'image_param' => 'communityOrgOutreach',
+                'detail_route' => 'admin.community-org-outreach.show',
+                'detail_param' => 'communityOrgOutreach',
+            ],
+        ];
+
+        $highlights = collect();
+
+        foreach ($sources as $source) {
+            $table = $source['table'];
+            if (! Schema::hasTable($table)
+                || ! Schema::hasColumn($table, 'status')
+                || ! Schema::hasColumn($table, $source['date'])) {
+                continue;
+            }
+
+            $columns = array_values(array_unique(array_filter([
+                'id', 'district_name', $source['date'], $source['title'], ...$source['collections'],
+            ], fn (string $column): bool => Schema::hasColumn($table, $column))));
+
+            try {
+                $rows = DB::table($table)
+                    ->where('status', ServiceCase::STATUS_APPROVED)
+                    ->whereBetween($source['date'], [$from->toDateString(), $to->toDateString()])
+                    ->orderByDesc($source['date'])
+                    ->orderByDesc('id')
+                    ->limit(50)
+                    ->get($columns);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            $sourcePhotoCount = 0;
+            foreach ($rows as $row) {
+                $routeIndex = 0;
+                foreach ($source['collections'] as $collection) {
+                    $items = $this->decodeDashboardMediaList($row->{$collection} ?? null);
+                    foreach ($items as $item) {
+                        $currentRouteIndex = $routeIndex++;
+                        if (! $this->isDashboardImage($item)) {
+                            continue;
+                        }
+
+                        $path = trim((string) ($item['path'] ?? ''));
+                        if ($path === '' || ! Storage::exists($path)) {
+                            continue;
+                        }
+
+                        $imageQuery = array_merge(
+                            (array) ($source['image_query'] ?? []),
+                            ['index' => $currentRouteIndex, 'inline' => 1],
+                        );
+                        $activityDate = Carbon::parse($row->{$source['date']});
+
+                        $highlights->push([
+                            'module' => $source['module'],
+                            'title' => trim((string) ($row->{$source['title']} ?? '')) ?: $source['module'],
+                            'district' => trim((string) ($row->district_name ?? '')) ?: 'State-wide',
+                            'date' => $activityDate->format('d M Y'),
+                            'sort_date' => $activityDate->format('Y-m-d'),
+                            'image_url' => route($source['image_route'], array_merge([
+                                $source['image_param'] => (int) $row->id,
+                            ], $imageQuery)),
+                            'detail_url' => route($source['detail_route'], [
+                                $source['detail_param'] => (int) $row->id,
+                            ]),
+                        ]);
+                        $sourcePhotoCount++;
+                        if ($sourcePhotoCount >= 12) {
+                            break 3;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $highlights
+            ->sortByDesc('sort_date')
+            ->take(12)
+            ->map(function (array $highlight): array {
+                unset($highlight['sort_date']);
+
+                return $highlight;
+            })
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function decodeDashboardMediaList(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = json_decode($value, true);
+        }
+
+        return collect(is_array($value) ? $value : [])
+            ->filter(fn ($item): bool => is_array($item))
+            ->values()
+            ->all();
+    }
+
+    /** @param array<string, mixed> $item */
+    private function isDashboardImage(array $item): bool
+    {
+        $mime = strtolower(trim((string) ($item['mime'] ?? '')));
+        if (str_starts_with($mime, 'image/')) {
+            return ! in_array($mime, ['image/heic', 'image/heif'], true);
+        }
+
+        $name = strtolower((string) ($item['original_name'] ?? $item['path'] ?? ''));
+
+        return (bool) preg_match('/\.(jpe?g|png|webp|gif)$/i', $name);
     }
 
     /**

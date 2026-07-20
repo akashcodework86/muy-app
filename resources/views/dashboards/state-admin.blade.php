@@ -146,20 +146,20 @@
         .cg-alert--ok   { background: var(--cg-green-bg); border-color: #a5d6a7; color: #1b5e20; }
         .cg-alert--info { background: var(--cg-blue-bg); border-color: #90caf9; color: #0d47a1; }
 
-        /* === HERO KPI CARDS (3 large, like reference) === */
+        /* === HERO KPI CARDS + FIELD HIGHLIGHTS === */
         .cg-hero-row {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 0.85rem;
             margin-bottom: 0.85rem;
         }
-        @media (max-width: 900px) { .cg-hero-row { grid-template-columns: 1fr; } }
-        @media (min-width: 601px) and (max-width: 900px) { .cg-hero-row { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 1280px) { .cg-hero-row { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 700px) { .cg-hero-row { grid-template-columns: 1fr; } }
 
         .cg-hero-card {
             background: var(--cg-card);
             border-radius: var(--cg-radius);
-            padding: 1.1rem 1.25rem 1rem;
+            padding: 0.95rem 1rem 0.9rem;
             box-shadow: var(--cg-shadow);
             transition: transform 0.18s ease, box-shadow 0.18s ease;
             position: relative;
@@ -616,6 +616,136 @@
 
         .cg-hero-pie-wrap { position: relative; height: 138px; margin: 0.35rem 0 0.15rem; }
         .cg-hero-pie-wrap canvas { width: 100% !important; height: 100% !important; }
+
+        /* === FIELD HIGHLIGHTS CAROUSEL === */
+        .cg-highlight-card { min-height: 0; }
+        .cg-highlight-card__top { margin-bottom: 0.55rem; }
+        .cg-highlight-count {
+            border-radius: 999px;
+            background: var(--cg-teal-bg);
+            color: #087f73;
+            padding: 0.2rem 0.48rem;
+            font-size: 0.65rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .cg-highlight-carousel {
+            position: relative;
+            flex: 1;
+            min-height: 220px;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #e8ecf2;
+        }
+        .cg-highlight-slide {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.35s ease, visibility 0.35s ease;
+        }
+        .cg-highlight-slide.is-active { opacity: 1; visibility: visible; }
+        .cg-highlight-slide__image-link { display: block; width: 100%; height: 100%; }
+        .cg-highlight-slide__image {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        .cg-highlight-slide__image-link:hover .cg-highlight-slide__image { transform: scale(1.025); }
+        .cg-highlight-slide__shade {
+            position: absolute;
+            inset: 35% 0 0;
+            pointer-events: none;
+            background: linear-gradient(to bottom, transparent, rgba(5, 12, 24, 0.88));
+        }
+        .cg-highlight-slide__content {
+            position: absolute;
+            right: 0.75rem;
+            bottom: 0.72rem;
+            left: 0.75rem;
+            color: #fff;
+            pointer-events: none;
+        }
+        .cg-highlight-slide__module {
+            display: inline-flex;
+            max-width: 100%;
+            margin-bottom: 0.25rem;
+            padding: 0.18rem 0.42rem;
+            border-radius: 999px;
+            background: rgba(15, 157, 145, 0.92);
+            font-size: 0.61rem;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cg-highlight-slide__title {
+            margin: 0;
+            font-size: 0.86rem;
+            font-weight: 800;
+            line-height: 1.25;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .cg-highlight-slide__meta {
+            margin-top: 0.2rem;
+            font-size: 0.66rem;
+            color: rgba(255,255,255,0.86);
+        }
+        .cg-highlight-control {
+            position: absolute;
+            z-index: 3;
+            top: 50%;
+            width: 1.75rem;
+            height: 1.75rem;
+            border: 1px solid rgba(255,255,255,0.55);
+            border-radius: 50%;
+            background: rgba(12, 18, 29, 0.56);
+            color: #fff;
+            cursor: pointer;
+            transform: translateY(-50%);
+            backdrop-filter: blur(4px);
+        }
+        .cg-highlight-control:hover { background: rgba(12, 18, 29, 0.82); }
+        .cg-highlight-control--prev { left: 0.55rem; }
+        .cg-highlight-control--next { right: 0.55rem; }
+        .cg-highlight-dots {
+            display: flex;
+            justify-content: center;
+            gap: 0.28rem;
+            min-height: 0.45rem;
+            margin-top: 0.45rem;
+        }
+        .cg-highlight-dot {
+            width: 0.35rem;
+            height: 0.35rem;
+            padding: 0;
+            border: 0;
+            border-radius: 999px;
+            background: #c7c7cc;
+            cursor: pointer;
+            transition: width 0.2s ease, background 0.2s ease;
+        }
+        .cg-highlight-dot.is-active { width: 1rem; background: var(--cg-teal); }
+        .cg-highlight-empty {
+            display: grid;
+            place-items: center;
+            min-height: 220px;
+            padding: 1rem;
+            text-align: center;
+            color: var(--cg-muted);
+        }
+        .cg-highlight-empty i { display: block; margin-bottom: 0.45rem; font-size: 1.5rem; color: #b8bec8; }
+        .cg-highlight-card__foot-link { color: #087f73; font-weight: 700; text-decoration: none; }
+        .cg-highlight-card__foot-link:hover { text-decoration: underline; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .cg-highlight-slide, .cg-highlight-slide__image { transition: none; }
+        }
 
         /* === PULSE TABS === */
         .cg-pulse-tabs {
@@ -1221,9 +1351,9 @@
         </div>
 
         {{-- ═══════════════════════════════════════════════
-             HERO KPI CARDS — 3 large cards like reference
+             HERO KPI CARDS + FIELD HIGHLIGHTS
              ═══════════════════════════════════════════════ --}}
-        <div class="cg-hero-row" role="group" aria-label="Primary KPIs">
+        <div class="cg-hero-row" role="group" aria-label="Primary KPIs and field highlights">
 
             {{-- Card 1: CFA Total --}}
             <div class="cg-hero-card">
@@ -1316,12 +1446,150 @@
                     <span class="cg-hero-card__pill">Phase 3</span>
                 </div>
             </div>
+
+            {{-- Card 4: approved field activity photos --}}
+            <div class="cg-hero-card cg-highlight-card" id="fieldHighlightsCard" aria-label="Approved field activity photos">
+                <div class="cg-hero-card__top cg-highlight-card__top">
+                    <span class="cg-hero-icon cg-hero-icon--teal" aria-hidden="true">
+                        <i class="fa-regular fa-images"></i>
+                    </span>
+                    <span class="cg-hero-card__label">Field Highlights</span>
+                    <span class="cg-highlight-count">{{ count($fieldHighlights ?? []) }} photos</span>
+                </div>
+
+                @if (! empty($fieldHighlights))
+                    <div class="cg-highlight-carousel" data-field-highlights aria-roledescription="carousel" aria-label="Approved field activity photos">
+                        @foreach ($fieldHighlights as $index => $highlight)
+                            <article class="cg-highlight-slide {{ $index === 0 ? 'is-active' : '' }}"
+                                     data-highlight-slide
+                                     aria-hidden="{{ $index === 0 ? 'false' : 'true' }}">
+                                <a class="cg-highlight-slide__image-link"
+                                   href="{{ $highlight['image_url'] }}"
+                                   target="_blank"
+                                   rel="noopener"
+                                   aria-label="Open full photo: {{ $highlight['title'] }}">
+                                    <img class="cg-highlight-slide__image"
+                                         src="{{ $highlight['image_url'] }}"
+                                         alt="{{ $highlight['module'] }} in {{ $highlight['district'] }} on {{ $highlight['date'] }}"
+                                         loading="{{ $index === 0 ? 'eager' : 'lazy' }}">
+                                </a>
+                                <div class="cg-highlight-slide__shade" aria-hidden="true"></div>
+                                <div class="cg-highlight-slide__content">
+                                    <span class="cg-highlight-slide__module">{{ $highlight['module'] }}</span>
+                                    <p class="cg-highlight-slide__title">{{ $highlight['title'] }}</p>
+                                    <div class="cg-highlight-slide__meta">
+                                        <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                                        {{ $highlight['district'] }} &middot; {{ $highlight['date'] }}
+                                    </div>
+                                </div>
+                            </article>
+                        @endforeach
+
+                        @if (count($fieldHighlights) > 1)
+                            <button type="button" class="cg-highlight-control cg-highlight-control--prev" data-highlight-prev aria-label="Previous photo">
+                                <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                            </button>
+                            <button type="button" class="cg-highlight-control cg-highlight-control--next" data-highlight-next aria-label="Next photo">
+                                <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                            </button>
+                        @endif
+                    </div>
+
+                    <div class="cg-highlight-dots" aria-label="Choose field highlight">
+                        @foreach ($fieldHighlights as $index => $highlight)
+                            <button type="button"
+                                    class="cg-highlight-dot {{ $index === 0 ? 'is-active' : '' }}"
+                                    data-highlight-dot="{{ $index }}"
+                                    aria-label="Show photo {{ $index + 1 }}"
+                                    aria-current="{{ $index === 0 ? 'true' : 'false' }}"></button>
+                        @endforeach
+                    </div>
+                    <div class="cg-hero-card__foot">
+                        <span>Approved activities &middot; {{ $fyLabel }}</span>
+                        <a class="cg-highlight-card__foot-link"
+                           href="{{ $fieldHighlights[0]['detail_url'] }}"
+                           data-highlight-detail>View activity</a>
+                    </div>
+                @else
+                    <div class="cg-highlight-empty">
+                        <div>
+                            <i class="fa-regular fa-image" aria-hidden="true"></i>
+                            <strong>No approved photos yet</strong><br>
+                            <small>Current FY field activity photos will appear here.</small>
+                        </div>
+                    </div>
+                    <div class="cg-hero-card__foot">
+                        <span>Approved activities &middot; {{ $fyLabel }}</span>
+                        <span class="cg-hero-card__pill">Current FY</span>
+                    </div>
+                @endif
+            </div>
         </div>
+
+        @if (! empty($fieldHighlights))
+            <script>
+            (function () {
+                var card = document.getElementById('fieldHighlightsCard');
+                if (!card) return;
+
+                var slides = Array.prototype.slice.call(card.querySelectorAll('[data-highlight-slide]'));
+                var dots = Array.prototype.slice.call(card.querySelectorAll('[data-highlight-dot]'));
+                var previous = card.querySelector('[data-highlight-prev]');
+                var next = card.querySelector('[data-highlight-next]');
+                var detail = card.querySelector('[data-highlight-detail]');
+                var detailUrls = @json(array_column($fieldHighlights, 'detail_url'));
+                var index = 0;
+                var timer = null;
+                var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+                function show(newIndex) {
+                    index = (newIndex + slides.length) % slides.length;
+                    slides.forEach(function (slide, slideIndex) {
+                        var active = slideIndex === index;
+                        slide.classList.toggle('is-active', active);
+                        slide.setAttribute('aria-hidden', active ? 'false' : 'true');
+                    });
+                    dots.forEach(function (dot, dotIndex) {
+                        var active = dotIndex === index;
+                        dot.classList.toggle('is-active', active);
+                        dot.setAttribute('aria-current', active ? 'true' : 'false');
+                    });
+                    if (detail && detailUrls[index]) detail.href = detailUrls[index];
+                }
+
+                function stop() {
+                    if (timer) window.clearInterval(timer);
+                    timer = null;
+                }
+
+                function start() {
+                    stop();
+                    if (slides.length > 1 && !reduceMotion && !document.hidden) {
+                        timer = window.setInterval(function () { show(index + 1); }, 5000);
+                    }
+                }
+
+                if (previous) previous.addEventListener('click', function () { show(index - 1); start(); });
+                if (next) next.addEventListener('click', function () { show(index + 1); start(); });
+                dots.forEach(function (dot) {
+                    dot.addEventListener('click', function () { show(Number(dot.dataset.highlightDot)); start(); });
+                });
+                card.addEventListener('mouseenter', stop);
+                card.addEventListener('mouseleave', start);
+                card.addEventListener('focusin', stop);
+                card.addEventListener('focusout', function (event) {
+                    if (!card.contains(event.relatedTarget)) start();
+                });
+                document.addEventListener('visibilitychange', function () { document.hidden ? stop() : start(); });
+                start();
+            })();
+            </script>
+        @endif
 
         {{-- ═══════════════════════════════════════════════
              SECONDARY CHIPS — 5 smaller KPIs
              ═══════════════════════════════════════════════ --}}
-        <div class="cg-chips-row" role="group" aria-label="Secondary KPIs">
+        <div class="cg-chips-row" id="sad-stat-chips" role="group" aria-label="Secondary KPIs">
             <div class="cg-chip cg-chip--today" title="Today's CFA vs yesterday ({{ number_format($cfaYesterdayCount) }})">
                 <div class="cg-chip-ico cg-chip-ico--yellow"><i class="fa-solid fa-sun"></i></div>
                 <div class="cg-chip-body">
