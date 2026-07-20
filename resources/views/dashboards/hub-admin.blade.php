@@ -175,9 +175,13 @@
         .sad-kpi__foot.is-down { color: #b45309; }
         .sad-kpi__foot.is-warn { color: #92400e; }
         .had-highlight {
-            grid-column: span 4;
+            grid-column: 5 / span 2;
+            grid-row: 1 / span 2;
             padding: 0.45rem !important;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 318px;
         }
         .had-highlight__head {
             display: flex;
@@ -191,10 +195,11 @@
         .had-highlight__head i { color: #0f9d91; }
         .had-highlight__viewport {
             position: relative;
-            min-height: 92px;
+            flex: 1;
+            min-height: 265px;
             border-radius: 11px;
             overflow: hidden;
-            background: #e2e8f0;
+            background: linear-gradient(135deg, #14212b, #263845);
         }
         .had-highlight__slide {
             position: absolute;
@@ -205,8 +210,8 @@
         }
         .had-highlight__slide.is-active { opacity: 1; visibility: visible; }
         .had-highlight__image-link, .had-highlight__image { display: block; width: 100%; height: 100%; }
-        .had-highlight__image { object-fit: cover; transition: transform 0.5s ease; }
-        .had-highlight__image-link:hover .had-highlight__image { transform: scale(1.02); }
+        .had-highlight__image { object-fit: contain; transition: transform 0.5s ease; }
+        .had-highlight__image-link:hover .had-highlight__image { transform: scale(1.015); }
         .had-highlight__shade {
             position: absolute;
             inset: 25% 0 0;
@@ -262,17 +267,25 @@
         .had-highlight__empty {
             display: grid;
             place-items: center;
-            min-height: 92px;
+            flex: 1;
+            min-height: 265px;
             border-radius: 11px;
             background: #f8fafc;
             color: #94a3b8;
             font-size: 0.68rem;
             text-align: center;
         }
-        @media (max-width: 1200px) { .had-highlight { grid-column: 1 / -1; } }
+        @media (max-width: 1200px) {
+            .had-highlight {
+                grid-column: 1 / -1;
+                grid-row: auto;
+                min-height: 250px;
+            }
+            .had-highlight__viewport, .had-highlight__empty { min-height: 205px; }
+        }
         @media (max-width: 640px) {
-            .had-highlight { grid-column: 1 / -1; }
-            .had-highlight__viewport, .had-highlight__empty { min-height: 130px; }
+            .had-highlight { grid-column: 1 / -1; min-height: 285px; }
+            .had-highlight__viewport, .had-highlight__empty { min-height: 235px; }
         }
         @media (prefers-reduced-motion: reduce) {
             .had-highlight__slide, .had-highlight__image { transition: none; }
