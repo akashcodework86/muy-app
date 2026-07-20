@@ -1,79 +1,73 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Hub batches — {{ $hub->name }} — {{ config('app.name') }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
-    @include('partials.admin-shell-styles')
+@extends('layouts.admin')
+
+@section('title', 'Batch & CFA pool')
+@section('heading', 'Batch & CFA pool')
+@section('body_class', 'hub-batch-page')
+
+@section('page_meta')
+    <p class="admin-page-meta">{{ $hub->name }} · Build onboarding batches, manage the CFA pool, and track Onboarding Letters.</p>
+@endsection
+
+@push('styles')
     <style>
-        :root {
+        .hub-batch-page .admin-main {
             --text: #0f172a;
             --muted: #64748b;
-            --border: #e2e8f0;
-            --accent: #d04a02;
-            --accent2: #eb8c00;
+            --border: #e5e7eb;
+            --accent: #4f46e5;
+            --accent2: #0f766e;
             --radius: 12px;
-            --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(208, 74, 2, 0.08);
+            --shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
         }
-        body.hub-batch-page { font-family: 'DM Sans', system-ui, sans-serif; }
-        .hb-wrap { max-width: 1200px; margin: 0 auto; }
-        .hb-hero {
-            background: linear-gradient(135deg, #a63d02 0%, #d04a02 55%, #eb8c00 100%);
-            color: #fff;
-            border-radius: var(--radius);
-            padding: 1.5rem 1.75rem;
-            margin-bottom: 1.25rem;
-            box-shadow: var(--shadow);
-        }
-        .hb-hero h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
-        .hb-hero p { margin: 0.5rem 0 0; opacity: 0.92; font-size: 0.9rem; max-width: 40rem; }
-        .hb-stats { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
+        .hb-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 220px)); gap: 0.55rem; margin-bottom: 0.75rem; }
         .hb-stat {
-            background: rgba(255,255,255,0.95);
+            background: #f8fafc;
             color: var(--text);
-            border-radius: 10px;
-            padding: 0.65rem 1rem;
-            min-width: 6rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 11px;
+            padding: 0.65rem 0.7rem;
         }
-        .hb-stat .l { font-size: 0.65rem; text-transform: uppercase; font-weight: 600; color: var(--muted); }
-        .hb-stat .v { font-size: 1.35rem; font-weight: 700; }
-        .hb-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
-        @media (min-width: 960px) { .hb-grid { grid-template-columns: 320px 1fr; } }
+        .hb-stat:nth-child(1) { background: #ecfeff; border-color: #a5f3fc; }
+        .hb-stat:nth-child(2) { background: #fff7ed; border-color: #fed7aa; }
+        .hb-stat .l { font-size: 0.68rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.06em; color: #475569; }
+        .hb-stat .v { margin-top: 0.2rem; font-size: 1.05rem; font-weight: 800; }
+        .hb-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+        @media (min-width: 960px) { .hb-grid { grid-template-columns: 300px minmax(0, 1fr); } }
         .hb-card {
             background: #fff;
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 1.15rem 1.25rem;
+            padding: 0.85rem;
             box-shadow: var(--shadow);
         }
-        .hb-card h2 { margin: 0 0 0.75rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+        .hb-card h2 { margin: 0 0 0.65rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #475569; font-weight: 800; }
         .hb-input, .hb-select {
-            width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.75rem; font-size: 0.9rem;
+            width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.45rem 0.55rem; font-size: 0.85rem; background: #fff; color: var(--text); font-family: inherit;
         }
+        .hb-input:focus, .hb-select:focus { outline: 2px solid rgba(79, 70, 229, 0.16); border-color: #818cf8; }
         .hb-btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
-            border: none; border-radius: 10px; padding: 0.65rem 1rem; font-weight: 600; font-size: 0.9rem; cursor: pointer;
+            border: none; border-radius: 8px; padding: 0.5rem 0.75rem; font-weight: 700; font-size: 0.8rem; cursor: pointer; font-family: inherit;
         }
         .hb-btn--primary { background: var(--accent); color: #fff; }
-        .hb-btn--dark { background: #0f172a; color: #fff; }
+        .hb-btn--primary:hover { background: #4338ca; }
+        .hb-btn--dark { background: #0f766e; color: #fff; }
+        .hb-btn--dark:hover { background: #115e59; }
         .hb-btn--ghost { background: #f8fafc; color: var(--text); border: 1px solid var(--border); }
+        .hb-btn--ghost:hover { background: #f1f5f9; }
         .hb-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-        .hb-table-wrap { overflow: auto; max-height: min(70vh, 520px); border: 1px solid var(--border); border-radius: 10px; }
+        .hb-table-wrap { overflow: auto; max-height: min(70vh, 520px); border: 1px solid var(--border); border-radius: 8px; }
         table.hb-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-        table.hb-table th { text-align: left; padding: 0.65rem 0.75rem; background: #f8fafc; font-size: 0.7rem; text-transform: uppercase; color: var(--muted); position: sticky; top: 0; }
-        table.hb-table td { padding: 0.55rem 0.75rem; border-top: 1px solid #f1f5f9; }
-        table.hb-table tr:hover td { background: #f0fdf4; }
-        .hb-banner { border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 1rem; font-size: 0.875rem; }
+        table.hb-table th { text-align: left; padding: 0.62rem 0.72rem; background: #f8fafc; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #475569; position: sticky; top: 0; }
+        table.hb-table td { padding: 0.62rem 0.72rem; border-top: 1px solid #f1f5f9; }
+        table.hb-table tr:hover td { background: #f8fafc; }
+        .hb-banner { border-radius: 8px; padding: 0.65rem 0.85rem; margin-bottom: 0.75rem; font-size: 0.85rem; }
         .hb-banner--warn { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
         .hb-banner--ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
         .hb-modal-bg { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 50; align-items: center; justify-content: center; padding: 1rem; }
         .hb-modal-bg.is-open { display: flex; }
         .hb-modal { background: #fff; border-radius: var(--radius); padding: 1.25rem; max-width: 420px; width: 100%; box-shadow: 0 25px 50px rgba(0,0,0,0.2); }
-        .link-mini { font-size: 0.75rem; font-weight: 600; color: var(--accent); background: none; border: none; cursor: pointer; }
+        .link-mini { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: none; border: none; cursor: pointer; font-family: inherit; }
         .hb-stage-mix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.35rem; }
         .hb-stage-mix__box {
             border-radius: 10px; padding: 0.5rem 0.45rem; text-align: center;
@@ -102,7 +96,7 @@
             background: none;
             border: none;
             padding: 0;
-            color: #d04a02;
+            color: var(--accent);
             font-weight: 700;
             text-align: left;
             cursor: pointer;
@@ -152,7 +146,7 @@
             cursor: pointer;
         }
         .hb-filter-chip:hover { background: #cffafe; }
-        .hb-filter-chip .x { font-size: 0.85rem; line-height: 1; color: #d04a02; }
+        .hb-filter-chip .x { font-size: 0.85rem; line-height: 1; color: var(--accent); }
         .hb-detail-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75rem; }
         .hb-detail-box {
             border: 1px solid var(--border);
@@ -179,7 +173,7 @@
         }
         .hb-cat-btn:hover { background: #f0f9ff; border-color: #bae6fd; }
         .hb-cat-btn.is-active { background: #ecfeff; border-color: #67e8f9; }
-        .hb-member-link { color: #d04a02; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+        .hb-member-link { color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
         .hb-member-link:hover { color: #0f172a; }
         .hb-member-table-wrap { max-height: min(52vh, 480px); overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
         .hb-portal-note { font-size: 0.72rem; color: var(--muted); margin: 0 0 0.45rem; line-height: 1.4; }
@@ -191,21 +185,12 @@
             .hb-detail-grid { grid-template-columns: 1fr; }
         }
     </style>
-</head>
-<body class="admin-app-body admin-app-body--dashboard admin-app-body--hub-premium hub-batch-page">
-    @include('partials.admin-topbar')
-    <main class="admin-main hb-wrap">
-        @if (session('status'))
-            <div class="hb-banner hb-banner--ok">{{ session('status') }}</div>
-        @endif
+@endpush
 
-        <div class="hb-hero">
-            <h1>Batch &amp; CFA pool</h1>
-            <p>Pick CFA only, reject / later, fixed batch size (N), keep draft open across days, then lock and upload Onboarding Letter within 7 days.</p>
-            <div class="hb-stats">
-                <div class="hb-stat"><div class="l">PDF pending</div><div class="v" id="statPending">{{ (int) $stats['pending_cdo'] }}</div></div>
-                <div class="hb-stat"><div class="l">Overdue</div><div class="v" id="statOverdue" style="color:{{ $stats['overdue_cdo'] ? '#dc2626' : '#94a3b8' }}">{{ (int) $stats['overdue_cdo'] }}</div></div>
-            </div>
+@section('content')
+        <div class="hb-stats">
+            <div class="hb-stat"><div class="l">Onboarding Letters pending</div><div class="v" id="statPending">{{ (int) $stats['pending_cdo'] }}</div></div>
+            <div class="hb-stat"><div class="l">Overdue</div><div class="v" id="statOverdue" style="color:{{ $stats['overdue_cdo'] ? '#dc2626' : '#94a3b8' }}">{{ (int) $stats['overdue_cdo'] }}</div></div>
         </div>
 
         <div id="blockedBanner" class="hb-banner hb-banner--warn" style="display:{{ $stats['blocked'] ? 'block' : 'none' }}">
@@ -378,8 +363,6 @@
                 </div>
             </div>
         </div>
-    </main>
-
     <div class="hb-modal-bg" id="modalRatioGap">
         <div class="hb-modal">
             <h3 style="margin:0 0 0.5rem">Onboarding mix (contract)</h3>
@@ -446,7 +429,7 @@
 
     <script>
     (function () {
-        const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const CSRF = @json(csrf_token());
         const API_URL = @json(route('hub.batches.api'));
         const UPLOAD_URL = @json(route('hub.batches.upload-cdo'));
         const LETTER_VIEW_URL_TEMPLATE = @json(route('hub.batches.onboarding-letter', ['batch' => '__BATCH_ID__']));
@@ -858,7 +841,7 @@
                     if (b.status === 'locked' && b.locked_at) {
                         if (b.has_cdo_pdf) {
                             cdo = '<span style="color:var(--accent);font-weight:600">Uploaded</span>'
-                                + ` <a href="${letterViewUrl(b.id)}" target="_blank" rel="noopener noreferrer" style="margin-left:0.4rem;font-size:0.76rem;font-weight:700;color:#d04a02;text-decoration:underline;">View</a>`;
+                                + ` <a href="${letterViewUrl(b.id)}" target="_blank" rel="noopener noreferrer" style="margin-left:0.4rem;font-size:0.76rem;font-weight:700;color:#4f46e5;text-decoration:underline;">View</a>`;
                         }
                         else if (b.cdo_overdue) cdo = '<span style="color:#dc2626;font-weight:700">Overdue</span>';
                         else if (b.cdo_pending) cdo = '<span style="color:#d97706;font-weight:600">Pending</span>';
@@ -887,7 +870,7 @@
                            <button type="button" class="link-mini batch-delete" style="color:#dc2626" data-id="${b.id}">Delete</button>`;
                     } else if (b.status === 'locked' && b.edit_unlocked) {
                         actions = `<button type="button" class="link-mini batch-continue" data-id="${b.id}">Edit</button>
-                           <button type="button" class="link-mini batch-relock" style="color:#d04a02" data-id="${b.id}">Re-lock</button>`;
+                           <button type="button" class="link-mini batch-relock" style="color:#4f46e5" data-id="${b.id}">Re-lock</button>`;
                     } else if (b.status === 'locked') {
                         const reqCount = parseInt(b.pending_unlock_requests || 0, 10) || 0;
                         actions = `<button type="button" class="link-mini batch-request-unlock" data-id="${b.id}">Request unlock</button>
@@ -1456,6 +1439,4 @@
         loadBatches();
     })();
     </script>
-    @include('partials.app-footer')
-</body>
-</html>
+@endsection
