@@ -605,7 +605,8 @@
         box-shadow:0 0 0 3px rgba(245,158,11,0.15);
     }
     .accel-media-field--always-required.is-required-proof label { color:#92400e; }
-    .accel-market-linkage-actions {
+    .accel-market-linkage-actions,
+    .accel-repeat-actions {
         display:flex;
         flex-wrap:wrap;
         gap:0.65rem;

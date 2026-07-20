@@ -98,18 +98,12 @@ final class AccelerationServicesOptions
 
     public static function labelForKey(string $section, string $key): string
     {
-        if (self::isMarketLinkageKey($key)) {
-            if ($key === 'market_linkage') {
-                return 'Market Linkage';
-            }
-            if (preg_match('/^market_linkage_(\d+)$/', $key, $m)) {
-                return 'Market Linkage #'.(int) $m[1];
-            }
-        }
+        $baseKey = self::baseItemKey($key);
+        $repeatNumber = self::repeatNumber($key);
 
         foreach (self::itemsForSection($section) as $item) {
-            if ($item['key'] === $key) {
-                return $item['label'];
+            if ($item['key'] === $baseKey) {
+                return $item['label'].($repeatNumber > 1 ? ' #'.$repeatNumber : '');
             }
         }
 
@@ -118,7 +112,7 @@ final class AccelerationServicesOptions
 
     public static function isMarketLinkageKey(string $key): bool
     {
-        return (bool) preg_match('/^market_linkage(_\d+)?$/', $key);
+        return self::baseItemKey($key) === 'market_linkage';
     }
 
     /**
@@ -130,7 +124,32 @@ final class AccelerationServicesOptions
             return $m[1];
         }
 
+        if (preg_match('/^(.+)__(\d+)$/', $key, $m)) {
+            return $m[1];
+        }
+
         return $key;
+    }
+
+    public static function repeatNumber(string $key): int
+    {
+        if (preg_match('/^market_linkage_(\d+)$/', $key, $m)
+            || preg_match('/^.+__(\d+)$/', $key, $m)) {
+            return max(2, (int) $m[1]);
+        }
+
+        return 1;
+    }
+
+    public static function repeatedItemKey(string $baseKey, int $number): string
+    {
+        if ($number <= 1) {
+            return $baseKey;
+        }
+
+        return $baseKey === 'market_linkage'
+            ? $baseKey.'_'.$number
+            : $baseKey.'__'.$number;
     }
 
     public static function isValidSection(string $section): bool

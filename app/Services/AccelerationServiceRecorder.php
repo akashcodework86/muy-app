@@ -212,7 +212,7 @@ class AccelerationServiceRecorder
                     'item_label' => (string) $item['item_label'],
                     'remarks' => trim((string) ($item['remarks'] ?? '')) ?: null,
                     'is_custom' => (bool) ($item['is_custom'] ?? false),
-                    'is_buyer_seller_meet' => (string) $item['item_key'] === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY,
+                    'is_buyer_seller_meet' => AccelerationServicesOptions::baseItemKey((string) $item['item_key']) === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY,
                 ];
 
                 if (Schema::hasColumn('acceleration_service_items', 'payload')) {
@@ -322,11 +322,12 @@ class AccelerationServiceRecorder
             foreach ($keys as $entry) {
                 $isCustom = is_array($entry);
                 $key = $isCustom ? (string) ($entry['key'] ?? '') : trim((string) $entry);
+                $baseKey = AccelerationServicesOptions::baseItemKey($key);
                 if ($key === '') {
                     continue;
                 }
                 // Soft skills retired from UI — ignore if posted.
-                if ($key === 'soft_skills') {
+                if ($baseKey === 'soft_skills') {
                     continue;
                 }
                 if ($allowedSections !== [] && ! in_array($section, $allowedSections, true)) {
@@ -369,12 +370,12 @@ class AccelerationServiceRecorder
                 }
 
                 if (! $asDraft && (
-                    $key === 'business_formalization'
-                    || $key === 'funding_investment_support'
+                    $baseKey === 'business_formalization'
+                    || $baseKey === 'funding_investment_support'
                     || AccelerationServicesOptions::isMarketLinkageKey($key)
-                    || $key === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY
+                    || $baseKey === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY
                 )) {
-                    $needsMediaAlways = in_array($key, ['business_formalization', 'funding_investment_support'], true);
+                    $needsMediaAlways = in_array($baseKey, ['business_formalization', 'funding_investment_support'], true);
                     $orderValue = (float) ($cleanPayload['order_value'] ?? 0);
                     $needsMedia = $needsMediaAlways || $orderValue > 0;
 
@@ -382,11 +383,11 @@ class AccelerationServiceRecorder
                         $hasNewFiles = $this->requestHasMediaForKey($request, $key);
                         $hasExisting = isset($existingMediaKeys[$key]);
                         if (! $hasNewFiles && ! $hasExisting) {
-                            $message = match ($key) {
+                            $message = match ($baseKey) {
                                 'business_formalization' => 'Upload registration documents / photos for Business Formalization.',
                                 'funding_investment_support' => 'Upload scheme application / sanction documents for Convergence — Funding and Investment Support.',
                                 default => (
-                                    AccelerationServicesOptions::isMarketLinkageKey($key) || $key === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY
+                                    AccelerationServicesOptions::isMarketLinkageKey($key) || $baseKey === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY
                                         ? 'Upload proof of order / PO documents when Order / PO value is filled for '.$label.'.'
                                         : 'Upload documents for '.$label.'.'
                                 ),

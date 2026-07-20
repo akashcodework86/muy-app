@@ -111,53 +111,49 @@
                             $postedChecked = (array) old($meta['input'], $sectionChecked);
                             $renderItems = [];
                             foreach ($catalog[$sectionKey] ?? [] as $item) {
-                                if (($item['key'] ?? '') === 'soft_skills') {
+                                $baseKey = (string) ($item['key'] ?? '');
+                                if ($baseKey === 'soft_skills') {
                                     continue;
                                 }
-                                if (($item['key'] ?? '') === 'market_linkage') {
-                                    $mlKeys = array_values(array_unique(array_filter(
-                                        $postedChecked,
-                                        static fn ($k) => \App\Support\AccelerationServicesOptions::isMarketLinkageKey((string) $k)
-                                    )));
-                                    if ($mlKeys === []) {
-                                        $mlKeys = ['market_linkage'];
-                                    }
-                                    usort($mlKeys, static function (string $a, string $b): int {
-                                        $na = $a === 'market_linkage' ? 1 : (int) (preg_replace('/\D+/', '', $a) ?: 99);
-                                        $nb = $b === 'market_linkage' ? 1 : (int) (preg_replace('/\D+/', '', $b) ?: 99);
-
-                                        return $na <=> $nb;
-                                    });
-                                    foreach ($mlKeys as $mlKey) {
-                                        $renderItems[] = [
-                                            'key' => $mlKey,
-                                            'label' => \App\Support\AccelerationServicesOptions::labelForKey($sectionKey, $mlKey),
-                                            'is_custom' => false,
-                                            'is_market_repeat' => $mlKey !== 'market_linkage',
-                                        ];
-                                    }
-                                    continue;
+                                $repeatKeys = array_values(array_unique(array_filter(
+                                    $postedChecked,
+                                    static fn ($postedKey) => \App\Support\AccelerationServicesOptions::baseItemKey((string) $postedKey) === $baseKey
+                                )));
+                                if ($repeatKeys === []) {
+                                    $repeatKeys = [$baseKey];
                                 }
-                                $renderItems[] = $item;
+                                usort($repeatKeys, static fn (string $a, string $b): int =>
+                                    \App\Support\AccelerationServicesOptions::repeatNumber($a)
+                                    <=> \App\Support\AccelerationServicesOptions::repeatNumber($b)
+                                );
+                                foreach ($repeatKeys as $repeatKey) {
+                                    $renderItems[] = array_merge($item, [
+                                        'key' => $repeatKey,
+                                        'base_key' => $baseKey,
+                                        'label' => \App\Support\AccelerationServicesOptions::labelForKey($sectionKey, $repeatKey),
+                                        'is_repeat' => \App\Support\AccelerationServicesOptions::repeatNumber($repeatKey) > 1,
+                                    ]);
+                                }
                             }
                         @endphp
                         @foreach ($renderItems as $item)
                             @php
                                 $key = $item['key'];
+                                $baseKey = $item['base_key'] ?? \App\Support\AccelerationServicesOptions::baseItemKey($key);
                                 $schema = $itemSchemas[\App\Support\AccelerationServicesOptions::baseItemKey($key)]
                                     ?? $itemSchemas[$key]
                                     ?? \App\Support\AccelerationItemSchemas::forKey($key, $sectionKey);
                                 $oldChecked = in_array($key, $postedChecked, true);
                                 $isMarketLinkage = \App\Support\AccelerationServicesOptions::isMarketLinkageKey($key);
-                                $docsRequiredAlways = in_array($key, ['business_formalization', 'funding_investment_support'], true);
-                                $docsOrderProof = $isMarketLinkage || $key === 'buyer_seller_meet';
+                                $docsRequiredAlways = in_array($baseKey, ['business_formalization', 'funding_investment_support'], true);
+                                $docsOrderProof = $isMarketLinkage || $baseKey === 'buyer_seller_meet';
                             @endphp
-                            <div class="accel-item {{ $oldChecked ? 'is-checked' : '' }}" data-item-key="{{ $key }}" data-section="{{ $sectionKey }}" @if ($isMarketLinkage) data-market-linkage="1" @endif>
+                            <div class="accel-item {{ $oldChecked ? 'is-checked' : '' }}" data-item-key="{{ $key }}" data-repeat-base="{{ $baseKey }}" data-section="{{ $sectionKey }}" @if ($isMarketLinkage) data-market-linkage="1" @endif>
                                 <div class="accel-item__head">
                                     <input type="checkbox" name="{{ $meta['input'] }}[]" value="{{ $key }}" id="item_{{ $key }}" class="accel-item-check" @checked($oldChecked)>
                                     <label for="item_{{ $key }}">{{ $item['label'] }}</label>
-                                    @if (!empty($item['is_market_repeat']))
-                                        <button type="button" class="accel-link accel-remove-market-linkage" style="margin-left:auto;font-size:0.78rem;">Remove</button>
+                                    @if (!empty($item['is_repeat']))
+                                        <button type="button" class="accel-link accel-remove-repeat" style="margin-left:auto;font-size:0.78rem;">Remove</button>
                                     @endif
                                 </div>
                                 <div class="accel-item__extra">
@@ -356,10 +352,10 @@
                                             </div>
                                         @endif
                                     </div>
-                                    @if ($key === 'market_linkage')
-                                        <div class="accel-market-linkage-actions">
-                                            <button type="button" class="accel-btn accel-btn--secondary" id="accel_add_market_linkage">+ Add another market linkage</button>
-                                            <span class="accel-field-hint" style="margin:0;">One incubatee can have multiple market linkages on the same entry.</span>
+                                    @if (\App\Support\AccelerationServicesOptions::repeatNumber($key) === 1)
+                                        <div class="accel-repeat-actions">
+                                            <button type="button" class="accel-btn accel-btn--secondary accel-add-repeat" data-repeat-base="{{ $baseKey }}">+ Add another {{ $item['label'] }}</button>
+                                            <span class="accel-field-hint" style="margin:0;">Use this when the same service was provided more than once.</span>
                                         </div>
                                     @endif
                                 </div>
@@ -528,8 +524,12 @@
     function syncItemRequired(wrap, checked) {
         if (wrap.getAttribute('data-prior-locked') === '1') {
             wrap.querySelectorAll('input, select, textarea, button').forEach((el) => {
-                if (el.classList.contains('accel-remove-market-linkage')) {
+                if (el.classList.contains('accel-remove-repeat')) {
                     el.hidden = true;
+                    return;
+                }
+                if (el.classList.contains('accel-add-repeat')) {
+                    el.disabled = false;
                     return;
                 }
                 el.disabled = true;
@@ -593,15 +593,6 @@
         out.hidden = !text;
     }
 
-    function bindAmountWords() {
-        document.querySelectorAll('.accel-amount-words-input').forEach((input) => {
-            const run = () => syncAmountWords(input);
-            input.addEventListener('input', run);
-            input.addEventListener('change', run);
-            run();
-        });
-    }
-
     function syncOrderProofMedia(wrap) {
         if (!wrap) return;
         if (wrap.getAttribute('data-prior-locked') === '1') {
@@ -613,6 +604,7 @@
             return;
         }
         const itemKey = wrap.getAttribute('data-item-key') || '';
+        const baseKey = wrap.getAttribute('data-repeat-base') || itemKey;
         const mediaField = wrap.querySelector('.accel-media-field');
         const mediaInput = wrap.querySelector('.accel-media-input');
         const note = wrap.querySelector('.accel-proof-note');
@@ -620,8 +612,8 @@
         const existing = existingMediaMap[itemKey];
         const hasExisting = Array.isArray(existing) && existing.length > 0;
         const alwaysRequired = !!(mediaInput && mediaInput.getAttribute('data-media-always-required') === '1')
-            || itemKey === 'business_formalization'
-            || itemKey === 'funding_investment_support';
+            || baseKey === 'business_formalization'
+            || baseKey === 'funding_investment_support';
 
         if (alwaysRequired) {
             if (mediaField) mediaField.classList.toggle('is-required-proof', checked);
@@ -632,8 +624,8 @@
             return;
         }
 
-        const isMarket = /^market_linkage(_\d+)?$/.test(itemKey);
-        if (!isMarket && itemKey !== 'buyer_seller_meet') return;
+        const isMarket = baseKey === 'market_linkage';
+        if (!isMarket && baseKey !== 'buyer_seller_meet') return;
 
         const orderInput = wrap.querySelector('.accel-order-value');
         const orderVal = parseFloat(orderInput && orderInput.value ? orderInput.value : '0') || 0;
@@ -646,42 +638,53 @@
         }
     }
 
-    function nextMarketLinkageKey() {
-        let max = 1;
-        document.querySelectorAll('[data-market-linkage="1"]').forEach((el) => {
-            const key = el.getAttribute('data-item-key') || '';
-            if (key === 'market_linkage') {
-                max = Math.max(max, 1);
-                return;
-            }
-            const m = key.match(/^market_linkage_(\d+)$/);
-            if (m) max = Math.max(max, parseInt(m[1], 10));
-        });
-        return 'market_linkage_' + (max + 1);
+    function repeatNumberForKey(baseKey, itemKey) {
+        if (itemKey === baseKey) return 1;
+        const market = baseKey === 'market_linkage' ? itemKey.match(/^market_linkage_(\d+)$/) : null;
+        const generic = itemKey.match(/__(\d+)$/);
+        return parseInt((market || generic || [])[1] || '1', 10);
     }
 
-    function rewriteMarketLinkageClone(clone, newKey) {
-        const n = newKey === 'market_linkage' ? 1 : parseInt(newKey.replace(/\D+/g, ''), 10) || 2;
-        const label = newKey === 'market_linkage' ? 'Market Linkage' : ('Market Linkage #' + n);
+    function nextRepeatedKey(baseKey) {
+        let max = 1;
+        document.querySelectorAll('.accel-item[data-repeat-base]').forEach((el) => {
+            if ((el.getAttribute('data-repeat-base') || '') !== baseKey) return;
+            const key = el.getAttribute('data-item-key') || '';
+            max = Math.max(max, repeatNumberForKey(baseKey, key));
+        });
+        return baseKey === 'market_linkage'
+            ? baseKey + '_' + (max + 1)
+            : baseKey + '__' + (max + 1);
+    }
+
+    function rewriteRepeatedServiceClone(clone, baseKey, newKey) {
+        const oldKey = clone.getAttribute('data-item-key') || baseKey;
+        const n = repeatNumberForKey(baseKey, newKey);
+        const templateLabel = String((clone.querySelector('.accel-item__head label') || {}).textContent || baseKey).trim();
+        const label = templateLabel.replace(/\s+#\d+$/, '') + ' #' + n;
         clone.setAttribute('data-item-key', newKey);
+        clone.setAttribute('data-repeat-base', baseKey);
+        clone.removeAttribute('data-prior-locked');
+        clone.removeAttribute('data-repeat-bound');
+        clone.classList.remove('is-prior');
         clone.classList.add('is-checked');
         const check = clone.querySelector('.accel-item-check');
         if (check) {
             check.value = newKey;
             check.id = 'item_' + newKey;
             check.checked = true;
-            check.name = 'service_detail[]';
+            check.disabled = false;
         }
         const labelEl = clone.querySelector('.accel-item__head label');
         if (labelEl) {
             labelEl.setAttribute('for', 'item_' + newKey);
             labelEl.textContent = label;
         }
-        let removeBtn = clone.querySelector('.accel-remove-market-linkage');
-        if (!removeBtn && newKey !== 'market_linkage') {
+        let removeBtn = clone.querySelector('.accel-remove-repeat');
+        if (!removeBtn) {
             removeBtn = document.createElement('button');
             removeBtn.type = 'button';
-            removeBtn.className = 'accel-link accel-remove-market-linkage';
+            removeBtn.className = 'accel-link accel-remove-repeat';
             removeBtn.style.cssText = 'margin-left:auto;font-size:0.78rem;';
             removeBtn.textContent = 'Remove';
             const head = clone.querySelector('.accel-item__head');
@@ -689,12 +692,13 @@
         }
         clone.querySelectorAll('[name]').forEach((el) => {
             const name = el.getAttribute('name') || '';
-            if (name.startsWith('payload[market_linkage')) {
-                el.setAttribute('name', name.replace(/payload\[market_linkage(?:_\d+)?]/, 'payload[' + newKey + ']'));
-            } else if (name.startsWith('media[market_linkage')) {
+            if (name.startsWith('payload[' + oldKey + ']')) {
+                el.setAttribute('name', name.replace('payload[' + oldKey + ']', 'payload[' + newKey + ']'));
+            } else if (name.startsWith('media[' + oldKey + ']')) {
                 el.setAttribute('name', 'media[' + newKey + '][]');
             }
             if (el.type === 'checkbox' && el.classList.contains('accel-item-check')) return;
+            el.disabled = false;
             if (el.type === 'file') {
                 el.value = '';
                 el.setAttribute('data-item-key', newKey);
@@ -714,90 +718,50 @@
         if (mediaField) mediaField.setAttribute('data-media-for', newKey);
         const existing = clone.querySelector('.accel-existing-media');
         if (existing) existing.remove();
-        const actions = clone.querySelector('.accel-market-linkage-actions');
+        const priorBadge = clone.querySelector('.accel-prior-badge');
+        if (priorBadge) priorBadge.remove();
+        const actions = clone.querySelector('.accel-repeat-actions');
         if (actions) actions.remove();
         const schemaRoot = clone.querySelector('.accel-item__schema');
         if (schemaRoot) schemaRoot.setAttribute('data-schema-for', newKey);
     }
 
-    function bindMarketLinkageControls() {
-        const addBtn = document.getElementById('accel_add_market_linkage');
-        const container = document.getElementById('accel_service_detail_items');
-        if (addBtn && container) {
-            addBtn.addEventListener('click', () => {
-                const template = container.querySelector('[data-market-linkage="1"][data-item-key="market_linkage"]')
-                    || container.querySelector('[data-market-linkage="1"]');
-                if (!template) return;
-                const newKey = nextMarketLinkageKey();
-                const clone = template.cloneNode(true);
-                rewriteMarketLinkageClone(clone, newKey);
-                const marketItems = container.querySelectorAll('[data-market-linkage="1"]');
-                const last = marketItems[marketItems.length - 1] || template;
-                last.after(clone);
-                const check = clone.querySelector('.accel-item-check');
-                if (check) {
-                    // Re-bind like bindItemChecks for this clone only
-                    const wrap = clone;
-                    const sync = () => {
-                        wrap.classList.toggle('is-checked', check.checked);
-                        syncVisibleIf(wrap);
-                        renderTickedNow();
-                        scheduleAutosave();
-                    };
-                    check.addEventListener('change', sync);
-                    wrap.querySelectorAll('input, select, textarea').forEach((input) => {
-                        if (input.classList.contains('accel-item-check')) return;
-                        input.addEventListener('change', () => {
-                            syncVisibleIf(wrap);
-                            scheduleAutosave();
-                        });
-                        input.addEventListener('input', () => {
-                            if (input.classList.contains('accel-order-value')) syncOrderProofMedia(wrap);
-                            scheduleAutosave();
-                        });
-                    });
-                    const mediaInput = wrap.querySelector('.accel-media-input');
-                    if (mediaInput) {
-                        mediaInput.addEventListener('change', function () {
-                            const preview = document.getElementById(this.getAttribute('data-preview'));
-                            if (preview) {
-                                preview.innerHTML = '';
-                                Array.from(this.files || []).forEach((file) => {
-                                    if (file.type && file.type.startsWith('image/')) {
-                                        const img = document.createElement('img');
-                                        img.src = URL.createObjectURL(file);
-                                        preview.appendChild(img);
-                                    } else {
-                                        const chip = document.createElement('span');
-                                        chip.className = 'accel-media-chip';
-                                        chip.textContent = file.name;
-                                        preview.appendChild(chip);
-                                    }
-                                });
-                            }
-                            scheduleAutosave();
-                        });
-                    }
-                    sync();
-                }
-                scheduleAutosave();
-            });
-        }
-
+    function bindRepeatableServiceControls() {
         document.addEventListener('click', (e) => {
-            const btn = e.target.closest('.accel-remove-market-linkage');
-            if (!btn) return;
-            const wrap = btn.closest('.accel-item');
-            if (!wrap || wrap.getAttribute('data-item-key') === 'market_linkage') return;
-            wrap.remove();
-            renderTickedNow();
-            scheduleAutosave();
+            const addBtn = e.target.closest('.accel-add-repeat');
+            if (addBtn) {
+                const baseKey = addBtn.getAttribute('data-repeat-base') || '';
+                const template = addBtn.closest('.accel-item');
+                if (!baseKey || !template) return;
+                const newKey = nextRepeatedKey(baseKey);
+                const clone = template.cloneNode(true);
+                rewriteRepeatedServiceClone(clone, baseKey, newKey);
+                let last = template;
+                document.querySelectorAll('.accel-item[data-repeat-base]').forEach((item) => {
+                    if ((item.getAttribute('data-repeat-base') || '') === baseKey) last = item;
+                });
+                last.after(clone);
+                bindItemWrap(clone);
+                scheduleAutosave();
+                return;
+            }
+
+            const removeBtn = e.target.closest('.accel-remove-repeat');
+            if (removeBtn) {
+                const wrap = removeBtn.closest('.accel-item');
+                if (!wrap) return;
+                wrap.remove();
+                renderTickedNow();
+                scheduleAutosave();
+            }
         });
     }
 
-    function bindItemChecks() {
-        document.querySelectorAll('.accel-item-check').forEach((el) => {
-            const wrap = el.closest('.accel-item');
+    function bindItemWrap(wrap) {
+            if (!wrap || wrap.getAttribute('data-repeat-bound') === '1') return;
+            wrap.setAttribute('data-repeat-bound', '1');
+            const el = wrap.querySelector('.accel-item-check');
+            if (!el) return;
             const sync = () => {
                 wrap.classList.toggle('is-checked', el.checked);
                 syncVisibleIf(wrap);
@@ -816,7 +780,41 @@
                     scheduleAutosave();
                 });
             });
+            const mediaInput = wrap.querySelector('.accel-media-input');
+            if (mediaInput) {
+                mediaInput.addEventListener('change', function () {
+                    const preview = document.getElementById(this.getAttribute('data-preview') || '');
+                    if (preview) {
+                        preview.innerHTML = '';
+                        Array.from(this.files || []).forEach((file) => {
+                            if ((file.type || '').startsWith('image/')) {
+                                const img = document.createElement('img');
+                                img.alt = file.name;
+                                img.src = URL.createObjectURL(file);
+                                preview.appendChild(img);
+                            } else {
+                                const chip = document.createElement('span');
+                                chip.className = 'accel-media-chip';
+                                chip.textContent = file.name;
+                                preview.appendChild(chip);
+                            }
+                        });
+                    }
+                    syncOrderProofMedia(wrap);
+                    scheduleAutosave();
+                });
+            }
+            wrap.querySelectorAll('.accel-amount-words-input').forEach((input) => {
+                input.addEventListener('input', () => syncAmountWords(input));
+                input.addEventListener('change', () => syncAmountWords(input));
+                syncAmountWords(input);
+            });
             sync();
+    }
+
+    function bindItemChecks() {
+        document.querySelectorAll('.accel-item').forEach((wrap) => {
+            bindItemWrap(wrap);
         });
     }
 
@@ -914,32 +912,6 @@
             });
     }
 
-    function bindMediaPreviews() {
-        document.querySelectorAll('.accel-media-input').forEach((input) => {
-            input.addEventListener('change', function () {
-                const preview = document.getElementById(this.dataset.preview || '');
-                if (!preview) return;
-                preview.innerHTML = '';
-                Array.from(this.files || []).forEach((file) => {
-                    if ((file.type || '').startsWith('image/')) {
-                        const img = document.createElement('img');
-                        img.alt = file.name;
-                        img.src = URL.createObjectURL(file);
-                        preview.appendChild(img);
-                    } else {
-                        const chip = document.createElement('span');
-                        chip.className = 'accel-media-chip';
-                        chip.textContent = file.name;
-                        preview.appendChild(chip);
-                    }
-                });
-                const wrap = this.closest('.accel-item');
-                syncOrderProofMedia(wrap);
-                scheduleAutosave();
-            });
-        });
-    }
-
     function applicantId(app) {
         return String(app.legacy_phase1_application_id || '');
     }
@@ -1017,7 +989,8 @@
     function clearPriorFormItems() {
         document.querySelectorAll('.accel-item[data-prior-locked="1"]').forEach((wrap) => {
             const key = wrap.getAttribute('data-item-key') || '';
-            if (/^market_linkage_\d+$/.test(key)) {
+            const baseKey = wrap.getAttribute('data-repeat-base') || key;
+            if (repeatNumberForKey(baseKey, key) > 1) {
                 wrap.remove();
                 return;
             }
@@ -1047,8 +1020,6 @@
             syncVisibleIf(wrap);
             syncItemRequired(wrap, false);
         });
-        const addBtn = document.getElementById('accel_add_market_linkage');
-        if (addBtn) addBtn.hidden = false;
         renderTickedNow();
     }
 
@@ -1056,47 +1027,30 @@
         let wrap = form.querySelector('.accel-item[data-item-key="' + itemKey + '"]');
         if (wrap) return wrap;
 
-        if (!/^market_linkage(_\d+)?$/.test(itemKey)) {
-            return null;
-        }
-
-        const container = document.getElementById('accel_service_detail_items');
-        if (!container) return null;
-
-        if (itemKey === 'market_linkage') {
-            return container.querySelector('[data-market-linkage="1"][data-item-key="market_linkage"]')
-                || container.querySelector('[data-market-linkage="1"]');
-        }
+        const baseKey = /^market_linkage_\d+$/.test(itemKey)
+            ? 'market_linkage'
+            : itemKey.replace(/__\d+$/, '');
+        const template = Array.from(form.querySelectorAll('.accel-item[data-repeat-base]')).find((item) =>
+            (item.getAttribute('data-repeat-base') || '') === baseKey
+            && (item.getAttribute('data-item-key') || '') === baseKey
+        );
+        if (!template) return null;
+        if (itemKey === baseKey) return template;
 
         let guard = 0;
-        while (guard++ < 20) {
+        while (guard++ < 50) {
             wrap = form.querySelector('.accel-item[data-item-key="' + itemKey + '"]');
             if (wrap) return wrap;
 
-            const template = container.querySelector('[data-market-linkage="1"][data-item-key="market_linkage"]')
-                || container.querySelector('[data-market-linkage="1"]');
-            if (!template) return null;
-
-            const newKey = nextMarketLinkageKey();
+            const newKey = nextRepeatedKey(baseKey);
             const clone = template.cloneNode(true);
-            rewriteMarketLinkageClone(clone, newKey);
-            const marketItems = container.querySelectorAll('[data-market-linkage="1"]');
-            const last = marketItems[marketItems.length - 1] || template;
+            rewriteRepeatedServiceClone(clone, baseKey, newKey);
+            let last = template;
+            form.querySelectorAll('.accel-item[data-repeat-base]').forEach((item) => {
+                if ((item.getAttribute('data-repeat-base') || '') === baseKey) last = item;
+            });
             last.after(clone);
-
-            const check = clone.querySelector('.accel-item-check');
-            if (check) {
-                check.addEventListener('change', () => {
-                    if (clone.getAttribute('data-prior-locked') === '1') {
-                        check.checked = true;
-                        return;
-                    }
-                    clone.classList.toggle('is-checked', check.checked);
-                    syncVisibleIf(clone);
-                    renderTickedNow();
-                    scheduleAutosave();
-                });
-            }
+            bindItemWrap(clone);
 
             if (newKey === itemKey) {
                 return clone;
@@ -1187,7 +1141,7 @@
         if (meta.service_date) bits.push('· ' + meta.service_date);
         badge.textContent = bits.join(' ');
 
-        const removeBtn = wrap.querySelector('.accel-remove-market-linkage');
+        const removeBtn = wrap.querySelector('.accel-remove-repeat');
         if (removeBtn) removeBtn.hidden = true;
 
         syncVisibleIf(wrap);
@@ -1209,12 +1163,9 @@
         const sorted = priorItems.slice().sort((a, b) => {
             const ka = String(a.item_key || '');
             const kb = String(b.item_key || '');
-            const rank = (k) => {
-                if (k === 'market_linkage') return 1;
-                const m = k.match(/^market_linkage_(\d+)$/);
-                return m ? parseInt(m[1], 10) : 1000;
-            };
-            return rank(ka) - rank(kb) || ka.localeCompare(kb);
+            const base = (k) => /^market_linkage_\d+$/.test(k) ? 'market_linkage' : k.replace(/__\d+$/, '');
+            return base(ka).localeCompare(base(kb))
+                || repeatNumberForKey(base(ka), ka) - repeatNumberForKey(base(kb), kb);
         });
 
         sorted.forEach((row) => {
@@ -1401,9 +1352,7 @@
     }
 
     bindItemChecks();
-    bindMarketLinkageControls();
-    bindAmountWords();
-    bindMediaPreviews();
+    bindRepeatableServiceControls();
 
     if (prefillApplicant && prefillApplicant.legacy_phase1_application_id) {
         selectApplicant(prefillApplicant);

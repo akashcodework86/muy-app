@@ -129,6 +129,83 @@ class AccelerationServicesTest extends TestCase
         $this->assertDatabaseCount('acceleration_service_sessions', 0);
     }
 
+    public function test_same_service_can_be_recorded_more_than_once_in_one_entry(): void
+    {
+        $staff = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'ankur.rawat@pwc.com',
+            'is_active' => true,
+        ]);
+        $fy = FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+
+        $this->mock(AccelerationServicesIncubateeService::class, function ($mock) use ($fy): void {
+            $mock->shouldReceive('findPhase1Applicant')->with(401)->once()->andReturn([
+                'legacy_phase1_application_id' => 401,
+                'incubatee_key' => 'p1:401',
+                'applicant_name' => 'Repeated Service Applicant',
+                'application_no' => 'APP-401',
+                'district_name' => 'Haridwar',
+                'onboard_label' => 'Onboarded',
+            ]);
+            $mock->shouldReceive('resolveFiscalYearIdForDate')->once()->andReturn((int) $fy->id);
+            $mock->shouldReceive('shouldCountFor72')->once()->andReturn(true);
+        });
+
+        $this->actingAs($staff)
+            ->post(route('spoc.acceleration-services.store'), [
+                'service_date' => '2026-07-20',
+                'legacy_phase1_application_id' => 401,
+                'service_detail' => ['coaching_mentorship', 'coaching_mentorship__2'],
+                'payload' => [
+                    'coaching_mentorship' => [
+                        'service_item_date' => '2026-07-18',
+                        'mentor_name' => 'Mentor One',
+                        'session_mode' => 'online',
+                        'duration_minutes' => '60',
+                    ],
+                    'coaching_mentorship__2' => [
+                        'service_item_date' => '2026-07-20',
+                        'mentor_name' => 'Mentor Two',
+                        'session_mode' => 'offline',
+                        'duration_minutes' => '90',
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $session = AccelerationServiceSession::query()->firstOrFail();
+        $this->assertSame(
+            ['coaching_mentorship', 'coaching_mentorship__2'],
+            $session->items()->orderBy('id')->pluck('item_key')->all(),
+        );
+        $this->assertSame(
+            ['One to One Coaching & Mentorship (Specialized Mentorship Support)', 'One to One Coaching & Mentorship (Specialized Mentorship Support) #2'],
+            $session->items()->orderBy('id')->pluck('item_label')->all(),
+        );
+    }
+
+    public function test_full_form_shows_add_another_for_each_service_section(): void
+    {
+        $staff = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'ankur.rawat@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('spoc.acceleration-services.create'))
+            ->assertOk()
+            ->assertSee('+ Add another Business Formalization')
+            ->assertSee('+ Add another Buyer Seller Meet')
+            ->assertSee('+ Add another TBI (Graphic Era)');
+    }
+
     public function test_ankur_can_open_dashboard_and_store_session(): void
     {
         $ankur = User::factory()->create([
