@@ -103,6 +103,12 @@ class AccelerationServiceRecorder
                 'legacy_phase1_application_id' => 'Phase 1 applicant not found.',
             ]);
         }
+        $eligibilityError = AccelerationServicesAccess::applicantEligibilityError($user, $applicant);
+        if ($eligibilityError !== null) {
+            throw ValidationException::withMessages([
+                'legacy_phase1_application_id' => $eligibilityError,
+            ]);
+        }
 
         $items = $this->buildItemsFromRequest($request, $validated, $asDraft, $existing, $allowedSections);
         if (! $asDraft && $items === []) {

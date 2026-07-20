@@ -13,6 +13,7 @@ use App\Services\ProgramDeliverablesReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Tests\TestCase;
 
 class AccelerationServicesTest extends TestCase
@@ -28,6 +29,104 @@ class AccelerationServicesTest extends TestCase
         $this->artisan('migrate', ['--path' => 'database/migrations/2026_07_10_120000_add_payload_to_acceleration_service_items.php']);
         $this->artisan('migrate', ['--path' => 'database/migrations/2026_07_15_120000_add_is_draft_to_acceleration_service_sessions.php']);
         $this->artisan('migrate', ['--path' => 'database/migrations/2026_07_17_120000_add_approval_workflow_to_acceleration_services.php']);
+    }
+
+    public function test_district_staff_search_is_limited_to_own_district_and_onboarded_applicants(): void
+    {
+        $hubId = DB::table('hubs')->insertGetId([
+            'slug' => 'search-test-hub',
+            'name' => 'Search Test Hub',
+            'sort_order' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $districtId = DB::table('districts')->insertGetId([
+            'hub_id' => $hubId,
+            'slug' => 'haridwar-search-test',
+            'name' => 'Haridwar',
+            'sort_order' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $districtId,
+            'is_active' => true,
+        ]);
+
+        $this->mock(AccelerationServicesIncubateeService::class, function ($mock): void {
+            $mock->shouldReceive('search')
+                ->once()
+                ->withArgs(fn (Request $request, ?string $district, bool $onboardedOnly) =>
+                    $request->query('search') === '60800034'
+                    && $district === 'Haridwar'
+                    && $onboardedOnly === true)
+                ->andReturn([]);
+        });
+
+        $this->actingAs($staff)
+            ->getJson(route('staff.acceleration-services.incubatees.search', ['q' => '60800034']))
+            ->assertOk()
+            ->assertExactJson([
+                'ok' => true,
+                'applicants' => [],
+                'legacy_available' => (string) config('database.connections.legacy_phase1.database', '') !== '',
+            ]);
+    }
+
+    public function test_direct_submission_rejects_other_district_and_non_onboarded_applicants(): void
+    {
+        $hubId = DB::table('hubs')->insertGetId([
+            'slug' => 'eligibility-test-hub',
+            'name' => 'Eligibility Test Hub',
+            'sort_order' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $districtId = DB::table('districts')->insertGetId([
+            'hub_id' => $hubId,
+            'slug' => 'haridwar-eligibility-test',
+            'name' => 'Haridwar',
+            'sort_order' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $districtId,
+            'is_active' => true,
+        ]);
+
+        $this->mock(AccelerationServicesIncubateeService::class, function ($mock): void {
+            $mock->shouldReceive('findPhase1Applicant')->with(301)->once()->andReturn([
+                'legacy_phase1_application_id' => 301,
+                'incubatee_key' => 'p1:301',
+                'applicant_name' => 'Other District Applicant',
+                'district_name' => 'Dehradun',
+                'onboard_label' => 'Onboarded',
+            ]);
+            $mock->shouldReceive('findPhase1Applicant')->with(302)->once()->andReturn([
+                'legacy_phase1_application_id' => 302,
+                'incubatee_key' => 'p1:302',
+                'applicant_name' => 'Not Onboarded Applicant',
+                'district_name' => 'Haridwar',
+                'onboard_label' => 'Non onboarded',
+            ]);
+        });
+
+        foreach ([301, 302] as $legacyId) {
+            $this->actingAs($staff)
+                ->from(route('staff.acceleration-services.create'))
+                ->post(route('staff.acceleration-services.store'), [
+                    'service_date' => '2026-07-20',
+                    'legacy_phase1_application_id' => $legacyId,
+                    'service_detail' => ['coaching_mentorship'],
+                ])
+                ->assertRedirect(route('staff.acceleration-services.create'))
+                ->assertSessionHasErrors('legacy_phase1_application_id');
+        }
+
+        $this->assertDatabaseCount('acceleration_service_sessions', 0);
     }
 
     public function test_ankur_can_open_dashboard_and_store_session(): void

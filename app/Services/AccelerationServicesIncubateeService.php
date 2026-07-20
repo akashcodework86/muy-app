@@ -336,7 +336,7 @@ class AccelerationServicesIncubateeService
     /**
      * @return list<array<string, mixed>>
      */
-    public function search(Request $request): array
+    public function search(Request $request, ?string $lockDistrict = null, bool $onboardedOnly = false): array
     {
         if ((string) config('database.connections.legacy_phase1.database', '') === '') {
             return [];
@@ -351,7 +351,10 @@ class AccelerationServicesIncubateeService
         }
 
         $query = LegacyPhase1ListQuery::listQuery();
-        LegacyPhase1ListQuery::applyFilters($query, $request, null, true);
+        LegacyPhase1ListQuery::applyFilters($query, $request, $lockDistrict, true);
+        if ($onboardedOnly) {
+            LegacyPhase1DistrictResolver::applyOnboardFilter($query, 'onboarded');
+        }
 
         $rows = $query
             ->orderByDesc('ApplicationDate')

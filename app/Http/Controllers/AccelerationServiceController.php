@@ -44,6 +44,10 @@ class AccelerationServiceController extends Controller
             $fromSession = AccelerationServiceSession::query()->find($prefillFromSessionId);
             if ($fromSession) {
                 $prefillApplicant = $this->incubatees->findPhase1Applicant((int) $fromSession->legacy_phase1_application_id);
+                if ($prefillApplicant !== null
+                    && AccelerationServicesAccess::applicantEligibilityError($user, $prefillApplicant) !== null) {
+                    $prefillApplicant = null;
+                }
             }
         }
 
@@ -574,13 +578,17 @@ class AccelerationServiceController extends Controller
 
     public function searchIncubatees(Request $request): JsonResponse
     {
-        $this->submitterOrAbort($request);
+        $user = $this->submitterOrAbort($request);
+        $districtScope = AccelerationServicesAccess::applicantDistrictScope($user);
+        if ($user->role === 'district_staff' && $districtScope === '') {
+            abort(403, 'Your district is not assigned. Please contact an administrator.');
+        }
 
         $searchRequest = Request::create('/', 'GET', ['search' => $request->query('q', '')]);
 
         return response()->json([
             'ok' => true,
-            'applicants' => $this->incubatees->search($searchRequest),
+            'applicants' => $this->incubatees->search($searchRequest, $districtScope, true),
             'legacy_available' => (string) config('database.connections.legacy_phase1.database', '') !== '',
         ]);
     }
@@ -601,6 +609,12 @@ class AccelerationServiceController extends Controller
                 'ok' => true,
                 'services' => [],
             ]);
+        }
+
+        $applicant = $this->incubatees->findPhase1Applicant($legacyPhase1ApplicationId);
+        if ($applicant === null
+            || AccelerationServicesAccess::applicantEligibilityError($request->user(), $applicant) !== null) {
+            abort(404);
         }
 
         if ($key === '') {
