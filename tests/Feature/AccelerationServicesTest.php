@@ -203,7 +203,44 @@ class AccelerationServicesTest extends TestCase
             ->assertOk()
             ->assertSee('+ Add another Business Formalization')
             ->assertSee('+ Add another Buyer Seller Meet')
-            ->assertSee('+ Add another TBI (Graphic Era)');
+            ->assertSee('+ Add another TBI (Graphic Era)')
+            ->assertDontSee('Add new service');
+    }
+
+    public function test_unlisted_custom_service_cannot_be_created_by_a_crafted_request(): void
+    {
+        $staff = User::factory()->create([
+            'role' => 'state_staff',
+            'email' => 'ankur.rawat@pwc.com',
+            'is_active' => true,
+        ]);
+
+        $this->mock(AccelerationServicesIncubateeService::class, function ($mock): void {
+            $mock->shouldReceive('findPhase1Applicant')->with(402)->once()->andReturn([
+                'legacy_phase1_application_id' => 402,
+                'incubatee_key' => 'p1:402',
+                'applicant_name' => 'Custom Service Applicant',
+                'application_no' => 'APP-402',
+                'district_name' => 'Haridwar',
+                'onboard_label' => 'Onboarded',
+            ]);
+        });
+
+        $this->actingAs($staff)
+            ->from(route('spoc.acceleration-services.create'))
+            ->post(route('spoc.acceleration-services.store'), [
+                'service_date' => '2026-07-20',
+                'legacy_phase1_application_id' => 402,
+                'service_detail' => ['custom_unapproved_service'],
+                'custom_service_detail' => ['Unapproved Service'],
+            ])
+            ->assertRedirect(route('spoc.acceleration-services.create'))
+            ->assertSessionHasErrors('service_detail');
+
+        $this->assertDatabaseMissing('acceleration_service_item_catalog', [
+            'item_key' => 'custom_unapproved_service',
+        ]);
+        $this->assertDatabaseCount('acceleration_service_sessions', 0);
     }
 
     public function test_ankur_can_open_dashboard_and_store_session(): void

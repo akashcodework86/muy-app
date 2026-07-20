@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\AccelerationServiceItem;
-use App\Models\AccelerationServiceItemCatalog;
 use App\Models\AccelerationServiceItemMedia;
 use App\Models\AccelerationServiceSession;
 use App\Models\User;
@@ -80,21 +79,13 @@ class AccelerationServiceRecorder
             'partnership' => ['nullable', 'array'],
             'partnership.*' => ['string', 'max:64'],
             'payload' => ['nullable', 'array'],
-            'custom_service_detail' => ['nullable', 'array'],
-            'custom_service_detail.*' => ['nullable', 'string', 'max:191'],
-            'custom_cross_cutting' => ['nullable', 'array'],
-            'custom_cross_cutting.*' => ['nullable', 'string', 'max:191'],
-            'custom_partnership' => ['nullable', 'array'],
-            'custom_partnership.*' => ['nullable', 'string', 'max:191'],
         ]);
 
         if (! in_array(AccelerationServicesOptions::SECTION_CROSS_CUTTING, $allowedSections, true)) {
             $validated['cross_cutting'] = [];
-            $validated['custom_cross_cutting'] = [];
         }
         if (! in_array(AccelerationServicesOptions::SECTION_PARTNERSHIP, $allowedSections, true)) {
             $validated['partnership'] = [];
-            $validated['custom_partnership'] = [];
         }
 
         $applicant = $this->incubatees->findPhase1Applicant((int) $validated['legacy_phase1_application_id']);
@@ -282,30 +273,9 @@ class AccelerationServiceRecorder
         $allPayload = is_array($validated['payload'] ?? null) ? $validated['payload'] : [];
 
         $sectionMap = [
-            AccelerationServicesOptions::SECTION_SERVICE_DETAIL => array_merge(
-                array_values(array_filter((array) ($validated['service_detail'] ?? []))),
-                $this->registerCustomLabels(
-                    AccelerationServicesOptions::SECTION_SERVICE_DETAIL,
-                    (array) ($validated['custom_service_detail'] ?? []),
-                    (int) ($request->user()?->id ?? 0),
-                ),
-            ),
-            AccelerationServicesOptions::SECTION_CROSS_CUTTING => array_merge(
-                array_values(array_filter((array) ($validated['cross_cutting'] ?? []))),
-                $this->registerCustomLabels(
-                    AccelerationServicesOptions::SECTION_CROSS_CUTTING,
-                    (array) ($validated['custom_cross_cutting'] ?? []),
-                    (int) ($request->user()?->id ?? 0),
-                ),
-            ),
-            AccelerationServicesOptions::SECTION_PARTNERSHIP => array_merge(
-                array_values(array_filter((array) ($validated['partnership'] ?? []))),
-                $this->registerCustomLabels(
-                    AccelerationServicesOptions::SECTION_PARTNERSHIP,
-                    (array) ($validated['custom_partnership'] ?? []),
-                    (int) ($request->user()?->id ?? 0),
-                ),
-            ),
+            AccelerationServicesOptions::SECTION_SERVICE_DETAIL => array_values(array_filter((array) ($validated['service_detail'] ?? []))),
+            AccelerationServicesOptions::SECTION_CROSS_CUTTING => array_values(array_filter((array) ($validated['cross_cutting'] ?? []))),
+            AccelerationServicesOptions::SECTION_PARTNERSHIP => array_values(array_filter((array) ($validated['partnership'] ?? []))),
         ];
 
         $existingMediaKeys = [];
@@ -319,6 +289,7 @@ class AccelerationServiceRecorder
 
         $seen = [];
         foreach ($sectionMap as $section => $keys) {
+            $validBaseKeys = array_column(AccelerationServicesOptions::itemsForSection($section), 'key');
             foreach ($keys as $entry) {
                 $isCustom = is_array($entry);
                 $key = $isCustom ? (string) ($entry['key'] ?? '') : trim((string) $entry);
@@ -329,6 +300,11 @@ class AccelerationServiceRecorder
                 // Soft skills retired from UI — ignore if posted.
                 if ($baseKey === 'soft_skills') {
                     continue;
+                }
+                if (! in_array($baseKey, $validBaseKeys, true)) {
+                    throw ValidationException::withMessages([
+                        $section => 'Select a service from the available list.',
+                    ]);
                 }
                 if ($allowedSections !== [] && ! in_array($section, $allowedSections, true)) {
                     continue;
@@ -431,41 +407,6 @@ class AccelerationServiceRecorder
         }
 
         return false;
-    }
-
-    /**
-     * @param  list<string>  $labels
-     * @return list<array{key: string, label: string}>
-     */
-    private function registerCustomLabels(string $section, array $labels, int $userId): array
-    {
-        if (! Schema::hasTable('acceleration_service_item_catalog')) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($labels as $label) {
-            $label = trim((string) $label);
-            if ($label === '') {
-                continue;
-            }
-
-            $key = AccelerationServicesOptions::catalogKeyFromLabel($label);
-            AccelerationServiceItemCatalog::query()->updateOrCreate(
-                ['item_key' => $key],
-                [
-                    'section' => $section,
-                    'item_label' => $label,
-                    'is_system' => false,
-                    'is_active' => true,
-                    'created_by_user_id' => $userId > 0 ? $userId : null,
-                ],
-            );
-
-            $out[] = ['key' => $key, 'label' => $label];
-        }
-
-        return $out;
     }
 
     private function storeMediaForItem(Request $request, string $itemKey, int $itemId, int $userId): void

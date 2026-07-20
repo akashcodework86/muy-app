@@ -5,9 +5,9 @@
     $existingMedia = $existingMedia ?? [];
     $checkedKeys = $checkedKeys ?? ['service_detail' => [], 'cross_cutting' => [], 'partnership' => []];
     $sections = [
-        'service_detail' => ['title' => 'In-house — Service details', 'input' => 'service_detail', 'custom' => 'custom_service_detail'],
-        'cross_cutting' => ['title' => 'Cross-cutting initiative', 'input' => 'cross_cutting', 'custom' => 'custom_cross_cutting'],
-        'partnership' => ['title' => 'External — Co-incubation partners', 'input' => 'partnership', 'custom' => 'custom_partnership'],
+        'service_detail' => ['title' => 'In-house — Service details', 'input' => 'service_detail'],
+        'cross_cutting' => ['title' => 'Cross-cutting initiative', 'input' => 'cross_cutting'],
+        'partnership' => ['title' => 'External — Co-incubation partners', 'input' => 'partnership'],
     ];
     $itemSchemas = [];
     foreach ($catalog ?? [] as $sectionKey => $items) {
@@ -361,9 +361,6 @@
                                 </div>
                             </div>
                         @endforeach
-                    </div>
-                    <div class="accel-custom-row">
-                        <input type="text" name="{{ $meta['custom'] }}[]" placeholder="+ Add new service (saved for next time)">
                     </div>
                 </div>
             @endforeach

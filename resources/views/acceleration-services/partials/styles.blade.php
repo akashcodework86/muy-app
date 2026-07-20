@@ -480,26 +480,6 @@
     }
     .accel-selected strong { color:#047857; }
 
-    .accel-custom-row { margin-top:0.55rem; }
-    .accel-custom-row input {
-        width:100%;
-        box-sizing:border-box;
-        border:1px dashed #cbd5e1;
-        border-radius:10px;
-        padding:0.55rem 0.7rem;
-        font-size:0.84rem;
-        background:#fafafa;
-        color:#475569;
-        font-family:inherit;
-    }
-    .accel-custom-row input:focus {
-        outline:none;
-        border-color:#14b8a6;
-        border-style:solid;
-        background:#fff;
-        box-shadow:0 0 0 3px rgba(20,184,166,0.15);
-    }
-
     .accel-form-actions {
         margin-top:1.35rem;
         padding-top:1.1rem;
