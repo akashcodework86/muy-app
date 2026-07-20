@@ -90,6 +90,14 @@
         .hb-pool-tools .hb-btn { padding: 0.32rem 0.55rem; font-size: 0.72rem; border-radius: 8px; }
         .hb-pool-tools__note { margin-left: auto; font-size: 0.72rem; color: var(--muted); }
         .hb-pool-check { width: 16px; height: 16px; vertical-align: middle; }
+        .hb-status-badge {
+            display: inline-flex; align-items: center; border-radius: 999px; padding: 0.18rem 0.48rem;
+            font-size: 0.68rem; font-weight: 700; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa;
+        }
+        .hb-status-detail { margin-top: 0.22rem; color: var(--muted); font-size: 0.72rem; line-height: 1.35; }
+        .hb-pool-row--ineligible td { background: #fffbeb; }
+        .hb-draft-member { border-radius: 8px; padding-left: 0.35rem !important; padding-right: 0.35rem !important; }
+        .hb-draft-member.is-highlighted { background: #fef3c7; box-shadow: 0 0 0 2px #f59e0b; }
         .hb-batch-link {
             background: none;
             border: none;
@@ -248,6 +256,7 @@
                         </div>
                         <p class="hb-stage-mix__note" id="stageUnknownNote" style="display:none">Some rows have no Seed/Early/Growth stage in the form — they are not counted in the three boxes.</p>
                     </div>
+                    <input type="search" id="inpDraftSearch" class="hb-input" placeholder="Search current draft…" style="margin-top:0.75rem;font-size:0.78rem;padding:0.42rem 0.6rem">
                     <ul id="draftMembers" style="list-style:none;padding:0;margin:0.75rem 0;max-height:200px;overflow:auto;font-size:0.875rem"></ul>
                     <button type="button" class="hb-btn hb-btn--dark" id="btnLock" style="width:100%;margin-bottom:0.5rem">Lock batch</button>
                     <button type="button" class="hb-btn hb-btn--primary" id="btnEditCurrentBatch" style="width:100%;margin-bottom:0.5rem">Edit batch size / details</button>
@@ -449,6 +458,7 @@
         let selectedPoolFilter = '';
         let mixState = { seed: 0, early: 0, growth: 0, unknown: 0, count: 0, targetN: 0 };
         let latestPoolRows = [];
+        let latestDraftMembers = [];
         let bulkAddBusy = false;
         let latestBatches = [];
         let editingBatchId = 0;
@@ -655,28 +665,51 @@
             try {
                 const data = await api('pool_list', poolListRequestParams());
                 const rows = data.candidates || [];
-                latestPoolRows = rows.map(r => ({ id: parseInt(r.id, 10), stage_key: normalizeStageKey(r.stage) })).filter(r => Number.isFinite(r.id));
+                latestPoolRows = rows
+                    .filter(r => r.eligible !== false)
+                    .map(r => ({ id: parseInt(r.id, 10), stage_key: normalizeStageKey(r.stage) }))
+                    .filter(r => Number.isFinite(r.id));
                 if (!rows.length) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">No eligible CFA in pool.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">' +
+                        (q ? 'No application found for this hub.' : 'No eligible CFA in pool.') + '</td></tr>';
                     refreshBulkStatus();
                     return;
                 }
-                tbody.innerHTML = rows.map(c => `
-                    <tr>
-                        <td><input class="hb-pool-check pool-pick" type="checkbox" value="${c.id}" ${blocked || !currentBatchId ? 'disabled' : ''}></td>
+                tbody.innerHTML = rows.map(c => {
+                    const eligible = c.eligible !== false;
+                    const status = eligible ? '' : `
+                        <div><span class="hb-status-badge">${esc(c.eligibility_label || 'Not eligible')}</span></div>
+                        ${c.eligibility_detail ? `<div class="hb-status-detail">${esc(c.eligibility_detail)}</div>` : ''}`;
+                    let actions = `
+                        <button type="button" class="add-btn hb-btn hb-btn--primary" style="padding:0.25rem 0.5rem;font-size:0.75rem" data-id="${c.id}" ${blocked || !currentBatchId ? 'disabled' : ''}>Add</button>
+                        <button type="button" class="link-mini" data-later="${c.id}">Later</button>
+                        <button type="button" class="link-mini" style="color:#dc2626" data-reject="${c.id}">Reject</button>`;
+                    if (!eligible) {
+                        actions = c.eligibility_status === 'current_draft'
+                            ? `<button type="button" class="link-mini view-current-draft" data-id="${c.id}">View in draft</button>`
+                            : (c.eligibility_status === 'later'
+                                ? '<button type="button" class="link-mini show-later-result">View Later list</button>'
+                                : '<span style="color:var(--muted);font-size:0.72rem">—</span>');
+                    }
+                    return `
+                    <tr class="${eligible ? '' : 'hb-pool-row--ineligible'}">
+                        <td><input class="hb-pool-check pool-pick" type="checkbox" value="${c.id}" ${eligible && !blocked && currentBatchId ? '' : 'disabled'}></td>
                         <td style="font-family:monospace;font-size:0.75rem">${esc(c.application_no)}</td>
-                        <td>${esc(c.applicant_name)}</td>
+                        <td>${esc(c.applicant_name)}${status}</td>
                         <td><span style="background:#f1f5f9;padding:0.15rem 0.45rem;border-radius:6px;font-size:0.75rem">${esc(c.stage)}</span></td>
                         <td style="text-align:right;white-space:nowrap">
-                            <button type="button" class="add-btn hb-btn hb-btn--primary" style="padding:0.25rem 0.5rem;font-size:0.75rem" data-id="${c.id}" ${blocked || !currentBatchId ? 'disabled' : ''}>Add</button>
-                            <button type="button" class="link-mini" data-later="${c.id}">Later</button>
-                            <button type="button" class="link-mini" style="color:#dc2626" data-reject="${c.id}">Reject</button>
+                            ${actions}
                         </td>
-                    </tr>`).join('');
+                    </tr>`;
+                }).join('');
                 tbody.querySelectorAll('.add-btn').forEach(btn => btn.addEventListener('click', () => addToDraft(parseInt(btn.dataset.id, 10))));
                 tbody.querySelectorAll('[data-later]').forEach(btn => btn.addEventListener('click', () => setChoice(parseInt(btn.dataset.later, 10), 'later')));
                 tbody.querySelectorAll('[data-reject]').forEach(btn => btn.addEventListener('click', () => setChoice(parseInt(btn.dataset.reject, 10), 'reject')));
                 tbody.querySelectorAll('.pool-pick').forEach(cb => cb.addEventListener('change', () => refreshBulkStatus()));
+                tbody.querySelectorAll('.view-current-draft').forEach(btn => btn.addEventListener('click', () => viewCurrentDraftMember(parseInt(btn.dataset.id, 10))));
+                tbody.querySelectorAll('.show-later-result').forEach(btn => btn.addEventListener('click', () => {
+                    document.getElementById('laterInlineBody').closest('.hb-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }));
                 refreshBulkStatus();
             } catch (e) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#dc2626;padding:1rem">' + esc(e.message) + '</td></tr>';
@@ -738,8 +771,8 @@
                 const ts = parseInt(b.target_size, 10) || 0;
                 document.getElementById('draftName').textContent = b.name;
                 document.getElementById('draftCountBadge').textContent = (data.count || 0) + ' / ' + ts;
-                const ul = document.getElementById('draftMembers');
                 const mem = data.members || [];
+                latestDraftMembers = mem;
                 let seed = 0, early = 0, growth = 0, unknown = 0;
                 mem.forEach(m => {
                     const k = String(m.stage_key || 'unknown').toLowerCase();
@@ -758,22 +791,48 @@
                 document.getElementById('idealGrowth').textContent = String(ideal.growth);
                 const unkNote = document.getElementById('stageUnknownNote');
                 if (unkNote) unkNote.style.display = unknown > 0 ? 'block' : 'none';
-                ul.innerHTML = mem.length ? mem.map(m => `<li style="display:flex;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding:0.35rem 0">
-                    <span>${esc(m.applicant_name)} <span style="opacity:0.6;font-size:0.75rem">${esc(m.application_no)}</span></span>
-                    ${blocked ? '' : '<button type="button" class="link-mini rm" data-rm="' + m.id + '">Remove</button>'}
-                </li>`).join('') : '<li style="color:var(--muted);font-style:italic">No incubatees yet.</li>';
-                ul.querySelectorAll('.rm').forEach(btn => btn.addEventListener('click', async () => {
-                    try {
-                        await api('remove_from_draft', { batch_id: currentBatchId, cfa_submission_id: parseInt(btn.dataset.rm, 10) });
-                        loadDraft(); loadPool();
-                    } catch (e) { alert(e.message); }
-                }));
+                renderDraftMembers();
                 card.style.display = 'block';
             } catch (e) {
                 currentBatchId = 0;
                 card.style.display = 'none';
             }
             document.querySelectorAll('.add-btn').forEach(x => { x.disabled = blocked || !currentBatchId; });
+        }
+
+        function renderDraftMembers(highlightId = 0) {
+            const ul = document.getElementById('draftMembers');
+            const query = document.getElementById('inpDraftSearch').value.trim().toLowerCase();
+            const members = latestDraftMembers.filter(member => {
+                if (!query) return true;
+                return String(member.application_no || '').toLowerCase().includes(query)
+                    || String(member.applicant_name || '').toLowerCase().includes(query);
+            });
+            ul.innerHTML = members.length ? members.map(member => `<li class="hb-draft-member ${parseInt(member.id, 10) === highlightId ? 'is-highlighted' : ''}" data-draft-member="${member.id}" style="display:flex;justify-content:space-between;border-bottom:1px solid #f1f5f9;padding:0.35rem 0">
+                <span>${esc(member.applicant_name)} <span style="opacity:0.6;font-size:0.75rem">${esc(member.application_no)}</span></span>
+                ${blocked ? '' : '<button type="button" class="link-mini rm" data-rm="' + member.id + '">Remove</button>'}
+            </li>`).join('') : '<li style="color:var(--muted);font-style:italic">' +
+                (query ? 'No matching member in this draft.' : 'No incubatees yet.') + '</li>';
+            ul.querySelectorAll('.rm').forEach(btn => btn.addEventListener('click', async () => {
+                try {
+                    await api('remove_from_draft', { batch_id: currentBatchId, cfa_submission_id: parseInt(btn.dataset.rm, 10) });
+                    loadDraft(); loadPool();
+                } catch (e) { alert(e.message); }
+            }));
+            if (highlightId) {
+                ul.querySelector(`[data-draft-member="${highlightId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function viewCurrentDraftMember(cfaId) {
+            const member = latestDraftMembers.find(row => parseInt(row.id, 10) === cfaId);
+            if (!member) {
+                alert('This applicant is in a draft, but the current draft list could not locate it. Refresh the page and try again.');
+                return;
+            }
+            document.getElementById('inpDraftSearch').value = member.application_no || member.applicant_name || '';
+            renderDraftMembers(cfaId);
+            document.getElementById('activeDraftCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         async function tryResumeDraft() {
@@ -1238,6 +1297,8 @@
             currentDistrictId = parseInt(e.target.value, 10) || 0;
             document.getElementById('draftCreateWrap').style.display = currentDistrictId ? 'block' : 'none';
             currentBatchId = 0;
+            latestDraftMembers = [];
+            document.getElementById('inpDraftSearch').value = '';
             document.getElementById('activeDraftCard').style.display = 'none';
             if (currentDistrictId) await tryResumeDraft();
             else {
@@ -1250,6 +1311,7 @@
             clearTimeout(searchTimer);
             searchTimer = setTimeout(loadPool, 280);
         });
+        document.getElementById('inpDraftSearch').addEventListener('input', () => renderDraftMembers());
         document.getElementById('selFiscalYear').addEventListener('change', (e) => {
             const value = String(e.target.value || '');
             if (value.startsWith('phase1-')) {

@@ -4,23 +4,23 @@ namespace App\Services;
 
 use App\Models\CfaHubChoiceState;
 use App\Models\CfaSubmission;
+use App\Models\District;
 use App\Models\Document;
 use App\Models\DocumentCategory;
 use App\Models\DocumentVersion;
-use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
 use App\Models\OnboardingBatchDocument;
 use App\Models\OnboardingBatchDraftCfa;
 use App\Models\OnboardingBatchEditRequest;
-use App\Notifications\HubBatchUnlockRequestedNotification;
 use App\Models\User;
+use App\Notifications\HubBatchUnlockRequestedNotification;
 use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -425,6 +425,10 @@ class HubBatchService
 
     private function poolListFromLocal(int $hubId, int $districtId, int $fyId, string $q): array
     {
+        if ($q !== '') {
+            return $this->searchLocalPoolWithEligibility($hubId, $districtId, $fyId, $q);
+        }
+
         $query = CfaSubmission::query()
             ->where('district_id', $districtId)
             ->where('fiscal_year_id', $fyId)
@@ -441,23 +445,116 @@ class HubBatchService
                     ->whereIn('c.state', ['reject', 'later']);
             });
 
-        if ($q !== '') {
-            $like = '%'.$q.'%';
-            $query->where(function ($qq) use ($like) {
-                $qq->where('application_no', 'like', $like)
-                    ->orWhere('applicant_name', 'like', $like)
-                    ->orWhere('phone', 'like', $like);
-            });
-        }
-
         $rows = $query->orderByDesc('id')->limit(200)->get()->map(fn (CfaSubmission $c) => [
             'id' => $c->id,
             'application_no' => $c->application_no ?? (string) $c->id,
             'applicant_name' => $c->applicant_name,
             'stage' => strtoupper((string) ($c->payload['form_stage'] ?? $c->payload['stage'] ?? '—')),
+            'eligible' => true,
+            'eligibility_status' => 'eligible',
         ])->values()->all();
 
         return ['ok' => true, 'data' => ['candidates' => $rows]];
+    }
+
+    /**
+     * Search across this hub and explain why each matching local CFA is or is
+     * not eligible for the selected district and fiscal-year pool.
+     *
+     * @return array{ok: true, data: array{candidates: list<array<string, mixed>>}}
+     */
+    private function searchLocalPoolWithEligibility(int $hubId, int $districtId, int $fyId, string $q): array
+    {
+        $like = '%'.$q.'%';
+        $currentDraftId = (int) ($this->getDraftForDistrict($hubId, $districtId)?->id ?? 0);
+
+        $rows = CfaSubmission::query()
+            ->whereHas('district', fn ($district) => $district->where('hub_id', $hubId))
+            ->where(function ($query) use ($like): void {
+                $query->where('application_no', 'like', $like)
+                    ->orWhere('applicant_name', 'like', $like)
+                    ->orWhere('phone', 'like', $like);
+            })
+            ->with([
+                'district:id,hub_id,name',
+                'fiscalYear:id,code',
+                'onboardingBatchMembership.batch:id,hub_id,district_id,name,status',
+                'draftBatchMembership.batch:id,hub_id,district_id,name,status',
+            ])
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get();
+
+        $choiceStates = CfaHubChoiceState::query()
+            ->where('hub_id', $hubId)
+            ->whereIn('cfa_submission_id', $rows->pluck('id'))
+            ->get()
+            ->keyBy(fn (CfaHubChoiceState $state) => (int) $state->cfa_submission_id);
+
+        $candidates = $rows->map(function (CfaSubmission $cfa) use (
+            $choiceStates,
+            $currentDraftId,
+            $districtId,
+            $fyId,
+        ): array {
+            $status = 'eligible';
+            $label = 'Eligible';
+            $detail = null;
+            $batchId = null;
+            $lockedBatch = $cfa->onboardingBatchMembership?->batch;
+            $draftBatch = $cfa->draftBatchMembership?->batch;
+            $choiceState = $choiceStates->get((int) $cfa->id)?->state;
+
+            if ($lockedBatch !== null) {
+                $status = 'onboarded';
+                $label = 'Already onboarded';
+                $detail = 'Included in '.$lockedBatch->name.'.';
+                $batchId = (int) $lockedBatch->id;
+            } elseif ($draftBatch !== null && $draftBatch->status === 'draft') {
+                $batchId = (int) $draftBatch->id;
+                if ($currentDraftId > 0 && $batchId === $currentDraftId) {
+                    $status = 'current_draft';
+                    $label = 'Already in current draft';
+                    $detail = 'Included in '.$draftBatch->name.'.';
+                } else {
+                    $status = 'other_draft';
+                    $label = 'Already in another draft';
+                    $detail = 'Included in '.$draftBatch->name.'.';
+                }
+            } elseif ($choiceState === 'later') {
+                $status = 'later';
+                $label = 'Marked for later';
+                $detail = 'Restore it from the Later list before adding.';
+            } elseif ($choiceState === 'reject') {
+                $status = 'rejected';
+                $label = 'Rejected';
+                $detail = 'Undo the rejection before adding it to a batch.';
+            } elseif ((int) $cfa->district_id !== $districtId) {
+                $status = 'different_district';
+                $label = 'Different district';
+                $detail = 'This CFA belongs to '.($cfa->district?->name ?? 'another district').'.';
+            } elseif ((int) $cfa->fiscal_year_id !== $fyId) {
+                $status = 'different_fiscal_year';
+                $label = 'Different fiscal year';
+                $detail = 'This CFA belongs to '.($cfa->fiscalYear?->code ?? 'another fiscal year').'.';
+            }
+
+            return [
+                'id' => (int) $cfa->id,
+                'application_no' => $cfa->application_no ?? (string) $cfa->id,
+                'applicant_name' => $cfa->applicant_name,
+                'stage' => strtoupper((string) ($cfa->payload['form_stage'] ?? $cfa->payload['stage'] ?? '—')),
+                'eligible' => $status === 'eligible',
+                'eligibility_status' => $status,
+                'eligibility_label' => $label,
+                'eligibility_detail' => $detail,
+                'batch_id' => $batchId,
+                'district_name' => $cfa->district?->name,
+                'fiscal_year' => $cfa->fiscalYear?->code,
+            ];
+        })->values()->all();
+
+        return ['ok' => true, 'data' => ['candidates' => $candidates]];
     }
 
     private function poolListFromLegacy(int $hubId, District $district, FiscalYear $fy, string $q): array
@@ -1572,6 +1669,7 @@ class HubBatchService
             $batch = $row->batch;
             if (! $batch instanceof OnboardingBatch) {
                 $skipped++;
+
                 continue;
             }
 
