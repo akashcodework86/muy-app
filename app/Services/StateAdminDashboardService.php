@@ -480,7 +480,7 @@ class StateAdminDashboardService
     }
 
     /**
-     * Latest approved, browser-displayable field activity photos for the dashboard carousel.
+     * Random approved, browser-displayable field activity photos for the dashboard carousel.
      *
      * @return list<array{module: string, title: string, district: string, date: string, image_url: string, detail_url: string}>
      */
@@ -560,9 +560,8 @@ class StateAdminDashboardService
                 $rows = DB::table($table)
                     ->where('status', ServiceCase::STATUS_APPROVED)
                     ->whereBetween($source['date'], [$from->toDateString(), $to->toDateString()])
-                    ->orderByDesc($source['date'])
-                    ->orderByDesc('id')
-                    ->limit(50)
+                    ->inRandomOrder()
+                    ->limit(75)
                     ->get($columns);
             } catch (\Throwable) {
                 continue;
@@ -595,7 +594,6 @@ class StateAdminDashboardService
                             'title' => trim((string) ($row->{$source['title']} ?? '')) ?: $source['module'],
                             'district' => trim((string) ($row->district_name ?? '')) ?: 'State-wide',
                             'date' => $activityDate->format('d M Y'),
-                            'sort_date' => $activityDate->format('Y-m-d'),
                             'image_url' => route($source['image_route'], array_merge([
                                 $source['image_param'] => (int) $row->id,
                             ], $imageQuery)),
@@ -604,7 +602,7 @@ class StateAdminDashboardService
                             ]),
                         ]);
                         $sourcePhotoCount++;
-                        if ($sourcePhotoCount >= 12) {
+                        if ($sourcePhotoCount >= 24) {
                             break 3;
                         }
                     }
@@ -613,13 +611,7 @@ class StateAdminDashboardService
         }
 
         return $highlights
-            ->sortByDesc('sort_date')
-            ->take(12)
-            ->map(function (array $highlight): array {
-                unset($highlight['sort_date']);
-
-                return $highlight;
-            })
+            ->shuffle()
             ->values()
             ->all();
     }

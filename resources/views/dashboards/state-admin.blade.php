@@ -620,15 +620,6 @@
         /* === FIELD HIGHLIGHTS CAROUSEL === */
         .cg-highlight-card { min-height: 0; }
         .cg-highlight-card__top { margin-bottom: 0.55rem; }
-        .cg-highlight-count {
-            border-radius: 999px;
-            background: var(--cg-teal-bg);
-            color: #087f73;
-            padding: 0.2rem 0.48rem;
-            font-size: 0.65rem;
-            font-weight: 800;
-            white-space: nowrap;
-        }
         .cg-highlight-carousel {
             position: relative;
             flex: 1;
@@ -713,24 +704,6 @@
         .cg-highlight-control:hover { background: rgba(12, 18, 29, 0.82); }
         .cg-highlight-control--prev { left: 0.55rem; }
         .cg-highlight-control--next { right: 0.55rem; }
-        .cg-highlight-dots {
-            display: flex;
-            justify-content: center;
-            gap: 0.28rem;
-            min-height: 0.45rem;
-            margin-top: 0.45rem;
-        }
-        .cg-highlight-dot {
-            width: 0.35rem;
-            height: 0.35rem;
-            padding: 0;
-            border: 0;
-            border-radius: 999px;
-            background: #c7c7cc;
-            cursor: pointer;
-            transition: width 0.2s ease, background 0.2s ease;
-        }
-        .cg-highlight-dot.is-active { width: 1rem; background: var(--cg-teal); }
         .cg-highlight-empty {
             display: grid;
             place-items: center;
@@ -1454,7 +1427,6 @@
                         <i class="fa-regular fa-images"></i>
                     </span>
                     <span class="cg-hero-card__label">Field Highlights</span>
-                    <span class="cg-highlight-count">{{ count($fieldHighlights ?? []) }} photos</span>
                 </div>
 
                 @if (! empty($fieldHighlights))
@@ -1469,7 +1441,11 @@
                                    rel="noopener"
                                    aria-label="Open full photo: {{ $highlight['title'] }}">
                                     <img class="cg-highlight-slide__image"
-                                         src="{{ $highlight['image_url'] }}"
+                                         @if ($index === 0)
+                                             src="{{ $highlight['image_url'] }}"
+                                         @else
+                                             data-src="{{ $highlight['image_url'] }}"
+                                         @endif
                                          alt="{{ $highlight['module'] }} in {{ $highlight['district'] }} on {{ $highlight['date'] }}"
                                          loading="{{ $index === 0 ? 'eager' : 'lazy' }}">
                                 </a>
@@ -1495,15 +1471,6 @@
                         @endif
                     </div>
 
-                    <div class="cg-highlight-dots" aria-label="Choose field highlight">
-                        @foreach ($fieldHighlights as $index => $highlight)
-                            <button type="button"
-                                    class="cg-highlight-dot {{ $index === 0 ? 'is-active' : '' }}"
-                                    data-highlight-dot="{{ $index }}"
-                                    aria-label="Show photo {{ $index + 1 }}"
-                                    aria-current="{{ $index === 0 ? 'true' : 'false' }}"></button>
-                        @endforeach
-                    </div>
                     <div class="cg-hero-card__foot">
                         <span>Approved activities &middot; {{ $fyLabel }}</span>
                         <a class="cg-highlight-card__foot-link"
@@ -1533,7 +1500,6 @@
                 if (!card) return;
 
                 var slides = Array.prototype.slice.call(card.querySelectorAll('[data-highlight-slide]'));
-                var dots = Array.prototype.slice.call(card.querySelectorAll('[data-highlight-dot]'));
                 var previous = card.querySelector('[data-highlight-prev]');
                 var next = card.querySelector('[data-highlight-next]');
                 var detail = card.querySelector('[data-highlight-detail]');
@@ -1548,11 +1514,13 @@
                         var active = slideIndex === index;
                         slide.classList.toggle('is-active', active);
                         slide.setAttribute('aria-hidden', active ? 'false' : 'true');
-                    });
-                    dots.forEach(function (dot, dotIndex) {
-                        var active = dotIndex === index;
-                        dot.classList.toggle('is-active', active);
-                        dot.setAttribute('aria-current', active ? 'true' : 'false');
+                        if (active) {
+                            var image = slide.querySelector('img[data-src]');
+                            if (image) {
+                                image.src = image.dataset.src;
+                                image.removeAttribute('data-src');
+                            }
+                        }
                     });
                     if (detail && detailUrls[index]) detail.href = detailUrls[index];
                 }
@@ -1571,9 +1539,6 @@
 
                 if (previous) previous.addEventListener('click', function () { show(index - 1); start(); });
                 if (next) next.addEventListener('click', function () { show(index + 1); start(); });
-                dots.forEach(function (dot) {
-                    dot.addEventListener('click', function () { show(Number(dot.dataset.highlightDot)); start(); });
-                });
                 card.addEventListener('mouseenter', stop);
                 card.addEventListener('mouseleave', start);
                 card.addEventListener('focusin', stop);
