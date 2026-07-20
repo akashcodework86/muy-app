@@ -559,7 +559,8 @@ class StateAdminDashboardService
             try {
                 $rows = DB::table($table)
                     ->where('status', ServiceCase::STATUS_APPROVED)
-                    ->whereBetween($source['date'], [$from->toDateString(), $to->toDateString()])
+                    ->whereDate($source['date'], '>=', $from->toDateString())
+                    ->whereDate($source['date'], '<=', $to->toDateString())
                     ->inRandomOrder()
                     ->limit(75)
                     ->get($columns);

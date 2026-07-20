@@ -174,6 +174,109 @@
         .sad-kpi__foot.is-up { color: #15803d; }
         .sad-kpi__foot.is-down { color: #b45309; }
         .sad-kpi__foot.is-warn { color: #92400e; }
+        .had-highlight {
+            grid-column: span 4;
+            padding: 0.45rem !important;
+            overflow: hidden;
+        }
+        .had-highlight__head {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.05rem 0.25rem 0.38rem;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: #334155;
+        }
+        .had-highlight__head i { color: #0f9d91; }
+        .had-highlight__viewport {
+            position: relative;
+            min-height: 92px;
+            border-radius: 11px;
+            overflow: hidden;
+            background: #e2e8f0;
+        }
+        .had-highlight__slide {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.35s ease, visibility 0.35s ease;
+        }
+        .had-highlight__slide.is-active { opacity: 1; visibility: visible; }
+        .had-highlight__image-link, .had-highlight__image { display: block; width: 100%; height: 100%; }
+        .had-highlight__image { object-fit: cover; transition: transform 0.5s ease; }
+        .had-highlight__image-link:hover .had-highlight__image { transform: scale(1.02); }
+        .had-highlight__shade {
+            position: absolute;
+            inset: 25% 0 0;
+            pointer-events: none;
+            background: linear-gradient(to bottom, transparent, rgba(5, 15, 25, 0.9));
+        }
+        .had-highlight__content {
+            position: absolute;
+            right: 2.7rem;
+            bottom: 0.48rem;
+            left: 0.65rem;
+            color: #fff;
+            pointer-events: none;
+        }
+        .had-highlight__module {
+            display: inline-block;
+            max-width: 100%;
+            margin-bottom: 0.15rem;
+            padding: 0.12rem 0.34rem;
+            border-radius: 999px;
+            background: rgba(15, 157, 145, 0.94);
+            font-size: 0.52rem;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .had-highlight__title {
+            margin: 0;
+            font-size: 0.73rem;
+            font-weight: 800;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .had-highlight__meta { margin-top: 0.12rem; font-size: 0.55rem; color: rgba(255,255,255,0.84); }
+        .had-highlight__control {
+            position: absolute;
+            z-index: 3;
+            top: 50%;
+            width: 1.6rem;
+            height: 1.6rem;
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: 50%;
+            background: rgba(10,18,28,0.6);
+            color: #fff;
+            cursor: pointer;
+            transform: translateY(-50%);
+        }
+        .had-highlight__control--prev { left: 0.45rem; }
+        .had-highlight__control--next { right: 0.45rem; }
+        .had-highlight__empty {
+            display: grid;
+            place-items: center;
+            min-height: 92px;
+            border-radius: 11px;
+            background: #f8fafc;
+            color: #94a3b8;
+            font-size: 0.68rem;
+            text-align: center;
+        }
+        @media (max-width: 1200px) { .had-highlight { grid-column: 1 / -1; } }
+        @media (max-width: 640px) {
+            .had-highlight { grid-column: 1 / -1; }
+            .had-highlight__viewport, .had-highlight__empty { min-height: 130px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .had-highlight__slide, .had-highlight__image { transition: none; }
+        }
         .sad-alerts {
             display: flex;
             flex-wrap: wrap;
@@ -1239,7 +1342,115 @@
                     <div class="sad-kpi__value" style="font-size:0.95rem;">Rs {{ number_format($savingsTotalThisFy, 0) }}</div>
                     <div class="sad-kpi__foot">Approved services impact</div>
                 </div>
+
+                <section class="sad-kpi had-highlight" id="hubFieldHighlights" aria-label="Approved photos from this hub">
+                    <div class="had-highlight__head">
+                        <i class="fa-regular fa-images" aria-hidden="true"></i>
+                        Field Highlights &middot; {{ $hub->name }}
+                    </div>
+                    @if (! empty($fieldHighlights))
+                        <div class="had-highlight__viewport" aria-roledescription="carousel">
+                            @foreach ($fieldHighlights as $index => $highlight)
+                                <article class="had-highlight__slide {{ $index === 0 ? 'is-active' : '' }}"
+                                         data-hub-highlight-slide
+                                         aria-hidden="{{ $index === 0 ? 'false' : 'true' }}">
+                                    <a class="had-highlight__image-link"
+                                       href="{{ $highlight['image_url'] }}"
+                                       target="_blank"
+                                       rel="noopener"
+                                       aria-label="Open full photo: {{ $highlight['title'] }}">
+                                        <img class="had-highlight__image"
+                                             @if ($index === 0)
+                                                 src="{{ $highlight['image_url'] }}"
+                                             @else
+                                                 data-src="{{ $highlight['image_url'] }}"
+                                             @endif
+                                             alt="{{ $highlight['module'] }} in {{ $highlight['district'] }} on {{ $highlight['date'] }}"
+                                             loading="{{ $index === 0 ? 'eager' : 'lazy' }}">
+                                    </a>
+                                    <div class="had-highlight__shade" aria-hidden="true"></div>
+                                    <div class="had-highlight__content">
+                                        <span class="had-highlight__module">{{ $highlight['module'] }}</span>
+                                        <p class="had-highlight__title">{{ $highlight['title'] }}</p>
+                                        <div class="had-highlight__meta">
+                                            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                                            {{ $highlight['district'] }} &middot; {{ $highlight['date'] }}
+                                        </div>
+                                    </div>
+                                </article>
+                            @endforeach
+
+                            @if (count($fieldHighlights) > 1)
+                                <button type="button" class="had-highlight__control had-highlight__control--prev" data-hub-highlight-prev aria-label="Previous photo">
+                                    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                                </button>
+                                <button type="button" class="had-highlight__control had-highlight__control--next" data-hub-highlight-next aria-label="Next photo">
+                                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                                </button>
+                            @endif
+                        </div>
+                    @else
+                        <div class="had-highlight__empty">
+                            <span><i class="fa-regular fa-image" aria-hidden="true"></i><br>No approved hub photos yet</span>
+                        </div>
+                    @endif
+                </section>
             </div>
+
+            @if (! empty($fieldHighlights))
+                <script>
+                (function () {
+                    var card = document.getElementById('hubFieldHighlights');
+                    if (!card) return;
+
+                    var slides = Array.prototype.slice.call(card.querySelectorAll('[data-hub-highlight-slide]'));
+                    var previous = card.querySelector('[data-hub-highlight-prev]');
+                    var next = card.querySelector('[data-hub-highlight-next]');
+                    var index = 0;
+                    var timer = null;
+                    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+                    function show(newIndex) {
+                        index = (newIndex + slides.length) % slides.length;
+                        slides.forEach(function (slide, slideIndex) {
+                            var active = slideIndex === index;
+                            slide.classList.toggle('is-active', active);
+                            slide.setAttribute('aria-hidden', active ? 'false' : 'true');
+                            if (active) {
+                                var image = slide.querySelector('img[data-src]');
+                                if (image) {
+                                    image.src = image.dataset.src;
+                                    image.removeAttribute('data-src');
+                                }
+                            }
+                        });
+                    }
+
+                    function stop() {
+                        if (timer) window.clearInterval(timer);
+                        timer = null;
+                    }
+
+                    function start() {
+                        stop();
+                        if (slides.length > 1 && !reduceMotion && !document.hidden) {
+                            timer = window.setInterval(function () { show(index + 1); }, 5000);
+                        }
+                    }
+
+                    if (previous) previous.addEventListener('click', function () { show(index - 1); start(); });
+                    if (next) next.addEventListener('click', function () { show(index + 1); start(); });
+                    card.addEventListener('mouseenter', stop);
+                    card.addEventListener('mouseleave', start);
+                    card.addEventListener('focusin', stop);
+                    card.addEventListener('focusout', function (event) {
+                        if (!card.contains(event.relatedTarget)) start();
+                    });
+                    document.addEventListener('visibilitychange', function () { document.hidden ? stop() : start(); });
+                    start();
+                })();
+                </script>
+            @endif
 
             <div class="sad-alerts" role="status">
                 @if (($todayZeroDistricts ?? 0) > 0)

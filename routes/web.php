@@ -1301,6 +1301,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('staff-performance', [HubStaffPerformanceController::class, 'index'])->name('staff-performance.index');
         Route::get('pending-actions', [HubPendingActionsController::class, 'index'])->name('pending-actions.index');
         Route::get('onboarding-insight', [HubOnboardingInsightController::class, 'index'])->name('onboarding-insight.index');
+        Route::get(
+            'field-highlights/{module}/{record}/{collection}/{index}',
+            [\App\Http\Controllers\Hub\FieldActivityHighlightController::class, 'image'],
+        )
+            ->whereNumber('record')
+            ->whereNumber('index')
+            ->name('field-highlights.image');
         Route::get('community-org-outreach/create', [CommunityOrganizationOutreachController::class, 'create'])->name('community-org-outreach.create');
         Route::post('community-org-outreach', [CommunityOrganizationOutreachController::class, 'store'])
             ->middleware('throttle:30,1')

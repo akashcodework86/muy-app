@@ -22,6 +22,7 @@ class HubAdminDashboardService
         private readonly StaffCheckInService $staffCheckIns,
         private readonly StaffMonthlyTargetsDashboardService $staffTargetsDashboard,
         private readonly AdminDashboardInsightsService $insightsService,
+        private readonly HubFieldActivityHighlightsService $fieldHighlightsService,
     ) {}
 
     /**
@@ -343,6 +344,13 @@ class HubAdminDashboardService
             );
         }
 
+        $fieldHighlights = $this->fieldHighlightsService->forHub(
+            $hubId,
+            $districtIds,
+            $activeFy,
+            $phase3FloorDate,
+        );
+
         return [
             'hub' => $hub,
             'districtsInHub' => count($districtIds),
@@ -405,6 +413,7 @@ class HubAdminDashboardService
             'attendance' => $this->staffCheckIns->hubAttendanceMetrics($hubId),
             'insights' => $insights,
             'estimatedSavings' => $estimatedSavings,
+            'fieldHighlights' => $fieldHighlights,
             'phase3FloorDateLabel' => $phase3FloorDateLabel,
             'stateCfaTrend' => [
                 'labels' => $trendLabels,
