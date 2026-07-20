@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Live map')
-@section('heading', 'Uttarakhand live map')
+@section('title', 'Field activity map')
+@section('heading', 'Field activity map')
 
 @push('styles')
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
@@ -36,6 +36,15 @@
         font-weight: 700; font-size: 0.82rem; cursor: pointer; font-family: inherit;
     }
     .slm-btn--ghost { background: #fff; color: #0d9488; border: 1px solid #99f6e4; }
+    .slm-view-tabs { display:inline-flex; gap:0.25rem; padding:0.25rem; border:1px solid #dbe4ee; border-radius:11px; background:#f8fafc; }
+    .slm-view-tab { display:inline-flex; align-items:center; gap:0.38rem; padding:0.5rem 0.72rem; border:0; border-radius:8px; color:#64748b; background:transparent; font:700 0.78rem/1 'DM Sans',system-ui,sans-serif; cursor:pointer; }
+    .slm-view-tab.is-active { color:#fff; background:#0d9488; box-shadow:0 3px 9px rgba(13,148,136,0.22); }
+    .slm-page-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+    .slm-page-head h1 { margin:0; color:#0f172a; font-size:1.25rem; letter-spacing:-0.02em; }
+    .slm-page-head p { margin:0.3rem 0 0; color:#64748b; font-size:0.82rem; }
+    .slm-role-filters { display:flex; flex-wrap:wrap; gap:0.45rem; }
+    .slm-role-filter { display:inline-flex; align-items:center; gap:0.3rem; padding:0.35rem 0.55rem; border:1px solid #e2e8f0; border-radius:999px; color:#475569; background:#fff; font-size:0.72rem; font-weight:650; cursor:pointer; }
+    .slm-role-filters[hidden], .slm-legend[hidden], #slm-auto-wrap[hidden], #slm-staff-count[hidden] { display:none !important; }
     .slm-chip {
         display: inline-flex; align-items: center; gap: 0.35rem;
         padding: 0.35rem 0.65rem; border-radius: 999px; background: #f8fafc; border: 1px solid #e2e8f0;
@@ -224,7 +233,21 @@
     .slm-popup { font-size: 0.8rem; line-height: 1.45; }
     .slm-popup strong { display: block; font-size: 0.9rem; margin-bottom: 0.15rem; }
     .slm-popup a { color: #0d9488; font-weight: 700; }
+    .slm-table-card { border:1px solid #e2e8f0; border-radius:14px; background:#fff; overflow:hidden; box-shadow:0 4px 20px rgba(15,23,42,0.05); }
+    .slm-table-head { display:flex; justify-content:space-between; gap:1rem; padding:0.85rem 1rem; border-bottom:1px solid #edf2f7; }
+    .slm-table-head h3 { margin:0; color:#0f172a; font-size:0.92rem; }
+    .slm-table-head p { margin:0.2rem 0 0; color:#64748b; font-size:0.73rem; }
+    .slm-table-wrap { overflow-x:auto; }
+    .slm-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+    .slm-table th { padding:0.65rem 0.8rem; color:#64748b; background:#f8fafc; text-align:left; font-size:0.67rem; letter-spacing:0.05em; text-transform:uppercase; }
+    .slm-table td { padding:0.65rem 0.8rem; border-top:1px solid #f1f5f9; color:#334155; }
+    .slm-table tbody tr { cursor:pointer; }
+    .slm-table tbody tr:hover { background:#f0fdfa; }
+    .slm-table td strong { color:#0f172a; }
     @media (max-width: 960px) {
+        .slm-page-head { flex-direction:column; }
+        .slm-view-tabs { width:100%; overflow-x:auto; }
+        .slm-view-tab { flex:1 0 auto; justify-content:center; }
         .slm-layout { grid-template-columns: 1fr; }
         .slm-side { max-height: none; min-height: auto; }
         .slm-map-shell, #slm-map { min-height: 420px; }
@@ -234,6 +257,17 @@
 
 @section('content')
 <div class="slm-page">
+    <div class="slm-page-head">
+        <div>
+            <h1>Field Activity Map</h1>
+            <p>Select one view at a time. Click a district or staff pin to keep its details open.</p>
+        </div>
+        <div class="slm-view-tabs" role="tablist" aria-label="Map view">
+            <button type="button" class="slm-view-tab is-active" data-view="attendance"><i class="fa-solid fa-location-dot"></i> Attendance</button>
+            <button type="button" class="slm-view-tab" data-view="cfa"><i class="fa-solid fa-file-lines"></i> CFA activity</button>
+            <button type="button" class="slm-view-tab" data-view="services"><i class="fa-solid fa-circle-check"></i> Approved services</button>
+        </div>
+    </div>
     <div class="slm-toolbar">
         <div class="slm-toolbar__group">
             <span class="slm-toolbar__label">Date</span>
@@ -246,14 +280,28 @@
             <span class="slm-chip" id="slm-staff-count">Staff on map: <strong>—</strong></span>
             <span class="slm-chip" id="slm-updated">Updated: <strong>—</strong></span>
         </div>
-        <label class="slm-chip" style="cursor:pointer;">
+        <label class="slm-chip" id="slm-auto-wrap" style="cursor:pointer;">
             <input type="checkbox" id="slm-auto" checked style="margin:0;"> Auto-refresh (60s)
         </label>
-        <div class="slm-legend" aria-label="Staff pin legend">
+        <div class="slm-legend" id="slm-attendance-legend" aria-label="Staff pin legend">
+            <span><strong>Numbered circle = nearby checked-in staff</strong></span>
+            <span><strong>Darker district = more check-ins</strong></span>
             <span><i style="background:#0d9488;"></i> District staff</span>
             <span><i style="background:#2563eb;"></i> Hub admin</span>
             <span><i style="background:#7c3aed;"></i> State staff</span>
             <span><i style="background:#ea580c;"></i> Field coordinator</span>
+        </div>
+        <div class="slm-legend" id="slm-activity-legend" hidden aria-label="District activity legend">
+            <span><i style="background:#e2e8f0;"></i> No activity</span>
+            <span><i style="background:#99f6e4;"></i> Low</span>
+            <span><i style="background:#2dd4bf;"></i> Medium</span>
+            <span><i style="background:#0f766e;"></i> High</span>
+        </div>
+        <div class="slm-role-filters" id="slm-role-filters">
+            <label class="slm-role-filter"><input type="checkbox" value="district_staff" checked> District staff</label>
+            <label class="slm-role-filter"><input type="checkbox" value="hub_admin" checked> Hub admin</label>
+            <label class="slm-role-filter"><input type="checkbox" value="state_staff" checked> State staff</label>
+            <label class="slm-role-filter"><input type="checkbox" value="field_coordinator" checked> Field coordinator</label>
         </div>
     </div>
 
@@ -266,7 +314,7 @@
         <aside class="slm-side" id="slm-side" aria-live="polite">
             <div class="slm-side__head">
                 <p class="slm-side__eyebrow" id="slm-side-eyebrow">Uttarakhand overview</p>
-                <h2 class="slm-side__title" id="slm-side-title">Hover a district</h2>
+                <h2 class="slm-side__title" id="slm-side-title">All districts</h2>
                 <p class="slm-side__sub" id="slm-side-sub">Move mouse on the map — district or staff pin — details update here instantly.</p>
             </div>
             <div class="slm-side__body" id="slm-side-body">
@@ -274,6 +322,18 @@
             </div>
         </aside>
     </div>
+
+    <section class="slm-table-card">
+        <div class="slm-table-head">
+            <div><h3 id="slm-table-title">District attendance</h3><p>Click a row to select that district on the map.</p></div>
+        </div>
+        <div class="slm-table-wrap">
+            <table class="slm-table">
+                <thead><tr><th>District</th><th>Hub</th><th id="slm-table-main-head">Checked in</th><th id="slm-table-secondary-head">Assigned staff</th><th>Selected date</th><th>Current FY</th></tr></thead>
+                <tbody id="slm-district-rows"><tr><td colspan="6">Loading district data...</td></tr></tbody>
+            </table>
+        </div>
+    </section>
 </div>
 @endsection
 
@@ -299,6 +359,15 @@
     const sideTitleEl = document.getElementById('slm-side-title');
     const sideSubEl = document.getElementById('slm-side-sub');
     const sideBodyEl = document.getElementById('slm-side-body');
+    const viewButtons = Array.from(document.querySelectorAll('.slm-view-tab'));
+    const attendanceLegendEl = document.getElementById('slm-attendance-legend');
+    const activityLegendEl = document.getElementById('slm-activity-legend');
+    const roleFiltersEl = document.getElementById('slm-role-filters');
+    const autoWrapEl = document.getElementById('slm-auto-wrap');
+    const tableTitleEl = document.getElementById('slm-table-title');
+    const tableMainHeadEl = document.getElementById('slm-table-main-head');
+    const tableSecondaryHeadEl = document.getElementById('slm-table-secondary-head');
+    const districtRowsEl = document.getElementById('slm-district-rows');
 
     const map = L.map('slm-map', { scrollWheelZoom: true, zoomControl: true }).setView([30.0668, 79.0193], 8);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -312,7 +381,7 @@
         maxClusterRadius: 42,
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
-        zoomToBoundsOnClick: false
+        zoomToBoundsOnClick: true
     });
     map.addLayer(markerCluster);
 
@@ -324,6 +393,7 @@
     let hoveredPinId = null;
     let refreshTimer = null;
     let moveRaf = null;
+    let activeView = 'attendance';
 
     const fmt = (n) => Number(n || 0).toLocaleString();
     const pct = (part, total) => total > 0 ? Math.round((part / total) * 100) : 0;
@@ -335,17 +405,24 @@
         return '#0d9488';
     };
 
+    const metricForDistrict = (m) => {
+        if (!m) return 0;
+        if (activeView === 'cfa') return Number(m.cfa_today || 0);
+        if (activeView === 'services') return Number(m.services_today || 0);
+        return Number(m.staff_present || 0);
+    };
+
     const districtFill = (name, active) => {
         const m = districtMetrics[name];
         if (!m) return active ? '#99f6e4' : '#e2e8f0';
-        const activity = (m.cfa_today || 0) + (m.services_today || 0);
-        const staff = m.staff_present || 0;
-        if (active) return '#2dd4bf';
-        if (staff > 0 && activity > 0) return '#5eead4';
-        if (staff > 0) return '#99f6e4';
-        if (activity > 0) return '#fde68a';
-        if ((m.cfa_fy || 0) + (m.services_fy || 0) > 0) return '#f1f5f9';
-        return '#e2e8f0';
+        if (active) return '#0f766e';
+        const value = metricForDistrict(m);
+        if (value <= 0) return '#e2e8f0';
+        const max = Math.max(1, ...Object.values(districtMetrics).map(metricForDistrict));
+        const ratio = value / max;
+        if (ratio >= 0.67) return '#0f766e';
+        if (ratio >= 0.34) return '#2dd4bf';
+        return '#99f6e4';
     };
 
     const barRow = (label, value, max, color) => {
@@ -357,7 +434,7 @@
         </div>`;
     };
 
-    const renderOverviewPanel = () => {
+    const renderOverviewPanelLegacy = () => {
         hoveredDistrictName = null;
         hoveredPinId = null;
         resetDistrictHighlight();
@@ -382,7 +459,35 @@
         `;
     };
 
-    const renderStaffPanel = (pin) => {
+    const renderOverviewPanel = () => {
+        hoveredDistrictName = null;
+        hoveredPinId = null;
+        resetDistrictHighlight();
+        const s = livePayload?.summary || {};
+        const dateLabel = livePayload?.date_label || 'Selected date';
+        sideEl.classList.remove('is-district', 'is-staff');
+        sideEyebrowEl.textContent = 'Uttarakhand overview';
+        sideTitleEl.textContent = activeView === 'attendance' ? 'Staff attendance' : (activeView === 'cfa' ? 'CFA activity' : 'Approved services');
+        sideSubEl.textContent = dateLabel + ' · click a district for details';
+        if (activeView === 'attendance') {
+            sideBodyEl.innerHTML = `<div class="slm-kpis">
+                <div class="slm-kpi"><span>Checked-in staff</span><strong>${fmt(s.staff_on_map)}</strong><small>${dateLabel}</small></div>
+                <div class="slm-kpi"><span>Active districts</span><strong>${fmt(s.districts_with_check_ins)}</strong><small>Of ${fmt(s.district_count || 13)}</small></div>
+            </div><p class="slm-empty">Pins show check-in locations, not continuous GPS tracking. Click a pin for staff details.</p>`;
+        } else if (activeView === 'cfa') {
+            sideBodyEl.innerHTML = `<div class="slm-kpis">
+                <div class="slm-kpi"><span>Selected date</span><strong>${fmt(s.cfa_today_state)}</strong><small>${dateLabel}</small></div>
+                <div class="slm-kpi"><span>Current FY</span><strong>${fmt(s.cfa_fy_state)}</strong><small>All districts</small></div>
+            </div><p class="slm-empty">District colour represents CFA submissions on the selected date.</p>`;
+        } else {
+            sideBodyEl.innerHTML = `<div class="slm-kpis">
+                <div class="slm-kpi"><span>Selected date</span><strong>${fmt(s.services_today_state)}</strong><small>Approved services</small></div>
+                <div class="slm-kpi"><span>Current FY</span><strong>${fmt(s.services_fy_state)}</strong><small>Approved services</small></div>
+            </div><p class="slm-empty">District colour represents services approved on the selected date.</p>`;
+        }
+    };
+
+    const renderStaffPanelLegacy = (pin) => {
         if (!pin) return;
         hoveredPinId = pin.user_id;
         sideEl.classList.remove('is-district');
@@ -418,7 +523,25 @@
         }
     };
 
-    const renderDistrictPanel = (m) => {
+    const renderStaffPanel = (pin) => {
+        if (!pin || activeView !== 'attendance') return;
+        hoveredPinId = pin.user_id;
+        hoveredDistrictName = pin.district || null;
+        sideEl.classList.remove('is-district');
+        sideEl.classList.add('is-staff');
+        sideEyebrowEl.textContent = (pin.district || 'Unassigned district') + ' · ' + (pin.hub || 'No hub');
+        sideTitleEl.textContent = pin.name;
+        const accuracy = pin.accuracy_m ? ' · GPS ±' + Math.round(pin.accuracy_m) + 'm' : '';
+        sideSubEl.textContent = (livePayload?.date_label || 'Selected date') + ' · check-in ' + pin.marked_at + accuracy;
+        sideBodyEl.innerHTML = `<div class="slm-kpis">
+            <div class="slm-kpi"><span>Role</span><strong style="font-size:0.95rem;">${pin.role_label}</strong><small>${pin.designation}</small></div>
+            <div class="slm-kpi"><span>Check-in</span><strong style="font-size:0.95rem;">${pin.marked_at}</strong><small>Marked location</small></div>
+        </div><p class="slm-empty" style="padding-top:0;">Assigned district: <strong>${pin.district}</strong> · ${pin.hub}</p>
+        <a class="slm-side__maps-link" href="${pin.maps_url}" target="_blank" rel="noopener">Open check-in location in Google Maps →</a>`;
+        if (pin.district && districtMetrics[pin.district]) highlightDistrictByName(pin.district);
+    };
+
+    const renderDistrictPanelLegacy = (m) => {
         if (!m) return;
         hoveredPinId = null;
         hoveredDistrictName = m.name;
@@ -462,6 +585,43 @@
                 ${staffList ? `<ul class="slm-list">${staffList}</ul>` : '<p class="slm-empty">No check-ins from this district yet today.</p>'}
             </div>
         `;
+    };
+
+    const renderDistrictPanel = (m) => {
+        if (!m) return;
+        hoveredPinId = null;
+        hoveredDistrictName = m.name;
+        sideEl.classList.remove('is-staff');
+        sideEl.classList.add('is-district');
+        highlightDistrictByName(m.name);
+        const dateLabel = livePayload?.date_label || 'Selected date';
+        sideEyebrowEl.textContent = m.hub || 'District';
+        sideTitleEl.textContent = m.name;
+        sideSubEl.textContent = dateLabel + ' · ' + (activeView === 'attendance' ? 'attendance' : (activeView === 'cfa' ? 'CFA activity' : 'approved services'));
+
+        if (activeView === 'attendance') {
+            const attendancePct = pct(m.staff_present, m.staff_total);
+            const staffList = (m.staff_today || []).map((s) => `<li>
+                <div class="slm-list__name">${s.name}<span class="slm-list__meta">${s.role_label}${s.is_field_coordinator ? ' · FC' : ''}</span></div>
+                <span class="slm-list__val">${s.marked_at}</span>
+            </li>`).join('');
+            sideBodyEl.innerHTML = `<div class="slm-kpis">
+                <div class="slm-kpi"><span>Checked in</span><strong>${fmt(m.staff_present)}</strong><small>${dateLabel}</small></div>
+                <div class="slm-kpi"><span>Assigned staff</span><strong>${fmt(m.staff_total)}</strong><small>${attendancePct}% present</small></div>
+            </div><div class="slm-section"><p class="slm-section__label">Checked-in staff</p>
+                ${staffList ? `<ul class="slm-list">${staffList}</ul>` : '<p class="slm-empty">No staff check-ins for the selected date.</p>'}
+            </div>`;
+        } else if (activeView === 'cfa') {
+            sideBodyEl.innerHTML = `<div class="slm-kpis">
+                <div class="slm-kpi"><span>Selected date</span><strong>${fmt(m.cfa_today)}</strong><small>${dateLabel}</small></div>
+                <div class="slm-kpi"><span>Current FY</span><strong>${fmt(m.cfa_fy)}</strong><small>${m.cfa_fy_share_pct}% of state</small></div>
+            </div><p class="slm-empty">CFA submissions are attributed to the applicant district.</p>`;
+        } else {
+            sideBodyEl.innerHTML = `<div class="slm-kpis">
+                <div class="slm-kpi"><span>Selected date</span><strong>${fmt(m.services_today)}</strong><small>Approved services</small></div>
+                <div class="slm-kpi"><span>Current FY</span><strong>${fmt(m.services_fy)}</strong><small>${m.services_fy_share_pct}% of state</small></div>
+            </div><p class="slm-empty">Only approved service cases are included.</p>`;
+        }
     };
 
     const resetDistrictHighlight = () => {
@@ -578,16 +738,19 @@
 
         bubbleLayer = L.layerGroup([], { interactive: false });
         districtLayer = L.geoJSON(geojson, {
-            interactive: false,
+            interactive: true,
             style: styleDistrict,
             onEachFeature: (feature, layer) => {
                 const name = feature?.properties?.district || '';
                 if (name) districtLayerByName[name] = layer;
+                layer.on('click', () => {
+                    if (name && districtMetrics[name]) renderDistrictPanel(districtMetrics[name]);
+                });
 
                 try {
                     const center = layer.getBounds().getCenter();
                     const m = districtMetrics[name];
-                    const score = m ? (m.cfa_today + m.services_today + m.staff_present) : 0;
+                    const score = 0;
                     if (score > 0) {
                         const radius = Math.min(28, 8 + Math.sqrt(score) * 4);
                         L.circleMarker(center, {
@@ -612,7 +775,16 @@
     const renderPins = (pins) => {
         staffPins = pins || [];
         markerCluster.clearLayers();
-        staffPins.forEach((pin) => {
+        if (activeView !== 'attendance') {
+            staffCountEl.innerHTML = 'Staff on map: <strong>hidden</strong>';
+            return;
+        }
+        const selectedRoles = Array.from(roleFiltersEl.querySelectorAll('input:checked')).map((input) => input.value);
+        const visiblePins = staffPins.filter((pin) => {
+            const roleKey = pin.is_field_coordinator ? 'field_coordinator' : pin.role;
+            return selectedRoles.includes(roleKey);
+        });
+        visiblePins.forEach((pin) => {
             const marker = L.circleMarker([pin.lat, pin.lng], {
                 radius: 8,
                 fillColor: pinColor(pin),
@@ -620,9 +792,47 @@
                 weight: 2,
                 fillOpacity: 0.95
             });
-            marker.on('mouseover', () => renderStaffPanel(pin));
+            marker.on('click', () => renderStaffPanel(pin));
             markerCluster.addLayer(marker);
         });
+        staffCountEl.innerHTML = 'Staff on map: <strong>' + fmt(visiblePins.length) + '</strong>';
+    };
+
+    const renderDistrictTable = () => {
+        if (!livePayload || !districtRowsEl) return;
+        const dateLabel = livePayload.date_label || 'Selected date';
+        tableTitleEl.textContent = activeView === 'attendance' ? 'District attendance' : (activeView === 'cfa' ? 'District CFA activity' : 'District approved services');
+        tableMainHeadEl.textContent = activeView === 'attendance' ? 'Checked in' : 'Selected date';
+        tableSecondaryHeadEl.textContent = activeView === 'attendance' ? 'Assigned staff' : 'State share';
+        districtRowsEl.innerHTML = (livePayload.districts || []).map((m) => {
+            const main = activeView === 'attendance' ? m.staff_present : (activeView === 'cfa' ? m.cfa_today : m.services_today);
+            const secondary = activeView === 'attendance'
+                ? m.staff_total
+                : ((activeView === 'cfa' ? m.cfa_fy_share_pct : m.services_fy_share_pct) + '%');
+            const fy = activeView === 'attendance' ? '—' : (activeView === 'cfa' ? m.cfa_fy : m.services_fy);
+            return `<tr data-district="${m.name}"><td><strong>${m.name}</strong></td><td>${m.hub || '—'}</td><td><strong>${fmt(main)}</strong></td><td>${typeof secondary === 'number' ? fmt(secondary) : secondary}</td><td>${dateLabel}</td><td>${typeof fy === 'number' ? fmt(fy) : fy}</td></tr>`;
+        }).join('');
+        districtRowsEl.querySelectorAll('tr[data-district]').forEach((row) => {
+            row.addEventListener('click', () => {
+                const name = row.getAttribute('data-district');
+                if (name && districtMetrics[name]) renderDistrictPanel(districtMetrics[name]);
+            });
+        });
+    };
+
+    const applyActiveView = () => {
+        viewButtons.forEach((button) => button.classList.toggle('is-active', button.dataset.view === activeView));
+        const attendance = activeView === 'attendance';
+        attendanceLegendEl.hidden = !attendance;
+        activityLegendEl.hidden = attendance;
+        roleFiltersEl.hidden = !attendance;
+        autoWrapEl.hidden = !attendance;
+        staffCountEl.hidden = !attendance;
+        renderPins(staffPins);
+        if (districtLayer) districtLayer.setStyle(styleDistrict);
+        renderDistrictTable();
+        renderOverviewPanel();
+        scheduleRefresh();
     };
 
     const applyMetrics = (payload) => {
@@ -640,7 +850,7 @@
                     try {
                         const center = layer.getBounds().getCenter();
                         const m = districtMetrics[name];
-                        const score = m ? (m.cfa_today + m.services_today + m.staff_present) : 0;
+                        const score = 0;
                         if (score > 0) {
                             const radius = Math.min(28, 8 + Math.sqrt(score) * 4);
                             L.circleMarker(center, {
@@ -659,6 +869,7 @@
         }
 
         renderPins(payload.staff_pins || []);
+        renderDistrictTable();
 
         if (hoveredPinId !== null) {
             const pin = staffPins.find((p) => p.user_id === hoveredPinId);
@@ -674,10 +885,9 @@
             renderOverviewPanel();
         }
 
-        staffCountEl.innerHTML = 'Staff on map: <strong>' + (payload.summary?.staff_on_map ?? 0) + '</strong>';
         const updated = payload.updated_at ? new Date(payload.updated_at) : new Date();
         updatedEl.innerHTML = 'Updated: <strong>' + updated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</strong>';
-        statusEl.textContent = payload.date_label + ' · move mouse on map → side panel updates';
+        statusEl.textContent = payload.date_label + ' · click a district or staff pin for details';
     };
 
     const loadData = async () => {
@@ -697,7 +907,7 @@
 
     const scheduleRefresh = () => {
         if (refreshTimer) clearInterval(refreshTimer);
-        if (autoRefreshEl.checked) refreshTimer = setInterval(loadData, 60000);
+        if (activeView === 'attendance' && autoRefreshEl.checked) refreshTimer = setInterval(loadData, 60000);
     };
 
     document.getElementById('slm-apply').addEventListener('click', () => { loadData(); scheduleRefresh(); });
@@ -707,10 +917,14 @@
         scheduleRefresh();
     });
     autoRefreshEl.addEventListener('change', scheduleRefresh);
-
-    map.on('mousemove', (e) => {
-        if (moveRaf) cancelAnimationFrame(moveRaf);
-        moveRaf = requestAnimationFrame(() => handleMapHover(e.latlng));
+    viewButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            activeView = button.dataset.view || 'attendance';
+            applyActiveView();
+        });
+    });
+    roleFiltersEl.querySelectorAll('input').forEach((input) => {
+        input.addEventListener('change', () => renderPins(staffPins));
     });
 
     (async function init() {

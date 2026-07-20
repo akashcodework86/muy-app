@@ -22,7 +22,11 @@ class StateLiveMapTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.live-map.index'))
             ->assertOk()
-            ->assertSee('Uttarakhand live map')
+            ->assertSee('Field Activity Map')
+            ->assertSee('Attendance')
+            ->assertSee('CFA activity')
+            ->assertSee('Approved services')
+            ->assertSee('District attendance')
             ->assertSee('id="slm-map"', false);
     }
 
