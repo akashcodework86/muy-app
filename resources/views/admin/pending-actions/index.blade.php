@@ -209,7 +209,7 @@
                             <td>{{ $case->service?->name ?? '—' }}</td>
                             <td>{{ $case->cfaSubmission?->district?->name ?? '—' }}</td>
                             <td>{{ $case->submitter?->name ?? '—' }}</td>
-                            <td>{{ $case->spoc?->name ?? 'Unassigned' }}</td>
+                            <td>{{ ($case->spoc && $case->spoc->role === 'state_staff') ? $case->spoc->name : 'Unassigned' }}</td>
                             <td>{{ $case->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
                             <td><span class="pa-status">Pending approval</span></td>
                             <td>
@@ -222,7 +222,7 @@
                                         data-service="{{ $case->service?->name ?? '—' }}"
                                         data-district="{{ $case->cfaSubmission?->district?->name ?? '—' }}"
                                         data-submitter="{{ $case->submitter?->name ?? '—' }}"
-                                        data-spoc="{{ $case->spoc?->name ?? 'Unassigned' }}"
+                                        data-spoc="{{ ($case->spoc && $case->spoc->role === 'state_staff') ? $case->spoc->name : 'Unassigned' }}"
                                         data-updated="{{ $case->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}"
                                     >Quick view</button>
                                     @if (\Illuminate\Support\Facades\Route::has('spoc.service-cases.show'))

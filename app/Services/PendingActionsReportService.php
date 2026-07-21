@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 class PendingActionsReportService
 {
+    private const SPOC_ROLE = 'state_staff';
+
     /**
      * @param  list<int>|null  $scopedDistrictIds  Hub district IDs, or null for state-wide.
      * @return array{
@@ -79,10 +81,13 @@ class PendingActionsReportService
         $oldestPendingAt = $applyDistrictFilter(clone $base)->min('submitted_at');
         $avgPendingDays = $this->averagePendingDays($applyDistrictFilter(clone $base));
 
+        $spocIdExpression = "CASE WHEN spoc_users.role = '".self::SPOC_ROLE."' THEN service_cases.spoc_user_id ELSE 0 END";
+
         $spocStatsRows = $applyDistrictFilter(clone $base)
             ->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'service_cases.cfa_submission_id')
-            ->selectRaw('COALESCE(service_cases.spoc_user_id, 0) as spoc_id, COUNT(*) as pending_count, COUNT(DISTINCT cs.district_id) as district_count')
-            ->groupBy(DB::raw('COALESCE(service_cases.spoc_user_id, 0)'))
+            ->leftJoin('users as spoc_users', 'spoc_users.id', '=', 'service_cases.spoc_user_id')
+            ->selectRaw("{$spocIdExpression} as spoc_id, COUNT(*) as pending_count, COUNT(DISTINCT cs.district_id) as district_count")
+            ->groupBy(DB::raw($spocIdExpression))
             ->orderByDesc('pending_count')
             ->get();
 
@@ -94,6 +99,7 @@ class PendingActionsReportService
             ->all();
 
         $spocNames = User::query()
+            ->where('role', self::SPOC_ROLE)
             ->whereIn('id', $spocIds)
             ->pluck('name', 'id');
 
@@ -118,18 +124,23 @@ class PendingActionsReportService
 
         $assignedBase = ServiceCase::query()
             ->whereNotNull('spoc_user_id')
+            ->whereHas('spoc', fn ($q) => $q->where('role', self::SPOC_ROLE))
             ->whereHas('submitter', fn ($q) => $q->where('role', 'district_staff'));
         $approvedBase = ServiceCase::query()
             ->whereNotNull('approved_by')
+            ->whereHas('approver', fn ($q) => $q->where('role', self::SPOC_ROLE))
             ->whereHas('submitter', fn ($q) => $q->where('role', 'district_staff'));
         $rejectedBase = ServiceCase::query()
             ->whereNotNull('rejected_by')
+            ->whereHas('rejector', fn ($q) => $q->where('role', self::SPOC_ROLE))
             ->whereHas('submitter', fn ($q) => $q->where('role', 'district_staff'));
 
         $sentBackRows = ServiceCase::query()
             ->selectRaw('service_case_events.user_id as spoc_id, COUNT(*) as sent_back_count')
             ->join('service_case_events', 'service_case_events.service_case_id', '=', 'service_cases.id')
+            ->join('users as event_users', 'event_users.id', '=', 'service_case_events.user_id')
             ->where('service_case_events.action', 'spoc_sent_back')
+            ->where('event_users.role', self::SPOC_ROLE)
             ->whereHas('submitter', fn ($q) => $q->where('role', 'district_staff'));
         $assignedRows = $applyDistrictFilter(clone $assignedBase)
             ->selectRaw('spoc_user_id as spoc_id, COUNT(*) as entries_received')
@@ -158,6 +169,7 @@ class PendingActionsReportService
             ->values();
 
         $performanceNames = User::query()
+            ->where('role', self::SPOC_ROLE)
             ->whereIn('id', $performanceIds->all())
             ->pluck('name', 'id');
 
@@ -198,14 +210,17 @@ class PendingActionsReportService
                 'cfaSubmission:id,application_no,applicant_name,district_id',
                 'cfaSubmission.district:id,name',
                 'submitter:id,name',
-                'spoc:id,name',
+                'spoc:id,name,role',
             ])
             ->orderByDesc('updated_at');
 
         if ($filterSpocId > 0) {
             $caseQuery->where('spoc_user_id', $filterSpocId);
         } elseif ($filterSpocId === -1) {
-            $caseQuery->whereNull('spoc_user_id');
+            $caseQuery->where(function ($query): void {
+                $query->whereNull('spoc_user_id')
+                    ->orWhereHas('spoc', fn ($q) => $q->where('role', '!=', self::SPOC_ROLE));
+            });
         }
         if ($filterDistrictId > 0) {
             $caseQuery->whereHas('cfaSubmission', fn ($q) => $q->where('district_id', $filterDistrictId));

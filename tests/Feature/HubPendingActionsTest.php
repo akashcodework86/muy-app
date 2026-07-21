@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\PendingActionsReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -153,5 +154,101 @@ class HubPendingActionsTest extends TestCase
             ->get(route('admin.pending-actions.index'))
             ->assertOk()
             ->assertSee('State View Applicant');
+    }
+
+    public function test_pending_actions_spoc_metrics_exclude_district_staff(): void
+    {
+        $hub = Hub::query()->create(['slug' => 'spoc-filter-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'nainital-pending',
+            'name' => 'Nainital',
+            'sort_order' => 1,
+        ]);
+
+        $districtStaff = User::factory()->create([
+            'name' => 'District Staff Person',
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $spoc = User::factory()->create([
+            'name' => 'Real SPOC Person',
+            'role' => 'state_staff',
+            'is_active' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $category = ServiceCategory::query()->create(['slug' => 'reg-pending', 'name' => 'Registration', 'sort_order' => 1]);
+        $serviceNoApproval = Service::query()->create([
+            'service_category_id' => $category->id,
+            'code' => 'auto_approve_pending',
+            'slug' => 'auto-approve-pending',
+            'name' => 'Auto Approve Service',
+            'sort_order' => 1,
+            'is_active' => true,
+            'requires_approval' => false,
+        ]);
+        $servicePending = Service::query()->create([
+            'service_category_id' => $category->id,
+            'code' => 'manual_pending',
+            'slug' => 'manual-pending',
+            'name' => 'Manual Service',
+            'sort_order' => 2,
+            'is_active' => true,
+            'requires_approval' => true,
+        ]);
+
+        $cfaAuto = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Auto Approved Applicant',
+            'phone' => '9000000010',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $cfaPending = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Pending Applicant',
+            'phone' => '9000000011',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaAuto,
+            'service_id' => $serviceNoApproval->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'submitted_by' => $districtStaff->id,
+            'approved_by' => $districtStaff->id,
+            'approved_at' => now(),
+            'submitted_at' => now(),
+        ]);
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaPending,
+            'service_id' => $servicePending->id,
+            'status' => ServiceCase::STATUS_PENDING_APPROVAL,
+            'submitted_by' => $districtStaff->id,
+            'spoc_user_id' => $spoc->id,
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.pending-actions.index'))
+            ->assertOk()
+            ->assertSee('Pending Applicant')
+            ->assertSee('Real SPOC Person');
+
+        $report = app(PendingActionsReportService::class);
+        $data = $report->build(null, 0, 0);
+
+        $this->assertTrue($data['spocStats']->contains(
+            fn (array $row) => $row['spoc_name'] === 'Real SPOC Person'
+        ));
+        $this->assertFalse($data['spocPerformance']->contains(
+            fn (array $row) => $row['spoc_name'] === 'District Staff Person'
+        ));
     }
 }
