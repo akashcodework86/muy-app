@@ -84,13 +84,18 @@
                     <label for="filter_status">Status</label>
                     <select id="filter_status" name="status">
                         <option value="">All statuses</option>
-                        @foreach ([
-                            \App\Support\AccelerationServicesApproval::STATUS_PENDING_REVIEW,
-                            \App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL,
-                            \App\Support\AccelerationServicesApproval::STATUS_APPROVED,
-                            \App\Support\AccelerationServicesApproval::STATUS_SENT_BACK,
-                            \App\Support\AccelerationServicesApproval::STATUS_DRAFT,
-                        ] as $statusOption)
+                        @php
+                            $statusOptions = [
+                                \App\Support\AccelerationServicesApproval::STATUS_PENDING_REVIEW,
+                                \App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL,
+                                \App\Support\AccelerationServicesApproval::STATUS_APPROVED,
+                                \App\Support\AccelerationServicesApproval::STATUS_SENT_BACK,
+                            ];
+                            if (empty($isAdminView)) {
+                                $statusOptions[] = \App\Support\AccelerationServicesApproval::STATUS_DRAFT;
+                            }
+                        @endphp
+                        @foreach ($statusOptions as $statusOption)
                             <option value="{{ $statusOption }}" @selected(($filters['status'] ?? '') === $statusOption)>
                                 {{ \App\Support\AccelerationServicesApproval::statusLabel($statusOption) }}
                             </option>
@@ -190,12 +195,21 @@
                                 @php
                                     $rowIsMine = (int) ($row->submitted_by_user_id ?? 0) === (int) ($currentUserId ?? 0);
                                     $rowLocked = !empty($workflowReady) && (string) ($row->status ?? '') === 'approved';
+                                    $rowIsDraft = (bool) ($row->is_draft ?? false)
+                                        || (string) ($row->status ?? '') === \App\Support\AccelerationServicesApproval::STATUS_DRAFT;
                                 @endphp
                                 @if (!empty($editRoute) && $rowIsMine && ! $rowLocked)
                                     · <a class="accel-link" href="{{ route($editRoute, $row) }}">Edit</a>
                                 @endif
-                                @if (!empty($createRoute))
+                                @if (!empty($createRoute) && ! $rowIsDraft)
                                     · <a class="accel-link" href="{{ route($createRoute, ['from_session' => $row->id]) }}#accel-form">Add services</a>
+                                @endif
+                                @if (!empty($destroyRoute) && $rowIsMine && $rowIsDraft)
+                                    · <form method="post" action="{{ route($destroyRoute, $row) }}" style="display:inline;" onsubmit="return confirm('Delete this draft?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="accel-link" style="background:none;border:0;padding:0;cursor:pointer;color:#b91c1c;font:inherit;">Delete draft</button>
+                                    </form>
                                 @endif
                             </td>
                         </tr>

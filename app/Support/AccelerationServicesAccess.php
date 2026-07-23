@@ -101,7 +101,13 @@ final class AccelerationServicesAccess
             return false;
         }
 
-        // Approved entries are locked — nobody deletes them from the UI.
+        // Only drafts can be deleted — submitted / in-review / approved stay.
+        $isDraft = (bool) ($session->is_draft ?? false)
+            || (string) ($session->status ?? '') === AccelerationServicesApproval::STATUS_DRAFT;
+        if (! $isDraft) {
+            return false;
+        }
+
         if ($session->isLocked()) {
             return false;
         }

@@ -102,10 +102,18 @@ class AccelerationServiceRecorder
         }
 
         $items = $this->buildItemsFromRequest($request, $validated, $asDraft, $existing, $allowedSections);
-        if (! $asDraft && $items === []) {
-            throw ValidationException::withMessages([
-                'service_detail' => 'Select at least one service.',
-            ]);
+        if ($items === []) {
+            // Do not create a new draft until at least one service is ticked.
+            if ($asDraft && ! $existing) {
+                throw ValidationException::withMessages([
+                    'service_detail' => 'Select at least one service to save a draft.',
+                ]);
+            }
+            if (! $asDraft) {
+                throw ValidationException::withMessages([
+                    'service_detail' => 'Select at least one service.',
+                ]);
+            }
         }
 
         $serviceDate = (string) ($validated['service_date'] ?? ($existing?->service_date?->toDateString() ?? now()->toDateString()));

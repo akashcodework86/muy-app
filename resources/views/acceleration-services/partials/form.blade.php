@@ -833,6 +833,13 @@
             setAutosaveStatus('Select an applicant to autosave', false);
             return;
         }
+        const hasService = !!form.querySelector('.accel-item-check:checked');
+        const hasSession = !!(sessionIdInput && sessionIdInput.value);
+        // Do not create a draft until at least one service is ticked.
+        if (!hasService && !hasSession) {
+            setAutosaveStatus('Tick a service to save draft', false);
+            return;
+        }
         autosaveBusy = true;
         setAutosaveStatus('Saving draft…', false);
         const data = new FormData(form);
@@ -1250,7 +1257,7 @@
         }
         showApplicantDetail(app, true);
         highlightListRows();
-        scheduleAutosave();
+        // Draft is created only after a service is ticked (see runAutosave).
     }
 
     function renderApplicantList(list) {

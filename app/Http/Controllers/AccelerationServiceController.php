@@ -402,6 +402,19 @@ class AccelerationServiceController extends Controller
                 }
             }
 
+            // State admin: submitted / in-review / approved only — never drafts.
+            if ($isAdmin) {
+                if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
+                    $query->where('is_draft', false);
+                }
+                if ($workflowReady) {
+                    $query->where('status', '!=', AccelerationServicesApproval::STATUS_DRAFT);
+                }
+                if ($filters['status'] === AccelerationServicesApproval::STATUS_DRAFT) {
+                    $filters['status'] = '';
+                }
+            }
+
             if ($workflowReady && $filters['status'] !== '') {
                 $query->where('status', $filters['status']);
             }
@@ -468,6 +481,7 @@ class AccelerationServiceController extends Controller
             'exportRoute' => $prefix.'acceleration-services.export',
             'showRoute' => $prefix.'acceleration-services.show',
             'editRoute' => $canSubmit ? $prefix.'acceleration-services.edit' : null,
+            'destroyRoute' => ($canSubmit && ! $isAdmin) ? $prefix.'acceleration-services.destroy' : null,
             'mediaRoute' => $prefix.'acceleration-services.media',
         ]);
     }
@@ -495,7 +509,7 @@ class AccelerationServiceController extends Controller
 
         return redirect()
             ->route($prefix.'acceleration-services.dashboard')
-            ->with('status', 'Acceleration session deleted.');
+            ->with('status', 'Draft deleted.');
     }
 
     public function export(Request $request): StreamedResponse
@@ -514,6 +528,16 @@ class AccelerationServiceController extends Controller
                 });
             } else {
                 $query->where('submitted_by_user_id', (int) $user->id);
+            }
+        }
+
+        // State admin export: exclude drafts (same as dashboard).
+        if ($user->role === 'state_admin') {
+            if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
+                $query->where('is_draft', false);
+            }
+            if (AccelerationServicesApproval::workflowReady()) {
+                $query->where('status', '!=', AccelerationServicesApproval::STATUS_DRAFT);
             }
         }
 

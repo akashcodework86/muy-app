@@ -452,10 +452,10 @@
         @endif
         <a href="{{ route($dashboardRoute) }}" class="accel-btn accel-btn--secondary">Back to dashboard</a>
         @if (!empty($canDelete) && !empty($destroyRoute))
-            <form method="post" action="{{ route($destroyRoute, $session) }}" onsubmit="return confirm('Delete this session?');" style="margin-left:auto;">
+            <form method="post" action="{{ route($destroyRoute, $session) }}" onsubmit="return confirm('Delete this draft?');" style="margin-left:auto;">
                 @csrf
                 @method('DELETE')
-                <button type="submit" class="accel-danger-btn">Delete session</button>
+                <button type="submit" class="accel-danger-btn">Delete draft</button>
             </form>
         @endif
     </div>
