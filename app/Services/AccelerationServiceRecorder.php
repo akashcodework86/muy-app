@@ -354,12 +354,11 @@ class AccelerationServiceRecorder
                 }
 
                 if (! $asDraft && (
-                    $baseKey === 'business_formalization'
-                    || $baseKey === 'funding_investment_support'
+                    AccelerationServicesOptions::requiresAlwaysMedia($key)
                     || AccelerationServicesOptions::isMarketLinkageKey($key)
                     || $baseKey === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY
                 )) {
-                    $needsMediaAlways = in_array($baseKey, ['business_formalization', 'funding_investment_support'], true);
+                    $needsMediaAlways = AccelerationServicesOptions::requiresAlwaysMedia($key);
                     $orderValue = (float) ($cleanPayload['order_value'] ?? 0);
                     $needsMedia = $needsMediaAlways || $orderValue > 0;
 
@@ -367,14 +366,12 @@ class AccelerationServiceRecorder
                         $hasNewFiles = $this->requestHasMediaForKey($request, $key);
                         $hasExisting = isset($existingMediaKeys[$key]);
                         if (! $hasNewFiles && ! $hasExisting) {
-                            $message = match ($baseKey) {
-                                'business_formalization' => 'Upload registration documents / photos for Business Formalization.',
-                                'funding_investment_support' => 'Upload scheme application / sanction documents for Convergence — Funding and Investment Support.',
-                                default => (
-                                    AccelerationServicesOptions::isMarketLinkageKey($key) || $baseKey === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY
-                                        ? 'Upload proof of order / PO documents when Order / PO value is filled for '.$label.'.'
-                                        : 'Upload documents for '.$label.'.'
-                                ),
+                            $message = match (true) {
+                                $baseKey === 'business_formalization' => 'Upload registration documents / photos for Business Formalization.',
+                                $baseKey === 'funding_investment_support' => 'Upload scheme application / sanction documents for Convergence — Funding and Investment Support.',
+                                AccelerationServicesOptions::isLegalLicensingKey($key) => 'Upload license / registration documents for '.$label.'.',
+                                AccelerationServicesOptions::isMarketLinkageKey($key) || $baseKey === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY => 'Upload proof of order / PO documents when Order / PO value is filled for '.$label.'.',
+                                default => 'Upload documents for '.$label.'.',
                             };
                             throw ValidationException::withMessages([
                                 'media.'.$key => $message,

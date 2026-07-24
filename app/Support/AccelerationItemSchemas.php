@@ -55,6 +55,12 @@ final class AccelerationItemSchemas
     {
         return [
             'business_formalization' => self::businessFormalization(),
+            'artisan_card' => self::artisanCard(),
+            'fssai' => self::fssai(),
+            'gst_registration' => self::gstRegistration(),
+            'trademark_application_filling' => self::trademarkApplicationFilling(),
+            'gi_seller_registration' => self::giSellerRegistration(),
+            'advance_licensing_support' => self::advanceLicensingSupport(),
             'coaching_mentorship' => self::coachingMentorship(),
             'funding_investment_support' => self::fundingConvergence(),
             'business_model_refinement' => self::businessModelRefinement(),
@@ -218,6 +224,190 @@ final class AccelerationItemSchemas
                 'label' => 'Enterprise name (as registered)',
                 'type' => T::TEXT,
                 'required' => false,
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function registrationDateField(): array
+    {
+        return [
+            [
+                'key' => 'service_item_date',
+                'label' => 'Registration date',
+                'type' => T::DATE,
+                'required' => true,
+            ],
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function artisanCard(): array
+    {
+        return array_merge(self::registrationDateField(), [
+            [
+                'key' => 'card_number',
+                'label' => 'Artisan card number',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'issuing_authority',
+                'label' => 'Issuing authority',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function fssai(): array
+    {
+        return array_merge(self::registrationDateField(), [
+            [
+                'key' => 'fssai_number',
+                'label' => 'FSSAI number',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'application_type',
+                'label' => 'Application type',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'new', 'label' => 'New registration'],
+                    ['value' => 'renewal', 'label' => 'Renewal'],
+                ],
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function gstRegistration(): array
+    {
+        return array_merge(self::registrationDateField(), [
+            [
+                'key' => 'gstin',
+                'label' => 'GSTIN',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'trade_name',
+                'label' => 'Trade name',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'registration_type',
+                'label' => 'Registration type',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'regular', 'label' => 'Regular'],
+                    ['value' => 'composition', 'label' => 'Composition'],
+                ],
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function trademarkApplicationFilling(): array
+    {
+        return array_merge(self::registrationDateField(), [
+            [
+                'key' => 'tm_application_no',
+                'label' => 'Trademark application number',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'class_of_goods',
+                'label' => 'Class of goods/services',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function giSellerRegistration(): array
+    {
+        return array_merge(self::registrationDateField(), [
+            [
+                'key' => 'platform_name',
+                'label' => 'Platform / portal name',
+                'type' => T::TEXT,
+                'required' => true,
+            ],
+            [
+                'key' => 'seller_id',
+                'label' => 'Seller ID',
+                'type' => T::TEXT,
+                'required' => false,
+            ],
+            [
+                'key' => 'notes',
+                'label' => 'Notes',
+                'type' => T::TEXTAREA,
+                'required' => false,
+            ],
+        ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function advanceLicensingSupport(): array
+    {
+        return array_merge(self::registrationDateField(), [
+            [
+                'key' => 'license_type',
+                'label' => 'License / support type',
+                'type' => T::SELECT,
+                'required' => true,
+                'options' => [
+                    ['value' => 'mandi_license', 'label' => 'Mandi Licensing'],
+                    ['value' => 'lab_testing', 'label' => 'Lab Test'],
+                    ['value' => 'seed_license', 'label' => 'Seed License'],
+                    ['value' => 'pan_card', 'label' => 'PAN Card'],
+                    ['value' => 'other', 'label' => 'Other'],
+                ],
+            ],
+            [
+                'key' => 'reference_number',
+                'label' => 'Reference / license number',
+                'type' => T::TEXT,
+                'required' => true,
             ],
             [
                 'key' => 'notes',
@@ -648,12 +838,12 @@ final class AccelerationItemSchemas
     {
         $baseKey = AccelerationServicesOptions::baseItemKey($itemKey);
 
-        return in_array($baseKey, [
+        return in_array($baseKey, array_merge([
             'business_formalization',
             'funding_investment_support',
             'market_linkage',
             AccelerationServicesOptions::BUYER_SELLER_MEET_KEY,
-        ], true);
+        ], AccelerationServicesOptions::legalLicensingItemKeys()), true);
     }
 
     /**
@@ -679,6 +869,14 @@ final class AccelerationItemSchemas
         $schema = self::forKey($itemKey);
         $detail = match ($baseKey) {
             'business_formalization' => self::payloadOptionLabel($schema, $payload, 'registration_type'),
+            'artisan_card' => trim((string) ($payload['card_number'] ?? '')),
+            'fssai' => trim((string) ($payload['fssai_number'] ?? '')),
+            'gst_registration' => trim((string) ($payload['gstin'] ?? '')),
+            'trademark_application_filling' => trim((string) ($payload['tm_application_no'] ?? '')),
+            'gi_seller_registration' => trim((string) ($payload['seller_id'] ?? ''))
+                ?: trim((string) ($payload['platform_name'] ?? '')),
+            'advance_licensing_support' => self::payloadOptionLabel($schema, $payload, 'license_type')
+                ?: trim((string) ($payload['reference_number'] ?? '')),
             'funding_investment_support' => self::payloadOptionLabel($schema, $payload, 'scheme_name')
                 ?: trim((string) ($payload['scheme_name'] ?? '')),
             'market_linkage' => trim((string) ($payload['partner_or_buyer'] ?? ''))

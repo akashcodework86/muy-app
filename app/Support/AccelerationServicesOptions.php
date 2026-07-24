@@ -20,6 +20,12 @@ final class AccelerationServicesOptions
     private const SYSTEM_ITEMS = [
         self::SECTION_SERVICE_DETAIL => [
             ['key' => 'business_formalization', 'label' => 'Business Formalization'],
+            ['key' => 'artisan_card', 'label' => 'Artisan Card'],
+            ['key' => 'fssai', 'label' => 'FSSAI'],
+            ['key' => 'gst_registration', 'label' => 'GST Registration'],
+            ['key' => 'trademark_application_filling', 'label' => 'Trademark application filling'],
+            ['key' => 'gi_seller_registration', 'label' => 'GI Seller Registration'],
+            ['key' => 'advance_licensing_support', 'label' => 'Advance Licensing Support (Mandi Licensing, Lab Test etc.)'],
             ['key' => 'coaching_mentorship', 'label' => 'One to One Coaching & Mentorship (Specialized Mentorship Support)'],
             ['key' => 'funding_investment_support', 'label' => 'Convergence — Funding and Investment Support'],
             ['key' => 'business_model_refinement', 'label' => 'Business Model Refinement'],
@@ -113,6 +119,41 @@ final class AccelerationServicesOptions
     public static function isMarketLinkageKey(string $key): bool
     {
         return self::baseItemKey($key) === 'market_linkage';
+    }
+
+    /**
+     * Legal & Licensing Support ticks (MIS 4.2) — UTDB stays under Business Formalization.
+     *
+     * @return list<string>
+     */
+    public static function legalLicensingItemKeys(): array
+    {
+        return [
+            'artisan_card',
+            'fssai',
+            'gst_registration',
+            'trademark_application_filling',
+            'gi_seller_registration',
+            'advance_licensing_support',
+        ];
+    }
+
+    public static function isLegalLicensingKey(string $key): bool
+    {
+        return in_array(self::baseItemKey($key), self::legalLicensingItemKeys(), true);
+    }
+
+    /**
+     * Items that always require document / photo upload on final submit.
+     */
+    public static function requiresAlwaysMedia(string $key): bool
+    {
+        $baseKey = self::baseItemKey($key);
+
+        return in_array($baseKey, array_merge([
+            'business_formalization',
+            'funding_investment_support',
+        ], self::legalLicensingItemKeys()), true);
     }
 
     /**

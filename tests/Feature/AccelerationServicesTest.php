@@ -202,6 +202,13 @@ class AccelerationServicesTest extends TestCase
             ->get(route('spoc.acceleration-services.create'))
             ->assertOk()
             ->assertSee('+ Add another Business Formalization')
+            ->assertSee('Artisan Card')
+            ->assertSee('FSSAI')
+            ->assertSee('GST Registration')
+            ->assertSee('Trademark application filling')
+            ->assertSee('GI Seller Registration')
+            ->assertSee('Advance Licensing Support (Mandi Licensing, Lab Test etc.)')
+            ->assertSee('UTDB Registration')
             ->assertSee('+ Add another Buyer Seller Meet')
             ->assertSee('+ Add another TBI (Graphic Era)')
             ->assertDontSee('Add new service');

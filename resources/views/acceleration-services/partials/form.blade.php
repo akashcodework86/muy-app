@@ -145,7 +145,7 @@
                                     ?? \App\Support\AccelerationItemSchemas::forKey($key, $sectionKey);
                                 $oldChecked = in_array($key, $postedChecked, true);
                                 $isMarketLinkage = \App\Support\AccelerationServicesOptions::isMarketLinkageKey($key);
-                                $docsRequiredAlways = in_array($baseKey, ['business_formalization', 'funding_investment_support'], true);
+                                $docsRequiredAlways = \App\Support\AccelerationServicesOptions::requiresAlwaysMedia($baseKey);
                                 $docsOrderProof = $isMarketLinkage || $baseKey === 'buyer_seller_meet';
                             @endphp
                             <div class="accel-item {{ $oldChecked ? 'is-checked' : '' }}" data-item-key="{{ $key }}" data-repeat-base="{{ $baseKey }}" data-section="{{ $sectionKey }}" @if ($isMarketLinkage) data-market-linkage="1" @endif>
@@ -608,9 +608,7 @@
         const checked = !!(wrap.querySelector('.accel-item-check') || {}).checked;
         const existing = existingMediaMap[itemKey];
         const hasExisting = Array.isArray(existing) && existing.length > 0;
-        const alwaysRequired = !!(mediaInput && mediaInput.getAttribute('data-media-always-required') === '1')
-            || baseKey === 'business_formalization'
-            || baseKey === 'funding_investment_support';
+        const alwaysRequired = !!(mediaInput && mediaInput.getAttribute('data-media-always-required') === '1');
 
         if (alwaysRequired) {
             if (mediaField) mediaField.classList.toggle('is-required-proof', checked);
