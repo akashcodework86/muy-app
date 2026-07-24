@@ -640,4 +640,86 @@ final class AccelerationItemSchemas
             ],
         ]);
     }
+
+    /**
+     * Services whose uploaded proof is part of the approval review (required or conditional order proof).
+     */
+    public static function isApprovalProofItem(string $itemKey): bool
+    {
+        $baseKey = AccelerationServicesOptions::baseItemKey($itemKey);
+
+        return in_array($baseKey, [
+            'business_formalization',
+            'funding_investment_support',
+            'market_linkage',
+            AccelerationServicesOptions::BUYER_SELLER_MEET_KEY,
+        ], true);
+    }
+
+    /**
+     * Queue Action label: service name + identifying detail (e.g. registration type).
+     *
+     * @param  array<string, mixed>|null  $payload
+     */
+    public static function approvalDocumentButtonLabel(string $itemKey, string $itemLabel, ?array $payload = null): string
+    {
+        $service = trim($itemLabel);
+        if ($service === '') {
+            $service = AccelerationServicesOptions::labelForKey(
+                AccelerationServicesOptions::SECTION_SERVICE_DETAIL,
+                $itemKey
+            );
+            if ($service === $itemKey) {
+                $service = 'Document';
+            }
+        }
+
+        $payload = is_array($payload) ? $payload : [];
+        $baseKey = AccelerationServicesOptions::baseItemKey($itemKey);
+        $schema = self::forKey($itemKey);
+        $detail = match ($baseKey) {
+            'business_formalization' => self::payloadOptionLabel($schema, $payload, 'registration_type'),
+            'funding_investment_support' => self::payloadOptionLabel($schema, $payload, 'scheme_name')
+                ?: trim((string) ($payload['scheme_name'] ?? '')),
+            'market_linkage' => trim((string) ($payload['partner_or_buyer'] ?? ''))
+                ?: self::payloadOptionLabel($schema, $payload, 'market_type'),
+            AccelerationServicesOptions::BUYER_SELLER_MEET_KEY => trim((string) ($payload['buyer_name'] ?? ''))
+                ?: trim((string) ($payload['meet_name'] ?? '')),
+            default => null,
+        };
+
+        $detail = is_string($detail) ? trim($detail) : '';
+        if ($detail === '') {
+            return $service;
+        }
+
+        return $service.' · '.$detail;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $schema
+     * @param  array<string, mixed>  $payload
+     */
+    private static function payloadOptionLabel(array $schema, array $payload, string $fieldKey): ?string
+    {
+        if (! array_key_exists($fieldKey, $payload) || $payload[$fieldKey] === null || $payload[$fieldKey] === '') {
+            return null;
+        }
+
+        $field = null;
+        foreach ($schema as $row) {
+            if ((string) ($row['key'] ?? '') === $fieldKey) {
+                $field = $row;
+                break;
+            }
+        }
+
+        if (! is_array($field)) {
+            return trim((string) $payload[$fieldKey]);
+        }
+
+        $rendered = trim(strip_tags(SchemaValueFormatter::renderHtml($field, $payload[$fieldKey])));
+
+        return $rendered !== '' ? $rendered : trim((string) $payload[$fieldKey]);
+    }
 }

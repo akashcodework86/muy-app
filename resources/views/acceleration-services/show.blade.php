@@ -279,6 +279,7 @@
             <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start;">
                 <form method="post" action="{{ route($approveRoute, $session) }}" onsubmit="return confirm('Approve this entry?');">
                     @csrf
+                    <input type="hidden" name="redirect_to" value="{{ url()->previous() && str_contains(url()->previous(), '/spoc/service-cases') ? url()->previous() : route('spoc.service-cases.index') }}">
                     <button type="submit" class="accel-btn">
                         @if ((string) $session->status === \App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL)
                             Approve entry (final)
@@ -289,6 +290,7 @@
                 </form>
                 <form method="post" action="{{ route($sendBackRoute, $session) }}" style="flex:1;min-width:16rem;display:flex;flex-direction:column;gap:0.45rem;">
                     @csrf
+                    <input type="hidden" name="redirect_to" value="{{ url()->previous() && str_contains(url()->previous(), '/spoc/service-cases') ? url()->previous() : route('spoc.service-cases.index') }}">
                     <textarea name="remarks" rows="2" required placeholder="Remarks for the maker (required to send back)" style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:0.5rem 0.65rem;font-family:inherit;font-size:0.86rem;resize:vertical;">{{ old('remarks') }}</textarea>
                     <div>
                         <button type="submit" class="accel-danger-btn" onclick="return confirm('Send this entry back to {{ $session->submitted_by_name }}?');">Send back with remarks</button>

@@ -352,6 +352,31 @@
                                     : null,
                                 default => null,
                             };
+                            $accelDocButtons = collect();
+                            if ($accel->relationLoaded('items')) {
+                                foreach ($accel->items as $accelItem) {
+                                    $itemKey = (string) ($accelItem->item_key ?? '');
+                                    if (! \App\Support\AccelerationItemSchemas::isApprovalProofItem($itemKey)) {
+                                        continue;
+                                    }
+                                    $mediaRows = $accelItem->media ?? collect();
+                                    if ($mediaRows->isEmpty()) {
+                                        continue;
+                                    }
+                                    // One primary proof document per service submitted for approval.
+                                    $mediaRow = $mediaRows->first();
+                                    $btnLabel = \App\Support\AccelerationItemSchemas::approvalDocumentButtonLabel(
+                                        $itemKey,
+                                        (string) ($accelItem->item_label ?? ''),
+                                        is_array($accelItem->payload) ? $accelItem->payload : null,
+                                    );
+                                    $accelDocButtons->push([
+                                        'label' => $btnLabel,
+                                        'url' => route('spoc.acceleration-services.media', $mediaRow),
+                                        'name' => (string) ($mediaRow->original_name ?: $btnLabel),
+                                    ]);
+                                }
+                            }
                         @endphp
                         <tr class="sq-row--acceleration sq-row--{{ $statusClass }}">
                             <td class="sq-sr">{{ $srNo }}</td>
@@ -386,9 +411,35 @@
                             <td style="white-space:nowrap;">{{ $accel->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
                             <td>
                                 <div class="sq-actions">
-                                    <a href="{{ route('spoc.acceleration-services.show', $accel) }}" class="sq-btn {{ $accelCanAct ? 'sq-btn--primary' : '' }}">
-                                        {{ $accelCanAct ? 'Review' : 'Open' }}
-                                    </a>
+                                    @if ($accelCanAct)
+                                        <button
+                                            type="button"
+                                            class="sq-btn sq-btn--primary js-review-open"
+                                            data-review-kind="acceleration"
+                                            data-applicant="{{ $accel->applicant_name }}"
+                                            data-app-no="{{ $accel->application_no ?: '—' }}"
+                                            data-service="Acceleration services (7.2)"
+                                            data-through-reap="0"
+                                            data-submitter="{{ $accel->submitted_by_name }}"
+                                            data-updated="{{ $accel->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}"
+                                            data-open-url="{{ route('spoc.acceleration-services.show', $accel) }}"
+                                            data-approve-url="{{ route('spoc.acceleration-services.approve', $accel) }}"
+                                            data-send-back-url="{{ route('spoc.acceleration-services.send-back', $accel) }}"
+                                            data-reject-url=""
+                                            data-case-id="0"
+                                        >Quick review</button>
+                                    @endif
+                                    @foreach ($accelDocButtons as $accelDoc)
+                                        <button
+                                            type="button"
+                                            class="sq-btn sq-btn--doc js-doc-open"
+                                            data-doc-url="{{ $accelDoc['url'] }}"
+                                            data-doc-name="{{ $accelDoc['name'] }}"
+                                            data-case-id="0"
+                                            title="{{ $accelDoc['name'] }}"
+                                        >{{ \Illuminate\Support\Str::limit($accelDoc['label'], 42) }}</button>
+                                    @endforeach
+                                    <a href="{{ route('spoc.acceleration-services.show', $accel) }}" class="sq-btn" target="_blank" rel="noopener">Open full</a>
                                 </div>
                             </td>
                         </tr>
@@ -595,14 +646,14 @@
                         <form id="sqSendBackForm" method="post" action="">
                             @csrf
                             <input id="sqSendBackRedirect" type="hidden" name="redirect_to" value="">
-                            <textarea name="note" required class="sq-note" placeholder="What should staff fix?"></textarea>
+                            <textarea id="sqSendBackNote" name="note" required class="sq-note" placeholder="What should staff fix?"></textarea>
                             <div style="margin-top:0.45rem;">
                                 <button type="submit" class="sq-btn sq-btn--warn">Send back</button>
                             </div>
                         </form>
                     </div>
 
-                    <div class="sq-review-box">
+                    <div id="sqRejectBox" class="sq-review-box">
                         <h4>Reject</h4>
                         <form id="sqRejectForm" method="post" action="">
                             @csrf
@@ -676,6 +727,8 @@
             const approveForm = document.getElementById('sqApproveForm');
             const sendBackForm = document.getElementById('sqSendBackForm');
             const rejectForm = document.getElementById('sqRejectForm');
+            const rejectBox = document.getElementById('sqRejectBox');
+            const sendBackNote = document.getElementById('sqSendBackNote');
             const approveRedirect = document.getElementById('sqApproveRedirect');
             const sendBackRedirect = document.getElementById('sqSendBackRedirect');
             const rejectRedirect = document.getElementById('sqRejectRedirect');
@@ -697,6 +750,8 @@
             openButtons.forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     activeReviewCaseId = parseInt(btn.dataset.caseId || '0', 10) || 0;
+                    const reviewKind = btn.dataset.reviewKind || 'service_case';
+                    const isAcceleration = reviewKind === 'acceleration';
                     if (activeReviewCaseId && window.muySpocReview) {
                         window.muySpocReview.markQuickReviewOpened(activeReviewCaseId);
                         window.muySpocReview.attachApproveFields(approveForm, activeReviewCaseId, 'queue_quick_review');
@@ -711,15 +766,34 @@
                     submitter.textContent = btn.dataset.submitter || '—';
                     updated.textContent = btn.dataset.updated || '—';
                     openFull.href = btn.dataset.openUrl || '#';
+                    openFull.textContent = isAcceleration ? 'Open full entry page' : 'Open full case page';
                     approveForm.action = btn.dataset.approveUrl || '';
                     sendBackForm.action = btn.dataset.sendBackUrl || '';
                     rejectForm.action = btn.dataset.rejectUrl || '';
+                    if (rejectBox) {
+                        rejectBox.style.display = isAcceleration ? 'none' : '';
+                    }
+                    if (sendBackNote) {
+                        sendBackNote.name = isAcceleration ? 'remarks' : 'note';
+                        sendBackNote.placeholder = isAcceleration
+                            ? 'Remarks for the maker (required to send back)'
+                            : 'What should staff fix?';
+                    }
+                    // Disable reject fields so unused required textarea does not block submit.
+                    if (rejectForm) {
+                        Array.from(rejectForm.querySelectorAll('[required]')).forEach(function (el) {
+                            el.disabled = isAcceleration;
+                        });
+                    }
                     const currentUrl = window.location.href || '';
                     if (approveRedirect) approveRedirect.value = currentUrl;
                     if (sendBackRedirect) sendBackRedirect.value = currentUrl;
                     if (rejectRedirect) rejectRedirect.value = currentUrl;
                     sendBackForm.reset();
                     rejectForm.reset();
+                    if (sendBackNote) {
+                        sendBackNote.name = isAcceleration ? 'remarks' : 'note';
+                    }
                     setModal(true);
                 });
             });

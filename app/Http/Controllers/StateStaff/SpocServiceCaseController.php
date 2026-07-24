@@ -298,6 +298,7 @@ class SpocServiceCaseController extends Controller
         $accelerationSessions = collect();
         if ($isAccelerationApprover && ($accelOnly || ($recordType === '' && $serviceId <= 0))) {
             $accelBase = \App\Models\AccelerationServiceSession::query()
+                ->with(['items.media'])
                 ->withCount('items')
                 ->when(
                     Schema::hasColumn('acceleration_service_sessions', 'is_draft'),

@@ -328,9 +328,7 @@ class AccelerationServiceController extends Controller
             $message = 'Entry reviewed and forwarded for final approval.';
         }
 
-        return redirect()
-            ->route('spoc.acceleration-services.show', $accelerationSession)
-            ->with('status', $message);
+        return $this->redirectAfterApprovalAction($request, $message);
     }
 
     public function sendBack(Request $request, AccelerationServiceSession $accelerationSession): RedirectResponse
@@ -339,23 +337,33 @@ class AccelerationServiceController extends Controller
         abort_unless(AccelerationServicesApproval::canSendBack($user, $accelerationSession), 403);
 
         $validated = $request->validate([
-            'remarks' => ['required', 'string', 'max:2000'],
-        ], [
-            'remarks.required' => 'Please add remarks explaining what needs to change.',
+            'remarks' => ['nullable', 'string', 'max:2000'],
+            'note' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $remarks = trim((string) ($validated['remarks'] ?? ''));
+        if ($remarks === '') {
+            $remarks = trim((string) ($validated['note'] ?? ''));
+        }
+        if ($remarks === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'remarks' => 'Please add remarks explaining what needs to change.',
+            ]);
+        }
 
         $accelerationSession->fill([
             'status' => AccelerationServicesApproval::STATUS_SENT_BACK,
             'sent_back_by_user_id' => (int) $user->id,
             'sent_back_by_name' => (string) $user->name,
             'sent_back_at' => now(),
-            'sent_back_remarks' => trim((string) $validated['remarks']),
+            'sent_back_remarks' => $remarks,
         ])->save();
-        AccelerationServicesApproval::log($accelerationSession, $user, 'sent_back', (string) $validated['remarks']);
+        AccelerationServicesApproval::log($accelerationSession, $user, 'sent_back', $remarks);
 
-        return redirect()
-            ->route('spoc.acceleration-services.show', $accelerationSession)
-            ->with('status', 'Entry sent back to '.$accelerationSession->submitted_by_name.' with remarks.');
+        return $this->redirectAfterApprovalAction(
+            $request,
+            'Entry sent back to '.$accelerationSession->submitted_by_name.' with remarks.'
+        );
     }
 
     public function dashboard(Request $request): View
@@ -724,6 +732,51 @@ class AccelerationServiceController extends Controller
         }
 
         abort(403);
+    }
+
+    /**
+     * After approve / send-back, return to the SPOC queue (same as other service approvals).
+     * Honors a safe redirect_to from Quick review so filters/page are preserved.
+     */
+    private function redirectAfterApprovalAction(Request $request, string $message): RedirectResponse
+    {
+        $target = trim((string) $request->input('redirect_to', ''));
+        if ($target !== '' && $this->isSafeServiceCasesQueueUrl($target)) {
+            return redirect()->to($target)->with('status', $message);
+        }
+
+        return redirect()
+            ->route('spoc.service-cases.index')
+            ->with('status', $message);
+    }
+
+    private function isSafeServiceCasesQueueUrl(string $url): bool
+    {
+        if ($url === '') {
+            return false;
+        }
+
+        if (str_starts_with($url, '/')) {
+            return str_contains($url, '/spoc/service-cases')
+                && ! str_contains($url, '/service-cases/');
+        }
+
+        $target = parse_url($url);
+        $current = parse_url(url('/'));
+        if (! is_array($target) || ! is_array($current)) {
+            return false;
+        }
+
+        $targetHost = strtolower((string) ($target['host'] ?? ''));
+        $currentHost = strtolower((string) ($current['host'] ?? ''));
+        if ($targetHost === '' || $currentHost === '' || $targetHost !== $currentHost) {
+            return false;
+        }
+
+        $targetPath = (string) ($target['path'] ?? '');
+
+        return str_contains($targetPath, '/spoc/service-cases')
+            && ! str_contains($targetPath, '/service-cases/');
     }
 
     private function recomputeFirstInitiationFlags(string $incubateeKey, ?int $fiscalYearId): void
