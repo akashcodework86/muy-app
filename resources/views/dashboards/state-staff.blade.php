@@ -298,9 +298,9 @@
             <div class="ss-kpi__sub">Pending cases beyond SLA</div>
         </article>
         <article class="ss-kpi">
-            <div class="ss-kpi__top"><span class="ss-kpi__label">Approved by you</span><span class="ss-kpi__icon"><i class="fa-solid fa-circle-check"></i></span></div>
+            <div class="ss-kpi__top"><span class="ss-kpi__label">Approved</span><span class="ss-kpi__icon"><i class="fa-solid fa-circle-check"></i></span></div>
             <div class="ss-kpi__value">{{ number_format($approved) }}</div>
-            <div class="ss-kpi__sub">Total approval decisions completed</div>
+            <div class="ss-kpi__sub">Approved cases in your queue</div>
         </article>
     </section>
 

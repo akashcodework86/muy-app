@@ -187,7 +187,7 @@ class StateLiveMapService
         return User::query()
             ->where('is_active', true)
             ->whereIn('district_id', $districtIds)
-            ->whereNotIn('role', ['state_admin', 'incubatee'])
+            ->whereNotIn('role', StaffDailyCheckInAccess::EXCLUDED_ROLES)
             ->selectRaw('district_id, COUNT(*) as total')
             ->groupBy('district_id')
             ->pluck('total', 'district_id')

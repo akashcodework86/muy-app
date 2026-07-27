@@ -46,7 +46,7 @@ class StaffCheckInService
     {
         return User::query()
             ->where('is_active', true)
-            ->whereNotIn('role', ['state_admin', 'incubatee'])
+            ->whereNotIn('role', StaffDailyCheckInAccess::EXCLUDED_ROLES)
             ->whereDoesntHave(
                 'designationRecord',
                 fn ($q) => $q->where('name', StaffDailyCheckInAccess::EXCLUDED_DESIGNATION),

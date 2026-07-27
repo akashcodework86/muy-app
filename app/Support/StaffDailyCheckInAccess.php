@@ -6,8 +6,8 @@ use App\Models\User;
 
 final class StaffDailyCheckInAccess
 {
-    /** Roles that must mark daily attendance with GPS (all internal staff except state admin & incubatee). */
-    private const EXCLUDED_ROLES = ['state_admin', 'incubatee'];
+    /** Roles that do not mark daily attendance with GPS (state admin, incubatee, SPOC). */
+    public const EXCLUDED_ROLES = ['state_admin', 'incubatee', 'state_staff'];
 
     public const EXCLUDED_DESIGNATION = 'CDO';
 

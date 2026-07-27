@@ -208,6 +208,16 @@ class StaffDailyCheckInTest extends TestCase
         $this->assertFalse(StaffDailyCheckInAccess::isRequired($cdo));
     }
 
+    public function test_state_staff_spoc_are_not_required_to_check_in(): void
+    {
+        $spoc = User::factory()->create([
+            'role' => 'state_staff',
+            'is_active' => true,
+        ]);
+
+        $this->assertFalse(StaffDailyCheckInAccess::isRequired($spoc));
+    }
+
     public function test_state_admin_can_export_monthly_attendance_excel(): void
     {
         if (! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {

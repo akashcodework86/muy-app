@@ -3,10 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\DistrictServiceSpoc;
-use App\Models\MarketLinkageSubmission;
-use App\Models\ServiceCase;
-use Illuminate\Support\Facades\Schema;
 use App\Services\HubAdminDashboardService;
+use App\Services\SpocApprovalQueueStatsService;
 use App\Services\StaffDashboardService;
 use App\Services\StateAdminDashboardService;
 use App\Support\StateAdminTheme;
@@ -21,6 +19,7 @@ class DashboardController extends Controller
         StateAdminDashboardService $stateDashboard,
         HubAdminDashboardService $hubDashboard,
         StaffDashboardService $staffDashboard,
+        SpocApprovalQueueStatsService $spocQueueStats,
     ): View|RedirectResponse {
         $user = auth()->user();
 
@@ -44,58 +43,14 @@ class DashboardController extends Controller
                 ->sortBy('name')
                 ->values();
 
-            $districtIds = $spocDistricts
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn (int $id) => $id > 0)
-                ->values()
-                ->all();
-
-            $queueBase = ServiceCase::query();
-            if ($districtIds !== []) {
-                $queueBase->whereHas('cfaSubmission', fn ($q) => $q->whereIn('district_id', $districtIds));
-            } else {
-                $queueBase->whereRaw('1 = 0');
-            }
-
-            $pendingApprovals = (clone $queueBase)
-                ->where('status', ServiceCase::STATUS_PENDING_APPROVAL)
-                ->count();
-
-            if (Schema::hasTable('market_linkage_submissions') && MarketLinkageSubmission::supportsWorkflow() && $districtIds !== []) {
-                $mlPending = MarketLinkageSubmission::query()
-                    ->whereIn('district_id', $districtIds)
-                    ->where('status', ServiceCase::STATUS_PENDING_APPROVAL)
-                    ->count();
-                $pendingApprovals += $mlPending;
-            }
-
-            $overduePending = (clone $queueBase)
-                ->where('status', ServiceCase::STATUS_PENDING_APPROVAL)
-                ->whereNotNull('sla_deadline_at')
-                ->where('sla_deadline_at', '<', now())
-                ->count();
-
-            if (Schema::hasTable('market_linkage_submissions') && MarketLinkageSubmission::supportsWorkflow() && $districtIds !== []) {
-                $overduePending += MarketLinkageSubmission::query()
-                    ->whereIn('district_id', $districtIds)
-                    ->where('status', ServiceCase::STATUS_PENDING_APPROVAL)
-                    ->whereNotNull('sla_deadline_at')
-                    ->where('sla_deadline_at', '<', now())
-                    ->count();
-            }
-
-            $approvedByYou = (clone $queueBase)
-                ->where('status', ServiceCase::STATUS_APPROVED)
-                ->where('approved_by', (int) $user->id)
-                ->count();
+            $stats = $spocQueueStats->forSpoc($user);
 
             return view('dashboards.state-staff', [
                 'user' => $user,
                 'spocDistricts' => $spocDistricts,
-                'pendingApprovals' => $pendingApprovals,
-                'overduePending' => $overduePending,
-                'approvedByYou' => $approvedByYou,
+                'pendingApprovals' => $stats['pending'],
+                'overduePending' => $stats['overdue'],
+                'approvedByYou' => $stats['approved'],
                 'canSubmitSocialMediaPost' => \App\Support\SocialMediaPostAccess::canSubmit($user),
             ]);
         }
