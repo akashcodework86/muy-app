@@ -134,7 +134,7 @@ class ServiceCaseRecorder
     /**
      * Staff submits a draft or re-submits after send-back.
      *
-     * @param  array<string, mixed>  $attributes  actor_id, reference_number?, delivered_on?, payload?, reap_document_uploaded?
+     * @param  array<string, mixed>  $attributes  actor_id, reference_number?, delivered_on?, payload?, reap_document_uploaded?, remove_attachment_ids?
      * @param  list<UploadedFile|array{file: UploadedFile, any_mime?: bool}>  $uploads
      */
     public function submit(ServiceCase $case, array $attributes, array $uploads = []): void
@@ -148,7 +148,7 @@ class ServiceCaseRecorder
             throw ValidationException::withMessages(['status' => 'Only draft or sent-back cases can be submitted.']);
         }
 
-        $case->loadMissing(['service', 'cfaSubmission']);
+        $case->loadMissing(['service', 'cfaSubmission', 'attachments']);
         $service = $case->service;
         if ($service === null) {
             throw ValidationException::withMessages(['service' => 'Service is missing for this case.']);
@@ -162,15 +162,56 @@ class ServiceCaseRecorder
             'reference_number' => ['nullable', 'string', 'max:191'],
             'delivered_on' => ['nullable', 'date'],
             'payload' => ['nullable', 'array'],
+            'remove_attachment_ids' => ['nullable', 'array'],
+            'remove_attachment_ids.*' => ['integer'],
         ])->validate();
+
+        $removeIds = collect($attributes['remove_attachment_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $attachmentsToRemove = $case->attachments
+            ->filter(fn (ServiceCaseAttachment $att) => in_array((int) $att->id, $removeIds, true))
+            ->values();
 
         $schema = ServiceFieldTypes::normalizeSchema($service->field_schema ?? []);
         $rawPayload = is_array($attributes['payload'] ?? null) ? $attributes['payload'] : [];
+        $existingPayload = is_array($case->payload) ? $case->payload : [];
+
+        // Preserve existing schema file filenames when staff does not re-upload them.
+        foreach ($schema as $field) {
+            if (($field['type'] ?? null) !== ServiceFieldTypes::FILE) {
+                continue;
+            }
+            $key = (string) ($field['key'] ?? '');
+            if ($key === '' || trim((string) ($rawPayload[$key] ?? '')) !== '') {
+                continue;
+            }
+            $existingName = trim((string) ($existingPayload[$key] ?? ''));
+            if ($existingName !== '') {
+                $rawPayload[$key] = $existingName;
+            }
+        }
+
         $payload = $schema === []
             ? []
             : $this->schemaValidator->validate($schema, $rawPayload);
-        $existingPayload = is_array($case->payload) ? $case->payload : [];
         $existingReapDocument = trim((string) ($existingPayload[ConvergenceReapSupport::REAP_DOCUMENT_KEY] ?? ''));
+
+        // If the staff removes the REAP attachment and does not upload a replacement, drop the saved name.
+        if ($existingReapDocument !== '' && ! (bool) ($attributes['reap_document_uploaded'] ?? false)) {
+            $removingReapDoc = $attachmentsToRemove->contains(
+                fn (ServiceCaseAttachment $att) => strcasecmp((string) $att->original_name, $existingReapDocument) === 0
+            );
+            if ($removingReapDoc) {
+                $existingReapDocument = '';
+                unset($rawPayload[ConvergenceReapSupport::REAP_DOCUMENT_KEY]);
+            }
+        }
+
         $payload = ConvergenceReapSupport::mergeThroughReapIntoPayload(
             $service,
             $payload,
@@ -198,14 +239,14 @@ class ServiceCaseRecorder
             $deliveredOn = null;
         }
 
-        $existingFiles = $case->attachments()->count();
-        if ($existingFiles + count($uploadItems) > 3) {
+        $remainingFiles = $case->attachments->count() - $attachmentsToRemove->count();
+        if ($remainingFiles + count($uploadItems) > 3) {
             throw ValidationException::withMessages([
                 'attachments' => 'Maximum 3 documents per case.',
             ]);
         }
 
-        if ($service->requires_document && $existingFiles + count($uploadItems) < 1) {
+        if ($service->requires_document && $remainingFiles + count($uploadItems) < 1) {
             throw ValidationException::withMessages([
                 'attachments' => 'This service requires at least one document.',
             ]);
@@ -219,7 +260,12 @@ class ServiceCaseRecorder
             $this->assertAllowedUpload($service, $file, (bool) ($item['any_mime'] ?? false));
         }
 
-        DB::transaction(function () use ($case, $service, $attributes, $payload, $requiresApproval, $deliveredOn, $actorId, $uploadItems): void {
+        DB::transaction(function () use ($case, $service, $attributes, $payload, $requiresApproval, $deliveredOn, $actorId, $uploadItems, $attachmentsToRemove): void {
+            foreach ($attachmentsToRemove as $attachment) {
+                $attachment->deleteFileIfLocal();
+                $attachment->delete();
+            }
+
             foreach ($uploadItems as $item) {
                 $this->persistAttachment($case, $item['file'], $actorId);
             }
@@ -265,6 +311,7 @@ class ServiceCaseRecorder
 
             $this->recordEvent($case, $actorId, $requiresApproval ? 'submitted_pending_approval' : 'submitted_auto_approved', [
                 'spoc_user_id' => $case->spoc_user_id,
+                'removed_attachment_ids' => $attachmentsToRemove->pluck('id')->all(),
             ]);
         });
 

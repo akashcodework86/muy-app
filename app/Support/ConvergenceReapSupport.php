@@ -337,6 +337,13 @@ final class ConvergenceReapSupport
             return self::stripReapDetails($payload);
         }
 
+        // On edit/resubmit, keep the already-saved REAP filename so schema validation
+        // does not force a fresh upload when the user only tweaks other fields.
+        $existingName = $existingReapDocument !== null ? trim($existingReapDocument) : '';
+        if ($existingName !== '' && trim((string) ($rawPayload[self::REAP_DOCUMENT_KEY] ?? '')) === '') {
+            $rawPayload[self::REAP_DOCUMENT_KEY] = $existingName;
+        }
+
         $reapDetails = app(SchemaValidator::class)->validate(
             self::reapDetailSchema(),
             $rawPayload
@@ -346,8 +353,8 @@ final class ConvergenceReapSupport
         if ($documentName === '' && $reapDocumentUploaded) {
             $documentName = trim((string) ($rawPayload[self::REAP_DOCUMENT_KEY] ?? ''));
         }
-        if ($documentName === '' && $existingReapDocument !== null && trim($existingReapDocument) !== '') {
-            $documentName = trim($existingReapDocument);
+        if ($documentName === '' && $existingName !== '') {
+            $documentName = $existingName;
         }
 
         if ($documentName === '') {

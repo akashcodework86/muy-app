@@ -4,6 +4,127 @@
 @section('heading', 'Edit service case')
 
 @section('content')
+    <style>
+        .svc-doc-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #0f172a;
+            border-radius: 8px;
+            padding: 0.25rem 0.55rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .svc-doc-btn:hover { background: #e2e8f0; }
+        .svc-att-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.55rem 0.65rem;
+            border: 1px solid #e4e4e7;
+            border-radius: 8px;
+            background: #fafafa;
+            margin-bottom: 0.45rem;
+        }
+        .svc-att-row.is-marked-remove {
+            opacity: 0.55;
+            background: #fff1f2;
+            border-color: #fecdd3;
+        }
+        .svc-att-name {
+            flex: 1 1 12rem;
+            font-size: 0.82rem;
+            color: #334155;
+            min-width: 0;
+            word-break: break-word;
+        }
+        .svc-att-meta { font-size: 0.74rem; color: #71717a; }
+        .svc-att-remove {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.78rem;
+            color: #9f1239;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+        }
+        .svc-doc-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 80;
+            padding: 1rem;
+        }
+        .svc-doc-modal.is-open { display: flex; }
+        .svc-doc-modal__card {
+            width: min(980px, 96vw);
+            max-height: 92vh;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28);
+            display: flex;
+            flex-direction: column;
+        }
+        .svc-doc-modal__head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.7rem 0.9rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .svc-doc-modal__title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #0f172a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .svc-doc-modal__close {
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #0f172a;
+            border-radius: 8px;
+            padding: 0.25rem 0.55rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .svc-doc-modal__body {
+            padding: 0.8rem;
+            overflow: auto;
+            background: #f8fafc;
+            min-height: 320px;
+        }
+        .svc-doc-modal__frame {
+            width: 100%;
+            min-height: 72vh;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+        }
+        .svc-doc-modal__img {
+            max-width: 100%;
+            max-height: 72vh;
+            display: block;
+            margin: 0 auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+        }
+    </style>
+
     <p style="margin:0 0 1rem;">
         <a href="{{ route('staff.services.index') }}">← Service cases</a>
     </p>
@@ -69,6 +190,12 @@
                             if ($key === 'scheme_name' && ($currentValue === null || $currentValue === '') && $case->service?->name) {
                                 $currentValue = $case->service->name;
                             }
+                            $matchingAttachment = null;
+                            if ($type === 'file' && ! empty($payload[$key])) {
+                                $matchingAttachment = $case->attachments->first(
+                                    fn ($att) => strcasecmp((string) $att->original_name, (string) $payload[$key]) === 0
+                                );
+                            }
                         @endphp
                         <div class="svc-field-row" data-field-key="{{ $key }}" data-visible-if-field="{{ $field['visible_if']['field'] ?? '' }}" data-visible-if-value="{{ $field['visible_if']['value'] ?? '' }}">
                             <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.2rem;">
@@ -110,9 +237,19 @@
                                     Yes
                                 </label>
                             @elseif ($type === 'file')
-                                <input type="file" name="payload_files[{{ $key }}]" accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;">
+                                <input type="file" name="payload_files[{{ $key }}]" accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;" @if (!empty($field['required']) && empty($payload[$key])) required @endif>
                                 @if (!empty($payload[$key]))
-                                    <p style="margin:0.2rem 0 0;font-size:0.74rem;color:#71717a;">Current: {{ (string) $payload[$key] }}</p>
+                                    <p style="margin:0.35rem 0 0;font-size:0.74rem;color:#71717a;display:flex;flex-wrap:wrap;align-items:center;gap:0.45rem;">
+                                        <span>Current: {{ (string) $payload[$key] }}</span>
+                                        @if ($matchingAttachment)
+                                            <button
+                                                type="button"
+                                                class="svc-doc-btn js-doc-open"
+                                                data-doc-url="{{ route('staff.services.attachments.download', [$case, $matchingAttachment]) }}"
+                                                data-doc-name="{{ $matchingAttachment->original_name }}"
+                                            >View</button>
+                                        @endif
+                                    </p>
                                 @endif
                             @elseif ($type === 'radio')
                                 <div style="display:flex;flex-wrap:wrap;gap:0.8rem;">
@@ -144,41 +281,93 @@
                     @endforeach
                 </div>
             @endif
-            @if ($case->service?->requires_document)
-                <div style="margin-top:0.65rem;margin-bottom:0.65rem;">
-                    <label style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Documents <span style="font-weight:400;color:#71717a;">(max 3, PDF or image, 5 MB each)</span></label>
-                    <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;">
-                </div>
-            @endif
+
+            <div style="margin-top:0.85rem;margin-bottom:0.35rem;">
+                <label style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">
+                    Documents
+                    <span style="font-weight:400;color:#71717a;">(max 3, PDF or image, 5 MB each)</span>
+                    @if ($case->service?->requires_document)
+                        <span style="color:#b91c1c">*</span>
+                    @endif
+                </label>
+                <p style="margin:0 0 0.45rem;font-size:0.76rem;color:#64748b;">
+                    View existing files below. Tick <strong>Remove</strong> to delete, then upload replacements if needed.
+                </p>
+                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" style="font-size:0.85rem;">
+            </div>
+
             @if ($isReapSupportService ?? false)
                 @include('staff.services.partials.through-reap-dedicated-field', [
                     'payload' => $payload,
+                    'case' => $case,
                     'reapTargetsProgress' => $reapTargetsProgress ?? null,
                 ])
             @elseif ($isConvergenceService ?? false)
                 @include('staff.services.partials.through-reap-field', [
                     'payload' => $payload,
+                    'case' => $case,
                     'reapTargetsProgress' => $reapTargetsProgress ?? null,
                 ])
             @endif
         </fieldset>
 
         @if ($case->attachments->isNotEmpty())
+            @php
+                $oldRemoveIds = collect(old('remove_attachment_ids', []))->map(fn ($id) => (int) $id)->all();
+                $reapDocName = trim((string) ($payload[\App\Support\ConvergenceReapSupport::REAP_DOCUMENT_KEY] ?? ''));
+            @endphp
             <div style="margin-bottom:0.9rem;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:0.65rem 0.75rem;">
-                <p style="margin:0 0 0.35rem;font-size:0.82rem;font-weight:600;">Existing attachments</p>
-                <ul style="margin:0;padding-left:1rem;font-size:0.8rem;color:#52525b;">
-                    @foreach ($case->attachments as $att)
-                        <li>{{ $att->original_name }} ({{ number_format((int) ($att->size_bytes / 1024), 0) }} KB)</li>
-                    @endforeach
-                </ul>
+                <p style="margin:0 0 0.45rem;font-size:0.82rem;font-weight:600;">Existing attachments</p>
+                @foreach ($case->attachments as $att)
+                    @php
+                        $isReapDoc = $reapDocName !== '' && strcasecmp((string) $att->original_name, $reapDocName) === 0;
+                        $isMarked = in_array((int) $att->id, $oldRemoveIds, true);
+                    @endphp
+                    <div class="svc-att-row{{ $isMarked ? ' is-marked-remove' : '' }}" data-att-row>
+                        <div class="svc-att-name">
+                            {{ $att->original_name }}
+                            @if ($isReapDoc)
+                                <span style="display:inline-block;margin-left:0.25rem;padding:0.08rem 0.4rem;border-radius:999px;background:#ffedd5;color:#9a3412;font-size:0.68rem;font-weight:700;">REAP</span>
+                            @endif
+                            <div class="svc-att-meta">{{ number_format((int) ($att->size_bytes / 1024), 0) }} KB</div>
+                        </div>
+                        <button
+                            type="button"
+                            class="svc-doc-btn js-doc-open"
+                            data-doc-url="{{ route('staff.services.attachments.download', [$case, $att]) }}"
+                            data-doc-name="{{ $att->original_name }}"
+                        >View</button>
+                        <label class="svc-att-remove">
+                            <input
+                                type="checkbox"
+                                name="remove_attachment_ids[]"
+                                value="{{ $att->id }}"
+                                @checked($isMarked)
+                                data-remove-att
+                            >
+                            Remove
+                        </label>
+                    </div>
+                @endforeach
             </div>
         @endif
 
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.55rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;">Update case</button>
     </form>
+
+    <div id="svcDocModal" class="svc-doc-modal" aria-hidden="true">
+        <div class="svc-doc-modal__card" role="dialog" aria-modal="true" aria-label="Document preview">
+            <div class="svc-doc-modal__head">
+                <div id="svcDocTitle" class="svc-doc-modal__title">Document</div>
+                <button type="button" id="svcDocClose" class="svc-doc-modal__close">Close</button>
+            </div>
+            <div id="svcDocBody" class="svc-doc-modal__body"></div>
+        </div>
+    </div>
+
     <script>
         (function () {
-            const form = document.querySelector('form[action*="staff/services"]');
+            const form = document.querySelector('form[action*="services/"]');
             if (!form) return;
             const rows = Array.from(form.querySelectorAll('.svc-field-row'));
             const reapCheckbox = form.querySelector('input[name="payload[through_reap]"][type="checkbox"]');
@@ -254,17 +443,85 @@
                 });
             }
 
+            form.querySelectorAll('[data-remove-att]').forEach(function (cb) {
+                cb.addEventListener('change', function () {
+                    const row = cb.closest('[data-att-row]');
+                    if (row) row.classList.toggle('is-marked-remove', cb.checked);
+                });
+            });
+
             if (reapCheckbox) {
                 reapCheckbox.addEventListener('change', syncReapDetails);
+                syncReapDetails();
+            } else if (reapAlwaysOn) {
                 syncReapDetails();
             }
             form.addEventListener('input', syncVisibility);
             form.addEventListener('change', syncVisibility);
             syncVisibility();
         })();
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var modal = document.getElementById('svcDocModal');
+            var modalBody = document.getElementById('svcDocBody');
+            var modalTitle = document.getElementById('svcDocTitle');
+            var closeBtn = document.getElementById('svcDocClose');
+
+            function closeModal() {
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+                modalBody.innerHTML = '';
+            }
+
+            function openModal(url, name) {
+                modalTitle.textContent = name || 'Document';
+                modalBody.innerHTML = '';
+
+                var lower = (name || url || '').toLowerCase();
+                if (lower.endsWith('.pdf')) {
+                    var frame = document.createElement('iframe');
+                    frame.className = 'svc-doc-modal__frame';
+                    frame.src = url;
+                    frame.title = name || 'Document';
+                    modalBody.appendChild(frame);
+                } else if (/\.(png|jpg|jpeg|webp|gif)$/i.test(lower)) {
+                    var img = document.createElement('img');
+                    img.className = 'svc-doc-modal__img';
+                    img.alt = name || 'Document image';
+                    img.src = url;
+                    modalBody.appendChild(img);
+                } else {
+                    var fallback = document.createElement('div');
+                    fallback.style.fontSize = '0.86rem';
+                    fallback.style.color = '#334155';
+                    fallback.innerHTML = 'Preview not supported for this file type. <a href="' + url + '" target="_blank" rel="noopener">Open document</a>.';
+                    modalBody.appendChild(fallback);
+                }
+
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+
+            document.querySelectorAll('.js-doc-open').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    openModal(btn.getAttribute('data-doc-url') || '', btn.getAttribute('data-doc-name') || 'Document');
+                });
+            });
+
+            if (closeBtn) closeBtn.addEventListener('click', closeModal);
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === modal) closeModal();
+                });
+            }
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && modal && modal.classList.contains('is-open')) {
+                    closeModal();
+                }
+            });
+        });
     </script>
     @if (! empty($reapTargetsProgress))
         @include('partials.reap-incubatee-targets-panel-script')
     @endif
 @endsection
-

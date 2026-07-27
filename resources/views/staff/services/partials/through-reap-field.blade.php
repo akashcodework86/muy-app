@@ -21,6 +21,7 @@
     </label>
     @include('staff.services.partials.through-reap-details-field', [
         'payload' => $payload ?? [],
+        'case' => $case ?? null,
         'reapTargetsProgress' => $reapTargetsProgress ?? null,
     ])
 </div>

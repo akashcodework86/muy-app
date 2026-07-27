@@ -49,6 +49,14 @@
                     @endforeach
                 </select>
             @elseif ($type === 'file')
+                @php
+                    $reapMatchingAttachment = null;
+                    if (! empty($payload[$key]) && isset($case) && $case && $case->relationLoaded('attachments')) {
+                        $reapMatchingAttachment = $case->attachments->first(
+                            fn ($att) => strcasecmp((string) $att->original_name, (string) $payload[$key]) === 0
+                        );
+                    }
+                @endphp
                 <input
                     type="file"
                     name="payload_files[{{ $key }}]"
@@ -58,9 +66,19 @@
                     @if (! $throughReapChecked) disabled @endif
                 >
                 @if (!empty($payload[$key]))
-                    <p style="margin:0.2rem 0 0;font-size:0.74rem;color:#71717a;">Current: {{ (string) $payload[$key] }}</p>
+                    <p style="margin:0.35rem 0 0;font-size:0.74rem;color:#71717a;display:flex;flex-wrap:wrap;align-items:center;gap:0.45rem;">
+                        <span>Current: {{ (string) $payload[$key] }}</span>
+                        @if ($reapMatchingAttachment)
+                            <button
+                                type="button"
+                                class="svc-doc-btn js-doc-open"
+                                data-doc-url="{{ route('staff.services.attachments.download', [$case, $reapMatchingAttachment]) }}"
+                                data-doc-name="{{ $reapMatchingAttachment->original_name }}"
+                            >View</button>
+                        @endif
+                    </p>
                 @endif
-                <p style="margin:0.2rem 0 0;font-size:0.75rem;color:#71717a;">Any document type, max 5 MB.</p>
+                <p style="margin:0.2rem 0 0;font-size:0.75rem;color:#71717a;">Any document type, max 5 MB. Leave empty to keep the current file.</p>
             @endif
         </div>
     @endforeach

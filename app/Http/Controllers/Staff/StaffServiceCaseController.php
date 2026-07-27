@@ -587,9 +587,11 @@ class StaffServiceCaseController extends Controller
             'payload_files.reap_document' => ['nullable', 'file', 'max:5120'],
             'attachments' => ['nullable', 'array', 'max:3'],
             'attachments.*' => ['file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'remove_attachment_ids' => ['nullable', 'array'],
+            'remove_attachment_ids.*' => ['integer'],
         ]);
 
-        $service_case->loadMissing('service');
+        $service_case->loadMissing(['service', 'attachments']);
         $service = $service_case->service;
         if (! $service || ! $service->is_active) {
             return back()->withErrors(['service' => 'This service is inactive.'])->withInput();
@@ -615,6 +617,12 @@ class StaffServiceCaseController extends Controller
         [$payload, $uploads, $reapDocumentUploaded] = $this->appendReapDocumentFromRequest($request, $service, $payload, $uploads);
         $existingPayload = is_array($service_case->payload) ? $service_case->payload : [];
         $existingReapDocument = trim((string) ($existingPayload[ConvergenceReapSupport::REAP_DOCUMENT_KEY] ?? ''));
+        $removeAttachmentIds = collect($validated['remove_attachment_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
 
         try {
             if ($service_case->status === ServiceCase::STATUS_APPROVED) {
@@ -627,6 +635,7 @@ class StaffServiceCaseController extends Controller
                     (int) $staff->id,
                     $reapDocumentUploaded,
                     $existingReapDocument !== '' ? $existingReapDocument : null,
+                    $removeAttachmentIds,
                 );
 
                 return redirect()
@@ -646,6 +655,7 @@ class StaffServiceCaseController extends Controller
                 'delivered_on' => $validated['delivered_on'] ?? null,
                 'payload' => $payload,
                 'reap_document_uploaded' => $reapDocumentUploaded,
+                'remove_attachment_ids' => $removeAttachmentIds,
             ], $uploads);
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
@@ -975,6 +985,7 @@ class StaffServiceCaseController extends Controller
     /**
      * @param  array<string, mixed>  $validated
      * @param  list<UploadedFile|array{file: UploadedFile, any_mime?: bool}>  $uploads
+     * @param  list<int>  $removeAttachmentIds
      */
     private function updateApprovedCase(
         ServiceCase $case,
@@ -985,8 +996,40 @@ class StaffServiceCaseController extends Controller
         int $actorId,
         bool $reapDocumentUploaded = false,
         ?string $existingReapDocument = null,
+        array $removeAttachmentIds = [],
     ): void {
+        $case->loadMissing('attachments');
+        $attachmentsToRemove = $case->attachments
+            ->filter(fn (ServiceCaseAttachment $att) => in_array((int) $att->id, $removeAttachmentIds, true))
+            ->values();
+
         $schema = ServiceFieldTypes::normalizeSchema($service->field_schema ?? []);
+        $existingPayload = is_array($case->payload) ? $case->payload : [];
+        foreach ($schema as $field) {
+            if (($field['type'] ?? null) !== ServiceFieldTypes::FILE) {
+                continue;
+            }
+            $key = (string) ($field['key'] ?? '');
+            if ($key === '' || trim((string) ($payload[$key] ?? '')) !== '') {
+                continue;
+            }
+            $existingName = trim((string) ($existingPayload[$key] ?? ''));
+            if ($existingName !== '') {
+                $payload[$key] = $existingName;
+            }
+        }
+
+        $keptExistingReapDocument = $existingReapDocument !== null ? trim($existingReapDocument) : '';
+        if ($keptExistingReapDocument !== '' && ! $reapDocumentUploaded) {
+            $removingReapDoc = $attachmentsToRemove->contains(
+                fn (ServiceCaseAttachment $att) => strcasecmp((string) $att->original_name, $keptExistingReapDocument) === 0
+            );
+            if ($removingReapDoc) {
+                $keptExistingReapDocument = '';
+                unset($payload[ConvergenceReapSupport::REAP_DOCUMENT_KEY]);
+            }
+        }
+
         $validatedPayload = $schema === []
             ? []
             : app(SchemaValidator::class)->validate($schema, $payload);
@@ -995,24 +1038,29 @@ class StaffServiceCaseController extends Controller
             $validatedPayload,
             $payload,
             $reapDocumentUploaded,
-            $existingReapDocument,
+            $keptExistingReapDocument !== '' ? $keptExistingReapDocument : null,
         );
         $normalizedUploads = $this->normalizeUploadItems($uploads);
 
-        $existingFiles = $case->attachments()->count();
-        if ($existingFiles + count($normalizedUploads) > 3) {
+        $remainingFiles = $case->attachments->count() - $attachmentsToRemove->count();
+        if ($remainingFiles + count($normalizedUploads) > 3) {
             throw ValidationException::withMessages([
                 'attachments' => 'Maximum 3 documents per case.',
             ]);
         }
 
-        if ($service->requires_document && $existingFiles + count($normalizedUploads) < 1) {
+        if ($service->requires_document && $remainingFiles + count($normalizedUploads) < 1) {
             throw ValidationException::withMessages([
                 'attachments' => 'This service requires at least one document.',
             ]);
         }
 
-        DB::transaction(function () use ($case, $service, $validatedPayload, $validated, $normalizedUploads, $actorId): void {
+        DB::transaction(function () use ($case, $service, $validatedPayload, $validated, $normalizedUploads, $actorId, $attachmentsToRemove): void {
+            foreach ($attachmentsToRemove as $attachment) {
+                $attachment->deleteFileIfLocal();
+                $attachment->delete();
+            }
+
             foreach ($normalizedUploads as $item) {
                 $file = $item['file'];
                 if (! $file->isValid()) {
