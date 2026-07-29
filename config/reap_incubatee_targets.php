@@ -13,8 +13,8 @@ return [
         'almora' => [
             'farm_1_lakh' => 5,
             'farm_3_lakh' => 5,
-            'non_farm_1_lakh' => 12,
-            'non_farm_3_lakh' => 13,
+            'non_farm_1_lakh' => 15,
+            'non_farm_3_lakh' => 15,
         ],
         'bageshwar' => [
             'farm_1_lakh' => 5,
