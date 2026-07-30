@@ -317,6 +317,12 @@ class MarketLinkageController extends Controller
             $marketLinkage->delete();
         });
 
+        if ($request->input('redirect_to') === 'dashboard') {
+            return redirect()
+                ->route('staff.market-linkages.dashboard')
+                ->with('status', 'Market linkage deleted.');
+        }
+
         return redirect()
             ->route('staff.services.index')
             ->with('status', 'Market linkage deleted.');
@@ -752,6 +758,11 @@ class MarketLinkageController extends Controller
             }
 
             $recordedAt = optional($submission->created_at)->timezone(config('app.timezone'))->format('d M Y H:i') ?? '';
+            $canDeleteSubmission = $this->settings->isEnabled('service_module.staff_delete_enabled')
+                && MarketLinkageAccess::canSubmit($user)
+                && (int) $submission->submitted_by_user_id === (int) $user->id
+                && $submission->canBeDeletedByStaff();
+            $deleteActionAdded = false;
 
             foreach ($submission->partners as $partner) {
                 if (! $this->partnerMatchesFilters($partner, $filters)) {
@@ -774,7 +785,11 @@ class MarketLinkageController extends Controller
                     'recorded_by' => (string) $submission->submitted_by_name,
                     'submission_id' => (int) $submission->id,
                     'show_url' => route($showRoute, $submission),
+                    'delete_url' => $canDeleteSubmission && ! $deleteActionAdded
+                        ? route('staff.market-linkages.destroy', $submission)
+                        : null,
                 ];
+                $deleteActionAdded = $deleteActionAdded || $canDeleteSubmission;
                 $group->partner_count++;
             }
         }

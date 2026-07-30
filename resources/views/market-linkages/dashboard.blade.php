@@ -285,6 +285,22 @@
             color: #64748b;
             font-weight: 600;
         }
+        .ml-dash-delete-form {
+            display: inline;
+            margin-left: 0.35rem;
+        }
+        .ml-dash-delete {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            padding: 0;
+            color: #dc2626;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .ml-dash-delete:hover { color: #991b1b; }
     </style>
     @endpush
 
@@ -474,6 +490,17 @@
                                                     · <a href="{{ $p['show_url'] }}">{{ !empty($p['service_case_id']) ? 'Service case' : 'Submission' }}</a>
                                                 @elseif (!empty($p['service_case_id']))
                                                     · <span>Service case</span>
+                                                @endif
+                                                @if (!empty($p['delete_url']))
+                                                    <form method="post"
+                                                          action="{{ $p['delete_url'] }}"
+                                                          class="ml-dash-delete-form"
+                                                          onsubmit="return confirm('Delete this market linkage submission and all of its partner entries?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <input type="hidden" name="redirect_to" value="dashboard">
+                                                        <span aria-hidden="true"> · </span><button type="submit" class="ml-dash-delete">Delete</button>
+                                                    </form>
                                                 @endif
                                             </span>
                                         </div>

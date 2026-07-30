@@ -470,6 +470,58 @@ class MarketLinkageTest extends TestCase
         $this->assertSame(0, MarketLinkagePartner::query()->where('market_linkage_submission_id', $submission->id)->count());
     }
 
+    public function test_dashboard_shows_one_delete_action_for_owners_submission_and_returns_to_dashboard(): void
+    {
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $otherStaff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $cfaId = $this->seedOnboardedApplicant($district, 'APP-ML-DASH-DEL', 'Dashboard Delete Incubatee');
+
+        $this->actingAs($staff)->post(route('staff.market-linkages.store'), [
+            'cfa_submission_id' => $cfaId,
+            'partners' => [
+                ['partner_name' => 'Delete Partner One', 'linkage_mode' => 'online', 'linkage_date' => '2026-05-20', 'link_url' => 'https://example.com/one'],
+                ['partner_name' => 'Delete Partner Two', 'linkage_mode' => 'offline', 'linkage_date' => '2026-05-21'],
+            ],
+        ])->assertRedirect();
+
+        $submission = MarketLinkageSubmission::query()->firstOrFail();
+        app(MarketLinkageWorkflowService::class)->approve(
+            $submission,
+            User::factory()->create(['role' => 'state_staff', 'is_active' => true])
+        );
+
+        $ownerDashboard = $this->actingAs($staff)
+            ->get(route('staff.market-linkages.dashboard'))
+            ->assertOk()
+            ->assertSee('Dashboard Delete Incubatee')
+            ->assertSee('Delete');
+
+        $this->assertSame(1, substr_count($ownerDashboard->getContent(), 'class="ml-dash-delete"'));
+
+        $otherDashboard = $this->actingAs($otherStaff)
+            ->get(route('staff.market-linkages.dashboard'))
+            ->assertOk();
+
+        $this->assertSame(0, substr_count($otherDashboard->getContent(), 'class="ml-dash-delete"'));
+
+        $this->actingAs($staff)
+            ->delete(route('staff.market-linkages.destroy', $submission), ['redirect_to' => 'dashboard'])
+            ->assertRedirect(route('staff.market-linkages.dashboard'))
+            ->assertSessionHas('status', 'Market linkage deleted.');
+
+        $this->assertDatabaseMissing('market_linkage_submissions', ['id' => $submission->id]);
+        $this->assertDatabaseMissing('market_linkage_partners', ['market_linkage_submission_id' => $submission->id]);
+    }
+
     public function test_hub_admin_can_view_market_linkage_dashboard_with_district_breakdown(): void
     {
         [$hub, $district, $hubAdmin] = $this->seedHubFixtures('kumaon', 'Almora');
