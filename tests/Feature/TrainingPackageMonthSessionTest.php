@@ -7,10 +7,12 @@ use App\Models\Hub;
 use App\Models\TrainingPackage;
 use App\Models\TrainingPackageMonthSession;
 use App\Models\User;
+use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\TrainingPackageMonthSessionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Mockery;
 use Tests\TestCase;
 
 class TrainingPackageMonthSessionTest extends TestCase
@@ -42,6 +44,64 @@ class TrainingPackageMonthSessionTest extends TestCase
             ->get(route('admin.training-package-month-plans.index'))
             ->assertOk()
             ->assertSee('Business Skills Training Sessions Target');
+    }
+
+    public function test_training_package_picker_uses_legacy_database_location_for_mirrored_applicant(): void
+    {
+        $district = $this->createDistrict('legacy-location', 'Nainital');
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'application_no' => 'RBII767351565',
+            'district_id' => $district->id,
+            'source' => 'legacy_phase2',
+            'applicant_name' => 'Reena Devi',
+            'phone' => '7536858086',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $batchId = (int) DB::table('onboarding_batches')->insertGetId([
+            'hub_id' => $district->hub_id,
+            'district_id' => $district->id,
+            'name' => 'Nainital Batch',
+            'target_size' => 1,
+            'status' => 'locked',
+            'locked_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('onboarding_batch_cfa')->insert([
+            'onboarding_batch_id' => $batchId,
+            'cfa_submission_id' => $cfaId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $legacy = Mockery::mock(LegacyApplicationServiceCaseSupport::class);
+        $legacy->shouldReceive('applicantSnapshotsByLegacyApplicationNumbers')
+            ->once()
+            ->with(['RBII767351565'])
+            ->andReturn([
+                'rbii767351565' => [
+                    'application_no' => 'RBII767351565',
+                    'block_name' => 'Bhimtal',
+                    'village' => 'Mehragaon',
+                ],
+            ]);
+        $this->app->instance(LegacyApplicationServiceCaseSupport::class, $legacy);
+
+        $this->actingAs($staff)
+            ->get(route('staff.training-packages.create'))
+            ->assertOk()
+            ->assertSee('Block: Bhimtal')
+            ->assertSee('Village: Mehragaon');
     }
 
     public function test_admin_can_sync_named_sessions_for_a_district_month(): void

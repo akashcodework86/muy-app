@@ -512,6 +512,7 @@ class TrainingPackageAttendanceController extends Controller
             ->where('cs.district_id', $districtId)
             ->selectRaw("
                 cs.id as incubatee_id,
+                cs.source as cfa_source,
                 cs.applicant_name as name,
                 cs.application_no as application_no,
                 cs.phone as phone,
@@ -531,12 +532,13 @@ class TrainingPackageAttendanceController extends Controller
             });
         }
 
-        return $query
+        $rows = $query
             ->orderByDesc('obc.created_at')
             ->get()
             ->map(fn ($row): array => [
                 'incubatee_id' => (int) $row->incubatee_id,
                 'source' => 'phase3',
+                '_cfa_source' => strtolower(trim((string) ($row->cfa_source ?? ''))),
                 'name' => (string) ($row->name ?? ''),
                 'application_no' => (string) ($row->application_no ?? ''),
                 'phone' => (string) ($row->phone ?? ''),
@@ -547,6 +549,63 @@ class TrainingPackageAttendanceController extends Controller
                 'onboarding_batch_name' => (string) ($row->onboarding_batch_name ?? ''),
             ])
             ->unique('incubatee_id')
+            ->values();
+
+        return $this->enrichLegacyApplicantLocations($rows);
+    }
+
+    /**
+     * Mirrored Phase 2 CFA rows only carry partial legacy data in the local payload. Resolve their
+     * authoritative block/village from rbiphase2.rbi_applicant_details via application number.
+     */
+    private function enrichLegacyApplicantLocations(Collection $rows): Collection
+    {
+        $legacyApplicationNumbers = $rows
+            ->filter(fn (array $row): bool => in_array(
+                (string) ($row['_cfa_source'] ?? ''),
+                ['legacy_phase2', 'rbiphase2'],
+                true
+            ))
+            ->pluck('application_no')
+            ->map(fn ($number): string => trim((string) $number))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $legacyDetails = $legacyApplicationNumbers === []
+            ? []
+            : $this->legacyApplications->applicantSnapshotsByLegacyApplicationNumbers($legacyApplicationNumbers);
+
+        return $rows
+            ->map(function (array $row) use ($legacyDetails): array {
+                $isLegacy = in_array(
+                    (string) ($row['_cfa_source'] ?? ''),
+                    ['legacy_phase2', 'rbiphase2'],
+                    true
+                );
+
+                if ($isLegacy) {
+                    $applicationNumber = mb_strtolower(trim((string) ($row['application_no'] ?? '')));
+                    $details = $legacyDetails[$applicationNumber] ?? null;
+
+                    if (is_array($details)) {
+                        $legacyBlock = trim((string) ($details['block_name'] ?? ''));
+                        $legacyVillage = trim((string) ($details['village'] ?? ''));
+
+                        if ($legacyBlock !== '') {
+                            $row['block_name'] = $legacyBlock;
+                        }
+                        if ($legacyVillage !== '') {
+                            $row['village'] = $legacyVillage;
+                        }
+                    }
+                }
+
+                unset($row['_cfa_source']);
+
+                return $row;
+            })
             ->values();
     }
 
