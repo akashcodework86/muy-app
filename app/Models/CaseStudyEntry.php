@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CaseStudyEntry extends Model
 {
@@ -38,8 +39,22 @@ class CaseStudyEntry extends Model
         return $this->belongsTo(User::class, 'submitted_by_user_id');
     }
 
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(CaseStudyEntryAttachment::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function hasDocument(): bool
     {
         return is_string($this->document_path) && $this->document_path !== '';
+    }
+
+    public function hasAttachments(): bool
+    {
+        if ($this->relationLoaded('attachments')) {
+            return $this->attachments->isNotEmpty();
+        }
+
+        return $this->attachments()->exists();
     }
 }

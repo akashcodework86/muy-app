@@ -719,6 +719,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('case-study-entries/dashboard', [CaseStudyEntryController::class, 'dashboard'])->name('case-study-entries.dashboard');
         Route::get('case-study-entries/export', [CaseStudyEntryController::class, 'export'])->name('case-study-entries.export');
         Route::get('case-study-entries/{caseStudyEntry}/document', [CaseStudyEntryController::class, 'downloadDocument'])->name('case-study-entries.document');
+        Route::get('case-study-entries/{caseStudyEntry}/attachment', [CaseStudyEntryController::class, 'downloadAttachment'])->name('case-study-entries.attachment');
         Route::get('case-study-entries/{caseStudyEntry}', [CaseStudyEntryController::class, 'show'])->name('case-study-entries.show');
         Route::delete('case-study-entries/{caseStudyEntry}', [CaseStudyEntryController::class, 'destroy'])->middleware('throttle:30,1')->name('case-study-entries.destroy');
 
@@ -1161,6 +1162,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('case-study-entries', CaseStudyEntryLandingController::class)->name('case-study-entries.index');
         Route::get('case-study-entries/export', [CaseStudyEntryController::class, 'export'])->name('case-study-entries.export');
         Route::get('case-study-entries/{caseStudyEntry}/document', [CaseStudyEntryController::class, 'downloadDocument'])->name('case-study-entries.document');
+        Route::get('case-study-entries/{caseStudyEntry}/attachment', [CaseStudyEntryController::class, 'downloadAttachment'])->name('case-study-entries.attachment');
         Route::get('case-study-entries/{caseStudyEntry}', [CaseStudyEntryController::class, 'show'])->name('case-study-entries.show');
 
         Route::get('muy-newsletters/dashboard', [MuyNewsletterController::class, 'dashboard'])->name('muy-newsletters.dashboard');

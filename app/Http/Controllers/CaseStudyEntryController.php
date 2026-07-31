@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaseStudyEntry;
+use App\Models\CaseStudyEntryAttachment;
 use App\Models\User;
 use App\Services\PitchDeckIncubateeCatalogService;
 use App\Support\BrandingCommunicationAccess;
@@ -13,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -37,6 +39,7 @@ class CaseStudyEntryController extends Controller
             'dashboardRoute' => 'spoc.case-study-entries.dashboard',
             'searchRoute' => 'spoc.case-study-entries.incubatees.search',
             'storyTypes' => BrandingCommunicationOptions::storyTypes(),
+            'maxAttachments' => (int) config('branding_communication.case_study_max_attachments', 10),
         ]);
     }
 
@@ -50,35 +53,70 @@ class CaseStudyEntryController extends Controller
                 ->withErrors(['story_title' => 'Database table is missing. Please run migrations first.']);
         }
 
+        $maxAttachments = (int) config('branding_communication.case_study_max_attachments', 10);
+
         $validated = $request->validate([
             'story_title' => ['required', 'string', 'max:255'],
             'story_type' => ['required', 'string', Rule::in(array_keys(BrandingCommunicationOptions::storyTypes()))],
             'cfa_submission_id' => ['nullable', 'integer', 'min:0'],
             'legacy_application_id' => ['nullable', 'integer', 'min:0'],
             'story_date' => ['required', 'date'],
-            'document' => ['required', 'file', 'mimes:pdf,doc,docx', 'max:20480'],
+            'documents' => ['required', 'array', 'min:1', 'max:'.$maxAttachments],
+            'documents.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png,webp', 'max:20480'],
             'remarks' => ['nullable', 'string', 'max:5000'],
+        ], [
+            'documents.required' => 'Upload at least one document or image.',
+            'documents.min' => 'Upload at least one document or image.',
         ]);
 
         $snapshot = $this->resolveIncubateeOrFail($validated);
-        $document = $this->storeDocument($request->file('document'), 'case-study-entries');
+        $files = array_values(array_filter(
+            (array) $request->file('documents', []),
+            fn ($file): bool => $file instanceof UploadedFile
+        ));
 
-        CaseStudyEntry::query()->create([
-            'story_title' => trim((string) $validated['story_title']),
-            'story_type' => (string) $validated['story_type'],
-            'cfa_submission_id' => (int) ($validated['cfa_submission_id'] ?? 0) ?: null,
-            'legacy_application_id' => (int) ($validated['legacy_application_id'] ?? 0) ?: null,
-            'incubatee_key' => $snapshot['key'] ?? null,
-            'incubatee_name' => (string) $snapshot['name'],
-            'application_no' => $snapshot['application_no'] ?? null,
-            'story_date' => $validated['story_date'],
-            'document_disk' => $document['disk'],
-            'document_path' => $document['path'],
-            'document_original_name' => $document['name'],
-            'remarks' => $this->nullableTrim($validated['remarks'] ?? null),
-            'submitted_by_user_id' => (int) $user->id,
-            'submitted_by_name' => (string) $user->name,
-        ]);
+        if ($files === []) {
+            throw ValidationException::withMessages([
+                'documents' => 'Upload at least one document or image.',
+            ]);
+        }
+
+        $storedFiles = $this->storeDocumentFiles($files);
+        $primary = $storedFiles[0];
+
+        DB::transaction(function () use ($user, $validated, $snapshot, $storedFiles, $primary): void {
+            $entry = CaseStudyEntry::query()->create([
+                'story_title' => trim((string) $validated['story_title']),
+                'story_type' => (string) $validated['story_type'],
+                'cfa_submission_id' => (int) ($validated['cfa_submission_id'] ?? 0) ?: null,
+                'legacy_application_id' => (int) ($validated['legacy_application_id'] ?? 0) ?: null,
+                'incubatee_key' => $snapshot['key'] ?? null,
+                'incubatee_name' => (string) $snapshot['name'],
+                'application_no' => $snapshot['application_no'] ?? null,
+                'story_date' => $validated['story_date'],
+                'document_disk' => $primary['disk'],
+                'document_path' => $primary['path'],
+                'document_original_name' => $primary['original_name'],
+                'remarks' => $this->nullableTrim($validated['remarks'] ?? null),
+                'submitted_by_user_id' => (int) $user->id,
+                'submitted_by_name' => (string) $user->name,
+            ]);
+
+            if (Schema::hasTable('case_study_entry_attachments')) {
+                foreach ($storedFiles as $index => $item) {
+                    CaseStudyEntryAttachment::query()->create([
+                        'case_study_entry_id' => (int) $entry->id,
+                        'attachment_type' => $item['type'],
+                        'disk' => $item['disk'],
+                        'path' => $item['path'],
+                        'original_name' => $item['original_name'],
+                        'mime' => $item['mime'],
+                        'size_bytes' => $item['size_bytes'],
+                        'sort_order' => $index,
+                    ]);
+                }
+            }
+        });
 
         return redirect()
             ->route('spoc.case-study-entries.dashboard')
@@ -108,6 +146,9 @@ class CaseStudyEntryController extends Controller
         }
 
         $query = CaseStudyEntry::query()->with(['submitter:id,name']);
+        if (Schema::hasTable('case_study_entry_attachments')) {
+            $query->withCount('attachments');
+        }
         $this->scopeDashboardQuery($query, $user);
 
         $search = trim((string) $request->query('q', ''));
@@ -154,6 +195,10 @@ class CaseStudyEntryController extends Controller
         abort_unless(BrandingCommunicationAccess::canViewDashboard($user), 403);
         $this->assertCanAccessRecord($user, $caseStudyEntry);
 
+        if (Schema::hasTable('case_study_entry_attachments')) {
+            $caseStudyEntry->loadMissing(['attachments']);
+        }
+
         $isAdmin = $user->role === 'state_admin';
         $routePrefix = $isAdmin ? 'admin' : 'spoc';
 
@@ -162,6 +207,7 @@ class CaseStudyEntryController extends Controller
             'currentRole' => (string) $user->role,
             'dashboardRoute' => $routePrefix.'.case-study-entries.dashboard',
             'documentRoute' => $routePrefix.'.case-study-entries.document',
+            'attachmentRoute' => $routePrefix.'.case-study-entries.attachment',
             'destroyRoute' => $isAdmin ? null : 'spoc.case-study-entries.destroy',
             'canDelete' => BrandingCommunicationAccess::canDelete($user, (int) $caseStudyEntry->submitted_by_user_id),
             'storyTypes' => BrandingCommunicationOptions::storyTypes(),
@@ -178,11 +224,43 @@ class CaseStudyEntryController extends Controller
             abort(404);
         }
 
-        return Storage::disk((string) $caseStudyEntry->document_disk)
-            ->download(
-                (string) $caseStudyEntry->document_path,
-                (string) ($caseStudyEntry->document_original_name ?: 'case-study-document')
-            );
+        $inline = (bool) $request->query('inline', false);
+        $disk = Storage::disk((string) $caseStudyEntry->document_disk);
+        $filename = (string) ($caseStudyEntry->document_original_name ?: 'case-study-document');
+        $path = (string) $caseStudyEntry->document_path;
+
+        if ($inline && $this->pathLooksLikeImage($path, $filename)) {
+            return $disk->response($path, $filename);
+        }
+
+        return $disk->download($path, $filename);
+    }
+
+    public function downloadAttachment(Request $request, CaseStudyEntry $caseStudyEntry): mixed
+    {
+        $user = $request->user();
+        abort_unless(BrandingCommunicationAccess::canViewDashboard($user), 403);
+        $this->assertCanAccessRecord($user, $caseStudyEntry);
+
+        if (! Schema::hasTable('case_study_entry_attachments')) {
+            abort(404);
+        }
+
+        $attachmentId = (int) $request->query('attachment', 0);
+        $attachment = $caseStudyEntry->attachments()->where('id', $attachmentId)->first();
+        if ($attachment === null) {
+            abort(404);
+        }
+
+        $inline = (bool) $request->query('inline', false);
+        $disk = Storage::disk((string) $attachment->disk);
+        $filename = (string) ($attachment->original_name ?: 'attachment');
+
+        if ($inline && $attachment->isImage()) {
+            return $disk->response((string) $attachment->path, $filename);
+        }
+
+        return $disk->download((string) $attachment->path, $filename);
     }
 
     public function destroy(Request $request, CaseStudyEntry $caseStudyEntry): RedirectResponse
@@ -190,8 +268,24 @@ class CaseStudyEntryController extends Controller
         $user = $request->user();
         abort_unless(BrandingCommunicationAccess::canDelete($user, (int) $caseStudyEntry->submitted_by_user_id), 403);
 
+        $deletedPaths = [];
+
+        if (Schema::hasTable('case_study_entry_attachments')) {
+            $caseStudyEntry->loadMissing(['attachments']);
+            foreach ($caseStudyEntry->attachments as $attachment) {
+                $key = (string) $attachment->disk.'|'.(string) $attachment->path;
+                if (! isset($deletedPaths[$key])) {
+                    Storage::disk((string) $attachment->disk)->delete((string) $attachment->path);
+                    $deletedPaths[$key] = true;
+                }
+            }
+        }
+
         if ($caseStudyEntry->hasDocument()) {
-            Storage::disk((string) $caseStudyEntry->document_disk)->delete((string) $caseStudyEntry->document_path);
+            $key = (string) $caseStudyEntry->document_disk.'|'.(string) $caseStudyEntry->document_path;
+            if (! isset($deletedPaths[$key])) {
+                Storage::disk((string) $caseStudyEntry->document_disk)->delete((string) $caseStudyEntry->document_path);
+            }
         }
 
         $caseStudyEntry->delete();
@@ -248,23 +342,53 @@ class CaseStudyEntryController extends Controller
     }
 
     /**
-     * @return array{disk: string, path: string, name: string}
+     * @param  list<UploadedFile>  $files
+     * @return list<array{disk: string, path: string, original_name: string, mime: string, size_bytes: int, type: string}>
      */
-    private function storeDocument(UploadedFile $file, string $folder): array
+    private function storeDocumentFiles(array $files): array
     {
-        $original = $file->getClientOriginalName() ?: 'document.pdf';
         $disk = (string) config('filesystems.default', 'local');
-        $path = $file->storeAs(
-            $folder.'/'.now()->format('Y/m'),
-            Str::uuid()->toString().'_'.Str::slug(pathinfo($original, PATHINFO_FILENAME)).'.'.$file->getClientOriginalExtension(),
-            $disk,
-        );
+        $items = [];
 
-        return [
-            'disk' => $disk,
-            'path' => $path,
-            'name' => $original,
-        ];
+        foreach ($files as $file) {
+            $original = (string) ($file->getClientOriginalName() ?: 'document.pdf');
+            $mime = (string) ($file->getClientMimeType() ?? '');
+            $extension = strtolower((string) $file->getClientOriginalExtension());
+            $type = $this->attachmentTypeForMime($mime, $extension);
+
+            $path = $file->storeAs(
+                'case-study-entries/'.now()->format('Y/m'),
+                Str::uuid()->toString().'_'.Str::slug(pathinfo($original, PATHINFO_FILENAME)).'.'.$file->getClientOriginalExtension(),
+                $disk,
+            );
+
+            $items[] = [
+                'disk' => $disk,
+                'path' => $path,
+                'original_name' => $original,
+                'mime' => $mime,
+                'size_bytes' => (int) ($file->getSize() ?? 0),
+                'type' => $type,
+            ];
+        }
+
+        return $items;
+    }
+
+    private function attachmentTypeForMime(string $mime, string $extension): string
+    {
+        if (str_starts_with($mime, 'image/') || in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+            return 'image';
+        }
+
+        return 'document';
+    }
+
+    private function pathLooksLikeImage(string $path, string $filename): bool
+    {
+        $ext = strtolower(pathinfo($filename !== '' ? $filename : $path, PATHINFO_EXTENSION));
+
+        return in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
     }
 
     private function nullableTrim(?string $value): ?string

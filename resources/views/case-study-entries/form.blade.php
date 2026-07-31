@@ -19,7 +19,7 @@
 
     <div class="bc-card">
         <h3 class="bc-card__title">New case study / testimonial</h3>
-        <form method="post" action="{{ route($storeRoute) }}" enctype="multipart/form-data">
+        <form method="post" action="{{ route($storeRoute) }}" enctype="multipart/form-data" id="cseForm">
             @csrf
             <div class="bc-grid">
                 <div class="bc-field">
@@ -47,9 +47,12 @@
                     @include('branding-communication.partials.incubatee-single-picker')
                 </div>
                 <div class="bc-field bc-field--full">
-                    <label for="document">Document <span class="bc-req">*</span></label>
-                    <input type="file" id="document" name="document" accept=".pdf,.doc,.docx" required>
-                    <p class="bc-hint">PDF or Word, max 20 MB.</p>
+                    <label for="cseDocumentsInput">Document <span class="bc-req">*</span></label>
+                    <input id="cseDocumentsInput" type="file" name="documents[]"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,image/*,application/pdf"
+                        multiple required>
+                    <p class="bc-hint">PDF, Word, or images (JPG/PNG/WebP). Min 1, max {{ $maxAttachments }} files, 20 MB each. Preview below before submit.</p>
+                    <div id="cseDocumentsPreview" class="bc-media-preview" aria-live="polite"></div>
                 </div>
                 <div class="bc-field bc-field--full">
                     <label for="remarks">Short note</label>
@@ -67,4 +70,106 @@
 
 @push('scripts')
 @include('branding-communication.partials.incubatee-single-picker-script', ['searchRoute' => $searchRoute])
+<script>
+(function () {
+    const input = document.getElementById('cseDocumentsInput');
+    const preview = document.getElementById('cseDocumentsPreview');
+    const maxFiles = {{ (int) $maxAttachments }};
+    let selectedFiles = [];
+    let objectUrls = [];
+
+    function revokeUrls() {
+        objectUrls.forEach(function (url) { URL.revokeObjectURL(url); });
+        objectUrls = [];
+    }
+
+    function fileLabel(file) {
+        const name = file.name || 'File';
+        const ext = (name.split('.').pop() || '').toUpperCase();
+        if (file.type.startsWith('image/')) {
+            return name;
+        }
+        if (ext === 'PDF') return 'PDF';
+        if (ext === 'DOC' || ext === 'DOCX') return 'Word';
+        return ext || 'File';
+    }
+
+    function renderPreview() {
+        if (!preview) return;
+        revokeUrls();
+        preview.innerHTML = '';
+
+        selectedFiles.forEach(function (file, idx) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'position:relative;';
+
+            if (file.type.startsWith('image/')) {
+                const img = document.createElement('img');
+                img.className = 'bc-media-thumb';
+                const url = URL.createObjectURL(file);
+                objectUrls.push(url);
+                img.src = url;
+                img.alt = file.name || ('Image ' + (idx + 1));
+                wrap.appendChild(img);
+            } else {
+                const badge = document.createElement('div');
+                badge.style.cssText = 'width:72px;height:72px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;color:#475569;text-align:center;padding:0.25rem;word-break:break-word;';
+                badge.title = file.name || '';
+                badge.textContent = fileLabel(file);
+                wrap.appendChild(badge);
+            }
+
+            const name = document.createElement('div');
+            name.style.cssText = 'max-width:72px;margin-top:0.25rem;font-size:0.62rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            name.title = file.name || '';
+            name.textContent = file.name || ('File ' + (idx + 1));
+            wrap.appendChild(name);
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.textContent = '×';
+            remove.setAttribute('aria-label', 'Remove ' + (file.name || 'file'));
+            remove.style.cssText = 'position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:999px;border:none;background:#b91c1c;color:#fff;font-weight:700;cursor:pointer;line-height:1;';
+            remove.addEventListener('click', function () {
+                selectedFiles.splice(idx, 1);
+                syncInput();
+                renderPreview();
+            });
+            wrap.appendChild(remove);
+            preview.appendChild(wrap);
+        });
+    }
+
+    function syncInput() {
+        if (!input || typeof DataTransfer === 'undefined') return;
+        const dt = new DataTransfer();
+        selectedFiles.forEach(function (f) { dt.items.add(f); });
+        input.files = dt.files;
+        input.required = selectedFiles.length === 0;
+    }
+
+    input?.addEventListener('change', function () {
+        const incoming = Array.from(input.files || []);
+        // Merge newly picked files with existing selection (allows adding more).
+        const merged = selectedFiles.concat(incoming);
+        const unique = [];
+        const seen = new Set();
+        merged.forEach(function (file) {
+            const key = [file.name, file.size, file.lastModified].join(':');
+            if (seen.has(key)) return;
+            seen.add(key);
+            unique.push(file);
+        });
+
+        if (unique.length > maxFiles) {
+            alert('Maximum ' + maxFiles + ' files allowed.');
+            selectedFiles = unique.slice(0, maxFiles);
+        } else {
+            selectedFiles = unique;
+        }
+        syncInput();
+        renderPreview();
+    });
+})();
+</script>
 @endpush
