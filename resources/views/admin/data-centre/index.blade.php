@@ -6,7 +6,11 @@
 @push('styles')
 <style>
 /* ── Page layout ───────────────────────────────────────────── */
-.dc-page { max-width: 1280px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+.dc-page { max-width: 1440px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+.dc-shell { display:grid; grid-template-columns:minmax(0,1fr) 17.5rem; gap:1.25rem; align-items:start; }
+@media (max-width:1100px) { .dc-shell { grid-template-columns:1fr; } }
+.dc-shell__main { min-width:0; }
+.dc-shell__aside { position:sticky; top:1rem; }
 
 /* ── Top bar ───────────────────────────────────────────────── */
 .dc-topbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem; margin-bottom:1.5rem; }
@@ -53,6 +57,37 @@
 .dc-btn--export:hover { background:#dcfce7; border-color:#86efac; }
 .dc-btn--export-all { background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
 .dc-btn--export-all:hover { background:#e0e7ff; }
+.dc-btn--pack { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; width:100%; justify-content:center; }
+.dc-btn--pack:hover { background:#d1fae5; border-color:#6ee7b7; }
+
+/* Quick data extract (right rail) */
+.dc-extract {
+    background:#fff; border:1px solid #d1fae5; border-radius:1rem; padding:1rem 1.05rem 1.1rem;
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+}
+.dc-extract__title { margin:0; font-size:.92rem; font-weight:800; color:#064e3b; }
+.dc-extract__period {
+    margin:.4rem 0 .75rem; font-size:.7rem; font-weight:700; color:#047857;
+    background:#ecfdf5; border:1px solid #a7f3d0; border-radius:.4rem; padding:.3rem .5rem; display:inline-block;
+}
+.dc-extract__list { list-style:none; margin:0 0 .85rem; padding:0; display:flex; flex-direction:column; gap:.45rem; }
+.dc-extract__item {
+    position:relative; background:#f8fafc; border:1px solid #e2e8f0; border-radius:.55rem; padding:.5rem .6rem;
+}
+.dc-extract__item strong { display:block; font-size:.74rem; color:#0f172a; margin-bottom:.1rem; }
+.dc-extract__item span { font-size:.68rem; color:#64748b; line-height:1.3; }
+.dc-extract__tip {
+    position:absolute; right:calc(100% + .45rem); top:0; width:14.5rem; z-index:30;
+    background:#fff; border:1px solid #a7f3d0; border-radius:.55rem; padding:.55rem .65rem;
+    box-shadow:0 8px 22px rgba(15,23,42,.12); font-size:.68rem; color:#334155; line-height:1.35;
+    opacity:0; visibility:hidden; pointer-events:none; transform:translateX(.15rem); transition:opacity .15s, transform .15s, visibility .15s;
+}
+.dc-extract__item:hover .dc-extract__tip,
+.dc-extract__item:focus-within .dc-extract__tip { opacity:1; visibility:visible; transform:translateX(0); }
+@media (max-width:1100px) {
+    .dc-extract__tip { right:auto; left:0; top:calc(100% + .35rem); width:100%; }
+}
+.dc-extract__note { margin:.65rem 0 0; font-size:.65rem; color:#94a3b8; line-height:1.35; }
 
 /* ── Table ─────────────────────────────────────────────────── */
 .dc-table-wrap { padding:.75rem 1rem 1.25rem; overflow-x:auto; }
@@ -335,6 +370,12 @@
             </a>
         </div>
     </div>
+
+    @php
+        $dcExtractTill = now()->timezone(config('app.timezone'))->format('d M Y');
+    @endphp
+    <div class="dc-shell">
+        <div class="dc-shell__main">
 
     {{-- ── Application Analysis (rbiphase3 only) ── --}}
     @if ($isPhase3View && ! empty($application_analysis))
@@ -924,6 +965,46 @@
             <li><strong>Gender NA/Blank:</strong> Phase 2 legacy data has many blank gender fields — these appear as NA/Blank, not 0.</li>
         </ul>
     </details>
+
+        </div>{{-- /.dc-shell__main --}}
+
+        <aside class="dc-shell__aside" aria-labelledby="dc-extract-title">
+            <section class="dc-extract">
+                <h3 class="dc-extract__title" id="dc-extract-title">Quick data extract</h3>
+                <div class="dc-extract__period">1 Apr 2026 → {{ $dcExtractTill }} (till date)</div>
+
+                <ul class="dc-extract__list">
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>SHG members</strong>
+                        <span>Counts + name list</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Women marked as SHG members. Includes CFA, onboarded, services, market linkage, and legal support (4.2).
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>CBO</strong>
+                        <span>Counts + name list</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            CBO category applications. Same sheets as SHG: counts, services, market linkage, 4.2.
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>8.2 REAP</strong>
+                        <span>Farm / non-farm support</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Statewide REAP support cases (separate sheets). Farm &amp; non-farm × 1L / 3L, with case details.
+                        </div>
+                    </li>
+                </ul>
+
+                <a href="{{ route('admin.data-centre.export-shg-cbo-reap-pack') }}" class="dc-btn dc-btn--pack">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                    Download Excel
+                </a>
+                <p class="dc-extract__note">Live extract through today. Approved / locked Phase 3 data only.</p>
+            </section>
+        </aside>
+    </div>{{-- /.dc-shell --}}
 
 </div>
 

@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('partner_type_other', 191)->nullable();
             $table->string('contact_name', 191)->nullable();
             $table->string('designation', 191)->nullable();
-            $table->string('poc_phone', 15);
+            $table->string('poc_phone', 15)->nullable();
             $table->string('partner_link', 2048)->nullable();
             $table->text('remarks')->nullable();
             $table->unsignedBigInteger('submitted_by_user_id');

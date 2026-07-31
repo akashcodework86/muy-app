@@ -928,6 +928,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('data-centre', [DataCentreController::class, 'index'])->name('data-centre.index');
         Route::post('data-centre/refresh', [DataCentreController::class, 'refresh'])->name('data-centre.refresh');
         Route::get('data-centre/export-all', [DataCentreController::class, 'exportAll'])->name('data-centre.export-all');
+        Route::get('data-centre/export/shg-cbo-reap-pack', [DataCentreController::class, 'exportShgCboReapPack'])
+            ->name('data-centre.export-shg-cbo-reap-pack');
         Route::get('data-centre/export/{section}', [DataCentreController::class, 'export'])
             ->where('section', '[a-z\-]+')
             ->name('data-centre.export');
@@ -969,6 +971,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('targets/official-hub-distribution-monthly/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('targets.official-hub-distribution-monthly.export');
         Route::post('targets/official-hub-distribution-monthly/apply', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionApply'])->name('targets.official-hub-distribution-monthly.apply');
         Route::get('targets/reap-incubatee', [\App\Http\Controllers\Admin\ReapIncubateeTargetsController::class, 'index'])->name('targets.reap-incubatee');
+        Route::get('exports/phase3-shg-cbo-reap-pack', [\App\Http\Controllers\Admin\Phase3ShgCboReapPackExportController::class, 'download'])
+            ->name('exports.phase3-shg-cbo-reap-pack');
         Route::get('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state');
         Route::post('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state.update');
         Route::get('targets/district', fn () => redirect()->route('admin.targets.official-district-monthly'))->name('targets.district');

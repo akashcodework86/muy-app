@@ -51,8 +51,8 @@ class FundingSchematicPartnerOutreachController extends Controller
             'partners.*.partner_type_other' => ['nullable', 'string', 'max:191'],
             'partners.*.contact_name' => ['nullable', 'string', 'max:191'],
             'partners.*.designation' => ['nullable', 'string', 'max:191'],
-            'partners.*.poc_phone' => ['required', 'string', 'regex:/^[6-9]\d{9}$/'],
-            'partners.*.partner_link' => ['nullable', 'string', 'max:2048'],
+            'partners.*.poc_phone' => ['nullable', 'string', 'regex:/^[6-9]\d{9}$/'],
+            'partners.*.partner_link' => ['required', 'string', 'max:2048'],
             'partners.*.remarks' => ['nullable', 'string', 'max:5000'],
         ]);
 
@@ -79,7 +79,7 @@ class FundingSchematicPartnerOutreachController extends Controller
                     : null,
                 'contact_name' => trim((string) ($partner['contact_name'] ?? '')) ?: null,
                 'designation' => trim((string) ($partner['designation'] ?? '')) ?: null,
-                'poc_phone' => (string) $partner['poc_phone'],
+                'poc_phone' => trim((string) ($partner['poc_phone'] ?? '')) ?: null,
                 'partner_link' => trim((string) ($partner['partner_link'] ?? '')) ?: null,
                 'remarks' => trim((string) ($partner['remarks'] ?? '')) ?: null,
                 'submitted_by_user_id' => (int) $user->id,

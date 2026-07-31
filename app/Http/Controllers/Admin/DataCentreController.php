@@ -7,6 +7,8 @@ use App\Models\District;
 use App\Models\FiscalYear;
 use App\Services\DataCentre\DataCentreFilter;
 use App\Services\DataCentre\ProgramDataCentreService;
+use App\Services\Exports\Phase3ShgCboReapPackDataService;
+use App\Services\Exports\Phase3ShgCboReapPackExcelExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,6 +18,8 @@ class DataCentreController extends Controller
 {
     public function __construct(
         private readonly ProgramDataCentreService $service,
+        private readonly Phase3ShgCboReapPackDataService $shgCboReapPack,
+        private readonly Phase3ShgCboReapPackExcelExport $shgCboReapExcel,
     ) {}
 
     public function index(Request $request): View
@@ -125,6 +129,17 @@ class DataCentreController extends Controller
 
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Phase 3 SHG members / CBO / 8.2 REAP Excel pack (counts + detail lists).
+     */
+    public function exportShgCboReapPack(): StreamedResponse
+    {
+        $pack = $this->shgCboReapPack->build();
+        $fileName = 'phase3-shg-cbo-reap-pack-'.now()->format('Ymd_His').'.xlsx';
+
+        return $this->shgCboReapExcel->download($pack, $fileName);
     }
 
     /** @return array{0: string, 1: string} */

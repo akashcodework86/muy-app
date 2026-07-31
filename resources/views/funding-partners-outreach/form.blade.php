@@ -82,8 +82,8 @@
             <div class="fspoe-field fspoe-other-wrap" data-other-wrap><label>Specify other <span class="fspoe-req">*</span></label><input type="text" data-field="partner_type_other" maxlength="191"></div>
             <div class="fspoe-field"><label>Contact person</label><input type="text" data-field="contact_name" maxlength="191"></div>
             <div class="fspoe-field"><label>Designation</label><input type="text" data-field="designation" maxlength="191"></div>
-            <div class="fspoe-field"><label>Phone <span class="fspoe-req">*</span></label><input type="tel" data-field="poc_phone" maxlength="10" pattern="[6-9][0-9]{9}" required></div>
-            <div class="fspoe-field"><label>Email / link</label><input type="text" data-field="partner_link" maxlength="2048"></div>
+            <div class="fspoe-field"><label>Phone</label><input type="tel" data-field="poc_phone" maxlength="10" pattern="[6-9][0-9]{9}" inputmode="numeric"></div>
+            <div class="fspoe-field"><label>Email / link <span class="fspoe-req">*</span></label><input type="text" data-field="partner_link" maxlength="2048" required></div>
             <div class="fspoe-field" style="grid-column:1/-1;"><label>Remarks</label><textarea data-field="remarks" maxlength="5000" rows="2"></textarea></div>
         </div>
     </div>

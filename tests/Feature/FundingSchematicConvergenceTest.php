@@ -50,6 +50,7 @@ class FundingSchematicConvergenceTest extends TestCase
                     'partner_name' => 'ABC Investors',
                     'partner_type' => 'investor',
                     'poc_phone' => '9876543210',
+                    'partner_link' => 'abc@investors.com',
                 ]],
             ])
             ->assertRedirect(route('spoc.funding-partners-outreach.dashboard'));

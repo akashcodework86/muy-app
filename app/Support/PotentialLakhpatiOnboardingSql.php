@@ -76,6 +76,40 @@ final class PotentialLakhpatiOnboardingSql
         return 'SUM(CASE WHEN '.self::qualifiesSql($payloadColumn, $sourceColumn).' THEN 1 ELSE 0 END)';
     }
 
+    /**
+     * Phase 3 only — Individual with Member of SHG/CBO = Yes (SHG members).
+     */
+    public static function phase3ShgMembersOnboardingSql(string $payloadColumn = 'cs.payload', string $sourceColumn = 'cs.source'): string
+    {
+        $categoryJson = self::payloadJson('$.category', $payloadColumn);
+        $appCategoryJson = self::payloadJson('$.app_category', $payloadColumn);
+        $memberYes = self::payloadMemberYesSql($payloadColumn);
+
+        return '(
+            '.self::phase3CfaSourceSql($sourceColumn)."
+            AND (
+                LOWER(TRIM(COALESCE({$categoryJson}, ''))) = 'individual'
+                OR LOWER(TRIM(COALESCE({$appCategoryJson}, ''))) = 'individual'
+            )
+            AND {$memberYes}
+        )";
+    }
+
+    /** Phase 3 only — category CBO. */
+    public static function phase3CboOnboardingSql(string $payloadColumn = 'cs.payload', string $sourceColumn = 'cs.source'): string
+    {
+        $categoryJson = self::payloadJson('$.category', $payloadColumn);
+        $appCategoryJson = self::payloadJson('$.app_category', $payloadColumn);
+
+        return '(
+            '.self::phase3CfaSourceSql($sourceColumn)."
+            AND (
+                LOWER(TRIM(COALESCE({$categoryJson}, ''))) = 'cbo'
+                OR LOWER(TRIM(COALESCE({$appCategoryJson}, ''))) = 'cbo'
+            )
+        )";
+    }
+
     private static function payloadMemberYesSql(string $payloadColumn): string
     {
         $paths = ['$.is_member', '$.is_shg_member', '$.member_of_shg', '$.member_of_shg_cbo'];
