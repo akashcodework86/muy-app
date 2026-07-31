@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\MarketLinkageSubmission;
 use App\Models\ServiceCase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
  * Cross-phase interventions for batch member rows (Phase 1 tblapplication,
- * Phase 2 rbi_services_assigned, Phase 3 service_cases).
+ * Phase 2 rbi_services_assigned, Phase 3 service_cases + market_linkage_submissions).
  */
 class BatchMemberInterventionsSummaryService
 {
@@ -32,10 +33,11 @@ class BatchMemberInterventionsSummaryService
         $keys = $this->resolveKeys($members);
 
         $phase3ByCfa = $this->loadPhase3($keys['cfa_ids'], $keys['legacy_app_by_cfa']);
+        $marketLinkageByCfa = $this->loadMarketLinkages($keys['cfa_ids'], $keys['legacy_app_by_cfa']);
         $phase2ByLegacyApp = $this->loadPhase2($keys['all_legacy_app_ids']);
         $phase1ById = $this->loadPhase1($keys['all_phase1_ids']);
 
-        return array_map(function (array $member) use ($phase3ByCfa, $phase2ByLegacyApp, $phase1ById, $keys): array {
+        return array_map(function (array $member) use ($phase3ByCfa, $marketLinkageByCfa, $phase2ByLegacyApp, $phase1ById, $keys): array {
             $cfaId = (int) ($member['id'] ?? 0);
             $legacyAppId = (int) ($keys['legacy_app_by_cfa'][$cfaId] ?? 0);
             $phase1Id = (int) ($keys['phase1_by_cfa'][$cfaId] ?? 0);
@@ -44,6 +46,7 @@ class BatchMemberInterventionsSummaryService
                 $phase1ById[$phase1Id] ?? [],
                 $phase2ByLegacyApp[$legacyAppId] ?? [],
                 $phase3ByCfa[$cfaId] ?? [],
+                $marketLinkageByCfa[$cfaId] ?? [],
             );
 
             $member['services'] = $services;
@@ -328,6 +331,125 @@ class BatchMemberInterventionsSummaryService
                 'detail' => null,
                 'status' => (string) $case->status,
             ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Dedicated Market Linkage module rows (not catalog service_cases).
+     *
+     * @param  list<int>  $cfaIds
+     * @param  array<int, int>  $legacyAppByCfa
+     * @return array<int, list<array{phase: string, label: string, detail: ?string, status: ?string}>>
+     */
+    private function loadMarketLinkages(array $cfaIds, array $legacyAppByCfa): array
+    {
+        if ($cfaIds === [] || ! Schema::hasTable('market_linkage_submissions')) {
+            return [];
+        }
+
+        $legacyIds = array_values(array_unique(array_filter(
+            array_map('intval', array_values($legacyAppByCfa)),
+            fn (int $id) => $id > 0
+        )));
+
+        $query = MarketLinkageSubmission::query()
+            ->with(['partners' => fn ($q) => $q->orderBy('sort_order')->orderBy('id')])
+            ->where(function ($q) use ($cfaIds, $legacyIds): void {
+                if ($cfaIds !== []) {
+                    $q->whereIn('cfa_submission_id', $cfaIds);
+                }
+                if ($legacyIds !== []) {
+                    $method = $cfaIds !== [] ? 'orWhereIn' : 'whereIn';
+                    $q->{$method}('legacy_application_id', $legacyIds);
+                }
+                if ($cfaIds === [] && $legacyIds === []) {
+                    $q->whereRaw('1 = 0');
+                }
+            })
+            ->orderByDesc('created_at');
+
+        if (MarketLinkageSubmission::supportsWorkflow() && Schema::hasColumn('market_linkage_submissions', 'status')) {
+            $query->where('status', '!=', ServiceCase::STATUS_CANCELLED);
+        }
+
+        $submissions = $query->get([
+            'id',
+            'cfa_submission_id',
+            'legacy_application_id',
+            'status',
+        ]);
+
+        $cfaByLegacy = [];
+        foreach ($legacyAppByCfa as $cfaId => $legacyId) {
+            $cfaByLegacy[(int) $legacyId] = (int) $cfaId;
+        }
+
+        $out = [];
+        $seen = [];
+
+        foreach ($submissions as $submission) {
+            $cfaId = (int) ($submission->cfa_submission_id ?? 0);
+            if ($cfaId <= 0 && (int) ($submission->legacy_application_id ?? 0) > 0) {
+                $cfaId = (int) ($cfaByLegacy[(int) $submission->legacy_application_id] ?? 0);
+            }
+            if ($cfaId <= 0) {
+                continue;
+            }
+
+            $status = MarketLinkageSubmission::supportsWorkflow()
+                ? (string) ($submission->status ?? '')
+                : ServiceCase::STATUS_APPROVED;
+            $status = $status !== '' ? $status : null;
+
+            $partners = $submission->partners;
+            if ($partners->isEmpty()) {
+                $dedupeKey = $cfaId.':ml:'.$submission->id;
+                if (isset($seen[$dedupeKey])) {
+                    continue;
+                }
+                $seen[$dedupeKey] = true;
+
+                $out[$cfaId][] = [
+                    'phase' => 'phase3',
+                    'label' => MarketLinkageSubmission::SERVICE_LIST_LABEL,
+                    'detail' => null,
+                    'status' => $status,
+                ];
+
+                continue;
+            }
+
+            foreach ($partners as $partner) {
+                $partnerId = (int) ($partner->id ?? 0);
+                $dedupeKey = $cfaId.':ml:'.$submission->id.':'.$partnerId;
+                if (isset($seen[$dedupeKey])) {
+                    continue;
+                }
+                $seen[$dedupeKey] = true;
+
+                $partnerName = trim((string) ($partner->partner_name ?? ''));
+                $mode = MarketLinkageSubmission::linkageModeLabel((string) ($partner->linkage_mode ?? ''));
+                $mode = $mode !== '' ? $mode : null;
+
+                $labelParts = [MarketLinkageSubmission::SERVICE_LIST_LABEL];
+                if ($mode !== null) {
+                    $labelParts[] = $mode;
+                }
+                if ($partnerName !== '') {
+                    $labelParts[] = $partnerName;
+                }
+
+                $detailParts = array_filter([$mode, $partnerName !== '' ? $partnerName : null]);
+
+                $out[$cfaId][] = [
+                    'phase' => 'phase3',
+                    'label' => implode(' · ', $labelParts),
+                    'detail' => $detailParts !== [] ? implode(' · ', $detailParts) : null,
+                    'status' => $status,
+                ];
+            }
         }
 
         return $out;

@@ -6,10 +6,12 @@ use App\Models\District;
 use App\Models\Hub;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
+use App\Models\ServiceCase;
 use App\Models\User;
 use App\Services\AppSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class StaffBatchShowTest extends TestCase
@@ -52,6 +54,54 @@ class StaffBatchShowTest extends TestCase
             ->assertOk()
             ->assertSee('Add intervention')
             ->assertSee(route('staff.services.create', ['cfa_submission_id' => $cfaId]), false);
+    }
+
+    public function test_batch_services_given_shows_market_linkage(): void
+    {
+        if (! Schema::hasTable('market_linkage_submissions') || ! Schema::hasTable('market_linkage_partners')) {
+            $this->markTestSkipped('Market linkage tables are not available.');
+        }
+
+        [$district, $batch, $cfaId] = $this->createLockedBatchWithMember();
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'hub_id' => $district->hub_id,
+            'is_active' => true,
+        ]);
+
+        $submissionId = (int) DB::table('market_linkage_submissions')->insertGetId([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => $staff->name,
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'cfa_submission_id' => $cfaId,
+            'incubatee_name' => 'Suman Devi',
+            'application_no' => '40803999',
+            'status' => ServiceCase::STATUS_APPROVED,
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $staff->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('market_linkage_partners')->insert([
+            'market_linkage_submission_id' => $submissionId,
+            'partner_name' => 'Local Mandi',
+            'linkage_mode' => 'offline',
+            'linkage_date' => '2026-05-15',
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.batches.show', $batch))
+            ->assertOk()
+            ->assertSee('Services given')
+            ->assertSee('Market Linkage · Offline · Local Mandi');
     }
 
     /**
