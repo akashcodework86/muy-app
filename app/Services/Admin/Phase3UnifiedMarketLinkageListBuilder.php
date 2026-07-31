@@ -305,7 +305,23 @@ class Phase3UnifiedMarketLinkageListBuilder
         if ($filters['spoc_id'] === 'unassigned') {
             $query->whereNull('spoc_user_id');
         } elseif (is_numeric($filters['spoc_id']) && (int) $filters['spoc_id'] > 0) {
-            $query->where('spoc_user_id', (int) $filters['spoc_id']);
+            $spocUserId = (int) $filters['spoc_id'];
+            $districtIds = [];
+            if (Schema::hasTable('district_service_spocs')) {
+                $districtIds = \App\Models\DistrictServiceSpoc::query()
+                    ->where('state_staff_user_id', $spocUserId)
+                    ->pluck('district_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn (int $id) => $id > 0)
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
+            if ($districtIds !== []) {
+                $query->whereIn('district_id', $districtIds);
+            } else {
+                $query->where('spoc_user_id', $spocUserId);
+            }
         }
 
         if (($filters['given_by_id'] ?? 0) > 0) {
@@ -351,7 +367,7 @@ class Phase3UnifiedMarketLinkageListBuilder
             }
 
             $status = match ($row['type']) {
-                'market_linkage_partner' => (string) ($row['market_linkage']?->status ?? ''),
+                'market_linkage_partner', 'market_linkage_incubatee' => (string) ($row['market_linkage']?->status ?? ''),
                 default => (string) ($row['service_case']?->status ?? ''),
             };
 

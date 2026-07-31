@@ -17,20 +17,20 @@ class FundingSchematicConvergenceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_govind_can_create_demo_day_and_partner_outreach(): void
+    public function test_anjali_can_create_demo_day_and_partner_outreach(): void
     {
-        $govind = User::factory()->create([
+        $anjali = User::factory()->create([
             'role' => 'state_staff',
-            'name' => 'Govind Singh Dhami',
-            'email' => 'govind.dhami@pwc.com',
+            'name' => 'Anjali Sood',
+            'email' => 'anjali.sood@pwc.com',
             'is_active' => true,
         ]);
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->get(route('spoc.demo-days.create'))
             ->assertOk();
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->post(route('spoc.demo-days.store'), [
                 'event_date' => '2026-06-01',
                 'event_name' => 'State Demo Day',
@@ -38,11 +38,11 @@ class FundingSchematicConvergenceTest extends TestCase
             ])
             ->assertSessionHasErrors('event_photos');
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->get(route('spoc.funding-partners-outreach.create'))
             ->assertOk();
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->post(route('spoc.funding-partners-outreach.store'), [
                 'outreach_date' => '2026-06-02',
                 'outreach_mode' => 'call',
@@ -77,7 +77,7 @@ class FundingSchematicConvergenceTest extends TestCase
     public function test_state_admin_can_view_dashboards(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'name' => 'State Admin', 'is_active' => true]);
-        $govind = User::factory()->create(['role' => 'state_staff', 'name' => 'Govind Singh Dhami', 'is_active' => true]);
+        $anjali = User::factory()->create(['role' => 'state_staff', 'name' => 'Anjali Sood', 'is_active' => true]);
 
         DemoDay::query()->create([
             'event_date' => '2026-06-01',
@@ -86,8 +86,8 @@ class FundingSchematicConvergenceTest extends TestCase
             'male_participants' => 1,
             'female_participants' => 2,
             'incubatee_name' => 'Test Incubatee',
-            'entered_by_user_id' => $govind->id,
-            'entered_by_name' => $govind->name,
+            'entered_by_user_id' => $anjali->id,
+            'entered_by_name' => $anjali->name,
         ]);
 
         FundingSchematicPartnerOutreachEntry::query()->create([
@@ -97,8 +97,8 @@ class FundingSchematicConvergenceTest extends TestCase
             'partner_name' => 'Partner X',
             'partner_type' => 'investor',
             'poc_phone' => '9876543210',
-            'submitted_by_user_id' => $govind->id,
-            'submitted_by_name' => $govind->name,
+            'submitted_by_user_id' => $anjali->id,
+            'submitted_by_name' => $anjali->name,
         ]);
 
         $this->actingAs($admin)
@@ -130,7 +130,7 @@ class FundingSchematicConvergenceTest extends TestCase
             'female_participants' => 5,
             'incubatee_name' => 'Inc A',
             'entered_by_user_id' => 1,
-            'entered_by_name' => 'Govind',
+            'entered_by_name' => 'Anjali',
         ]);
 
         FundingSchematicPartnerOutreachEntry::query()->create([
@@ -141,7 +141,7 @@ class FundingSchematicConvergenceTest extends TestCase
             'partner_type' => 'bank_nbfc',
             'poc_phone' => '9876543210',
             'submitted_by_user_id' => 1,
-            'submitted_by_name' => 'Govind',
+            'submitted_by_name' => 'Anjali',
         ]);
 
         $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);

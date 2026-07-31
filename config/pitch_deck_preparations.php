@@ -4,7 +4,7 @@
  * MIS 8.3 — Incubatees Pitch Deck Preparation (state-level entry by designated staff).
  *
  * Prefer submitter_user_ids (stable). submitter_names is a fallback until IDs are set.
- * Example .env: PITCH_DECK_PREP_SUBMITTER_IDS=67
+ * Example .env: PITCH_DECK_PREP_SUBMITTER_IDS=195
  */
 return [
     /*
@@ -22,8 +22,7 @@ return [
     ))),
 
     'submitter_names' => [
-        'Govind Singh Dhami',
-        'Govind Dhami',
+        'Anjali Sood',
     ],
 
     'support_modes' => [

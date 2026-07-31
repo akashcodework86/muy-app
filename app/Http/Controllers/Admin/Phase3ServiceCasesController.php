@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\District;
+use App\Models\DistrictServiceSpoc;
 use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
@@ -13,12 +14,15 @@ use App\Services\Admin\Phase3UnifiedMarketLinkageListBuilder;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Support\ConvergenceReapSupport;
 use App\Support\ConvergenceReapSupportDeliverablesSupport;
+use App\Support\MarketLinkageUnifiedListingSupport;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -57,78 +61,90 @@ class Phase3ServiceCasesController extends Controller
             $filters['has_docs'] = '';
         }
 
-        $listResult = $this->unifiedMarketLinkageList->build(
-            $filters,
-            fn (array $activeFilters) => $this->buildFilteredQuery($activeFilters),
-            function ($query, array $activeFilters, bool $ignoreDistrictFilter = false, bool $ignoreStatusFilter = false): void {
-                $this->applyFilters(
-                    $query,
-                    $activeFilters,
-                    $ignoreDistrictFilter,
-                    $ignoreStatusFilter,
-                );
-            },
-        );
+        if ($this->shouldMirrorSpocQueueWithMarketLinkages($filters)) {
+            $listResult = $this->buildSpocAlignedCombinedList($filters, $request);
+            $cases = $listResult['items'];
+            $summary = $listResult['summary'];
+            $unifiedMarketLinkage = false;
+            $uniqueIncubateesView = false;
+        } else {
+            $listResult = $this->unifiedMarketLinkageList->build(
+                $filters,
+                fn (array $activeFilters) => $this->buildFilteredQuery($activeFilters),
+                function ($query, array $activeFilters, bool $ignoreDistrictFilter = false, bool $ignoreStatusFilter = false): void {
+                    $this->applyFilters(
+                        $query,
+                        $activeFilters,
+                        $ignoreDistrictFilter,
+                        $ignoreStatusFilter,
+                    );
+                },
+            );
 
-        $cases = $listResult['items'];
-        $summary = $listResult['summary'];
-        $unifiedMarketLinkage = $listResult['unified'];
-        $uniqueIncubateesView = (bool) ($listResult['unique_incubatees'] ?? $filters['unique_incubatees']);
+            $cases = $listResult['items'];
+            $summary = $listResult['summary'];
+            $unifiedMarketLinkage = $listResult['unified'];
+            $uniqueIncubateesView = (bool) ($listResult['unique_incubatees'] ?? $filters['unique_incubatees']);
 
-        if (! $unifiedMarketLinkage) {
-            $summaryQuery = $this->buildFilteredQuery($filters);
-            $this->applyFilters($summaryQuery, $filters, ignoreStatusFilter: true);
+            if (! $unifiedMarketLinkage) {
+                $summaryQuery = $this->buildFilteredQuery($filters);
+                $this->applyFilters($summaryQuery, $filters, ignoreStatusFilter: true);
 
-            $summaryRows = (clone $summaryQuery)
-                ->select('service_cases.status', DB::raw('COUNT(DISTINCT service_cases.id) as total'))
-                ->groupBy('service_cases.status')
-                ->pluck('total', 'status');
+                $summaryRows = (clone $summaryQuery)
+                    ->select('service_cases.status', DB::raw('COUNT(DISTINCT service_cases.id) as total'))
+                    ->groupBy('service_cases.status')
+                    ->pluck('total', 'status');
 
-            $summary = array_merge($summary, [
-                'total' => (int) $summaryRows->sum(),
-                'approved' => (int) ($summaryRows[ServiceCase::STATUS_APPROVED] ?? 0),
-                'pending_approval' => (int) ($summaryRows[ServiceCase::STATUS_PENDING_APPROVAL] ?? 0),
-                'sent_back' => (int) ($summaryRows[ServiceCase::STATUS_SENT_BACK] ?? 0),
-                'rejected' => (int) ($summaryRows[ServiceCase::STATUS_REJECTED] ?? 0),
-            ]);
+                $summary = array_merge($summary, [
+                    'total' => (int) $summaryRows->sum(),
+                    'approved' => (int) ($summaryRows[ServiceCase::STATUS_APPROVED] ?? 0),
+                    'pending_approval' => (int) ($summaryRows[ServiceCase::STATUS_PENDING_APPROVAL] ?? 0),
+                    'sent_back' => (int) ($summaryRows[ServiceCase::STATUS_SENT_BACK] ?? 0),
+                    'rejected' => (int) ($summaryRows[ServiceCase::STATUS_REJECTED] ?? 0),
+                ]);
+            }
         }
 
         $statsQuery = $this->buildFilteredQuery($filters);
         $this->applyFilters($statsQuery, $filters, ignoreDistrictFilter: true, ignoreStatusFilter: true);
 
-        $unifiedDistrictCounts = $this->unifiedMarketLinkageList->districtCounts(
-            $filters,
-            fn (array $activeFilters) => $this->buildFilteredQuery($activeFilters),
-            function ($query, array $activeFilters, bool $ignoreDistrictFilter = false, bool $ignoreStatusFilter = false): void {
-                $this->applyFilters(
-                    $query,
-                    $activeFilters,
-                    $ignoreDistrictFilter,
-                    $ignoreStatusFilter,
-                );
-            },
-        );
-
-        if ($unifiedDistrictCounts !== null) {
-            $districtCounts = collect($unifiedDistrictCounts);
+        if ($this->shouldMirrorSpocQueueWithMarketLinkages($filters)) {
+            $districtCounts = $this->buildSpocAlignedDistrictCounts($filters);
         } else {
-            $districtCounts = District::query()
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(function (District $district) use ($statsQuery): array {
-                    $row = clone $statsQuery;
-                    $this->constrainToLaravelDistrict($row, (int) $district->id);
-                    $total = $this->countDistinctServiceCases($row);
+            $unifiedDistrictCounts = $this->unifiedMarketLinkageList->districtCounts(
+                $filters,
+                fn (array $activeFilters) => $this->buildFilteredQuery($activeFilters),
+                function ($query, array $activeFilters, bool $ignoreDistrictFilter = false, bool $ignoreStatusFilter = false): void {
+                    $this->applyFilters(
+                        $query,
+                        $activeFilters,
+                        $ignoreDistrictFilter,
+                        $ignoreStatusFilter,
+                    );
+                },
+            );
 
-                    return [
-                        'id' => (int) $district->id,
-                        'name' => (string) $district->name,
-                        'total' => $total,
-                    ];
-                });
+            if ($unifiedDistrictCounts !== null) {
+                $districtCounts = collect($unifiedDistrictCounts);
+            } else {
+                $districtCounts = District::query()
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(function (District $district) use ($statsQuery): array {
+                        $row = clone $statsQuery;
+                        $this->constrainToLaravelDistrict($row, (int) $district->id);
+                        $total = $this->countDistinctServiceCases($row);
+
+                        return [
+                            'id' => (int) $district->id,
+                            'name' => (string) $district->name,
+                            'total' => $total,
+                        ];
+                    });
+            }
         }
 
-        $legacyPreviews = $unifiedMarketLinkage
+        $legacyPreviews = ($unifiedMarketLinkage || $this->shouldMirrorSpocQueueWithMarketLinkages($filters))
             ? $this->buildLegacyPreviewMapFromUnifiedRows($cases->getCollection())
             : $this->buildLegacyPreviewMap($cases->getCollection());
 
@@ -201,6 +217,10 @@ class Phase3ServiceCasesController extends Controller
                 $this->applyFilters($query, $activeFilters, $ignoreDistrictFilter, $ignoreStatusFilter);
             },
         );
+
+        if ($unifiedRows === null && $this->shouldMirrorSpocQueueWithMarketLinkages($filters)) {
+            $unifiedRows = $this->buildSpocAlignedCombinedRows($filters);
+        }
 
         if ($unifiedRows !== null) {
             $legacyPreviews = $this->buildLegacyPreviewMapFromUnifiedRows($unifiedRows);
@@ -588,7 +608,13 @@ class Phase3ServiceCasesController extends Controller
         if ($filters['spoc_id'] === 'unassigned') {
             $query->whereNull('service_cases.spoc_user_id');
         } elseif (is_numeric($filters['spoc_id']) && (int) $filters['spoc_id'] > 0) {
-            $query->where('service_cases.spoc_user_id', (int) $filters['spoc_id']);
+            $spocUserId = (int) $filters['spoc_id'];
+            $districtIds = $this->spocDistrictIds($spocUserId);
+            if ($districtIds !== []) {
+                $this->constrainToSpocDistricts($query, $districtIds);
+            } else {
+                $query->where('service_cases.spoc_user_id', $spocUserId);
+            }
         }
 
         if ($filters['given_by_id'] > 0) {
@@ -699,6 +725,310 @@ class Phase3ServiceCasesController extends Controller
                 });
             });
         });
+    }
+
+    /**
+     * Match SPOC queue: cases in districts assigned to this state staff via DistrictServiceSpoc.
+     *
+     * @param  list<int>  $districtIds
+     */
+    private function constrainToSpocDistricts($query, array $districtIds): void
+    {
+        $districtIds = array_values(array_unique(array_filter(array_map('intval', $districtIds), fn (int $id) => $id > 0)));
+        if ($districtIds === []) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $support = app(LegacyApplicationServiceCaseSupport::class);
+        $legacyAppIds = [];
+        if (ServiceCase::supportsLegacyApplicationLink() && $support->legacyDbAvailable()) {
+            foreach ($districtIds as $districtId) {
+                foreach ($support->legacyApplicationIdsInLaravelDistrict($districtId) as $legacyId) {
+                    $legacyAppIds[] = (int) $legacyId;
+                }
+            }
+            $legacyAppIds = array_values(array_unique(array_filter($legacyAppIds, fn (int $id) => $id > 0)));
+        }
+
+        $query->where(function ($outer) use ($districtIds, $legacyAppIds): void {
+            $outer->whereIn('cfa_submissions.district_id', $districtIds);
+            if ($legacyAppIds !== []) {
+                $outer->orWhere(function ($qq) use ($legacyAppIds): void {
+                    $qq->whereNotNull('service_cases.legacy_application_id')
+                        ->whereNull('service_cases.cfa_submission_id')
+                        ->whereIn('service_cases.legacy_application_id', $legacyAppIds);
+                });
+            }
+        });
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function spocDistrictIds(int $spocUserId): array
+    {
+        if ($spocUserId < 1 || ! Schema::hasTable('district_service_spocs')) {
+            return [];
+        }
+
+        return DistrictServiceSpoc::query()
+            ->where('state_staff_user_id', $spocUserId)
+            ->pluck('district_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * When admin filters by a SPOC with "All services", include market linkages the same way
+     * the SPOC approval queue does (otherwise pending/sent-back/etc. under-count).
+     */
+    private function shouldMirrorSpocQueueWithMarketLinkages(array $filters): bool
+    {
+        if (! is_numeric($filters['spoc_id'] ?? '') || (int) $filters['spoc_id'] < 1) {
+            return false;
+        }
+
+        $serviceId = $filters['service_id'] ?? '';
+        if ($serviceId === ConvergenceReapSupport::MIS_8_2_LIST_FILTER) {
+            return false;
+        }
+        if (is_numeric($serviceId) && (int) $serviceId > 0) {
+            return false;
+        }
+
+        return Schema::hasTable('market_linkage_submissions')
+            && MarketLinkageSubmission::supportsWorkflow();
+    }
+
+    /**
+     * @return array{
+     *   items: LengthAwarePaginator,
+     *   summary: array{total: int, approved: int, pending_approval: int, sent_back: int, rejected: int, offline_rows: int, online_rows: int, deliverable_incubatees: int, offline_incubatees: int, online_incubatees: int}
+     * }
+     */
+    private function buildSpocAlignedCombinedList(array $filters, Request $request): array
+    {
+        $sorted = $this->buildSpocAlignedCombinedRows($filters);
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 20;
+        $total = $sorted->count();
+
+        $paginator = new LengthAwarePaginator(
+            $sorted->slice(($page - 1) * $perPage, $perPage)->values(),
+            $total,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
+        $summaryFilters = $filters;
+        $summaryFilters['status'] = '';
+        $summaryRows = $this->buildSpocAlignedCombinedRows($summaryFilters);
+
+        $statusCounts = [
+            ServiceCase::STATUS_APPROVED => 0,
+            ServiceCase::STATUS_PENDING_APPROVAL => 0,
+            ServiceCase::STATUS_SENT_BACK => 0,
+            ServiceCase::STATUS_REJECTED => 0,
+        ];
+        foreach ($summaryRows as $row) {
+            $status = match ((string) ($row['type'] ?? '')) {
+                'market_linkage_partner', 'market_linkage_incubatee' => (string) ($row['market_linkage']?->status ?? ''),
+                default => (string) ($row['service_case']?->status ?? ''),
+            };
+            if (isset($statusCounts[$status])) {
+                $statusCounts[$status]++;
+            }
+        }
+
+        return [
+            'items' => $paginator,
+            'summary' => [
+                'total' => $summaryRows->count(),
+                'approved' => $statusCounts[ServiceCase::STATUS_APPROVED],
+                'pending_approval' => $statusCounts[ServiceCase::STATUS_PENDING_APPROVAL],
+                'sent_back' => $statusCounts[ServiceCase::STATUS_SENT_BACK],
+                'rejected' => $statusCounts[ServiceCase::STATUS_REJECTED],
+                'offline_rows' => 0,
+                'online_rows' => 0,
+                'deliverable_incubatees' => 0,
+                'offline_incubatees' => 0,
+                'online_incubatees' => 0,
+            ],
+        ];
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function buildSpocAlignedCombinedRows(array $filters): Collection
+    {
+        $caseQuery = $this->buildFilteredQuery($filters);
+        $this->applyFilters($caseQuery, $filters);
+        // Match SPOC queue default: hide draft/cancelled unless a status filter is set.
+        if (($filters['status'] ?? '') === '') {
+            $caseQuery->whereIn('service_cases.status', [
+                ServiceCase::STATUS_PENDING_APPROVAL,
+                ServiceCase::STATUS_SENT_BACK,
+                ServiceCase::STATUS_APPROVED,
+                ServiceCase::STATUS_REJECTED,
+            ]);
+        }
+        $serviceCases = $caseQuery->orderByDesc('service_cases.updated_at')->get();
+
+        $mlQuery = MarketLinkageSubmission::query()
+            ->with(['partners', 'spoc:id,name', 'submitter:id,name', 'approver:id,name', 'cfaSubmission.district:id,name', 'district:id,name']);
+        $this->applySpocAlignedMarketLinkageFilters($mlQuery, $filters);
+        if (($filters['status'] ?? '') === '') {
+            $mlQuery->whereIn('status', [
+                ServiceCase::STATUS_PENDING_APPROVAL,
+                ServiceCase::STATUS_SENT_BACK,
+                ServiceCase::STATUS_APPROVED,
+                ServiceCase::STATUS_REJECTED,
+            ]);
+        }
+        $marketLinkages = $mlQuery->orderByDesc('updated_at')->get();
+
+        $items = collect();
+        foreach ($serviceCases as $case) {
+            $items->push([
+                'type' => 'service_case',
+                'service_case' => $case,
+                'market_linkage' => null,
+                'partner' => null,
+                'linkage_mode' => '—',
+                'partner_name' => '—',
+                'updated_at' => $case->updated_at ?? $case->created_at,
+            ]);
+        }
+
+        foreach ($marketLinkages as $submission) {
+            $modes = [];
+            $partnerNames = [];
+            foreach ($submission->partners as $partner) {
+                $modeLabel = MarketLinkageUnifiedListingSupport::linkageModeLabelFromPartnerMode((string) $partner->linkage_mode);
+                if ($modeLabel !== '' && ! in_array($modeLabel, $modes, true)) {
+                    $modes[] = $modeLabel;
+                }
+                $name = trim((string) $partner->partner_name);
+                if ($name !== '') {
+                    $partnerNames[] = $name;
+                }
+            }
+
+            $partnerCount = count($partnerNames);
+            $partnerSummary = $partnerCount === 0
+                ? '—'
+                : ($partnerCount === 1
+                    ? $partnerNames[0]
+                    : $partnerCount.' partners');
+
+            $items->push([
+                'type' => 'market_linkage_incubatee',
+                'service_case' => null,
+                'market_linkage' => $submission,
+                'partner' => null,
+                'linkage_mode' => $modes !== [] ? implode(', ', $modes) : '—',
+                'partner_name' => $partnerSummary,
+                'partner_count' => $partnerCount,
+                'updated_at' => $submission->updated_at ?? $submission->created_at,
+            ]);
+        }
+
+        return $items
+            ->sortByDesc(fn (array $row) => $row['updated_at']?->timestamp ?? 0)
+            ->values();
+    }
+
+    /**
+     * @return Collection<int, array{id: int, name: string, total: int}>
+     */
+    private function buildSpocAlignedDistrictCounts(array $filters): Collection
+    {
+        $countFilters = $filters;
+        $countFilters['district_id'] = 0;
+        $countFilters['status'] = '';
+        $rows = $this->buildSpocAlignedCombinedRows($countFilters);
+
+        $totals = [];
+        foreach ($rows as $row) {
+            $ml = $row['market_linkage'] ?? null;
+            if ($ml instanceof MarketLinkageSubmission) {
+                $districtId = (int) ($ml->district_id ?? 0);
+            } else {
+                $case = $row['service_case'] ?? null;
+                $districtId = (int) ($case?->cfaSubmission?->district_id ?? 0);
+                if ($districtId < 1 && $case instanceof ServiceCase) {
+                    $legacyId = (int) ($case->legacy_application_id ?? 0);
+                    if ($legacyId > 0 && ! $case->cfa_submission_id) {
+                        $districtId = (int) (app(LegacyApplicationServiceCaseSupport::class)
+                            ->laravelDistrictIdForLegacyApplication($legacyId) ?? 0);
+                    }
+                }
+            }
+            if ($districtId < 1) {
+                continue;
+            }
+            $totals[$districtId] = ($totals[$districtId] ?? 0) + 1;
+        }
+
+        return District::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (District $district): array => [
+                'id' => (int) $district->id,
+                'name' => (string) $district->name,
+                'total' => (int) ($totals[(int) $district->id] ?? 0),
+            ]);
+    }
+
+    /**
+     * @param  Builder<MarketLinkageSubmission>  $query
+     */
+    private function applySpocAlignedMarketLinkageFilters(Builder $query, array $filters): void
+    {
+        $spocUserId = (int) ($filters['spoc_id'] ?? 0);
+        $districtIds = $this->spocDistrictIds($spocUserId);
+        if ($districtIds !== []) {
+            $query->whereIn('district_id', $districtIds);
+        } else {
+            $query->where('spoc_user_id', $spocUserId);
+        }
+
+        if (($filters['q'] ?? '') !== '') {
+            $like = '%'.$filters['q'].'%';
+            $query->where(function ($q) use ($like): void {
+                $q->where('incubatee_name', 'like', $like)
+                    ->orWhere('application_no', 'like', $like)
+                    ->orWhere('submitted_by_name', 'like', $like)
+                    ->orWhereHas('partners', fn ($p) => $p->where('partner_name', 'like', $like))
+                    ->orWhereHas('spoc', fn ($s) => $s->where('name', 'like', $like));
+            });
+        }
+
+        if ((int) ($filters['district_id'] ?? 0) > 0) {
+            $query->where('district_id', (int) $filters['district_id']);
+        }
+
+        if (($filters['given_by_id'] ?? 0) > 0) {
+            $query->where('submitted_by_user_id', (int) $filters['given_by_id']);
+        }
+
+        if (($filters['status'] ?? '') !== '') {
+            $query->where('status', $filters['status']);
+        }
+
+        if (($filters['date_from'] ?? '') !== '') {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+        if (($filters['date_to'] ?? '') !== '') {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
     }
 
     /**

@@ -39,25 +39,25 @@ class PitchDeckPreparationTest extends TestCase
         app(StateMonthlyTargetIndicatorBootstrapService::class)->ensureDeliverables();
     }
 
-    public function test_govind_can_open_form_and_store_entry(): void
+    public function test_anjali_can_open_form_and_store_entry(): void
     {
         Storage::fake();
 
         [$district, , $cfaId] = $this->createOnboardedCfa();
 
-        $govind = User::factory()->create([
+        $anjali = User::factory()->create([
             'role' => 'state_staff',
-            'name' => 'Govind Singh Dhami',
-            'email' => 'govind.dhami@pwc.com',
+            'name' => 'Anjali Sood',
+            'email' => 'anjali.sood@pwc.com',
             'is_active' => true,
         ]);
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->get(route('spoc.pitch-deck-preparations.create'))
             ->assertOk()
             ->assertSee('8.3');
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->post(route('spoc.pitch-deck-preparations.store'), [
                 'incubatee_source' => 'cfa',
                 'cfa_submission_id' => $cfaId,
@@ -84,9 +84,9 @@ class PitchDeckPreparationTest extends TestCase
 
         [, , $cfaId] = $this->createOnboardedCfa();
 
-        $govind = User::factory()->create([
+        $anjali = User::factory()->create([
             'role' => 'state_staff',
-            'name' => 'Govind Singh Dhami',
+            'name' => 'Anjali Sood',
             'is_active' => true,
         ]);
 
@@ -95,15 +95,15 @@ class PitchDeckPreparationTest extends TestCase
             'district_id' => District::query()->first()->id,
             'incubatee_name' => 'Test Incubatee',
             'application_no' => '40803999',
-            'entered_by_user_id' => $govind->id,
-            'entered_by_name' => $govind->name,
+            'entered_by_user_id' => $anjali->id,
+            'entered_by_name' => $anjali->name,
             'prepared_on' => '2026-05-01',
             'deck_file_disk' => 'local',
             'deck_file_path' => 'pitch-deck-preparations/test.pdf',
             'deck_file_name' => 'test.pdf',
         ]);
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->post(route('spoc.pitch-deck-preparations.store'), [
                 'incubatee_source' => 'cfa',
                 'cfa_submission_id' => $cfaId,
@@ -139,13 +139,13 @@ class PitchDeckPreparationTest extends TestCase
 
         [$district, , $cfaId] = $this->createOnboardedCfa();
 
-        $govind = User::factory()->create([
+        $anjali = User::factory()->create([
             'role' => 'state_staff',
-            'name' => 'Govind Singh Dhami',
+            'name' => 'Anjali Sood',
             'is_active' => true,
         ]);
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->post(route('spoc.pitch-deck-preparations.store'), [
                 'incubatee_source' => 'cfa',
                 'cfa_submission_id' => $cfaId,
@@ -155,12 +155,12 @@ class PitchDeckPreparationTest extends TestCase
 
         $entry = PitchDeckPreparation::query()->firstOrFail();
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->get(route('spoc.pitch-deck-preparations.deck', ['pitchDeckPreparation' => $entry, 'inline' => 1]))
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf');
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->get(route('spoc.pitch-deck-preparations.show', $entry))
             ->assertOk()
             ->assertSee('View deck')
@@ -174,13 +174,13 @@ class PitchDeckPreparationTest extends TestCase
 
         [$district, , $cfaId] = $this->createOnboardedCfa();
 
-        $govind = User::factory()->create([
+        $anjali = User::factory()->create([
             'role' => 'state_staff',
-            'name' => 'Govind Singh Dhami',
+            'name' => 'Anjali Sood',
             'is_active' => true,
         ]);
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->post(route('spoc.pitch-deck-preparations.store'), [
                 'incubatee_source' => 'cfa',
                 'cfa_submission_id' => $cfaId,
@@ -190,14 +190,14 @@ class PitchDeckPreparationTest extends TestCase
 
         $entry = PitchDeckPreparation::query()->firstOrFail();
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->get(route('spoc.pitch-deck-preparations.dashboard'))
             ->assertOk()
             ->assertSee('Onboarded')
             ->assertSee('Full detail view')
             ->assertSee('View deck');
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->get(route('spoc.pitch-deck-preparations.show', $entry))
             ->assertOk()
             ->assertSee('Incubatee details')
@@ -250,13 +250,13 @@ class PitchDeckPreparationTest extends TestCase
             'cfa_submission_id' => $onboardedId,
         ]);
 
-        $govind = User::factory()->create([
+        $anjali = User::factory()->create([
             'role' => 'state_staff',
-            'name' => 'Govind Singh Dhami',
+            'name' => 'Anjali Sood',
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($govind)
+        $response = $this->actingAs($anjali)
             ->getJson(route('spoc.pitch-deck-preparations.incubatees.search', ['q' => '4080400']))
             ->assertOk();
 
@@ -299,13 +299,13 @@ class PitchDeckPreparationTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $govind = User::factory()->create([
+        $anjali = User::factory()->create([
             'role' => 'state_staff',
-            'name' => 'Govind Singh Dhami',
+            'name' => 'Anjali Sood',
             'is_active' => true,
         ]);
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->post(route('spoc.pitch-deck-preparations.store'), [
                 'incubatee_source' => 'cfa',
                 'cfa_submission_id' => $cfaId,
@@ -335,13 +335,13 @@ class PitchDeckPreparationTest extends TestCase
             'approved_at' => '2026-05-18 10:00:00',
         ]);
 
-        $govind = User::factory()->create([
+        $anjali = User::factory()->create([
             'role' => 'state_staff',
-            'name' => 'Govind Singh Dhami',
+            'name' => 'Anjali Sood',
             'is_active' => true,
         ]);
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->post(route('spoc.pitch-deck-preparations.store'), [
                 'incubatee_source' => 'cfa',
                 'cfa_submission_id' => $cfaId,
@@ -403,13 +403,13 @@ class PitchDeckPreparationTest extends TestCase
             'approved_at' => '2026-05-18 10:00:00',
         ]);
 
-        $govind = User::factory()->create([
+        $anjali = User::factory()->create([
             'role' => 'state_staff',
-            'name' => 'Govind Singh Dhami',
+            'name' => 'Anjali Sood',
             'is_active' => true,
         ]);
 
-        $this->actingAs($govind)
+        $this->actingAs($anjali)
             ->post(route('spoc.pitch-deck-preparations.store'), [
                 'incubatee_source' => 'cfa',
                 'cfa_submission_id' => $cfaId,

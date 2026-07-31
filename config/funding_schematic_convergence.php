@@ -1,10 +1,10 @@
 <?php
 
 /**
- * MIS 8.4 Demo Days & 8.5 Partners outreach (Funding & Schematic Convergence) — Govind Singh Dhami.
+ * MIS 8.4 Demo Days & 8.5 Partners outreach (Funding & Schematic Convergence) — Anjali Sood.
  *
  * Prefer submitter_user_ids (stable). submitter_names is a fallback until IDs are set.
- * Example .env: FUNDING_SCHEMATIC_SUBMITTER_IDS=67
+ * Example .env: FUNDING_SCHEMATIC_SUBMITTER_IDS=195
  */
 return [
     'submitter_user_ids' => array_values(array_filter(array_map(
@@ -13,8 +13,7 @@ return [
     ))),
 
     'submitter_names' => [
-        'Govind Singh Dhami',
-        'Govind Dhami',
+        'Anjali Sood',
     ],
 
     'event_modes' => [
