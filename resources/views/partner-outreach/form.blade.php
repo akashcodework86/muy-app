@@ -71,8 +71,8 @@
                     <input type="text" id="partner_name" name="partner_name" value="{{ old('partner_name') }}" maxlength="255" required>
                 </div>
                 <div class="mpo-field">
-                    <label for="partner_designation">Designation <span style="color:#b91c1c;">*</span></label>
-                    <input type="text" id="partner_designation" name="partner_designation" value="{{ old('partner_designation') }}" maxlength="191" required>
+                    <label for="partner_designation">Designation</label>
+                    <input type="text" id="partner_designation" name="partner_designation" value="{{ old('partner_designation') }}" maxlength="191">
                 </div>
                 <div class="mpo-field">
                     <label for="partner_link">Link</label>
@@ -96,9 +96,22 @@
                     <input type="text" id="poc_name" name="poc_name" value="{{ old('poc_name') }}" maxlength="191">
                 </div>
                 <div class="mpo-field">
+                    <label for="poc_contact_method">POC contact <span style="color:#b91c1c;">*</span></label>
+                    <select id="poc_contact_method" name="poc_contact_method" required>
+                        <option value="phone" @selected(old('poc_contact_method', 'phone') === 'phone')>Contact no.</option>
+                        <option value="email" @selected(old('poc_contact_method') === 'email')>Mail</option>
+                    </select>
+                    <p class="mpo-hint">Choose phone or email for the POC.</p>
+                </div>
+                <div class="mpo-field" id="pocPhoneWrap">
                     <label for="poc_phone">Contact no. of POC <span style="color:#b91c1c;">*</span></label>
-                    <input type="tel" id="poc_phone" name="poc_phone" value="{{ old('poc_phone') }}" maxlength="10" pattern="[6-9][0-9]{9}" required>
+                    <input type="tel" id="poc_phone" name="poc_phone" value="{{ old('poc_phone') }}" maxlength="10" pattern="[6-9][0-9]{9}" inputmode="numeric">
                     <p class="mpo-hint">10-digit mobile number.</p>
+                </div>
+                <div class="mpo-field" id="pocEmailWrap" style="display:none;">
+                    <label for="poc_email">Mail of POC <span style="color:#b91c1c;">*</span></label>
+                    <input type="email" id="poc_email" name="poc_email" value="{{ old('poc_email') }}" maxlength="191">
+                    <p class="mpo-hint">Valid email address.</p>
                 </div>
                 <div class="mpo-field mpo-field--full">
                     <label for="remarks">Remark</label>
@@ -120,10 +133,40 @@
     (function () {
         const select = document.getElementById('cohort_or_sector');
         const wrap = document.getElementById('cohortOtherWrap');
-        if (!select || !wrap) return;
-        select.addEventListener('change', function () {
-            wrap.classList.toggle('is-visible', select.value === 'other');
+        if (select && wrap) {
+            select.addEventListener('change', function () {
+                wrap.classList.toggle('is-visible', select.value === 'other');
+            });
+        }
+    })();
+
+    (function () {
+        const method = document.getElementById('poc_contact_method');
+        const phoneWrap = document.getElementById('pocPhoneWrap');
+        const emailWrap = document.getElementById('pocEmailWrap');
+        const phoneInput = document.getElementById('poc_phone');
+        const emailInput = document.getElementById('poc_email');
+        if (!method || !phoneWrap || !emailWrap || !phoneInput || !emailInput) return;
+
+        function syncContactFields(clearHidden) {
+            const usePhone = method.value === 'phone';
+            phoneWrap.style.display = usePhone ? '' : 'none';
+            emailWrap.style.display = usePhone ? 'none' : '';
+            phoneInput.required = usePhone;
+            emailInput.required = !usePhone;
+            if (clearHidden) {
+                if (usePhone) {
+                    emailInput.value = '';
+                } else {
+                    phoneInput.value = '';
+                }
+            }
+        }
+
+        method.addEventListener('change', function () {
+            syncContactFields(true);
         });
+        syncContactFields(false);
     })();
 </script>
 @endpush

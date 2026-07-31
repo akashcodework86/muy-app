@@ -46,6 +46,7 @@ class MarketingPartnerOutreachEntry extends Model
         'cohort_or_sector_other',
         'poc_name',
         'poc_phone',
+        'poc_email',
         'remarks',
         'status',
         'onboarding_date',

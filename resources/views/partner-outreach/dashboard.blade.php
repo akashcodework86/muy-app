@@ -159,7 +159,7 @@
                         <th>Designation</th>
                         <th>Cohort / sector</th>
                         <th>POC</th>
-                        <th>Phone</th>
+                        <th>Contact</th>
                         <th>Status</th>
                         <th></th>
                     </tr>
@@ -169,10 +169,18 @@
                         <tr>
                             <td>{{ $row->outreach_date?->format('d M Y') }}</td>
                             <td>{{ $row->partner_name }}</td>
-                            <td>{{ $row->partner_designation }}</td>
+                            <td>{{ $row->partner_designation ?: '—' }}</td>
                             <td>{{ \App\Support\PartnerOutreachOptions::cohortOrSectorDisplay((string) $row->cohort_or_sector, $row->cohort_or_sector_other) }}</td>
                             <td>{{ $row->poc_name ?: '—' }}</td>
-                            <td>{{ $row->poc_phone }}</td>
+                            <td>
+                                @if ($row->poc_phone)
+                                    {{ $row->poc_phone }}
+                                @elseif ($row->poc_email)
+                                    {{ $row->poc_email }}
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td>
                                 <span class="mpo-badge {{ \App\Support\PartnerOutreachOptions::statusBadgeClass((string) $row->status) }}">
                                     {{ \App\Support\PartnerOutreachOptions::statusLabel((string) $row->status) }}

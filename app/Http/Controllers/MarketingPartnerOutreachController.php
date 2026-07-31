@@ -45,26 +45,40 @@ class MarketingPartnerOutreachController extends Controller
         $validated = $request->validate([
             'outreach_date' => ['required', 'date'],
             'partner_name' => ['required', 'string', 'max:255'],
-            'partner_designation' => ['required', 'string', 'max:191'],
+            'partner_designation' => ['nullable', 'string', 'max:191'],
             'partner_link' => ['nullable', 'string', 'max:2048'],
             'cohort_or_sector' => ['required', 'string', Rule::in(array_keys(PartnerOutreachOptions::cohortOrSectors()))],
             'cohort_or_sector_other' => ['nullable', 'string', 'max:191', 'required_if:cohort_or_sector,other'],
             'poc_name' => ['nullable', 'string', 'max:191'],
-            'poc_phone' => ['required', 'string', 'regex:/^[6-9]\d{9}$/'],
+            'poc_contact_method' => ['required', 'string', Rule::in(['phone', 'email'])],
+            'poc_phone' => ['nullable', 'string', 'regex:/^[6-9]\d{9}$/', 'required_if:poc_contact_method,phone'],
+            'poc_email' => ['nullable', 'email', 'max:191', 'required_if:poc_contact_method,email'],
             'remarks' => ['nullable', 'string', 'max:5000'],
+        ], [
+            'poc_phone.required_if' => 'Enter the POC contact number.',
+            'poc_email.required_if' => 'Enter the POC email address.',
         ]);
+
+        $contactMethod = (string) $validated['poc_contact_method'];
+        $pocPhone = $contactMethod === 'phone'
+            ? (string) ($validated['poc_phone'] ?? '')
+            : null;
+        $pocEmail = $contactMethod === 'email'
+            ? trim((string) ($validated['poc_email'] ?? ''))
+            : null;
 
         MarketingPartnerOutreachEntry::query()->create([
             'outreach_date' => $validated['outreach_date'],
             'partner_name' => trim((string) $validated['partner_name']),
-            'partner_designation' => trim((string) $validated['partner_designation']),
+            'partner_designation' => trim((string) ($validated['partner_designation'] ?? '')) ?: null,
             'partner_link' => MarketLinkagePartner::normalizeLinkForStorage($validated['partner_link'] ?? null),
             'cohort_or_sector' => (string) $validated['cohort_or_sector'],
             'cohort_or_sector_other' => (string) $validated['cohort_or_sector'] === 'other'
                 ? trim((string) ($validated['cohort_or_sector_other'] ?? ''))
                 : null,
             'poc_name' => trim((string) ($validated['poc_name'] ?? '')) ?: null,
-            'poc_phone' => (string) $validated['poc_phone'],
+            'poc_phone' => $pocPhone !== '' ? $pocPhone : null,
+            'poc_email' => $pocEmail !== '' ? $pocEmail : null,
             'remarks' => trim((string) ($validated['remarks'] ?? '')) ?: null,
             'status' => MarketingPartnerOutreachEntry::STATUS_OUTREACH,
             'submitted_by_user_id' => (int) $user->id,
@@ -108,6 +122,7 @@ class MarketingPartnerOutreachController extends Controller
                     ->orWhere('partner_designation', 'like', $like)
                     ->orWhere('poc_name', 'like', $like)
                     ->orWhere('poc_phone', 'like', $like)
+                    ->orWhere('poc_email', 'like', $like)
                     ->orWhere('remarks', 'like', $like)
                     ->orWhere('submitted_by_name', 'like', $like)
                     ->orWhere('cohort_or_sector_other', 'like', $like);
@@ -292,7 +307,8 @@ class MarketingPartnerOutreachController extends Controller
             $query->where(function ($q) use ($like): void {
                 $q->where('partner_name', 'like', $like)
                     ->orWhere('poc_name', 'like', $like)
-                    ->orWhere('poc_phone', 'like', $like);
+                    ->orWhere('poc_phone', 'like', $like)
+                    ->orWhere('poc_email', 'like', $like);
             });
         }
 
@@ -326,6 +342,7 @@ class MarketingPartnerOutreachController extends Controller
                 'Cohort / sector',
                 'POC name',
                 'POC phone',
+                'POC email',
                 'Status',
                 'Onboarding date',
                 'Remarks',
@@ -345,6 +362,7 @@ class MarketingPartnerOutreachController extends Controller
                     PartnerOutreachOptions::cohortOrSectorDisplay((string) $row->cohort_or_sector, $row->cohort_or_sector_other),
                     $row->poc_name,
                     $row->poc_phone,
+                    $row->poc_email,
                     PartnerOutreachOptions::statusLabel((string) $row->status),
                     $row->onboarding_date?->format('Y-m-d'),
                     $row->remarks,

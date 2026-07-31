@@ -12,12 +12,13 @@ return new class extends Migration
             $table->id();
             $table->date('outreach_date');
             $table->string('partner_name', 255);
-            $table->string('partner_designation', 191);
+            $table->string('partner_designation', 191)->nullable();
             $table->string('partner_link', 2048)->nullable();
             $table->string('cohort_or_sector', 64);
             $table->string('cohort_or_sector_other', 191)->nullable();
             $table->string('poc_name', 191)->nullable();
-            $table->string('poc_phone', 15);
+            $table->string('poc_phone', 15)->nullable();
+            $table->string('poc_email', 191)->nullable();
             $table->text('remarks')->nullable();
             $table->string('status', 32)->default('outreach');
             $table->date('onboarding_date')->nullable();

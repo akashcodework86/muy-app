@@ -41,6 +41,7 @@ class PartnerOutreachTest extends TestCase
             'partner_link' => 'https://example.com/partner',
             'cohort_or_sector' => 'retail_trade',
             'poc_name' => 'Anita',
+            'poc_contact_method' => 'phone',
             'poc_phone' => '9876543210',
             'remarks' => 'Initial meeting done',
         ]);

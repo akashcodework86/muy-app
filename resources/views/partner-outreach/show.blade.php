@@ -56,7 +56,7 @@
         <dl class="mpo-dl">
             <dt>Outreach date</dt><dd>{{ $row->outreach_date?->format('d M Y') }}</dd>
             <dt>Partner name</dt><dd>{{ $row->partner_name }}</dd>
-            <dt>Designation</dt><dd>{{ $row->partner_designation }}</dd>
+            <dt>Designation</dt><dd>{{ $row->partner_designation ?: '—' }}</dd>
             <dt>Link</dt>
             <dd>
                 @if ($linkHref)
@@ -70,7 +70,8 @@
             <dt>Cohort / sector</dt>
             <dd>{{ \App\Support\PartnerOutreachOptions::cohortOrSectorDisplay((string) $row->cohort_or_sector, $row->cohort_or_sector_other) }}</dd>
             <dt>POC name</dt><dd>{{ $row->poc_name ?: '—' }}</dd>
-            <dt>POC phone</dt><dd>{{ $row->poc_phone }}</dd>
+            <dt>POC phone</dt><dd>{{ $row->poc_phone ?: '—' }}</dd>
+            <dt>POC email</dt><dd>{{ $row->poc_email ?: '—' }}</dd>
             <dt>Remark</dt><dd>{{ $row->remarks ?: '—' }}</dd>
             <dt>Status</dt>
             <dd>
