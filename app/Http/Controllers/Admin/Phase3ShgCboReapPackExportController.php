@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\Deliverables\Exports\DeliverablesExcelSupport;
 use App\Services\Exports\Phase3ShgCboReapPackDataService;
 use App\Services\Exports\Phase3ShgCboReapPackExcelExport;
 use Illuminate\Http\RedirectResponse;
@@ -27,12 +26,10 @@ class Phase3ShgCboReapPackExportController extends Controller
         @set_time_limit(300);
 
         try {
-            if ($issue = DeliverablesExcelSupport::availabilityIssue()) {
-                report(new \RuntimeException('SHG/CBO Excel export unavailable: '.$issue));
-
+            if (! class_exists(\ZipArchive::class)) {
                 return redirect()
                     ->route('admin.data-centre.index')
-                    ->withErrors(['export' => 'Excel export unavailable on server: '.$issue]);
+                    ->withErrors(['export' => 'Excel export unavailable: PHP Zip extension (ext-zip) is not enabled on the server.']);
             }
 
             $pack = $this->data->build();

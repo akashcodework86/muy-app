@@ -134,18 +134,16 @@ class DataCentreController extends Controller
     /**
      * Phase 3 SHG members / CBO / 8.2 REAP Excel pack (counts + detail lists).
      */
-    public function exportShgCboReapPack(): StreamedResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
+    public function exportShgCboReapPack(): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
     {
         @ini_set('memory_limit', '512M');
         @set_time_limit(300);
 
         try {
-            if ($issue = \App\Services\Deliverables\Exports\DeliverablesExcelSupport::availabilityIssue()) {
-                report(new \RuntimeException('SHG/CBO Excel export unavailable: '.$issue));
-
+            if (! class_exists(\ZipArchive::class)) {
                 return redirect()
                     ->route('admin.data-centre.index')
-                    ->withErrors(['export' => 'Excel export unavailable on server: '.$issue]);
+                    ->withErrors(['export' => 'Excel export unavailable: PHP Zip extension (ext-zip) is not enabled on the server.']);
             }
 
             $pack = $this->shgCboReapPack->build();

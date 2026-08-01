@@ -26,18 +26,122 @@ final class Phase3ShgCboReapPackExcelExport
      */
     public function writeToPath(array $pack, string $absolutePath): void
     {
-        DeliverablesExcelSupport::ensureAvailable();
-
-        $spreadsheet = $this->buildSpreadsheet($pack);
         $dir = dirname($absolutePath);
         if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
 
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        if (DeliverablesExcelSupport::isAvailable()) {
+            $spreadsheet = $this->buildSpreadsheet($pack);
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save($absolutePath);
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+
+            return;
+        }
+
+        if (! class_exists(\ZipArchive::class)) {
+            throw new \RuntimeException('Excel export unavailable: PHP Zip extension (ext-zip) is not enabled.');
+        }
+
+        $this->writeSimpleXlsx($pack, $absolutePath);
+    }
+
+    /**
+     * Fallback when PhpSpreadsheet is missing on the server (ext-zip only).
+     *
+     * @param  array<string, mixed>  $pack
+     */
+    private function writeSimpleXlsx(array $pack, string $absolutePath): void
+    {
+        $meta = $pack['meta'] ?? [];
+        $writer = new \App\Support\SimpleXlsxWriter;
+
+        $readme = [
+            [(string) ($meta['title'] ?? 'SHG / CBO pack')],
+            [],
+            ['Period from', (string) ($meta['period_from'] ?? '')],
+            ['Period to', (string) ($meta['period_to'] ?? '')],
+            ['Generated at', (string) ($meta['as_of'] ?? '')],
+            ['Fiscal year', (string) ($meta['fiscal_year'] ?? '')],
+            [],
+            ['Rules'],
+        ];
+        foreach (($meta['rules'] ?? []) as $rule) {
+            $readme[] = ['• '.(string) $rule];
+        }
+        $writer->addSheet('README', $readme);
+
+        foreach ([
+            ['SHG Counts', $pack['shg']['summary_rows'] ?? []],
+            ['CBO Counts', $pack['cbo']['summary_rows'] ?? []],
+            ['8.2 Counts', $pack['reap82']['summary_rows'] ?? []],
+        ] as [$title, $rows]) {
+            $out = [
+                ['Section', 'Metric', 'Count'],
+                ['Period', ($meta['period_from'] ?? '').' → '.($meta['period_to'] ?? ''), ''],
+            ];
+            foreach ($rows as $row) {
+                $out[] = [
+                    (string) ($row['section'] ?? ''),
+                    (string) ($row['metric'] ?? ''),
+                    is_numeric($row['count'] ?? null) ? (0 + $row['count']) : (string) ($row['count'] ?? ''),
+                ];
+            }
+            $writer->addSheet($title, $out);
+        }
+
+        $detailHeaders = [
+            'S.N.', 'CFA ID', 'Application No', 'Applicant', 'Category', 'Member of SHG/CBO',
+            'SHG/CBO Name', 'Phone', 'Sector', 'District', 'Hub', 'Batch', 'Onboarding Date',
+            'Services count', 'Services taken', 'Market linkage mode', 'Market partners', 'Partner count',
+            '4.2 Legal & Licensing',
+        ];
+        $detailKeys = [
+            'sn', 'cfa_id', 'application_no', 'applicant', 'category', 'is_member',
+            'shg_cbo_name', 'phone', 'sector', 'district', 'hub', 'batch', 'onboarding_date',
+            'services_count', 'services', 'market_linkage_mode', 'market_partners', 'market_partner_count',
+            'legal_4_2',
+        ];
+        foreach ([
+            ['SHG Detail', $pack['shg']['details'] ?? []],
+            ['CBO Detail', $pack['cbo']['details'] ?? []],
+        ] as [$title, $rows]) {
+            $out = [$detailHeaders];
+            foreach ($rows as $row) {
+                $line = [];
+                foreach ($detailKeys as $key) {
+                    $val = $row[$key] ?? '';
+                    $line[] = is_numeric($val) && ! in_array($key, ['application_no', 'phone'], true)
+                        ? (0 + $val)
+                        : (string) $val;
+                }
+                $out[] = $line;
+            }
+            $writer->addSheet($title, $out);
+        }
+
+        $reapHeaders = [
+            'S.N.', 'Case ID', 'CFA ID', 'Application No', 'Incubatee', 'District', 'Hub',
+            'Service', 'Code', 'Sector', 'Amount', 'Bucket', 'Activity', 'Status', 'Date',
+        ];
+        $reapKeys = [
+            'sn', 'case_id', 'cfa_id', 'application_no', 'applicant', 'district', 'hub',
+            'service', 'service_code', 'sector', 'amount', 'bucket', 'activity', 'status', 'date',
+        ];
+        $reapOut = [$reapHeaders];
+        foreach (($pack['reap82']['details'] ?? []) as $row) {
+            $line = [];
+            foreach ($reapKeys as $key) {
+                $val = $row[$key] ?? '';
+                $line[] = is_numeric($val) && $key !== 'application_no' ? (0 + $val) : (string) $val;
+            }
+            $reapOut[] = $line;
+        }
+        $writer->addSheet('8.2 Detail', $reapOut);
+
         $writer->save($absolutePath);
-        $spreadsheet->disconnectWorksheets();
-        unset($spreadsheet);
     }
 
     /**

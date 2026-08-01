@@ -24,18 +24,111 @@ final class Phase3331ShgMembersPackExcelExport
      */
     public function writeToPath(array $pack, string $absolutePath): void
     {
-        DeliverablesExcelSupport::ensureAvailable();
-
-        $spreadsheet = $this->buildSpreadsheet($pack);
         $dir = dirname($absolutePath);
         if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
 
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        if (DeliverablesExcelSupport::isAvailable()) {
+            $spreadsheet = $this->buildSpreadsheet($pack);
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save($absolutePath);
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+
+            return;
+        }
+
+        if (! class_exists(\ZipArchive::class)) {
+            throw new \RuntimeException('Excel export unavailable: PHP Zip extension (ext-zip) is not enabled.');
+        }
+
+        $this->writeSimpleXlsx($pack, $absolutePath);
+    }
+
+    /**
+     * @param  array<string, mixed>  $pack
+     */
+    private function writeSimpleXlsx(array $pack, string $absolutePath): void
+    {
+        $meta = $pack['meta'] ?? [];
+        $writer = new \App\Support\SimpleXlsxWriter;
+
+        $readme = [
+            [(string) ($meta['title'] ?? 'Technical trainings — SHG members')],
+            [],
+            ['Period from', (string) ($meta['period_from'] ?? '')],
+            ['Period to', (string) ($meta['period_to'] ?? '')],
+            ['Generated at', (string) ($meta['as_of'] ?? '')],
+            [],
+            ['Rules'],
+        ];
+        foreach (($meta['rules'] ?? []) as $rule) {
+            $readme[] = ['• '.(string) $rule];
+        }
+        $writer->addSheet('README', $readme);
+
+        $counts = [['Section', 'Metric', 'Count']];
+        foreach (($pack['summary_rows'] ?? []) as $row) {
+            $counts[] = [
+                (string) ($row['section'] ?? ''),
+                (string) ($row['metric'] ?? ''),
+                is_numeric($row['count'] ?? null) ? (0 + $row['count']) : (string) ($row['count'] ?? ''),
+            ];
+        }
+        $writer->addSheet('Counts', $counts);
+
+        $sessionHeaders = [
+            'Sr', 'Session ID', 'Date', 'Title', 'Brief', 'Batch',
+            'District', 'Hub', 'Total attendance', 'SHG members',
+            'Attendance files', 'Submitted by', 'Status', 'Approved at',
+        ];
+        $sessionKeys = [
+            'session_id', 'session_date', 'session_title', 'session_brief', 'batch_name',
+            'district', 'hub', 'total_attendance', 'shg_members_attendance',
+            'attendance_files', 'submitted_by', 'status', 'approved_at',
+        ];
+        $sessions = [$sessionHeaders];
+        $sr = 0;
+        foreach (($pack['sessions'] ?? []) as $row) {
+            $sr++;
+            $line = [$sr];
+            foreach ($sessionKeys as $key) {
+                $val = $row[$key] ?? '';
+                $line[] = is_numeric($val) ? (0 + $val) : (string) $val;
+            }
+            $sessions[] = $line;
+        }
+        $writer->addSheet('Sessions Detail', $sessions);
+
+        $attHeaders = [
+            'Sr', 'Session ID', 'Session date', 'Session title', 'Session district', 'Hub',
+            'CFA ID', 'Application No', 'Name', 'Phone', 'Gender',
+            'Block', 'Village', 'Member district', 'Onboard status', 'Onboard batch',
+            'Category', 'Member of SHG/CBO',
+        ];
+        $attKeys = [
+            'session_id', 'session_date', 'session_title', 'session_district', 'hub',
+            'cfa_id', 'application_no', 'name', 'phone', 'gender',
+            'block', 'village', 'member_district', 'onboard_status', 'onboard_batch',
+            'category', 'member_of_shg',
+        ];
+        $attendance = [$attHeaders];
+        $sr = 0;
+        foreach (($pack['participants'] ?? []) as $row) {
+            $sr++;
+            $line = [$sr];
+            foreach ($attKeys as $key) {
+                $val = $row[$key] ?? '';
+                $line[] = is_numeric($val) && ! in_array($key, ['application_no', 'phone'], true)
+                    ? (0 + $val)
+                    : (string) $val;
+            }
+            $attendance[] = $line;
+        }
+        $writer->addSheet('SHG Attendance Detail', $attendance);
+
         $writer->save($absolutePath);
-        $spreadsheet->disconnectWorksheets();
-        unset($spreadsheet);
     }
 
     /**
