@@ -930,6 +930,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('data-centre/export-all', [DataCentreController::class, 'exportAll'])->name('data-centre.export-all');
         Route::get('data-centre/export/shg-cbo-reap-pack', [DataCentreController::class, 'exportShgCboReapPack'])
             ->name('data-centre.export-shg-cbo-reap-pack');
+        Route::get('data-centre/export/3-3-1-shg-members-pack', [\App\Http\Controllers\Admin\Phase3331ShgMembersPackExportController::class, 'download'])
+            ->name('data-centre.export-3-3-1-shg-members-pack');
         Route::get('data-centre/export/{section}', [DataCentreController::class, 'export'])
             ->where('section', '[a-z\-]+')
             ->name('data-centre.export');
@@ -973,6 +975,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('targets/reap-incubatee', [\App\Http\Controllers\Admin\ReapIncubateeTargetsController::class, 'index'])->name('targets.reap-incubatee');
         Route::get('exports/phase3-shg-cbo-reap-pack', [\App\Http\Controllers\Admin\Phase3ShgCboReapPackExportController::class, 'download'])
             ->name('exports.phase3-shg-cbo-reap-pack');
+        Route::get('exports/phase3-3-3-1-shg-members-pack', [\App\Http\Controllers\Admin\Phase3331ShgMembersPackExportController::class, 'download'])
+            ->name('exports.phase3-3-3-1-shg-members-pack');
         Route::get('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state');
         Route::post('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state.update');
         Route::get('targets/district', fn () => redirect()->route('admin.targets.official-district-monthly'))->name('targets.district');

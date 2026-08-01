@@ -995,11 +995,22 @@
                             Statewide REAP support cases (separate sheets). Farm &amp; non-farm × 1L / 3L, with case details.
                         </div>
                     </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>3.3.1 Technical trainings</strong>
+                        <span>SHG members — sessions + names</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Approved 3.3.1 sessions for SHG members audience (excl. CBO Network), with full participant lists.
+                        </div>
+                    </li>
                 </ul>
 
                 <a href="{{ route('admin.data-centre.export-shg-cbo-reap-pack') }}" class="dc-btn dc-btn--pack">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
-                    Download Excel
+                    Download SHG / CBO / 8.2
+                </a>
+                <a href="{{ route('admin.data-centre.export-3-3-1-shg-members-pack') }}" class="dc-btn dc-btn--pack" style="margin-top:.45rem;">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                    Download 3.3.1 SHG Excel
                 </a>
                 <p class="dc-extract__note">Live extract through today. Approved / locked Phase 3 data only.</p>
             </section>
