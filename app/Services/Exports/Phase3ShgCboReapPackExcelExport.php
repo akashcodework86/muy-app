@@ -210,9 +210,17 @@ final class Phase3ShgCboReapPackExcelExport
         }
 
         for ($i = 0; $i < count($headers); $i++) {
-            $sheet->getColumnDimension(DeliverablesExcelSupport::columnLetter($i))->setAutoSize(true);
+            // Fixed widths — autosize on 1k+ rows exhausts memory on 128M hosts.
+            $sheet->getColumnDimension(DeliverablesExcelSupport::columnLetter($i))->setWidth(match ($i) {
+                0 => 8,
+                1 => 10,
+                2 => 16,
+                3 => 22,
+                14 => 55,
+                15, 16, 18 => 20,
+                default => 14,
+            });
         }
-        $sheet->getColumnDimension('O')->setWidth(60); // services
         if ($rows !== []) {
             $sheet->setAutoFilter('A1:'.$last.(count($rows) + 1));
         }
@@ -263,7 +271,11 @@ final class Phase3ShgCboReapPackExcelExport
         }
 
         for ($i = 0; $i < count($headers); $i++) {
-            $sheet->getColumnDimension(DeliverablesExcelSupport::columnLetter($i))->setAutoSize(true);
+            $sheet->getColumnDimension(DeliverablesExcelSupport::columnLetter($i))->setWidth(match ($i) {
+                0 => 8,
+                4 => 24,
+                default => 14,
+            });
         }
         if ($rows !== []) {
             $sheet->setAutoFilter('A1:'.$last.(count($rows) + 1));

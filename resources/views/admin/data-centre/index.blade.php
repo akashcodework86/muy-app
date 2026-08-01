@@ -318,6 +318,17 @@
         </form>
     @endif
 
+    @if ($errors->any())
+        <div class="dc-alert dc-alert--error" role="alert" style="margin-bottom:1rem;padding:.85rem 1rem;border-radius:.75rem;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:.88rem;">
+            <strong>Export error:</strong>
+            <ul style="margin:.35rem 0 0;padding-left:1.1rem;">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- ── Top bar ── --}}
     <div class="dc-topbar">
         <div>
@@ -996,10 +1007,10 @@
                         </div>
                     </li>
                     <li class="dc-extract__item" tabindex="0">
-                        <strong>3.3.1 Technical trainings</strong>
-                        <span>SHG members — sessions + names</span>
+                        <strong>Technical trainings (SHG)</strong>
+                        <span>Attendance from technical-trainings</span>
                         <div class="dc-extract__tip" role="tooltip">
-                            Approved 3.3.1 sessions for SHG members audience (excl. CBO Network), with full participant lists.
+                            Approved sessions from /admin/technical-trainings — only Phase 3 SHG members (Individual + Member of SHG/CBO = Yes).
                         </div>
                     </li>
                 </ul>
@@ -1010,7 +1021,7 @@
                 </a>
                 <a href="{{ route('admin.data-centre.export-3-3-1-shg-members-pack') }}" class="dc-btn dc-btn--pack" style="margin-top:.45rem;">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
-                    Download 3.3.1 SHG Excel
+                    Download SHG technical trainings
                 </a>
                 <p class="dc-extract__note">Live extract through today. Approved / locked Phase 3 data only.</p>
             </section>

@@ -2,22 +2,20 @@
 
 namespace App\Services\Exports;
 
-use App\Models\LakhpatiTechnicalTraining;
+use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\MisFieldActivityApproval;
+use App\Support\PotentialLakhpatiOnboardingSql;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * 3.3.1 Technical Trainings — SHG members audience (excludes CBO Network agency).
- * Counts sheet + session detail + every participant row.
+ * Technical trainings dashboard (/admin/technical-trainings) attendance,
+ * filtered to Phase-3 SHG members only (Individual + Member of SHG/CBO = Yes).
  */
 final class Phase3331ShgMembersPackDataService
 {
-    private const TABLE = 'potential_lakhpati_technical_trainings';
-
-    /** CBO-only requesting agency — excluded from this SHG-members pack. */
-    private const EXCLUDED_AGENCIES = ['cbo_network'];
+    private const TABLE = 'technical_trainings';
 
     /**
      * @return array<string, mixed>
@@ -32,50 +30,67 @@ final class Phase3331ShgMembersPackDataService
             return $this->emptyPack($periodFrom, $periodTo, $asOf);
         }
 
-        $query = DB::table(self::TABLE.' as t')
-            ->leftJoin('districts as d', 'd.id', '=', 't.district_id')
+        $query = DB::table(self::TABLE.' as tt')
+            ->leftJoin('districts as d', 'd.id', '=', 'tt.district_id')
             ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
-            ->leftJoin('gram_panchayats as gp', 'gp.id', '=', 't.gram_panchayat_id')
-            ->whereNotIn('t.requesting_agency_type', self::EXCLUDED_AGENCIES)
-            ->whereBetween('t.session_date', [$periodFrom->toDateString(), $periodTo->toDateString()]);
+            ->whereBetween('tt.event_date', [$periodFrom->toDateString(), $periodTo->toDateString()]);
 
-        MisFieldActivityApproval::applyApprovedOnlyFilter($query, self::TABLE, 't');
+        MisFieldActivityApproval::applyApprovedOnlyFilter($query, self::TABLE, 'tt');
 
         $sessions = $query
             ->select([
-                't.*',
-                DB::raw("COALESCE(d.name, t.district_name, 'Unknown') as resolved_district"),
+                'tt.id',
+                'tt.event_date',
+                'tt.session_name',
+                'tt.session_brief',
+                'tt.training_batch_name',
+                'tt.submitted_by_name',
+                'tt.status',
+                'tt.approved_at',
+                'tt.selected_incubatee_ids',
+                'tt.selected_incubatees_snapshot',
+                'tt.attendance_media_json',
+                DB::raw("COALESCE(d.name, tt.district_name, 'Unknown') as district_name"),
                 DB::raw("COALESCE(h.name, '—') as hub_name"),
-                DB::raw("COALESCE(gp.name, '—') as gp_name"),
             ])
-            ->orderByDesc('t.session_date')
-            ->orderByDesc('t.id')
+            ->orderByDesc('tt.event_date')
+            ->orderByDesc('tt.id')
             ->get();
 
+        $allIds = BstTrainingDeliverablesSupport::uniqueIncubateeIdsFromPackageRows($sessions);
+        $shgMeta = $this->shgMemberMetaByIds($allIds);
+        $shgIdSet = array_fill_keys(array_keys($shgMeta), true);
+
         $sessionDetails = [];
-        $participantDetails = [];
-        $byDistrict = [];
-        $byMonth = [];
-        $totalMale = 0;
-        $totalFemale = 0;
-        $totalParticipants = 0;
-        $sessionsWithPhotos = 0;
-        $sessionsWithAttendance = 0;
-        $namedParticipants = 0;
+        $attendanceDetails = [];
+        $byDistrictSessions = [];
+        $byDistrictParticipations = [];
+        $byMonthSessions = [];
+        $byMonthParticipations = [];
+        $uniqueShg = [];
+        $totalShgParticipations = 0;
+        $sessionsWithShg = 0;
+        $totalAttendanceAll = 0;
 
         foreach ($sessions as $session) {
-            $district = trim((string) ($session->resolved_district ?? 'Unknown')) ?: 'Unknown';
-            $hub = trim((string) ($session->hub_name ?? '')) ?: '—';
-            $male = (int) ($session->male_participants ?? 0);
-            $female = (int) ($session->female_participants ?? 0);
-            $total = (int) ($session->participants_total ?? 0);
-            if ($total <= 0) {
-                $total = $male + $female;
+            $attendeeIds = BstTrainingDeliverablesSupport::parseIncubateeIds($session->selected_incubatee_ids ?? null);
+            $totalAttendanceAll += count($attendeeIds);
+
+            $shgIdsInSession = array_values(array_filter(
+                $attendeeIds,
+                static fn (int $id): bool => isset($shgIdSet[$id]),
+            ));
+            if ($shgIdsInSession === []) {
+                continue;
             }
+
+            $sessionsWithShg++;
+            $district = trim((string) ($session->district_name ?? 'Unknown')) ?: 'Unknown';
+            $hub = trim((string) ($session->hub_name ?? '')) ?: '—';
 
             $monthKey = '';
             $displayDate = '—';
-            $rawDate = trim((string) ($session->session_date ?? ''));
+            $rawDate = trim((string) ($session->event_date ?? ''));
             if ($rawDate !== '') {
                 try {
                     $parsed = Carbon::parse($rawDate);
@@ -86,167 +101,236 @@ final class Phase3331ShgMembersPackDataService
                 }
             }
 
-            $agencyKey = strtolower(trim((string) ($session->requesting_agency_type ?? '')));
-            $agencyLabel = LakhpatiTechnicalTraining::AGENCY_TYPES[$agencyKey]
-                ?? ucfirst(str_replace('_', ' ', $agencyKey));
-
-            $mode = match (strtolower(trim((string) ($session->workshop_mode ?? '')))) {
-                'virtual' => 'Virtual workshop',
-                'physical' => 'Physical workshop',
-                default => 'Physical workshop',
-            };
-
-            $attendanceCount = $this->mediaCount($session->attendance_media_json ?? null);
-            $photoCount = $this->mediaCount($session->workshop_photos_json ?? null);
-            if ($attendanceCount > 0) {
-                $sessionsWithAttendance++;
-            }
-            if ($photoCount > 0) {
-                $sessionsWithPhotos++;
+            $sessionTitle = trim((string) ($session->session_name ?? ''));
+            if ($sessionTitle === '') {
+                $sessionTitle = trim((string) ($session->training_batch_name ?? '')) ?: 'Technical training';
             }
 
-            $totalMale += $male;
-            $totalFemale += $female;
-            $totalParticipants += $total;
-            $byDistrict[$district] = ($byDistrict[$district] ?? 0) + 1;
+            $shgCount = count($shgIdsInSession);
+            $totalShgParticipations += $shgCount;
+            $byDistrictSessions[$district] = ($byDistrictSessions[$district] ?? 0) + 1;
+            $byDistrictParticipations[$district] = ($byDistrictParticipations[$district] ?? 0) + $shgCount;
             if ($monthKey !== '') {
-                $byMonth[$monthKey] = ($byMonth[$monthKey] ?? 0) + 1;
+                $byMonthSessions[$monthKey] = ($byMonthSessions[$monthKey] ?? 0) + 1;
+                $byMonthParticipations[$monthKey] = ($byMonthParticipations[$monthKey] ?? 0) + $shgCount;
             }
+
+            $mediaCount = $this->mediaCount($session->attendance_media_json ?? null);
 
             $sessionDetails[] = [
                 'session_id' => (int) $session->id,
                 'session_date' => $displayDate,
-                'session_title' => trim((string) ($session->session_title ?? '')) ?: '—',
+                'session_title' => $sessionTitle,
                 'session_brief' => trim((string) ($session->session_brief ?? '')),
-                'requesting_agency' => $agencyLabel,
-                'workshop_mode' => $mode,
+                'batch_name' => trim((string) ($session->training_batch_name ?? '')) ?: '—',
                 'district' => $district,
                 'hub' => $hub,
-                'block' => trim((string) ($session->block ?? '')) ?: '—',
-                'gram_panchayat' => trim((string) ($session->gp_name ?? '')) ?: '—',
-                'venue' => trim((string) ($session->area ?? '')) ?: '—',
-                'male' => $male,
-                'female' => $female,
-                'participants_total' => $total,
-                'attendance_files' => $attendanceCount,
-                'workshop_photos' => $photoCount,
+                'total_attendance' => count($attendeeIds),
+                'shg_members_attendance' => $shgCount,
+                'attendance_files' => $mediaCount,
                 'submitted_by' => trim((string) ($session->submitted_by_name ?? '')) ?: '—',
                 'status' => trim((string) ($session->status ?? '')) ?: '—',
                 'approved_at' => $this->formatDateTime($session->approved_at ?? null),
             ];
 
-            $participants = $this->decodeParticipants($session->participants_json ?? null);
-            if ($participants === []) {
-                // Placeholder rows so detail count can still relate to headcount when names missing.
-                for ($i = 1; $i <= $total; $i++) {
-                    $participantDetails[] = [
-                        'session_id' => (int) $session->id,
-                        'session_date' => $displayDate,
-                        'session_title' => trim((string) ($session->session_title ?? '')) ?: '—',
-                        'district' => $district,
-                        'hub' => $hub,
-                        'block' => trim((string) ($session->block ?? '')) ?: '—',
-                        'venue' => trim((string) ($session->area ?? '')) ?: '—',
-                        'requesting_agency' => $agencyLabel,
-                        'sr' => $i,
-                        'name' => '(name not recorded)',
-                        'mobile' => '—',
-                        'gender' => '—',
-                        'participant_district' => $district,
-                        'participant_block' => trim((string) ($session->block ?? '')) ?: '—',
-                        'participant_gp' => trim((string) ($session->gp_name ?? '')) ?: '—',
-                    ];
-                }
-            } else {
-                foreach ($participants as $p) {
-                    $name = trim((string) ($p['name'] ?? ''));
-                    if ($name !== '') {
-                        $namedParticipants++;
-                    }
-                    $gender = strtoupper(trim((string) ($p['gender'] ?? '')));
-                    $genderLabel = match ($gender) {
-                        'M' => 'Male',
-                        'F' => 'Female',
-                        default => $gender !== '' ? $gender : '—',
-                    };
+            foreach ($shgIdsInSession as $cfaId) {
+                $uniqueShg[$cfaId] = true;
+                $meta = $shgMeta[$cfaId];
+                $profile = BstTrainingDeliverablesSupport::participantProfileFromSnapshots(
+                    $session->selected_incubatees_snapshot ?? null,
+                    $cfaId,
+                );
+                $snap = $this->snapshotForId($session->selected_incubatees_snapshot ?? null, $cfaId);
 
-                    $participantDetails[] = [
-                        'session_id' => (int) $session->id,
-                        'session_date' => $displayDate,
-                        'session_title' => trim((string) ($session->session_title ?? '')) ?: '—',
-                        'district' => $district,
-                        'hub' => $hub,
-                        'block' => trim((string) ($session->block ?? '')) ?: '—',
-                        'venue' => trim((string) ($session->area ?? '')) ?: '—',
-                        'requesting_agency' => $agencyLabel,
-                        'sr' => (int) ($p['sr'] ?? 0),
-                        'name' => $name !== '' ? $name : '(name not recorded)',
-                        'mobile' => trim((string) ($p['mobile'] ?? '')) ?: '—',
-                        'gender' => $genderLabel,
-                        'participant_district' => trim((string) ($p['district_name'] ?? '')) ?: $district,
-                        'participant_block' => trim((string) ($p['block_name'] ?? '')) ?: (trim((string) ($session->block ?? '')) ?: '—'),
-                        'participant_gp' => trim((string) ($p['gram_panchayat_name'] ?? '')) ?: '—',
-                    ];
-                }
+                $name = $profile['name'] !== '—' ? $profile['name'] : $meta['applicant_name'];
+                $appNo = $profile['application_no'] !== '—' ? $profile['application_no'] : $meta['application_no'];
+
+                $attendanceDetails[] = [
+                    'session_id' => (int) $session->id,
+                    'session_date' => $displayDate,
+                    'session_title' => $sessionTitle,
+                    'session_district' => $district,
+                    'hub' => $hub,
+                    'cfa_id' => $cfaId,
+                    'application_no' => $appNo,
+                    'name' => $name,
+                    'phone' => trim((string) ($snap['phone'] ?? $meta['phone'] ?? '')) ?: '—',
+                    'gender' => trim((string) ($snap['gender'] ?? $meta['gender'] ?? '')) ?: '—',
+                    'block' => trim((string) ($snap['block_name'] ?? $meta['block'] ?? '')) ?: '—',
+                    'village' => trim((string) ($snap['village'] ?? $meta['village'] ?? '')) ?: '—',
+                    'member_district' => $meta['district_name'] !== '' ? $meta['district_name'] : $district,
+                    'onboard_batch' => trim((string) ($snap['onboarding_batch_name'] ?? '')) ?: '—',
+                    'onboard_status' => $this->onboardLabel($snap, $meta),
+                    'category' => $meta['category'] !== '' ? $meta['category'] : '—',
+                    'member_of_shg' => 'Yes',
+                ];
             }
         }
 
-        $sessionCount = count($sessionDetails);
-
         $summary = [];
-        $summary[] = ['section' => '3.3.1 Overview', 'metric' => 'Approved sessions (SHG members audience)', 'count' => $sessionCount];
-        $summary[] = ['section' => '3.3.1 Overview', 'metric' => 'Male participants', 'count' => $totalMale];
-        $summary[] = ['section' => '3.3.1 Overview', 'metric' => 'Female participants', 'count' => $totalFemale];
-        $summary[] = ['section' => '3.3.1 Overview', 'metric' => 'Total participants', 'count' => $totalParticipants];
-        $summary[] = ['section' => '3.3.1 Overview', 'metric' => 'Named participant rows in detail', 'count' => $namedParticipants];
-        $summary[] = ['section' => '3.3.1 Overview', 'metric' => 'Sessions with attendance files', 'count' => $sessionsWithAttendance];
-        $summary[] = ['section' => '3.3.1 Overview', 'metric' => 'Sessions with workshop photos', 'count' => $sessionsWithPhotos];
+        $summary[] = ['section' => 'Overview', 'metric' => 'Approved sessions on technical-trainings dashboard (period)', 'count' => $sessions->count()];
+        $summary[] = ['section' => 'Overview', 'metric' => 'Sessions with ≥1 SHG member', 'count' => $sessionsWithShg];
+        $summary[] = ['section' => 'Overview', 'metric' => 'Total attendance (all incubatees in those sessions)', 'count' => $totalAttendanceAll];
+        $summary[] = ['section' => 'Overview', 'metric' => 'SHG member participations (attendance rows)', 'count' => $totalShgParticipations];
+        $summary[] = ['section' => 'Overview', 'metric' => 'Unique SHG members trained', 'count' => count($uniqueShg)];
 
-        $byAgency = [];
-        foreach ($sessionDetails as $s) {
-            $ag = (string) ($s['requesting_agency'] ?? '—');
-            $byAgency[$ag] = ($byAgency[$ag] ?? 0) + 1;
-        }
-        arsort($byAgency);
-        foreach ($byAgency as $agency => $count) {
-            $summary[] = ['section' => 'By requesting agency (sessions)', 'metric' => $agency, 'count' => (int) $count];
+        arsort($byDistrictParticipations);
+        foreach ($byDistrictParticipations as $district => $count) {
+            $summary[] = [
+                'section' => 'By district (SHG participations)',
+                'metric' => (string) $district.' ('.$byDistrictSessions[$district].' sessions)',
+                'count' => (int) $count,
+            ];
         }
 
-        arsort($byDistrict);
-        foreach ($byDistrict as $district => $count) {
-            $summary[] = ['section' => 'By district (sessions)', 'metric' => (string) $district, 'count' => (int) $count];
-        }
-
-        ksort($byMonth);
-        foreach ($byMonth as $monthKey => $count) {
+        ksort($byMonthParticipations);
+        foreach ($byMonthParticipations as $monthKey => $count) {
             $monthLabel = (string) $monthKey;
             try {
                 $monthLabel = Carbon::createFromFormat('Y-m', (string) $monthKey)->format('M Y');
             } catch (\Throwable) {
-                // keep key
             }
-            $summary[] = ['section' => 'By month (sessions)', 'metric' => $monthLabel, 'count' => (int) $count];
+            $summary[] = [
+                'section' => 'By month (SHG participations)',
+                'metric' => $monthLabel.' ('.$byMonthSessions[$monthKey].' sessions)',
+                'count' => (int) $count,
+            ];
+        }
+
+        foreach ($sessionDetails as $s) {
+            $summary[] = [
+                'section' => 'By session (SHG attendance)',
+                'metric' => '#'.$s['session_id'].' · '.$s['session_date'].' · '.$s['district'].' · '.$s['session_title'],
+                'count' => (int) $s['shg_members_attendance'],
+            ];
         }
 
         return [
             'meta' => [
-                'title' => '3.3.1 Technical Trainings to Potential Lakhpati Didis / SHG Members / CBOs — SHG members only',
+                'title' => 'Technical Trainings (admin/technical-trainings) — SHG members only',
                 'period_from' => $periodFrom->toDateString(),
                 'period_to' => $periodTo->toDateString(),
                 'as_of' => $asOf->timezone(config('app.timezone'))->format('d M Y, g:i A T'),
                 'rules' => [
-                    'Indicator: 3.3.1 Technical Trainings to Potential Lakhpati Didis/ SHG Members/ CBOs',
-                    'SHG members pack: all approved 3.3.1 sessions except requesting agency = CBO Network',
-                    'Includes SHG Federation, NRLM/USRLM, REAP, Line Department, UYRP, Other',
-                    'Status: approved only (same as deliverables)',
-                    'Period: session_date 1 Apr 2026 → as-of (till date)',
-                    'Deliverables count sessions; this pack also lists every participant row',
+                    'Source: /admin/technical-trainings/dashboard (table technical_trainings)',
+                    'Status: approved only',
+                    'Period: event_date 1 Apr 2026 → as-of (till date)',
+                    'SHG member = Phase 3 Individual with Member of SHG/CBO = Yes (same as Data Centre SHG pack)',
+                    'Attendance is the selected incubatee list on each session (full attendance)',
+                    'Detail sheets list only SHG members — other attendees are excluded',
                 ],
             ],
             'summary_rows' => $summary,
             'sessions' => $sessionDetails,
-            'participants' => $participantDetails,
+            'participants' => $attendanceDetails,
         ];
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return array<int, array{
+     *   applicant_name: string,
+     *   application_no: string,
+     *   phone: string,
+     *   gender: string,
+     *   village: string,
+     *   block: string,
+     *   district_name: string,
+     *   category: string,
+     *   is_onboarded: bool
+     * }>
+     */
+    private function shgMemberMetaByIds(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn (int $id): bool => $id > 0)));
+        if ($ids === [] || ! Schema::hasTable('cfa_submissions')) {
+            return [];
+        }
+
+        $rows = DB::table('cfa_submissions as cs')
+            ->leftJoin('districts as d', 'd.id', '=', 'cs.district_id')
+            ->whereIn('cs.id', $ids)
+            ->whereRaw(PotentialLakhpatiOnboardingSql::phase3ShgMembersOnboardingSql())
+            ->get([
+                'cs.id',
+                'cs.applicant_name',
+                'cs.application_no',
+                'cs.phone',
+                'cs.payload',
+                DB::raw("COALESCE(d.name, '') as district_name"),
+            ]);
+
+        $onboardedIds = [];
+        if (Schema::hasTable('onboarding_batch_cfa') && Schema::hasTable('onboarding_batches')) {
+            $onboardedIds = DB::table('onboarding_batch_cfa as obc')
+                ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                ->whereIn('obc.cfa_submission_id', $ids)
+                ->where('ob.status', 'locked')
+                ->whereNotNull('ob.locked_at')
+                ->pluck('obc.cfa_submission_id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+            $onboardedIds = array_fill_keys($onboardedIds, true);
+        }
+
+        $meta = [];
+        foreach ($rows as $row) {
+            $payload = is_array($row->payload) ? $row->payload : (json_decode((string) ($row->payload ?? ''), true) ?: []);
+            $id = (int) $row->id;
+            $meta[$id] = [
+                'applicant_name' => trim((string) ($row->applicant_name ?? '')) ?: '—',
+                'application_no' => trim((string) ($row->application_no ?? '')) ?: '—',
+                'phone' => trim((string) ($row->phone ?? '')) ?: '—',
+                'gender' => trim((string) ($payload['gender'] ?? '')),
+                'village' => trim((string) ($payload['village'] ?? '')),
+                'block' => trim((string) ($payload['block'] ?? '')),
+                'district_name' => trim((string) ($row->district_name ?? '')),
+                'category' => trim((string) ($payload['category'] ?? $payload['app_category'] ?? '')),
+                'is_onboarded' => isset($onboardedIds[$id]),
+            ];
+        }
+
+        return $meta;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function snapshotForId(mixed $snapshotsRaw, int $incubateeId): array
+    {
+        if (is_string($snapshotsRaw)) {
+            $decoded = json_decode($snapshotsRaw, true);
+            $snapshotsRaw = is_array($decoded) ? $decoded : [];
+        }
+        if (! is_array($snapshotsRaw)) {
+            return [];
+        }
+
+        foreach ($snapshotsRaw as $snap) {
+            if (is_array($snap) && (int) ($snap['incubatee_id'] ?? 0) === $incubateeId) {
+                return $snap;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $snap
+     * @param  array<string, mixed>  $meta
+     */
+    private function onboardLabel(array $snap, array $meta): string
+    {
+        $label = trim((string) ($snap['onboard_label'] ?? ''));
+        if ($label !== '') {
+            return $label;
+        }
+        $batch = trim((string) ($snap['onboarding_batch_name'] ?? ''));
+        if ($batch !== '' || ! empty($snap['onboarding_batch_id'])) {
+            return 'Onboarded';
+        }
+
+        return ! empty($meta['is_onboarded']) ? 'Onboarded' : 'Not onboarded';
     }
 
     /**
@@ -256,37 +340,18 @@ final class Phase3331ShgMembersPackDataService
     {
         return [
             'meta' => [
-                'title' => '3.3.1 Technical Trainings — SHG members only',
+                'title' => 'Technical Trainings — SHG members only',
                 'period_from' => $periodFrom->toDateString(),
                 'period_to' => $periodTo->toDateString(),
                 'as_of' => $asOf->timezone(config('app.timezone'))->format('d M Y, g:i A T'),
-                'rules' => ['Table potential_lakhpati_technical_trainings is missing — run migrations.'],
+                'rules' => ['Table technical_trainings is missing — run migrations.'],
             ],
             'summary_rows' => [
-                ['section' => '3.3.1 Overview', 'metric' => 'Approved sessions (SHG members audience)', 'count' => 0],
+                ['section' => 'Overview', 'metric' => 'SHG member participations (attendance rows)', 'count' => 0],
             ],
             'sessions' => [],
             'participants' => [],
         ];
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function decodeParticipants(mixed $json): array
-    {
-        if (is_array($json)) {
-            return array_values(array_filter($json, 'is_array'));
-        }
-
-        $raw = trim((string) $json);
-        if ($raw === '' || $raw === 'null' || $raw === '[]') {
-            return [];
-        }
-
-        $decoded = json_decode($raw, true);
-
-        return is_array($decoded) ? array_values(array_filter($decoded, 'is_array')) : [];
     }
 
     private function mediaCount(mixed $json): int

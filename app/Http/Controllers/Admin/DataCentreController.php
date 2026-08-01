@@ -134,12 +134,38 @@ class DataCentreController extends Controller
     /**
      * Phase 3 SHG members / CBO / 8.2 REAP Excel pack (counts + detail lists).
      */
-    public function exportShgCboReapPack(): StreamedResponse
+    public function exportShgCboReapPack(): StreamedResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
     {
-        $pack = $this->shgCboReapPack->build();
-        $fileName = 'phase3-shg-cbo-reap-pack-'.now()->format('Ymd_His').'.xlsx';
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(300);
 
-        return $this->shgCboReapExcel->download($pack, $fileName);
+        try {
+            if ($issue = \App\Services\Deliverables\Exports\DeliverablesExcelSupport::availabilityIssue()) {
+                report(new \RuntimeException('SHG/CBO Excel export unavailable: '.$issue));
+
+                return redirect()
+                    ->route('admin.data-centre.index')
+                    ->withErrors(['export' => 'Excel export unavailable on server: '.$issue]);
+            }
+
+            $pack = $this->shgCboReapPack->build();
+            $fileName = 'phase3-shg-cbo-reap-pack-'.now()->format('Ymd_His').'.xlsx';
+            $tempPath = storage_path('app/temp/'.$fileName);
+            $this->shgCboReapExcel->writeToPath($pack, $tempPath);
+            unset($pack);
+
+            return response()
+                ->download($tempPath, $fileName, [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ])
+                ->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('admin.data-centre.index')
+                ->withErrors(['export' => 'Excel export failed: '.$e->getMessage()]);
+        }
     }
 
     /** @return array{0: string, 1: string} */

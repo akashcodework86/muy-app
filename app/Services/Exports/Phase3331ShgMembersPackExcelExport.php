@@ -50,7 +50,7 @@ final class Phase3331ShgMembersPackExcelExport
         $this->addReadme($spreadsheet, $meta);
         $this->addCountsSheet($spreadsheet, $pack['summary_rows'] ?? [], $meta);
         $this->addSessionsSheet($spreadsheet, $pack['sessions'] ?? []);
-        $this->addParticipantsSheet($spreadsheet, $pack['participants'] ?? []);
+        $this->addAttendanceSheet($spreadsheet, $pack['participants'] ?? []);
 
         $spreadsheet->setActiveSheetIndex(1);
 
@@ -64,7 +64,7 @@ final class Phase3331ShgMembersPackExcelExport
     {
         $sheet = $spreadsheet->createSheet();
         $sheet->setTitle('README');
-        $sheet->setCellValue('A1', (string) ($meta['title'] ?? '3.3.1 SHG members pack'));
+        $sheet->setCellValue('A1', (string) ($meta['title'] ?? 'Technical trainings — SHG members'));
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
         $sheet->mergeCells('A1:B1');
 
@@ -88,7 +88,7 @@ final class Phase3331ShgMembersPackExcelExport
             $r++;
         }
         $sheet->getColumnDimension('A')->setWidth(22);
-        $sheet->getColumnDimension('B')->setWidth(90);
+        $sheet->getColumnDimension('B')->setWidth(95);
     }
 
     /**
@@ -100,13 +100,12 @@ final class Phase3331ShgMembersPackExcelExport
         $sheet = $spreadsheet->createSheet();
         $sheet->setTitle('Counts');
 
-        $sheet->setCellValue('A1', '3.3.1 — SHG members audience (counts only)');
+        $sheet->setCellValue('A1', 'Technical trainings — SHG members only (counts)');
         $sheet->mergeCells('A1:C1');
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => DeliverablesExcelSupport::HEADER_FILL]],
         ]);
-
         $sheet->setCellValue('A2', 'Period: '.($meta['period_from'] ?? '').' → '.($meta['period_to'] ?? ''));
         $sheet->mergeCells('A2:C2');
 
@@ -129,13 +128,18 @@ final class Phase3331ShgMembersPackExcelExport
             }
             $sheet->setCellValue('A'.$r, DeliverablesExcelSupport::sanitizeCell($section));
             $sheet->setCellValue('B'.$r, DeliverablesExcelSupport::sanitizeCell($row['metric'] ?? ''));
-            $sheet->setCellValue('C'.$r, is_numeric($row['count'] ?? null) ? (int) $row['count'] : DeliverablesExcelSupport::sanitizeCell($row['count'] ?? ''));
+            $sheet->setCellValue(
+                'C'.$r,
+                is_numeric($row['count'] ?? null)
+                    ? (int) $row['count']
+                    : DeliverablesExcelSupport::sanitizeCell($row['count'] ?? '')
+            );
             $prevSection = $section;
             $r++;
         }
 
-        $sheet->getColumnDimension('A')->setWidth(28);
-        $sheet->getColumnDimension('B')->setWidth(48);
+        $sheet->getColumnDimension('A')->setWidth(34);
+        $sheet->getColumnDimension('B')->setWidth(70);
         $sheet->getColumnDimension('C')->setWidth(12);
     }
 
@@ -148,12 +152,11 @@ final class Phase3331ShgMembersPackExcelExport
         $sheet->setTitle('Sessions Detail');
 
         $headers = [
-            'Sr', 'Session ID', 'Date', 'Title', 'Brief', 'Agency', 'Mode',
-            'District', 'Hub', 'Block', 'Gram panchayat', 'Venue',
-            'Male', 'Female', 'Total', 'Attendance files', 'Workshop photos',
-            'Submitted by', 'Status', 'Approved at',
+            'Sr', 'Session ID', 'Date', 'Title', 'Brief', 'Batch',
+            'District', 'Hub', 'Total attendance', 'SHG members',
+            'Attendance files', 'Submitted by', 'Status', 'Approved at',
         ];
-        $this->writeHeaderRow($sheet, $headers, '3.3.1 sessions — SHG members audience (approved, excl. CBO Network)');
+        $this->writeHeaderRow($sheet, $headers, 'Sessions with SHG member attendance (from technical-trainings dashboard)');
 
         $r = 5;
         $sr = 0;
@@ -165,25 +168,21 @@ final class Phase3331ShgMembersPackExcelExport
                 $row['session_date'] ?? '',
                 $row['session_title'] ?? '',
                 $row['session_brief'] ?? '',
-                $row['requesting_agency'] ?? '',
-                $row['workshop_mode'] ?? '',
+                $row['batch_name'] ?? '',
                 $row['district'] ?? '',
                 $row['hub'] ?? '',
-                $row['block'] ?? '',
-                $row['gram_panchayat'] ?? '',
-                $row['venue'] ?? '',
-                $row['male'] ?? 0,
-                $row['female'] ?? 0,
-                $row['participants_total'] ?? 0,
+                $row['total_attendance'] ?? 0,
+                $row['shg_members_attendance'] ?? 0,
                 $row['attendance_files'] ?? 0,
-                $row['workshop_photos'] ?? 0,
                 $row['submitted_by'] ?? '',
                 $row['status'] ?? '',
                 $row['approved_at'] ?? '',
             ];
             foreach ($vals as $i => $v) {
-                $cell = DeliverablesExcelSupport::columnLetter($i).$r;
-                $sheet->setCellValue($cell, is_int($v) || is_float($v) ? $v : DeliverablesExcelSupport::sanitizeCell($v));
+                $sheet->setCellValue(
+                    DeliverablesExcelSupport::columnLetter($i).$r,
+                    is_int($v) || is_float($v) ? $v : DeliverablesExcelSupport::sanitizeCell($v)
+                );
             }
             $r++;
         }
@@ -194,18 +193,18 @@ final class Phase3331ShgMembersPackExcelExport
     /**
      * @param  list<array<string, mixed>>  $rows
      */
-    private function addParticipantsSheet(Spreadsheet $spreadsheet, array $rows): void
+    private function addAttendanceSheet(Spreadsheet $spreadsheet, array $rows): void
     {
         $sheet = $spreadsheet->createSheet();
-        $sheet->setTitle('Participants Detail');
+        $sheet->setTitle('SHG Attendance Detail');
 
         $headers = [
-            'Sr', 'Session ID', 'Session date', 'Session title', 'Agency',
-            'Session district', 'Hub', 'Session block', 'Venue',
-            'Participant #', 'Name', 'Mobile', 'Gender',
-            'Participant district', 'Participant block', 'Participant GP',
+            'Sr', 'Session ID', 'Session date', 'Session title', 'Session district', 'Hub',
+            'CFA ID', 'Application No', 'Name', 'Phone', 'Gender',
+            'Block', 'Village', 'Member district', 'Onboard status', 'Onboard batch',
+            'Category', 'Member of SHG/CBO',
         ];
-        $this->writeHeaderRow($sheet, $headers, '3.3.1 participant list — SHG members audience sessions');
+        $this->writeHeaderRow($sheet, $headers, 'SHG member attendance rows (full detail from selected incubatees)');
 
         $r = 5;
         $sr = 0;
@@ -216,22 +215,26 @@ final class Phase3331ShgMembersPackExcelExport
                 $row['session_id'] ?? '',
                 $row['session_date'] ?? '',
                 $row['session_title'] ?? '',
-                $row['requesting_agency'] ?? '',
-                $row['district'] ?? '',
+                $row['session_district'] ?? '',
                 $row['hub'] ?? '',
-                $row['block'] ?? '',
-                $row['venue'] ?? '',
-                $row['sr'] ?? '',
+                $row['cfa_id'] ?? '',
+                $row['application_no'] ?? '',
                 $row['name'] ?? '',
-                $row['mobile'] ?? '',
+                $row['phone'] ?? '',
                 $row['gender'] ?? '',
-                $row['participant_district'] ?? '',
-                $row['participant_block'] ?? '',
-                $row['participant_gp'] ?? '',
+                $row['block'] ?? '',
+                $row['village'] ?? '',
+                $row['member_district'] ?? '',
+                $row['onboard_status'] ?? '',
+                $row['onboard_batch'] ?? '',
+                $row['category'] ?? '',
+                $row['member_of_shg'] ?? '',
             ];
             foreach ($vals as $i => $v) {
-                $cell = DeliverablesExcelSupport::columnLetter($i).$r;
-                $sheet->setCellValue($cell, is_int($v) || is_float($v) ? $v : DeliverablesExcelSupport::sanitizeCell($v));
+                $sheet->setCellValue(
+                    DeliverablesExcelSupport::columnLetter($i).$r,
+                    is_int($v) || is_float($v) ? $v : DeliverablesExcelSupport::sanitizeCell($v)
+                );
             }
             $r++;
         }
@@ -266,8 +269,8 @@ final class Phase3331ShgMembersPackExcelExport
     private function autosize(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, int $colCount): void
     {
         for ($i = 0; $i < $colCount; $i++) {
-            $letter = DeliverablesExcelSupport::columnLetter($i);
-            $sheet->getColumnDimension($letter)->setAutoSize(true);
+            // Fixed widths avoid autosize memory spikes on shared hosting.
+            $sheet->getColumnDimension(DeliverablesExcelSupport::columnLetter($i))->setWidth($i === 0 ? 8 : 16);
         }
     }
 }

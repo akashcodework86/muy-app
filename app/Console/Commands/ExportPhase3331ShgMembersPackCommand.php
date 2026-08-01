@@ -12,7 +12,7 @@ class ExportPhase3331ShgMembersPackCommand extends Command
     protected $signature = 'exports:phase3-3-3-1-shg-members-pack
                             {--path= : Absolute or storage-relative path for the xlsx}';
 
-    protected $description = 'Build 3.3.1 Technical Trainings Excel for SHG Federation sessions (counts + details)';
+    protected $description = 'Build Excel from /admin/technical-trainings attendance — SHG members only';
 
     public function handle(Phase3331ShgMembersPackDataService $data, Phase3331ShgMembersPackExcelExport $excel): int
     {
