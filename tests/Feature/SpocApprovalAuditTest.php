@@ -22,6 +22,48 @@ class SpocApprovalAuditTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_module_off_blocks_new_staff_cases_but_keeps_existing_cases_and_spoc_approval_available(): void
+    {
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => false]);
+
+        [, $staff, $spoc, , $case] = $this->seedPendingCaseWithAttachment();
+
+        $this->actingAs($staff)
+            ->get(route('staff.services.index'))
+            ->assertOk()
+            ->assertSee('New submissions are paused')
+            ->assertSee('Audit Test Applicant');
+
+        $this->actingAs($staff)
+            ->get(route('staff.services.create'))
+            ->assertForbidden();
+
+        $this->actingAs($staff)
+            ->post(route('staff.services.store'), [])
+            ->assertForbidden();
+
+        $this->actingAs($staff)
+            ->get(route('staff.services.show', $case))
+            ->assertOk();
+
+        $case->update(['status' => ServiceCase::STATUS_SENT_BACK]);
+        $this->actingAs($staff)
+            ->get(route('staff.services.edit', $case))
+            ->assertOk();
+        $case->update(['status' => ServiceCase::STATUS_PENDING_APPROVAL]);
+
+        $this->actingAs($spoc)
+            ->get(route('spoc.service-cases.index'))
+            ->assertOk()
+            ->assertSee('Audit Test Applicant');
+
+        $this->actingAs($spoc)
+            ->post(route('spoc.service-cases.approve', $case))
+            ->assertRedirect();
+
+        $this->assertSame(ServiceCase::STATUS_APPROVED, $case->fresh()->status);
+    }
+
     public function test_approve_without_document_view_is_logged_in_event_meta(): void
     {
         app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);
@@ -169,6 +211,8 @@ class SpocApprovalAuditTest extends TestCase
             'status' => ServiceCase::STATUS_PENDING_APPROVAL,
             'reference_number' => 'SC-AUDIT-1',
             'submitted_at' => now(),
+            'submitted_by' => $staff->id,
+            'created_by' => $staff->id,
         ]);
 
         $path = 'service-cases/test-doc.jpg';

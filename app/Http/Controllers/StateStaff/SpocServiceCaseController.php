@@ -12,7 +12,6 @@ use App\Models\ServiceCase;
 use App\Models\ServiceCaseEvent;
 use App\Models\User;
 use App\Notifications\ServiceCaseWorkflowNotification;
-use App\Services\AppSettingsService;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MisFieldActivityListService;
 use App\Services\SpocServiceCaseReviewTelemetryService;
@@ -37,7 +36,6 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 class SpocServiceCaseController extends Controller
 {
     public function __construct(
-        private AppSettingsService $settings,
         private LegacyApplicationServiceCaseSupport $legacyApplications,
         private SpocServiceCaseReviewTelemetryService $reviewTelemetry,
         private MisFieldActivityListService $fieldMisList,
@@ -45,7 +43,6 @@ class SpocServiceCaseController extends Controller
 
     public function index(Request $request): View
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
 
         $status = (string) $request->query('status', '');
@@ -659,7 +656,6 @@ class SpocServiceCaseController extends Controller
 
     public function show(Request $request, ServiceCase $service_case): View
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
 
@@ -686,7 +682,6 @@ class SpocServiceCaseController extends Controller
 
     public function approve(Request $request, ServiceCase $service_case): RedirectResponse
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
 
@@ -710,7 +705,6 @@ class SpocServiceCaseController extends Controller
 
     public function recordReviewTelemetry(Request $request, ServiceCase $service_case): JsonResponse
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
 
@@ -743,7 +737,6 @@ class SpocServiceCaseController extends Controller
 
     public function bulkApprove(Request $request): RedirectResponse
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         abort_unless(SpocBulkApproveAccess::canBulkApprove($spoc), 403);
 
@@ -816,7 +809,6 @@ class SpocServiceCaseController extends Controller
 
     public function sendBack(Request $request, ServiceCase $service_case): RedirectResponse
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
 
@@ -853,7 +845,6 @@ class SpocServiceCaseController extends Controller
 
     public function reject(Request $request, ServiceCase $service_case): RedirectResponse
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
 
@@ -890,7 +881,6 @@ class SpocServiceCaseController extends Controller
 
     public function downloadAttachment(Request $request, ServiceCase $service_case, int $attachment)
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertCaseInSpocDistrict($service_case, (int) $spoc->id);
         $this->reviewTelemetry->markDocumentViewed((int) $spoc->id, (int) $service_case->id, 'download');
@@ -951,15 +941,6 @@ class SpocServiceCaseController extends Controller
             'Content-Type' => $contentType,
             'Content-Disposition' => 'inline; filename="'.$attachmentRecord->original_name.'"',
         ]);
-    }
-
-    private function ensureModuleOn(): void
-    {
-        abort_unless(
-            $this->settings->isEnabled('service_module.enabled'),
-            403,
-            'The service module is turned off. Ask your state admin to enable it under Admin → More → Service module settings.'
-        );
     }
 
     private function spocOrAbort(Request $request): User

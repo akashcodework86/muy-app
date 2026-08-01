@@ -362,7 +362,11 @@
     </style>
 
     <p class="svc-page-actions">
-        <a href="{{ route('staff.services.create') }}" class="svc-new-btn">+ New submission</a>
+        @if ($serviceModuleEnabled ?? false)
+            <a href="{{ route('staff.services.create') }}" class="svc-new-btn">+ New submission</a>
+        @else
+            <span style="color:#92400e;font-weight:700;">New submissions are paused; existing cases remain available.</span>
+        @endif
         <a href="{{ route('staff.applications') }}" class="svc-link">Applications</a>
     </p>
 

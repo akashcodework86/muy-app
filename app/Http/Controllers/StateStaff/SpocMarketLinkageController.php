@@ -8,7 +8,6 @@ use App\Models\MarketLinkagePartner;
 use App\Models\MarketLinkageSubmission;
 use App\Models\ServiceCase;
 use App\Models\User;
-use App\Services\AppSettingsService;
 use App\Services\MarketLinkageWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,13 +18,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class SpocMarketLinkageController extends Controller
 {
     public function __construct(
-        private AppSettingsService $settings,
         private MarketLinkageWorkflowService $workflow,
     ) {}
 
     public function show(Request $request, MarketLinkageSubmission $market_linkage): View
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertSubmissionInSpocDistrict($market_linkage, (int) $spoc->id);
 
@@ -39,7 +36,6 @@ class SpocMarketLinkageController extends Controller
 
     public function approve(Request $request, MarketLinkageSubmission $market_linkage): RedirectResponse
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertSubmissionInSpocDistrict($market_linkage, (int) $spoc->id);
 
@@ -51,7 +47,6 @@ class SpocMarketLinkageController extends Controller
 
     public function sendBack(Request $request, MarketLinkageSubmission $market_linkage): RedirectResponse
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertSubmissionInSpocDistrict($market_linkage, (int) $spoc->id);
 
@@ -67,7 +62,6 @@ class SpocMarketLinkageController extends Controller
 
     public function reject(Request $request, MarketLinkageSubmission $market_linkage): RedirectResponse
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertSubmissionInSpocDistrict($market_linkage, (int) $spoc->id);
 
@@ -83,7 +77,6 @@ class SpocMarketLinkageController extends Controller
 
     public function downloadDocument(Request $request, MarketLinkageSubmission $market_linkage, MarketLinkagePartner $partner): StreamedResponse
     {
-        $this->ensureModuleOn();
         $spoc = $this->spocOrAbort($request);
         $this->assertSubmissionInSpocDistrict($market_linkage, (int) $spoc->id);
         abort_unless((int) $partner->market_linkage_submission_id === (int) $market_linkage->id, 404);
@@ -94,15 +87,6 @@ class SpocMarketLinkageController extends Controller
         abort_unless($disk->exists($path), 404);
 
         return $disk->download($path, (string) ($partner->document_original_name ?: 'document'));
-    }
-
-    private function ensureModuleOn(): void
-    {
-        abort_unless(
-            $this->settings->isEnabled('service_module.enabled'),
-            403,
-            'The service module is turned off. Ask your state admin to enable it under Admin → More → Service module settings.'
-        );
     }
 
     private function spocOrAbort(Request $request): User

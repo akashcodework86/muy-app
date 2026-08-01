@@ -30,9 +30,9 @@
                 <div>
                     <h3 style="margin:0 0 0.25rem; font-size:1rem; color:#18181b;">Service module — master switch</h3>
                     <p style="margin:0; font-size:0.82rem; color:#52525b; line-height:1.45;">
-                        When <strong>ON</strong>, district staff see the "Services" menu and can create new service cases.<br>
-                        When <strong>OFF</strong>, no new cases can be created, but existing in-flight cases
-                        (draft / pending approval / sent back) can still be completed so nothing is stranded.
+                        When <strong>ON</strong>, district staff can create new service cases, including Market Linkage submissions.<br>
+                        When <strong>OFF</strong>, new submission actions are hidden and blocked, but existing in-flight cases
+                        (draft / pending approval / sent back) and State Staff approvals remain available so nothing is stranded.
                     </p>
                 </div>
                 <label style="display:inline-flex; align-items:center; gap:0.5rem; cursor:pointer; flex-shrink:0;">

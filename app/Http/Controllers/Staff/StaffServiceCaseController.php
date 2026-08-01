@@ -44,7 +44,6 @@ class StaffServiceCaseController extends Controller
 
     public function index(Request $request): View
     {
-        $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
 
         $scope = (string) $request->query('scope', 'my');
@@ -258,6 +257,7 @@ class StaffServiceCaseController extends Controller
             'filterRecordType' => $recordType,
             'filterScope' => $scope,
             'services' => $services,
+            'serviceModuleEnabled' => $this->settings->isEnabled('service_module.enabled'),
             'staffDeleteEnabled' => $this->settings->isEnabled('service_module.staff_delete_enabled'),
             'reapTargetsProgress' => $reapOnly
                 ? $this->reapTargetsProgress->districtProgress($districtId)
@@ -512,7 +512,6 @@ class StaffServiceCaseController extends Controller
 
     public function show(Request $request, ServiceCase $service_case): View
     {
-        $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
         $this->assertCaseInDistrict($staff, $service_case);
 
@@ -537,7 +536,6 @@ class StaffServiceCaseController extends Controller
 
     public function edit(Request $request, ServiceCase $service_case): View
     {
-        $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
         $this->assertCaseInDistrict($staff, $service_case);
         $this->assertCaseOwnedByStaff($staff, $service_case);
@@ -573,7 +571,6 @@ class StaffServiceCaseController extends Controller
 
     public function update(Request $request, ServiceCase $service_case): RedirectResponse
     {
-        $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
         $this->assertCaseInDistrict($staff, $service_case);
         $this->assertCaseOwnedByStaff($staff, $service_case);
@@ -668,7 +665,6 @@ class StaffServiceCaseController extends Controller
 
     public function destroy(Request $request, ServiceCase $service_case): RedirectResponse
     {
-        $this->ensureModuleOn();
         abort_unless(
             $this->settings->isEnabled('service_module.staff_delete_enabled'),
             403,
@@ -693,7 +689,6 @@ class StaffServiceCaseController extends Controller
 
     public function downloadAttachment(Request $request, ServiceCase $service_case, int $attachment)
     {
-        $this->ensureModuleOn();
         $staff = $this->staffOrAbort($request);
         $this->assertCaseInDistrict($staff, $service_case);
         $attachmentRecord = $service_case->attachments()->whereKey($attachment)->firstOrFail();

@@ -11,7 +11,6 @@
         || str_contains(strtolower((string) ($u->designationRecord?->name ?? '')), 'field co-ordinator')
     );
     $appSettings = app(\App\Services\AppSettingsService::class);
-    $staffServiceModuleOn = $showStaffNav && $appSettings->isEnabled('service_module.enabled');
     $staffNavTrainingPackage = $appSettings->isEnabled('staff_nav.training_package.visible');
     $staffNavTechnicalTraining = $appSettings->isEnabled('staff_nav.technical_training.visible');
     $staffNavEapEdp = $appSettings->isEnabled('staff_nav.eap_edp_session.visible');
@@ -1121,11 +1120,9 @@
                 </summary>
                 <div class="admin-topbar__dropdown-panel admin-topbar__dropdown-panel--wide" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Service module</p>
-                    @if ($staffServiceModuleOn)
                     <a href="{{ route('staff.services.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-services') is-active @endif" role="menuitem">
                         {!! $i('doc') !!}<span>Services</span>
                     </a>
-                    @endif
                     <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Market linkage</span>
                     </a>

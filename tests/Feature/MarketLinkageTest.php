@@ -21,6 +21,13 @@ class MarketLinkageTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);
+    }
+
     public function test_district_staff_can_submit_market_linkage_with_multiple_partners(): void
     {
         Storage::fake('local');
@@ -432,6 +439,71 @@ class MarketLinkageTest extends TestCase
             ->assertSee('SPOC Flow Test')
             ->assertSee('Market Linkage')
             ->assertSee('approved', false);
+    }
+
+    public function test_module_off_blocks_new_market_linkages_but_allows_spoc_to_finish_pending_approval(): void
+    {
+        $district = $this->createDistrict();
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $spoc = User::factory()->create(['role' => 'state_staff', 'is_active' => true]);
+        DistrictServiceSpoc::query()->create([
+            'district_id' => $district->id,
+            'state_staff_user_id' => $spoc->id,
+            'assigned_by' => $staff->id,
+            'assigned_at' => now(),
+        ]);
+        $cfaId = $this->seedOnboardedApplicant($district, 'APP-ML-OFF-1', 'Switch Off Test');
+
+        $this->actingAs($staff)->post(route('staff.market-linkages.store'), [
+            'cfa_submission_id' => $cfaId,
+            'partners' => [[
+                'partner_name' => 'Pending Partner',
+                'linkage_mode' => 'online',
+                'linkage_date' => '2026-05-20',
+                'link_url' => 'https://example.com/pending',
+            ]],
+        ])->assertRedirect();
+
+        $submission = MarketLinkageSubmission::query()->firstOrFail();
+        app(AppSettingsService::class)->setMany(['service_module.enabled' => false]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.market-linkages.dashboard'))
+            ->assertOk()
+            ->assertDontSee('+ Add market linkage');
+
+        $this->actingAs($staff)
+            ->get(route('staff.market-linkages.create'))
+            ->assertForbidden();
+
+        $this->actingAs($staff)
+            ->post(route('staff.market-linkages.store'), [
+                'cfa_submission_id' => $cfaId,
+                'partners' => [[
+                    'partner_name' => 'Blocked Partner',
+                    'linkage_mode' => 'online',
+                    'linkage_date' => '2026-05-21',
+                    'link_url' => 'https://example.com/blocked',
+                ]],
+            ])
+            ->assertForbidden();
+
+        $this->assertSame(1, MarketLinkageSubmission::query()->count());
+
+        $this->actingAs($spoc)
+            ->get(route('spoc.market-linkages.show', $submission))
+            ->assertOk()
+            ->assertSee('Pending Partner');
+
+        $this->actingAs($spoc)
+            ->post(route('spoc.market-linkages.approve', $submission))
+            ->assertRedirect();
+
+        $this->assertSame(ServiceCase::STATUS_APPROVED, $submission->fresh()->status);
     }
 
     public function test_district_staff_can_delete_own_pending_market_linkage(): void

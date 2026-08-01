@@ -42,6 +42,7 @@ class MarketLinkageController extends Controller
 
     public function create(Request $request): View
     {
+        $this->ensureNewSubmissionsEnabled();
         $staff = $this->staffOrAbort($request);
         $submissions = $this->eligibleSubmissions($staff)->get();
         $legacyRows = $this->legacyRowsForStaff($staff);
@@ -64,6 +65,7 @@ class MarketLinkageController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->ensureNewSubmissionsEnabled();
         $staff = $this->staffOrAbort($request);
 
         if (! Schema::hasTable('market_linkage_submissions')) {
@@ -274,7 +276,10 @@ class MarketLinkageController extends Controller
             'submission' => $marketLinkage,
             'currentRole' => (string) $user->role,
             'dashboardRoute' => $routes['dashboard'],
-            'createRoute' => MarketLinkageAccess::canSubmit($user) ? 'staff.market-linkages.create' : null,
+            'createRoute' => $this->settings->isEnabled('service_module.enabled')
+                && MarketLinkageAccess::canSubmit($user)
+                ? 'staff.market-linkages.create'
+                : null,
             'documentRoutePrefix' => $routes['document'],
             'staffListRoute' => $staffListRoute,
             'editRoute' => MarketLinkageAccess::canSubmit($user) && $marketLinkage->canBeEditedByStaff()
@@ -989,9 +994,21 @@ class MarketLinkageController extends Controller
             'dashboardRoute' => $routes['dashboard'],
             'exportRoute' => $routes['export'],
             'showRoute' => $routes['show'],
-            'createRoute' => MarketLinkageAccess::canSubmit($user) ? 'staff.market-linkages.create' : null,
+            'createRoute' => $this->settings->isEnabled('service_module.enabled')
+                && MarketLinkageAccess::canSubmit($user)
+                ? 'staff.market-linkages.create'
+                : null,
             'documentRoutePrefix' => $routes['document'],
         ]);
+    }
+
+    private function ensureNewSubmissionsEnabled(): void
+    {
+        abort_unless(
+            $this->settings->isEnabled('service_module.enabled'),
+            403,
+            'New service submissions are paused. Existing cases can still be viewed and completed.'
+        );
     }
 
     /**
