@@ -186,7 +186,7 @@
 
             <div id="wrap_delivered" style="margin-bottom:0.85rem;display:none;">
                 <label for="delivered_on" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Delivered on</label>
-                <input type="date" id="delivered_on" name="delivered_on" value="{{ old('delivered_on') }}" style="padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                <x-activity-date-input name="delivered_on" id="delivered_on" :required="false" style="padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;" />
                 <p style="font-size:0.75rem;color:#71717a;margin:0.25rem 0 0;">Shown for services that <strong>auto-approve</strong> (no SPOC). Defaults to today if left blank.</p>
             </div>
 

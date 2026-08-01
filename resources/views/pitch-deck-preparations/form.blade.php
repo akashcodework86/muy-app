@@ -123,8 +123,7 @@
                 </div>
                 <div class="pdp-field">
                     <label for="prepared_on">Prepared on <span class="pdp-req">*</span></label>
-                    <input type="date" id="prepared_on" name="prepared_on"
-                        value="{{ old('prepared_on', $isEdit ? $row->prepared_on?->format('Y-m-d') : '') }}" required>
+                    <x-activity-date-input name="prepared_on" id="prepared_on" :value="$isEdit ? $row->prepared_on?->format('Y-m-d') : null" />
                 </div>
 
                 <div class="pdp-field pdp-field--full">

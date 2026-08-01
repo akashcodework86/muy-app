@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\PitchDeckIncubateeCatalogService;
 use App\Support\BrandingCommunicationAccess;
 use App\Support\BrandingCommunicationOptions;
+use App\Support\TodayOnlyDate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -60,7 +61,7 @@ class CaseStudyEntryController extends Controller
             'story_type' => ['required', 'string', Rule::in(array_keys(BrandingCommunicationOptions::storyTypes()))],
             'cfa_submission_id' => ['nullable', 'integer', 'min:0'],
             'legacy_application_id' => ['nullable', 'integer', 'min:0'],
-            'story_date' => ['required', 'date'],
+            'story_date' => TodayOnlyDate::rules(),
             'documents' => ['required', 'array', 'min:1', 'max:'.$maxAttachments],
             'documents.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png,webp', 'max:20480'],
             'remarks' => ['nullable', 'string', 'max:5000'],

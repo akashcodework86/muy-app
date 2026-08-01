@@ -24,7 +24,7 @@
                 </div>
                 <div class="bc-field">
                     <label for="campaign_date">Campaign date <span class="bc-req">*</span></label>
-                    <input type="date" id="campaign_date" name="campaign_date" value="{{ old('campaign_date', now()->toDateString()) }}" required>
+                    <x-activity-date-input name="campaign_date" id="campaign_date" />
                 </div>
                 <div class="bc-field">
                     <label for="media_type">Media type <span class="bc-req">*</span></label>

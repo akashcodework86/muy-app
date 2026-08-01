@@ -164,7 +164,11 @@
                     </div>
                     <div class="att-field">
                         <label>Visit date <span class="att-req">*</span></label>
-                        <input type="date" name="visit_date" value="{{ old('visit_date', $activeDraft?->visit_date?->toDateString() ?? now()->toDateString()) }}" required class="att-input" max="{{ now()->toDateString() }}">
+                        <x-activity-date-input
+                            name="visit_date"
+                            :value="$editingSubmitted ? $activeDraft?->visit_date?->toDateString() : null"
+                            class="att-input"
+                        />
                     </div>
                 </div>
 

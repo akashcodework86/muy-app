@@ -6,6 +6,7 @@ use App\Models\MuyNewsletterEntry;
 use App\Models\User;
 use App\Support\BrandingCommunicationAccess;
 use App\Support\BrandingCommunicationOptions;
+use App\Support\TodayOnlyDate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,7 +44,7 @@ class MuyNewsletterController extends Controller
         }
 
         $validated = $request->validate([
-            'issue_date' => ['required', 'date'],
+            'issue_date' => TodayOnlyDate::rules(),
             'issue_edition' => ['required', 'string', 'max:128'],
             'title' => ['required', 'string', 'max:255'],
             'distribution_mode' => ['required', 'string', Rule::in(array_keys(BrandingCommunicationOptions::distributionModes()))],

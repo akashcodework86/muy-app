@@ -8,6 +8,7 @@ use App\Models\BlockWorkshop;
 use App\Models\DistrictBlock;
 use App\Models\GramPanchayat;
 use App\Services\BlockWorkshopParticipantRowsService;
+use App\Support\TodayOnlyDate;
 use App\Support\WorkshopDashboardCsvExport;
 use App\Services\FieldVisitAttendanceSheetService;
 use App\Services\FieldVisitMediaStorage;
@@ -175,7 +176,7 @@ class BlockWorkshopController extends Controller
         $this->assertOwnEditable($user, $blockWorkshop);
 
         $rules = [
-            'visit_date' => ['nullable', 'date'],
+            'visit_date' => TodayOnlyDate::rulesAllowingExisting($blockWorkshop->visit_date?->toDateString(), false),
             'district_block_id' => ['nullable', 'integer', 'exists:district_blocks,id'],
             'gram_panchayat_id' => ['nullable', 'integer', 'exists:gram_panchayats,id'],
             'area' => ['nullable', 'string', 'max:191'],
@@ -367,7 +368,7 @@ class BlockWorkshopController extends Controller
         $districtId = (int) ($user->district_id ?: 0);
 
         $rules = [
-            'visit_date' => ['required', 'date'],
+            'visit_date' => TodayOnlyDate::rules(),
             'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
             'gram_panchayat_id' => ['required', 'integer', 'exists:gram_panchayats,id'],
             'area' => ['required', 'string', 'max:191'],
@@ -657,7 +658,7 @@ class BlockWorkshopController extends Controller
         $districtId = (int) ($user->district_id ?: 0);
 
         $rules = [
-            'visit_date' => ['required', 'date'],
+            'visit_date' => TodayOnlyDate::rulesAllowingExisting($blockWorkshop->visit_date?->toDateString()),
             'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
             'gram_panchayat_id' => ['required', 'integer', 'exists:gram_panchayats,id'],
             'area' => ['required', 'string', 'max:191'],

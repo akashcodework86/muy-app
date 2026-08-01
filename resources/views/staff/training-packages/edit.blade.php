@@ -35,7 +35,7 @@
                 </div>
                 <div class="tp-field">
                     <label>Date of Session *</label>
-                    <input type="date" name="session_date" value="{{ old('session_date', $row->event_date?->format('Y-m-d')) }}" required>
+                    <x-activity-date-input name="session_date" :value="$row->event_date?->format('Y-m-d')" />
                 </div>
                 <div class="tp-field">
                     <label>District</label>

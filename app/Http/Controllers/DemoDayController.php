@@ -6,6 +6,7 @@ use App\Models\DemoDay;
 use App\Models\User;
 use App\Services\DemoDayIncubateeCatalogService;
 use App\Support\DemoDayOptions;
+use App\Support\TodayOnlyDate;
 use App\Support\DemoDaysDeliverablesSupport;
 use App\Support\FundingSchematicConvergenceAccess;
 use App\Support\IncubateeAttendeeCounts;
@@ -76,7 +77,7 @@ class DemoDayController extends Controller
         abort_unless(FundingSchematicConvergenceAccess::canEdit($user, (int) $demoDay->entered_by_user_id), 403);
         $this->assertTableExists();
 
-        $validated = $this->validateSubmission($request, requirePhotos: ! $demoDay->hasEventPhotos());
+        $validated = $this->validateSubmission($request, requirePhotos: ! $demoDay->hasEventPhotos(), existingEventDate: $demoDay->event_date?->toDateString());
         $participating = $this->resolveParticipatingIncubateesOrFail($validated);
 
         $payload = $this->payloadFromValidated($validated, $participating, $user);
@@ -416,7 +417,7 @@ class DemoDayController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateSubmission(Request $request, bool $requirePhotos): array
+    private function validateSubmission(Request $request, bool $requirePhotos, ?string $existingEventDate = null): array
     {
         $rules = [
             'participating_incubatees' => ['nullable', 'array'],
@@ -425,7 +426,9 @@ class DemoDayController extends Controller
             'participating_incubatees.*.key' => ['nullable', 'string', 'max:64'],
             'participating_incubatees.*.name' => ['nullable', 'string', 'max:255'],
             'participating_incubatees.*.application_no' => ['nullable', 'string', 'max:64'],
-            'event_date' => ['required', 'date'],
+            'event_date' => $existingEventDate !== null
+                ? TodayOnlyDate::rulesAllowingExisting($existingEventDate)
+                : TodayOnlyDate::rules(),
             'event_name' => ['required', 'string', 'max:255'],
             'event_type' => ['required', 'string', Rule::in(array_keys(DemoDayOptions::eventTypes()))],
             'investor_name' => ['nullable', 'string', 'max:255', 'required_if:event_type,investor_meet'],

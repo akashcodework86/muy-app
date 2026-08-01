@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\DistrictBlock;
 use App\Models\TrainingPackage;
 use App\Support\IncubateeAttendeeCounts;
+use App\Support\TodayOnlyDate;
 use App\Support\WorkshopDashboardCsvExport;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\TrainingPackageMonthSessionService;
@@ -82,7 +83,7 @@ class TrainingPackageAttendanceController extends Controller
         }
 
         $rules = array_merge([
-            'session_date' => ['required', 'date'],
+            'session_date' => TodayOnlyDate::rules(),
             'training_batch_name' => ['nullable', 'string', 'max:191'],
             'training_packages' => ['required', 'array', 'min:1'],
             'training_packages.*' => ['required', Rule::in(['t1', 't2', 't3', 't4'])],
@@ -394,7 +395,7 @@ class TrainingPackageAttendanceController extends Controller
         }
 
         $updateRules = array_merge([
-            'session_date' => ['required', 'date'],
+            'session_date' => TodayOnlyDate::rulesAllowingExisting($trainingPackage->event_date?->toDateString()),
             'training_batch_name' => ['nullable', 'string', 'max:191'],
             'training_packages' => ['required', 'array', 'min:1'],
             'training_packages.*' => ['required', Rule::in(['t1', 't2', 't3', 't4'])],

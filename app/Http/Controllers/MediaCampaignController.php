@@ -7,6 +7,7 @@ use App\Models\MediaCampaignEntry;
 use App\Models\User;
 use App\Support\BrandingCommunicationAccess;
 use App\Support\BrandingCommunicationOptions;
+use App\Support\TodayOnlyDate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,7 +49,7 @@ class MediaCampaignController extends Controller
         $maxAttachments = (int) config('branding_communication.media_campaign_max_attachments', 5);
 
         $validated = $request->validate([
-            'campaign_date' => ['required', 'date'],
+            'campaign_date' => TodayOnlyDate::rules(),
             'media_type' => ['required', 'string', Rule::in(array_keys(BrandingCommunicationOptions::mediaTypes()))],
             'channel_name' => ['required', 'string', 'max:255'],
             'coverage_area' => ['required', 'string', 'max:191'],

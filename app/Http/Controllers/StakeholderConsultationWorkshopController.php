@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\District;
 use App\Models\Hub;
 use App\Models\StakeholderConsultationWorkshop;
+use App\Support\TodayOnlyDate;
 use App\Support\StakeholderConsultationWorkshopAccess;
 use App\Support\StakeholderConsultationWorkshopOptions;
 use Illuminate\Http\RedirectResponse;
@@ -165,7 +166,7 @@ class StakeholderConsultationWorkshopController extends Controller
         }
 
         $hasExistingAttendance = $scwWorkshop->hasAttendanceSheet();
-        $validated = $this->validateSubmission($request, requireAttendance: ! $hasExistingAttendance);
+        $validated = $this->validateSubmission($request, requireAttendance: ! $hasExistingAttendance, existingWorkshopDate: $scwWorkshop->workshop_date?->toDateString());
         $location = $this->resolveLocation($validated);
 
         $newAttendance = array_values(array_filter((array) $request->file('attendance_media', [])));
@@ -322,7 +323,7 @@ class StakeholderConsultationWorkshopController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateSubmission(Request $request, bool $requireAttendance = false): array
+    private function validateSubmission(Request $request, bool $requireAttendance = false, ?string $existingWorkshopDate = null): array
     {
         $deptKeys = array_keys(StakeholderConsultationWorkshopOptions::lineDepartments());
         $stakeholderKeys = array_keys(StakeholderConsultationWorkshopOptions::stakeholderTypes());
@@ -330,7 +331,9 @@ class StakeholderConsultationWorkshopController extends Controller
         $mouKeys = array_keys(StakeholderConsultationWorkshop::MOU_CONVERGENCE_OPTIONS);
 
         $rules = [
-            'workshop_date' => ['required', 'date'],
+            'workshop_date' => $existingWorkshopDate !== null
+                ? TodayOnlyDate::rulesAllowingExisting($existingWorkshopDate)
+                : TodayOnlyDate::rules(),
             'workshop_title' => ['required', 'string', 'max:191'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'venue' => ['required', 'string', 'max:191'],

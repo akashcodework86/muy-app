@@ -28,7 +28,7 @@
                 </div>
                 <div class="bc-field">
                     <label for="story_date">Date <span class="bc-req">*</span></label>
-                    <input type="date" id="story_date" name="story_date" value="{{ old('story_date', now()->toDateString()) }}" required>
+                    <x-activity-date-input name="story_date" id="story_date" />
                 </div>
                 <div class="bc-field bc-field--full">
                     <label for="story_title">Story title <span class="bc-req">*</span></label>

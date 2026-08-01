@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResolvesWorkshopParticipantRows;
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\DistrictWorkshopSession;
+use App\Support\TodayOnlyDate;
 use App\Support\WorkshopDashboardCsvExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -303,6 +304,7 @@ class DistrictWorkshopSessionAttendanceController extends Controller
         $validated = $this->validateDistrictWorkshopSubmission(
             $request,
             requiresPhotosUpload: $existingPhotosCount === 0,
+            existingSessionDate: $districtWorkshopSession->event_date?->toDateString(),
         );
 
         $newUploads = array_values(array_filter((array) $request->file('attendance_media', [])));
@@ -408,9 +410,12 @@ class DistrictWorkshopSessionAttendanceController extends Controller
     private function validateDistrictWorkshopSubmission(
         Request $request,
         bool $requiresPhotosUpload,
+        ?string $existingSessionDate = null,
     ): array {
         $validator = Validator::make($request->all(), array_merge([
-            'session_date' => ['required', 'date'],
+            'session_date' => $existingSessionDate !== null
+                ? TodayOnlyDate::rulesAllowingExisting($existingSessionDate)
+                : TodayOnlyDate::rules(),
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'male_participants' => ['required', 'integer', 'min:0'],

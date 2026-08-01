@@ -93,7 +93,7 @@
                 </div>
                 <div class="tp-field">
                     <label>Date of Session *</label>
-                    <input type="date" name="session_date" value="{{ old('session_date') }}" required>
+                    <x-activity-date-input name="session_date" />
                 </div>
                 <div class="tp-field">
                     <label>District</label>

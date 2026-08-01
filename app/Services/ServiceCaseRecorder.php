@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Notifications\ServiceCaseWorkflowNotification;
 use App\Support\BusinessDays;
 use App\Support\ConvergenceReapSupport;
+use App\Support\TodayOnlyDate;
 use App\Support\ServiceFieldTypes;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
@@ -160,7 +161,10 @@ class ServiceCaseRecorder
 
         Validator::make($attributes, [
             'reference_number' => ['nullable', 'string', 'max:191'],
-            'delivered_on' => ['nullable', 'date'],
+            'delivered_on' => TodayOnlyDate::rulesAllowingExisting(
+                isset($case->delivered_on) ? $case->delivered_on?->toDateString() : null,
+                false
+            ),
             'payload' => ['nullable', 'array'],
             'remove_attachment_ids' => ['nullable', 'array'],
             'remove_attachment_ids.*' => ['integer'],

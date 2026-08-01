@@ -24,7 +24,7 @@
                 </div>
                 <div class="bc-field">
                     <label for="issue_date">Issue date <span class="bc-req">*</span></label>
-                    <input type="date" id="issue_date" name="issue_date" value="{{ old('issue_date', now()->toDateString()) }}" required>
+                    <x-activity-date-input name="issue_date" id="issue_date" />
                 </div>
                 <div class="bc-field">
                     <label for="issue_edition">Issue no. / edition <span class="bc-req">*</span></label>

@@ -84,7 +84,7 @@
                 </div>
                 <div class="smp-field">
                     <label for="posted_on">Date *</label>
-                    <input type="date" id="posted_on" name="posted_on" value="{{ old('posted_on', now()->toDateString()) }}" required>
+                    <x-activity-date-input name="posted_on" id="posted_on" />
                 </div>
                 <div class="smp-field">
                     <label for="post_url">Post URL *</label>

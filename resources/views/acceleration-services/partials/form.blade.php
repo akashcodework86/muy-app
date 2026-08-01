@@ -20,7 +20,6 @@
     $formAction = $editingSession && !empty($updateRoute)
         ? route($updateRoute, $editingSession)
         : route($storeRoute);
-    $sessionDateDefault = old('service_date', $editingSession?->service_date?->toDateString() ?? now()->toDateString());
 @endphp
 @include('acceleration-services.partials.styles')
 
@@ -64,7 +63,7 @@
                 <div class="accel-form-top">
                     <div class="accel-field">
                         <label for="service_date">Session date <span class="accel-required">*</span></label>
-                        <input type="date" id="service_date" name="service_date" value="{{ $sessionDateDefault }}" required>
+                        <x-activity-date-input name="service_date" id="service_date" :value="$editingSession?->service_date?->toDateString()" />
                         <p class="accel-field-hint">Overall visit / logging date for this entry.</p>
                     </div>
                     <div class="accel-field">

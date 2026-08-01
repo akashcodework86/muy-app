@@ -14,6 +14,7 @@ use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MarketLinkagePartnerCatalogService;
 use App\Services\MarketLinkages\MarketLinkageDashboardExcelExport;
 use App\Services\MarketLinkageWorkflowService;
+use App\Support\TodayOnlyDate;
 use App\Support\MarketLinkageAccess;
 use App\Support\MarketLinkageUnifiedListingSupport;
 use Illuminate\Contracts\View\View;
@@ -83,7 +84,7 @@ class MarketLinkageController extends Controller
                 MarketLinkageSubmission::LINKAGE_ONLINE,
                 MarketLinkageSubmission::LINKAGE_OFFLINE,
             ])],
-            'partners.*.linkage_date' => ['required', 'date'],
+            'partners.*.linkage_date' => TodayOnlyDate::rules(),
             'partners.*.link_url' => ['nullable', 'string', 'max:2048'],
             'partners.*.link' => ['nullable', 'string', 'max:2048'],
             'partners.*.bill_document' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
@@ -194,6 +195,24 @@ class MarketLinkageController extends Controller
         ]);
 
         $validated['partners'] = $this->normalizeAndValidatePartnerLinkUrls($validated['partners']);
+
+        $existingDatesByIndex = $marketLinkage->partners()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($partner) => $partner->linkage_date?->toDateString())
+            ->all();
+        $dateErrors = [];
+        foreach (array_values($validated['partners']) as $index => $row) {
+            $date = substr((string) ($row['linkage_date'] ?? ''), 0, 10);
+            $existing = $existingDatesByIndex[$index] ?? null;
+            if (! TodayOnlyDate::isInCurrentMonth($date) && $date !== $existing) {
+                $dateErrors['partners.'.$index.'.linkage_date'] = 'The linkage date must be in the current month.';
+            }
+        }
+        if ($dateErrors !== []) {
+            throw ValidationException::withMessages($dateErrors);
+        }
 
         DB::transaction(function () use ($marketLinkage, $validated, $request): void {
             foreach ($marketLinkage->partners as $partner) {

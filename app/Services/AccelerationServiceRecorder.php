@@ -10,6 +10,7 @@ use App\Support\AccelerationItemSchemas;
 use App\Support\AccelerationServicesAccess;
 use App\Support\AccelerationServicesApproval;
 use App\Support\AccelerationServicesOptions;
+use App\Support\TodayOnlyDate;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -70,7 +71,9 @@ class AccelerationServiceRecorder
         $allowedSections = AccelerationServicesAccess::allowedSections($user);
 
         $validated = $request->validate([
-            'service_date' => [$asDraft ? 'nullable' : 'required', 'date'],
+            'service_date' => $existing
+                ? TodayOnlyDate::rulesAllowingExisting($existing->service_date?->toDateString(), ! $asDraft)
+                : TodayOnlyDate::rules(! $asDraft),
             'legacy_phase1_application_id' => ['required', 'integer', 'min:1'],
             'service_detail' => ['nullable', 'array'],
             'service_detail.*' => ['string', 'max:64'],

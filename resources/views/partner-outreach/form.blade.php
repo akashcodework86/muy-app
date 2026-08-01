@@ -64,7 +64,7 @@
             <div class="mpo-grid">
                 <div class="mpo-field">
                     <label for="outreach_date">Date <span style="color:#b91c1c;">*</span></label>
-                    <input type="date" id="outreach_date" name="outreach_date" value="{{ old('outreach_date', now()->toDateString()) }}" required>
+                    <x-activity-date-input name="outreach_date" id="outreach_date" />
                 </div>
                 <div class="mpo-field mpo-field--full">
                     <label for="partner_name">Name of partner <span style="color:#b91c1c;">*</span></label>

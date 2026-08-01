@@ -6,6 +6,7 @@ use App\Models\PitchDeckPreparation;
 use App\Services\PitchDeckIncubateeCatalogService;
 use App\Services\PitchDeckUnifiedDashboardService;
 use App\Support\PitchDeckCombinedDeliverablesSupport;
+use App\Support\TodayOnlyDate;
 use App\Support\PitchDeckPreparationAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -182,7 +183,7 @@ class PitchDeckPreparationController extends Controller
         $user = $request->user();
         abort_unless(PitchDeckPreparationAccess::canEdit($user, $pitchDeckPreparation), 403);
 
-        $validated = $this->validateSubmission($request, requireFile: false);
+        $validated = $this->validateSubmission($request, requireFile: false, existingPreparedOn: $pitchDeckPreparation->prepared_on?->toDateString());
         $snapshot = $this->resolveIncubateeOrFail($validated);
         $this->assertNotDuplicate(
             (int) ($validated['cfa_submission_id'] ?? 0),
@@ -326,14 +327,16 @@ class PitchDeckPreparationController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateSubmission(Request $request, bool $requireFile): array
+    private function validateSubmission(Request $request, bool $requireFile, ?string $existingPreparedOn = null): array
     {
         $modes = array_keys(config('pitch_deck_preparations.support_modes', []));
 
         return $request->validate([
             'cfa_submission_id' => ['nullable', 'integer', 'min:0'],
             'legacy_application_id' => ['nullable', 'integer', 'min:0'],
-            'prepared_on' => ['required', 'date'],
+            'prepared_on' => $existingPreparedOn !== null
+                ? TodayOnlyDate::rulesAllowingExisting($existingPreparedOn)
+                : TodayOnlyDate::rules(),
             'prepared_for' => ['nullable', 'string', 'max:191'],
             'support_mode' => ['nullable', 'string', Rule::in($modes)],
             'remarks' => ['nullable', 'string', 'max:5000'],

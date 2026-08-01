@@ -7,6 +7,7 @@ use App\Models\CfaSubmission;
 use App\Models\TechnicalTraining;
 use App\Services\Cfa\CfaSubmissionListQuery;
 use App\Support\IncubateeAttendeeCounts;
+use App\Support\TodayOnlyDate;
 use App\Support\MisFieldActivityApproval;
 use App\Support\WorkshopDashboardCsvExport;
 use App\Services\LegacyApplicationServiceCaseSupport;
@@ -63,7 +64,7 @@ class TechnicalTrainingAttendanceController extends Controller
         }
 
         $validated = $request->validate(array_merge([
-            'session_date' => ['required', 'date'],
+            'session_date' => TodayOnlyDate::rules(),
             'session_name' => ['required', 'string', 'max:191'],
             'session_brief' => ['nullable', 'string', 'max:5000'],
             'training_batch_name' => ['nullable', 'string', 'max:191'],
@@ -275,7 +276,7 @@ class TechnicalTrainingAttendanceController extends Controller
         }
 
         $validated = $request->validate(array_merge([
-            'session_date' => ['required', 'date'],
+            'session_date' => TodayOnlyDate::rulesAllowingExisting($technicalTraining->event_date?->toDateString()),
             'session_name' => ['required', 'string', 'max:191'],
             'session_brief' => ['nullable', 'string', 'max:5000'],
             'training_batch_name' => ['nullable', 'string', 'max:191'],

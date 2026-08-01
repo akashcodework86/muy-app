@@ -93,7 +93,7 @@
                                         @if ($svc && ! $svc->requires_approval)
                                             <div style="margin-bottom:0.35rem;">
                                                 <label style="font-size:0.78rem;">Delivered on</label>
-                                                <input type="date" name="delivered_on" value="{{ old('delivered_on') }}" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;">
+                                                <x-activity-date-input name="delivered_on" :required="false" style="width:100%; padding:0.35rem 0.45rem; border:1px solid #d4d4d8; border-radius:4px; font-size:0.82rem;" />
                                             </div>
                                         @endif
                                         @foreach ($schema as $row)

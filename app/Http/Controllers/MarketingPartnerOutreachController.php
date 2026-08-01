@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
 use App\Support\PartnerOutreachAccess;
 use App\Support\PartnerOutreachOptions;
+use App\Support\TodayOnlyDate;
 use App\Models\MarketLinkagePartner;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -43,7 +44,7 @@ class MarketingPartnerOutreachController extends Controller
         }
 
         $validated = $request->validate([
-            'outreach_date' => ['required', 'date'],
+            'outreach_date' => TodayOnlyDate::rules(),
             'partner_name' => ['required', 'string', 'max:255'],
             'partner_designation' => ['nullable', 'string', 'max:191'],
             'partner_link' => ['nullable', 'string', 'max:2048'],
@@ -209,11 +210,10 @@ class MarketingPartnerOutreachController extends Controller
         $onboardedStatuses = MarketingPartnerOutreachEntry::ONBOARDED_STATUSES;
         $validated = $request->validate([
             'status' => ['required', 'string', Rule::in(MarketingPartnerOutreachEntry::STATUSES)],
-            'onboarding_date' => [
-                'nullable',
-                'date',
+            'onboarding_date' => array_values(array_filter([
                 Rule::requiredIf(fn (): bool => in_array((string) $request->input('status'), $onboardedStatuses, true)),
-            ],
+                ...TodayOnlyDate::rulesAllowingExisting($partnerOutreach->onboarding_date?->toDateString(), false),
+            ])),
             'agreement_document' => [
                 'nullable',
                 'file',

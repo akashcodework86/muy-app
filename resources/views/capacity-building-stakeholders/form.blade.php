@@ -82,7 +82,7 @@
                 </div>
                 <div class="cbs-field">
                     <label>Session date <span class="cbs-req">*</span></label>
-                    <input type="date" name="session_date" value="{{ old('session_date', $isEdit ? $row->session_date?->format('Y-m-d') : '') }}" required>
+                    <x-activity-date-input name="session_date" :value="$isEdit ? $row->session_date?->format('Y-m-d') : null" />
                 </div>
                 @include('staff.district-workshop-sessions.partials.workshop-mode-field', ['selected' => old('workshop_mode', $isEdit ? $row->workshop_mode : 'physical')])
                 <div class="cbs-field cbs-field--full">

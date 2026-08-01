@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\CommunityOrganizationOutreachOptions;
 use App\Support\CommunityOrgOutreachAccess;
 use App\Support\MisFieldActivityApproval;
+use App\Support\TodayOnlyDate;
 use App\Services\MisFieldActivityWorkflowService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -58,7 +59,7 @@ class CommunityOrganizationOutreachController extends Controller
         [$hubId, $districtIds] = $this->allowedDistrictContext($user);
 
         $validated = $request->validate(array_merge([
-            'visit_date' => ['required', 'date'],
+            'visit_date' => TodayOnlyDate::rules(),
             'district_id' => ['required', 'integer', Rule::in($districtIds)],
             'organization_name' => ['required', 'string', 'max:255'],
             'organization_type' => ['required', 'string', Rule::in(array_keys(CommunityOrganizationOutreachOptions::organizationTypes()))],
@@ -144,7 +145,7 @@ class CommunityOrganizationOutreachController extends Controller
         [$hubId, $districtIds] = $this->allowedDistrictContext($user);
 
         $validated = $request->validate(array_merge([
-            'visit_date' => ['required', 'date'],
+            'visit_date' => TodayOnlyDate::rulesAllowingExisting($communityOrgOutreach->visit_date?->toDateString()),
             'district_id' => ['required', 'integer', Rule::in($districtIds)],
             'organization_name' => ['required', 'string', 'max:255'],
             'organization_type' => ['required', 'string', Rule::in(array_keys(CommunityOrganizationOutreachOptions::organizationTypes()))],

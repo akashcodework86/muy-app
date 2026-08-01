@@ -46,7 +46,7 @@
                 <div class="att-grid">
                     <div class="att-field">
                         <label>Visit date <span class="att-req">*</span></label>
-                        <input type="date" name="visit_date" value="{{ old('visit_date', $report->visit_date?->toDateString()) }}" required class="att-input" max="{{ now()->toDateString() }}">
+                        <x-activity-date-input name="visit_date" :value="$report->visit_date?->toDateString()" class="att-input" />
                     </div>
                     <div class="att-field">
                         <label>Block <span class="att-req">*</span></label>

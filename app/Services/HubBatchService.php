@@ -17,6 +17,7 @@ use App\Models\OnboardingBatchEditRequest;
 use App\Models\User;
 use App\Notifications\HubBatchUnlockRequestedNotification;
 use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
+use App\Support\TodayOnlyDate;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -1153,7 +1154,10 @@ class HubBatchService
             return ['ok' => false, 'error' => 'A draft batch already exists for this district.'];
         }
 
-        $onboardingDate = $input['onboarding_date'] ?? now()->toDateString();
+        $onboardingDate = (string) ($input['onboarding_date'] ?? now()->toDateString());
+        if (! TodayOnlyDate::isInCurrentMonth(substr($onboardingDate, 0, 10))) {
+            return ['ok' => false, 'error' => 'Onboarding date must be in the current month.'];
+        }
         $name = $this->generateBatchName($hubId, $districtId);
 
         $batch = OnboardingBatch::query()->create([
@@ -1267,6 +1271,12 @@ class HubBatchService
         $name = trim((string) ($input['name'] ?? $batch->name));
         $targetSize = (int) ($input['target_size'] ?? $batch->target_size);
         $onboardingDate = (string) ($input['onboarding_date'] ?? $batch->onboarding_date?->toDateString() ?? now()->toDateString());
+        $existingOnboardingDate = $batch->onboarding_date?->toDateString();
+        $normalizedOnboardingDate = substr($onboardingDate, 0, 10);
+        if (! TodayOnlyDate::isInCurrentMonth($normalizedOnboardingDate)
+            && $normalizedOnboardingDate !== $existingOnboardingDate) {
+            return ['ok' => false, 'error' => 'Onboarding date must be in the current month.'];
+        }
 
         if ($name === '' || mb_strlen($name) > 120) {
             return ['ok' => false, 'error' => 'Batch name is required (max 120 chars)'];

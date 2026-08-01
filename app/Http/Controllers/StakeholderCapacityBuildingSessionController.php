@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\StakeholderCapacityBuildingSession;
 use App\Support\CapacityBuildingStakeholdersAccess;
+use App\Support\TodayOnlyDate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -201,7 +202,7 @@ class StakeholderCapacityBuildingSessionController extends Controller
         }
 
         $hasExistingAttendance = $cbsSession->hasAttendanceSheet();
-        $validated = $this->validateSubmission($request, requireAttendance: ! $hasExistingAttendance);
+        $validated = $this->validateSubmission($request, requireAttendance: ! $hasExistingAttendance, existingSessionDate: $cbsSession->session_date?->toDateString());
 
         $newAttendance = array_values(array_filter((array) $request->file('attendance_media', [])));
         if ($newAttendance === [] && ! $hasExistingAttendance) {
@@ -376,12 +377,14 @@ class StakeholderCapacityBuildingSessionController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateSubmission(Request $request, bool $requireAttendance = false): array
+    private function validateSubmission(Request $request, bool $requireAttendance = false, ?string $existingSessionDate = null): array
     {
         $typeKeys = array_keys(StakeholderCapacityBuildingSession::STAKEHOLDER_TYPES);
 
         $rules = array_merge([
-            'session_date' => ['required', 'date'],
+            'session_date' => $existingSessionDate !== null
+                ? TodayOnlyDate::rulesAllowingExisting($existingSessionDate)
+                : TodayOnlyDate::rules(),
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'venue' => ['required', 'string', 'max:191'],
             'stakeholder_type' => ['required', 'string', 'in:'.implode(',', $typeKeys)],

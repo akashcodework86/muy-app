@@ -231,7 +231,7 @@
                 </div>
                 <div>
                     <label class="form-label" for="registration_date">Registration date (optional)</label>
-                    <input type="date" class="form-control" name="registration_date" id="registration_date" value="{{ old('registration_date') }}" max="{{ now()->toDateString() }}">
+                    <x-activity-date-input name="registration_date" id="registration_date" class="form-control" :required="false" />
                 </div>
             </div>
         </div>

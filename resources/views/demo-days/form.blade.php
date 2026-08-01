@@ -64,8 +64,7 @@
                 </div>
                 <div class="ddy-field">
                     <label for="event_date">Demo day date <span class="ddy-req">*</span></label>
-                    <input type="date" id="event_date" name="event_date" required
-                        value="{{ old('event_date', $isEdit ? $row->event_date?->format('Y-m-d') : now()->toDateString()) }}">
+                    <x-activity-date-input name="event_date" id="event_date" :value="$isEdit ? $row->event_date?->format('Y-m-d') : null" />
                 </div>
 
                 <div class="ddy-field ddy-field--full">

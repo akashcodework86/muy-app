@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResolvesWorkshopParticipantRows;
 use App\Http\Controllers\Concerns\ValidatesAttendanceMediaUploads;
 use App\Models\EapEdpSession;
+use App\Support\TodayOnlyDate;
 use App\Support\WorkshopDashboardCsvExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,7 +61,7 @@ class EapEdpSessionAttendanceController extends Controller
         }
 
         $validated = $request->validate(array_merge([
-            'session_date' => ['required', 'date'],
+            'session_date' => TodayOnlyDate::rules(),
             'venue_name_address' => ['required', 'string', 'max:5000'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'notes' => ['nullable', 'string', 'max:5000'],
@@ -312,7 +313,7 @@ class EapEdpSessionAttendanceController extends Controller
         }
 
         $validated = $request->validate(array_merge([
-            'session_date' => ['required', 'date'],
+            'session_date' => TodayOnlyDate::rulesAllowingExisting($eapEdpSession->event_date?->toDateString()),
             'venue_name_address' => ['required', 'string', 'max:5000'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
             'notes' => ['nullable', 'string', 'max:5000'],

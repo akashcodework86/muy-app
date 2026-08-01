@@ -51,7 +51,7 @@
             @csrf
             <div class="fspoe-grid">
                 <div class="fspoe-field"><label>Entered by</label><input type="text" class="fspoe-readonly" value="{{ $user->name }}" readonly></div>
-                <div class="fspoe-field"><label>Outreach date <span class="fspoe-req">*</span></label><input type="date" name="outreach_date" value="{{ old('outreach_date', now()->toDateString()) }}" required></div>
+                <div class="fspoe-field"><label>Outreach date <span class="fspoe-req">*</span></label><x-activity-date-input name="outreach_date" /></div>
                 <div class="fspoe-field"><label>Outreach mode <span class="fspoe-req">*</span></label>
                     <select name="outreach_mode" required><option value="">— Select —</option>
                         @foreach ($outreachModes as $v => $l)<option value="{{ $v }}" @selected(old('outreach_mode') === $v)>{{ $l }}</option>@endforeach

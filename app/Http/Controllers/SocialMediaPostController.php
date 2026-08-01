@@ -6,6 +6,7 @@ use App\Models\SocialMediaPost;
 use App\Services\SocialMediaPostPreviewService;
 use App\Support\SocialMediaPostAccess;
 use App\Support\SocialMediaPostPlatforms;
+use App\Support\TodayOnlyDate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -98,7 +99,7 @@ class SocialMediaPostController extends Controller
         }
 
         $validated = $request->validate([
-            'posted_on' => ['required', 'date'],
+            'posted_on' => TodayOnlyDate::rules(),
             'post_url' => ['required', 'url', 'max:2048'],
             'posted_platforms' => ['required', 'array', 'min:1'],
             'posted_platforms.*' => ['string', Rule::in(array_keys(SocialMediaPostPlatforms::options()))],

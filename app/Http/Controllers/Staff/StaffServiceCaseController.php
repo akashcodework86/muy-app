@@ -18,6 +18,7 @@ use App\Services\SchemaValidator;
 use App\Services\ServiceCaseRecorder;
 use App\Support\ConvergenceReapSupport;
 use App\Support\ConvergenceReapSupportDeliverablesSupport;
+use App\Support\TodayOnlyDate;
 use App\Support\ServiceFieldTypes;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -428,7 +429,7 @@ class StaffServiceCaseController extends Controller
             'legacy_application_id' => ['nullable', 'integer', 'min:1'],
             'service_id' => ['required', 'integer', 'exists:services,id'],
             'reference_number' => ['nullable', 'string', 'max:191'],
-            'delivered_on' => ['nullable', 'date'],
+            'delivered_on' => TodayOnlyDate::rules(false),
             'payload' => ['nullable', 'array'],
             'payload_files' => ['nullable', 'array'],
             'payload_files.reap_document' => ['nullable', 'file', 'max:5120'],
@@ -578,7 +579,7 @@ class StaffServiceCaseController extends Controller
 
         $validated = $request->validate([
             'reference_number' => ['nullable', 'string', 'max:191'],
-            'delivered_on' => ['nullable', 'date'],
+            'delivered_on' => TodayOnlyDate::rulesAllowingExisting($service_case->delivered_on?->toDateString(), false),
             'payload' => ['nullable', 'array'],
             'payload_files' => ['nullable', 'array'],
             'payload_files.reap_document' => ['nullable', 'file', 'max:5120'],

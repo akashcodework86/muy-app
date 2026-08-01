@@ -84,7 +84,7 @@
                 </div>
                 <div class="bapo-field">
                     <label for="outreach_date">2. Outreach date <span class="bapo-req">*</span></label>
-                    <input type="date" id="outreach_date" name="outreach_date" value="{{ old('outreach_date', now()->toDateString()) }}" required>
+                    <x-activity-date-input name="outreach_date" id="outreach_date" />
                 </div>
                 <div class="bapo-field">
                     <label for="outreach_mode">3. Outreach mode <span class="bapo-req">*</span></label>

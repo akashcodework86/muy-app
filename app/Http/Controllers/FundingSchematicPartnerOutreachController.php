@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\FundingSchematicConvergenceAccess;
 use App\Support\FundingSchematicPartnersOutreachDeliverablesSupport;
 use App\Support\FundingSchematicPartnersOutreachOptions;
+use App\Support\TodayOnlyDate;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,7 +44,7 @@ class FundingSchematicPartnerOutreachController extends Controller
         }
 
         $validated = $request->validate([
-            'outreach_date' => ['required', 'date'],
+            'outreach_date' => TodayOnlyDate::rules(),
             'outreach_mode' => ['required', 'string', Rule::in(array_keys(FundingSchematicPartnersOutreachOptions::outreachModes()))],
             'partners' => ['required', 'array', 'min:1', 'max:50'],
             'partners.*.partner_name' => ['required', 'string', 'max:255'],

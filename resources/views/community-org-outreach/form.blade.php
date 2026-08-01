@@ -73,7 +73,7 @@
             <div class="coo-grid">
                 <div class="coo-field">
                     <label for="visit_date">Date of visit <span style="color:#b91c1c;">*</span></label>
-                    <input type="date" id="visit_date" name="visit_date" value="{{ old('visit_date', optional($row)->visit_date?->toDateString() ?? now()->toDateString()) }}" required>
+                    <x-activity-date-input name="visit_date" id="visit_date" :value="optional($row)->visit_date?->toDateString()" />
                 </div>
                 <div class="coo-field">
                     <label for="district_id">District <span style="color:#b91c1c;">*</span></label>

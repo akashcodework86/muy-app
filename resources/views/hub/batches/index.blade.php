@@ -211,7 +211,7 @@
                         <label class="hb-muted" style="font-size:0.8rem">Target size (N)</label>
                         <input type="number" id="inpTarget" class="hb-input" min="1" max="500" value="10" style="margin:0.35rem 0 0.75rem">
                         <label class="hb-muted" style="font-size:0.8rem">Onboarding date</label>
-                        <input type="date" id="inpDate" class="hb-input" value="{{ now()->toDateString() }}" style="margin:0.35rem 0 0.75rem">
+                        <input type="date" id="inpDate" class="hb-input" value="{{ now()->toDateString() }}" min="{{ now()->startOfMonth()->toDateString() }}" max="{{ now()->endOfMonth()->toDateString() }}" data-month-start="{{ now()->startOfMonth()->toDateString() }}" data-month-end="{{ now()->endOfMonth()->toDateString() }}" data-today="{{ now()->toDateString() }}" style="margin:0.35rem 0 0.75rem">
                         <button type="button" class="hb-btn hb-btn--primary" id="btnCreateDraft" style="width:100%">Create draft (auto name)</button>
                         <p style="font-size:0.72rem;color:var(--muted);margin:0.5rem 0 0">Name: <code>District-batchN-Mon-Year</code></p>
                     </div>
@@ -403,7 +403,7 @@
             <label style="font-size:0.78rem;color:var(--muted)">Target size (N)</label>
             <input type="number" id="editBatchTarget" class="hb-input" min="1" max="500" style="margin:0.35rem 0 0.75rem">
             <label style="font-size:0.78rem;color:var(--muted)">Onboarding date</label>
-            <input type="date" id="editBatchDate" class="hb-input" style="margin:0.35rem 0 0.75rem">
+            <input type="date" id="editBatchDate" class="hb-input" min="{{ now()->startOfMonth()->toDateString() }}" max="{{ now()->endOfMonth()->toDateString() }}" data-month-start="{{ now()->startOfMonth()->toDateString() }}" data-month-end="{{ now()->endOfMonth()->toDateString() }}" data-today="{{ now()->toDateString() }}" style="margin:0.35rem 0 0.75rem">
             <p style="margin:0;font-size:0.72rem;color:var(--muted)">Note: draft and approved edit-unlocked batches can be edited.</p>
             <div style="display:flex;gap:0.75rem;margin-top:1.1rem">
                 <button type="button" class="hb-btn hb-btn--ghost" id="editBatchCancel" style="flex:1">Cancel</button>
@@ -1180,7 +1180,30 @@
             editingBatchId = batchId;
             document.getElementById('editBatchName').value = b.name || '';
             document.getElementById('editBatchTarget').value = b.target_size || '';
-            document.getElementById('editBatchDate').value = b.onboarding_date || '';
+            const editBatchDate = document.getElementById('editBatchDate');
+            const monthStart = @json(now()->startOfMonth()->toDateString());
+            const monthEnd = @json(now()->endOfMonth()->toDateString());
+            editBatchDate.value = b.onboarding_date || '';
+            if (editBatchDate.value && (editBatchDate.value < monthStart || editBatchDate.value > monthEnd)) {
+                editBatchDate.readOnly = true;
+                editBatchDate.removeAttribute('min');
+                editBatchDate.removeAttribute('max');
+                editBatchDate.removeAttribute('data-month-start');
+                editBatchDate.removeAttribute('data-month-end');
+                editBatchDate.type = 'date';
+                editBatchDate.dataset.muyCmdBound = '0';
+            } else {
+                editBatchDate.readOnly = false;
+                editBatchDate.min = monthStart;
+                editBatchDate.max = monthEnd;
+                editBatchDate.setAttribute('data-month-start', monthStart);
+                editBatchDate.setAttribute('data-month-end', monthEnd);
+                editBatchDate.setAttribute('data-today', @json(now()->toDateString()));
+                editBatchDate.dataset.muyCmdBound = '';
+                if (window.MuyCurrentMonthDate) {
+                    window.MuyCurrentMonthDate.enhance(editBatchDate);
+                }
+            }
             document.getElementById('modalEditBatch').classList.add('is-open');
         }
 
@@ -1438,5 +1461,13 @@
 
         loadBatches();
     })();
+    </script>
+    <script src="{{ asset('js/muy-current-month-date.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.MuyCurrentMonthDate) {
+                window.MuyCurrentMonthDate.enhanceAll(document);
+            }
+        });
     </script>
 @endsection

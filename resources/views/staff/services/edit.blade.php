@@ -171,7 +171,7 @@
         @if (! $case->service?->requires_approval)
             <div style="margin-bottom:0.85rem;">
                 <label for="delivered_on" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.9rem;">Delivered on</label>
-                <input type="date" id="delivered_on" name="delivered_on" value="{{ old('delivered_on', optional($case->delivered_on)->format('Y-m-d')) }}" style="padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                <x-activity-date-input name="delivered_on" id="delivered_on" :value="optional($case->delivered_on)->format('Y-m-d')" :required="false" style="padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;" />
             </div>
         @endif
 

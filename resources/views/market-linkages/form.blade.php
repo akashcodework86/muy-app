@@ -261,7 +261,7 @@
                     </div>
                     <div>
                         <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Linkage date <span class="ml-req" style="color:#b91c1c;">*</span></label>
-                        <input type="date" data-field="linkage_date" required style="width:100%;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
+                        <input type="date" data-field="linkage_date" required min="{{ now()->startOfMonth()->toDateString() }}" max="{{ now()->endOfMonth()->toDateString() }}" data-month-start="{{ now()->startOfMonth()->toDateString() }}" data-month-end="{{ now()->endOfMonth()->toDateString() }}" data-today="{{ now()->toDateString() }}" style="width:100%;padding:0.45rem 0.5rem;border:1px solid #d4d4d8;border-radius:6px;">
                     </div>
                     <div class="ml-bill-wrap">
                         <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">Bill / document <span style="font-weight:400;color:#71717a;">(optional)</span></label>
@@ -293,6 +293,9 @@
                 const oldPartners = @json($oldPartnersForForm);
                 const PARTNER_NAME_OPTIONS = @json($partnerNameOptions ?? []).slice();
                 const PRIOR_MARKET_LINKAGE = @json($priorMarketLinkageJson ?? ['cfa' => [], 'legacy' => []]);
+                const TODAY = @json(now()->toDateString());
+                const MONTH_START = @json(now()->startOfMonth()->toDateString());
+                const MONTH_END = @json(now()->endOfMonth()->toDateString());
                 const selCfa = document.getElementById('cfa_submission_id');
                 const selLegacy = document.getElementById('legacy_application_id');
                 const priorWrap = document.getElementById('prior_history_wrap');
@@ -480,7 +483,33 @@
                         dateIn.value = data.linkage_date || '';
                         if (linkIn) linkIn.value = data.link_url || '';
                     } else if (!opts.prior) {
-                        dateIn.value = new Date().toISOString().slice(0, 10);
+                        dateIn.value = TODAY;
+                    }
+
+                    if (dateIn) {
+                        if (dateIn.value && (dateIn.value < MONTH_START || dateIn.value > MONTH_END)) {
+                            dateIn.readOnly = true;
+                            dateIn.type = 'date';
+                            dateIn.removeAttribute('min');
+                            dateIn.removeAttribute('max');
+                            dateIn.removeAttribute('data-month-start');
+                            dateIn.removeAttribute('data-month-end');
+                            dateIn.dataset.muyCmdBound = '0';
+                        } else {
+                            dateIn.readOnly = false;
+                            dateIn.min = MONTH_START;
+                            dateIn.max = MONTH_END;
+                            dateIn.setAttribute('data-month-start', MONTH_START);
+                            dateIn.setAttribute('data-month-end', MONTH_END);
+                            dateIn.setAttribute('data-today', TODAY);
+                            if (!dateIn.value && !opts.prior) {
+                                dateIn.value = TODAY;
+                            }
+                            dateIn.dataset.muyCmdBound = '';
+                            if (window.MuyCurrentMonthDate) {
+                                window.MuyCurrentMonthDate.enhance(dateIn);
+                            }
+                        }
                     }
 
                     if (!opts.prior) {
@@ -614,5 +643,6 @@
                 renderPriorHistory();
             })();
         </script>
+        <script src="{{ asset('js/muy-current-month-date.js') }}"></script>
     @endif
 @endsection

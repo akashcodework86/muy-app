@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\BlockWorkshopParticipantRowsService;
 use App\Services\FieldVisitAttendanceSheetService;
 use App\Services\FieldVisitMediaStorage;
+use App\Support\TodayOnlyDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -173,7 +174,7 @@ class FieldCoordinatorAttendanceController extends Controller
         $this->assertOwnEditable($user, $attendanceReport);
 
         $rules = [
-            'visit_date' => ['nullable', 'date'],
+            'visit_date' => TodayOnlyDate::rulesAllowingExisting($attendanceReport->visit_date?->toDateString(), false),
             'district_block_id' => ['nullable', 'integer', 'exists:district_blocks,id'],
             'gram_panchayat_id' => ['nullable', 'integer', 'exists:gram_panchayats,id'],
             'area' => ['nullable', 'string', 'max:191'],
@@ -348,7 +349,7 @@ class FieldCoordinatorAttendanceController extends Controller
         $remainingSlots = max(0, $maxPhotos - count($existingMedia));
 
         $rules = [
-            'visit_date' => ['required', 'date'],
+            'visit_date' => TodayOnlyDate::rules(),
             'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
             'gram_panchayat_id' => ['required', 'integer', 'exists:gram_panchayats,id'],
             'area' => ['required', 'string', 'max:191'],
@@ -859,7 +860,7 @@ class FieldCoordinatorAttendanceController extends Controller
         }
 
         $rules = [
-            'visit_date' => ['required', 'date'],
+            'visit_date' => TodayOnlyDate::rules(),
             'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
             'gram_panchayat_id' => ['required', 'integer', 'exists:gram_panchayats,id'],
             'area' => ['required', 'string', 'max:191'],
@@ -1042,7 +1043,7 @@ class FieldCoordinatorAttendanceController extends Controller
         $districtId = (int) ($user->district_id ?: 0);
 
         $rules = [
-            'visit_date' => ['required', 'date'],
+            'visit_date' => TodayOnlyDate::rulesAllowingExisting($attendanceReport->visit_date?->toDateString()),
             'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
             'gram_panchayat_id' => ['required', 'integer', 'exists:gram_panchayats,id'],
             'area' => ['required', 'string', 'max:191'],

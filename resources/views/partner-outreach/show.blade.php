@@ -129,7 +129,7 @@
                 <div class="mpo-onboard-fields @if(in_array(old('status', $row->status), $onboardedStatuses, true)) is-visible @endif" id="onboardFields">
                     <div class="mpo-field">
                         <label for="onboarding_date">Onboarding date <span style="color:#b91c1c;">*</span></label>
-                        <input type="date" id="onboarding_date" name="onboarding_date" value="{{ old('onboarding_date', $row->onboarding_date?->toDateString()) }}">
+                        <x-activity-date-input name="onboarding_date" id="onboarding_date" :value="$row->onboarding_date?->toDateString()" :required="false" />
                     </div>
                     <div class="mpo-field">
                         <label for="agreement_document">Signed document (PDF / image)</label>

@@ -58,7 +58,7 @@
             <p class="scw-section">Session</p>
             <div class="scw-grid">
                 <div class="scw-field"><label>Entered by</label><input type="text" class="scw-readonly" value="{{ $user->name }}" readonly></div>
-                <div class="scw-field"><label>Workshop date <span class="scw-req">*</span></label><input type="date" name="workshop_date" value="{{ old('workshop_date', $isEdit ? $row->workshop_date?->format('Y-m-d') : '') }}" required></div>
+                <div class="scw-field"><label>Workshop date <span class="scw-req">*</span></label><x-activity-date-input name="workshop_date" :value="$isEdit ? $row->workshop_date?->format('Y-m-d') : null" /></div>
                 <div class="scw-field scw-field--full"><label>Workshop title <span class="scw-req">*</span></label><input type="text" name="workshop_title" maxlength="191" required value="{{ old('workshop_title', $isEdit ? $row->workshop_title : '') }}"></div>
                 @include('staff.district-workshop-sessions.partials.workshop-mode-field', ['selected' => old('workshop_mode', $isEdit ? $row->workshop_mode : 'physical')])
                 <div class="scw-field scw-field--full"><label>Venue / location <span class="scw-req">*</span></label><input type="text" name="venue" maxlength="191" required value="{{ old('venue', $isEdit ? $row->venue : '') }}"></div>

@@ -51,7 +51,7 @@
             @csrf @if ($isEdit) @method('PUT') @endif
             <div class="ldm-grid">
                 <div class="ldm-field"><label>Entered by</label><input class="ldm-readonly" type="text" value="{{ $user->name }}" readonly></div>
-                <div class="ldm-field"><label>Meeting date <span class="ldm-req">*</span></label><input type="date" name="meeting_date" required value="{{ old('meeting_date', $isEdit ? $row->meeting_date?->format('Y-m-d') : now()->toDateString()) }}"></div>
+                <div class="ldm-field"><label>Meeting date <span class="ldm-req">*</span></label><x-activity-date-input name="meeting_date" :value="$isEdit ? $row->meeting_date?->format('Y-m-d') : null" /></div>
                 <div class="ldm-field">
                     <label>Meeting level <span class="ldm-req">*</span></label>
                     <select id="ldmMeetingLevel" name="meeting_level" required>

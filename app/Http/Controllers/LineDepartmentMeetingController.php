@@ -7,6 +7,7 @@ use App\Models\District;
 use App\Models\Hub;
 use App\Models\LineDepartmentMeeting;
 use App\Models\User;
+use App\Support\TodayOnlyDate;
 use App\Support\LineDepartmentMeetingAccess;
 use App\Support\LineDepartmentMeetingOptions;
 use App\Support\MisFieldActivityApproval;
@@ -165,7 +166,7 @@ class LineDepartmentMeetingController extends Controller
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $validated = $this->validateSubmission($request);
+        $validated = $this->validateSubmission($request, $ldmMeeting->meeting_date?->toDateString());
         $location = $this->resolveLocation($validated, $user);
 
         $newMedia = $this->meetingMediaFiles($request);
@@ -378,7 +379,7 @@ class LineDepartmentMeetingController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateSubmission(Request $request): array
+    private function validateSubmission(Request $request, ?string $existingMeetingDate = null): array
     {
         $levelKeys = array_keys(LineDepartmentMeeting::MEETING_LEVELS);
         $modeKeys = array_keys(LineDepartmentMeetingOptions::meetingModes());
@@ -386,7 +387,9 @@ class LineDepartmentMeetingController extends Controller
         $departmentKeys = array_keys(LineDepartmentMeetingOptions::departmentNames());
 
         $rules = [
-            'meeting_date' => ['required', 'date'],
+            'meeting_date' => $existingMeetingDate !== null
+                ? TodayOnlyDate::rulesAllowingExisting($existingMeetingDate)
+                : TodayOnlyDate::rules(),
             'meeting_level' => ['required', 'string', Rule::in($levelKeys)],
             'hub_id' => ['nullable', 'integer', 'exists:hubs,id'],
             'district_id' => ['nullable', 'integer', 'exists:districts,id'],

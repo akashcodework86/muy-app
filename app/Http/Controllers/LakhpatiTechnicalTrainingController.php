@@ -8,6 +8,7 @@ use App\Models\DistrictBlock;
 use App\Models\GramPanchayat;
 use App\Models\LakhpatiTechnicalTraining;
 use App\Support\MisFieldActivityApproval;
+use App\Support\TodayOnlyDate;
 use App\Support\WorkshopDashboardCsvExport;
 use App\Services\MisFieldActivityWorkflowService;
 use Illuminate\Http\RedirectResponse;
@@ -250,7 +251,7 @@ class LakhpatiTechnicalTrainingController extends Controller
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $validated = $this->validateSubmission($request);
+        $validated = $this->validateSubmission($request, $lakhpatiTechnicalTraining->session_date?->toDateString());
         $districtId = (int) ($user->district_id ?: 0);
         abort_unless($districtId > 0, 422, 'District assignment is required.');
 
@@ -424,12 +425,14 @@ class LakhpatiTechnicalTrainingController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateSubmission(Request $request): array
+    private function validateSubmission(Request $request, ?string $existingSessionDate = null): array
     {
         $agencyKeys = array_keys(LakhpatiTechnicalTraining::AGENCY_TYPES);
 
         $rules = array_merge([
-            'session_date' => ['required', 'date'],
+            'session_date' => $existingSessionDate !== null
+                ? TodayOnlyDate::rulesAllowingExisting($existingSessionDate)
+                : TodayOnlyDate::rules(),
             'district_block_id' => ['required', 'integer', 'exists:district_blocks,id'],
             'area' => ['required', 'string', 'max:191'],
             'workshop_mode' => ['required', 'string', 'in:virtual,physical'],
