@@ -462,8 +462,10 @@
         _currentPage = 1;
         _sourceType = data.source_type || '';
 
-        const maxDistrict = Math.max(...(data.by_district || []).map((r) => r.count), 1);
-        const districtBars = (data.by_district || []).slice(0, 8).map((row) => `
+        const districtRows = data.by_district || [];
+        const maxDistrict = Math.max(...districtRows.map((r) => r.count), 1);
+        // Show every district with achievement (do not cap — e.g. 2.1 covers all 13 districts).
+        const districtBars = districtRows.map((row) => `
             <div class="dlv-bar-row">
                 <div class="dlv-bar-row__label" title="${row.district}">${row.district}</div>
                 <div class="dlv-bar-row__track"><div class="dlv-bar-row__fill" style="width:${Math.round((row.count / maxDistrict) * 100)}%"></div></div>
