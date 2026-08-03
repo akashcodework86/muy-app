@@ -16,6 +16,7 @@ use PhpOffice\PhpWord\Style\Section as SectionStyle;
 use PhpOffice\PhpWord\Style\Table as TableStyle;
 use PhpOffice\PhpWord\Writer\Word2007;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class DeliverablesProgramWordExport
 {
@@ -40,27 +41,79 @@ class DeliverablesProgramWordExport
         string $fiscalYearLabel,
         ?string $cumulativeThroughLabel,
     ): BinaryFileResponse {
+        if (! class_exists(PhpWord::class) || ! class_exists(Word2007::class)) {
+            return $this->downloadCompatibilityDocument(
+                $rows,
+                $filter,
+                $scopeLabel,
+                $periodLabel,
+                $fiscalYearLabel,
+                $cumulativeThroughLabel,
+            );
+        }
+
         $path = tempnam(sys_get_temp_dir(), 'muy-deliverables-word-');
         abort_if($path === false, 500, 'Could not prepare Word export.');
 
         $docxPath = $path.'.docx';
         @unlink($path);
 
-        $this->save(
+        try {
+            $this->save(
+                $docxPath,
+                $rows,
+                $filter,
+                $scopeLabel,
+                $periodLabel,
+                $fiscalYearLabel,
+                $cumulativeThroughLabel,
+            );
+        } catch (Throwable $exception) {
+            @unlink($docxPath);
+            report($exception);
+
+            return $this->downloadCompatibilityDocument(
+                $rows,
+                $filter,
+                $scopeLabel,
+                $periodLabel,
+                $fiscalYearLabel,
+                $cumulativeThroughLabel,
+            );
+        }
+
+        return response()->download(
             $docxPath,
+            $this->buildFileName($fiscalYearLabel, $filter, 'docx'),
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        )->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Dependency-free Word-compatible fallback for servers where PhpWord has
+     * not yet been installed. Microsoft Word opens this as an editable report.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    public function saveCompatibilityDocument(
+        string $path,
+        array $rows,
+        ProgramDeliverablesFilter $filter,
+        string $scopeLabel,
+        string $periodLabel,
+        string $fiscalYearLabel,
+        ?string $cumulativeThroughLabel,
+    ): void {
+        $written = file_put_contents($path, $this->compatibilityDocumentRtf(
             $rows,
             $filter,
             $scopeLabel,
             $periodLabel,
             $fiscalYearLabel,
             $cumulativeThroughLabel,
-        );
+        ));
 
-        return response()->download(
-            $docxPath,
-            $this->buildFileName($fiscalYearLabel, $filter),
-            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-        )->deleteFileAfterSend(true);
+        abort_if($written === false, 500, 'Could not write Word export.');
     }
 
     /**
@@ -382,8 +435,238 @@ class DeliverablesProgramWordExport
         return now()->format('F Y');
     }
 
-    private function buildFileName(string $fiscalYearLabel, ProgramDeliverablesFilter $filter): string
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function downloadCompatibilityDocument(
+        array $rows,
+        ProgramDeliverablesFilter $filter,
+        string $scopeLabel,
+        string $periodLabel,
+        string $fiscalYearLabel,
+        ?string $cumulativeThroughLabel,
+    ): BinaryFileResponse {
+        $path = tempnam(sys_get_temp_dir(), 'muy-deliverables-word-fallback-');
+        abort_if($path === false, 500, 'Could not prepare Word export.');
+
+        $docPath = $path.'.rtf';
+        @unlink($path);
+
+        $this->saveCompatibilityDocument(
+            $docPath,
+            $rows,
+            $filter,
+            $scopeLabel,
+            $periodLabel,
+            $fiscalYearLabel,
+            $cumulativeThroughLabel,
+        );
+
+        return response()->download(
+            $docPath,
+            $this->buildFileName($fiscalYearLabel, $filter, 'rtf'),
+            ['Content-Type' => 'application/rtf'],
+        )->deleteFileAfterSend(true);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function compatibilityDocumentRtf(
+        array $rows,
+        ProgramDeliverablesFilter $filter,
+        string $scopeLabel,
+        string $periodLabel,
+        string $fiscalYearLabel,
+        ?string $cumulativeThroughLabel,
+    ): string {
+        $showCumulative = $filter->hasExplicitDateFilter();
+        $through = $cumulativeThroughLabel ?: 'cumulative';
+        $logoPath = public_path('images/muy.jpg');
+        $logo = is_file($logoPath) ? bin2hex((string) file_get_contents($logoPath)) : '';
+
+        $headers = [
+            'S.N.',
+            'Indicator',
+            'Type of Indicator',
+            "Target\n(period)",
+            "Achievement\n(period)",
+            "Achievement (%)\n(period)",
+        ];
+        if ($showCumulative) {
+            array_push(
+                $headers,
+                "Target\n(".$through.')',
+                "Achievement\n(".$through.')',
+                "Achievement (%)\n(".$through.')',
+            );
+        }
+
+        $widths = $showCumulative
+            ? [700, 4700, 1700, 1416, 1416, 1416, 1416, 1416, 1416]
+            : [700, 6500, 2200, 2066, 2066, 2068];
+        $table = $this->rtfRow($headers, $widths, array_fill(0, count($headers), 2), true, true);
+
+        foreach ($rows as $row) {
+            $isHeading = in_array($row['row_type'] ?? '', ['pillar', 'subcategory'], true);
+            if ($isHeading) {
+                $values = array_fill(0, count($widths), '');
+                $values[0] = (string) ($row['serial'] ?? '');
+                $values[1] = (string) ($row['name'] ?? '');
+                $table .= $this->rtfRow($values, $widths, array_fill(0, count($widths), 4), false, true);
+
+                continue;
+            }
+
+            $values = [
+                (string) ($row['serial'] ?? ''),
+                (string) ($row['name'] ?? ''),
+                (string) ($row['indicator_type'] ?? '-'),
+                $this->targetValue($row, 'target', 'target_label'),
+                $this->numberValue($row['achievement'] ?? null),
+                $this->percentageValue($row['achievement_pct'] ?? null),
+            ];
+            if ($showCumulative) {
+                array_push(
+                    $values,
+                    $this->targetValue($row, 'cumul_target', 'cumul_target_label'),
+                    $this->numberValue($row['cumul_achievement'] ?? null),
+                    $this->percentageValue($row['cumul_achievement_pct'] ?? null),
+                );
+            }
+
+            $fills = array_fill(0, count($values), 0);
+            $colors = array_fill(0, count($values), 1);
+            $bold = array_fill(0, count($values), false);
+            foreach ($values as $index => $value) {
+                if ($showCumulative && $index >= 6) {
+                    $fills[$index] = 5;
+                }
+                if (in_array($index, $showCumulative ? [5, 8] : [5], true)) {
+                    $toneKey = $index === 8 ? 'cumul_performance_tone' : 'performance_tone';
+                    [$fills[$index], $colors[$index]] = match ($row[$toneKey] ?? 'critical') {
+                        'good' => [6, 7],
+                        'warn' => [8, 3],
+                        default => [9, 10],
+                    };
+                }
+                if (in_array($index, $showCumulative ? [4, 7] : [4], true)) {
+                    $bold[$index] = true;
+                }
+            }
+            $table .= $this->rtfRow($values, $widths, $fills, false, $bold, $colors);
+        }
+
+        $title = 'Monthly progress report for the month of - '.$this->reportingMonthLabel($filter);
+        $headerLogo = $logo === '' ? '' : '{\\pict\\jpegblip\\picwgoal760\\pichgoal760 '.$logo.'}';
+        $metadata = 'Fiscal year: '.$fiscalYearLabel.'    |    Scope: '.$scopeLabel.'    |    Period: '.$periodLabel
+            .'    |    Indicator type: '.($filter->indicatorType ?: 'All types')
+            .'    |    Generated: '.now()->timezone(config('app.timezone'))->format('d M Y, H:i');
+
+        return '{\\rtf1\\ansi\\ansicpg1252\\deff0\\uc1'
+            .'{\\fonttbl{\\f0 Calibri;}}'
+            .'{\\colortbl;\\red17\\green24\\blue39;\\red154\\green52\\blue18;\\red180\\green83\\blue9;'
+            .'\\red255\\green237\\blue213;\\red255\\green251\\blue235;\\red209\\green250\\blue229;'
+            .'\\red4\\green120\\blue87;\\red254\\green243\\blue199;\\red254\\green226\\blue226;'
+            .'\\red185\\green28\\blue28;\\red100\\green116\\blue139;\\red255\\green255\\blue255;}'
+            .'\\landscape\\paperw16838\\paperh11906\\margl425\\margr425\\margt900\\margb600\\headery180\\footery250'
+            .'{\\header\\pard\\qc '.$headerLogo.'\\line\\f0\\fs16\\b\\cf11 '.$this->rtfText('MUKHYAMANTRI UDYAMSHALA YOJANA')
+            .'\\line\\fs28\\cf1 '.$this->rtfText($title).'\\b0\\par}'
+            .'{\\footer\\pard\\qr\\f0\\fs16\\cf11 Page {\\field{\\*\\fldinst PAGE}{\\fldrslt 1}} of '
+            .'{\\field{\\*\\fldinst NUMPAGES}{\\fldrslt 1}}\\par}'
+            .'\\viewkind4\\f0\\fs17\\cf1\\pard\\sa80\\brdrb\\brdrs\\brdrw8\\brdrcf2 '
+            .'\\b '.$this->rtfText($metadata).'\\b0\\par'
+            .'\\pard\\sa60\\b\\fs20\\cf2 '.$this->rtfText('Monthly / selected-period and cumulative progress').'\\b0\\par'
+            .$table.'}';
+    }
+
+    /**
+     * @param  list<string>  $values
+     * @param  list<int>  $widths
+     * @param  list<int>  $fills
+     * @param  bool|list<bool>  $bold
+     * @param  list<int>|null  $colors
+     */
+    private function rtfRow(
+        array $values,
+        array $widths,
+        array $fills,
+        bool $repeatHeader,
+        bool|array $bold,
+        ?array $colors = null,
+    ): string {
+        $row = '\\trowd\\trgaph70\\trleft0\\trkeep';
+        if ($repeatHeader) {
+            $row .= '\\trhdr';
+        }
+
+        $edge = 0;
+        foreach ($widths as $index => $width) {
+            $edge += $width;
+            $fill = $fills[$index] ?? 0;
+            $row .= '\\clvertalc\\clbrdrt\\brdrs\\brdrw5\\brdrcf11\\clbrdrl\\brdrs\\brdrw5\\brdrcf11'
+                .'\\clbrdrb\\brdrs\\brdrw5\\brdrcf11\\clbrdrr\\brdrs\\brdrw5\\brdrcf11';
+            if ($fill > 0) {
+                $row .= '\\clcbpat'.$fill;
+            }
+            $row .= '\\cellx'.$edge;
+        }
+
+        foreach ($values as $index => $value) {
+            $isBold = is_array($bold) ? ($bold[$index] ?? false) : $bold;
+            $color = $colors[$index] ?? ($repeatHeader ? 12 : 1);
+            $alignment = $index === 1 && ! $repeatHeader ? '\\ql' : '\\qc';
+            $row .= '\\pard\\intbl'.$alignment.'\\fs'.($repeatHeader ? '15' : '17').'\\cf'.$color;
+            if ($isBold) {
+                $row .= '\\b';
+            }
+            $row .= ' '.$this->rtfText((string) $value);
+            if ($isBold) {
+                $row .= '\\b0';
+            }
+            $row .= '\\cell';
+        }
+
+        return $row.'\\row';
+    }
+
+    private function rtfText(string $value): string
     {
+        $result = '';
+        foreach (mb_str_split($value) as $character) {
+            if ($character === "\n") {
+                $result .= '\\line ';
+
+                continue;
+            }
+            if (in_array($character, ['\\', '{', '}'], true)) {
+                $result .= '\\'.$character;
+
+                continue;
+            }
+
+            $codepoint = mb_ord($character, 'UTF-8');
+            if ($codepoint >= 32 && $codepoint <= 126) {
+                $result .= $character;
+
+                continue;
+            }
+
+            $units = unpack('v*', mb_convert_encoding($character, 'UTF-16LE', 'UTF-8')) ?: [];
+            foreach ($units as $unit) {
+                $signed = $unit > 32767 ? $unit - 65536 : $unit;
+                $result .= '\\u'.$signed.'?';
+            }
+        }
+
+        return $result;
+    }
+
+    private function buildFileName(
+        string $fiscalYearLabel,
+        ProgramDeliverablesFilter $filter,
+        string $extension,
+    ): string {
         $suffix = $filter->districtId ? '-d'.$filter->districtId : '';
         if ($filter->month) {
             $suffix .= '-m'.$filter->month;
@@ -391,6 +674,6 @@ class DeliverablesProgramWordExport
 
         $fySlug = preg_replace('/[^A-Za-z0-9-]+/', '-', $fiscalYearLabel) ?: 'FY';
 
-        return 'deliverables-'.$fySlug.$suffix.'-'.now()->format('Ymd-His').'.docx';
+        return 'deliverables-'.$fySlug.$suffix.'-'.now()->format('Ymd-His').'.'.$extension;
     }
 }

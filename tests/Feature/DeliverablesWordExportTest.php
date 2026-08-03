@@ -51,6 +51,37 @@ class DeliverablesWordExportTest extends TestCase
         }
     }
 
+    public function test_dependency_free_word_fallback_keeps_the_full_report_layout(): void
+    {
+        $path = storage_path('framework/testing/deliverables-word-fallback.rtf');
+        @mkdir(dirname($path), 0777, true);
+
+        try {
+            app(DeliverablesProgramWordExport::class)->saveCompatibilityDocument(
+                $path,
+                $this->rows(),
+                $this->filter(),
+                'Your district',
+                'July 2026 (01 Jul - 31 Jul 2026)',
+                'FY 2026-27',
+                'till Jul 2026',
+            );
+
+            $rtf = (string) file_get_contents($path);
+            $this->assertStringStartsWith('{\rtf1', $rtf);
+            $this->assertStringContainsString('\landscape\paperw16838\paperh11906', $rtf);
+            $this->assertStringContainsString('Monthly progress report for the month of - July 2026', $rtf);
+            $this->assertStringContainsString('Achievement (%)\line (till Jul 2026)', $rtf);
+            $this->assertStringContainsString('17,010', $rtf);
+            $this->assertStringContainsString('126%', $rtf);
+            $this->assertStringNotContainsString('Spoke/ Hub/ State', $rtf);
+        } finally {
+            if (is_file($path)) {
+                @unlink($path);
+            }
+        }
+    }
+
     private function filter(): ProgramDeliverablesFilter
     {
         return new ProgramDeliverablesFilter(
