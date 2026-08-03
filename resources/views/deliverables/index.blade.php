@@ -18,15 +18,55 @@
     @php
         $queryParams = $filter->queryParams();
         $formDates = $filter->formDates($fiscalYear ?? null);
+        $showCumulativeColumns = $showCumulativeColumns ?? false;
         $screenshotScopeLabel = $scopeLabel ?? 'Program scope';
-        $monthlyProgressMonthLabel = now()->format('F Y');
+        $monthlyProgressMonthLabel = ! empty($filter->month) && ! empty($formDates['dateFrom'])
+            ? \Carbon\Carbon::parse($formDates['dateFrom'])->format('F Y')
+            : now()->format('F Y');
         $screenshotPeriodLabel = ! empty($formDates['dateFrom']) && ! empty($formDates['dateTo'])
             ? \Carbon\Carbon::parse($formDates['dateFrom'])->format('d M Y').' – '.\Carbon\Carbon::parse($formDates['dateTo'])->format('d M Y')
             : 'Full fiscal year';
+        // Keep each print block readable on A4 and avoid orphaning a section
+        // heading at the bottom of a page.
+        $printRowsPerPage = 15;
+        $printRowPages = [];
+        $printPageRows = [];
+        $printPageIndicatorCount = 0;
+
+        foreach ($rows as $printRow) {
+            $printRowIsHeading = in_array($printRow['row_type'], ['pillar', 'subcategory'], true);
+
+            if (($printRowIsHeading && $printPageIndicatorCount >= $printRowsPerPage - 1)
+                || (! $printRowIsHeading && $printPageIndicatorCount >= $printRowsPerPage)) {
+                if ($printPageRows !== []) {
+                    $printRowPages[] = $printPageRows;
+                }
+
+                $printPageRows = [];
+                $printPageIndicatorCount = 0;
+            }
+
+            $printPageRows[] = $printRow;
+
+            if (! $printRowIsHeading) {
+                $printPageIndicatorCount++;
+            }
+        }
+
+        if ($printPageRows !== []) {
+            $printRowPages[] = $printPageRows;
+        }
+
+        if ($printRowPages === []) {
+            $printRowPages[] = [];
+        }
+
+        $printSectionCount = $showCumulativeColumns ? 2 : 1;
+        $printTotalPages = count($printRowPages) * $printSectionCount;
     @endphp
 
     <div id="deliverables-screenshot-root">
-        <header class="dlv-print-header" aria-hidden="true">
+        <header class="dlv-print-header dlv-print-header--legacy" aria-hidden="true">
             <img src="{{ asset('images/muy.jpg') }}" alt="MUY Logo" class="dlv-print-header__logo">
             <div class="dlv-print-header__content">
                 <div class="dlv-print-header__scheme">Mukhyamantri Udyamshala Yojana</div>
@@ -34,7 +74,7 @@
             </div>
         </header>
 
-        <section class="dlv-print-summary" aria-hidden="true">
+        <section class="dlv-print-summary dlv-print-summary--legacy" aria-hidden="true">
             <span><strong>Fiscal year:</strong> {{ $fiscalYear?->name ?? '—' }}</span>
             <span><strong>Scope:</strong> {{ $screenshotScopeLabel }}</span>
             <span><strong>Period:</strong> {{ $screenshotPeriodLabel }}</span>
@@ -314,6 +354,25 @@
             </tbody>
         </table>
     </div>
+        <section class="dlv-print-document" aria-hidden="true">
+            @foreach ($printRowPages as $printPageIndex => $printPageRows)
+                @include('deliverables.partials.print-page', [
+                    'printMetric' => 'period',
+                    'printSectionTitle' => 'Monthly / selected-period progress',
+                    'printPageNumber' => $printPageIndex + 1,
+                ])
+            @endforeach
+
+            @if ($showCumulativeColumns)
+                @foreach ($printRowPages as $printPageIndex => $printPageRows)
+                    @include('deliverables.partials.print-page', [
+                        'printMetric' => 'cumulative',
+                        'printSectionTitle' => 'Cumulative progress through '.$cumulativeThroughLabel,
+                        'printPageNumber' => count($printRowPages) + $printPageIndex + 1,
+                    ])
+                @endforeach
+            @endif
+        </section>
     </div>{{-- #deliverables-screenshot-root --}}
 
     @include('deliverables.partials.breakdown-drawer')
@@ -361,6 +420,7 @@
                 border: 1px solid #bfdbfe;
                 background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
             }
+            .dlv-print-document,
             .dlv-print-header,
             .dlv-print-summary {
                 display: none;
@@ -570,8 +630,8 @@
 
             @media print {
                 @page {
-                    size: A3 landscape;
-                    margin: 11mm 9mm 14mm;
+                    size: A4 landscape;
+                    margin: 8mm;
                 }
 
                 html,
@@ -659,9 +719,13 @@
                 #deliverables-filter-form,
                 #deliverables-screenshot-banner,
                 .dlv-screenshot-banner,
+                .dlv-print-header--legacy,
+                .dlv-print-summary--legacy,
                 .dlv-meta-save-status,
                 .dlv-breakdown-drawer,
-                [data-dlv-drawer] {
+                [data-dlv-drawer],
+                #deliverables-table-wrap,
+                #deliverables-screenshot-root > .dlv-pct-legend {
                     display: none !important;
                 }
 
@@ -755,6 +819,125 @@
                 .dlv-section-row {
                     print-color-adjust: exact;
                     -webkit-print-color-adjust: exact;
+                }
+
+                .dlv-print-document {
+                    display: block !important;
+                    width: 100% !important;
+                }
+
+                .dlv-print-page {
+                    position: relative;
+                    display: flex !important;
+                    min-height: 190mm;
+                    flex-direction: column;
+                    break-after: page;
+                    page-break-after: always;
+                    background: #fff !important;
+                }
+
+                .dlv-print-page:last-child {
+                    break-after: auto;
+                    page-break-after: auto;
+                }
+
+                .dlv-print-page .dlv-print-header {
+                    display: flex !important;
+                }
+
+                .dlv-print-page .dlv-print-summary {
+                    display: flex !important;
+                    font-size: 8pt;
+                }
+
+                .dlv-print-section-title {
+                    margin: 0 0 5px;
+                    padding: 5px 8px;
+                    border-left: 4px solid #9a3412;
+                    background: #fff7ed !important;
+                    color: #7c2d12 !important;
+                    font-size: 10pt;
+                    line-height: 1.2;
+                    break-after: avoid;
+                    page-break-after: avoid;
+                }
+
+                .dlv-print-table {
+                    width: 100% !important;
+                    border-collapse: collapse !important;
+                    table-layout: fixed !important;
+                    color: #111827 !important;
+                    font-size: 9pt !important;
+                    line-height: 1.2;
+                }
+
+                .dlv-print-table thead {
+                    display: table-header-group;
+                }
+
+                .dlv-print-table tr {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+
+                .dlv-print-table th,
+                .dlv-print-table td {
+                    padding: 4px 5px;
+                    border: 1px solid #64748b;
+                    text-align: center;
+                    vertical-align: middle;
+                    overflow-wrap: anywhere;
+                    print-color-adjust: exact;
+                    -webkit-print-color-adjust: exact;
+                }
+
+                .dlv-print-table th {
+                    background: #9a3412 !important;
+                    color: #fff !important;
+                    font-size: 8.5pt;
+                    font-weight: 700;
+                }
+
+                .dlv-print-table .dlv-print-text-left {
+                    text-align: left;
+                }
+
+                .dlv-print-col-serial { width: 5%; }
+                .dlv-print-col-indicator { width: 35%; }
+                .dlv-print-col-type { width: 13%; }
+                .dlv-print-col-level { width: 12%; }
+                .dlv-print-col-metric { width: 11.666%; }
+
+                .dlv-print-section-row td {
+                    background: #ffedd5 !important;
+                    font-weight: 700;
+                }
+
+                .dlv-print-target-label {
+                    color: #1d4ed8 !important;
+                    font-weight: 700;
+                    white-space: nowrap;
+                }
+
+                .dlv-print-empty {
+                    padding: 16px !important;
+                    color: #64748b !important;
+                }
+
+                .dlv-print-table .dlv-pct-badge {
+                    min-width: 3rem;
+                    padding: 2px 5px !important;
+                    font-size: 8pt !important;
+                }
+
+                .dlv-print-footer {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: auto;
+                    padding-top: 5px;
+                    border-top: 1px solid #cbd5e1;
+                    color: #475569 !important;
+                    font-size: 7.5pt;
                 }
             }
         </style>
