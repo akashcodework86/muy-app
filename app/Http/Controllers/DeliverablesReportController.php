@@ -9,6 +9,7 @@ use App\Services\Deliverables\DeliverablesBreakdownCsvExport;
 use App\Services\Deliverables\DeliverablesBreakdownPdfExport;
 use App\Services\Deliverables\Exports\DeliverablesBreakdownExcelExport;
 use App\Services\Deliverables\Exports\DeliverablesProgramExcelExport;
+use App\Services\Deliverables\Exports\DeliverablesProgramWordExport;
 use App\Services\Deliverables\ProgramDeliverableRowMetadataService;
 use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
 use App\Services\Deliverables\ProgramDeliverablesActivityGuideService;
@@ -20,6 +21,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -30,6 +32,7 @@ class DeliverablesReportController extends Controller
         private readonly ProgramDeliverablesAchievementBreakdownService $breakdownService,
         private readonly ProgramDeliverablesActivityGuideService $activityGuideService,
         private readonly DeliverablesProgramExcelExport $programExcelExport,
+        private readonly DeliverablesProgramWordExport $programWordExport,
         private readonly DeliverablesBreakdownExcelExport $breakdownExcelExport,
         private readonly DeliverablesBreakdownPdfExport $breakdownPdfExport,
         private readonly DeliverablesBreakdownCsvExport $breakdownCsvExport,
@@ -77,6 +80,22 @@ class DeliverablesReportController extends Controller
             $payload['scopeLabel'],
             $payload['periodLabel'],
             $report['fiscalYear']?->name ?? 'all',
+        );
+    }
+
+    public function exportWord(Request $request): BinaryFileResponse
+    {
+        $context = $this->resolveRequestContext($request);
+        $payload = $this->buildReportPayload($context);
+        $report = $payload['report'];
+
+        return $this->programWordExport->download(
+            $report['rows'],
+            $payload['filter'],
+            $payload['scopeLabel'],
+            $payload['periodLabel'],
+            $report['fiscalYear']?->name ?? 'all',
+            $payload['cumulativeThroughLabel'],
         );
     }
 
@@ -284,6 +303,7 @@ class DeliverablesReportController extends Controller
             'showActivityGuideLink' => $user->role === 'state_admin',
             'activityGuideRoute' => 'admin.deliverables.activity-guide',
             'exportRoute' => $this->routeNameFor($user, 'export'),
+            'wordExportRoute' => $this->routeNameFor($user, 'export.word'),
             'breakdownRoute' => $this->routeNameFor($user, 'breakdown'),
             'breakdownExportRoute' => $this->routeNameFor($user, 'breakdown.export'),
             'breakdownExportCsvRoute' => $this->routeNameFor($user, 'breakdown.export.csv'),

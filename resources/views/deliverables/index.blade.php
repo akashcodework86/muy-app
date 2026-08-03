@@ -156,6 +156,7 @@
         <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;cursor:pointer;">Apply</button>
         <a href="{{ route($indexRoute) }}" style="padding:0.48rem 0.75rem;border:1px solid #d4d4d8;border-radius:8px;text-decoration:none;color:#334155;font-size:0.88rem;">Reset</a>
         <a href="{{ route($exportRoute, $queryParams) }}" style="text-decoration:none;background:#065f46;color:#fff;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;">⬇ Export .xlsx</a>
+        <a href="{{ route($wordExportRoute, $queryParams) }}" style="text-decoration:none;background:#2563eb;color:#fff;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;">Download Word</a>
         <button
             type="button"
             id="deliverables-screenshot-btn"

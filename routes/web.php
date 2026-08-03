@@ -232,6 +232,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
         Route::get('fy-targets/state', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
         Route::get('fy-targets/state/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
         Route::get('fy-targets/district', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
@@ -618,6 +619,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
         Route::get('fy-targets/state', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
         Route::get('fy-targets/state/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
         Route::get('fy-targets/district', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
@@ -960,6 +962,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
         Route::patch('deliverables/row-metadata', [DeliverablesReportController::class, 'updateRowMetadata'])->name('deliverables.row-metadata.update');
         Route::get('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly');
         Route::post('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly.update');
@@ -1293,6 +1296,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown/export/pdf', [DeliverablesReportController::class, 'breakdownExportPdf'])->name('deliverables.breakdown.export.pdf');
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
+        Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
         Route::get('fy-targets/state', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
         Route::get('fy-targets/state/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
         Route::get('fy-targets/district', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
