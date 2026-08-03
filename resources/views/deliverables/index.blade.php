@@ -61,8 +61,7 @@
             $printRowPages[] = [];
         }
 
-        $printSectionCount = $showCumulativeColumns ? 2 : 1;
-        $printTotalPages = count($printRowPages) * $printSectionCount;
+        $printTotalPages = count($printRowPages);
     @endphp
 
     <div id="deliverables-screenshot-root">
@@ -357,21 +356,10 @@
         <section class="dlv-print-document" aria-hidden="true">
             @foreach ($printRowPages as $printPageIndex => $printPageRows)
                 @include('deliverables.partials.print-page', [
-                    'printMetric' => 'period',
-                    'printSectionTitle' => 'Monthly / selected-period progress',
+                    'printSectionTitle' => 'Monthly / selected-period and cumulative progress',
                     'printPageNumber' => $printPageIndex + 1,
                 ])
             @endforeach
-
-            @if ($showCumulativeColumns)
-                @foreach ($printRowPages as $printPageIndex => $printPageRows)
-                    @include('deliverables.partials.print-page', [
-                        'printMetric' => 'cumulative',
-                        'printSectionTitle' => 'Cumulative progress through '.$cumulativeThroughLabel,
-                        'printPageNumber' => count($printRowPages) + $printPageIndex + 1,
-                    ])
-                @endforeach
-            @endif
         </section>
     </div>{{-- #deliverables-screenshot-root --}}
 
@@ -867,7 +855,7 @@
                     border-collapse: collapse !important;
                     table-layout: fixed !important;
                     color: #111827 !important;
-                    font-size: 9pt !important;
+                    font-size: {{ $showCumulativeColumns ? '8.5pt' : '9pt' }} !important;
                     line-height: 1.2;
                 }
 
@@ -894,8 +882,16 @@
                 .dlv-print-table th {
                     background: #9a3412 !important;
                     color: #fff !important;
-                    font-size: 8.5pt;
+                    font-size: {{ $showCumulativeColumns ? '7.5pt' : '8.5pt' }};
                     font-weight: 700;
+                }
+
+                .dlv-print-th-subtitle {
+                    display: block;
+                    margin-top: 1px;
+                    font-size: 6.5pt;
+                    font-weight: 500;
+                    line-height: 1.05;
                 }
 
                 .dlv-print-table .dlv-print-text-left {
@@ -903,10 +899,17 @@
                 }
 
                 .dlv-print-col-serial { width: 5%; }
-                .dlv-print-col-indicator { width: 35%; }
-                .dlv-print-col-type { width: 13%; }
-                .dlv-print-col-level { width: 12%; }
-                .dlv-print-col-metric { width: 11.666%; }
+                .dlv-print-col-indicator { width: {{ $showCumulativeColumns ? '30%' : '42%' }}; }
+                .dlv-print-col-type { width: {{ $showCumulativeColumns ? '11%' : '17%' }}; }
+                .dlv-print-col-metric { width: {{ $showCumulativeColumns ? '9%' : '12%' }}; }
+
+                .dlv-print-cumulative-th {
+                    background: #b45309 !important;
+                }
+
+                .dlv-print-cumulative-cell {
+                    background: #fffbeb !important;
+                }
 
                 .dlv-print-section-row td {
                     background: #ffedd5 !important;

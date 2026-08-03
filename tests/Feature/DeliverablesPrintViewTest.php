@@ -8,31 +8,33 @@ use Tests\TestCase;
 
 class DeliverablesPrintViewTest extends TestCase
 {
-    public function test_print_page_renders_period_metrics_in_readable_seven_column_table(): void
+    public function test_print_page_combines_period_and_cumulative_metrics_without_level_column(): void
     {
-        $html = $this->renderPrintPage('period');
+        $html = $this->renderPrintPage(true);
 
         $this->assertStringContainsString('Monthly progress report for the month of - July 2026', $html);
-        $this->assertStringContainsString('Monthly / selected-period progress', $html);
+        $this->assertStringContainsString('Monthly / selected-period and cumulative progress', $html);
         $this->assertStringContainsString('1,820', $html);
         $this->assertStringContainsString('2,413', $html);
         $this->assertStringContainsString('133%', $html);
-        $this->assertStringContainsString('Page 1 of 4', $html);
-        $this->assertSame(7, preg_match_all('/<th(?:\s|>)/', $html));
-    }
-
-    public function test_print_page_renders_cumulative_metrics_separately(): void
-    {
-        $html = $this->renderPrintPage('cumulative');
-
-        $this->assertStringContainsString('Cumulative progress through till Jul 2026', $html);
         $this->assertStringContainsString('17,010', $html);
         $this->assertStringContainsString('21,407', $html);
         $this->assertStringContainsString('126%', $html);
-        $this->assertStringNotContainsString('2,413', $html);
+        $this->assertStringNotContainsString('Spoke/ Hub/ State', $html);
+        $this->assertStringContainsString('Page 1 of 4', $html);
+        $this->assertSame(9, preg_match_all('/<th(?:\s|>)/', $html));
     }
 
-    private function renderPrintPage(string $metric): string
+    public function test_print_page_omits_cumulative_columns_when_report_has_no_cumulative_data(): void
+    {
+        $html = $this->renderPrintPage(false);
+
+        $this->assertStringContainsString('2,413', $html);
+        $this->assertStringNotContainsString('21,407', $html);
+        $this->assertSame(6, preg_match_all('/<th(?:\s|>)/', $html));
+    }
+
+    private function renderPrintPage(bool $showCumulativeColumns): string
     {
         $filter = new ProgramDeliverablesFilter(
             fiscalYearId: 1,
@@ -46,12 +48,11 @@ class DeliverablesPrintViewTest extends TestCase
         $fiscalYear = new FiscalYear(['name' => 'FY 2026-27']);
 
         return view('deliverables.partials.print-page', [
-            'printMetric' => $metric,
-            'printSectionTitle' => $metric === 'period'
-                ? 'Monthly / selected-period progress'
-                : 'Cumulative progress through till Jul 2026',
+            'printSectionTitle' => 'Monthly / selected-period and cumulative progress',
             'printPageNumber' => 1,
             'printTotalPages' => 4,
+            'showCumulativeColumns' => $showCumulativeColumns,
+            'cumulativeThroughLabel' => 'till Jul 2026',
             'printPageRows' => [[
                 'row_type' => 'indicator',
                 'serial' => '1.1',
