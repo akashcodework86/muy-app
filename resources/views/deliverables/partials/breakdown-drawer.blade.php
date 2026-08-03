@@ -712,7 +712,7 @@
             tableHtml = `<table class="dlv-table">
                 <thead><tr>
                     <th style="width:2rem;text-align:center;">#</th>
-                    <th>Application no.</th><th>Incubatee</th><th>District</th><th>Partner(s)</th><th>Mode</th><th>Latest linkage</th>
+                    <th>Application no.</th><th>Incubatee</th><th>District</th><th>Partner(s)</th><th>Mode</th><th>Submitted</th>
                 </tr></thead>
                 <tbody>${rowsHtml || '<tr><td colspan="7">No linked incubatees found.</td></tr>'}</tbody>
             </table>`;
