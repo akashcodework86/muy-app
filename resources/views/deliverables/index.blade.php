@@ -19,12 +19,29 @@
         $queryParams = $filter->queryParams();
         $formDates = $filter->formDates($fiscalYear ?? null);
         $screenshotScopeLabel = $scopeLabel ?? 'Program scope';
+        $monthlyProgressMonthLabel = now()->format('F Y');
         $screenshotPeriodLabel = ! empty($formDates['dateFrom']) && ! empty($formDates['dateTo'])
             ? \Carbon\Carbon::parse($formDates['dateFrom'])->format('d M Y').' – '.\Carbon\Carbon::parse($formDates['dateTo'])->format('d M Y')
             : 'Full fiscal year';
     @endphp
 
     <div id="deliverables-screenshot-root">
+        <header class="dlv-print-header" aria-hidden="true">
+            <img src="{{ asset('images/muy.jpg') }}" alt="MUY Logo" class="dlv-print-header__logo">
+            <div class="dlv-print-header__content">
+                <div class="dlv-print-header__scheme">Mukhyamantri Udyamshala Yojana</div>
+                <h1>Monthly progress report for the month of - {{ $monthlyProgressMonthLabel }}</h1>
+            </div>
+        </header>
+
+        <section class="dlv-print-summary" aria-hidden="true">
+            <span><strong>Fiscal year:</strong> {{ $fiscalYear?->name ?? '—' }}</span>
+            <span><strong>Scope:</strong> {{ $screenshotScopeLabel }}</span>
+            <span><strong>Period:</strong> {{ $screenshotPeriodLabel }}</span>
+            <span><strong>Indicator type:</strong> {{ $filter->indicatorType ?: 'All types' }}</span>
+            <span><strong>Level:</strong> {{ $filter->level ?: 'All levels' }}</span>
+            <span><strong>Generated:</strong> {{ now()->format('d M Y, H:i') }}</span>
+        </section>
         <div id="deliverables-screenshot-banner" class="dlv-screenshot-banner" aria-hidden="true">
             <div class="dlv-screenshot-banner__title">MUY Program Deliverables</div>
             <div class="dlv-screenshot-banner__meta">
@@ -106,6 +123,13 @@
             title="Download full-page PNG (first indicator to last)"
             style="background:#1d4ed8;color:#fff;border:none;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;"
         >📸 Screenshot (4K)</button>
+        <button
+            type="button"
+            id="deliverables-print-btn"
+            title="Print report or save as PDF"
+            onclick="window.print()"
+            style="background:#7c3aed;color:#fff;border:none;padding:0.48rem 0.9rem;border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;"
+        >Print / Save PDF</button>
         @if ($showActivityGuideLink ?? false)
             <a href="{{ route($activityGuideRoute, $queryParams) }}" style="text-decoration:none;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:0.48rem 0.9rem;border-radius:8px;font-weight:700;font-size:0.88rem;">Activity guide →</a>
         @endif
@@ -186,7 +210,7 @@
                     @php
                         $isHeading = in_array($row['row_type'], ['pillar', 'subcategory'], true);
                     @endphp
-                    <tr @if ($isHeading) style="background:#ffedd5;font-weight:700;" @endif>
+                    <tr @class(['dlv-section-row' => $isHeading]) @if ($isHeading) style="background:#ffedd5;font-weight:700;" @endif>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">{{ $row['serial'] }}</td>
                         <td style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;">{{ $row['name'] }}</td>
                         <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;">
@@ -336,6 +360,10 @@
                 border-radius: 10px;
                 border: 1px solid #bfdbfe;
                 background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+            }
+            .dlv-print-header,
+            .dlv-print-summary {
+                display: none;
             }
             .dlv-screenshot-banner.is-visible {
                 display: block;
@@ -538,6 +566,196 @@
                 min-width: 72rem !important;
                 max-width: none !important;
                 table-layout: fixed !important;
+            }
+
+            @media print {
+                @page {
+                    size: A3 landscape;
+                    margin: 11mm 9mm 14mm;
+                }
+
+                html,
+                body {
+                    width: auto !important;
+                    min-width: 0 !important;
+                    height: auto !important;
+                    overflow: visible !important;
+                    background: #fff !important;
+                }
+
+                body * {
+                    visibility: hidden !important;
+                }
+
+                #deliverables-screenshot-root,
+                #deliverables-screenshot-root * {
+                    visibility: visible !important;
+                }
+
+                #deliverables-screenshot-root {
+                    position: absolute !important;
+                    inset: 0 auto auto 0 !important;
+                    width: 100% !important;
+                    max-width: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    color: #111827 !important;
+                    background: #fff !important;
+                }
+
+                .dlv-print-header {
+                    display: flex !important;
+                    align-items: center;
+                    gap: 12px;
+                    margin: 0 0 7px;
+                    padding: 0 0 7px;
+                    border-bottom: 2px solid #9a3412;
+                    break-inside: avoid;
+                }
+
+                .dlv-print-header__logo {
+                    display: block;
+                    width: 54px;
+                    height: 54px;
+                    object-fit: contain;
+                    flex: 0 0 auto;
+                }
+
+                .dlv-print-header__content {
+                    flex: 1;
+                    padding-right: 66px;
+                    text-align: center;
+                }
+
+                .dlv-print-header__scheme {
+                    margin-bottom: 2px;
+                    color: #475569 !important;
+                    font-size: 9pt;
+                    font-weight: 700;
+                    letter-spacing: 0.04em;
+                    text-transform: uppercase;
+                }
+
+                .dlv-print-header h1 {
+                    margin: 0;
+                    color: #111827 !important;
+                    font-size: 16pt;
+                    line-height: 1.2;
+                }
+
+                .dlv-print-summary {
+                    display: flex !important;
+                    flex-wrap: wrap;
+                    gap: 3px 18px;
+                    margin: 0 0 7px;
+                    padding: 6px 8px;
+                    border: 1px solid #cbd5e1;
+                    background: #f8fafc !important;
+                    font-size: 7.5pt;
+                    line-height: 1.25;
+                    break-inside: avoid;
+                }
+
+                #deliverables-filter-form,
+                #deliverables-screenshot-banner,
+                .dlv-screenshot-banner,
+                .dlv-meta-save-status,
+                .dlv-breakdown-drawer,
+                [data-dlv-drawer] {
+                    display: none !important;
+                }
+
+                .dlv-pct-legend {
+                    margin: 0 0 5px !important;
+                    font-size: 7pt !important;
+                    break-inside: avoid;
+                }
+
+                #deliverables-table-wrap {
+                    width: 100% !important;
+                    max-width: none !important;
+                    overflow: visible !important;
+                }
+
+                .deliverables-report-table {
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    max-width: none !important;
+                    table-layout: fixed !important;
+                    border-collapse: collapse !important;
+                    font-size: {{ $showCumulativeColumns ? '6.5pt' : '7.5pt' }} !important;
+                }
+
+                .deliverables-report-table thead {
+                    display: table-header-group;
+                }
+
+                .deliverables-report-table tr {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+
+                .deliverables-report-table .dlv-section-row {
+                    break-after: avoid;
+                    page-break-after: avoid;
+                }
+
+                .deliverables-report-table th,
+                .deliverables-report-table td {
+                    min-width: 0 !important;
+                    padding: 3px 4px !important;
+                    border-color: #64748b !important;
+                    overflow-wrap: anywhere;
+                    word-break: normal !important;
+                }
+
+                .deliverables-report-table th:nth-child(1),
+                .deliverables-report-table td:nth-child(1) { width: 5% !important; }
+                .deliverables-report-table th:nth-child(2),
+                .deliverables-report-table td:nth-child(2) { width: {{ $showCumulativeColumns ? '30%' : '35%' }} !important; }
+                .deliverables-report-table th:nth-child(3),
+                .deliverables-report-table td:nth-child(3) { width: 12% !important; }
+                .deliverables-report-table th:nth-child(4),
+                .deliverables-report-table td:nth-child(4) { width: 11% !important; }
+
+                .dlv-meta-select {
+                    width: 100% !important;
+                    padding: 0 !important;
+                    border: 0 !important;
+                    appearance: none;
+                    background: transparent !important;
+                    color: #111827 !important;
+                    font-size: inherit !important;
+                    text-align: center;
+                }
+
+                .dlv-ach-btn {
+                    padding: 0 !important;
+                    border: 0 !important;
+                    background: transparent !important;
+                    color: #111827 !important;
+                    box-shadow: none !important;
+                }
+
+                .dlv-pct-stack {
+                    gap: 1px !important;
+                    max-width: 3.75rem !important;
+                }
+
+                .dlv-pct-badge {
+                    padding: 1px 3px !important;
+                    font-size: 6.5pt !important;
+                }
+
+                .dlv-pct-badge,
+                .dlv-pct-bar,
+                .dlv-pct-bar__fill,
+                .deliverables-report-table th,
+                .deliverables-report-table td,
+                .dlv-section-row {
+                    print-color-adjust: exact;
+                    -webkit-print-color-adjust: exact;
+                }
             }
         </style>
     @endpush
