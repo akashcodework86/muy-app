@@ -7,6 +7,7 @@ use App\Models\District;
 use App\Models\FiscalYear;
 use App\Services\DataCentre\DataCentreFilter;
 use App\Services\DataCentre\ProgramDataCentreService;
+use App\Services\Exports\OnboardedShgCboDistrictPackService;
 use App\Services\Exports\Phase3ShgCboReapPackDataService;
 use App\Services\Exports\Phase3ShgCboReapPackExcelExport;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ class DataCentreController extends Controller
         private readonly ProgramDataCentreService $service,
         private readonly Phase3ShgCboReapPackDataService $shgCboReapPack,
         private readonly Phase3ShgCboReapPackExcelExport $shgCboReapExcel,
+        private readonly OnboardedShgCboDistrictPackService $onboardedShgCboPack,
     ) {}
 
     public function index(Request $request): View
@@ -151,6 +153,48 @@ class DataCentreController extends Controller
             $tempPath = storage_path('app/temp/'.$fileName);
             $this->shgCboReapExcel->writeToPath($pack, $tempPath);
             unset($pack);
+
+            return response()
+                ->download($tempPath, $fileName, [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ])
+                ->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('admin.data-centre.index')
+                ->withErrors(['export' => 'Excel export failed: '.$e->getMessage()]);
+        }
+    }
+
+    /**
+     * Onboarded SHG / CBO / Individual Excel pack (Phase 1+2+3), optional district filter.
+     */
+    public function exportOnboardedShgCboIndividual(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
+    {
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(300);
+
+        $districtId = $request->integer('district_id') ?: null;
+        $districtSlug = trim((string) $request->query('district', ''));
+
+        try {
+            if (! class_exists(\ZipArchive::class)) {
+                return redirect()
+                    ->route('admin.data-centre.index')
+                    ->withErrors(['export' => 'Excel export unavailable: PHP Zip extension (ext-zip) is not enabled on the server.']);
+            }
+
+            $data = $this->onboardedShgCboPack->build(
+                $districtId ?: null,
+                $districtId ? null : ($districtSlug !== '' ? $districtSlug : null),
+            );
+            $slug = (string) ($data['meta']['district_slug'] ?? 'all') ?: 'all';
+            $fileName = 'onboarded-shg-cbo-individual-'.$slug.'-'.now()->format('Ymd_His').'.xlsx';
+            $tempPath = storage_path('app/temp/'.$fileName);
+            $this->onboardedShgCboPack->writeToPath($data, $tempPath);
+            unset($data);
 
             return response()
                 ->download($tempPath, $fileName, [

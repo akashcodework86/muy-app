@@ -7,6 +7,7 @@ use App\Models\MarketLinkageSubmission;
 use App\Models\ServiceCase;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Support\MarketLinkageUnifiedListingSupport;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -174,8 +175,17 @@ class Phase3UnifiedMarketLinkageListBuilder
         $mlIncubateeKeys = MarketLinkageUnifiedListingSupport::incubateeKeysFromSubmissions($marketLinkages);
         $items = collect();
 
-        foreach ($marketLinkages as $submission) {
-            if ($uniqueOnly) {
+        if ($uniqueOnly) {
+            /** @var array<string, array<string, mixed>> $byIncubatee */
+            $byIncubatee = [];
+
+            foreach ($marketLinkages as $submission) {
+                // Match deliverables 6.3: only incubatees with at least one partner row.
+                if ($submission->partners->count() < 1) {
+                    continue;
+                }
+
+                $key = MarketLinkageUnifiedListingSupport::incubateeKeyForMarketLinkage($submission);
                 $modes = [];
                 $partnerNames = [];
                 foreach ($submission->partners as $partner) {
@@ -189,37 +199,75 @@ class Phase3UnifiedMarketLinkageListBuilder
                     }
                 }
 
-                $partnerCount = count($partnerNames);
-                $partnerSummary = $partnerCount === 0
-                    ? '—'
-                    : ($partnerCount === 1
-                        ? $partnerNames[0]
-                        : $partnerCount.' partners');
+                // Deliverables counts only Offline/Online modes; skip blank-mode submissions.
+                if ($modes === []) {
+                    continue;
+                }
 
+                $updatedAt = $submission->updated_at ?? $submission->created_at;
+
+                if (! isset($byIncubatee[$key])) {
+                    $byIncubatee[$key] = [
+                        'type' => 'market_linkage_incubatee',
+                        'service_case' => null,
+                        'market_linkage' => $submission,
+                        'partner' => null,
+                        'linkage_modes' => $modes,
+                        'partner_names' => $partnerNames,
+                        'updated_at' => $updatedAt,
+                    ];
+
+                    continue;
+                }
+
+                foreach ($modes as $mode) {
+                    if (! in_array($mode, $byIncubatee[$key]['linkage_modes'], true)) {
+                        $byIncubatee[$key]['linkage_modes'][] = $mode;
+                    }
+                }
+                foreach ($partnerNames as $name) {
+                    if (! in_array($name, $byIncubatee[$key]['partner_names'], true)) {
+                        $byIncubatee[$key]['partner_names'][] = $name;
+                    }
+                }
+
+                $existingTs = $byIncubatee[$key]['updated_at']?->timestamp ?? 0;
+                $newTs = $updatedAt?->timestamp ?? 0;
+                if ($newTs >= $existingTs) {
+                    $byIncubatee[$key]['market_linkage'] = $submission;
+                    $byIncubatee[$key]['updated_at'] = $updatedAt;
+                }
+            }
+
+            foreach ($byIncubatee as $row) {
+                $partnerNames = $row['partner_names'];
+                $partnerCount = count($partnerNames);
                 $items->push([
                     'type' => 'market_linkage_incubatee',
                     'service_case' => null,
-                    'market_linkage' => $submission,
+                    'market_linkage' => $row['market_linkage'],
                     'partner' => null,
-                    'linkage_mode' => $modes !== [] ? implode(', ', $modes) : '—',
-                    'partner_name' => $partnerSummary,
+                    'linkage_mode' => $row['linkage_modes'] !== [] ? implode(', ', $row['linkage_modes']) : '—',
+                    'partner_name' => $partnerCount === 0
+                        ? '—'
+                        : ($partnerCount === 1 ? $partnerNames[0] : $partnerCount.' partners'),
                     'partner_count' => $partnerCount,
-                    'updated_at' => $submission->updated_at ?? $submission->created_at,
+                    'updated_at' => $row['updated_at'],
                 ]);
-
-                continue;
             }
-
-            foreach ($submission->partners as $partner) {
-                $items->push([
-                    'type' => 'market_linkage_partner',
-                    'service_case' => null,
-                    'market_linkage' => $submission,
-                    'partner' => $partner,
-                    'linkage_mode' => MarketLinkageUnifiedListingSupport::linkageModeLabelFromPartnerMode((string) $partner->linkage_mode),
-                    'partner_name' => (string) $partner->partner_name,
-                    'updated_at' => $submission->updated_at ?? $submission->created_at,
-                ]);
+        } else {
+            foreach ($marketLinkages as $submission) {
+                foreach ($submission->partners as $partner) {
+                    $items->push([
+                        'type' => 'market_linkage_partner',
+                        'service_case' => null,
+                        'market_linkage' => $submission,
+                        'partner' => $partner,
+                        'linkage_mode' => MarketLinkageUnifiedListingSupport::linkageModeLabelFromPartnerMode((string) $partner->linkage_mode),
+                        'partner_name' => (string) $partner->partner_name,
+                        'updated_at' => $submission->updated_at ?? $submission->created_at,
+                    ]);
+                }
             }
         }
 
@@ -229,8 +277,26 @@ class Phase3UnifiedMarketLinkageListBuilder
                 continue;
             }
 
+            // Unique view: also skip null-key duplicates of already-listed service cases.
+            if ($uniqueOnly && $incubateeKey !== null) {
+                $alreadyListed = $items->contains(function (array $row) use ($incubateeKey): bool {
+                    $case = $row['service_case'] ?? null;
+                    if (! $case instanceof ServiceCase) {
+                        return false;
+                    }
+
+                    return MarketLinkageUnifiedListingSupport::incubateeKeyForServiceCase($case) === $incubateeKey;
+                });
+                if ($alreadyListed) {
+                    continue;
+                }
+            }
+
             $payload = is_array($case->payload) ? $case->payload : [];
             $modes = MarketLinkageUnifiedListingSupport::linkageModeLabelsFromServiceCasePayload($payload);
+            if ($uniqueOnly && $modes === []) {
+                continue;
+            }
             $partnerName = trim((string) ($payload['p'] ?? ''));
 
             $items->push([
@@ -332,12 +398,13 @@ class Phase3UnifiedMarketLinkageListBuilder
             $query->where('status', $filters['status']);
         }
 
+        // Match Deliverables 6.3: period is by submission date, not row created_at.
         if ($filters['date_from'] !== '') {
-            $query->whereDate('created_at', '>=', $filters['date_from']);
+            $query->whereRaw('DATE(COALESCE(submitted_at, created_at)) >= ?', [$filters['date_from']]);
         }
 
         if ($filters['date_to'] !== '') {
-            $query->whereDate('created_at', '<=', $filters['date_to']);
+            $query->whereRaw('DATE(COALESCE(submitted_at, created_at)) <= ?', [$filters['date_to']]);
         }
     }
 
@@ -381,9 +448,13 @@ class Phase3UnifiedMarketLinkageListBuilder
             $districtIds = [(int) $filters['district_id']];
         }
 
+        [$periodFrom, $periodTo] = $this->periodBoundsFromFilters($filters);
+
         $modeCounts = MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts(
             $districtIds,
             approvedOnly: ($filters['status'] ?? '') === '' || ($filters['status'] ?? '') === ServiceCase::STATUS_APPROVED,
+            periodFrom: $periodFrom,
+            periodTo: $periodTo,
         );
 
         if (($filters['status'] ?? '') !== '' && ($filters['status'] ?? '') !== ServiceCase::STATUS_APPROVED) {
@@ -421,5 +492,33 @@ class Phase3UnifiedMarketLinkageListBuilder
             'offline_incubatees' => 0,
             'online_incubatees' => 0,
         ];
+    }
+
+    /**
+     * Same period semantics as Deliverables 6.3 (month / date_from+date_to).
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    private function periodBoundsFromFilters(array $filters): array
+    {
+        $fromRaw = trim((string) ($filters['date_from'] ?? ''));
+        $toRaw = trim((string) ($filters['date_to'] ?? ''));
+        if ($fromRaw === '' || $toRaw === '') {
+            return [null, null];
+        }
+
+        try {
+            $from = Carbon::parse($fromRaw)->startOfDay();
+            $to = Carbon::parse($toRaw)->endOfDay();
+        } catch (\Throwable) {
+            return [null, null];
+        }
+
+        if ($from->gt($to)) {
+            $to = $from->copy()->endOfDay();
+        }
+
+        return [$from, $to];
     }
 }

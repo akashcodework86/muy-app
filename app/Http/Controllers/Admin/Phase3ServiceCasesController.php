@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\District;
 use App\Models\DistrictServiceSpoc;
+use App\Models\FiscalYear;
 use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
@@ -155,10 +156,13 @@ class Phase3ServiceCasesController extends Controller
             $givenByBreakdown = $this->buildGivenByServiceBreakdown($filters);
         }
 
+        $fiscalYear = FiscalYear::phase3Default();
+
         return view('admin.phase3-services.index', [
             'cases' => $cases,
             'summary' => $summary,
             'filters' => $filters,
+            'fiscalYear' => $fiscalYear,
             'unifiedMarketLinkage' => $unifiedMarketLinkage,
             'uniqueIncubateesView' => $uniqueIncubateesView,
             'services' => Service::query()->orderBy('name')->get(['id', 'name', 'service_category_id']),
@@ -641,12 +645,24 @@ class Phase3ServiceCasesController extends Controller
             $query->doesntHave('attachments');
         }
 
+        $useDeliverableDates = MarketLinkageUnifiedListingSupport::isMarketLinkServiceId(
+            is_numeric($filters['service_id'] ?? '') ? (int) $filters['service_id'] : 0
+        );
+
         if ($filters['date_from'] !== '') {
-            $query->whereDate('service_cases.created_at', '>=', $filters['date_from']);
+            if ($useDeliverableDates) {
+                $query->whereRaw('DATE(COALESCE(service_cases.approved_at, service_cases.created_at)) >= ?', [$filters['date_from']]);
+            } else {
+                $query->whereDate('service_cases.created_at', '>=', $filters['date_from']);
+            }
         }
 
         if ($filters['date_to'] !== '') {
-            $query->whereDate('service_cases.created_at', '<=', $filters['date_to']);
+            if ($useDeliverableDates) {
+                $query->whereRaw('DATE(COALESCE(service_cases.approved_at, service_cases.created_at)) <= ?', [$filters['date_to']]);
+            } else {
+                $query->whereDate('service_cases.created_at', '<=', $filters['date_to']);
+            }
         }
     }
 
@@ -1024,10 +1040,10 @@ class Phase3ServiceCasesController extends Controller
         }
 
         if (($filters['date_from'] ?? '') !== '') {
-            $query->whereDate('created_at', '>=', $filters['date_from']);
+            $query->whereRaw('DATE(COALESCE(submitted_at, created_at)) >= ?', [$filters['date_from']]);
         }
         if (($filters['date_to'] ?? '') !== '') {
-            $query->whereDate('created_at', '<=', $filters['date_to']);
+            $query->whereRaw('DATE(COALESCE(submitted_at, created_at)) <= ?', [$filters['date_to']]);
         }
     }
 
@@ -1084,7 +1100,13 @@ class Phase3ServiceCasesController extends Controller
 
     private function validatedFilters(Request $request): array
     {
-        return [
+        $monthRaw = $request->query('month', '');
+        $month = ($monthRaw !== null && $monthRaw !== '') ? (int) $monthRaw : 0;
+        if ($month < 1 || $month > 12) {
+            $month = 0;
+        }
+
+        $filters = [
             'q' => trim((string) $request->query('q', '')),
             'district_id' => (int) $request->query('district_id', 0),
             'category_id' => 0,
@@ -1095,10 +1117,39 @@ class Phase3ServiceCasesController extends Controller
             'reporting_tier' => trim((string) $request->query('reporting_tier', '')),
             'has_docs' => trim((string) $request->query('has_docs', '')),
             'sla_breached' => '',
+            'month' => $month,
             'date_from' => trim((string) $request->query('date_from', '')),
             'date_to' => trim((string) $request->query('date_to', '')),
             'unique_incubatees' => $request->query('unique_incubatees') === '1',
         ];
+
+        return $this->applyMonthDateRange($filters);
+    }
+
+    /**
+     * When a calendar month is selected, fill date_from/date_to for the matching
+     * month inside the active Phase 3 fiscal year (same ladder as deliverables).
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    private function applyMonthDateRange(array $filters): array
+    {
+        $month = (int) ($filters['month'] ?? 0);
+        if ($month < 1 || $month > 12) {
+            return $filters;
+        }
+
+        $fy = FiscalYear::phase3Default();
+        $fiscalStartYear = (int) ($fy?->starts_on?->year ?? now()->year);
+        $fiscalStartMonth = (int) ($fy?->starts_on?->month ?? 4);
+        $year = $month >= $fiscalStartMonth ? $fiscalStartYear : $fiscalStartYear + 1;
+
+        $from = Carbon::create($year, $month, 1)->startOfDay();
+        $filters['date_from'] = $from->toDateString();
+        $filters['date_to'] = $from->copy()->endOfMonth()->toDateString();
+
+        return $filters;
     }
 
     /**
