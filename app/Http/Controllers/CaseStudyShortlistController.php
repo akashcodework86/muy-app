@@ -6,12 +6,15 @@ use App\Models\CaseStudyShortlist;
 use App\Models\User;
 use App\Services\CaseStudyShortlistCandidateCatalog;
 use App\Services\CaseStudyShortlistManager;
+use App\Services\CaseStudyShortlistNominationManager;
+use App\Services\CaseStudyShortlistProfileService;
 use App\Support\CaseStudyShortlistAccess;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class CaseStudyShortlistController extends Controller
@@ -19,6 +22,8 @@ class CaseStudyShortlistController extends Controller
     public function __construct(
         private readonly CaseStudyShortlistCandidateCatalog $catalog,
         private readonly CaseStudyShortlistManager $manager,
+        private readonly CaseStudyShortlistProfileService $profiles,
+        private readonly CaseStudyShortlistNominationManager $nominations,
     ) {}
 
     public function index(Request $request): View
@@ -50,12 +55,15 @@ class CaseStudyShortlistController extends Controller
                 ? (string) $request->input('record_program_year') : '',
         ];
 
-        $migrationMissing = ! Schema::hasTable('case_study_shortlists') || ! Schema::hasTable('case_study_shortlist_remarks');
+        $migrationMissing = ! Schema::hasTable('case_study_shortlists')
+            || ! Schema::hasTable('case_study_shortlist_remarks')
+            || ! Schema::hasTable('case_study_shortlist_nominations')
+            || ! Schema::hasTable('case_study_shortlist_nomination_events');
         $rows = collect();
         $candidates = collect();
         $activeCount = 0;
         if (! $migrationMissing) {
-            $query = CaseStudyShortlist::query()->with(['district:id,name', 'creator:id,name,role', 'removedBy:id,name', 'remarks.author:id,name,role']);
+            $query = CaseStudyShortlist::query()->with(['district:id,name', 'creator:id,name,role', 'removedBy:id,name', 'remarks.author:id,name,role', 'nominations.nominatedBy:id,name']);
             $this->scopeQuery($query, $user);
             if ($districtId > 0) {
                 $query->where('district_id', $districtId);
@@ -103,6 +111,48 @@ class CaseStudyShortlistController extends Controller
         $this->manager->create($user, $validated['source'], (int) $validated['source_application_id']);
 
         return back()->with('status', 'Incubatee shortlisted successfully. It is now visible to the hub and state admins.');
+    }
+
+    public function show(Request $request, CaseStudyShortlist $caseStudyShortlist): View
+    {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless(CaseStudyShortlistAccess::canAccessDistrict($user, (int) $caseStudyShortlist->district_id), 403);
+        $caseStudyShortlist->load([
+            'district:id,name,hub_id', 'creator:id,name,role', 'remarks.author:id,name,role',
+            'nominations.nominatedBy:id,name', 'nominations.events.actor:id,name,role',
+        ]);
+
+        return view('case-study-shortlists.profile', [
+            'shortlist' => $caseStudyShortlist,
+            'profile' => $this->profiles->build($caseStudyShortlist),
+            'nominationServices' => (array) config('case_study_shortlists.nomination_services', []),
+            'activeNominations' => $caseStudyShortlist->nominations->filter->isActive()->keyBy('service_code'),
+            'canNominate' => $user->role === 'state_admin',
+            'routePrefix' => $this->routePrefix($user),
+        ]);
+    }
+
+    public function updateNominations(Request $request, CaseStudyShortlist $caseStudyShortlist): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $serviceCodes = array_keys((array) config('case_study_shortlists.nomination_services', []));
+        $validated = $request->validate([
+            'services' => ['nullable', 'array'],
+            'services.*' => ['string', 'max:64', Rule::in($serviceCodes)],
+            'nomination_note' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $profile = $this->profiles->build($caseStudyShortlist);
+        $this->nominations->sync(
+            $user,
+            $caseStudyShortlist,
+            array_values($validated['services'] ?? []),
+            (array) ($profile['received'] ?? []),
+            $validated['nomination_note'] ?? null,
+        );
+
+        return back()->with('status', 'Service nominations updated successfully.');
     }
 
     public function remark(Request $request, CaseStudyShortlist $caseStudyShortlist): RedirectResponse

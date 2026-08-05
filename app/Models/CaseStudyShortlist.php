@@ -42,4 +42,9 @@ class CaseStudyShortlist extends Model
     {
         return $this->hasMany(CaseStudyShortlistRemark::class)->oldest();
     }
+
+    public function nominations(): HasMany
+    {
+        return $this->hasMany(CaseStudyShortlistNomination::class)->orderBy('service_code');
+    }
 }

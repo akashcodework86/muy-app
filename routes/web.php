@@ -228,6 +228,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::middleware('district_staff')->prefix('my')->name('staff.')->group(function () {
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
         Route::post('case-study-shortlists', [CaseStudyShortlistController::class, 'store'])->middleware('throttle:30,1')->name('case-study-shortlists.store');
+        Route::get('case-study-shortlists/{caseStudyShortlist}/profile', [CaseStudyShortlistController::class, 'show'])->name('case-study-shortlists.show');
         Route::delete('case-study-shortlists/{caseStudyShortlist}', [CaseStudyShortlistController::class, 'destroy'])->middleware('throttle:30,1')->name('case-study-shortlists.destroy');
         Route::get('monthly-targets', [StaffPortalController::class, 'monthlyTargets'])->name('monthly-targets');
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
@@ -907,6 +908,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
+        Route::get('case-study-shortlists/{caseStudyShortlist}/profile', [CaseStudyShortlistController::class, 'show'])->name('case-study-shortlists.show');
+        Route::put('case-study-shortlists/{caseStudyShortlist}/nominations', [CaseStudyShortlistController::class, 'updateNominations'])->middleware('throttle:30,1')->name('case-study-shortlists.nominations.update');
         Route::post('case-study-shortlists/{caseStudyShortlist}/remarks', [CaseStudyShortlistController::class, 'remark'])->middleware('throttle:60,1')->name('case-study-shortlists.remarks.store');
         Route::delete('case-study-shortlists/{caseStudyShortlist}', [CaseStudyShortlistController::class, 'destroy'])->middleware('throttle:30,1')->name('case-study-shortlists.destroy');
         Route::get('ops/cache-clear', function () {
@@ -1302,6 +1305,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
+        Route::get('case-study-shortlists/{caseStudyShortlist}/profile', [CaseStudyShortlistController::class, 'show'])->name('case-study-shortlists.show');
         Route::post('case-study-shortlists/{caseStudyShortlist}/remarks', [CaseStudyShortlistController::class, 'remark'])->middleware('throttle:60,1')->name('case-study-shortlists.remarks.store');
         Route::delete('case-study-shortlists/{caseStudyShortlist}', [CaseStudyShortlistController::class, 'destroy'])->middleware('throttle:30,1')->name('case-study-shortlists.destroy');
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');

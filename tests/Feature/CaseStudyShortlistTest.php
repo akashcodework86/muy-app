@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\CaseStudyShortlist;
+use App\Models\CaseStudyEntry;
 use App\Models\CfaSubmission;
 use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\OnboardingBatch;
+use App\Models\TechnicalTraining;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -105,6 +107,93 @@ class CaseStudyShortlistTest extends TestCase
         $this->actingAs($otherStaff)->delete(route('staff.case-study-shortlists.destroy', $shortlist))->assertForbidden();
         $this->actingAs($creator)->delete(route('staff.case-study-shortlists.destroy', $shortlist))->assertRedirect();
         $this->assertNotNull($shortlist->fresh()->removed_at);
+    }
+
+    public function test_state_admin_can_view_professional_profile_and_nominate_for_configured_services(): void
+    {
+        Carbon::setTestNow('2026-08-05 10:00:00');
+        [$district, $staff] = $this->districtAndStaff();
+        $candidate = $this->onboardedCandidate($district, 1, '9999900001');
+        $this->actingAs($staff)->post(route('staff.case-study-shortlists.store'), [
+            'source' => 'phase3', 'source_application_id' => $candidate->id,
+        ]);
+        $shortlist = CaseStudyShortlist::query()->firstOrFail();
+        $stateAdmin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($stateAdmin)->get(route('admin.case-study-shortlists.show', $shortlist))
+            ->assertOk()
+            ->assertSee('Incubatee professional profile')
+            ->assertSee('Acceleration Services')
+            ->assertSee('Pitch Deck Preparation')
+            ->assertSee('Technical Training')
+            ->assertSee('Case Study');
+
+        $this->actingAs($stateAdmin)->put(route('admin.case-study-shortlists.nominations.update', $shortlist), [
+            'services' => ['acceleration', 'pitch_deck', 'technical_training', 'case_study'],
+            'nomination_note' => 'Strong candidate for structured support.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        foreach (['acceleration', 'pitch_deck', 'technical_training', 'case_study'] as $code) {
+            $this->assertDatabaseHas('case_study_shortlist_nominations', [
+                'case_study_shortlist_id' => $shortlist->id,
+                'service_code' => $code,
+                'status' => 'nominated',
+                'nominated_by_user_id' => $stateAdmin->id,
+            ]);
+        }
+        $this->assertDatabaseCount('case_study_shortlist_nomination_events', 4);
+    }
+
+    public function test_hub_and_district_users_can_view_profile_but_only_state_admin_can_update_nominations(): void
+    {
+        Carbon::setTestNow('2026-08-05 10:00:00');
+        [$district, $staff, $hub] = $this->districtAndStaff();
+        $candidate = $this->onboardedCandidate($district, 1, '9999900001');
+        $this->actingAs($staff)->post(route('staff.case-study-shortlists.store'), [
+            'source' => 'phase3', 'source_application_id' => $candidate->id,
+        ]);
+        $shortlist = CaseStudyShortlist::query()->firstOrFail();
+        $hubAdmin = User::factory()->create(['role' => 'hub_admin', 'hub_id' => $hub->id, 'is_active' => true]);
+
+        $this->actingAs($staff)->get(route('staff.case-study-shortlists.show', $shortlist))
+            ->assertOk()->assertSee('No active service nominations yet.');
+        $this->actingAs($hubAdmin)->get(route('hub.case-study-shortlists.show', $shortlist))
+            ->assertOk()->assertSee('No active service nominations yet.');
+        $this->actingAs($hubAdmin)->put(route('admin.case-study-shortlists.nominations.update', $shortlist), [
+            'services' => ['technical_training'],
+        ])->assertForbidden();
+    }
+
+    public function test_completed_technical_training_and_case_study_are_not_available_for_duplicate_nomination(): void
+    {
+        Carbon::setTestNow('2026-08-05 10:00:00');
+        [$district, $staff] = $this->districtAndStaff();
+        $candidate = $this->onboardedCandidate($district, 1, '9999900001');
+        $this->actingAs($staff)->post(route('staff.case-study-shortlists.store'), [
+            'source' => 'phase3', 'source_application_id' => $candidate->id,
+        ]);
+        $shortlist = CaseStudyShortlist::query()->firstOrFail();
+        $stateAdmin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        TechnicalTraining::query()->create([
+            'submitted_by_user_id' => $stateAdmin->id, 'submitted_by_name' => $stateAdmin->name,
+            'event_date' => '2026-08-02', 'district_id' => $district->id, 'district_name' => $district->name,
+            'session_name' => 'Product quality', 'attendance_media_json' => [],
+            'selected_incubatee_ids' => [$candidate->id], 'selected_incubatees_snapshot' => [], 'status' => 'approved',
+        ]);
+        CaseStudyEntry::query()->create([
+            'story_title' => 'Growth story', 'story_type' => 'case_study', 'cfa_submission_id' => $candidate->id,
+            'incubatee_name' => $candidate->applicant_name, 'application_no' => $candidate->application_no,
+            'story_date' => '2026-08-03', 'submitted_by_user_id' => $stateAdmin->id, 'submitted_by_name' => $stateAdmin->name,
+        ]);
+
+        $this->actingAs($stateAdmin)->get(route('admin.case-study-shortlists.show', $shortlist))
+            ->assertOk()->assertSee('Already received');
+        $this->actingAs($stateAdmin)->put(route('admin.case-study-shortlists.nominations.update', $shortlist), [
+            'services' => ['technical_training'],
+        ])->assertSessionHasErrors('services');
+        $this->assertDatabaseMissing('case_study_shortlist_nominations', [
+            'case_study_shortlist_id' => $shortlist->id, 'service_code' => 'technical_training',
+        ]);
     }
 
     /** @return array{District, User, Hub} */
