@@ -767,6 +767,14 @@
                                 <label>Gender</label>
                                 <span>{{ $row['common_values']['gender'] ?? $row['gender'] ?? '—' }}</span>
                             </div>
+                            <div class="onb-applicant-card__field">
+                                <label>Business</label>
+                                <span>{{ $row['common_values']['business_category'] ?? '—' }}</span>
+                            </div>
+                            <div class="onb-applicant-card__field">
+                                <label>Product</label>
+                                <span>{{ $row['common_values']['product'] ?? '—' }}</span>
+                            </div>
                             <div class="onb-applicant-card__field onb-applicant-card__field--full">
                                 <label>Onboarded at</label>
                                 <span>{{ $onboardedLabel }}</span>

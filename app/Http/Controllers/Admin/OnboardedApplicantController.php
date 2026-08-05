@@ -710,7 +710,7 @@ class OnboardedApplicantController extends Controller
             'current_employment' => ['label' => 'Current Employment', 'keys' => ['current_employment']],
             'employed_count' => ['label' => 'Employed Count', 'keys' => ['employed_count']],
             'business_category' => ['label' => 'Business Category', 'keys' => ['business_category', 'app_business_category']],
-            'product' => ['label' => 'Product', 'keys' => ['product']],
+            'product' => ['label' => 'Product', 'keys' => ['other_product', 'app_other_product', 'product', 'app_product']],
             'form_stage' => ['label' => 'Form Stage', 'keys' => ['form_stage', 'app_form_stage']],
             'techuse' => ['label' => 'Tech Use', 'keys' => ['techuse']],
             'empwomen' => ['label' => 'Emp Women', 'keys' => ['empwomen']],
@@ -812,6 +812,8 @@ class OnboardedApplicantController extends Controller
                     'a.application_no',
                     'a.form_stage',
                     'a.business_category',
+                    'a.product',
+                    'a.other_product',
                     'a.submission_date',
                 ])
                 ->get()
@@ -829,6 +831,8 @@ class OnboardedApplicantController extends Controller
                     'a.application_no',
                     'a.form_stage',
                     'a.business_category',
+                    'a.product',
+                    'a.other_product',
                     'a.submission_date',
                 ])
                 ->get()
@@ -871,6 +875,8 @@ class OnboardedApplicantController extends Controller
                     'application_no' => $legacyArr['application_no'] ?? null,
                     'form_stage' => $legacyArr['form_stage'] ?? null,
                     'business_category' => $legacyArr['business_category'] ?? null,
+                    'product' => $legacyArr['product'] ?? null,
+                    'other_product' => $legacyArr['other_product'] ?? null,
                     'submission_date' => $legacyArr['submission_date'] ?? null,
                 ],
                 'rbi_applicant_details' => [
