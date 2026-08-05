@@ -76,6 +76,7 @@ use App\Http\Controllers\PitchDeckPreparationLandingController;
 use App\Http\Controllers\SocialMediaPostLandingController;
 use App\Http\Controllers\CaseStudyEntryController;
 use App\Http\Controllers\CaseStudyEntryLandingController;
+use App\Http\Controllers\CaseStudyShortlistController;
 use App\Http\Controllers\MediaCampaignController;
 use App\Http\Controllers\MediaCampaignLandingController;
 use App\Http\Controllers\MuyNewsletterController;
@@ -225,6 +226,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('district_staff')->prefix('my')->name('staff.')->group(function () {
+        Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
+        Route::post('case-study-shortlists', [CaseStudyShortlistController::class, 'store'])->middleware('throttle:30,1')->name('case-study-shortlists.store');
+        Route::delete('case-study-shortlists/{caseStudyShortlist}', [CaseStudyShortlistController::class, 'destroy'])->middleware('throttle:30,1')->name('case-study-shortlists.destroy');
         Route::get('monthly-targets', [StaffPortalController::class, 'monthlyTargets'])->name('monthly-targets');
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
         Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
@@ -902,6 +906,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
+        Route::post('case-study-shortlists/{caseStudyShortlist}/remarks', [CaseStudyShortlistController::class, 'remark'])->middleware('throttle:60,1')->name('case-study-shortlists.remarks.store');
+        Route::delete('case-study-shortlists/{caseStudyShortlist}', [CaseStudyShortlistController::class, 'destroy'])->middleware('throttle:30,1')->name('case-study-shortlists.destroy');
         Route::get('ops/cache-clear', function () {
             $results = [];
             foreach (['optimize:clear', 'view:clear'] as $cmd) {
@@ -1290,6 +1297,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
+        Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
+        Route::post('case-study-shortlists/{caseStudyShortlist}/remarks', [CaseStudyShortlistController::class, 'remark'])->middleware('throttle:60,1')->name('case-study-shortlists.remarks.store');
+        Route::delete('case-study-shortlists/{caseStudyShortlist}', [CaseStudyShortlistController::class, 'destroy'])->middleware('throttle:30,1')->name('case-study-shortlists.destroy');
         Route::get('deliverables', [DeliverablesReportController::class, 'index'])->name('deliverables.index');
         Route::get('deliverables/breakdown/export', [DeliverablesReportController::class, 'breakdownExport'])->name('deliverables.breakdown.export');
         Route::get('deliverables/breakdown/export/csv', [DeliverablesReportController::class, 'breakdownExportCsv'])->name('deliverables.breakdown.export.csv');
