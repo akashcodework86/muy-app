@@ -51,7 +51,6 @@ class CaseStudyShortlistCandidateCatalog
             ->map(fn (array $row): array => $this->normalizeCandidate($row, $programYear, $district))
             ->reject(fn (array $row): bool => $usedPersonKeys->has($row['person_key']))
             ->sortBy(fn (array $row): string => mb_strtolower($row['applicant_name']))
-            ->take(60)
             ->values();
     }
 
@@ -115,7 +114,11 @@ class CaseStudyShortlistCandidateCatalog
             }
             $this->applyPhase3Filters($query, $filters);
 
-            return $query->orderBy('applicant_name')->limit($sourceId ? 1 : 100)->get()
+            if ($sourceId) {
+                $query->limit(1);
+            }
+
+            return $query->orderBy('applicant_name')->get()
                 ->map(function (CfaSubmission $row): array {
                     $payload = is_array($row->payload) ? $row->payload : [];
 
@@ -168,7 +171,11 @@ class CaseStudyShortlistCandidateCatalog
             }
             $this->applyLegacyFilters($query, $filters, 'd', 'a');
 
-            return $query->orderByDesc('d.id')->limit($sourceId ? 1 : 100)->get()->unique('id')->map(fn ($row): array => [
+            if ($sourceId) {
+                $query->limit(1);
+            }
+
+            return $query->orderByDesc('d.id')->get()->unique('id')->map(fn ($row): array => [
                 'source' => 'phase2', 'source_id' => (int) $row->id,
                 'application_no' => (string) $row->application_no, 'applicant_name' => (string) $row->applicant_name,
                 'phone' => (string) $row->phone, 'block' => (string) $row->block, 'village' => (string) $row->village,
@@ -217,7 +224,11 @@ class CaseStudyShortlistCandidateCatalog
                 }
             }
 
-            return $query->orderBy('FullName')->limit($sourceId ? 1 : 100)->get()->map(fn ($row): array => [
+            if ($sourceId) {
+                $query->limit(1);
+            }
+
+            return $query->orderBy('FullName')->get()->map(fn ($row): array => [
                 'source' => 'phase1', 'source_id' => (int) $row->ID,
                 'application_no' => (string) $row->ApplicationNumber, 'applicant_name' => (string) $row->FullName,
                 'phone' => (string) $row->MobileNumber, 'block' => (string) $row->City, 'village' => '',

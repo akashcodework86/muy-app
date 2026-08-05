@@ -60,7 +60,7 @@
     @if($user->role === 'district_staff' && $month->isSameMonth(now()) && !$migrationMissing)
     <section class="css-card">
         <h3 class="css-title" style="font-size:1rem">Eligible onboarded incubatees · {{ $programYears[$filters['program_year']]['label'] }}</h3>
-        <p class="css-muted">Already shortlisted people are automatically hidden. Showing up to 60 matching records.</p>
+        <p class="css-muted">All matching onboarded incubatees in your district are shown. Already shortlisted people are automatically hidden.</p>
         <div class="css-candidates">
             @forelse($candidates as $candidate)
                 <article class="css-candidate">
