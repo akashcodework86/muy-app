@@ -421,6 +421,9 @@
                     <p class="p3-deliverable-highlight__sub">
                         These three numbers match <strong>Admin → Deliverables</strong> row <em>Incubatees linked to online/offline Market</em>.
                         Unified count from market linkage and approved service cases — each incubatee once (market linkage takes precedence when both exist).
+                        @if (($filters['date_from'] ?? '') !== '' && ($filters['date_to'] ?? '') !== '')
+                            <br>Period filter active: {{ \Carbon\Carbon::parse($filters['date_from'])->format('d M Y') }} – {{ \Carbon\Carbon::parse($filters['date_to'])->format('d M Y') }} (same window as deliverables month filter).
+                        @endif
                     </p>
                 </div>
                 <div class="p3-view-toggle" role="group" aria-label="List view">
@@ -543,8 +546,15 @@
                 <option value="0" @selected($filters['has_docs'] === '0')>Without document entry</option>
             </select>
 
-            <input type="date" name="date_from" value="{{ $filters['date_from'] }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
-            <input type="date" name="date_to" value="{{ $filters['date_to'] }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
+            <select name="month" id="monthFilter" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
+                <option value="">All months</option>
+                @foreach (range(1, 12) as $m)
+                    <option value="{{ $m }}" @selected((int) ($filters['month'] ?? 0) === $m)>{{ \Carbon\Carbon::create(null, $m, 1)->format('F') }}</option>
+                @endforeach
+            </select>
+
+            <input type="date" name="date_from" id="dateFromFilter" value="{{ $filters['date_from'] }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;" title="From date">
+            <input type="date" name="date_to" id="dateToFilter" value="{{ $filters['date_to'] }}" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;" title="To date">
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.65rem;">
             <button type="submit" style="background:#18181b;color:#fff;border:none;padding:0.45rem 0.85rem;border-radius:8px;font-weight:600;cursor:pointer;">Filter</button>
@@ -819,7 +829,51 @@
         (function () {
             const filterForm = document.getElementById('phase3FilterForm');
             const serviceFilter = document.getElementById('serviceFilter');
+            const monthEl = document.getElementById('monthFilter');
+            const dateFromEl = document.getElementById('dateFromFilter');
+            const dateToEl = document.getElementById('dateToFilter');
             let autoSubmitTimer = null;
+            let syncingPresetDates = false;
+
+            const fiscalStartYear = @json((int) ($fiscalYear?->starts_on?->year ?? now()->year));
+            const fiscalStartMonth = @json((int) ($fiscalYear?->starts_on?->month ?? 4));
+
+            function pad2(n) {
+                return String(n).padStart(2, '0');
+            }
+
+            function calendarYearForMonth(month) {
+                return month >= fiscalStartMonth ? fiscalStartYear : fiscalStartYear + 1;
+            }
+
+            function setDateRange(fromIso, toIso) {
+                if (!dateFromEl || !dateToEl) return;
+                syncingPresetDates = true;
+                dateFromEl.value = fromIso || '';
+                dateToEl.value = toIso || '';
+                syncingPresetDates = false;
+            }
+
+            function syncDatesFromMonth() {
+                if (!monthEl) return;
+                const month = parseInt(monthEl.value, 10);
+                if (!month || month < 1 || month > 12) {
+                    setDateRange('', '');
+                    return;
+                }
+                const year = calendarYearForMonth(month);
+                const lastDay = new Date(year, month, 0).getDate();
+                setDateRange(
+                    year + '-' + pad2(month) + '-01',
+                    year + '-' + pad2(month) + '-' + pad2(lastDay)
+                );
+            }
+
+            function onManualDateChange() {
+                if (syncingPresetDates || !monthEl) return;
+                monthEl.value = '';
+            }
+
             function queueSubmit(delayMs) {
                 if (!filterForm) return;
                 if (autoSubmitTimer) {
@@ -832,6 +886,16 @@
                     }
                     filterForm.submit();
                 }, delayMs);
+            }
+
+            if (monthEl) {
+                monthEl.addEventListener('change', syncDatesFromMonth);
+            }
+            if (dateFromEl) {
+                dateFromEl.addEventListener('change', onManualDateChange);
+            }
+            if (dateToEl) {
+                dateToEl.addEventListener('change', onManualDateChange);
             }
 
             if (filterForm) {

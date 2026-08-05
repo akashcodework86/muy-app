@@ -2787,6 +2787,92 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(1, $incubatees['achievement']);
     }
 
+    public function test_market_linkage_incubatee_period_filter_uses_submission_date_not_linkage_date(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ml-sub-hub', 'name' => 'ML Sub Hub', 'sort_order' => 99]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-sub-dist', 'name' => 'ML Sub District', 'sort_order' => 99]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-SUB-001',
+            'applicant_name' => 'Submission Date Incubatee',
+            'phone' => '9000000199',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $submissionId = (int) DB::table('market_linkage_submissions')->insertGetId([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => $staff->name,
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'cfa_submission_id' => $cfaId,
+            'incubatee_name' => 'Submission Date Incubatee',
+            'application_no' => 'ML-SUB-001',
+            'status' => 'approved',
+            'submitted_at' => '2026-06-15 10:00:00',
+            'approved_at' => '2026-06-16 10:00:00',
+            'approved_by' => $staff->id,
+            'created_at' => '2026-06-15 10:00:00',
+            'updated_at' => '2026-06-16 10:00:00',
+        ]);
+
+        DB::table('market_linkage_partners')->insert([
+            'market_linkage_submission_id' => $submissionId,
+            'partner_name' => 'Old Linkage Partner',
+            'linkage_mode' => 'offline',
+            // Linkage date is before the FY window — must still count via submitted_at.
+            'linkage_date' => '2026-02-11',
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $filter = new ProgramDeliverablesFilter(
+            $fy->id,
+            $district->id,
+            null,
+            null,
+            '2026-04-01',
+            '2027-03-31',
+        );
+        $scope = ProgramDeliverablesScope::forUser($staff);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+
+        $incubatees = collect($report['rows'])->firstWhere('name', 'Incubatees linked to online/offline Market');
+        $this->assertNotNull($incubatees);
+        $this->assertSame(1, $incubatees['achievement']);
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build(
+            $filter,
+            $scope,
+            (string) $incubatees['serial'],
+        );
+        $this->assertSame(1, $breakdown['total']);
+        $this->assertTrue(
+            collect($breakdown['records'] ?? [])->contains(
+                fn (array $record): bool => ($record['applicant'] ?? '') === 'Submission Date Incubatee',
+            ),
+        );
+    }
+
     public function test_market_linkage_incubatee_breakdown_splits_offline_and_online(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

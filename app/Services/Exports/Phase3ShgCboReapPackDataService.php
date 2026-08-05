@@ -393,7 +393,10 @@ final class Phase3ShgCboReapPackDataService
             $query->where('mls.status', ServiceCase::STATUS_APPROVED);
         }
 
-        $query->whereBetween('mlp.linkage_date', [$periodFrom->toDateString(), $periodTo->toDateString()]);
+        $query->whereBetween(
+            DB::raw('DATE(COALESCE(mls.submitted_at, mls.created_at))'),
+            [$periodFrom->toDateString(), $periodTo->toDateString()],
+        );
 
         $rows = $query->get([
             'mls.cfa_submission_id',

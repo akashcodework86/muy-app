@@ -126,8 +126,8 @@ SQL;
     /**
      * Unified approved incubatee counts: market linkage + orphan service cases (each incubatee once).
      *
-     * When $periodFrom/$periodTo are provided, only linkages within that window are counted
-     * (market linkages by linkage_date, orphan service cases by approved/created date). When they
+     * When $periodFrom/$periodTo are provided, only entries within that window are counted
+     * (market linkages by submission date, orphan service cases by approved/created date). When they
      * are null the count is cumulative (all approved linkages regardless of date).
      *
      * @param  list<int>|null  $districtIds  null = statewide
@@ -202,6 +202,8 @@ SQL;
                     '.$keySql.' as incubatee_key,
                     mls.application_no,
                     mls.incubatee_name,
+                    mls.submitted_at,
+                    mls.created_at,
                     d.name as district_name,
                     h.name as hub_name,
                     mlp.partner_name,
@@ -227,11 +229,18 @@ SQL;
                     );
                 }
 
+                $submissionDate = null;
+                if (! empty($row->submitted_at)) {
+                    $submissionDate = Carbon::parse((string) $row->submitted_at)->toDateString();
+                } elseif (! empty($row->created_at)) {
+                    $submissionDate = Carbon::parse((string) $row->created_at)->toDateString();
+                }
+
                 self::pushIncubateeAggregate(
                     $incubatees[$key],
                     (string) ($row->partner_name ?? ''),
                     [self::linkageModeLabelFromPartnerMode((string) ($row->linkage_mode ?? ''))],
-                    $row->linkage_date ? (string) $row->linkage_date : null,
+                    $submissionDate,
                 );
             }
         }
@@ -565,10 +574,9 @@ SQL;
             self::applyMarketLinkageDistrictAndStatusScopes($sub, $districtIds, $approvedOnly);
 
             // When a period is active, only treat an incubatee as "already linked" if the
-            // market linkage falls within the same window — so an in-period orphan service
-            // case is not wrongly excluded by an out-of-period market linkage.
-            if ($periodFrom && $periodTo && Schema::hasTable('market_linkage_partners')) {
-                $sub->join('market_linkage_partners as mlp', 'mlp.market_linkage_submission_id', '=', 'mls.id');
+            // market linkage was submitted within the same window — so an in-period orphan
+            // service case is not wrongly excluded by an out-of-period market linkage.
+            if ($periodFrom && $periodTo) {
                 self::applyMarketLinkagePartnerPeriodScope($sub, $periodFrom, $periodTo);
             }
         });
@@ -792,17 +800,23 @@ SQL;
     }
 
     /**
-     * Restrict market linkage partner rows to a date window (no-op when either bound is null).
+     * Restrict market linkage submissions to a date window by submission date
+     * (COALESCE(submitted_at, created_at)). No-op when either bound is null.
+     *
+     * Deliverables 6.3 period filters use when the entry was submitted, not partner linkage_date.
      *
      * @param  \Illuminate\Database\Query\Builder  $query
      */
-    private static function applyMarketLinkagePartnerPeriodScope($query, ?Carbon $periodFrom, ?Carbon $periodTo, string $column = 'mlp.linkage_date'): void
+    private static function applyMarketLinkagePartnerPeriodScope($query, ?Carbon $periodFrom, ?Carbon $periodTo): void
     {
         if (! $periodFrom || ! $periodTo) {
             return;
         }
 
-        $query->whereBetween($column, [$periodFrom->toDateString(), $periodTo->toDateString()]);
+        $query->whereBetween(
+            DB::raw('DATE(COALESCE(mls.submitted_at, mls.created_at))'),
+            [$periodFrom->toDateString(), $periodTo->toDateString()],
+        );
     }
 
     /**

@@ -59,6 +59,14 @@
 .dc-btn--export-all:hover { background:#e0e7ff; }
 .dc-btn--pack { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; width:100%; justify-content:center; }
 .dc-btn--pack:hover { background:#d1fae5; border-color:#6ee7b7; }
+.dc-extract-district {
+    margin:.55rem 0 .65rem; display:flex; flex-direction:column; gap:.3rem;
+}
+.dc-extract-district label { font-size:.68rem; font-weight:700; color:#334155; }
+.dc-extract-district select {
+    width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:.4rem .55rem;
+    font-size:.78rem; background:#fff; color:#0f172a;
+}
 
 /* Quick data extract (right rail) */
 .dc-extract {
@@ -1024,6 +1032,51 @@
                     Download SHG technical trainings
                 </a>
                 <p class="dc-extract__note">Live extract through today. Approved / locked Phase 3 data only.</p>
+            </section>
+
+            <section class="dc-extract" style="margin-top:.85rem;">
+                <h3 class="dc-extract__title">Onboarded SHG / CBO / Individual</h3>
+                <div class="dc-extract__period">Phase 1 + 2 + 3 · onboarded only</div>
+                <ul class="dc-extract__list">
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>SHG</strong>
+                        <span>Counts + detail + services</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Onboarded SHG members (Phase 2/3): Individual + member Yes, or category SHG. Includes CFA date, onboarded status, services.
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>CBO</strong>
+                        <span>Counts + detail + services</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Onboarded category CBO from Phase 2 and Phase 3.
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Individual</strong>
+                        <span>Not SHG / not CBO + Phase 1</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Phase 2/3 Individual with member No, plus Phase 1 onboarded from ukrbiin_rbi.tblapplication (onboard=yes).
+                        </div>
+                    </li>
+                </ul>
+
+                <form method="get" action="{{ route('admin.data-centre.export-onboarded-shg-cbo-individual') }}" id="dc-onboarded-shg-cbo-form">
+                    <div class="dc-extract-district">
+                        <label for="dc-onboarded-pack-district">District</label>
+                        <select name="district_id" id="dc-onboarded-pack-district">
+                            <option value="">All districts</option>
+                            @foreach ($districts ?? [] as $dist)
+                                <option value="{{ $dist->id }}" @selected((int) (($filter->districtId ?? 0)) === (int) $dist->id)>{{ $dist->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button type="submit" class="dc-btn dc-btn--pack">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                        Download onboarded Excel
+                    </button>
+                </form>
+                <p class="dc-extract__note">Pick any district (or All). Sheets: SHG / CBO / Individual / Phase 1 with CFA date, status &amp; services.</p>
             </section>
         </aside>
     </div>{{-- /.dc-shell --}}
