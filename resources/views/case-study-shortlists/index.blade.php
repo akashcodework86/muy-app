@@ -83,12 +83,13 @@
 
     <section class="css-card" id="case-study-shortlist-live-section">
         <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.7rem"><h3 class="css-title" style="font-size:1rem">Shortlisted in {{ $month->format('F Y') }}</h3><div class="css-tags" style="margin:0"><span class="css-tag">{{ is_countable($rows) ? count($rows) : 0 }} shown</span>@if(in_array($user->role,['hub_admin','state_admin'],true))<span class="css-tag css-tag--green">Auto-updates</span>@endif</div></div>
-        <div class="css-table-wrap"><table class="css-table"><thead><tr><th>Incubatee</th><th>Programme</th><th>District / block</th><th>Shortlisted by</th><th>Remarks</th><th>Status / action</th></tr></thead><tbody>
+        <div class="css-table-wrap"><table class="css-table"><thead><tr><th>Incubatee</th><th>Programme</th><th>District / block</th><th>Already given services</th><th>Shortlisted by</th><th>Remarks</th><th>Status / action</th></tr></thead><tbody>
         @forelse($rows as $row)
             <tr>
                 <td><div class="css-name">{{ $row->applicant_name }}</div><div class="css-muted">{{ $row->application_no ?: $row->candidate_key }}</div>@if($row->business_category)<div class="css-tags"><span class="css-tag">{{ $row->business_category }}</span>@if($row->business_stage)<span class="css-tag">{{ $row->business_stage }}</span>@endif</div>@endif<div class="css-tags">@foreach($row->nominations->where('status','!=','cancelled') as $nomination)<span class="css-tag css-tag--green">{{ config('case_study_shortlists.nomination_services.'.$nomination->service_code.'.label', ucfirst($nomination->service_code)) }} · {{ str_replace('_',' ',ucfirst($nomination->status)) }}</span>@endforeach</div><a class="css-btn css-btn--light" href="{{ route($routePrefix.'.show',$row) }}">View professional profile</a></td>
                 <td><strong>{{ $row->program_year }}</strong><div class="css-muted">{{ strtoupper($row->source) }}</div></td>
                 <td>{{ $row->district?->name }}<div class="css-muted">{{ $row->block_name ?: 'Block not available' }}</div></td>
+                <td style="min-width:210px"><div class="css-remarks">@forelse($deliveredServicesByShortlist->get($row->id, collect()) as $service)<div class="css-remark"><strong>{{ $service['name'] ?: 'Service' }}</strong><div class="css-muted">{{ $service['status'] ?: 'Recorded' }}@if($service['date']) &middot; {{ $service['date'] }}@endif</div></div>@empty<span class="css-muted">No delivered service recorded.</span>@endforelse</div></td>
                 <td>{{ $row->creator?->name ?: 'Unknown' }}<div class="css-muted">{{ str_replace('_',' ',ucfirst($row->creator?->role ?? '')) }} · {{ $row->created_at?->format('d M Y, h:i A') }}</div></td>
                 <td><div class="css-remarks">@forelse($row->remarks as $remark)<div class="css-remark"><strong>{{ $remark->author?->name }} · {{ str_replace('_',' ',ucfirst($remark->author_role)) }}</strong><div>{{ $remark->remark }}</div><span class="css-muted">{{ $remark->created_at?->format('d M, h:i A') }}</span></div>@empty<span class="css-muted">No admin remarks yet.</span>@endforelse
                     @if(in_array($user->role,['hub_admin','state_admin'],true) && !$row->removed_at)<form class="css-inline" method="post" action="{{ route($routePrefix.'.remarks.store',$row) }}">@csrf<input class="css-input" name="remark" maxlength="2000" required placeholder="Add remark"><button class="css-btn" type="submit">Add</button></form>@endif
@@ -97,7 +98,7 @@
                     @elseif(\App\Support\CaseStudyShortlistAccess::canRemove($user,$row))<form method="post" action="{{ route($routePrefix.'.destroy',$row) }}" onsubmit="return confirm('Remove this shortlist entry? The audit record will be retained.')">@csrf @method('DELETE') @if(in_array($user->role,['hub_admin','state_admin'],true))<input class="css-input" name="removal_reason" maxlength="1000" required placeholder="Removal reason" style="margin-bottom:.4rem">@endif<button class="css-btn css-btn--danger" type="submit">Remove</button></form>
                     @else<span class="css-status" style="color:#15803d">Active</span>@endif</td>
             </tr>
-        @empty<tr><td colspan="6" style="text-align:center;padding:2rem;color:#64748b">No shortlist entries for this district and month.</td></tr>@endforelse
+        @empty<tr><td colspan="7" style="text-align:center;padding:2rem;color:#64748b">No shortlist entries for this district and month.</td></tr>@endforelse
         </tbody></table></div>
         @if(is_object($rows) && method_exists($rows,'links'))<div style="margin-top:1rem">{{ $rows->links() }}</div>@endif
     </section>

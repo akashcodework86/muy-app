@@ -25,19 +25,38 @@ class CaseStudyShortlistProfileService
     /** @return array<string, mixed> */
     public function build(CaseStudyShortlist $shortlist): array
     {
-        $sourceProfile = match ($shortlist->source) {
-            'phase3' => $this->phase3Profile($shortlist),
-            'phase2' => $this->phase2Profile($shortlist),
-            'phase1' => $this->phase1Profile($shortlist),
-            default => $this->fallbackProfile($shortlist),
-        };
-        $services = collect($sourceProfile['legacy_services'] ?? [])
-            ->concat($this->currentServiceCases($shortlist))
-            ->concat($this->pitchDeckRows($shortlist))
-            ->concat($this->accelerationRows($shortlist))
-            ->concat($this->technicalTrainingRows($shortlist))
-            ->concat($this->caseStudyRows($shortlist))
-            ->concat($this->marketLinkageRows($shortlist))
+        $incompleteSources = [];
+        try {
+            $sourceProfile = match ($shortlist->source) {
+                'phase3' => $this->phase3Profile($shortlist),
+                'phase2' => $this->phase2Profile($shortlist),
+                'phase1' => $this->phase1Profile($shortlist),
+                default => $this->fallbackProfile($shortlist),
+            };
+        } catch (\Throwable $exception) {
+            report($exception);
+            $sourceProfile = $this->fallbackProfile($shortlist);
+            $incompleteSources[] = strtoupper($shortlist->source).' profile';
+        }
+
+        $services = collect($sourceProfile['legacy_services'] ?? []);
+        foreach ([
+            'Service cases' => fn (): Collection => $this->currentServiceCases($shortlist),
+            'Pitch Deck' => fn (): Collection => $this->pitchDeckRows($shortlist),
+            'Acceleration' => fn (): Collection => $this->accelerationRows($shortlist),
+            'Technical Training' => fn (): Collection => $this->technicalTrainingRows($shortlist),
+            'Case Study' => fn (): Collection => $this->caseStudyRows($shortlist),
+            'Market Linkage' => fn (): Collection => $this->marketLinkageRows($shortlist),
+        ] as $source => $loader) {
+            try {
+                $services = $services->concat($loader());
+            } catch (\Throwable $exception) {
+                report($exception);
+                $incompleteSources[] = $source;
+            }
+        }
+
+        $services = $services
             ->unique(fn (array $row): string => mb_strtolower(implode('|', [
                 $row['name'] ?? '', $row['date'] ?? '', $row['source'] ?? '', $row['detail'] ?? '',
             ])))
@@ -49,7 +68,18 @@ class CaseStudyShortlistProfileService
                 $code => $services->contains(fn (array $row): bool => ($row['service_code'] ?? '') === $code),
             ])->all();
 
-        return $sourceProfile + ['services' => $services, 'received' => $received];
+        $deliveredServices = $services->filter(fn (array $row): bool => in_array(
+            mb_strtolower(trim((string) ($row['status'] ?? ''))),
+            ['approved', 'completed', 'delivered', 'recorded'],
+            true,
+        ))->values();
+
+        return $sourceProfile + [
+            'services' => $services,
+            'delivered_services' => $deliveredServices,
+            'received' => $received,
+            'incomplete_sources' => array_values(array_unique($incompleteSources)),
+        ];
     }
 
     /** @return array<string, mixed> */

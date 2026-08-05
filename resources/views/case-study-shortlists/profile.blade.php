@@ -31,6 +31,7 @@
         <section class="csp-card">
             <h3 class="csp-title">Services already received / recorded</h3>
             <p class="csp-muted">Combined history from legacy programme databases and current MUY service modules. Status is shown separately from State Admin nominations.</p>
+            @if(!empty($profile['incomplete_sources']))<div class="csp-alert" style="background:#fff7ed;border-color:#fdba74;color:#9a3412;margin:.7rem 0">Some service sources are temporarily unavailable: {{ implode(', ', $profile['incomplete_sources']) }}. Other available profile data is shown below.</div>@endif
             @forelse($profile['services'] as $service)
                 <div class="csp-service"><div><strong>{{ $service['name'] ?: 'Service' }}</strong><div class="csp-muted">{{ $service['detail'] ?: 'No additional detail' }}</div></div><div><span class="csp-status">{{ $service['status'] ?: 'Recorded' }}</span><div class="csp-muted">{{ $service['source'] }}</div></div><div class="csp-muted">{{ $service['date'] ?: 'Date not available' }}@if($service['provider'])<br>By {{ $service['provider'] }}@endif</div></div>
             @empty<div class="csp-field csp-field--missing"><div class="csp-field__value">No delivered or recorded services were found in the connected programme databases.</div></div>@endforelse

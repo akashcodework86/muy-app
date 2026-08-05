@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -61,6 +62,7 @@ class CaseStudyShortlistController extends Controller
             || ! Schema::hasTable('case_study_shortlist_nomination_events');
         $rows = collect();
         $candidates = collect();
+        $deliveredServicesByShortlist = collect();
         $activeCount = 0;
         if (! $migrationMissing) {
             $query = CaseStudyShortlist::query()->with(['district:id,name', 'creator:id,name,role', 'removedBy:id,name', 'remarks.author:id,name,role', 'nominations.nominatedBy:id,name']);
@@ -78,6 +80,15 @@ class CaseStudyShortlistController extends Controller
                 $query->whereNull('removed_at');
             }
             $rows = $query->latest('created_at')->paginate(25)->withQueryString();
+            $deliveredServicesByShortlist = $rows->getCollection()->mapWithKeys(function (CaseStudyShortlist $row): array {
+                $profile = Cache::remember(
+                    'case-study-shortlist:delivered-services:v1:'.$row->id,
+                    now()->addMinute(),
+                    fn (): array => $this->profiles->build($row),
+                );
+
+                return [$row->id => collect($profile['delivered_services'] ?? [])];
+            });
 
             if ($user->role === 'district_staff') {
                 $activeCount = CaseStudyShortlist::query()
@@ -93,7 +104,7 @@ class CaseStudyShortlistController extends Controller
 
         return view('case-study-shortlists.index', compact(
             'user', 'routePrefix', 'districts', 'filters', 'month', 'rows', 'candidates',
-            'activeCount', 'migrationMissing'
+            'activeCount', 'migrationMissing', 'deliveredServicesByShortlist'
         ) + [
             'programYears' => CaseStudyShortlistCandidateCatalog::YEARS,
             'monthlyLimit' => CaseStudyShortlistManager::MONTHLY_LIMIT,
