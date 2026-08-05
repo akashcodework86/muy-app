@@ -43,6 +43,8 @@ class LoginController extends Controller
         $user = Auth::user();
 
         if (in_array($user->role, ['state_admin', 'hub_admin', 'district_staff'], true)) {
+            $request->session()->flash('show_case_study_shortlist_announcement', true);
+
             $roleLabel = str_replace('_', ' ', (string) $user->role);
             $activity->log(
                 type: 'user.login',
