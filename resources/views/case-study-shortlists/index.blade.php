@@ -14,7 +14,6 @@
     @if($migrationMissing)
         <div class="css-alert css-alert--warn">Database tables are not available yet. Run <code>php artisan migrate --force</code> during deployment.</div>
     @endif
-    @if(session('status'))<div class="css-alert css-alert--ok">{{ session('status') }}</div>@endif
     @if($errors->any())<div class="css-alert css-alert--warn"><strong>Please check:</strong> {{ $errors->first() }}</div>@endif
 
     <section class="css-card">
