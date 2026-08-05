@@ -2179,5 +2179,6 @@
 @include('dashboards.state-admin._chart-scripts')
 
 @include('partials.app-footer')
+@include('partials.case-study-shortlist-announcement')
 </body>
 </html>
