@@ -3,6 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaseStudyShortlist;
+use App\Models\CaseStudyEntry;
+use App\Models\CaseStudyEntryAttachment;
+use App\Models\AccelerationServiceItemMedia;
+use App\Models\MarketLinkagePartner;
+use App\Models\PitchDeckPreparation;
+use App\Models\ServiceCaseAttachment;
+use App\Models\TechnicalTraining;
 use App\Models\User;
 use App\Services\CaseStudyShortlistCandidateCatalog;
 use App\Services\CaseStudyShortlistManager;
@@ -15,6 +22,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -82,7 +90,7 @@ class CaseStudyShortlistController extends Controller
             $rows = $query->latest('created_at')->paginate(25)->withQueryString();
             $deliveredServicesByShortlist = $rows->getCollection()->mapWithKeys(function (CaseStudyShortlist $row): array {
                 $profile = Cache::remember(
-                    'case-study-shortlist:delivered-services:v1:'.$row->id,
+                    'case-study-shortlist:delivered-services:v2:'.$row->id,
                     now()->addMinute(),
                     fn (): array => $this->profiles->build($row),
                 );
@@ -166,6 +174,32 @@ class CaseStudyShortlistController extends Controller
         return back()->with('status', 'Service nominations updated successfully.');
     }
 
+    public function downloadServiceDocument(
+        Request $request,
+        CaseStudyShortlist $caseStudyShortlist,
+        string $documentSource,
+        int $documentId,
+    ): mixed {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless(CaseStudyShortlistAccess::canAccessDistrict($user, (int) $caseStudyShortlist->district_id), 403);
+
+        [$disk, $path, $filename] = match ($documentSource) {
+            'service_case_attachment' => $this->serviceCaseDocument($caseStudyShortlist, $documentId),
+            'pitch_deck' => $this->pitchDeckDocument($caseStudyShortlist, $documentId),
+            'acceleration_media' => $this->accelerationDocument($caseStudyShortlist, $documentId),
+            'technical_training_media' => $this->technicalTrainingDocument($caseStudyShortlist, $documentId, (int) $request->integer('index')),
+            'case_study_document' => $this->caseStudyDocument($caseStudyShortlist, $documentId),
+            'case_study_attachment' => $this->caseStudyAttachment($caseStudyShortlist, $documentId),
+            'market_linkage_document' => $this->marketLinkageDocument($caseStudyShortlist, $documentId),
+            default => abort(404),
+        };
+
+        abort_unless($path !== '' && Storage::disk($disk)->exists($path), 404);
+
+        return Storage::disk($disk)->download($path, $filename ?: basename($path));
+    }
+
     public function remark(Request $request, CaseStudyShortlist $caseStudyShortlist): RedirectResponse
     {
         /** @var User $user */
@@ -211,5 +245,92 @@ class CaseStudyShortlistController extends Controller
         } catch (\Throwable) {
             return now()->startOfMonth();
         }
+    }
+
+    /** @return array{string,string,string} */
+    private function serviceCaseDocument(CaseStudyShortlist $shortlist, int $id): array
+    {
+        $attachment = ServiceCaseAttachment::query()->with('serviceCase.cfaSubmission')->findOrFail($id);
+        abort_unless($this->matchesServiceCase($shortlist, $attachment->serviceCase), 404);
+
+        return [(string) ($attachment->disk ?: config('filesystems.default')), (string) $attachment->path, (string) $attachment->original_name];
+    }
+
+    /** @return array{string,string,string} */
+    private function pitchDeckDocument(CaseStudyShortlist $shortlist, int $id): array
+    {
+        $row = PitchDeckPreparation::query()->findOrFail($id);
+        abort_unless($this->matchesReferences($shortlist, $row->cfa_submission_id, $row->legacy_application_id), 404);
+
+        return [(string) ($row->deck_file_disk ?: config('filesystems.default')), (string) $row->deck_file_path, (string) $row->deck_file_name];
+    }
+
+    /** @return array{string,string,string} */
+    private function accelerationDocument(CaseStudyShortlist $shortlist, int $id): array
+    {
+        $media = AccelerationServiceItemMedia::query()->with('item.session')->findOrFail($id);
+        $session = $media->item?->session;
+        abort_unless($shortlist->source === 'phase1' && $session && (int) $session->legacy_phase1_application_id === (int) $shortlist->source_application_id, 404);
+
+        return [(string) ($media->disk ?: config('filesystems.default')), (string) $media->path, (string) $media->original_name];
+    }
+
+    /** @return array{string,string,string} */
+    private function technicalTrainingDocument(CaseStudyShortlist $shortlist, int $id, int $index): array
+    {
+        $row = TechnicalTraining::query()->findOrFail($id);
+        abort_unless(
+            $shortlist->source === 'phase3'
+            && (int) $row->district_id === (int) $shortlist->district_id
+            && in_array((int) $shortlist->source_application_id, array_map('intval', (array) $row->selected_incubatee_ids), true),
+            404,
+        );
+        $media = collect((array) $row->attendance_media_json)->values()->get(max(0, $index));
+        abort_unless(is_array($media), 404);
+
+        return [(string) config('filesystems.default'), (string) ($media['path'] ?? ''), (string) ($media['original_name'] ?? '')];
+    }
+
+    /** @return array{string,string,string} */
+    private function caseStudyDocument(CaseStudyShortlist $shortlist, int $id): array
+    {
+        $row = CaseStudyEntry::query()->findOrFail($id);
+        abort_unless($this->matchesReferences($shortlist, $row->cfa_submission_id, $row->legacy_application_id), 404);
+
+        return [(string) ($row->document_disk ?: config('filesystems.default')), (string) $row->document_path, (string) $row->document_original_name];
+    }
+
+    /** @return array{string,string,string} */
+    private function caseStudyAttachment(CaseStudyShortlist $shortlist, int $id): array
+    {
+        $attachment = CaseStudyEntryAttachment::query()->with('entry')->findOrFail($id);
+        abort_unless($attachment->entry && $this->matchesReferences($shortlist, $attachment->entry->cfa_submission_id, $attachment->entry->legacy_application_id), 404);
+
+        return [(string) ($attachment->disk ?: config('filesystems.default')), (string) $attachment->path, (string) $attachment->original_name];
+    }
+
+    /** @return array{string,string,string} */
+    private function marketLinkageDocument(CaseStudyShortlist $shortlist, int $id): array
+    {
+        $partner = MarketLinkagePartner::query()->with('submission')->findOrFail($id);
+        abort_unless($partner->submission && $this->matchesReferences($shortlist, $partner->submission->cfa_submission_id, $partner->submission->legacy_application_id), 404);
+
+        return [(string) ($partner->document_disk ?: config('filesystems.default')), (string) $partner->document_path, (string) $partner->document_original_name];
+    }
+
+    private function matchesReferences(CaseStudyShortlist $shortlist, mixed $cfaId, mixed $legacyId): bool
+    {
+        return ($shortlist->source === 'phase3' && (int) $cfaId === (int) $shortlist->source_application_id)
+            || ($shortlist->source === 'phase2' && (int) $legacyId === (int) $shortlist->source_application_id);
+    }
+
+    private function matchesServiceCase(CaseStudyShortlist $shortlist, mixed $serviceCase): bool
+    {
+        if (! $serviceCase) return false;
+        if ($this->matchesReferences($shortlist, $serviceCase->cfa_submission_id, $serviceCase->legacy_application_id)) return true;
+        if ($shortlist->source !== 'phase1' || ! $serviceCase->cfaSubmission) return false;
+        $payload = (array) $serviceCase->cfaSubmission->payload;
+
+        return (int) ($payload['legacy_phase1_id'] ?? $payload['legacy_id'] ?? 0) === (int) $shortlist->source_application_id;
     }
 }

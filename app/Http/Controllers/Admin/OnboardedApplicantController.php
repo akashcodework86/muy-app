@@ -23,10 +23,12 @@ class OnboardedApplicantController extends Controller
 {
     private const POTENTIAL_LAKHPATI_LABEL = 'Potential Lakhpati Didi/ SHG Members/ CBOs';
 
+    private const BUSINESS_STAGES = ['early' => 'Early', 'seed' => 'Seed', 'growth' => 'Growth'];
+
     public function index(Request $request): View
     {
         $scope = $this->resolveScope($request);
-        [$hubId, $districtId, $q] = $this->extractFilters($request, $scope);
+        [$hubId, $districtId, $q, $stage] = $this->extractFilters($request, $scope);
 
         $hubs = Hub::query()
             ->when($scope['hub_id'] !== null, fn ($query) => $query->where('id', $scope['hub_id']))
@@ -41,12 +43,12 @@ class OnboardedApplicantController extends Controller
             ->get(['id', 'name', 'hub_id']);
 
         $commonColumns = $this->commonColumnMap();
-        $mergedRows = $this->buildRows($hubId, $districtId, $q, $scope);
+        $mergedRows = $this->buildRows($hubId, $districtId, $q, $stage, $scope);
         $rows = $this->paginateMergedRows($mergedRows, $request, 30);
-        $overview = $this->overviewStats($hubId, $districtId, $q, $scope);
-        $districtSummaries = $this->districtSummaries($hubId, $q, $scope);
+        $overview = $this->overviewStats($hubId, $districtId, $q, $stage, $scope);
+        $districtSummaries = $this->districtSummaries($hubId, $q, $stage, $scope);
         $targetProgress = $this->targetProgress($hubId, $districtId, $scope);
-        $sectorBreakdown = $this->sectorBreakdown($hubId, $districtId, $q, $scope);
+        $sectorBreakdown = $this->sectorBreakdown($hubId, $districtId, $q, $stage, $scope);
         $insights = $this->buildInsights($overview, $districtSummaries, $targetProgress, $sectorBreakdown, $districtId);
 
         return view('admin.onboarded.index', [
@@ -63,7 +65,9 @@ class OnboardedApplicantController extends Controller
                 'hub' => $hubId,
                 'district' => $districtId,
                 'q' => $q,
+                'stage' => $stage,
             ],
+            'businessStages' => self::BUSINESS_STAGES,
             'routeIndex' => $this->routeNameFor($request, 'index'),
             'routeExport' => $this->routeNameFor($request, 'export'),
         ]);
@@ -72,9 +76,9 @@ class OnboardedApplicantController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $scope = $this->resolveScope($request);
-        [$hubId, $districtId, $q] = $this->extractFilters($request, $scope);
+        [$hubId, $districtId, $q, $stage] = $this->extractFilters($request, $scope);
         $commonColumns = $this->commonColumnMap();
-        $rows = $this->buildRows($hubId, $districtId, $q, $scope);
+        $rows = $this->buildRows($hubId, $districtId, $q, $stage, $scope);
 
         $headers = ['Sr No', 'Application No', 'Source', 'District', 'Hub', 'Batch', 'Onboarded At'];
         foreach ($commonColumns as $key => $meta) {
@@ -136,8 +140,12 @@ class OnboardedApplicantController extends Controller
         }
 
         $q = trim((string) $request->string('q')->toString());
+        $stage = mb_strtolower(trim((string) $request->string('stage')->toString()));
+        if (! array_key_exists($stage, self::BUSINESS_STAGES)) {
+            $stage = '';
+        }
 
-        return [$hubId, $districtId, $q];
+        return [$hubId, $districtId, $q, $stage];
     }
 
     private function resolveScope(Request $request): array
@@ -185,9 +193,9 @@ class OnboardedApplicantController extends Controller
         };
     }
 
-    private function buildRows(?int $hubId, ?int $districtId, string $q, array $scope = []): Collection
+    private function buildRows(?int $hubId, ?int $districtId, string $q, string $stage, array $scope = []): Collection
     {
-        $phase3Rows = $this->phase3Rows($hubId, $districtId, $q, $scope);
+        $phase3Rows = $this->phase3Rows($hubId, $districtId, $q, $stage, $scope);
         $commonColumns = $this->commonColumnMap();
 
         return $phase3Rows
@@ -196,10 +204,10 @@ class OnboardedApplicantController extends Controller
             ->values();
     }
 
-    private function phase3Rows(?int $hubId, ?int $districtId, string $q, array $scope = []): Collection
+    private function phase3Rows(?int $hubId, ?int $districtId, string $q, string $stage, array $scope = []): Collection
     {
         $query = $this->phase3BaseQuery($scope);
-        $this->applyPhase3Filters($query, $hubId, $districtId, $q);
+        $this->applyPhase3Filters($query, $hubId, $districtId, $q, $stage);
 
         $guardianJson = $this->payloadJson('$.guardian_name');
         $genderJson = $this->payloadJson('$.gender');
@@ -274,13 +282,22 @@ class OnboardedApplicantController extends Controller
         $query->whereIn('cs.district_id', $allowedDistrictIds);
     }
 
-    private function applyPhase3Filters($query, ?int $hubId, ?int $districtId, string $q): void
+    private function applyPhase3Filters($query, ?int $hubId, ?int $districtId, string $q, string $stage = ''): void
     {
         if ($hubId) {
             $query->where('ob.hub_id', $hubId);
         }
         if ($districtId) {
             $query->where('cs.district_id', $districtId);
+        }
+        if ($stage !== '') {
+            $formStage = $this->payloadJson('$.form_stage');
+            $businessStage = $this->payloadJson('$.business_stage');
+            $legacyStage = $this->payloadJson('$.rbi_applications.form_stage');
+            $query->whereRaw(
+                "LOWER(TRIM(COALESCE(NULLIF({$formStage}, ''), NULLIF({$businessStage}, ''), NULLIF({$legacyStage}, ''), ''))) = ?",
+                [$stage],
+            );
         }
         if ($q !== '') {
             $like = '%'.$q.'%';
@@ -299,13 +316,13 @@ class OnboardedApplicantController extends Controller
         }
     }
 
-    private function overviewStats(?int $hubId, ?int $districtId, string $q, array $scope): array
+    private function overviewStats(?int $hubId, ?int $districtId, string $q, string $stage, array $scope): array
     {
         $sevenDaysAgo = now()->subDays(7)->toDateTimeString();
         $monthStart = now()->startOfMonth()->toDateTimeString();
 
         $query = $this->phase3BaseQuery($scope);
-        $this->applyPhase3Filters($query, $hubId, $districtId, $q);
+        $this->applyPhase3Filters($query, $hubId, $districtId, $q, $stage);
 
         $genderJson = $this->payloadJson('$.gender');
         $potentialLakhpatiSql = $this->potentialLakhpatiCountSql();
@@ -360,12 +377,12 @@ class OnboardedApplicantController extends Controller
     }
 
     /** @return list<array<string, mixed>> */
-    private function districtSummaries(?int $hubId, string $q, array $scope): array
+    private function districtSummaries(?int $hubId, string $q, string $stage, array $scope): array
     {
         $sevenDaysAgo = now()->subDays(7)->toDateTimeString();
 
         $query = $this->phase3BaseQuery($scope);
-        $this->applyPhase3Filters($query, $hubId, null, $q);
+        $this->applyPhase3Filters($query, $hubId, null, $q, $stage);
 
         $genderJson = $this->payloadJson('$.gender');
         $districtJson = $this->payloadJson('$.district');
@@ -1098,10 +1115,10 @@ class OnboardedApplicantController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function sectorBreakdown(?int $hubId, ?int $districtId, string $q, array $scope): array
+    private function sectorBreakdown(?int $hubId, ?int $districtId, string $q, string $stage, array $scope): array
     {
         $query = $this->phase3BaseQuery($scope);
-        $this->applyPhase3Filters($query, $hubId, $districtId, $q);
+        $this->applyPhase3Filters($query, $hubId, $districtId, $q, $stage);
 
         $category = $this->payloadJson('$.business_category');
         $appCategory = $this->payloadJson('$.app_business_category');

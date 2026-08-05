@@ -476,6 +476,7 @@
     $targetProgress = $targetProgress ?? [];
     $sectorBreakdown = $sectorBreakdown ?? [];
     $insights = $insights ?? [];
+    $businessStages = $businessStages ?? ['early' => 'Early', 'seed' => 'Seed', 'growth' => 'Growth'];
     $potentialLakhpatiLabel = 'Potential Lakhpati Didi/ SHG Members/ CBOs';
     $activeDistrict = (int) ($filters['district'] ?? 0);
     $routeIndex = $routeIndex ?? 'admin.onboarded.index';
@@ -483,6 +484,7 @@
         'hub' => $filters['hub'] ?? null,
         'district' => $filters['district'] ?? null,
         'q' => $filters['q'] ?? null,
+        'stage' => $filters['stage'] ?? null,
     ]);
 @endphp
 
@@ -617,7 +619,7 @@
                     <p>Click a district to filter applicants below. Share shows contribution within current hub/search scope.</p>
                 </div>
                 @php
-                    $allDistrictQuery = array_filter(['hub' => $filters['hub'] ?? null, 'q' => $filters['q'] ?? null]);
+                    $allDistrictQuery = array_filter(['hub' => $filters['hub'] ?? null, 'q' => $filters['q'] ?? null, 'stage' => $filters['stage'] ?? null]);
                 @endphp
                 <a
                     href="{{ route($routeIndex, $allDistrictQuery) }}"
@@ -631,6 +633,7 @@
                             'hub' => $filters['hub'] ?? null,
                             'district' => $districtRow['district_id'] > 0 ? $districtRow['district_id'] : null,
                             'q' => $filters['q'] ?? null,
+                            'stage' => $filters['stage'] ?? null,
                         ]);
                         $isActive = $activeDistrict > 0 && $activeDistrict === (int) $districtRow['district_id'];
                     @endphp
@@ -687,6 +690,15 @@
                 @endforeach
             </select>
         </div>
+        <div class="onb-fld">
+            <label for="fld-stage">Business stage</label>
+            <select id="fld-stage" name="stage">
+                <option value="">All stages</option>
+                @foreach ($businessStages as $stageKey => $stageLabel)
+                    <option value="{{ $stageKey }}" @selected(($filters['stage'] ?? '') === $stageKey)>{{ $stageLabel }}</option>
+                @endforeach
+            </select>
+        </div>
         <div class="onb-fld onb-fld--grow">
             <label for="fld-q">Search</label>
             <input
@@ -699,7 +711,7 @@
             >
         </div>
         <div class="onb-actions">
-            @if (($filters['hub'] ?? null) || ($filters['district'] ?? null) || ($filters['q'] ?? null))
+            @if (($filters['hub'] ?? null) || ($filters['district'] ?? null) || ($filters['q'] ?? null) || ($filters['stage'] ?? null))
                 <a href="{{ route($routeIndex) }}" class="btn-sm">Clear</a>
             @endif
             <a href="{{ route($routeExport ?? 'admin.onboarded.export', $filterQuery) }}" class="btn-sm">Export Excel</a>

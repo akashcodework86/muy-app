@@ -223,7 +223,7 @@ class CaseStudyShortlistProfileService
     private function currentServiceCases(CaseStudyShortlist $shortlist): Collection
     {
         if (! Schema::hasTable('service_cases')) return collect();
-        $query = ServiceCase::query()->with(['service:id,name', 'creator:id,name', 'approver:id,name']);
+        $query = ServiceCase::query()->with(['service:id,name', 'creator:id,name', 'approver:id,name', 'attachments:id,service_case_id,original_name']);
         if ($shortlist->source === 'phase3') {
             $query->where('cfa_submission_id', $shortlist->source_application_id);
         } elseif ($shortlist->source === 'phase2' && ServiceCase::supportsLegacyApplicationLink()) {
@@ -242,6 +242,10 @@ class CaseStudyShortlistProfileService
             'sort_date' => (string) ($case->delivered_on ?? $case->approved_at ?? $case->created_at),
             'service_code' => in_array((string) $case->status, [ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_COMPLETED], true)
                 ? $this->serviceCode($case->service?->name ?? '') : null,
+            'documents' => $case->attachments->map(fn ($attachment): array => [
+                'type' => 'service_case_attachment', 'id' => (int) $attachment->id,
+                'label' => $attachment->original_name ?: 'Service document',
+            ])->values()->all(),
         ]);
     }
 
@@ -256,13 +260,17 @@ class CaseStudyShortlistProfileService
             'name' => 'Pitch Deck Preparation', 'date' => $row->prepared_on?->format('d M Y'), 'status' => 'Completed',
             'source' => 'Pitch Deck module', 'detail' => $row->formattedSupportMode(), 'provider' => $row->enteredBy?->name ?? $row->entered_by_name,
             'sort_date' => (string) $row->prepared_on, 'service_code' => 'pitch_deck',
+            'documents' => $row->deck_file_path ? [[
+                'type' => 'pitch_deck', 'id' => (int) $row->id,
+                'label' => $row->deck_file_name ?: 'Pitch deck',
+            ]] : [],
         ]);
     }
 
     private function accelerationRows(CaseStudyShortlist $shortlist): Collection
     {
         if ($shortlist->source !== 'phase1' || ! Schema::hasTable('acceleration_service_sessions')) return collect();
-        return AccelerationServiceSession::query()->with(['items:id,session_id,item_label'])
+        return AccelerationServiceSession::query()->with(['items:id,session_id,item_label', 'items.media:id,item_id,original_name'])
             ->where('legacy_phase1_application_id', $shortlist->source_application_id)
             ->where(fn ($q) => $q->whereNull('is_draft')->orWhere('is_draft', false))
             ->get()->map(fn ($row): array => [
@@ -270,6 +278,10 @@ class CaseStudyShortlistProfileService
                 'source' => 'Acceleration module', 'detail' => $row->items->pluck('item_label')->join(', '), 'provider' => $row->submitted_by_name,
                 'sort_date' => (string) $row->service_date,
                 'service_code' => (string) $row->status === 'approved' ? 'acceleration' : null,
+                'documents' => $row->items->flatMap(fn ($item) => $item->media->map(fn ($media): array => [
+                    'type' => 'acceleration_media', 'id' => (int) $media->id,
+                    'label' => $media->original_name ?: 'Acceleration document',
+                ]))->values()->all(),
             ]);
     }
 
@@ -285,6 +297,20 @@ class CaseStudyShortlistProfileService
             'status' => str_replace('_', ' ', ucfirst((string) $row->status)), 'source' => 'Market Linkage module',
             'detail' => $row->partners->pluck('partner_name')->join(', '), 'provider' => $row->submitter?->name ?? $row->submitted_by_name,
             'sort_date' => (string) ($row->approved_at ?? $row->submitted_at ?? $row->created_at), 'service_code' => null,
+            'documents' => $row->partners->flatMap(function ($partner): array {
+                $items = [];
+                if ($partner->document_path) {
+                    $items[] = [
+                        'type' => 'market_linkage_document', 'id' => (int) $partner->id,
+                        'label' => $partner->document_original_name ?: $partner->partner_name.' document',
+                    ];
+                }
+                if ($partner->linkHref()) {
+                    $items[] = ['url' => $partner->linkHref(), 'label' => $partner->partner_name.' link'];
+                }
+
+                return $items;
+            })->values()->all(),
         ]);
     }
 
@@ -294,13 +320,20 @@ class CaseStudyShortlistProfileService
 
         return TechnicalTraining::query()->with('submitter:id,name')->approvedForMis()
             ->where('district_id', $shortlist->district_id)
-            ->whereJsonContains('selected_incubatee_ids', (int) $shortlist->source_application_id)
+            ->where(function ($query) use ($shortlist): void {
+                $query->whereJsonContains('selected_incubatee_ids', (int) $shortlist->source_application_id)
+                    ->orWhereJsonContains('selected_incubatee_ids', (string) $shortlist->source_application_id);
+            })
             ->get()->map(fn (TechnicalTraining $row): array => [
                 'name' => 'Technical Training', 'date' => $row->event_date?->format('d M Y'),
                 'status' => 'Completed', 'source' => 'Technical Training module',
                 'detail' => collect([$row->training_batch_name, $row->session_name])->filter()->join(' - '),
                 'provider' => $row->submitter?->name ?? $row->submitted_by_name,
                 'sort_date' => (string) $row->event_date, 'service_code' => 'technical_training',
+                'documents' => collect((array) $row->attendance_media_json)->values()->map(fn ($media, int $index): array => [
+                    'type' => 'technical_training_media', 'id' => (int) $row->id, 'index' => $index,
+                    'label' => is_array($media) ? ((string) ($media['original_name'] ?? 'Training document')) : 'Training document',
+                ])->all(),
             ]);
     }
 
@@ -308,7 +341,7 @@ class CaseStudyShortlistProfileService
     {
         if (! Schema::hasTable('case_study_entries')) return collect();
 
-        $query = CaseStudyEntry::query()->with('submitter:id,name');
+        $query = CaseStudyEntry::query()->with(['submitter:id,name', 'attachments:id,case_study_entry_id,original_name']);
         if ($shortlist->source === 'phase3') {
             $query->where('cfa_submission_id', $shortlist->source_application_id);
         } elseif ($shortlist->source === 'phase2') {
@@ -323,6 +356,13 @@ class CaseStudyShortlistProfileService
             'detail' => collect([$row->story_title, $row->story_type])->filter()->join(' - '),
             'provider' => $row->submitter?->name ?? $row->submitted_by_name,
             'sort_date' => (string) $row->story_date, 'service_code' => 'case_study',
+            'documents' => collect($row->document_path ? [[
+                'type' => 'case_study_document', 'id' => (int) $row->id,
+                'label' => $row->document_original_name ?: 'Case study document',
+            ]] : [])->concat($row->attachments->map(fn ($attachment): array => [
+                'type' => 'case_study_attachment', 'id' => (int) $attachment->id,
+                'label' => $attachment->original_name ?: 'Case study attachment',
+            ]))->values()->all(),
         ]);
     }
 
@@ -340,9 +380,28 @@ class CaseStudyShortlistProfileService
     private function rows(array $values): array
     {
         return collect($values)->map(function ($value, string $label): array {
-            $available = $value !== null && trim((string) $value) !== '' && ! in_array(trim((string) $value), ['N/A', '-'], true);
-            return ['label' => $label, 'value' => $available ? trim((string) $value) : 'Not available in this programme year', 'available' => $available];
+            $display = $this->displayValue($value);
+            $available = $display !== '' && ! in_array($display, ['N/A', '-'], true);
+
+            return ['label' => $label, 'value' => $available ? $display : 'Not available in this programme year', 'available' => $available];
         })->values()->all();
+    }
+
+    private function displayValue(mixed $value): string
+    {
+        if ($value === null) return '';
+        if (is_bool($value)) return $value ? 'Yes' : 'No';
+        if (is_array($value)) {
+            return collect($value)->map(function (mixed $item): string {
+                if (is_bool($item)) return $item ? 'Yes' : 'No';
+                if (is_scalar($item) || $item instanceof \Stringable) return trim((string) $item);
+
+                return trim((string) json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            })->filter()->join(', ');
+        }
+        if (is_scalar($value) || $value instanceof \Stringable) return trim((string) $value);
+
+        return trim((string) json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     private function serviceCode(string $label): ?string
