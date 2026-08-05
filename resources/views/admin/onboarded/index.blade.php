@@ -768,7 +768,7 @@
                                 <span>{{ $row['common_values']['gender'] ?? $row['gender'] ?? '—' }}</span>
                             </div>
                             <div class="onb-applicant-card__field">
-                                <label>Business</label>
+                                <label>Business Category</label>
                                 <span>{{ $row['common_values']['business_category'] ?? '—' }}</span>
                             </div>
                             <div class="onb-applicant-card__field">
