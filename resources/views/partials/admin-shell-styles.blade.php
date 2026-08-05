@@ -151,6 +151,20 @@
         .admin-topbar__nav--hub-admin { flex-basis: 100%; order: 3; justify-content: flex-start; margin-left: 0; }
         .admin-topbar__right { margin-left: auto; }
     }
+    @media (min-width: 769px) and (max-width: 1500px) {
+        /* Keep every state-admin label readable on laptops and zoomed desktops. */
+        .admin-topbar__nav--state-admin:not(.admin-topbar__nav--staff) {
+            flex-basis: 100%;
+            order: 3;
+            justify-content: center;
+            margin-left: 0;
+            flex-wrap: nowrap;
+        }
+        .admin-topbar__nav--state-admin:not(.admin-topbar__nav--staff) > .admin-topbar__link,
+        .admin-topbar__nav--state-admin:not(.admin-topbar__nav--staff) > .admin-topbar__details {
+            flex-shrink: 0;
+        }
+    }
     .admin-topbar__details {
         position: relative;
         display: inline-block;
