@@ -51,22 +51,19 @@ class MarketingPartnerOutreachController extends Controller
             'cohort_or_sector' => ['required', 'string', Rule::in(array_keys(PartnerOutreachOptions::cohortOrSectors()))],
             'cohort_or_sector_other' => ['nullable', 'string', 'max:191', 'required_if:cohort_or_sector,other'],
             'poc_name' => ['nullable', 'string', 'max:191'],
-            'poc_contact_method' => ['required', 'string', Rule::in(['phone', 'email'])],
-            'poc_phone' => ['nullable', 'string', 'regex:/^[6-9]\d{9}$/', 'required_if:poc_contact_method,phone'],
-            'poc_email' => ['nullable', 'email', 'max:191', 'required_if:poc_contact_method,email'],
+            'poc_contact_method' => ['nullable', 'string', Rule::in(['phone', 'email'])],
+            'poc_phone' => ['nullable', 'string', 'regex:/^[6-9]\d{9}$/'],
+            'poc_email' => ['nullable', 'email', 'max:191'],
             'remarks' => ['nullable', 'string', 'max:5000'],
-        ], [
-            'poc_phone.required_if' => 'Enter the POC contact number.',
-            'poc_email.required_if' => 'Enter the POC email address.',
         ]);
 
-        $contactMethod = (string) $validated['poc_contact_method'];
-        $pocPhone = $contactMethod === 'phone'
-            ? (string) ($validated['poc_phone'] ?? '')
-            : null;
-        $pocEmail = $contactMethod === 'email'
-            ? trim((string) ($validated['poc_email'] ?? ''))
-            : null;
+        $contactMethod = (string) ($validated['poc_contact_method'] ?? '');
+        $pocPhone = $contactMethod === 'email'
+            ? null
+            : (trim((string) ($validated['poc_phone'] ?? '')) ?: null);
+        $pocEmail = $contactMethod === 'phone'
+            ? null
+            : (trim((string) ($validated['poc_email'] ?? '')) ?: null);
 
         MarketingPartnerOutreachEntry::query()->create([
             'outreach_date' => $validated['outreach_date'],
@@ -78,8 +75,8 @@ class MarketingPartnerOutreachController extends Controller
                 ? trim((string) ($validated['cohort_or_sector_other'] ?? ''))
                 : null,
             'poc_name' => trim((string) ($validated['poc_name'] ?? '')) ?: null,
-            'poc_phone' => $pocPhone !== '' ? $pocPhone : null,
-            'poc_email' => $pocEmail !== '' ? $pocEmail : null,
+            'poc_phone' => $pocPhone,
+            'poc_email' => $pocEmail,
             'remarks' => trim((string) ($validated['remarks'] ?? '')) ?: null,
             'status' => MarketingPartnerOutreachEntry::STATUS_OUTREACH,
             'submitted_by_user_id' => (int) $user->id,

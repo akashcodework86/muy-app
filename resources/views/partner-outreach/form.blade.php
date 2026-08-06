@@ -96,22 +96,23 @@
                     <input type="text" id="poc_name" name="poc_name" value="{{ old('poc_name') }}" maxlength="191">
                 </div>
                 <div class="mpo-field">
-                    <label for="poc_contact_method">POC contact <span style="color:#b91c1c;">*</span></label>
-                    <select id="poc_contact_method" name="poc_contact_method" required>
-                        <option value="phone" @selected(old('poc_contact_method', 'phone') === 'phone')>Contact no.</option>
+                    <label for="poc_contact_method">POC contact</label>
+                    <select id="poc_contact_method" name="poc_contact_method">
+                        <option value="" @selected(old('poc_contact_method', '') === '')>Select</option>
+                        <option value="phone" @selected(old('poc_contact_method') === 'phone')>Contact no.</option>
                         <option value="email" @selected(old('poc_contact_method') === 'email')>Mail</option>
                     </select>
-                    <p class="mpo-hint">Choose phone or email for the POC.</p>
+                    <p class="mpo-hint">Optional — choose phone or email for the POC.</p>
                 </div>
-                <div class="mpo-field" id="pocPhoneWrap">
-                    <label for="poc_phone">Contact no. of POC <span style="color:#b91c1c;">*</span></label>
+                <div class="mpo-field" id="pocPhoneWrap" style="display:none;">
+                    <label for="poc_phone">Contact no. of POC</label>
                     <input type="tel" id="poc_phone" name="poc_phone" value="{{ old('poc_phone') }}" maxlength="10" pattern="[6-9][0-9]{9}" inputmode="numeric">
-                    <p class="mpo-hint">10-digit mobile number.</p>
+                    <p class="mpo-hint">Optional 10-digit mobile number.</p>
                 </div>
                 <div class="mpo-field" id="pocEmailWrap" style="display:none;">
-                    <label for="poc_email">Mail of POC <span style="color:#b91c1c;">*</span></label>
+                    <label for="poc_email">Mail of POC</label>
                     <input type="email" id="poc_email" name="poc_email" value="{{ old('poc_email') }}" maxlength="191">
-                    <p class="mpo-hint">Valid email address.</p>
+                    <p class="mpo-hint">Optional valid email address.</p>
                 </div>
                 <div class="mpo-field mpo-field--full">
                     <label for="remarks">Remark</label>
@@ -150,15 +151,17 @@
 
         function syncContactFields(clearHidden) {
             const usePhone = method.value === 'phone';
+            const useEmail = method.value === 'email';
             phoneWrap.style.display = usePhone ? '' : 'none';
-            emailWrap.style.display = usePhone ? 'none' : '';
-            phoneInput.required = usePhone;
-            emailInput.required = !usePhone;
+            emailWrap.style.display = useEmail ? '' : 'none';
+            phoneInput.required = false;
+            emailInput.required = false;
             if (clearHidden) {
-                if (usePhone) {
-                    emailInput.value = '';
-                } else {
+                if (!usePhone) {
                     phoneInput.value = '';
+                }
+                if (!useEmail) {
+                    emailInput.value = '';
                 }
             }
         }

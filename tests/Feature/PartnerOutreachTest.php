@@ -35,7 +35,7 @@ class PartnerOutreachTest extends TestCase
         ]);
 
         $response = $this->actingAs($sanjna)->post(route('spoc.partner-outreach.store'), [
-            'outreach_date' => '2026-06-10',
+            'outreach_date' => now()->toDateString(),
             'partner_name' => 'Mountain Retail Pvt Ltd',
             'partner_designation' => 'CEO',
             'partner_link' => 'https://example.com/partner',
@@ -52,6 +52,30 @@ class PartnerOutreachTest extends TestCase
             'partner_name' => 'Mountain Retail Pvt Ltd',
             'partner_designation' => 'CEO',
             'status' => MarketingPartnerOutreachEntry::STATUS_OUTREACH,
+            'submitted_by_user_id' => $sanjna->id,
+        ]);
+    }
+
+    public function test_sanjna_can_create_partner_outreach_entry_without_poc_contact(): void
+    {
+        $sanjna = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Sanjna Mishra',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($sanjna)->post(route('spoc.partner-outreach.store'), [
+            'outreach_date' => now()->toDateString(),
+            'partner_name' => 'No POC Contact Partner',
+            'cohort_or_sector' => 'retail_trade',
+        ]);
+
+        $response->assertRedirect(route('spoc.partner-outreach.dashboard'));
+
+        $this->assertDatabaseHas('marketing_partner_outreach_entries', [
+            'partner_name' => 'No POC Contact Partner',
+            'poc_phone' => null,
+            'poc_email' => null,
             'submitted_by_user_id' => $sanjna->id,
         ]);
     }
