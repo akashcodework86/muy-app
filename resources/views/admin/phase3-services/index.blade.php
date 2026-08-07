@@ -590,6 +590,8 @@
                     <th class="p3-sr">Sr.</th>
                     <th>Reference</th>
                     <th>Applicant</th>
+                    <th>Applicant Category</th>
+                    <th>SHG/CBO Member</th>
                     <th>District</th>
                     <th>Batch</th>
                     <th>Service</th>
@@ -621,7 +623,19 @@
                             $modeLabels = \App\Support\MarketLinkageUnifiedListingSupport::linkageModeLabelsFromServiceCasePayload($payload);
                             $linkageMode = $modeLabels !== [] ? implode(', ', $modeLabels) : '—';
                         }
-                        $lp = $case ? ($legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null) : null;
+                        $legacyId = (int) ($case?->legacy_application_id ?? $ml?->legacy_application_id ?? 0);
+                        $lp = $legacyId > 0 ? ($legacyPreviews[$legacyId] ?? null) : null;
+                        $applicantPayload = is_array($case?->cfaSubmission?->payload)
+                            ? $case->cfaSubmission->payload
+                            : (is_array($ml?->cfaSubmission?->payload) ? $ml->cfaSubmission->payload : []);
+                        $applicantCategory = \App\Support\ApplicantCategoryShgSupport::categoryLabel(
+                            $applicantPayload,
+                            is_array($lp) ? ($lp['applicant_category'] ?? null) : null,
+                        );
+                        $shgMember = \App\Support\ApplicantCategoryShgSupport::shgMemberLabel(
+                            $applicantPayload,
+                            is_array($lp) ? ($lp['is_shg_member'] ?? null) : null,
+                        );
                         $batchName = $case?->cfaSubmission?->onboardingBatchMembership?->batch?->name
                             ?? (is_array($lp) ? ($lp['onboarding_batch_name'] ?? '') : '');
                         $isLegacyBatch = $batchName !== '' && $case && ! $case->cfaSubmission;
@@ -703,6 +717,8 @@
                             <div class="p3-name">{{ $applicantName }}</div>
                             <div class="p3-sub">{{ $applicationNo }}</div>
                         </td>
+                        <td>{{ $applicantCategory !== '' ? $applicantCategory : '—' }}</td>
+                        <td>{{ $shgMember !== '' ? $shgMember : '—' }}</td>
                         <td>{{ $districtName }}</td>
                         <td>
                             @if ($batchName !== '')
@@ -799,7 +815,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="17" style="padding:1.2rem;color:#64748b;text-align:center;">No Phase 3 service cases found for selected filters.</td>
+                        <td colspan="19" style="padding:1.2rem;color:#64748b;text-align:center;">No Phase 3 service cases found for selected filters.</td>
                     </tr>
                 @endforelse
             </tbody>

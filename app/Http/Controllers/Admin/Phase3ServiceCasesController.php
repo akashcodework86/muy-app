@@ -13,6 +13,7 @@ use App\Models\ServiceCaseAttachment;
 use App\Models\User;
 use App\Services\Admin\Phase3UnifiedMarketLinkageListBuilder;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Support\ApplicantCategoryShgSupport;
 use App\Support\ConvergenceReapSupport;
 use App\Support\ConvergenceReapSupportDeliverablesSupport;
 use App\Support\MarketLinkageUnifiedListingSupport;
@@ -329,7 +330,7 @@ class Phase3ServiceCasesController extends Controller
 
     /**
      * @param  array<string, mixed>  $row
-     * @param  array<int, array{applicant_name: string, application_no: string, district: string}|null>  $legacyPreviews
+     * @param  array<int, array<string, mixed>|null>  $legacyPreviews
      * @return list<string|int>
      */
     private function exportUnifiedRowValues(array $row, int $sn, array $legacyPreviews): array
@@ -351,6 +352,17 @@ class Phase3ServiceCasesController extends Controller
         $partnerName = (string) ($row['partner_name'] ?? ($partner?->partner_name ?? ''));
         $linkageMode = (string) ($row['linkage_mode'] ?? '');
         $status = (string) ($ml?->status ?? '');
+        $legacyId = (int) ($ml?->legacy_application_id ?? 0);
+        $legacy = $legacyPreviews[$legacyId] ?? null;
+        $applicantPayload = is_array($ml?->cfaSubmission?->payload) ? $ml->cfaSubmission->payload : [];
+        $applicantCategory = ApplicantCategoryShgSupport::categoryLabel(
+            $applicantPayload,
+            is_array($legacy) ? ($legacy['applicant_category'] ?? null) : null,
+        );
+        $shgMember = ApplicantCategoryShgSupport::shgMemberLabel(
+            $applicantPayload,
+            is_array($legacy) ? ($legacy['is_shg_member'] ?? null) : null,
+        );
 
         if ($phone !== '' && preg_match('/^[\d\s+\-]{10,}$/', $phone)) {
             $phone = "\t".$phone;
@@ -361,6 +373,8 @@ class Phase3ServiceCasesController extends Controller
             (string) ($ml?->application_no ?: ''),
             $applicationNo,
             $applicantName,
+            $applicantCategory,
+            $shgMember,
             $district,
             $phone,
             '',
@@ -397,6 +411,8 @@ class Phase3ServiceCasesController extends Controller
             'Reference Number',
             'Application Number',
             'Applicant Name',
+            'Applicant Category',
+            'SHG/CBO Member',
             'District',
             'Applicant Phone',
             'Block',
@@ -420,8 +436,8 @@ class Phase3ServiceCasesController extends Controller
     }
 
     /**
-     * @param  array{applicant_name: string, application_no: string, district: string}|null  $legacyPreview
-     * @param  array<string, string>|null  $legacyRow
+     * @param  array<string, mixed>|null  $legacyPreview
+     * @param  array<string, mixed>|null  $legacyRow
      * @return list<string|int>
      */
     private function exportRowValues(ServiceCase $case, int $sn, ?array $legacyPreview, ?array $legacyRow): array
@@ -457,6 +473,15 @@ class Phase3ServiceCasesController extends Controller
             $phone = "\t".$phone;
         }
 
+        $applicantCategory = ApplicantCategoryShgSupport::categoryLabel(
+            $payload,
+            $legacyRow['applicant_category'] ?? $legacyPreview['applicant_category'] ?? null,
+        );
+        $shgMember = ApplicantCategoryShgSupport::shgMemberLabel(
+            $payload,
+            $legacyRow['is_shg_member'] ?? $legacyPreview['is_shg_member'] ?? null,
+        );
+
         $spocRemark = match ($case->status) {
             ServiceCase::STATUS_SENT_BACK => (string) ($case->sent_back_note ?? ''),
             ServiceCase::STATUS_REJECTED => (string) ($case->rejected_note ?? ''),
@@ -468,6 +493,8 @@ class Phase3ServiceCasesController extends Controller
             (string) ($case->reference_number ?: ''),
             $applicationNo,
             $applicantName,
+            $applicantCategory,
+            $shgMember,
             $district,
             $phone,
             $block,
@@ -525,8 +552,10 @@ class Phase3ServiceCasesController extends Controller
                 'd.district',
                 'd.block',
                 'd.village',
+                'd.is_shg_member',
                 'a.application_no',
                 'a.product',
+                'a.category as applicant_category',
                 'a.business_category',
             ])
             ->mapWithKeys(function ($row): array {
@@ -542,6 +571,8 @@ class Phase3ServiceCasesController extends Controller
                         'district' => (string) ($row->district ?? ''),
                         'block' => (string) ($row->block ?? ''),
                         'village' => (string) ($row->village ?? ''),
+                        'is_shg_member' => $row->is_shg_member ?? null,
+                        'applicant_category' => (string) ($row->applicant_category ?? ''),
                         'business_category' => (string) ($row->business_category ?? ''),
                         'product' => (string) ($row->product ?? ''),
                     ],
@@ -898,7 +929,15 @@ class Phase3ServiceCasesController extends Controller
         $serviceCases = $caseQuery->orderByDesc('service_cases.updated_at')->get();
 
         $mlQuery = MarketLinkageSubmission::query()
-            ->with(['partners', 'spoc:id,name', 'submitter:id,name', 'approver:id,name', 'cfaSubmission.district:id,name', 'district:id,name']);
+            ->with([
+                'partners',
+                'spoc:id,name',
+                'submitter:id,name',
+                'approver:id,name',
+                'cfaSubmission:id,application_no,applicant_name,district_id,phone,payload',
+                'cfaSubmission.district:id,name',
+                'district:id,name',
+            ]);
         $this->applySpocAlignedMarketLinkageFilters($mlQuery, $filters);
         if (($filters['status'] ?? '') === '') {
             $mlQuery->whereIn('status', [
@@ -1049,20 +1088,27 @@ class Phase3ServiceCasesController extends Controller
 
     /**
      * @param  Collection<int, array<string, mixed>>|\Illuminate\Support\Collection<int, ServiceCase>  $cases
-     * @return array<int, array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string}>
+     * @return array<int, array<string, mixed>>
      */
     private function buildLegacyPreviewMapFromUnifiedRows($cases): array
     {
-        $serviceCases = $cases
-            ->map(fn ($row) => is_array($row) ? ($row['service_case'] ?? null) : $row)
-            ->filter(fn ($case) => $case instanceof ServiceCase);
+        $ids = [];
+        foreach ($cases as $row) {
+            $case = is_array($row) ? ($row['service_case'] ?? null) : $row;
+            $marketLinkage = is_array($row) ? ($row['market_linkage'] ?? null) : null;
+            $legacyId = (int) ($case?->legacy_application_id ?? $marketLinkage?->legacy_application_id ?? 0);
+            if ($legacyId > 0) {
+                $ids[] = $legacyId;
+            }
+        }
 
-        return $this->buildLegacyPreviewMap($serviceCases);
+        return app(LegacyApplicationServiceCaseSupport::class)
+            ->incubateePreviewMap(array_values(array_unique($ids)));
     }
 
     /**
      * @param  Collection<int, ServiceCase>|\Illuminate\Database\Eloquent\Collection<int, ServiceCase>  $cases
-     * @return array<int, array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string}>
+     * @return array<int, array<string, mixed>>
      */
     private function buildLegacyPreviewMap($cases): array
     {
@@ -1074,7 +1120,7 @@ class Phase3ServiceCasesController extends Controller
         $ids = [];
         foreach ($cases as $case) {
             $lid = (int) ($case->legacy_application_id ?? 0);
-            if ($lid > 0 && ! $case->cfa_submission_id) {
+            if ($lid > 0) {
                 $ids[] = $lid;
             }
         }

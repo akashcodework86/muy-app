@@ -481,7 +481,7 @@ class LegacyApplicationServiceCaseSupport
 
     /**
      * @param  list<int>  $legacyApplicationIds
-     * @return array<int, array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string}>
+     * @return array<int, array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string, applicant_category: string, is_shg_member: mixed}>
      */
     public function incubateePreviewMap(array $legacyApplicationIds): array
     {
@@ -515,6 +515,8 @@ class LegacyApplicationServiceCaseSupport
             'd.applicant_name',
             'a.application_no',
             'd.district',
+            'a.category as applicant_category',
+            'd.is_shg_member',
         ];
         $select[] = ($hasOnboard && $hasOnboardBatches)
             ? DB::raw('ob.batch_name as onboarding_batch_name')
@@ -532,6 +534,8 @@ class LegacyApplicationServiceCaseSupport
                 'application_no' => (string) ($row->application_no ?? ''),
                 'district' => (string) ($row->district ?? ''),
                 'onboarding_batch_name' => (string) ($row->onboarding_batch_name ?? ''),
+                'applicant_category' => (string) ($row->applicant_category ?? ''),
+                'is_shg_member' => $row->is_shg_member ?? null,
             ];
         }
 
@@ -539,7 +543,7 @@ class LegacyApplicationServiceCaseSupport
     }
 
     /**
-     * @return array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string}|null
+     * @return array{applicant_name: string, application_no: string, district: string, onboarding_batch_name: string, applicant_category: string, is_shg_member: mixed}|null
      */
     public function incubateePreview(int $legacyApplicationId): ?array
     {

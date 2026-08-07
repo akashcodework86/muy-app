@@ -53,7 +53,14 @@ class Phase3UnifiedMarketLinkageListBuilder
         $serviceCases = $caseQuery->orderByDesc('service_cases.created_at')->get();
 
         $mlQuery = MarketLinkageSubmission::query()
-            ->with(['partners', 'spoc:id,name', 'submitter:id,name', 'approver:id,name', 'cfaSubmission.district:id,name']);
+            ->with([
+                'partners',
+                'spoc:id,name',
+                'submitter:id,name',
+                'approver:id,name',
+                'cfaSubmission:id,application_no,applicant_name,district_id,phone,payload',
+                'cfaSubmission.district:id,name',
+            ]);
         $this->applyMarketLinkageFilters($mlQuery, $filters);
         $marketLinkages = $mlQuery->orderByDesc('updated_at')->get();
 
@@ -107,7 +114,14 @@ class Phase3UnifiedMarketLinkageListBuilder
         $serviceCases = $caseQuery->orderByDesc('service_cases.created_at')->get();
 
         $mlQuery = MarketLinkageSubmission::query()
-            ->with(['partners', 'spoc:id,name', 'submitter:id,name', 'approver:id,name', 'cfaSubmission.district:id,name']);
+            ->with([
+                'partners',
+                'spoc:id,name',
+                'submitter:id,name',
+                'approver:id,name',
+                'cfaSubmission:id,application_no,applicant_name,district_id,phone,payload',
+                'cfaSubmission.district:id,name',
+            ]);
         $this->applyMarketLinkageFilters($mlQuery, $filters);
         $marketLinkages = $mlQuery->orderByDesc('updated_at')->get();
 
