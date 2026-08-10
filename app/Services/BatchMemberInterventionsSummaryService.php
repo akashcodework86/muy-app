@@ -201,20 +201,22 @@ class BatchMemberInterventionsSummaryService
     {
         $appNos = array_keys($appNoToCfa);
         if ($appNos !== []) {
-            $byAppNo = DB::connection('legacy_phase1')
-                ->table('tblapplication')
-                ->whereIn('ApplicationNumber', $appNos)
-                ->orderByDesc('ID')
-                ->get(['ID', 'ApplicationNumber']);
-
             $idByAppNo = [];
-            foreach ($byAppNo as $row) {
-                $appNo = trim((string) ($row->ApplicationNumber ?? ''));
-                $id = (int) ($row->ID ?? 0);
-                if ($appNo === '' || $id <= 0 || isset($idByAppNo[$appNo])) {
-                    continue;
+            foreach (array_chunk($appNos, 500) as $appNoChunk) {
+                $byAppNo = DB::connection('legacy_phase1')
+                    ->table('tblapplication')
+                    ->whereIn('ApplicationNumber', $appNoChunk)
+                    ->orderByDesc('ID')
+                    ->get(['ID', 'ApplicationNumber']);
+
+                foreach ($byAppNo as $row) {
+                    $appNo = trim((string) ($row->ApplicationNumber ?? ''));
+                    $id = (int) ($row->ID ?? 0);
+                    if ($appNo === '' || $id <= 0 || isset($idByAppNo[$appNo])) {
+                        continue;
+                    }
+                    $idByAppNo[$appNo] = $id;
                 }
-                $idByAppNo[$appNo] = $id;
             }
 
             foreach ($idByAppNo as $appNo => $id) {
@@ -238,15 +240,13 @@ class BatchMemberInterventionsSummaryService
             return;
         }
 
+        $candidateLookup = array_fill_keys(array_map(
+            fn (string $digits): string => substr($digits, -10),
+            $candidates,
+        ), true);
         $rows = DB::connection('legacy_phase1')
             ->table('tblapplication')
-            ->where(function ($q) use ($candidates): void {
-                foreach ($candidates as $digits) {
-                    $last10 = substr((string) $digits, -10);
-                    $q->orWhere('MobileNumber', $last10)
-                        ->orWhere('MobileNumber', 'like', '%'.$last10);
-                }
-            })
+            ->whereNotNull('MobileNumber')
             ->orderByDesc('ID')
             ->get(['ID', 'MobileNumber']);
 
@@ -254,7 +254,7 @@ class BatchMemberInterventionsSummaryService
         foreach ($rows as $row) {
             $phone = $this->normalizePhone((string) ($row->MobileNumber ?? ''));
             $id = (int) ($row->ID ?? 0);
-            if ($phone === '' || $id <= 0 || isset($idByPhone[$phone])) {
+            if ($phone === '' || ! isset($candidateLookup[$phone]) || $id <= 0 || isset($idByPhone[$phone])) {
                 continue;
             }
             $idByPhone[$phone] = $id;
