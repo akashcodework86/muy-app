@@ -14,7 +14,7 @@
     @if ($errors->any())<div class="bc-alert bc-alert--error"><ul>@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>@endif
 
     <div class="bc-card">
-        <h3 class="bc-card__title">New newspaper / radio campaign</h3>
+        <h3 class="bc-card__title">New IEC &amp; Promotional Activities for MUY</h3>
         <form method="post" action="{{ route($storeRoute) }}" enctype="multipart/form-data" id="mcForm">
             @csrf
             <div class="bc-grid">

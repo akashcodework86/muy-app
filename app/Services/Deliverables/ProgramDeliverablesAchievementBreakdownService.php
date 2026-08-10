@@ -1995,7 +1995,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'demo_days_count' => '8.4 Demo Days (state team)',
             'funding_schematic_partners_outreach_count' => '8.5 Funding partners outreach (unique)',
             'muy_newsletter_count' => '10.3 MUY Newsletter entries',
-            'media_campaigns_count' => '10.4 Newspaper / Radio campaigns',
+            'media_campaigns_count' => '10.4 IEC & Promotional Activities for MUY',
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
             'stakeholder_consultation_workshop_sessions' => '12.1 Stakeholder consultation workshops',
             'line_department_meeting_sessions' => '12.2 Line department meetings',

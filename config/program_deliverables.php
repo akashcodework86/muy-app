@@ -388,7 +388,7 @@ return [
                     'source' => ['type' => 'muy_newsletter_count', 'deliverable_code' => 'muy_newsletter'],
                 ],
                 [
-                    'name' => 'Newspaper Ads and Radio promotion campaigns',
+                    'name' => 'IEC & Promotional Activities for MUY',
                     'row_type' => 'leaf',
                     'indicator_type' => 'Non-Key',
                     'level' => 'State',
@@ -787,8 +787,8 @@ return [
             'category_serial' => '10',
             'category_name' => 'Branding, Communication & Knowledge Management',
             'code' => 'media_campaigns',
-            'name' => 'Newspaper Ads and Radio promotion campaigns',
-            'mis_entry_label' => 'Newspaper / radio campaigns',
+            'name' => 'IEC & Promotional Activities for MUY',
+            'mis_entry_label' => 'IEC & Promotional Activities for MUY',
             'sort_order' => 111,
         ],
         [

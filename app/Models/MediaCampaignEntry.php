@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MediaCampaignEntry extends Model
 {
-    public const MODULE_LABEL = 'Newspaper & Radio campaigns (MIS 10.4)';
+    public const MODULE_LABEL = 'IEC & Promotional Activities for MUY (MIS 10.4)';
 
     protected $fillable = [
         'campaign_date',

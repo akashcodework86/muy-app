@@ -641,7 +641,7 @@
                                 {!! $i('bars') !!}<span>MUY Newsletter (10.3)</span>
                             </a>
                             <a href="{{ route('admin.media-campaigns.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'media-campaigns-dashboard') is-active @endif" role="menuitem">
-                                {!! $i('bars') !!}<span>Newspaper / Radio campaigns (10.4)</span>
+                                {!! $i('bars') !!}<span>IEC &amp; Promotional Activities for MUY (10.4)</span>
                             </a>
                             @endif
                         </div>
@@ -794,7 +794,7 @@
                         {!! $i('doc') !!}<span>MUY newsletter (10.3)</span>
                     </a>
                     <a href="{{ route('spoc.media-campaigns.create') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['media-campaigns-submit', 'media-campaigns-dashboard'], true)) is-active @endif" role="menuitem">
-                        {!! $i('doc') !!}<span>Ads / Radio (10.4)</span>
+                        {!! $i('doc') !!}<span>IEC &amp; Promotional Activities for MUY (10.4)</span>
                     </a>
                     @endif
                 </div>

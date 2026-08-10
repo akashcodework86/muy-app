@@ -404,7 +404,7 @@ class ProgramDeliverablesActivityGuideService
             'demo_days_count' => $pick('demo-days.dashboard', '8.4 Demo Days', 'Anjali Sood logs demo day events (onboarded incubatee + audience counts).', 'demo-days.dashboard'),
             'funding_schematic_partners_outreach_count' => $pick('funding-partners-outreach.dashboard', '8.5 Partners outreach (Funding)', 'Anjali Sood logs funding / schematic partner outreach.', 'funding-partners-outreach.dashboard'),
             'muy_newsletter_count' => $pick('muy-newsletters.dashboard', '10.3 MUY Newsletter', 'Sanjna Mishra logs newsletter issues with PDF or link.', 'muy-newsletters.dashboard'),
-            'media_campaigns_count' => $pick('media-campaigns.dashboard', '10.4 Newspaper / Radio campaigns', 'Sanjna Mishra logs newspaper ads and radio promotions with document + multimedia proof.', 'media-campaigns.dashboard'),
+            'media_campaigns_count' => $pick('media-campaigns.dashboard', '10.4 IEC & Promotional Activities for MUY', 'Sanjna Mishra logs IEC and promotional activities with document + multimedia proof.', 'media-campaigns.dashboard'),
             default => [
                 'label' => 'Achievement records',
                 'route' => Route::has($prefix.'deliverables.index') ? $prefix.'deliverables.index' : null,
@@ -443,7 +443,7 @@ class ProgramDeliverablesActivityGuideService
             'demo_days_count' => '8.4 Demo Days (state team)',
             'funding_schematic_partners_outreach_count' => '8.5 Funding partners outreach (unique)',
             'muy_newsletter_count' => 'MUY newsletter entries (state team)',
-            'media_campaigns_count' => 'Newspaper / radio campaign entries (state team)',
+            'media_campaigns_count' => 'IEC & promotional activity entries (state team)',
             'none' => 'Not wired',
             'target_name' => 'Name-matched deliverable target',
             default => 'System achievement count',
