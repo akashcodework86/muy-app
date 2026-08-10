@@ -21,8 +21,12 @@ return new class extends Migration
                 fclose($handle);
                 preg_match_all('/^\[[^\]]+\] [^.]+\.ERROR:.*$/m', $tail, $matches);
                 if (($matches[0] ?? []) !== []) {
-                    $message = basename($log).': '.mb_substr((string) end($matches[0]), 0, 3000);
-                    break;
+                    foreach (array_reverse($matches[0]) as $candidate) {
+                        if (! str_contains($candidate, 'LEGACY_DATA_DIAGNOSTIC')) {
+                            $message = basename($log).': '.mb_substr((string) $candidate, 0, 3000);
+                            break 2;
+                        }
+                    }
                 }
             }
         }
