@@ -9,7 +9,7 @@ if (! hash_equals('muy-deploy-2024', (string) ($_GET['key'] ?? ''))) {
 
 header('Content-Type: application/json; charset=UTF-8');
 
-$root = dirname(__DIR__);
+$root = __DIR__;
 $log = $root.'/storage/logs/laravel.log';
 $lastError = null;
 
@@ -21,7 +21,7 @@ if (is_file($log) && is_readable($log)) {
         $tail = stream_get_contents($handle) ?: '';
         fclose($handle);
 
-        preg_match_all('/^\[[^\]]+\] production\.ERROR:.*$/m', $tail, $matches);
+        preg_match_all('/^\\[[^\\]]+\\] production\\.ERROR:.*$/m', $tail, $matches);
         if (($matches[0] ?? []) !== []) {
             $lastError = (string) end($matches[0]);
             $lastError = mb_substr($lastError, 0, 3000);
@@ -36,3 +36,4 @@ echo json_encode([
     'log_readable' => is_readable($log),
     'last_error' => $lastError,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
