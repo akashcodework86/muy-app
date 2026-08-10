@@ -9,6 +9,32 @@ if (! isset($_GET['key']) || $_GET['key'] !== $secret) {
     exit('❌ Unauthorized - key missing or wrong');
 }
 
+if (($_GET['diag'] ?? '') === 'legacy-data') {
+    header('Content-Type: application/json; charset=UTF-8');
+    $log = __DIR__.'/storage/logs/laravel.log';
+    $lastError = null;
+    if (is_file($log) && is_readable($log)) {
+        $size = filesize($log) ?: 0;
+        $handle = fopen($log, 'rb');
+        if ($handle !== false) {
+            fseek($handle, max(0, $size - 524288));
+            $tail = stream_get_contents($handle) ?: '';
+            fclose($handle);
+            preg_match_all('/^\[[^\]]+\] production\.ERROR:.*$/m', $tail, $matches);
+            if (($matches[0] ?? []) !== []) {
+                $lastError = mb_substr((string) end($matches[0]), 0, 3000);
+            }
+        }
+    }
+    echo json_encode([
+        'memory_limit' => ini_get('memory_limit'),
+        'file_cache_writable' => is_writable(__DIR__.'/storage/framework/cache/data'),
+        'log_readable' => is_readable($log),
+        'last_error' => $lastError,
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $projectPath = getenv('MUY_DEPLOY_PATH') ?: __DIR__;
 $projectPath = rtrim($projectPath, '/');
 
