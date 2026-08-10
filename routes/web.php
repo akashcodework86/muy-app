@@ -946,6 +946,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('data-centre.export-shg-cbo-reap-pack');
         Route::get('data-centre/export/onboarded-shg-cbo-individual', [DataCentreController::class, 'exportOnboardedShgCboIndividual'])
             ->name('data-centre.export-onboarded-shg-cbo-individual');
+        Route::get('data-centre/export/onboarded-turnover-wise', [DataCentreController::class, 'exportOnboardedTurnoverWise'])
+            ->name('data-centre.export-onboarded-turnover-wise');
         Route::get('data-centre/export/3-3-1-shg-members-pack', [\App\Http\Controllers\Admin\Phase3331ShgMembersPackExportController::class, 'download'])
             ->name('data-centre.export-3-3-1-shg-members-pack');
         Route::get('data-centre/export/{section}', [DataCentreController::class, 'export'])

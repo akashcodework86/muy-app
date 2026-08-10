@@ -1078,6 +1078,51 @@
                 </form>
                 <p class="dc-extract__note">Pick any district (or All). Sheets: SHG / CBO / Individual / Phase 1 with CFA date, status &amp; services.</p>
             </section>
+
+            <section class="dc-extract" style="margin-top:.85rem;">
+                <h3 class="dc-extract__title">Onboarded turnover-wise</h3>
+                <div class="dc-extract__period">Phase 2 (2025–26) + Phase 3 (2026–27) · onboarded only</div>
+                <ul class="dc-extract__list">
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Summary</strong>
+                        <span>Slab counts by phase</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Turnover slabs match Data Centre Income / Turnover (Zero, 0–1L, 1–5L, 5–10L, 10–25L, 25L+, Not specified).
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Phase 2</strong>
+                        <span>Legacy onboarded + services</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            rbi_onboarded_applicants in FY 2025–26 submission window. Full applicant details, turnover, Marketing / Finance / Training services.
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Phase 3</strong>
+                        <span>Locked MIS batches</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Locked onboarding batches only (includes legacy Phase 2 imports onboarded via MIS). Sorted turnover-wise with full CFA details.
+                        </div>
+                    </li>
+                </ul>
+
+                <form method="get" action="{{ route('admin.data-centre.export-onboarded-turnover-wise') }}" id="dc-onboarded-turnover-form">
+                    <div class="dc-extract-district">
+                        <label for="dc-onboarded-turnover-district">District</label>
+                        <select name="district_id" id="dc-onboarded-turnover-district">
+                            <option value="">All districts</option>
+                            @foreach ($districts ?? [] as $dist)
+                                <option value="{{ $dist->id }}" @selected((int) (($filter->districtId ?? 0)) === (int) $dist->id)>{{ $dist->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button type="submit" class="dc-btn dc-btn--pack">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                        Download turnover Excel
+                    </button>
+                </form>
+                <p class="dc-extract__note">Sheets: Summary · Phase 2 · Phase 3. Rows sorted by turnover slab then amount.</p>
+            </section>
         </aside>
     </div>{{-- /.dc-shell --}}
 
