@@ -19,6 +19,7 @@ class ProgramDeliverable104DefinitionTest extends TestCase
         $this->assertSame('IEC & Promotional Activities for MUY', $officialRow['name'] ?? null);
         $this->assertSame('Non-Key', $officialRow['indicator_type'] ?? null);
         $this->assertSame('IEC & Promotional Activities for MUY', $stateIndicator['name'] ?? null);
+        $this->assertSame('media_campaigns', config('official_monthly_target_serial_codes.10.4'));
     }
 
     /** @return array<string, mixed> */

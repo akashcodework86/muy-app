@@ -12,4 +12,5 @@ return [
     '8.1' => 'schematic_convergence',
     '8.2' => 'support_muy_incubatee_reap',
     '9.2' => 'other_support_services_labelling_packaging_logo_designing_etc',
+    '10.4' => 'media_campaigns',
 ];
