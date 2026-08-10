@@ -87,12 +87,48 @@
     .members-head h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f172a; }
     .members-head .muted { color: #64748b; font-size: 0.82rem; }
 
+    .member-filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 0.55rem;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .member-filter-fld {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        min-width: 8.5rem;
+    }
+    .member-filter-fld label {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        font-weight: 700;
+    }
+    .member-filter-fld select {
+        padding: 0.48rem 0.65rem;
+        font-size: 0.88rem;
+        color: #0f172a;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        outline: none;
+        min-width: 9.5rem;
+    }
+    .member-filter-fld select:focus {
+        border-color: #0d9488;
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+    }
     .member-search {
         position: relative;
         display: flex;
         align-items: center;
-        flex: 0 1 22rem;
-        min-width: 16rem;
+        flex: 1 1 16rem;
+        min-width: 14rem;
+        max-width: 22rem;
     }
     .member-search__icon {
         position: absolute;
@@ -119,6 +155,19 @@
         border-color: #0d9488;
         box-shadow: 0 8px 22px -12px rgba(13, 148, 136, 0.6), 0 0 0 4px rgba(13, 148, 136, 0.2);
     }
+    .member-filter-clear {
+        padding: 0.48rem 0.7rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #475569;
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        cursor: pointer;
+        align-self: flex-end;
+    }
+    .member-filter-clear:hover { background: #f8fafc; }
+    .member-filter-clear[hidden] { display: none !important; }
     .m-table { width: 100%; border-collapse: collapse; }
     .m-table thead th {
         text-align: left; padding: 0.65rem 0.9rem;
@@ -295,19 +344,59 @@
     </div>
 
     {{-- Members list --}}
+    @php
+        $categoryOptions = collect($members)
+            ->pluck('business_category')
+            ->filter(fn ($c) => filled($c))
+            ->unique()
+            ->sort()
+            ->values();
+        $stageOptions = collect($members)
+            ->pluck('stage_key')
+            ->unique()
+            ->filter(fn ($k) => filled($k))
+            ->sortBy(fn ($k) => match ($k) {
+                'seed' => 1,
+                'early' => 2,
+                'growth' => 3,
+                default => 9,
+            })
+            ->values();
+    @endphp
     <div class="members-wrap">
         <div class="members-head" style="gap:0.75rem; flex-wrap:wrap;">
-            <div class="member-search">
-                <svg class="member-search__icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="11" cy="11" r="7"></circle>
-                    <line x1="20" y1="20" x2="16.65" y2="16.65"></line>
-                </svg>
-                <input
-                    type="search"
-                    id="memberSearch"
-                    placeholder="Search members by name or phone…"
-                    autocomplete="off"
-                    aria-label="Search members by name or phone">
+            <div class="member-filters">
+                <div class="member-search">
+                    <svg class="member-search__icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <line x1="20" y1="20" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input
+                        type="search"
+                        id="memberSearch"
+                        placeholder="Search by name, phone, app no…"
+                        autocomplete="off"
+                        aria-label="Search members by name, phone or application number">
+                </div>
+                <div class="member-filter-fld">
+                    <label for="memberStageFilter">Stage</label>
+                    <select id="memberStageFilter" aria-label="Filter by stage">
+                        <option value="">All stages</option>
+                        @foreach ($stageOptions as $stageKey)
+                            <option value="{{ $stageKey }}">{{ $stageKey === 'unknown' ? 'Unknown' : strtoupper($stageKey) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="member-filter-fld">
+                    <label for="memberCategoryFilter">Business category</label>
+                    <select id="memberCategoryFilter" aria-label="Filter by business category">
+                        <option value="">All categories</option>
+                        @foreach ($categoryOptions as $cat)
+                            <option value="{{ $cat }}">{{ $cat }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="button" class="member-filter-clear" id="memberFilterClear" hidden>Clear filters</button>
             </div>
             <div style="display:flex; align-items:center; gap:0.6rem; margin-left:auto;">
                 <h3 style="margin:0;">Members</h3>
@@ -345,7 +434,10 @@
                     @php
                         $serviceSearch = collect($m['services'] ?? [])->map(fn ($s) => ($s['label'] ?? '').' '.($s['detail'] ?? ''))->implode(' ');
                     @endphp
-                    <tr data-search="{{ Str::lower(($m['applicant_name'] ?? '').' '.($m['phone'] ?? '').' '.($m['application_no'] ?? '').' '.$serviceSearch) }}">
+                    <tr
+                        data-search="{{ Str::lower(($m['applicant_name'] ?? '').' '.($m['phone'] ?? '').' '.($m['application_no'] ?? '').' '.$serviceSearch) }}"
+                        data-stage="{{ $m['stage_key'] ?? '' }}"
+                        data-category="{{ $m['business_category'] ?? '' }}">
                         <td data-label="#">{{ $i + 1 }}</td>
                         <td data-label="Application no">{{ $m['application_no'] }}</td>
                         <td data-label="Applicant"><strong>{{ $m['applicant_name'] }}</strong></td>
@@ -431,6 +523,9 @@
 <script>
 (function () {
     const input = document.getElementById('memberSearch');
+    const stageEl = document.getElementById('memberStageFilter');
+    const categoryEl = document.getElementById('memberCategoryFilter');
+    const clearBtn = document.getElementById('memberFilterClear');
     const countEl = document.getElementById('memberCount');
     const tbody = document.querySelector('.members-wrap .m-table tbody');
     if (!input || !tbody) return;
@@ -444,27 +539,52 @@
         emptyRow = document.createElement('tr');
         emptyRow.className = 'js-no-results';
         emptyRow.style.display = 'none';
-        emptyRow.innerHTML = '<td colspan="8" style="padding:1rem; text-align:center; color:#64748b;">No members match your search.</td>';
+        emptyRow.innerHTML = '<td colspan="8" style="padding:1rem; text-align:center; color:#64748b;">No members match your filters.</td>';
         tbody.appendChild(emptyRow);
+    }
+
+    function isFiltered() {
+        const q = input.value.trim();
+        const stage = stageEl ? stageEl.value : '';
+        const category = categoryEl ? categoryEl.value : '';
+        return q !== '' || stage !== '' || category !== '';
     }
 
     function apply() {
         const q = input.value.trim().toLowerCase();
+        const stage = stageEl ? stageEl.value : '';
+        const category = categoryEl ? categoryEl.value : '';
         let shown = 0;
         rows.forEach(r => {
-            const hit = q === '' || (r.dataset.search || '').includes(q);
+            const hitSearch = q === '' || (r.dataset.search || '').includes(q);
+            const hitStage = stage === '' || (r.dataset.stage || '') === stage;
+            const hitCategory = category === '' || (r.dataset.category || '') === category;
+            const hit = hitSearch && hitStage && hitCategory;
             r.style.display = hit ? '' : 'none';
             if (hit) shown++;
         });
-        emptyRow.style.display = (shown === 0 && q !== '' && total > 0) ? '' : 'none';
+        const active = isFiltered();
+        emptyRow.style.display = (shown === 0 && active && total > 0) ? '' : 'none';
+        if (clearBtn) clearBtn.hidden = !active;
         if (countEl) {
-            countEl.textContent = q === ''
+            countEl.textContent = !active
                 ? total + ' ' + plural(total)
                 : shown + ' of ' + total + ' ' + plural(total);
         }
     }
 
     input.addEventListener('input', apply);
+    if (stageEl) stageEl.addEventListener('change', apply);
+    if (categoryEl) categoryEl.addEventListener('change', apply);
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            input.value = '';
+            if (stageEl) stageEl.value = '';
+            if (categoryEl) categoryEl.value = '';
+            apply();
+            input.focus();
+        });
+    }
 })();
 </script>
 @endpush

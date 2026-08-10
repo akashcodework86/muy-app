@@ -33,6 +33,8 @@ class StaffBatchShowTest extends TestCase
             ->get(route('staff.batches.show', $batch))
             ->assertOk()
             ->assertSee('View')
+            ->assertSee('Filter by stage', false)
+            ->assertSee('Filter by business category', false)
             ->assertSee(route('staff.applications.show', $cfaId), false);
     }
 
