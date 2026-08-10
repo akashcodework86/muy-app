@@ -1123,6 +1123,59 @@
                 </form>
                 <p class="dc-extract__note">Sheets: Summary · Phase 2 · Phase 3. Rows sorted by turnover slab then amount.</p>
             </section>
+
+            <section class="dc-extract" style="margin-top:.85rem;">
+                <h3 class="dc-extract__title">Homestay details</h3>
+                <div class="dc-extract__period">Phase 1 + 2 + 3 · sector Homestay</div>
+                <ul class="dc-extract__list">
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Combined</strong>
+                        <span>All phases in one sheet</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            One Combined sheet plus year-wise Phase 1 / Phase 2 / Phase 3 sheets. Full applicant details; Phase 2 includes Marketing / Finance / Training services.
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Match rules</strong>
+                        <span>P2/P3 category · P1 strict label</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Phase 2/3: business_category = Homestay. Phase 1: business_desp is Homestay / Home stay only (strict).
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Onboard filter</strong>
+                        <span>All / Onboarded / Non-onboarded</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Filter rows by onboard status across all three phases, with optional district filter.
+                        </div>
+                    </li>
+                </ul>
+
+                <form method="get" action="{{ route('admin.data-centre.export-homestay-details') }}" id="dc-homestay-form">
+                    <div class="dc-extract-district">
+                        <label for="dc-homestay-district">District</label>
+                        <select name="district_id" id="dc-homestay-district">
+                            <option value="">All districts</option>
+                            @foreach ($districts ?? [] as $dist)
+                                <option value="{{ $dist->id }}" @selected((int) (($filter->districtId ?? 0)) === (int) $dist->id)>{{ $dist->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="dc-extract-district" style="margin-top:.45rem;">
+                        <label for="dc-homestay-onboard-scope">Onboard status</label>
+                        <select name="onboard_scope" id="dc-homestay-onboard-scope">
+                            <option value="all">All</option>
+                            <option value="onboarded">Onboarded only</option>
+                            <option value="non_onboarded">Non-onboarded only</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="dc-btn dc-btn--pack">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                        Download Homestay Excel
+                    </button>
+                </form>
+                <p class="dc-extract__note">Sheets: Summary · Combined · Phase 1 · Phase 2 · Phase 3.</p>
+            </section>
         </aside>
     </div>{{-- /.dc-shell --}}
 

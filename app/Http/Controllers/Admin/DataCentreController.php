@@ -7,6 +7,7 @@ use App\Models\District;
 use App\Models\FiscalYear;
 use App\Services\DataCentre\DataCentreFilter;
 use App\Services\DataCentre\ProgramDataCentreService;
+use App\Services\Exports\HomestayDetailsPackService;
 use App\Services\Exports\OnboardedShgCboDistrictPackService;
 use App\Services\Exports\OnboardedTurnoverWisePackService;
 use App\Services\Exports\Phase3ShgCboReapPackDataService;
@@ -24,6 +25,7 @@ class DataCentreController extends Controller
         private readonly Phase3ShgCboReapPackExcelExport $shgCboReapExcel,
         private readonly OnboardedShgCboDistrictPackService $onboardedShgCboPack,
         private readonly OnboardedTurnoverWisePackService $onboardedTurnoverWisePack,
+        private readonly HomestayDetailsPackService $homestayDetailsPack,
     ) {}
 
     public function index(Request $request): View
@@ -238,6 +240,54 @@ class DataCentreController extends Controller
             $fileName = 'onboarded-turnover-wise-'.$slug.'-'.now()->format('Ymd_His').'.xlsx';
             $tempPath = storage_path('app/temp/'.$fileName);
             $this->onboardedTurnoverWisePack->writeToPath($data, $tempPath);
+            unset($data);
+
+            return response()
+                ->download($tempPath, $fileName, [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ])
+                ->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('admin.data-centre.index')
+                ->withErrors(['export' => 'Excel export failed: '.$e->getMessage()]);
+        }
+    }
+
+    /**
+     * Homestay details Excel (Phase 1+2+3), district + onboard scope filters.
+     */
+    public function exportHomestayDetails(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
+    {
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(300);
+
+        $districtId = $request->integer('district_id') ?: null;
+        $districtSlug = trim((string) $request->query('district', ''));
+        $onboardScope = strtolower(trim((string) $request->query('onboard_scope', $request->input('onboard_scope', 'all'))));
+        if (! in_array($onboardScope, ['all', 'onboarded', 'non_onboarded'], true)) {
+            $onboardScope = 'all';
+        }
+
+        try {
+            if (! class_exists(\ZipArchive::class)) {
+                return redirect()
+                    ->route('admin.data-centre.index')
+                    ->withErrors(['export' => 'Excel export unavailable: PHP Zip extension (ext-zip) is not enabled on the server.']);
+            }
+
+            $data = $this->homestayDetailsPack->build(
+                $districtId ?: null,
+                $districtId ? null : ($districtSlug !== '' ? $districtSlug : null),
+                $onboardScope,
+            );
+            $slug = (string) ($data['meta']['district_slug'] ?? 'all') ?: 'all';
+            $scopeSlug = (string) ($data['meta']['onboard_scope'] ?? 'all');
+            $fileName = 'homestay-details-'.$slug.'-'.$scopeSlug.'-'.now()->format('Ymd_His').'.xlsx';
+            $tempPath = storage_path('app/temp/'.$fileName);
+            $this->homestayDetailsPack->writeToPath($data, $tempPath);
             unset($data);
 
             return response()
