@@ -50,12 +50,23 @@ final class OnboardedShgCboDistrictPackService
         $phase1 = $this->phase1Onboarded($districtNames);
         $phase1ForIndividual = $this->phase1AsIndividualRows($phase1);
 
-        $shgDetails = $this->attachServicesToDetails($this->mergeDeduped($phase3Shg, $phase2Shg));
-        $cboDetails = $this->attachServicesToDetails($this->mergeDeduped($phase3Cbo, $phase2Cbo));
-        $individualDetails = $this->attachServicesToDetails(
-            $this->mergeDeduped($phase3Individual, $phase2Individual, $phase1ForIndividual)
+        $shgDetails = $this->tagCohort($this->mergeDeduped($phase3Shg, $phase2Shg), 'shg');
+        $cboDetails = $this->tagCohort($this->mergeDeduped($phase3Cbo, $phase2Cbo), 'cbo');
+        $individualDetails = $this->tagCohort(
+            $this->mergeDeduped($phase3Individual, $phase2Individual, $phase1ForIndividual),
+            'individual'
         );
-        $phase1 = $this->attachServicesToDetails($phase1);
+
+        // Resolve cross-phase interventions once. Running the same legacy lookups
+        // independently for each cohort makes the all-district explorer unnecessarily slow.
+        $allDetails = $this->attachServicesToDetails(array_merge($shgDetails, $cboDetails, $individualDetails));
+        $shgDetails = $this->takeCohort($allDetails, 'shg');
+        $cboDetails = $this->takeCohort($allDetails, 'cbo');
+        $individualDetails = $this->takeCohort($allDetails, 'individual');
+        $phase1 = array_values(array_filter(
+            $individualDetails,
+            static fn (array $row): bool => ($row['phase'] ?? '') === 'Phase 1'
+        ));
 
         return [
             'meta' => [
@@ -300,6 +311,10 @@ final class OnboardedShgCboDistrictPackService
         $shgCboNameJson = PotentialLakhpatiOnboardingSql::payloadJson('$.shg_cbo_name');
         $phoneJson = PotentialLakhpatiOnboardingSql::payloadJson('$.phone');
         $sectorJson = PotentialLakhpatiOnboardingSql::payloadJson('$.sector');
+        $businessCategoryJson = PotentialLakhpatiOnboardingSql::payloadJson('$.business_category');
+        $genderJson = PotentialLakhpatiOnboardingSql::payloadJson('$.gender');
+        $educationJson = PotentialLakhpatiOnboardingSql::payloadJson('$.education');
+        $stageJson = PotentialLakhpatiOnboardingSql::payloadJson('$.form_stage');
         $legacyIdJson = PotentialLakhpatiOnboardingSql::payloadJson('$.legacy_application_id');
 
         $memberYes = $this->payloadMemberYesSql();
@@ -354,6 +369,10 @@ final class OnboardedShgCboDistrictPackService
                 DB::raw("{$shgCboNameJson} as shg_cbo_name"),
                 DB::raw("{$phoneJson} as payload_phone"),
                 DB::raw("{$sectorJson} as sector"),
+                DB::raw("{$businessCategoryJson} as business_category"),
+                DB::raw("{$genderJson} as gender"),
+                DB::raw("{$educationJson} as education"),
+                DB::raw("{$stageJson} as business_stage"),
                 DB::raw("{$legacyIdJson} as legacy_application_id"),
             ]);
 
@@ -368,7 +387,10 @@ final class OnboardedShgCboDistrictPackService
                 'is_member' => (string) ($row->is_member ?: '—'),
                 'shg_cbo_name' => (string) (($row->shg_cbo_name ?: $row->shg_name) ?: '—'),
                 'phone' => (string) (($row->cfa_phone ?: $row->payload_phone) ?: ''),
-                'sector' => (string) ($row->sector ?: '—'),
+                'sector' => (string) (($row->business_category ?: $row->sector) ?: '—'),
+                'gender' => (string) ($row->gender ?: '—'),
+                'education' => (string) ($row->education ?: '—'),
+                'business_stage' => (string) ($row->business_stage ?: '—'),
                 'district' => (string) ($row->district_name ?: '—'),
                 'hub' => (string) ($row->hub_name ?: '—'),
                 'batch' => (string) ($row->batch_name ?: '—'),
@@ -434,10 +456,13 @@ final class OnboardedShgCboDistrictPackService
                 'a.application_no',
                 'a.category',
                 'a.business_category',
+                'a.form_stage',
                 'a.submission_date',
                 'a.created_at as app_created_at',
                 'd.applicant_name',
                 'd.phone',
+                'd.gender',
+                'd.education',
                 'd.is_shg_member',
                 'd.shg_name',
                 'd.district',
@@ -465,6 +490,9 @@ final class OnboardedShgCboDistrictPackService
                 'shg_cbo_name' => (string) ($row->shg_name ?: '—'),
                 'phone' => (string) ($row->phone ?: ''),
                 'sector' => (string) ($row->business_category ?: '—'),
+                'gender' => (string) ($row->gender ?: '—'),
+                'education' => (string) ($row->education ?: '—'),
+                'business_stage' => (string) ($row->form_stage ?: '—'),
                 'district' => (string) ($row->district ?: '—'),
                 'hub' => (string) ($row->block ?: '—'),
                 'batch' => (string) ($row->batch_name ?: '—'),
@@ -522,8 +550,10 @@ final class OnboardedShgCboDistrictPackService
             'onboard_date',
             'onboard',
         ];
-        if (Schema::connection('legacy_phase1')->hasColumn('tblapplication', 'ApplicationDate')) {
-            $select[] = 'ApplicationDate';
+        foreach (['ApplicationDate', 'education', 'idea', 'current_status', 'Occupationtype', 'self_declearation'] as $optionalColumn) {
+            if (Schema::connection('legacy_phase1')->hasColumn('tblapplication', $optionalColumn)) {
+                $select[] = $optionalColumn;
+            }
         }
 
         $rows = $query->orderBy('FullName')->get($select);
@@ -544,6 +574,11 @@ final class OnboardedShgCboDistrictPackService
                 'applicant' => (string) ($row->FullName ?: '—'),
                 'phone' => (string) ($row->MobileNumber ?: ''),
                 'gender' => (string) ($row->gender ?: '—'),
+                'education' => (string) (($row->education ?? null) ?: '—'),
+                'sector' => (string) (($row->idea ?? null) ?: '—'),
+                'business_stage' => (string) (($row->current_status ?? null) ?: '—'),
+                'category' => (string) (($row->Occupationtype ?? null) ?: 'Individual'),
+                'self_declaration' => (string) (($row->self_declearation ?? null) ?: ''),
                 'district' => (string) ($row->FatherName ?: '—'),
                 'hub' => (string) ($row->City ?: '—'),
                 'cfa_date' => $this->formatDate($cfaDate),
@@ -583,7 +618,11 @@ final class OnboardedShgCboDistrictPackService
                 'is_member' => '—',
                 'shg_cbo_name' => '—',
                 'phone' => (string) ($row['phone'] ?? ''),
-                'sector' => '—',
+                'sector' => (string) ($row['sector'] ?? '—'),
+                'gender' => (string) ($row['gender'] ?? '—'),
+                'education' => (string) ($row['education'] ?? '—'),
+                'business_stage' => (string) ($row['business_stage'] ?? '—'),
+                'self_declaration' => (string) ($row['self_declaration'] ?? ''),
                 'district' => (string) ($row['district'] ?? '—'),
                 'hub' => (string) ($row['hub'] ?? '—'),
                 'batch' => '—',
@@ -620,6 +659,7 @@ final class OnboardedShgCboDistrictPackService
                 'id' => $lookupId,
                 'application_no' => (string) ($row['application_no'] ?? ''),
                 'phone' => (string) ($row['phone'] ?? ''),
+                'source' => strtolower(str_replace(' ', '', (string) ($row['phase'] ?? ''))),
                 'legacy_application_id' => (int) ($row['legacy_application_id'] ?? 0),
                 'legacy_phase1_id' => (int) ($row['legacy_phase1_id'] ?? 0),
                 '_idx' => $i,
@@ -657,11 +697,44 @@ final class OnboardedShgCboDistrictPackService
             }
             $row['services_count'] = count($labels);
             $row['services'] = $labels !== [] ? implode(' | ', $labels) : '—';
+            $row['service_items'] = array_values(array_map(static fn (array $svc): array => [
+                'phase' => (string) ($svc['phase'] ?? ''),
+                'label' => trim((string) ($svc['label'] ?? '')),
+                'detail' => trim((string) ($svc['detail'] ?? '')),
+                'status' => trim((string) ($svc['status'] ?? '')),
+                'date' => trim((string) ($svc['date'] ?? '')),
+            ], array_filter(
+                $services,
+                static fn (array $svc): bool => trim((string) ($svc['label'] ?? '')) !== ''
+            )));
             unset($row['service_lookup_id'], $row['legacy_application_id'], $row['legacy_phase1_id'], $row['dedupe_key']);
         }
         unset($row);
 
         return $details;
+    }
+
+    /** @param list<array<string,mixed>> $rows @return list<array<string,mixed>> */
+    private function tagCohort(array $rows, string $cohort): array
+    {
+        return array_map(static function (array $row) use ($cohort): array {
+            $row['_cohort'] = $cohort;
+
+            return $row;
+        }, $rows);
+    }
+
+    /** @param list<array<string,mixed>> $rows @return list<array<string,mixed>> */
+    private function takeCohort(array $rows, string $cohort): array
+    {
+        return array_values(array_map(static function (array $row): array {
+            unset($row['_cohort']);
+
+            return $row;
+        }, array_filter(
+            $rows,
+            static fn (array $row): bool => ($row['_cohort'] ?? '') === $cohort
+        )));
     }
 
     /**

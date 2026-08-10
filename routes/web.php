@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\GramPanchayatImportController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
+use App\Http\Controllers\Admin\LegacyDataController;
 use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\OnboardedApplicantController;
 use App\Http\Controllers\Admin\PendingActionsController;
@@ -955,6 +956,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('data-centre/export/{section}', [DataCentreController::class, 'export'])
             ->where('section', '[a-z\-]+')
             ->name('data-centre.export');
+
+        Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
+        Route::post('legacy-data/refresh', [LegacyDataController::class, 'refresh'])->name('legacy-data.refresh');
+        Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
 
         Route::get('cfa-applications', [CfaSubmissionController::class, 'index'])->name('cfa.index');
         Route::get('cfa-applications/export', [CfaSubmissionController::class, 'export'])->name('cfa.export');

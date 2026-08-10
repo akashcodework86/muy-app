@@ -79,7 +79,10 @@ class BatchMemberInterventionsSummaryService
                 continue;
             }
 
-            $cfaIds[] = $cfaId;
+            $source = strtolower(trim((string) ($member['source'] ?? '')));
+            if (! in_array($source, ['phase1', 'phase2', 'legacy_phase1', 'legacy_phase2'], true)) {
+                $cfaIds[] = $cfaId;
+            }
 
             $legacyAppId = (int) ($member['legacy_application_id'] ?? 0);
             if ($legacyAppId > 0) {
@@ -279,6 +282,16 @@ class BatchMemberInterventionsSummaryService
 
         $legacyIds = array_values(array_unique(array_filter(array_map('intval', array_values($legacyAppByCfa)), fn (int $id) => $id > 0)));
 
+        $select = ['id', 'cfa_submission_id', 'service_id', 'status'];
+        if (ServiceCase::supportsLegacyApplicationLink()) {
+            $select[] = 'legacy_application_id';
+        }
+        foreach (['delivered_on', 'approved_at', 'completed_at', 'created_at'] as $dateColumn) {
+            if (Schema::hasColumn('service_cases', $dateColumn)) {
+                $select[] = $dateColumn;
+            }
+        }
+
         $cases = ServiceCase::query()
             ->with(['service:id,name'])
             ->where(function ($q) use ($cfaIds, $legacyIds): void {
@@ -295,7 +308,7 @@ class BatchMemberInterventionsSummaryService
             })
             ->where('status', '!=', ServiceCase::STATUS_CANCELLED)
             ->orderByDesc('created_at')
-            ->get(['id', 'cfa_submission_id', 'legacy_application_id', 'service_id', 'status']);
+            ->get($select);
 
         $cfaByLegacy = [];
         foreach ($legacyAppByCfa as $cfaId => $legacyId) {
@@ -330,6 +343,9 @@ class BatchMemberInterventionsSummaryService
                 'label' => $label,
                 'detail' => null,
                 'status' => (string) $case->status,
+                'date' => $this->formatServiceDate(
+                    $case->delivered_on ?? $case->approved_at ?? $case->completed_at ?? $case->created_at ?? null
+                ),
             ];
         }
 
@@ -465,11 +481,16 @@ class BatchMemberInterventionsSummaryService
             return [];
         }
 
+        $phase2Select = ['application_id', 'category', 'service_name'];
+        if (Schema::connection('legacy')->hasColumn('rbi_services_assigned', 'assigned_date')) {
+            $phase2Select[] = 'assigned_date';
+        }
+
         $rows = DB::connection('legacy')
             ->table('rbi_services_assigned')
             ->whereIn('application_id', $legacyAppIds)
             ->orderBy('service_name')
-            ->get(['application_id', 'category', 'service_name']);
+            ->get($phase2Select);
 
         $out = [];
         $seen = [];
@@ -493,6 +514,7 @@ class BatchMemberInterventionsSummaryService
                 'label' => $name,
                 'detail' => $category !== '' ? $category : null,
                 'status' => null,
+                'date' => $this->formatServiceDate($row->assigned_date ?? null),
             ];
         }
 
@@ -632,6 +654,19 @@ class BatchMemberInterventionsSummaryService
             return Schema::connection('legacy_phase1')->hasTable('tblapplication');
         } catch (\Throwable) {
             return false;
+        }
+    }
+
+    private function formatServiceDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->format('d M Y');
+        } catch (\Throwable) {
+            return null;
         }
     }
 }
