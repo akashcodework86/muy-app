@@ -11,7 +11,7 @@ final class LegacyDataExplorerService
 {
     private const CACHE_VERSION_KEY = 'legacy-data-explorer:version';
 
-    private const CACHE_SCHEMA_VERSION = 2;
+    private const CACHE_SCHEMA_VERSION = 3;
 
     public function __construct(
         private readonly OnboardedShgCboDistrictPackService $pack,
