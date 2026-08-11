@@ -599,6 +599,7 @@
                     <th>Tier</th>
                     <th>Status</th>
                     <th>SPOC remark</th>
+                    <th>Service Date</th>
                     <th>SLA</th>
                     <th>Submitted</th>
                     <th>Service given by</th>
@@ -705,6 +706,7 @@
                             'rejected' => $case?->rejected_note ?? $ml?->rejected_note,
                             default => null,
                         };
+                        $serviceDate = $case?->serviceDateForReporting();
                         $slaDeadline = $case?->sla_deadline_at ?? $ml?->sla_deadline_at;
                         $detailsUrl = $case
                             ? route('admin.phase3-services.show', $case)
@@ -771,6 +773,9 @@
                             </span>
                         </td>
                         <td class="p3-remark">{{ $spocRemark ?: '—' }}</td>
+                        <td style="color:#475569;white-space:nowrap;">
+                            {{ $serviceDate?->format('d M Y') ?? '—' }}
+                        </td>
                         <td style="{{ $isSlaBreached ? 'color:#b91c1c;font-weight:700;' : 'color:#475569;' }}">
                             {{ $slaDeadline ? \Illuminate\Support\Carbon::parse($slaDeadline)->format('d M Y') : '—' }}
                             @if ($isSlaBreached)
@@ -815,7 +820,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="19" style="padding:1.2rem;color:#64748b;text-align:center;">No Phase 3 service cases found for selected filters.</td>
+                        <td colspan="20" style="padding:1.2rem;color:#64748b;text-align:center;">No Phase 3 service cases found for selected filters.</td>
                     </tr>
                 @endforelse
             </tbody>

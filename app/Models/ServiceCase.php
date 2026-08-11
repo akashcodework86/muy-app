@@ -6,6 +6,7 @@ use App\Support\ConvergenceReapSupport;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -156,6 +157,44 @@ class ServiceCase extends Model
     public function isApproved(): bool
     {
         return $this->status === self::STATUS_APPROVED;
+    }
+
+    /**
+     * Service date shown in reporting lists/exports.
+     *
+     * Some services capture this as a schema field in payload while older or
+     * generic services use the dedicated delivered_on column.
+     */
+    public function serviceDateForReporting(): ?Carbon
+    {
+        $payload = is_array($this->payload) ? $this->payload : [];
+        $candidate = $payload['service_date'] ?? null;
+
+        if ($candidate === null || $candidate === '') {
+            $schema = is_array($this->service?->field_schema) ? $this->service->field_schema : [];
+            foreach ($schema as $field) {
+                if (! is_array($field)) {
+                    continue;
+                }
+                $label = mb_strtolower(trim((string) ($field['label'] ?? '')));
+                $key = trim((string) ($field['key'] ?? ''));
+                if ($label === 'service date' && $key !== '' && isset($payload[$key]) && $payload[$key] !== '') {
+                    $candidate = $payload[$key];
+                    break;
+                }
+            }
+        }
+
+        $candidate = ($candidate === null || $candidate === '') ? $this->delivered_on : $candidate;
+        if (! $candidate) {
+            return null;
+        }
+
+        try {
+            return $candidate instanceof Carbon ? $candidate : Carbon::parse((string) $candidate);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
