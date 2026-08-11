@@ -27,9 +27,10 @@
     <div class="ld-intro">
         <div>
             <h2>Onboarding &amp; Services Explorer</h2>
-            <p>State Admin only · Phase 1, Phase 2 and Phase 3 onboarded beneficiaries · read-only</p>
+            <p>State Admin only · Phase 3 service master names · Phase 1/2 services treated as approved · operational data read-only</p>
         </div>
         <div class="ld-actions">
+            <a class="ld-btn" href="{{ route('admin.legacy-data.mappings') }}">Service mappings</a>
             <form method="post" action="{{ route('admin.legacy-data.refresh') }}">@csrf<button class="ld-btn ld-btn--warn" type="submit">↻ Refresh data</button></form>
             <a class="ld-btn ld-btn--primary" href="{{ route('admin.legacy-data.export', array_merge($baseQuery, ['view' => $viewMode === 'services' ? 'services' : 'beneficiaries'])) }}">↓ Export filtered CSV</a>
         </div>
@@ -55,7 +56,7 @@
                 <div class="ld-field"><label>Gender</label><select name="gender"><option value="">All genders</option>@foreach($options['genders'] as $option)<option @selected($filters['gender']===$option)>{{ $option }}</option>@endforeach</select></div>
                 <div class="ld-field"><label>Education</label><select name="education"><option value="">All education levels</option>@foreach($options['educations'] as $option)<option @selected($filters['education']===$option)>{{ $option }}</option>@endforeach</select></div>
                 <div class="ld-field"><label>Beneficiary type</label><select name="type"><option value="">All types</option>@foreach($options['types'] as $option)<option @selected($filters['type']===$option)>{{ $option }}</option>@endforeach</select></div>
-                <div class="ld-field"><label>Service status</label><select name="service_status"><option value="">All statuses</option>@foreach($options['service_statuses'] as $option)<option @selected($filters['service_status']===$option)>{{ $option }}</option>@endforeach</select></div>
+                <div class="ld-field"><label>Service status</label><select name="service_status"><option value="" @selected($filters['service_status']==='')>Approved only (reporting)</option><option value="__all__" @selected($filters['service_status']==='__all__')>All workflow statuses</option>@foreach($options['service_statuses'] as $option)@continue(strtolower($option)==='approved')<option value="{{ $option }}" @selected($filters['service_status']===$option)>{{ str_replace('_',' ',ucfirst($option)) }}</option>@endforeach</select></div>
             </div>
         </details>
         <div class="ld-filter-foot">
@@ -66,8 +67,8 @@
 
     <div class="ld-kpis">
         <div class="ld-kpi ld-kpi--violet"><span>Unique onboarded</span><strong>{{ number_format($kpis['onboarded']) }}</strong><small>Application number, then mobile dedupe</small></div>
-        <div class="ld-kpi ld-kpi--green"><span>Beneficiaries served</span><strong>{{ number_format($kpis['served']) }}</strong><small>At least one service recorded</small></div>
-        <div class="ld-kpi"><span>Service deliveries</span><strong>{{ number_format($kpis['deliveries']) }}</strong><small>One beneficiary may have many</small></div>
+        <div class="ld-kpi ld-kpi--green"><span>Beneficiaries served</span><strong>{{ number_format($kpis['served']) }}</strong><small>Approved services under current filters</small></div>
+        <div class="ld-kpi"><span>Service deliveries</span><strong>{{ number_format($kpis['deliveries']) }}</strong><small>Approved by default; one beneficiary may have many</small></div>
         <div class="ld-kpi ld-kpi--amber"><span>No service recorded</span><strong>{{ number_format($kpis['without_service']) }}</strong><small>Onboarded but service data unavailable</small></div>
     </div>
 
@@ -101,7 +102,7 @@
                 <td>{{ $row['business_category'] }}<div class="ld-muted">{{ $row['business_stage'] }} · {{ $row['beneficiary_type'] }}</div></td>
                 <td>{{ $row['gender'] }}<div class="ld-muted">{{ $row['education'] }}</div></td>
                 <td>{{ $row['onboarding_date'] }}</td>
-                <td class="ld-num"><span class="ld-pill {{ $row['services_count']?'ld-pill--green':'ld-pill--gray' }}">{{ $row['services_count'] }}</span></td>
+                <td class="ld-num"><span class="ld-pill {{ $row['filtered_services_count']?'ld-pill--green':'ld-pill--gray' }}">{{ $row['filtered_services_count'] }}</span></td>
             </tr>@empty<tr><td colspan="8" class="ld-empty">No onboarded beneficiaries match these filters.</td></tr>@endforelse
             </tbody></table></div><div class="ld-pagination">{{ $beneficiaries->links() }}</div>
         @else
@@ -110,12 +111,12 @@
                 <td><span class="ld-pill">{{ $row['financial_year'] }}</span><div class="ld-muted">{{ $row['phase'] }}</div></td>
                 <td><div class="ld-name">{{ $row['applicant'] }}</div><div class="ld-muted">{{ $row['application_no'] }}</div></td>
                 <td>{{ $maskMobile($row['phone'],$showMobile) }}</td><td>{{ $row['district'] }}</td>
-                <td><div class="ld-name">{{ $row['service'] }}</div>@if($row['service_detail'])<div class="ld-muted">{{ $row['service_detail'] }}</div>@endif</td>
+                <td><div class="ld-name">{{ $row['service'] }}</div>@if($row['original_service']!==$row['service'])<div class="ld-muted">Original: {{ $row['original_service'] }}</div>@endif @if($row['service_detail'])<div class="ld-muted">{{ $row['service_detail'] }}</div>@endif @if(!$row['service_mapped'])<span class="ld-pill ld-pill--gray">Needs mapping</span>@endif</td>
                 <td><span class="ld-pill ld-pill--green">{{ $row['service_status'] }}</span></td><td>{{ $row['service_date'] }}</td>
             </tr>@empty<tr><td colspan="7" class="ld-empty">No service records match these filters.</td></tr>@endforelse
             </tbody></table></div><div class="ld-pagination">{{ $services->links() }}</div>
         @endif
     </div>
-    <div class="ld-note"><strong>Method:</strong> Only onboarded records are included. Phase 1 uses <code>tblapplication.onboard = yes</code>; Phase 2 uses <code>rbi_onboarded_applicants</code>; Phase 3 uses locked onboarding batches. Missing historical fields remain “Not captured” or “Date NA”. No record can be edited or deleted from this page.</div>
+    <div class="ld-note"><strong>Method:</strong> Only onboarded records are included. Phase 3 service names are the reporting standard. Phase 1/2 recorded services are treated as Approved and mapped to that master without changing historical or Phase 3 operational records. Phase 3 keeps its existing approval workflow. Missing fields remain “Not captured” or “Date NA”.</div>
 </div>
 @endsection

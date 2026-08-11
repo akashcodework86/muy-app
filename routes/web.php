@@ -960,6 +960,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
         Route::post('legacy-data/refresh', [LegacyDataController::class, 'refresh'])->name('legacy-data.refresh');
         Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
+        Route::get('legacy-data/service-mappings', [LegacyDataController::class, 'mappings'])->name('legacy-data.mappings');
+        Route::post('legacy-data/service-mappings', [LegacyDataController::class, 'storeMapping'])
+            ->middleware('throttle:30,1')
+            ->name('legacy-data.mappings.store');
 
         Route::get('cfa-applications', [CfaSubmissionController::class, 'index'])->name('cfa.index');
         Route::get('cfa-applications/export', [CfaSubmissionController::class, 'export'])->name('cfa.export');
