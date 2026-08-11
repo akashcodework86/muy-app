@@ -117,6 +117,6 @@
             </tbody></table></div><div class="ld-pagination">{{ $services->links() }}</div>
         @endif
     </div>
-    <div class="ld-note"><strong>Method:</strong> Only onboarded records are included. Phase 3 service names are the reporting standard. Phase 1/2 recorded services are treated as Approved and mapped to that master without changing historical or Phase 3 operational records. Phase 3 keeps its existing approval workflow. Missing fields remain “Not captured” or “Date NA”.</div>
+    <div class="ld-note"><strong>Method:</strong> Only onboarded records are included. Every member of a locked Phase 3 onboarding batch is reported in Phase 3, including legacy-source applicants onboarded through that batch. Phase 3 service names are the reporting standard. Phase 1/2 recorded services are treated as Approved and mapped to that master without changing historical or Phase 3 operational records. Phase 3 keeps its existing approval workflow. Missing fields remain “Not captured” or “Date NA”.</div>
 </div>
 @endsection

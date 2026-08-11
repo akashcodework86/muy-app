@@ -319,28 +319,30 @@ final class OnboardedShgCboDistrictPackService
 
         $memberYes = $this->payloadMemberYesSql();
         $catExpr = "LOWER(TRIM(COALESCE({$categoryJson}, {$appCategoryJson}, '')))";
-        $phase3Source = PotentialLakhpatiOnboardingSql::phase3CfaSourceSql();
-        $nativePhase3 = "({$phase3Source} AND LOWER(TRIM(COALESCE(cs.source, ''))) NOT IN ('legacy_phase1', 'rbiphase1'))";
-
         if ($cohort === 'cbo') {
-            $qualify = "({$nativePhase3} AND {$catExpr} = 'cbo')";
+            $qualify = "({$catExpr} = 'cbo')";
         } elseif ($cohort === 'individual') {
-            // Pure Individual only — not SHG member, not category SHG/CBO.
-            $qualify = "({$nativePhase3} AND {$catExpr} = 'individual' AND NOT ({$memberYes}))";
+            // Every locked batch member belongs to Phase 3 reporting. Blank or
+            // historical categories fall back to Individual instead of being
+            // excluded from the official onboarding total.
+            $qualify = "NOT (
+                {$catExpr} IN ('shg', 'cbo')
+                OR ({$catExpr} = 'individual' AND {$memberYes})
+            )";
         } else {
-            $qualify = "({$nativePhase3} AND (
+            $qualify = "(
                 {$catExpr} = 'shg'
                 OR (
                     {$catExpr} = 'individual'
                     AND {$memberYes}
                 )
-            ))";
+            )";
         }
 
         $query = DB::table('onboarding_batch_cfa as obc')
             ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
             ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
-            ->join('districts as d', 'd.id', '=', 'cs.district_id')
+            ->leftJoin('districts as d', 'd.id', '=', 'cs.district_id')
             ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
             ->where('ob.status', 'locked')
             ->whereNotNull('ob.locked_at')
