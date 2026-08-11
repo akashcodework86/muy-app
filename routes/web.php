@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\DocumentRepositoryController;
 use App\Http\Controllers\Admin\BlockWorkshopAdminController;
+use App\Http\Controllers\Admin\MediaGalleryController;
 use App\Http\Controllers\Admin\FieldCoordinatorAttendanceAdminController;
 use App\Http\Controllers\Admin\StaffCheckInAdminController;
 use App\Http\Controllers\Admin\StateLiveMapController;
@@ -1112,6 +1113,25 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('staff/{user}/cfa-targets', [StaffDeliverableMonthlyTargetController::class, 'updateCfaLegacy'])->name('staff.cfa-targets.update');
 
         Route::get('team-performance', [TeamPerformanceController::class, 'index'])->name('team-performance.index');
+        Route::get('media-gallery', [MediaGalleryController::class, 'index'])->name('media-gallery.index');
+        Route::get('media-gallery/{section}', [MediaGalleryController::class, 'section'])
+            ->where('section', '[a-z0-9\-]+')
+            ->name('media-gallery.section');
+        Route::get('media-gallery/{section}/{record}', [MediaGalleryController::class, 'show'])
+            ->where('section', '[a-z0-9\-]+')
+            ->whereNumber('record')
+            ->name('media-gallery.show');
+        Route::get('media-gallery/{section}/{record}/photo/{collection}', [MediaGalleryController::class, 'photo'])
+            ->where('section', '[a-z0-9\-]+')
+            ->whereNumber('record')
+            ->where('collection', '[a-z0-9_]+')
+            ->name('media-gallery.photo');
+        Route::get('media-gallery/{section}/{record}/download-zip', [MediaGalleryController::class, 'downloadZip'])
+            ->where('section', '[a-z0-9\-]+')
+            ->whereNumber('record')
+            ->middleware('throttle:20,1')
+            ->name('media-gallery.zip');
+
         Route::get('documents', [DocumentRepositoryController::class, 'index'])->name('documents.index');
         Route::get('documents/create', [DocumentRepositoryController::class, 'create'])->name('documents.create');
         Route::post('documents', [DocumentRepositoryController::class, 'store'])->name('documents.store');
