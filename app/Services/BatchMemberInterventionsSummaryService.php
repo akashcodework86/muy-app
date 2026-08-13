@@ -8,8 +8,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Cross-phase interventions for batch member rows (Phase 1 tblapplication,
- * Phase 2 rbi_services_assigned, Phase 3 service_cases + market_linkage_submissions).
+ * Cross-phase interventions for batch member rows (Phase 1 tblapplication +
+ * services + JIT assignments, Phase 2 rbi_services_assigned, Phase 3
+ * service_cases + market_linkage_submissions).
  */
 class BatchMemberInterventionsSummaryService
 {
@@ -68,8 +69,10 @@ class BatchMemberInterventionsSummaryService
     private function resolveKeys(array $members): array
     {
         $cfaIds = [];
-        $phoneToCfa = [];
-        $appNoToCfa = [];
+        $phase2PhoneToCfa = [];
+        $phase2AppNoToCfa = [];
+        $phase1PhoneToCfa = [];
+        $phase1AppNoToCfa = [];
         $legacyAppByCfa = [];
         $phase1ByCfa = [];
 
@@ -80,6 +83,8 @@ class BatchMemberInterventionsSummaryService
             }
 
             $source = strtolower(trim((string) ($member['source'] ?? '')));
+            $isPhase1Source = in_array($source, ['phase1', 'legacy_phase1'], true);
+            $isPhase2Source = in_array($source, ['phase2', 'legacy_phase2'], true);
             if (! in_array($source, ['phase1', 'phase2', 'legacy_phase1', 'legacy_phase2'], true)) {
                 $cfaIds[] = $cfaId;
             }
@@ -96,23 +101,31 @@ class BatchMemberInterventionsSummaryService
 
             $phone = $this->normalizePhone((string) ($member['phone'] ?? ''));
             if ($phone !== '') {
-                $phoneToCfa[$phone][] = $cfaId;
+                if ($isPhase1Source) {
+                    $phase1PhoneToCfa[$phone][] = $cfaId;
+                } elseif ($isPhase2Source) {
+                    $phase2PhoneToCfa[$phone][] = $cfaId;
+                }
             }
 
             $appNo = trim((string) ($member['application_no'] ?? ''));
             if ($appNo !== '') {
-                $appNoToCfa[$appNo][] = $cfaId;
+                if ($isPhase1Source) {
+                    $phase1AppNoToCfa[$appNo][] = $cfaId;
+                } elseif ($isPhase2Source) {
+                    $phase2AppNoToCfa[$appNo][] = $cfaId;
+                }
             }
         }
 
         $cfaIds = array_values(array_unique($cfaIds));
 
         if ($this->legacyPhase2Available()) {
-            $this->fillLegacyAppIdsFromPhase2($phoneToCfa, $appNoToCfa, $legacyAppByCfa);
+            $this->fillLegacyAppIdsFromPhase2($phase2PhoneToCfa, $phase2AppNoToCfa, $legacyAppByCfa);
         }
 
         if ($this->legacyPhase1Available()) {
-            $this->fillPhase1Ids($phoneToCfa, $appNoToCfa, $phase1ByCfa);
+            $this->fillPhase1Ids($phase1PhoneToCfa, $phase1AppNoToCfa, $phase1ByCfa);
         }
 
         return [
@@ -282,7 +295,7 @@ class BatchMemberInterventionsSummaryService
 
         $legacyIds = array_values(array_unique(array_filter(array_map('intval', array_values($legacyAppByCfa)), fn (int $id) => $id > 0)));
 
-        $select = ['id', 'cfa_submission_id', 'service_id', 'status'];
+        $select = ['id', 'cfa_submission_id', 'service_id', 'status', 'payload'];
         if (ServiceCase::supportsLegacyApplicationLink()) {
             $select[] = 'legacy_application_id';
         }
@@ -293,7 +306,7 @@ class BatchMemberInterventionsSummaryService
         }
 
         $cases = ServiceCase::query()
-            ->with(['service:id,name'])
+            ->with(['service:id,name,field_schema'])
             ->where(function ($q) use ($cfaIds, $legacyIds): void {
                 if ($cfaIds !== []) {
                     $q->whereIn('cfa_submission_id', $cfaIds);
@@ -344,7 +357,11 @@ class BatchMemberInterventionsSummaryService
                 'detail' => null,
                 'status' => (string) $case->status,
                 'date' => $this->formatServiceDate(
-                    $case->delivered_on ?? $case->approved_at ?? $case->completed_at ?? $case->created_at ?? null
+                    $case->serviceDateForReporting()
+                        ?? $case->approved_at
+                        ?? $case->completed_at
+                        ?? $case->created_at
+                        ?? null
                 ),
             ];
         }
@@ -481,7 +498,7 @@ class BatchMemberInterventionsSummaryService
             return [];
         }
 
-        $phase2Select = ['application_id', 'category', 'service_name'];
+        $phase2Select = ['id', 'application_id', 'category', 'service_name'];
         if (Schema::connection('legacy')->hasColumn('rbi_services_assigned', 'assigned_date')) {
             $phase2Select[] = 'assigned_date';
         }
@@ -503,7 +520,10 @@ class BatchMemberInterventionsSummaryService
             }
 
             $category = trim((string) ($row->category ?? ''));
-            $dedupeKey = $appId.':p2:'.$category.'|'.$name;
+            // A beneficiary can receive the same service more than once. Keep
+            // each source row as a delivery; only suppress an accidental repeat
+            // of the same database row in this loader.
+            $dedupeKey = $appId.':p2:'.((int) ($row->id ?? 0));
             if (isset($seen[$dedupeKey])) {
                 continue;
             }
@@ -537,12 +557,118 @@ class BatchMemberInterventionsSummaryService
             ->get();
 
         $out = [];
+        $applicationNoById = [];
         foreach ($rows as $row) {
             $id = (int) ($row->ID ?? 0);
             if ($id <= 0) {
                 continue;
             }
+            $applicationNoById[$id] = trim((string) ($row->ApplicationNumber ?? ''));
             $out[$id] = $this->extractPhase1Services((array) $row);
+        }
+
+        $childServicesById = $this->loadPhase1ChildServices($applicationNoById);
+        $jitServicesById = $this->loadPhase1JitServices($phase1Ids);
+
+        foreach ($phase1Ids as $id) {
+            $id = (int) $id;
+            $child = $childServicesById[$id] ?? [];
+
+            // `services` is the authoritative Phase 1 delivery table. The wide
+            // tblapplication flags pre-date it and are used only when an
+            // applicant has no child delivery records at all.
+            $out[$id] = array_merge(
+                $child !== [] ? $child : ($out[$id] ?? []),
+                $jitServicesById[$id] ?? [],
+            );
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<int,string>  $applicationNoById
+     * @return array<int,list<array{phase:string,label:string,detail:?string,status:?string,date:?string}>>
+     */
+    private function loadPhase1ChildServices(array $applicationNoById): array
+    {
+        if ($applicationNoById === [] || ! Schema::connection('legacy_phase1')->hasTable('services')) {
+            return [];
+        }
+
+        $idByApplicationNo = [];
+        foreach ($applicationNoById as $id => $applicationNo) {
+            if ($applicationNo !== '') {
+                $idByApplicationNo[$applicationNo] = (int) $id;
+            }
+        }
+
+        $out = [];
+        foreach (array_chunk(array_keys($idByApplicationNo), 500) as $applicationNumbers) {
+            $rows = DB::connection('legacy_phase1')
+                ->table('services')
+                ->whereIn('ApplicationNumber', $applicationNumbers)
+                ->orderBy('id')
+                ->get(['id', 'ApplicationNumber', 'servicename', 'description', 'other', 'service_date']);
+
+            foreach ($rows as $row) {
+                $id = (int) ($idByApplicationNo[trim((string) ($row->ApplicationNumber ?? ''))] ?? 0);
+                $label = trim((string) ($row->description ?? ''));
+                if ($id <= 0 || $this->isPlaceholderService($label)) {
+                    continue;
+                }
+
+                $detailParts = array_values(array_filter([
+                    trim((string) ($row->other ?? '')),
+                    trim((string) ($row->servicename ?? '')),
+                ], fn (string $value): bool => $value !== '' && ! $this->isPlaceholderService($value)));
+
+                $out[$id][] = [
+                    'phase' => 'phase1',
+                    'label' => $label,
+                    'detail' => $detailParts !== [] ? implode(' | ', $detailParts) : null,
+                    'status' => null,
+                    'date' => $this->formatServiceDate($row->service_date ?? null),
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<int>  $phase1Ids
+     * @return array<int,list<array{phase:string,label:string,detail:?string,status:?string,date:?string}>>
+     */
+    private function loadPhase1JitServices(array $phase1Ids): array
+    {
+        if ($phase1Ids === [] || ! Schema::connection('legacy_phase1')->hasTable('rbi_services_assigned_jit')) {
+            return [];
+        }
+
+        $out = [];
+        foreach (array_chunk($phase1Ids, 500) as $idChunk) {
+            $rows = DB::connection('legacy_phase1')
+                ->table('rbi_services_assigned_jit')
+                ->whereIn('legacy_app_id', $idChunk)
+                ->orderBy('id')
+                ->get(['id', 'legacy_app_id', 'service_name', 'category', 'assigned_date']);
+
+            foreach ($rows as $row) {
+                $id = (int) ($row->legacy_app_id ?? 0);
+                $label = trim((string) ($row->service_name ?? ''));
+                if ($id <= 0 || $this->isPlaceholderService($label)) {
+                    continue;
+                }
+
+                $out[$id][] = [
+                    'phase' => 'phase1',
+                    'label' => $label,
+                    'detail' => trim((string) ($row->category ?? '')) ?: null,
+                    'status' => null,
+                    'date' => $this->formatServiceDate($row->assigned_date ?? null),
+                ];
+            }
         }
 
         return $out;
@@ -624,6 +750,11 @@ class BatchMemberInterventionsSummaryService
         return in_array($v, ['no', 'n', '0', 'false', 'na', 'n/a'], true);
     }
 
+    private function isPlaceholderService(string $value): bool
+    {
+        return in_array(mb_strtolower(trim($value)), ['', '0', '#n/a', 'n/a', 'na', '-'], true);
+    }
+
     private function normalizePhone(string $phone): string
     {
         $digits = preg_replace('/\D/', '', $phone) ?? '';
@@ -663,8 +794,24 @@ class BatchMemberInterventionsSummaryService
             return null;
         }
 
+        if ($value instanceof \DateTimeInterface) {
+            return \Carbon\Carbon::instance($value)->format('d M Y');
+        }
+
+        $raw = trim((string) $value);
+
         try {
-            return \Carbon\Carbon::parse($value)->format('d M Y');
+            if (preg_match('/^\d{4}-\d{2}-\d{2}/', $raw) === 1) {
+                return \Carbon\Carbon::createFromFormat('Y-m-d', substr($raw, 0, 10))->format('d M Y');
+            }
+            if (str_contains($raw, '/')) {
+                return \Carbon\Carbon::createFromFormat('n/j/Y', $raw)->format('d M Y');
+            }
+            if (preg_match('/^\d{1,2}-\d{1,2}-\d{4}$/', $raw) === 1) {
+                return \Carbon\Carbon::createFromFormat('j-n-Y', $raw)->format('d M Y');
+            }
+
+            return \Carbon\Carbon::parse($raw)->format('d M Y');
         } catch (\Throwable) {
             return null;
         }

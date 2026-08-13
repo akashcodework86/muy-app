@@ -11,7 +11,7 @@ final class LegacyDataExplorerService
 {
     private const CACHE_VERSION_KEY = 'legacy-data-explorer:version';
 
-    private const CACHE_SCHEMA_VERSION = 5;
+    private const CACHE_SCHEMA_VERSION = 6;
 
     public function __construct(
         private readonly OnboardedShgCboDistrictPackService $pack,
@@ -86,20 +86,19 @@ final class LegacyDataExplorerService
     {
         return $this->dataset()
             ->flatMap(function (array $row): array {
-                if (($row['phase'] ?? '') === 'Phase 3') {
-                    return [];
-                }
-
                 return array_map(fn (array $service): array => [
-                    'source_phase' => $this->serviceNames->sourcePhase((string) $row['phase']),
-                    'phase' => $row['phase'],
+                    'source_phase' => $this->serviceNames->sourcePhase((string) $service['phase']),
+                    'phase' => $service['phase'],
                     'original_name' => $service['original_label'] ?? $service['label'],
                     'standard_name' => $service['label'],
                     'service_id' => $service['service_id'] ?? null,
                     'mapped' => (bool) ($service['mapped'] ?? false),
                     'mapping_source' => $service['mapping_source'] ?? 'unmapped',
                     'identity' => $this->identityKey($row),
-                ], $row['service_items']);
+                ], array_values(array_filter(
+                    $row['service_items'],
+                    fn (array $service): bool => ($service['phase'] ?? '') !== 'Phase 3'
+                )));
             })
             ->groupBy(fn (array $row): string => $row['source_phase'].'|'.$this->serviceNames->normalizeKey($row['original_name']))
             ->map(function (Collection $items): array {
@@ -418,7 +417,10 @@ final class LegacyDataExplorerService
         try {
             $date = Carbon::parse($value);
 
-            return $date->year >= 2021 && $date->year <= now()->year + 1 ? $date : null;
+            // Preserve real historical dates, including pre-program outliers,
+            // so administrators can see and review them instead of silently
+            // converting them to Date NA.
+            return $date->year >= 2000 && $date->year <= now()->year + 1 ? $date : null;
         } catch (\Throwable) {
             return null;
         }

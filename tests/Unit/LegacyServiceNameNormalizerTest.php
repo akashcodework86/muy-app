@@ -37,6 +37,16 @@ class LegacyServiceNameNormalizerTest extends TestCase
             ['Training Package 4', 'Incubatees taken Part in Business Modules Training'],
             ['Technical training', 'Technical Trainings to Incubatees'],
             ['Trade fair Particiepataion', 'Events/ Seminars/ Workshops'],
+            ['FSSAI', 'FSSAI Registration/Renewal'],
+            ['Subject Matter Trainings', 'Technical Trainings to Incubatees'],
+            ['M5- Understanding the legal requirements of one\'s business', 'Incubatees taken Part in Business Modules Training'],
+            ['Prepared Business Model Canvas', 'Business Model Canvas'],
+            ['Mentor alloted', 'Specialized Mentorship Support'],
+            ['Meeting with Business Partner', 'Marketing Partners Onboarded through (LoA/LoI/MoU)'],
+            ['Prepared scheme based Detailed Project Report', 'Schematic Convergence'],
+            ['Packaging design', 'Other Support Services - Labelling, Packaging, Logo Designing etc.'],
+            ['Other Support Service(Please Specify)', 'Other Support Services - Labelling, Packaging, Logo Designing etc.'],
+            ['UTDB Registration(Homestay Registration)', 'UTDB Registration'],
         ];
     }
 

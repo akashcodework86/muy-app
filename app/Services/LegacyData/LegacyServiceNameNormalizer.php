@@ -75,6 +75,10 @@ final class LegacyServiceNameNormalizer
     {
         $detailKey = $this->normalizeKey((string) $detail);
 
+        if (str_contains($key, 'fssai')) {
+            return 'FSSAI Registration/Renewal';
+        }
+
         if ($key === 'business registration') {
             if (str_contains($detailKey, 'utdb')) {
                 return 'UTDB Registration';
@@ -83,8 +87,69 @@ final class LegacyServiceNameNormalizer
             return 'Business Registration';
         }
 
+        if (preg_match('/^m\s*\d+\b/', $key) === 1) {
+            return 'Incubatees taken Part in Business Modules Training';
+        }
+
+        if (str_contains($key, 'subject matter training')) {
+            return 'Technical Trainings to Incubatees';
+        }
+
+        if (str_contains($key, 'mentor allot')
+            || str_contains($key, 'mentorship services')
+            || str_contains($key, 'ongoing mentorship')) {
+            return 'Specialized Mentorship Support';
+        }
+
+        if (str_contains($key, 'prepared business model canvas')) {
+            return 'Business Model Canvas';
+        }
+
+        if (str_contains($key, 'meeting with business partner')
+            || str_contains($key, 'meeting with marketing partner')
+            || str_contains($key, 'incubatee and business partner mou')) {
+            return 'Marketing Partners Onboarded through (LoA/LoI/MoU)';
+        }
+
+        if (str_contains($key, 'development of new sales channel')
+            || str_contains($key, 'e market space')
+            || str_contains($key, 'booking com')
+            || str_contains($key, 'agriplus portal')) {
+            return 'Incubatees linked to online/offline Market';
+        }
+
+        if (str_contains($key, 'google review')
+            || str_contains($key, 'social media')
+            || str_contains($key, 'website development')
+            || str_contains($key, 'e catalogue')) {
+            return 'Other Support Services - Labelling, Packaging, Logo Designing etc.';
+        }
+
+        if (str_contains($key, 'other support service')
+            || str_contains($key, 'packaging design')
+            || $key === 'labelling'
+            || $key === 'labeling') {
+            return 'Other Support Services - Labelling, Packaging, Logo Designing etc.';
+        }
+
+        if (str_contains($key, 'prepared scheme based detailed project report')) {
+            return 'Schematic Convergence';
+        }
+
+        if (str_contains($key, 'other scheme')) {
+            return 'Other Convergence Support';
+        }
+
+        if (str_contains($key, 'prepared pitchdeck')) {
+            return 'Pitch Decks';
+        }
+
+        if (str_contains($key, 'exposure visit') || str_contains($key, 'gullak event')) {
+            return 'Events/ Seminars/ Workshops';
+        }
+
         return match ($key) {
-            'business plan' => 'Business Plan',
+            'business plan', 'prepared bankable business plan' => 'Business Plan',
             'bmc support' => 'Business Model Canvas',
 
             'training', 'business skills training',
@@ -107,11 +172,18 @@ final class LegacyServiceNameNormalizer
             'support in business', 'prior business support', 'other rbi support', 'other service'
                 => 'Others',
 
-            'photoshoot', 'content writing', 'catalogue development', 'other support service'
+            'photoshoot', 'photo shoot', 'content writing', 'catalogue development',
+            'other support service', 'other support please specify', 'other support please spacify'
                 => 'Other Support Services - Labelling, Packaging, Logo Designing etc.',
 
-            'trade fair participation', 'trade fair particiepataion'
+            'trade fair participation', 'trade fair particiepataion', 'participation in trade fair and others'
                 => 'Events/ Seminars/ Workshops',
+
+            'utdb registration homestay registration' => 'UTDB Registration',
+            'ddugay', 'ddugavy' => 'Deen Dayal Upadhyay Grah Awas Vikas Yojana (DDUGAVY)- Homestay',
+            'vcsgay' => 'Veer Chandra Singh Garhwali Self Employment Scheme',
+            'other registration' => 'Business Registration',
+            'gst registration support' => 'GST',
 
             default => null,
         };
@@ -119,7 +191,7 @@ final class LegacyServiceNameNormalizer
 
     public function normalizeKey(string $name): string
     {
-        $name = Str::lower(trim($name));
+        $name = Str::lower(trim(html_entity_decode($name, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
         $name = str_replace(['&', '–', '—', '·', '/', '_'], [' and ', '-', '-', ' ', ' ', ' '], $name);
         $name = preg_replace('/[^a-z0-9]+/u', ' ', $name) ?: '';
 
@@ -210,7 +282,8 @@ final class LegacyServiceNameNormalizer
             str_contains($key, 'lab testing') || str_contains($key, 'product testing') => ['Lab testing', 'Product Testing', 'lab_testing', 'product_testing'],
             str_contains($key, 'packaging') || str_contains($key, 'labelling') || str_contains($key, 'labeling') || str_contains($key, 'logo design') => ['Other Support Services - Labelling, Packaging, Logo Designing etc.', 'other_support_services_labelling_packaging_logo_designing_etc'],
             str_contains($key, 'market link') || str_contains($key, 'offline connect') => ['Incubatees linked to online/offline Market', 'incubatees_linked_to_online_offline_market', 'Market Link', 'market_link'],
-            str_contains($key, 'pitch deck') => ['Pitch Decks', 'Pitch Deck', 'pitch_decks', 'pitch_deck'],
+            str_contains($key, 'pitch deck') || str_contains($key, 'pitchdeck') => ['Pitch Decks', 'Pitch Deck', 'pitch_decks', 'pitch_deck'],
+            $key === 'gst' || str_contains($key, 'gst registration') => ['GST', 'gst'],
             str_contains($key, 'buyer seller') || preg_match('/\bbsm\b/', $key) === 1 => ['Buyer-Seller Meet (BSM)', 'buyer_seller_meet_b_s_m'],
             str_contains($key, 'eap') || str_contains($key, 'edp') => ['EAP/EDP Sessions', 'e_a_p_e_d_p_sessions'],
             str_contains($key, 'events seminars workshops') => ['Events/ Seminars/ Workshops', 'events_seminars_workshops'],
