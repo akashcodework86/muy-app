@@ -21,7 +21,11 @@ final class LegacyDataExplorerService
     /** @return array{rows: Collection<int,array<string,mixed>>, options: array<string,list<string>>, kpis: array<string,int>, summary: Collection<int,array<string,mixed>>, year_summary: Collection<int,array<string,mixed>>, district_summary: Collection<int,array<string,mixed>>, service_rows: Collection<int,array<string,mixed>>} */
     public function build(array $filters): array
     {
-        $all = $this->dataset();
+        $all = $this->dataset()->map(function (array $row): array {
+            $row['district'] = $this->districtName((string) ($row['district'] ?? ''));
+
+            return $row;
+        });
         $scopeDistricts = $filters['scope_districts'] ?? null;
         if (is_array($scopeDistricts)) {
             $scopeKeys = collect($scopeDistricts)
@@ -219,8 +223,13 @@ final class LegacyDataExplorerService
 
     private function matches(array $row, array $filters): bool
     {
+        $requestedDistrict = trim((string) ($filters['district'] ?? ''));
+        if ($requestedDistrict !== '' && $this->districtKey($requestedDistrict) !== $this->districtKey((string) ($row['district'] ?? ''))) {
+            return false;
+        }
+
         foreach ([
-            'fy' => 'financial_year', 'phase' => 'phase', 'district' => 'district',
+            'fy' => 'financial_year', 'phase' => 'phase',
             'category' => 'business_category', 'stage' => 'business_stage',
             'gender' => 'gender', 'education' => 'education', 'type' => 'beneficiary_type',
         ] as $filter => $column) {
@@ -386,6 +395,28 @@ final class LegacyDataExplorerService
             'pauri' => 'paurigarhwal',
             'usnagar' => 'udhamsinghnagar',
             default => $key,
+        };
+    }
+
+    private function districtName(string $district): string
+    {
+        $district = $this->clean(preg_replace('/[_\s]+/u', ' ', trim($district)) ?? $district);
+
+        return match ($this->districtKey($district)) {
+            'almora' => 'Almora',
+            'bageshwar' => 'Bageshwar',
+            'chamoli' => 'Chamoli',
+            'champawat' => 'Champawat',
+            'dehradun' => 'Dehradun',
+            'haridwar' => 'Haridwar',
+            'nainital' => 'Nainital',
+            'paurigarhwal' => 'Pauri Garhwal',
+            'pithoragarh' => 'Pithoragarh',
+            'rudraprayag' => 'Rudraprayag',
+            'tehrigarhwal' => 'Tehri Garhwal',
+            'udhamsinghnagar' => 'Udham Singh Nagar',
+            'uttarkashi' => 'Uttarkashi',
+            default => $district,
         };
     }
 

@@ -197,6 +197,34 @@ class LegacyDataTest extends TestCase
             ->assertDontSee('SERVED-APP');
     }
 
+    public function test_district_name_variants_are_merged_for_reporting(): void
+    {
+        Cache::forever('legacy-data-explorer:version', 11);
+        $spaced = $this->cachedRow('TEHRI-SPACED', 'Phase 1', 'Approved');
+        $spaced['district'] = 'Tehri Garhwal';
+        $underscored = $this->cachedRow('TEHRI-UNDERSCORED', 'Phase 2', 'Approved');
+        $underscored['district'] = 'Tehri_Garhwal';
+
+        Cache::store('file')->put(
+            'legacy-data-explorer:dataset:s6:v11',
+            collect([$spaced, $underscored]),
+            now()->addMinute(),
+        );
+
+        $result = app(LegacyDataExplorerService::class)->build([
+            'fy' => '', 'phase' => '', 'district' => '', 'service' => '',
+            'service_status' => '', 'category' => '', 'stage' => '', 'gender' => '',
+            'education' => '', 'type' => '', 'from' => '', 'to' => '', 'q' => '',
+            'group' => 'district',
+        ]);
+
+        $this->assertSame(['Tehri Garhwal'], $result['options']['districts']);
+        $this->assertCount(1, $result['district_summary']);
+        $this->assertSame('Tehri Garhwal', $result['district_summary']->first()['label']);
+        $this->assertSame(2, $result['district_summary']->first()['onboarded']);
+        $this->assertSame(2, $result['district_summary']->first()['deliveries']);
+    }
+
     /** @return array<string,mixed> */
     private function cachedRow(string $applicationNo, string $phase, string $status): array
     {
