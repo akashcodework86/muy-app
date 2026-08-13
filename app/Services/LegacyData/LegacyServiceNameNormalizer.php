@@ -24,7 +24,7 @@ final class LegacyServiceNameNormalizer
     /**
      * @return array{label:string,original_label:string,mapped:bool,mapping_source:string,service_id:?int}
      */
-    public function resolve(string $originalName, string $phase): array
+    public function resolve(string $originalName, string $phase, ?string $detail = null): array
     {
         $originalName = trim($originalName);
         if ($phase === 'Phase 3') {
@@ -47,6 +47,13 @@ final class LegacyServiceNameNormalizer
             return $this->result($manual->service->name, $originalName, true, 'manual', $manual->service);
         }
 
+        $approved = $this->approvedHistoricalMapping($key, $detail);
+        if ($approved !== null) {
+            $service = $this->serviceByName($approved);
+
+            return $this->result($service?->name ?? $approved, $originalName, true, 'approved_mapping', $service);
+        }
+
         $exact = $this->servicesByName()->get($key);
         if ($exact) {
             return $this->result($exact->name, $originalName, true, 'exact', $exact);
@@ -58,6 +65,56 @@ final class LegacyServiceNameNormalizer
         }
 
         return $this->result(self::UNMAPPED, $originalName, false, 'unmapped', null);
+    }
+
+    /**
+     * Client-approved Phase 1/2 reporting mappings. These labels belong only to
+     * the Legacy Data reporting layer; no Phase 3 service or service case is edited.
+     */
+    private function approvedHistoricalMapping(string $key, ?string $detail): ?string
+    {
+        $detailKey = $this->normalizeKey((string) $detail);
+
+        if ($key === 'business registration') {
+            if (str_contains($detailKey, 'utdb')) {
+                return 'UTDB Registration';
+            }
+
+            return 'Business Registration';
+        }
+
+        return match ($key) {
+            'business plan' => 'Business Plan',
+            'bmc support' => 'Business Model Canvas',
+
+            'training', 'business skills training',
+            'training package 1', 'training package 2', 'training package 3', 'training package 4'
+                => 'Incubatees taken Part in Business Modules Training',
+            'technical training' => 'Technical Trainings to Incubatees',
+
+            'support in application process', 'support in process', 'loan', 'loan scheme', 'mudra'
+                => 'Schematic Convergence',
+
+            'other licensing support', 'legal vetting of documents', 'shop establishment', 'shop and establishment',
+            'fire noc', 'ayush licence', 'ipr support'
+                => 'Advance Licensing Support (Mandi Licensing, Lab Test etc.)',
+
+            'msme' => 'Business Registration',
+            'product diversification' => 'Identification and Submission of Proposal for New Product Development',
+            'unit setup' => 'Initiation of acceleration and co-incubation services',
+            'mentorship' => 'Specialized Mentorship Support',
+
+            'support in business', 'prior business support', 'other rbi support', 'other service'
+                => 'Others',
+
+            'photoshoot', 'content writing', 'catalogue development', 'other support service'
+                => 'Other Support Services - Labelling, Packaging, Logo Designing etc.',
+
+            'trade fair participation', 'trade fair particiepataion'
+                => 'Events/ Seminars/ Workshops',
+
+            default => null,
+        };
     }
 
     public function normalizeKey(string $name): string

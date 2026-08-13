@@ -11,7 +11,7 @@ final class LegacyDataExplorerService
 {
     private const CACHE_VERSION_KEY = 'legacy-data-explorer:version';
 
-    private const CACHE_SCHEMA_VERSION = 3;
+    private const CACHE_SCHEMA_VERSION = 5;
 
     public function __construct(
         private readonly OnboardedShgCboDistrictPackService $pack,
@@ -22,10 +22,32 @@ final class LegacyDataExplorerService
     public function build(array $filters): array
     {
         $all = $this->dataset();
-        $rows = $all->filter(fn (array $row): bool => $this->matches($row, $filters))->values();
+        $serviceContext = trim((string) ($filters['service'] ?? '')) !== '';
+        $rowFilters = $filters;
+        if ($serviceContext) {
+            // In a service report, FY and Phase describe the delivery/event,
+            // not the year/source in which the beneficiary was onboarded.
+            $rowFilters['fy'] = '';
+            $rowFilters['phase'] = '';
+            $rowFilters['service'] = '';
+            $rowFilters['service_status'] = '__all__';
+        }
+
+        $rows = $all->filter(fn (array $row): bool => $this->matches($row, $rowFilters))->values();
+        $serviceFilters = $filters;
+        if (! $serviceContext) {
+            $serviceFilters['fy'] = '';
+            $serviceFilters['phase'] = '';
+        }
         $serviceRows = $this->serviceRows($rows)
-            ->filter(fn (array $row): bool => $this->serviceRowMatches($row, $filters))
+            ->filter(fn (array $row): bool => $this->serviceRowMatches($row, $serviceFilters))
             ->values();
+
+        if ($serviceContext) {
+            $served = $serviceRows->pluck('identity')->unique()->flip();
+            $rows = $rows->filter(fn (array $row): bool => $served->has($this->identityKey($row)))->values();
+        }
+
         $deliveryCounts = $serviceRows->countBy('identity');
         $servedIdentities = $deliveryCounts->keys();
         $rows = $rows->map(function (array $row) use ($deliveryCounts): array {
@@ -43,7 +65,12 @@ final class LegacyDataExplorerService
                 'deliveries' => $serviceRows->count(),
                 'without_service' => max(0, $rows->count() - $servedIdentities->count()),
             ],
-            'summary' => $this->summary($rows, $serviceRows, (string) ($filters['group'] ?? 'district')),
+            'summary' => $this->summary(
+                $rows,
+                $serviceRows,
+                (string) ($filters['group'] ?? 'district'),
+                $serviceContext,
+            ),
             'service_rows' => $serviceRows,
         ];
     }
@@ -140,11 +167,14 @@ final class LegacyDataExplorerService
         $serviceItems = collect($row['service_items'] ?? [])
             ->map(function (array $service) use ($phase): array {
                 $original = $this->clean($service['label'] ?? null);
-                $resolved = $this->serviceNames->resolve($original, $phase);
+                $detail = $this->clean($service['detail'] ?? null, '');
+                $servicePhase = $this->servicePhase((string) ($service['phase'] ?? ''), $phase);
+                $resolved = $this->serviceNames->resolve($original, $servicePhase, $detail);
 
                 return array_merge($resolved, [
-                    'detail' => $this->clean($service['detail'] ?? null, ''),
-                    'status' => $phase === 'Phase 3'
+                    'detail' => $detail,
+                    'phase' => $servicePhase,
+                    'status' => $servicePhase === 'Phase 3'
                         ? $this->clean($service['status'] ?? null, 'Not captured')
                         : 'Approved',
                     'date' => $this->clean($service['date'] ?? null, 'Date NA'),
@@ -222,7 +252,9 @@ final class LegacyDataExplorerService
 
     private function serviceRowMatches(array $row, array $filters): bool
     {
-        return $this->sameOrEmpty((string) ($filters['service'] ?? ''), (string) $row['service'])
+        return $this->sameOrEmpty((string) ($filters['fy'] ?? ''), (string) $row['financial_year'])
+            && $this->sameOrEmpty((string) ($filters['phase'] ?? ''), (string) $row['phase'])
+            && $this->sameOrEmpty((string) ($filters['service'] ?? ''), (string) $row['service'])
             && $this->statusMatches((string) $row['service_status'], (string) ($filters['service_status'] ?? ''));
     }
 
@@ -231,8 +263,10 @@ final class LegacyDataExplorerService
     {
         return $rows->flatMap(function (array $row): array {
             return array_map(fn (array $service): array => [
-                'financial_year' => $row['financial_year'],
-                'phase' => $row['phase'],
+                'financial_year' => ($serviceDate = $this->parseDate($service['date'] ?? null))
+                    ? $this->fiscalYear($serviceDate)
+                    : 'Date NA',
+                'phase' => $service['phase'] ?? $row['phase'],
                 'application_no' => $row['application_no'],
                 'applicant' => $row['applicant'],
                 'phone' => $row['phone'],
@@ -256,7 +290,7 @@ final class LegacyDataExplorerService
     }
 
     /** @return Collection<int,array<string,mixed>> */
-    private function summary(Collection $rows, Collection $serviceRows, string $group): Collection
+    private function summary(Collection $rows, Collection $serviceRows, string $group, bool $serviceContext): Collection
     {
         $column = match ($group) {
             'fy' => 'financial_year', 'phase' => 'phase', 'service' => 'service',
@@ -264,8 +298,12 @@ final class LegacyDataExplorerService
             'category' => 'business_category', 'type' => 'beneficiary_type', default => 'district',
         };
 
-        if ($group === 'service') {
-            return $serviceRows->groupBy('service')->map(function (Collection $deliveries, string $key): array {
+        if ($group === 'service' || ($serviceContext && in_array($group, ['fy', 'phase'], true))) {
+            $serviceColumn = match ($group) {
+                'fy' => 'financial_year', 'phase' => 'phase', default => 'service',
+            };
+
+            return $serviceRows->groupBy($serviceColumn)->map(function (Collection $deliveries, string $key): array {
                 $beneficiaries = $deliveries->unique('identity')->count();
 
                 return [
@@ -298,10 +336,13 @@ final class LegacyDataExplorerService
     private function options(Collection $rows): array
     {
         $values = fn (string $key): array => $rows->pluck($key)->filter()->unique()->sort()->values()->all();
+        $serviceRows = $this->serviceRows($rows);
 
         return [
-            'financial_years' => $values('financial_year'),
-            'phases' => $values('phase'),
+            'financial_years' => collect($values('financial_year'))
+                ->merge($serviceRows->pluck('financial_year'))->filter()->unique()->sort()->values()->all(),
+            'phases' => collect($values('phase'))
+                ->merge($serviceRows->pluck('phase'))->filter()->unique()->sort()->values()->all(),
             'districts' => $values('district'),
             'categories' => $values('business_category'),
             'stages' => $values('business_stage'),
@@ -326,6 +367,18 @@ final class LegacyDataExplorerService
         }
 
         return 'row:'.sha1(implode('|', [$row['phase'] ?? '', $row['cfa_id'] ?? '', $row['applicant'] ?? '']));
+    }
+
+    private function servicePhase(string $raw, string $fallback): string
+    {
+        $key = preg_replace('/[^a-z0-9]+/', '', mb_strtolower(trim($raw))) ?: '';
+
+        return match ($key) {
+            'phase1', 'legacyphase1' => 'Phase 1',
+            'phase2', 'legacyphase2' => 'Phase 2',
+            'phase3' => 'Phase 3',
+            default => $fallback,
+        };
     }
 
     private function sameOrEmpty(string $filter, string $value): bool

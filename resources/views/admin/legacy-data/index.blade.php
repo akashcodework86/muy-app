@@ -93,7 +93,7 @@
             @empty<tr><td colspan="5" class="ld-empty">No onboarded records match these filters.</td></tr>@endforelse
             </tbody></table></div>
         @elseif($viewMode==='beneficiaries')
-            <div class="ld-table-wrap"><table class="ld-table"><thead><tr><th>FY / Phase</th><th>Applicant</th><th>Mobile</th><th>District / Block</th><th>Business</th><th>Profile</th><th>Onboarding date</th><th class="ld-num">Services</th></tr></thead><tbody>
+            <div class="ld-table-wrap"><table class="ld-table"><thead><tr><th>Onboarding FY / Phase</th><th>Applicant</th><th>Mobile</th><th>District / Block</th><th>Business</th><th>Profile</th><th>Onboarding date</th><th class="ld-num">Services</th></tr></thead><tbody>
             @forelse($beneficiaries as $row)<tr>
                 <td><span class="ld-pill">{{ $row['financial_year'] }}</span><div class="ld-muted">{{ $row['phase'] }}</div></td>
                 <td><div class="ld-name">{{ $row['applicant'] }}</div><div class="ld-muted">{{ $row['application_no'] }}</div></td>
@@ -106,7 +106,7 @@
             </tr>@empty<tr><td colspan="8" class="ld-empty">No onboarded beneficiaries match these filters.</td></tr>@endforelse
             </tbody></table></div><div class="ld-pagination">{{ $beneficiaries->links() }}</div>
         @else
-            <div class="ld-table-wrap"><table class="ld-table"><thead><tr><th>FY / Phase</th><th>Applicant</th><th>Mobile</th><th>District</th><th>Service</th><th>Status</th><th>Delivery/event date</th></tr></thead><tbody>
+            <div class="ld-table-wrap"><table class="ld-table"><thead><tr><th>Service FY / Source Phase</th><th>Applicant</th><th>Mobile</th><th>District</th><th>Service</th><th>Status</th><th>Delivery/event date</th></tr></thead><tbody>
             @forelse($services as $row)<tr>
                 <td><span class="ld-pill">{{ $row['financial_year'] }}</span><div class="ld-muted">{{ $row['phase'] }}</div></td>
                 <td><div class="ld-name">{{ $row['applicant'] }}</div><div class="ld-muted">{{ $row['application_no'] }}</div></td>
