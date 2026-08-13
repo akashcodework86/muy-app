@@ -107,6 +107,37 @@ class LegacyDataTest extends TestCase
         $this->assertSame('FY 2026-27', $result['summary']->first()['label']);
     }
 
+    public function test_kpi_breakdowns_show_the_corresponding_beneficiaries(): void
+    {
+        Cache::forever('legacy-data-explorer:version', 9);
+        $served = $this->cachedRow('SERVED-APP', 'Phase 1', 'Approved');
+        $withoutService = $this->cachedRow('NO-SERVICE-APP', 'Phase 1', 'Approved');
+        $withoutService['service_items'] = [];
+        $withoutService['services_count'] = 0;
+        $withoutService['services'] = '';
+        $withoutService['original_services'] = '';
+
+        Cache::store('file')->put(
+            'legacy-data-explorer:dataset:s6:v9',
+            collect([$served, $withoutService]),
+            now()->addMinute(),
+        );
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.legacy-data.index', ['view' => 'beneficiaries', 'breakdown' => 'served']))
+            ->assertOk()
+            ->assertSee('SERVED-APP')
+            ->assertDontSee('NO-SERVICE-APP');
+
+        $this->actingAs($admin)
+            ->get(route('admin.legacy-data.index', ['view' => 'beneficiaries', 'breakdown' => 'without_service']))
+            ->assertOk()
+            ->assertSee('NO-SERVICE-APP')
+            ->assertDontSee('SERVED-APP');
+    }
+
     /** @return array<string,mixed> */
     private function cachedRow(string $applicationNo, string $phase, string $status): array
     {

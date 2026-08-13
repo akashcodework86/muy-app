@@ -17,6 +17,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class LegacyDataController extends Controller
 {
+    private const BREAKDOWNS = ['onboarded', 'served', 'deliveries', 'without_service'];
+
     private const GROUPS = [
         'district' => 'District', 'fy' => 'Financial year', 'phase' => 'Phase',
         'service' => 'Service', 'category' => 'Business category', 'stage' => 'Business stage',
@@ -35,15 +37,20 @@ final class LegacyDataController extends Controller
         @set_time_limit(180);
         $filters = $this->filters($request);
         $data = $this->service->build($filters);
+        $breakdown = in_array($request->query('breakdown'), self::BREAKDOWNS, true)
+            ? (string) $request->query('breakdown')
+            : '';
         $view = in_array($request->query('view'), ['summary', 'beneficiaries', 'services'], true)
             ? (string) $request->query('view')
             : 'summary';
+        $beneficiaryRows = $this->beneficiaryBreakdown($data['rows'], $breakdown);
 
         return view('admin.legacy-data.index', array_merge($data, [
             'filters' => $filters,
             'viewMode' => $view,
+            'breakdown' => $breakdown,
             'groups' => self::GROUPS,
-            'beneficiaries' => $this->paginate($data['rows'], $request, 'beneficiary_page'),
+            'beneficiaries' => $this->paginate($beneficiaryRows, $request, 'beneficiary_page'),
             'services' => $this->paginate($data['service_rows'], $request, 'service_page'),
             'showMobile' => $request->boolean('show_mobile'),
         ]));
@@ -152,7 +159,12 @@ final class LegacyDataController extends Controller
         $filters = $this->filters($request);
         $data = $this->service->build($filters);
         $exportServices = $request->query('view') === 'services';
-        $rows = $exportServices ? $data['service_rows'] : $data['rows'];
+        $breakdown = in_array($request->query('breakdown'), self::BREAKDOWNS, true)
+            ? (string) $request->query('breakdown')
+            : '';
+        $rows = $exportServices
+            ? $data['service_rows']
+            : $this->beneficiaryBreakdown($data['rows'], $breakdown);
         $filename = 'legacy-data-'.($exportServices ? 'services-' : 'onboarded-').now()->format('Ymd_His').'.csv';
 
         return response()->streamDownload(function () use ($rows, $exportServices): void {
@@ -213,5 +225,15 @@ final class LegacyDataController extends Controller
             $page,
             ['path' => $request->url(), 'query' => $request->query(), 'pageName' => $pageName],
         );
+    }
+
+    /** @return Collection<int,array<string,mixed>> */
+    private function beneficiaryBreakdown(Collection $rows, string $breakdown): Collection
+    {
+        return match ($breakdown) {
+            'served' => $rows->filter(fn (array $row): bool => (int) ($row['filtered_services_count'] ?? 0) > 0)->values(),
+            'without_service' => $rows->filter(fn (array $row): bool => (int) ($row['filtered_services_count'] ?? 0) === 0)->values(),
+            default => $rows,
+        };
     }
 }
