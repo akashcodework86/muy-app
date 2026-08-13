@@ -57,7 +57,9 @@ use App\Http\Controllers\Incubatee\MentorshipRequestController;
 use App\Http\Controllers\LiveOpsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Public\CfaApplyController;
+use App\Http\Controllers\Public\HomestaySurveyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
+use App\Http\Controllers\Admin\HomestaySurveyAdminController;
 use App\Http\Controllers\Staff\BlockWorkshopController;
 use App\Http\Controllers\Staff\FieldCoordinatorAttendanceController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
@@ -140,6 +142,17 @@ Route::post('/cfa/public/check-phone', [PublicCfaWalkInController::class, 'check
 Route::post('/cfa/public', [PublicCfaWalkInController::class, 'store'])
     ->middleware('throttle:30,1')
     ->name('cfa.public.store');
+
+/** Public Homestay progress survey (phone lookup → one response per number) */
+Route::get('/homestay-survey', [HomestaySurveyController::class, 'show'])->name('homestay-survey.show');
+Route::get('/homestay-survey/thanks', [HomestaySurveyController::class, 'thanks'])->name('homestay-survey.thanks');
+Route::get('/homestay-survey/already-submitted', [HomestaySurveyController::class, 'alreadySubmitted'])->name('homestay-survey.already-submitted');
+Route::post('/homestay-survey/lookup', [HomestaySurveyController::class, 'lookup'])
+    ->middleware('throttle:30,1')
+    ->name('homestay-survey.lookup');
+Route::post('/homestay-survey', [HomestaySurveyController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('homestay-survey.store');
 
 /** DANGER: runs programme:wipe-structure. ?key= must match PROGRAMME_WIPE_SECRET (.env). Optional &app_settings=1. Remove route + ProgrammeStructureWipeController after one-time use. No throttle — key is the gate; avoids 429 during setup retries. */
 Route::get('programme-wipe-run', [ProgrammeStructureWipeController::class, 'execute'])
@@ -961,6 +974,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('data-centre/export/{section}', [DataCentreController::class, 'export'])
             ->where('section', '[a-z\-]+')
             ->name('data-centre.export');
+
+        Route::get('homestay-survey', [HomestaySurveyAdminController::class, 'index'])->name('homestay-survey.index');
+        Route::get('homestay-survey/export', [HomestaySurveyAdminController::class, 'export'])->name('homestay-survey.export');
+        Route::post('homestay-survey/prefill-lock', [HomestaySurveyAdminController::class, 'updatePrefillLock'])
+            ->middleware('throttle:30,1')
+            ->name('homestay-survey.prefill-lock');
+        Route::get('homestay-survey/{homestaySurvey}', [HomestaySurveyAdminController::class, 'show'])->name('homestay-survey.show');
 
         Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
         Route::post('legacy-data/refresh', [LegacyDataController::class, 'refresh'])->name('legacy-data.refresh');

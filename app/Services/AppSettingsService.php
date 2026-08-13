@@ -47,6 +47,9 @@ class AppSettingsService
 
         // Target allocation pages (state / district / hub month-wise)
         'targets.allocation_editable' => true,
+
+        // Homestay public survey — lock prefilled profile fields on the form
+        'homestay_survey.prefill_locked' => false,
     ];
 
     public function get(string $key, mixed $fallback = null): mixed
