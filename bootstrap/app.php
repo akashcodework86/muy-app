@@ -16,6 +16,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -81,6 +82,34 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->withInput()
                 ->withErrors([
                     'file' => $message,
+                ]);
+        });
+
+        $exceptions->respond(function (Response $response) {
+            if ($response->getStatusCode() !== 419) {
+                return $response;
+            }
+
+            $request = request();
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Session expired. Refresh the page and try again.',
+                ], 419);
+            }
+
+            if (auth()->check()) {
+                return redirect()
+                    ->back()
+                    ->withInput($request->except(['_token', 'password', 'password_confirmation']))
+                    ->withErrors([
+                        'session' => 'This page was stale. It has been refreshed; please try again.',
+                    ]);
+            }
+
+            return redirect()
+                ->route('login')
+                ->withErrors([
+                    'email' => 'Your session expired. Please log in again.',
                 ]);
         });
     })->create();

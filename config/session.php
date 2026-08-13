@@ -1,6 +1,8 @@
 <?php
 
-use Illuminate\Support\Str;
+$appUrl = (string) env('APP_URL', 'http://localhost');
+$appUrlPath = trim((string) parse_url($appUrl, PHP_URL_PATH), '/');
+$appSessionPath = $appUrlPath === '' ? '/' : '/'.$appUrlPath;
 
 return [
 
@@ -127,10 +129,7 @@ return [
     |
     */
 
-    'cookie' => env(
-        'SESSION_COOKIE',
-        Str::slug((string) env('APP_NAME', 'laravel')).'-session'
-    ),
+    'cookie' => env('MUY_SESSION_COOKIE', 'muy_phase3_session'),
 
     /*
     |--------------------------------------------------------------------------
@@ -143,7 +142,7 @@ return [
     |
     */
 
-    'path' => env('SESSION_PATH', '/'),
+    'path' => env('MUY_SESSION_PATH', $appSessionPath),
 
     /*
     |--------------------------------------------------------------------------
@@ -169,7 +168,7 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    'secure' => env('SESSION_SECURE_COOKIE', str_starts_with($appUrl, 'https://')),
 
     /*
     |--------------------------------------------------------------------------
