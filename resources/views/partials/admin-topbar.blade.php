@@ -39,9 +39,10 @@
     $canManageTrainingPackageMonthPlans = $u && \App\Support\TrainingPackageMonthPlanAccess::canManage($u);
     $fyTargetsNavLabel = \App\Support\OfficialMonthlyTargetsUiSupport::fyTargetsNavLabel(\App\Models\FiscalYear::phase3Default());
     $fyTargetsNavPrefix = $showStateStaffNav ? 'spoc' : ($showHubNav ? 'hub' : ($showStaffNav ? 'staff' : null));
-    $staffDesignationLabel = $showStaffNav
+    $staffDesignationFull = $showStaffNav
         ? trim((string) ($u->designationRecord?->name ?? ''))
         : '';
+    $staffDesignationLabel = trim((string) preg_replace('/\s*\([^)]*\)\s*/u', ' ', $staffDesignationFull));
     $staffDistrictLabel = $showStaffNav
         ? trim((string) ($u->district?->name ?? ''))
         : '';
@@ -364,8 +365,8 @@
         || $staffNavDistrictWorkshop;
     $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'staff-batches', 'legacy-data'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
-    $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true)
-        || $staffFieldWorkActive;
+    $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true);
+    $staffMoreGroupActive = $staffFieldWorkActive || $activeNav === 'documents';
 
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
@@ -1217,11 +1218,18 @@
                     @endif
                 </div>
             </details>
-            @include('partials.staff-field-work-nav')
-
-            <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif" title="Documents">
-                {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
-            </a>
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($staffMoreGroupActive) is-active @endif" title="More">
+                    {!! $i('more') !!}<span class="admin-topbar__link-text">More</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel admin-topbar__dropdown-panel--wide" role="menu">
+                    <p class="admin-topbar__dropdown-kicker" role="presentation">Field work &amp; resources</p>
+                    @include('partials.staff-field-work-nav', ['staffFieldWorkNavEmbedded' => true])
+                    <a href="{{ route('library.documents.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'documents') is-active @endif" role="menuitem">
+                        {!! $i('book') !!}<span>Documents</span>
+                    </a>
+                </div>
+            </details>
         </nav>
         </div>
         @endif
