@@ -278,6 +278,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('applications.check-phone');
         Route::get('phase1-data', [StaffPortalController::class, 'phase1Data'])->name('phase1-data');
         Route::get('phase2-data', [StaffPortalController::class, 'phase2Data'])->name('phase2-data');
+        Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
+        Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
         Route::get('phase2-data/export', [StaffPortalController::class, 'exportPhase2Data'])->name('phase2-data.export');
         Route::get('phase2-applications/logo-mark', [LegacyPhase2IncubateeProfileController::class, 'headerLogo'])
             ->middleware('throttle:60,1')
@@ -618,6 +620,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('service-cases.bulk-approve');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
+        Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
+        Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
         Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
         Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
         Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');
@@ -1339,6 +1343,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
+        Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
+        Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
         Route::get('case-study-shortlists/{caseStudyShortlist}/profile', [CaseStudyShortlistController::class, 'show'])->name('case-study-shortlists.show');
         Route::get('case-study-shortlists/{caseStudyShortlist}/documents/{documentSource}/{documentId}', [CaseStudyShortlistController::class, 'downloadServiceDocument'])->whereNumber('documentId')->name('case-study-shortlists.documents.download');

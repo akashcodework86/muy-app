@@ -68,6 +68,9 @@
         str_starts_with($r, 'admin.media-gallery') => 'media-gallery',
         str_starts_with($r, 'admin.data-centre') => 'data-centre',
         str_starts_with($r, 'admin.legacy-data') => 'legacy-data',
+        str_starts_with($r, 'hub.legacy-data') => 'legacy-data',
+        str_starts_with($r, 'staff.legacy-data') => 'legacy-data',
+        str_starts_with($r, 'spoc.legacy-data') => 'legacy-data',
         str_starts_with($r, 'admin.cfa') => 'cfa',
         str_starts_with($r, 'admin.phase1-cfa') => 'phase1-cfa',
         str_starts_with($r, 'admin.phase2-cfa') => 'phase2-cfa',
@@ -358,7 +361,7 @@
         || $staffNavTechnicalTraining
         || $staffNavEapEdp
         || $staffNavDistrictWorkshop;
-    $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'staff-batches'], true);
+    $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'staff-batches', 'legacy-data'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
     $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true)
         || $staffFieldWorkActive;
@@ -366,7 +369,7 @@
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'hub-onboarding-insight'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
     $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard'], true);
-    $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents'], true);
+    $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents', 'legacy-data'], true);
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
     $spocSynergiesActive = in_array($activeNav, ['stakeholder-consultation-workshops-submit', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard'], true);
@@ -758,6 +761,9 @@
             <a href="{{ route('spoc.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
             </a>
+            <a href="{{ route('spoc.legacy-data.index') }}" class="admin-topbar__link @if ($activeNav === 'legacy-data') is-active @endif">
+                {!! $i('database') !!}<span class="admin-topbar__link-text">Legacy Data</span>
+            </a>
             <a href="{{ route('spoc.service-cases.index') }}" class="admin-topbar__link @if ($approvalQueueNavActive) is-active @endif">
                 {!! $i('inbox') !!}<span class="admin-topbar__link-text">Approval queue</span>
             </a>
@@ -1081,6 +1087,9 @@
                         {!! $i('pin') !!}<span>Daily attendance</span>
                     </a>
                     @endif
+                    <a href="{{ route('hub.legacy-data.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'legacy-data') is-active @endif" role="menuitem">
+                        {!! $i('database') !!}<span>Legacy Data (read-only)</span>
+                    </a>
                     <a href="{{ route('library.documents.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'documents') is-active @endif" role="menuitem">
                         {!! $i('book') !!}<span>Documents</span>
                     </a>
@@ -1119,6 +1128,9 @@
                     </a>
                     <a href="{{ route('staff.onboarded.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarded') is-active @endif" role="menuitem">
                         {!! $i('batches') !!}<span>Onboarded</span>
+                    </a>
+                    <a href="{{ route('staff.legacy-data.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'legacy-data') is-active @endif" role="menuitem">
+                        {!! $i('database') !!}<span>Legacy Data (read-only)</span>
                     </a>
                     <a href="{{ route('staff.batches.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-batches') is-active @endif" role="menuitem">
                         {!! $i('batches') !!}<span>Batches</span>

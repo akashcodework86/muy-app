@@ -7,6 +7,7 @@ use App\Models\LegacyServiceAlias;
 use App\Services\AdminAuditLogger;
 use App\Services\LegacyData\LegacyDataExplorerService;
 use App\Services\LegacyData\LegacyServiceNameNormalizer;
+use App\Support\LegacyDataAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -33,6 +34,7 @@ final class LegacyDataController extends Controller
 
     public function index(Request $request): View
     {
+        abort_unless(LegacyDataAccess::canView($request->user()), 403);
         @ini_set('memory_limit', '512M');
         @set_time_limit(180);
         $filters = $this->filters($request);
@@ -53,6 +55,9 @@ final class LegacyDataController extends Controller
             'beneficiaries' => $this->paginate($beneficiaryRows, $request, 'beneficiary_page'),
             'services' => $this->paginate($data['service_rows'], $request, 'service_page'),
             'showMobile' => $request->boolean('show_mobile'),
+            'legacyRoutePrefix' => LegacyDataAccess::routePrefix($request->user()),
+            'canManageLegacyData' => LegacyDataAccess::canManage($request->user()),
+            'scopeLabel' => LegacyDataAccess::scopeLabel($request->user(), $filters['scope_districts']),
         ]));
     }
 
@@ -156,6 +161,7 @@ final class LegacyDataController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
+        abort_unless(LegacyDataAccess::canView($request->user()), 403);
         $filters = $this->filters($request);
         $data = $this->service->build($filters);
         $exportServices = $request->query('view') === 'services';
@@ -188,7 +194,7 @@ final class LegacyDataController extends Controller
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    /** @return array<string,string> */
+    /** @return array<string,mixed> */
     private function filters(Request $request): array
     {
         $group = (string) $request->query('group', 'district');
@@ -211,6 +217,7 @@ final class LegacyDataController extends Controller
             'to' => trim((string) $request->query('to', '')),
             'q' => trim((string) $request->query('q', '')),
             'group' => $group,
+            'scope_districts' => LegacyDataAccess::districtNames($request->user()),
         ];
     }
 

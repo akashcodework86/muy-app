@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\District;
+use App\Models\DistrictServiceSpoc;
+use App\Models\Hub;
 use App\Models\User;
 use App\Services\LegacyData\LegacyDataExplorerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,13 +70,65 @@ class LegacyDataTest extends TestCase
             ->assertSee('APP-2');
     }
 
-    public function test_non_state_admin_cannot_open_legacy_data_page(): void
+    public function test_district_staff_only_see_their_legacy_data_scope(): void
     {
-        $staff = User::factory()->create(['role' => 'district_staff', 'is_active' => true]);
+        Cache::forever('legacy-data-explorer:version', 10);
+        $almora = $this->cachedRow('ALMORA-APP', 'Phase 1', 'Approved');
+        $almora['district'] = 'Almora';
+        $dehradun = $this->cachedRow('DEHRADUN-APP', 'Phase 1', 'Approved');
+        $dehradun['district'] = 'Dehradun';
+        Cache::store('file')->put(
+            'legacy-data-explorer:dataset:s6:v10',
+            collect([$almora, $dehradun]),
+            now()->addMinute(),
+        );
+
+        $hub = Hub::query()->create(['slug' => 'test-hub', 'name' => 'Test Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id, 'slug' => 'almora', 'name' => 'Almora', 'sort_order' => 1,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff', 'district_id' => $district->id, 'is_active' => true,
+        ]);
 
         $this->actingAs($staff)
-            ->get('/admin/legacy-data')
+            ->get(route('staff.legacy-data.index', ['view' => 'beneficiaries']))
+            ->assertOk()
+            ->assertSee('District scope: Almora')
+            ->assertSee('ALMORA-APP')
+            ->assertDontSee('DEHRADUN-APP')
+            ->assertDontSee('Service mappings')
+            ->assertDontSee('Refresh data');
+
+        $this->actingAs($staff)
+            ->get(route('admin.legacy-data.index'))
             ->assertForbidden();
+    }
+
+    public function test_hub_and_spoc_legacy_scopes_use_only_assigned_districts(): void
+    {
+        $hub = Hub::query()->create(['slug' => 'scope-hub', 'name' => 'Scope Hub', 'sort_order' => 1]);
+        $almora = District::query()->create([
+            'hub_id' => $hub->id, 'slug' => 'almora', 'name' => 'Almora', 'sort_order' => 1,
+        ]);
+        District::query()->create([
+            'hub_id' => $hub->id, 'slug' => 'bageshwar', 'name' => 'Bageshwar', 'sort_order' => 2,
+        ]);
+        $otherHub = Hub::query()->create(['slug' => 'other-hub', 'name' => 'Other Hub', 'sort_order' => 2]);
+        District::query()->create([
+            'hub_id' => $otherHub->id, 'slug' => 'dehradun', 'name' => 'Dehradun', 'sort_order' => 1,
+        ]);
+
+        $hubAdmin = User::factory()->create(['role' => 'hub_admin', 'hub_id' => $hub->id, 'is_active' => true]);
+        $spoc = User::factory()->create(['role' => 'state_staff', 'is_active' => true]);
+        DistrictServiceSpoc::query()->create([
+            'district_id' => $almora->id, 'state_staff_user_id' => $spoc->id, 'assigned_at' => now(),
+        ]);
+
+        $this->assertSame(['Almora', 'Bageshwar'], \App\Support\LegacyDataAccess::districtNames($hubAdmin));
+        $this->assertSame(['Almora'], \App\Support\LegacyDataAccess::districtNames($spoc));
+        $this->assertSame('hub.legacy-data', \App\Support\LegacyDataAccess::routePrefix($hubAdmin));
+        $this->assertSame('spoc.legacy-data', \App\Support\LegacyDataAccess::routePrefix($spoc));
     }
 
     public function test_service_fy_and_phase_use_delivery_event_not_onboarding(): void

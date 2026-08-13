@@ -22,6 +22,16 @@ final class LegacyDataExplorerService
     public function build(array $filters): array
     {
         $all = $this->dataset();
+        $scopeDistricts = $filters['scope_districts'] ?? null;
+        if (is_array($scopeDistricts)) {
+            $scopeKeys = collect($scopeDistricts)
+                ->map(fn (string $district): string => $this->districtKey($district))
+                ->filter()
+                ->unique();
+            $all = $all->filter(fn (array $row): bool => $scopeKeys->contains(
+                $this->districtKey((string) ($row['district'] ?? '')),
+            ))->values();
+        }
         $serviceContext = trim((string) ($filters['service'] ?? '')) !== '';
         $rowFilters = $filters;
         if ($serviceContext) {
@@ -366,6 +376,17 @@ final class LegacyDataExplorerService
         }
 
         return 'row:'.sha1(implode('|', [$row['phase'] ?? '', $row['cfa_id'] ?? '', $row['applicant'] ?? '']));
+    }
+
+    private function districtKey(string $district): string
+    {
+        $key = preg_replace('/[^a-z0-9]+/', '', mb_strtolower(trim($district))) ?? '';
+
+        return match ($key) {
+            'pauri' => 'paurigarhwal',
+            'usnagar' => 'udhamsinghnagar',
+            default => $key,
+        };
     }
 
     private function servicePhase(string $raw, string $fallback): string

@@ -12,7 +12,9 @@
 @section('content')
 @php
     $baseQuery = request()->except(['beneficiary_page', 'service_page']);
-    $activeFilters = collect($filters)->except(['group'])->filter(fn($value) => $value !== '');
+    $activeFilters = collect($filters)->except(['group', 'scope_districts'])->filter(fn($value) => $value !== '');
+    $legacyIndexRoute = $legacyRoutePrefix.'.index';
+    $legacyExportRoute = $legacyRoutePrefix.'.export';
     $summaryFilter = match($filters['group']) {
         'fy' => 'fy', 'phase' => 'phase', 'service' => 'service', 'category' => 'category',
         'stage' => 'stage', 'gender' => 'gender', 'education' => 'education', 'type' => 'type', default => 'district'
@@ -27,16 +29,18 @@
     <div class="ld-intro">
         <div>
             <h2>Onboarding &amp; Services Explorer</h2>
-            <p>State Admin only · Phase 3 service master names · Phase 1/2 services treated as approved · operational data read-only</p>
+            <p>{{ $scopeLabel }} · Phase 3 service master names · Phase 1/2 services treated as approved · operational data read-only</p>
         </div>
         <div class="ld-actions">
-            <a class="ld-btn" href="{{ route('admin.legacy-data.mappings') }}">Service mappings</a>
-            <form method="post" action="{{ route('admin.legacy-data.refresh') }}">@csrf<button class="ld-btn ld-btn--warn" type="submit">↻ Refresh data</button></form>
-            <a class="ld-btn ld-btn--primary" href="{{ route('admin.legacy-data.export', array_merge($baseQuery, ['view' => $viewMode === 'services' ? 'services' : 'beneficiaries'])) }}">↓ Export filtered CSV</a>
+            @if($canManageLegacyData)
+                <a class="ld-btn" href="{{ route('admin.legacy-data.mappings') }}">Service mappings</a>
+                <form method="post" action="{{ route('admin.legacy-data.refresh') }}">@csrf<button class="ld-btn ld-btn--warn" type="submit">↻ Refresh data</button></form>
+            @endif
+            <a class="ld-btn ld-btn--primary" href="{{ route($legacyExportRoute, array_merge($baseQuery, ['view' => $viewMode === 'services' ? 'services' : 'beneficiaries'])) }}">↓ Export filtered CSV</a>
         </div>
     </div>
 
-    <form class="ld-filter" method="get" action="{{ route('admin.legacy-data.index') }}">
+    <form class="ld-filter" method="get" action="{{ route($legacyIndexRoute) }}">
         <input type="hidden" name="view" value="{{ $viewMode }}">
         <div class="ld-filter-grid">
             <div class="ld-field"><label for="ld-fy">Financial year</label><select id="ld-fy" name="fy"><option value="">All years</option>@foreach($options['financial_years'] as $option)<option @selected($filters['fy']===$option)>{{ $option }}</option>@endforeach</select></div>
@@ -61,15 +65,15 @@
         </details>
         <div class="ld-filter-foot">
             <div class="ld-active">@forelse($activeFilters as $key=>$value)<span>{{ str_replace('_',' ',ucfirst($key)) }}: {{ $value }}</span>@empty<span>No filters applied</span>@endforelse</div>
-            <div class="ld-actions"><a class="ld-btn" href="{{ route('admin.legacy-data.index') }}">Reset</a><button class="ld-btn ld-btn--primary" type="submit">Apply filters</button></div>
+            <div class="ld-actions"><a class="ld-btn" href="{{ route($legacyIndexRoute) }}">Reset</a><button class="ld-btn ld-btn--primary" type="submit">Apply filters</button></div>
         </div>
     </form>
 
     <div class="ld-kpis">
-        <a class="ld-kpi ld-kpi--violet @if($breakdown==='onboarded') is-active @endif" href="{{ route('admin.legacy-data.index', array_merge($baseQuery,['view'=>'beneficiaries','breakdown'=>'onboarded'])) }}"><span>Unique onboarded</span><strong>{{ number_format($kpis['onboarded']) }}</strong><small>Application number, then mobile dedupe</small><em>View beneficiary breakdown &rarr;</em></a>
-        <a class="ld-kpi ld-kpi--green @if($breakdown==='served') is-active @endif" href="{{ route('admin.legacy-data.index', array_merge($baseQuery,['view'=>'beneficiaries','breakdown'=>'served'])) }}"><span>Beneficiaries served</span><strong>{{ number_format($kpis['served']) }}</strong><small>Approved services under current filters</small><em>View served beneficiaries &rarr;</em></a>
-        <a class="ld-kpi @if($breakdown==='deliveries') is-active @endif" href="{{ route('admin.legacy-data.index', array_merge($baseQuery,['view'=>'services','breakdown'=>'deliveries'])) }}"><span>Service deliveries</span><strong>{{ number_format($kpis['deliveries']) }}</strong><small>Approved by default; one beneficiary may have many</small><em>View every delivery &rarr;</em></a>
-        <a class="ld-kpi ld-kpi--amber @if($breakdown==='without_service') is-active @endif" href="{{ route('admin.legacy-data.index', array_merge($baseQuery,['view'=>'beneficiaries','breakdown'=>'without_service'])) }}"><span>No service recorded</span><strong>{{ number_format($kpis['without_service']) }}</strong><small>Onboarded but service data unavailable</small><em>View beneficiaries without service &rarr;</em></a>
+        <a class="ld-kpi ld-kpi--violet @if($breakdown==='onboarded') is-active @endif" href="{{ route($legacyIndexRoute, array_merge($baseQuery,['view'=>'beneficiaries','breakdown'=>'onboarded'])) }}"><span>Unique onboarded</span><strong>{{ number_format($kpis['onboarded']) }}</strong><small>Application number, then mobile dedupe</small><em>View beneficiary breakdown &rarr;</em></a>
+        <a class="ld-kpi ld-kpi--green @if($breakdown==='served') is-active @endif" href="{{ route($legacyIndexRoute, array_merge($baseQuery,['view'=>'beneficiaries','breakdown'=>'served'])) }}"><span>Beneficiaries served</span><strong>{{ number_format($kpis['served']) }}</strong><small>Approved services under current filters</small><em>View served beneficiaries &rarr;</em></a>
+        <a class="ld-kpi @if($breakdown==='deliveries') is-active @endif" href="{{ route($legacyIndexRoute, array_merge($baseQuery,['view'=>'services','breakdown'=>'deliveries'])) }}"><span>Service deliveries</span><strong>{{ number_format($kpis['deliveries']) }}</strong><small>Approved by default; one beneficiary may have many</small><em>View every delivery &rarr;</em></a>
+        <a class="ld-kpi ld-kpi--amber @if($breakdown==='without_service') is-active @endif" href="{{ route($legacyIndexRoute, array_merge($baseQuery,['view'=>'beneficiaries','breakdown'=>'without_service'])) }}"><span>No service recorded</span><strong>{{ number_format($kpis['without_service']) }}</strong><small>Onboarded but service data unavailable</small><em>View beneficiaries without service &rarr;</em></a>
     </div>
 
     <div class="ld-breakdowns">
@@ -78,7 +82,7 @@
             <div class="ld-table-wrap"><table class="ld-table"><thead><tr><th>Financial year</th><th class="ld-num">Beneficiaries</th><th class="ld-num">Deliveries</th><th class="ld-num">No service</th></tr></thead><tbody>
                 @forelse($year_summary as $row)
                     @php $yearDrillQuery=array_merge($baseQuery,['view'=>'beneficiaries','group'=>'fy','fy'=>$row['label']]); @endphp
-                    <tr><td><a class="ld-summary-link" href="{{ route('admin.legacy-data.index',$yearDrillQuery) }}">{{ $row['label'] }}</a></td><td class="ld-num"><strong>{{ number_format($row['onboarded']) }}</strong></td><td class="ld-num">{{ number_format($row['deliveries']) }}</td><td class="ld-num">{{ number_format($row['without_service']) }}</td></tr>
+                    <tr><td><a class="ld-summary-link" href="{{ route($legacyIndexRoute,$yearDrillQuery) }}">{{ $row['label'] }}</a></td><td class="ld-num"><strong>{{ number_format($row['onboarded']) }}</strong></td><td class="ld-num">{{ number_format($row['deliveries']) }}</td><td class="ld-num">{{ number_format($row['without_service']) }}</td></tr>
                 @empty<tr><td colspan="4" class="ld-empty">No year-wise records for these filters.</td></tr>@endforelse
             </tbody></table></div>
         </section>
@@ -87,7 +91,7 @@
             <div class="ld-table-wrap"><table class="ld-table"><thead><tr><th>District</th><th class="ld-num">Beneficiaries</th><th class="ld-num">Deliveries</th><th class="ld-num">No service</th></tr></thead><tbody>
                 @forelse($district_summary as $row)
                     @php $districtDrillQuery=array_merge($baseQuery,['view'=>'beneficiaries','group'=>'district','district'=>$row['label']]); @endphp
-                    <tr><td><a class="ld-summary-link" href="{{ route('admin.legacy-data.index',$districtDrillQuery) }}">{{ $row['label'] }}</a></td><td class="ld-num"><strong>{{ number_format($row['onboarded']) }}</strong></td><td class="ld-num">{{ number_format($row['deliveries']) }}</td><td class="ld-num">{{ number_format($row['without_service']) }}</td></tr>
+                    <tr><td><a class="ld-summary-link" href="{{ route($legacyIndexRoute,$districtDrillQuery) }}">{{ $row['label'] }}</a></td><td class="ld-num"><strong>{{ number_format($row['onboarded']) }}</strong></td><td class="ld-num">{{ number_format($row['deliveries']) }}</td><td class="ld-num">{{ number_format($row['without_service']) }}</td></tr>
                 @empty<tr><td colspan="4" class="ld-empty">No district-wise records for these filters.</td></tr>@endforelse
             </tbody></table></div>
         </section>
@@ -97,11 +101,11 @@
         <div class="ld-panel-head">
             <div class="ld-tabs">
                 @foreach(['summary'=>'Summary','beneficiaries'=>'Beneficiaries','services'=>'Service records'] as $key=>$label)
-                    <a class="ld-tab @if($viewMode===$key) is-active @endif" href="{{ route('admin.legacy-data.index', array_merge($baseQuery,['view'=>$key])) }}">{{ $label }}</a>
+                    <a class="ld-tab @if($viewMode===$key) is-active @endif" href="{{ route($legacyIndexRoute, array_merge($baseQuery,['view'=>$key])) }}">{{ $label }}</a>
                 @endforeach
             </div>
             <div class="ld-actions">
-                @if($viewMode!=='summary')<a class="ld-btn" href="{{ route('admin.legacy-data.index', array_merge($baseQuery,['view'=>$viewMode,'show_mobile'=>$showMobile?0:1])) }}">{{ $showMobile ? 'Mask mobile' : 'Show full mobile' }}</a>@endif
+                @if($viewMode!=='summary')<a class="ld-btn" href="{{ route($legacyIndexRoute, array_merge($baseQuery,['view'=>$viewMode,'show_mobile'=>$showMobile?0:1])) }}">{{ $showMobile ? 'Mask mobile' : 'Show full mobile' }}</a>@endif
                 <span class="ld-context">Generated {{ now()->format('d M Y, g:i A') }} · cached 5 min</span>
             </div>
         </div>
@@ -110,7 +114,7 @@
             <div class="ld-table-wrap"><table class="ld-table"><thead><tr><th>{{ $groups[$filters['group']] }}</th><th class="ld-num">Unique onboarded</th><th class="ld-num">Served</th><th class="ld-num">Service deliveries</th><th class="ld-num">No service</th></tr></thead><tbody>
             @forelse($summary as $row)
                 @php $drillQuery=array_merge($baseQuery,['view'=>'beneficiaries',$summaryFilter=>$row['label']]); @endphp
-                <tr><td><a class="ld-summary-link" href="{{ route('admin.legacy-data.index',$drillQuery) }}">{{ $row['label'] }}</a></td><td class="ld-num"><strong>{{ number_format($row['onboarded']) }}</strong></td><td class="ld-num">{{ number_format($row['served']) }}</td><td class="ld-num">{{ number_format($row['deliveries']) }}</td><td class="ld-num">{{ number_format($row['without_service']) }}</td></tr>
+                <tr><td><a class="ld-summary-link" href="{{ route($legacyIndexRoute,$drillQuery) }}">{{ $row['label'] }}</a></td><td class="ld-num"><strong>{{ number_format($row['onboarded']) }}</strong></td><td class="ld-num">{{ number_format($row['served']) }}</td><td class="ld-num">{{ number_format($row['deliveries']) }}</td><td class="ld-num">{{ number_format($row['without_service']) }}</td></tr>
             @empty<tr><td colspan="5" class="ld-empty">No onboarded records match these filters.</td></tr>@endforelse
             </tbody></table></div>
         @elseif($viewMode==='beneficiaries')
