@@ -262,9 +262,7 @@ final class LegacyDataExplorerService
     {
         return $rows->flatMap(function (array $row): array {
             return array_map(fn (array $service): array => [
-                'financial_year' => ($serviceDate = $this->parseDate($service['date'] ?? null))
-                    ? $this->fiscalYear($serviceDate)
-                    : 'Date NA',
+                'financial_year' => $this->serviceFinancialYear($service['date'] ?? null),
                 'phase' => $service['phase'] ?? $row['phase'],
                 'application_no' => $row['application_no'],
                 'applicant' => $row['applicant'],
@@ -417,13 +415,40 @@ final class LegacyDataExplorerService
         try {
             $date = Carbon::parse($value);
 
-            // Preserve real historical dates, including pre-program outliers,
-            // so administrators can see and review them instead of silently
-            // converting them to Date NA.
+            return $date->year >= 2021 && $date->year <= now()->year + 1 ? $date : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function parseServiceDate(mixed $value): ?Carbon
+    {
+        $value = trim((string) $value);
+        if ($value === '' || in_array($value, ['â€”', 'Date NA'], true)) {
+            return null;
+        }
+
+        try {
+            $date = Carbon::parse($value);
+
+            // Service delivery dates are preserved even when they pre-date the
+            // programme window, because those outliers must remain auditable.
             return $date->year >= 2000 && $date->year <= now()->year + 1 ? $date : null;
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function serviceFinancialYear(mixed $value): string
+    {
+        $date = $this->parseServiceDate($value);
+        if (! $date) {
+            return 'Date NA';
+        }
+
+        $startYear = $date->month >= 4 ? $date->year : $date->year - 1;
+
+        return $startYear < 2021 ? 'Outside programme period' : $this->fiscalYear($date);
     }
 
     private function fiscalYear(Carbon $date): string
