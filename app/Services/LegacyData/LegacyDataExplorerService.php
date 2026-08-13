@@ -18,7 +18,7 @@ final class LegacyDataExplorerService
         private readonly LegacyServiceNameNormalizer $serviceNames,
     ) {}
 
-    /** @return array{rows: Collection<int,array<string,mixed>>, options: array<string,list<string>>, kpis: array<string,int>, summary: Collection<int,array<string,mixed>>, service_rows: Collection<int,array<string,mixed>>} */
+    /** @return array{rows: Collection<int,array<string,mixed>>, options: array<string,list<string>>, kpis: array<string,int>, summary: Collection<int,array<string,mixed>>, year_summary: Collection<int,array<string,mixed>>, district_summary: Collection<int,array<string,mixed>>, service_rows: Collection<int,array<string,mixed>>} */
     public function build(array $filters): array
     {
         $all = $this->dataset();
@@ -71,6 +71,8 @@ final class LegacyDataExplorerService
                 (string) ($filters['group'] ?? 'district'),
                 $serviceContext,
             ),
+            'year_summary' => $this->summary($rows, $serviceRows, 'fy', $serviceContext),
+            'district_summary' => $this->summary($rows, $serviceRows, 'district', $serviceContext),
             'service_rows' => $serviceRows,
         ];
     }

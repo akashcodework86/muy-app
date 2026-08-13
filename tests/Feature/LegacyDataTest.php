@@ -38,6 +38,8 @@ class LegacyDataTest extends TestCase
             ->get(route('admin.legacy-data.index'))
             ->assertOk()
             ->assertSee('Onboarding &amp; Services Explorer', false)
+            ->assertSee('Year-wise count')
+            ->assertSee('District-wise count')
             ->assertSee('Demo Applicant')
             ->assertSee('Legacy Data');
     }
@@ -105,6 +107,8 @@ class LegacyDataTest extends TestCase
         $this->assertSame('FY 2026-27', $result['service_rows']->first()['financial_year']);
         $this->assertSame('Phase 3', $result['service_rows']->first()['phase']);
         $this->assertSame('FY 2026-27', $result['summary']->first()['label']);
+        $this->assertSame('FY 2026-27', $result['year_summary']->first()['label']);
+        $this->assertSame('Almora', $result['district_summary']->first()['label']);
     }
 
     public function test_kpi_breakdowns_show_the_corresponding_beneficiaries(): void
