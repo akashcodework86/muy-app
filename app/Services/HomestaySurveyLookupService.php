@@ -531,26 +531,37 @@ final class HomestaySurveyLookupService
         try {
             $row = DB::connection('legacy_phase1')
                 ->table('tblapplication')
-                ->where('MobileNumber', $phone)
+                ->where(function ($q) use ($phone): void {
+                    $q->where('MobileNumber', $phone)
+                        ->orWhere('MobileNumber', 'like', '%'.$phone);
+                })
                 ->orderByDesc('ID')
-                ->first([
+                ->get([
                     'ID', 'ApplicationNumber', 'FullName', 'gender', 'dob', 'cast', 'Email', 'MobileNumber',
                     'FatherName', 'City', 'Pincode', 'Address', 'hub', 'business_desp',
+                    'idea', 'idea2', 'other_idea',
                     'enterprise_name', 'registered', 'loan', 'loan_amount', 'current_emp', 'job_count',
                     'ApplicationDate', 'onboarding_date', 'onboard_date', 'chal', 'tech',
                 ]);
 
-            if (! $row) {
+            $match = null;
+            foreach ($row as $candidate) {
+                $storedPhone = preg_replace('/\D+/', '', (string) ($candidate->MobileNumber ?? '')) ?? '';
+                if ($storedPhone === '' || ! str_ends_with($storedPhone, $phone)) {
+                    continue;
+                }
+                if (! $this->isPhase1HomestayRow($candidate)) {
+                    continue;
+                }
+                $match = $candidate;
+                break;
+            }
+
+            if ($match === null) {
                 return null;
             }
 
-            $desp = mb_strtolower(trim((string) ($row->business_desp ?? '')));
-            $desp = preg_replace('/\s+/', ' ', str_replace(['-', '_'], ' ', $desp)) ?? $desp;
-            $desp = rtrim($desp, " \t\n\r\0\x0B.");
-            if (! in_array($desp, ['homestay', 'home stay'], true)) {
-                return null;
-            }
-
+            $row = $match;
             $district = trim((string) ($row->FatherName ?? ''));
 
             return [
@@ -566,7 +577,7 @@ final class HomestaySurveyLookupService
                     'enterprise_name' => $row->enterprise_name ?? '',
                     'sector' => 'Homestay',
                     'business_category' => 'Homestay',
-                    'product' => trim((string) ($row->business_desp ?? 'Homestay')),
+                    'product' => trim((string) ($row->business_desp ?: ($row->idea2 ?? ($row->idea ?? 'Homestay')))),
                     'district' => $district,
                     'block' => $row->City ?? '',
                     'village' => $row->Address ?? '',
@@ -594,6 +605,36 @@ final class HomestaySurveyLookupService
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Phase 1 sector lives in `idea` (Homestay). `business_desp` is free text
+     * such as "plan to run a homestay for 3 rooms."
+     */
+    private function isPhase1HomestayRow(object $row): bool
+    {
+        foreach (['idea', 'idea2', 'other_idea', 'business_desp'] as $field) {
+            if ($this->textMentionsHomestay((string) ($row->{$field} ?? ''))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function textMentionsHomestay(string $raw): bool
+    {
+        $n = mb_strtolower(trim($raw));
+        if ($n === '') {
+            return false;
+        }
+        $n = preg_replace('/\s+/', ' ', str_replace(['-', '_'], ' ', $n)) ?? $n;
+        $n = rtrim($n, " \t\n\r\0\x0B.");
+
+        return $n === 'homestay'
+            || $n === 'home stay'
+            || str_contains($n, 'homestay')
+            || str_contains($n, 'home stay');
     }
 
     private function str(mixed $v): string
