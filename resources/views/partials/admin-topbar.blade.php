@@ -1125,12 +1125,6 @@
                     <a href="{{ route('staff.applications') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-apps') is-active @endif" role="menuitem">
                         {!! $i('inbox') !!}<span>Applications</span>
                     </a>
-                    <a href="{{ route('staff.phase1-data') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-phase1-data') is-active @endif" role="menuitem">
-                        {!! $i('database') !!}<span>CFA (FY 2024-25 Data)</span>
-                    </a>
-                    <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-phase2-data') is-active @endif" role="menuitem">
-                        {!! $i('pie') !!}<span>FY 2025-26 Data</span>
-                    </a>
                     <a href="{{ route('staff.onboarded.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarded') is-active @endif" role="menuitem">
                         {!! $i('batches') !!}<span>Onboarded</span>
                     </a>
