@@ -126,6 +126,65 @@ class CfaSubmissionIndexTest extends TestCase
             ->assertDontSee('FC Applicant');
     }
 
+    public function test_submitted_by_filter_limits_list_to_selected_referral_staff(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $district = $this->createDistrict();
+        $firstStaff = User::factory()->create([
+            'name' => 'First Submitter',
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $secondStaff = User::factory()->create([
+            'name' => 'Second Submitter',
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $activeFy = FiscalYear::query()->create([
+            'code' => 'FY2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+            'is_phase3_default' => true,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $activeFy->id,
+                'referral_user_id' => $firstStaff->id,
+                'application_no' => 'SUBMITTER-001',
+                'applicant_name' => 'First Staff Applicant',
+                'phone' => '9000000301',
+                'payload' => json_encode([]),
+                'created_at' => '2026-05-01',
+                'updated_at' => now(),
+            ],
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $activeFy->id,
+                'referral_user_id' => $secondStaff->id,
+                'application_no' => 'SUBMITTER-002',
+                'applicant_name' => 'Second Staff Applicant',
+                'phone' => '9000000302',
+                'payload' => json_encode([]),
+                'created_at' => '2026-05-01',
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.cfa.index', ['submitted_by' => $firstStaff->id]))
+            ->assertOk()
+            ->assertSee('First Staff Applicant')
+            ->assertDontSee('Second Staff Applicant')
+            ->assertSee('First Submitter')
+            ->assertSee('Second Submitter');
+    }
+
     public function test_st_sc_category_filter_limits_list(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);

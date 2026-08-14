@@ -49,7 +49,7 @@ class CfaSubmissionListQuery
      */
     public static function filterParamNames(): array
     {
-        return ['name', 'application_no', 'district_id', 'block', 'sector', 'caste', 'designation_id', 'from', 'to', 'onboard'];
+        return ['name', 'application_no', 'district_id', 'block', 'sector', 'caste', 'submitted_by', 'designation_id', 'from', 'to', 'onboard'];
     }
 
     public static function hasActiveFilters(Request $request): bool
@@ -58,7 +58,7 @@ class CfaSubmissionListQuery
     }
 
     /**
-     * @param  array{name: string, application_no: string, district_id: int|null, block: string, sector: string, caste: string, designation_id: int|null, from: string, to: string, onboard: string}  $filters
+     * @param  array{name: string, application_no: string, district_id: int|null, block: string, sector: string, caste: string, submitted_by: int|null, designation_id: int|null, from: string, to: string, onboard: string}  $filters
      */
     public static function applyFilters(Builder $query, array $filters, bool $includeOnboard = true): Builder
     {
@@ -91,6 +91,7 @@ class CfaSubmissionListQuery
             ->when(self::casteFilterValues($filters['caste'] ?? '') !== [], function (Builder $q) use ($filters): void {
                 self::applyCasteColumnFilter($q, self::payloadJsonExpr('$.caste'), $filters['caste']);
             })
+            ->when(! empty($filters['submitted_by']), fn ($q) => $q->where('referral_user_id', (int) $filters['submitted_by']))
             ->when(! empty($filters['designation_id']), fn ($q) => $q->whereHas(
                 'referralUser',
                 fn (Builder $userQuery) => $userQuery->where('designation_id', (int) $filters['designation_id'])

@@ -8,6 +8,7 @@ use App\Models\CfaSubmission;
 use App\Models\Designation;
 use App\Models\District;
 use App\Models\DistrictBlock;
+use App\Models\User;
 use App\Services\Cfa\CfaFyOnboardingStatsService;
 use App\Services\Cfa\CfaSubmissionListQuery;
 use App\Services\CfaSubmissionAuditSnapshot;
@@ -43,6 +44,10 @@ class CfaSubmissionController extends Controller
             'blocks' => $this->blocksForFilter($filters['district_id'] ?? null),
             'sectors' => config('cfa.business_categories'),
             'designations' => Designation::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'submitters' => User::query()
+                ->whereHas('cfaSubmissions', fn (Builder $query) => CfaSubmissionListQuery::applyPhase3DashboardScope($query))
+                ->orderBy('name')
+                ->get(['id', 'name']),
             'filters' => $filters,
             'scopeCounts' => $scopeCounts,
             'fyOnboarding' => $fyOnboarding,
@@ -166,7 +171,7 @@ class CfaSubmissionController extends Controller
     }
 
     /**
-     * @return array{name: string, application_no: string, district_id: int|null, block: string, sector: string, caste: string, designation_id: int|null, from: string, to: string, onboard: string}
+     * @return array{name: string, application_no: string, district_id: int|null, block: string, sector: string, caste: string, submitted_by: int|null, designation_id: int|null, from: string, to: string, onboard: string}
      */
     private function extractFilters(Request $request): array
     {
@@ -176,6 +181,7 @@ class CfaSubmissionController extends Controller
         $block = trim((string) $request->query('block', ''));
         $sector = trim((string) $request->query('sector', ''));
         $caste = CfaSubmissionListQuery::normalizeCasteParam($request);
+        $submittedBy = $request->query('submitted_by');
         $designationId = $request->query('designation_id');
         $from = trim((string) $request->query('from', ''));
         $to = trim((string) $request->query('to', ''));
@@ -200,6 +206,7 @@ class CfaSubmissionController extends Controller
             'block' => $block,
             'sector' => $sector,
             'caste' => $caste,
+            'submitted_by' => $submittedBy ? (int) $submittedBy : null,
             'designation_id' => $designationId ? (int) $designationId : null,
             'from' => $from,
             'to' => $to,

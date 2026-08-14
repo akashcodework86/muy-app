@@ -47,6 +47,16 @@
         @include('partials.cfa.caste-filter', ['id' => 'cfa-caste', 'selected' => $filters['caste'] ?? ''])
 
         <div class="p1l-field">
+            <label class="p1l-label" for="cfa-submitted-by">Submitted by</label>
+            <select id="cfa-submitted-by" name="submitted_by" class="p1l-select">
+                <option value="">All submitters</option>
+                @foreach ($submitters ?? [] as $submitter)
+                    <option value="{{ $submitter->id }}" @selected((int) ($filters['submitted_by'] ?? 0) === (int) $submitter->id)>{{ $submitter->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="p1l-field">
             <label class="p1l-label" for="cfa-designation">Designation</label>
             <select id="cfa-designation" name="designation_id" class="p1l-select">
                 <option value="">All designations</option>
