@@ -44,6 +44,8 @@
             </select>
         </div>
 
+        @include('partials.cfa.caste-filter', ['id' => 'cfa-caste', 'selected' => $filters['caste'] ?? ''])
+
         <div class="p1l-field">
             <label class="p1l-label" for="cfa-designation">Designation</label>
             <select id="cfa-designation" name="designation_id" class="p1l-select">

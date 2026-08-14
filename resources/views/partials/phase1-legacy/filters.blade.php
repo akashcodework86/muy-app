@@ -73,6 +73,8 @@
             </select>
         </div>
 
+        @include('partials.cfa.caste-filter', ['id' => 'p1-caste'])
+
         <div class="p1l-field p1l-field--wide">
             <label class="p1l-label" for="p1-search">Search</label>
             <input id="p1-search" class="p1l-input" type="text" name="search" value="{{ request('search') }}"

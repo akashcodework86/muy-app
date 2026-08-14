@@ -2,6 +2,7 @@
 
 namespace App\Services\LegacyPhase1;
 
+use App\Services\Cfa\CfaSubmissionListQuery;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ class LegacyPhase1ListQuery
      */
     public static function filterParamNames(bool $includeDistrict = true): array
     {
-        $params = ['region', 'onboard', 'search', 'application_status', 'gender', 'education'];
+        $params = ['region', 'onboard', 'search', 'application_status', 'gender', 'education', 'caste'];
         if ($includeDistrict) {
             array_unshift($params, 'district');
         }
@@ -63,6 +64,7 @@ class LegacyPhase1ListQuery
         self::applyColumnFilter($query, 'application_status', trim((string) $request->input('application_status', '')));
         self::applyColumnFilter($query, 'gender', trim((string) $request->input('gender', '')));
         self::applyColumnFilter($query, 'education', trim((string) $request->input('education', '')));
+        CfaSubmissionListQuery::applyCasteColumnFilter($query, '`cast`', CfaSubmissionListQuery::normalizeCasteParam($request));
 
         if ($request->filled('search')) {
             $search = '%'.trim((string) $request->input('search')).'%';

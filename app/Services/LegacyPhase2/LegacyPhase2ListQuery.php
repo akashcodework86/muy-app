@@ -4,6 +4,7 @@ namespace App\Services\LegacyPhase2;
 
 use App\Models\District;
 use App\Models\FiscalYear;
+use App\Services\Cfa\CfaSubmissionListQuery;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -323,7 +324,7 @@ class LegacyPhase2ListQuery
      */
     public static function filterParamNames(bool $includeDistrict = true): array
     {
-        $params = ['search', 'category', 'form_stage', 'gender', 'onboard'];
+        $params = ['search', 'category', 'form_stage', 'gender', 'onboard', 'caste'];
         if ($includeDistrict) {
             array_unshift($params, 'district');
         }
@@ -372,6 +373,7 @@ class LegacyPhase2ListQuery
         }
 
         self::applyColumnFilter($query, 'd.gender', trim((string) $request->input('gender', '')));
+        CfaSubmissionListQuery::applyCasteColumnFilter($query, 'd.caste', CfaSubmissionListQuery::normalizeCasteParam($request));
 
         if ($request->filled('search')) {
             $raw = trim((string) $request->input('search'));

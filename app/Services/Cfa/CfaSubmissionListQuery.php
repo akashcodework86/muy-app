@@ -49,7 +49,7 @@ class CfaSubmissionListQuery
      */
     public static function filterParamNames(): array
     {
-        return ['name', 'application_no', 'district_id', 'block', 'sector', 'designation_id', 'from', 'to', 'onboard'];
+        return ['name', 'application_no', 'district_id', 'block', 'sector', 'caste', 'designation_id', 'from', 'to', 'onboard'];
     }
 
     public static function hasActiveFilters(Request $request): bool
@@ -58,7 +58,7 @@ class CfaSubmissionListQuery
     }
 
     /**
-     * @param  array{name: string, application_no: string, district_id: int|null, block: string, sector: string, designation_id: int|null, from: string, to: string, onboard: string}  $filters
+     * @param  array{name: string, application_no: string, district_id: int|null, block: string, sector: string, caste: string, designation_id: int|null, from: string, to: string, onboard: string}  $filters
      */
     public static function applyFilters(Builder $query, array $filters, bool $includeOnboard = true): Builder
     {
@@ -88,6 +88,9 @@ class CfaSubmissionListQuery
                 self::payloadJsonExpr('$.business_category').' = ?',
                 [$filters['sector']]
             ))
+            ->when(self::casteFilterValues($filters['caste'] ?? '') !== [], function (Builder $q) use ($filters): void {
+                self::applyCasteColumnFilter($q, self::payloadJsonExpr('$.caste'), $filters['caste']);
+            })
             ->when(! empty($filters['designation_id']), fn ($q) => $q->whereHas(
                 'referralUser',
                 fn (Builder $userQuery) => $userQuery->where('designation_id', (int) $filters['designation_id'])
@@ -146,6 +149,73 @@ class CfaSubmissionListQuery
         $row->block_name = $block !== '' ? $block : '—';
 
         return $row;
+    }
+
+    /**
+     * @return array<string, string> filter value => label
+     */
+    public static function casteFilterOptions(): array
+    {
+        $labels = [
+            'GEN' => 'General (GEN)',
+            'EWS' => 'EWS',
+            'OBC' => 'OBC',
+            'SC' => 'SC',
+            'ST' => 'ST',
+            'OTH' => 'Other (OTH)',
+        ];
+
+        $options = [];
+        foreach (config('cfa.castes', array_keys($labels)) as $code) {
+            $code = strtoupper(trim((string) $code));
+            if ($code === '') {
+                continue;
+            }
+            $options[$code] = $labels[$code] ?? $code;
+        }
+        $options['ST_SC'] = 'ST / SC';
+
+        return $options;
+    }
+
+    public static function normalizeCasteParam(Request $request): string
+    {
+        $caste = strtoupper(trim((string) $request->input('caste', '')));
+        if ($caste === 'SC_ST') {
+            $caste = 'ST_SC';
+        }
+
+        return array_key_exists($caste, self::casteFilterOptions()) ? $caste : '';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function casteFilterValues(string $caste): array
+    {
+        $caste = strtoupper(trim($caste));
+
+        return match ($caste) {
+            'GEN' => ['GEN', 'GENERAL'],
+            'EWS' => ['EWS'],
+            'OBC' => ['OBC'],
+            'SC' => ['SC'],
+            'ST' => ['ST'],
+            'OTH' => ['OTH', 'OTHER'],
+            'ST_SC', 'SC_ST' => ['SC', 'ST'],
+            default => [],
+        };
+    }
+
+    public static function applyCasteColumnFilter(mixed $query, string $columnExpr, string $caste): void
+    {
+        $values = self::casteFilterValues($caste);
+        if ($values === []) {
+            return;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($values), '?'));
+        $query->whereRaw('UPPER(TRIM('.$columnExpr.')) IN ('.$placeholders.')', $values);
     }
 
     public static function payloadJsonExpr(string $path, string $column = 'payload'): string

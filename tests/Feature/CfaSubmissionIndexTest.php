@@ -126,6 +126,75 @@ class CfaSubmissionIndexTest extends TestCase
             ->assertDontSee('FC Applicant');
     }
 
+    public function test_st_sc_category_filter_limits_list(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $district = $this->createDistrict();
+
+        $activeFy = FiscalYear::query()->create([
+            'code' => 'FY2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+            'is_phase3_default' => true,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $activeFy->id,
+                'application_no' => 'ST-001',
+                'applicant_name' => 'ST Applicant',
+                'phone' => '9000000201',
+                'payload' => json_encode(['caste' => 'ST']),
+                'created_at' => '2026-05-01',
+                'updated_at' => now(),
+            ],
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $activeFy->id,
+                'application_no' => 'SC-001',
+                'applicant_name' => 'SC Applicant',
+                'phone' => '9000000202',
+                'payload' => json_encode(['caste' => 'SC']),
+                'created_at' => '2026-05-01',
+                'updated_at' => now(),
+            ],
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $activeFy->id,
+                'application_no' => 'OBC-001',
+                'applicant_name' => 'OBC Applicant',
+                'phone' => '9000000203',
+                'payload' => json_encode(['caste' => 'OBC']),
+                'created_at' => '2026-05-01',
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.cfa.index', ['caste' => 'ST']))
+            ->assertOk()
+            ->assertSee('ST Applicant')
+            ->assertDontSee('SC Applicant')
+            ->assertDontSee('OBC Applicant');
+
+        $this->actingAs($admin)
+            ->get(route('admin.cfa.index', ['caste' => 'OBC']))
+            ->assertOk()
+            ->assertSee('OBC Applicant')
+            ->assertDontSee('ST Applicant')
+            ->assertDontSee('SC Applicant');
+
+        $this->actingAs($admin)
+            ->get(route('admin.cfa.index', ['caste' => 'ST_SC']))
+            ->assertOk()
+            ->assertSee('ST Applicant')
+            ->assertSee('SC Applicant')
+            ->assertDontSee('OBC Applicant');
+    }
+
     private function createDistrict(): District
     {
         $hub = Hub::query()->create([

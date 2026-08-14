@@ -47,6 +47,8 @@
             </select>
         </div>
 
+        @include('partials.cfa.caste-filter', ['id' => 'p2-caste'])
+
         <div class="p1l-field">
             <label class="p1l-label" for="p2-gender">Gender</label>
             <select id="p2-gender" name="gender" class="p1l-select">

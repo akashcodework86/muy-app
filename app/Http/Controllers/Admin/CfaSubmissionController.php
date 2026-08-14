@@ -166,7 +166,7 @@ class CfaSubmissionController extends Controller
     }
 
     /**
-     * @return array{name: string, application_no: string, district_id: int|null, block: string, sector: string, designation_id: int|null, from: string, to: string, onboard: string}
+     * @return array{name: string, application_no: string, district_id: int|null, block: string, sector: string, caste: string, designation_id: int|null, from: string, to: string, onboard: string}
      */
     private function extractFilters(Request $request): array
     {
@@ -175,6 +175,7 @@ class CfaSubmissionController extends Controller
         $districtId = $request->query('district_id');
         $block = trim((string) $request->query('block', ''));
         $sector = trim((string) $request->query('sector', ''));
+        $caste = CfaSubmissionListQuery::normalizeCasteParam($request);
         $designationId = $request->query('designation_id');
         $from = trim((string) $request->query('from', ''));
         $to = trim((string) $request->query('to', ''));
@@ -198,6 +199,7 @@ class CfaSubmissionController extends Controller
             'district_id' => $districtId ? (int) $districtId : null,
             'block' => $block,
             'sector' => $sector,
+            'caste' => $caste,
             'designation_id' => $designationId ? (int) $designationId : null,
             'from' => $from,
             'to' => $to,
