@@ -15,6 +15,11 @@
     $activeFilters = collect($filters)->except(['group', 'scope_districts'])->filter(fn($value) => $value !== '');
     $legacyIndexRoute = $legacyRoutePrefix.'.index';
     $legacyExportRoute = $legacyRoutePrefix.'.export';
+    $phaseLabels = [
+        'Phase 1' => 'Phase 1 — Legacy data (FY 2021–22 to FY 2024–25)',
+        'Phase 2' => 'Phase 2 — Legacy data (FY 2025–26)',
+        'Phase 3' => 'Phase 3 — Live MIS (FY 2026–27)',
+    ];
     $summaryFilter = match($filters['group']) {
         'fy' => 'fy', 'phase' => 'phase', 'service' => 'service', 'category' => 'category',
         'stage' => 'stage', 'gender' => 'gender', 'education' => 'education', 'type' => 'type', default => 'district'
@@ -44,7 +49,7 @@
         <input type="hidden" name="view" value="{{ $viewMode }}">
         <div class="ld-filter-grid">
             <div class="ld-field"><label for="ld-fy">Financial year</label><select id="ld-fy" name="fy"><option value="">All years</option>@foreach($options['financial_years'] as $option)<option @selected($filters['fy']===$option)>{{ $option }}</option>@endforeach</select></div>
-            <div class="ld-field"><label for="ld-phase">Phase</label><select id="ld-phase" name="phase"><option value="">All phases</option>@foreach($options['phases'] as $option)<option @selected($filters['phase']===$option)>{{ $option }}</option>@endforeach</select></div>
+            <div class="ld-field"><label for="ld-phase">Phase</label><select id="ld-phase" name="phase"><option value="">All phases (combined)</option>@foreach($options['phases'] as $option)<option value="{{ $option }}" @selected($filters['phase']===$option)>{{ $phaseLabels[$option] ?? $option }}</option>@endforeach</select></div>
             <div class="ld-field"><label for="ld-district">Home district</label><select id="ld-district" name="district"><option value="">All districts</option>@foreach($options['districts'] as $option)<option @selected($filters['district']===$option)>{{ $option }}</option>@endforeach</select></div>
             <div class="ld-field"><label for="ld-service">Service delivered</label><select id="ld-service" name="service"><option value="">All services</option>@foreach($options['services'] as $option)<option @selected($filters['service']===$option)>{{ $option }}</option>@endforeach</select></div>
             <div class="ld-field"><label for="ld-category">Business category</label><select id="ld-category" name="category"><option value="">All categories</option>@foreach($options['categories'] as $option)<option @selected($filters['category']===$option)>{{ $option }}</option>@endforeach</select></div>
