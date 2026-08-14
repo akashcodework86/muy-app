@@ -2,6 +2,7 @@
     $logoUrl = asset('https://ukrbi.in/new/admin/muy.png');
     $u = auth()->user();
     $showAdminNav = $u && $u->role === 'state_admin';
+    $isPrimaryStateAdmin = $u?->isPrimaryStateAdmin() ?? false;
     $showStateStaffNav = $u && $u->role === 'state_staff';
     $showHubNav = $u && $u->role === 'hub_admin';
     $showStaffNav = $u && $u->role === 'district_staff';
@@ -48,6 +49,7 @@
         : '';
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
+        'state_admin' => $u->displayRoleLabel(),
         'district_staff' => 'District staff',
         'hub_admin' => 'Hub admin',
         'state_staff' => 'State staff (SPOC)',
@@ -118,6 +120,7 @@
         str_starts_with($r, 'admin.live-map') => 'live-map',
         str_starts_with($r, 'staff-daily-check-in') => 'staff-daily-check-in',
         str_starts_with($r, 'admin.field-coordinator-reports') => 'field-coordinator-report',
+        str_starts_with($r, 'admin.additional-state-admins') => 'additional-state-admins',
         str_starts_with($r, 'hub.field-coordinator-reports') => 'field-coordinator-report',
         str_starts_with($r, 'staff.field-coordinator-reports') => 'field-coordinator-report',
         str_starts_with($r, 'spoc.field-coordinator-reports') => 'field-coordinator-report',
@@ -348,7 +351,7 @@
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['case-study-shortlists', 'service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
-    $opsGroupActive = in_array($activeNav, ['designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey'], true);
+    $opsGroupActive = in_array($activeNav, ['additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
         'staff-training-packages-submit', 'staff-training-packages-dashboard',
@@ -729,9 +732,14 @@
                     <a href="{{ route('admin.batches.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'admin-batches') is-active @endif" role="menuitem">
                         {!! $i('batches') !!}<span>Batches</span>
                     </a>
-                    <a href="{{ route('admin.designations.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'designations') is-active @endif" role="menuitem">
-                        {!! $i('badge') !!}<span>Designations</span>
-                    </a>
+                    @if ($isPrimaryStateAdmin)
+                        <a href="{{ route('admin.additional-state-admins.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'additional-state-admins') is-active @endif" role="menuitem">
+                            {!! $i('shield') !!}<span>Additional admins</span>
+                        </a>
+                        <a href="{{ route('admin.designations.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'designations') is-active @endif" role="menuitem">
+                            {!! $i('badge') !!}<span>Designations</span>
+                        </a>
+                    @endif
                     <a href="{{ route('admin.hub-batch-compliance.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batch-compliance') is-active @endif" role="menuitem">
                         {!! $i('download') !!}<span>Batch Onboarding Letter</span>
                     </a>
@@ -1307,6 +1315,9 @@
                         @endif
                         <span class="admin-topbar__user-wrap">
                             <span class="admin-topbar__user">{{ $u->name }}</span>
+                            @if ($showAdminNav)
+                                <span class="admin-topbar__user-role">{{ $u->displayRoleLabel() }}</span>
+                            @endif
                             @if (! $showAdminNav)
                                 <span class="admin-topbar__user-role">
                                     @if ($showHubNav)

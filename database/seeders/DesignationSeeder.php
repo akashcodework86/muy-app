@@ -11,12 +11,13 @@ class DesignationSeeder extends Seeder
     {
         $rows = [
             ['State Admin', 1],
-            ['State Staff (SPOC)', 2],
-            ['MUY Spoke', 3],
-            ['CDO', 4],
-            ['District Staff', 5],
-            ['Hub Coordinator', 6],
-            ['Block / Field Staff', 7],
+            ['Executive Director', 2],
+            ['State Staff (SPOC)', 3],
+            ['MUY Spoke', 4],
+            ['CDO', 5],
+            ['District Staff', 6],
+            ['Hub Coordinator', 7],
+            ['Block / Field Staff', 8],
         ];
 
         foreach ($rows as [$name, $order]) {

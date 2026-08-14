@@ -30,6 +30,7 @@ class User extends Authenticatable
         'avatar_path',
         'password',
         'role',
+        'is_primary_state_admin',
         'designation_id',
         'hub_id',
         'district_id',
@@ -58,8 +59,35 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'is_primary_state_admin' => 'boolean',
             'last_seen_at' => 'datetime',
         ];
+    }
+
+    public function isPrimaryStateAdmin(): bool
+    {
+        return $this->role === 'state_admin' && (bool) $this->is_primary_state_admin;
+    }
+
+    public function isAdditionalStateAdmin(): bool
+    {
+        return $this->role === 'state_admin' && ! $this->isPrimaryStateAdmin();
+    }
+
+    public function displayRoleLabel(): string
+    {
+        if ($this->isAdditionalStateAdmin()) {
+            return $this->designationRecord?->name ?: 'Executive Director';
+        }
+
+        return match ($this->role) {
+            'state_admin' => 'State Admin',
+            'state_staff' => 'State Staff (SPOC)',
+            'hub_admin' => 'Hub Admin',
+            'district_staff' => 'District Staff',
+            'incubatee' => 'Incubatee',
+            default => ucwords(str_replace('_', ' ', (string) $this->role)),
+        };
     }
 
     public function designationRecord(): BelongsTo

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Account\ProfileController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\AdditionalStateAdminController;
 use App\Http\Controllers\Admin\CatalogServiceController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DataCentreController;
@@ -1068,12 +1069,21 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('service-catalog/services/{service}', [CatalogServiceController::class, 'update'])->name('service-catalog.services.update');
         Route::delete('service-catalog/services/{service}', [CatalogServiceController::class, 'destroy'])->name('service-catalog.services.destroy');
 
-        Route::get('designations', [DesignationController::class, 'index'])->name('designations.index');
-        Route::get('designations/create', [DesignationController::class, 'create'])->name('designations.create');
-        Route::post('designations', [DesignationController::class, 'store'])->name('designations.store');
-        Route::get('designations/{designation}/edit', [DesignationController::class, 'edit'])->name('designations.edit');
-        Route::put('designations/{designation}', [DesignationController::class, 'update'])->name('designations.update');
-        Route::delete('designations/{designation}', [DesignationController::class, 'destroy'])->name('designations.destroy');
+        Route::middleware('primary_state_admin')->group(function (): void {
+            Route::get('additional-state-admins', [AdditionalStateAdminController::class, 'index'])->name('additional-state-admins.index');
+            Route::get('additional-state-admins/create', [AdditionalStateAdminController::class, 'create'])->name('additional-state-admins.create');
+            Route::post('additional-state-admins', [AdditionalStateAdminController::class, 'store'])->name('additional-state-admins.store');
+            Route::get('additional-state-admins/{user}/edit', [AdditionalStateAdminController::class, 'edit'])->name('additional-state-admins.edit');
+            Route::put('additional-state-admins/{user}', [AdditionalStateAdminController::class, 'update'])->name('additional-state-admins.update');
+            Route::post('additional-state-admins/{user}/toggle-active', [AdditionalStateAdminController::class, 'toggleActive'])->name('additional-state-admins.toggle-active');
+
+            Route::get('designations', [DesignationController::class, 'index'])->name('designations.index');
+            Route::get('designations/create', [DesignationController::class, 'create'])->name('designations.create');
+            Route::post('designations', [DesignationController::class, 'store'])->name('designations.store');
+            Route::get('designations/{designation}/edit', [DesignationController::class, 'edit'])->name('designations.edit');
+            Route::put('designations/{designation}', [DesignationController::class, 'update'])->name('designations.update');
+            Route::delete('designations/{designation}', [DesignationController::class, 'destroy'])->name('designations.destroy');
+        });
 
         Route::get('staff', [StaffController::class, 'index'])->name('staff.index');
         Route::get('staff/create', [StaffController::class, 'create'])->name('staff.create');

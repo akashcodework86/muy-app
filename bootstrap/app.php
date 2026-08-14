@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureStaffDailyCheckInUser;
 use App\Http\Middleware\EnsureDistrictStaffPhase3AttendanceNavVisible;
 use App\Http\Middleware\EnsureHubAdmin;
 use App\Http\Middleware\EnsureIncubatee;
+use App\Http\Middleware\EnsurePrimaryStateAdmin;
 use App\Http\Middleware\EnsureStateAdmin;
 use App\Http\Middleware\EnsureStateStaff;
 use App\Http\Middleware\EnsureTrainingPackageMonthPlanManager;
@@ -30,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'state_admin' => EnsureStateAdmin::class,
+            'primary_state_admin' => EnsurePrimaryStateAdmin::class,
             'state_staff' => EnsureStateStaff::class,
             'hub_admin' => EnsureHubAdmin::class,
             'district_staff' => EnsureDistrictStaff::class,
