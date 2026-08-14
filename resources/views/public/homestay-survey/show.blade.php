@@ -489,8 +489,8 @@
                 @endforeach
             </div>
             <div class="hs-field">
-                <label class="hs-label" for="other_support">53. Any other support required from MUY</label>
-                <textarea class="hs-textarea" id="other_support" name="answers[other_support]">{{ old('answers.other_support') }}</textarea>
+                <label class="hs-label">53. Are you willing to take MUY acceleration support services?</label>
+                @include('public.homestay-survey.partials.options', ['name' => 'acceleration_support', 'items' => $options['yes_no'], 'type' => 'radio'])
             </div>
 
             <div class="hs-field hs-consent" style="margin-top:1.15rem;">

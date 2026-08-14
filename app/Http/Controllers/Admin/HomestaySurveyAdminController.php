@@ -101,7 +101,7 @@ class HomestaySurveyAdminController extends Controller
             'Tourism linkage', 'Employed during', 'Employed current', 'Women/Youth/Local during', 'Women/Youth/Local current',
             'Local sourcing', 'Encouraged others', 'Support services', 'Training usefulness', 'Follow-up',
             'Certification', 'Top challenges', 'COVID/disaster impact', 'Digital support', 'Digital comfort',
-            'Progress rating', 'Income confidence', 'Recommend MUY', 'Expansion plans', 'Future support', 'Other support',
+            'Progress rating', 'Income confidence', 'Recommend MUY', 'Expansion plans', 'Future support', 'MUY acceleration support services',
             'Consent',
         ];
 
@@ -173,7 +173,7 @@ class HomestaySurveyAdminController extends Controller
                 $a['recommend_muy'] ?? '',
                 $this->join($a['expansion_plans'] ?? null),
                 $this->join($a['future_support'] ?? null),
-                $a['other_support'] ?? '',
+                $a['acceleration_support'] ?? ($a['other_support'] ?? ''),
                 ! empty($a['consent']) ? 'Yes' : 'No',
             ];
         }

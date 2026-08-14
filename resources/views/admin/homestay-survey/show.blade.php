@@ -148,7 +148,7 @@
         'Recommend MUY' => $a['recommend_muy'] ?? null,
         'Expansion plans' => $a['expansion_plans'] ?? null,
         'Future support ranks' => $a['future_support'] ?? null,
-        'Other support' => $a['other_support'] ?? null,
+        'Willing to take MUY acceleration support services' => $a['acceleration_support'] ?? ($a['other_support'] ?? null),
         'Consent' => !empty($a['consent']) ? 'Yes' : 'No',
     ];
 @endphp

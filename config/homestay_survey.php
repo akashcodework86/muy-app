@@ -63,6 +63,8 @@ return [
 
     'stages' => ['Seed', 'Early', 'Growth'],
 
+    'yes_no' => ['Yes', 'No'],
+
     'yes_no_process' => ['Yes', 'No', 'In process'],
 
     'room_counts' => ['1', '2', '3', '4', '5+'],
