@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Services\Deliverables\Exports\DeliverablesExcelSupport;
+use App\Support\StaffServiceCasesNativeXlsxWriter;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -18,6 +19,18 @@ final class StaffServiceCasesExcelExport
      */
     public function download(array $rows, array $meta): BinaryFileResponse
     {
+        if (! class_exists(Spreadsheet::class)) {
+            $fileName = 'staff-service-records-'.now()->format('Ymd-His').'.xlsx';
+            $tempPath = tempnam(sys_get_temp_dir(), 'muy-staff-services-');
+            (new StaffServiceCasesNativeXlsxWriter)->save($tempPath, $rows, $meta);
+
+            return response()->download($tempPath, $fileName, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Cache-Control' => 'max-age=0, no-cache, no-store, must-revalidate',
+                'Pragma' => 'no-cache',
+            ])->deleteFileAfterSend(true);
+        }
+
         DeliverablesExcelSupport::ensureAvailable();
 
         $spreadsheet = new Spreadsheet;
@@ -138,7 +151,7 @@ final class StaffServiceCasesExcelExport
 
         $fileName = 'staff-service-records-'.now()->format('Ymd-His').'.xlsx';
 
-        $tempPath = tempnam(sys_get_temp_dir(), 'muy-staff-services-').'.xlsx';
+        $tempPath = tempnam(sys_get_temp_dir(), 'muy-staff-services-');
         (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tempPath);
         $spreadsheet->disconnectWorksheets();
 
