@@ -280,7 +280,7 @@ class StaffServiceCaseController extends Controller
         ]);
     }
 
-    public function export(Request $request, StaffServiceCasesExcelExport $excel): BinaryFileResponse|Response
+    public function export(Request $request, StaffServiceCasesExcelExport $excel): BinaryFileResponse|Response|RedirectResponse
     {
         try {
             $request->attributes->set('service_export', true);
@@ -310,7 +310,9 @@ class StaffServiceCaseController extends Controller
         } catch (Throwable $e) {
             report($e);
             if (hash_equals('staff-excel-65c6164', (string) $request->query('__export_probe', ''))) {
-                return response($e::class."\n".$e->getMessage(), 500, ['Content-Type' => 'text/plain; charset=UTF-8']);
+                return redirect()
+                    ->route('staff.services.index', $request->except(['page', '__export_probe']))
+                    ->with('service_export_error', $e::class.' — '.$e->getMessage());
             }
 
             throw $e;

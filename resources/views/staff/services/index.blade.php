@@ -435,6 +435,12 @@
         </a>
     </div>
 
+    @if (session('service_export_error'))
+        <div class="svc-errors" style="padding:0.65rem 0.8rem;border:1px solid #fca5a5;border-radius:10px;background:#fef2f2;font-weight:700;">
+            {{ session('service_export_error') }}
+        </div>
+    @endif
+
     @if (session('status'))
         <p class="svc-success">{{ session('status') }}</p>
     @endif
