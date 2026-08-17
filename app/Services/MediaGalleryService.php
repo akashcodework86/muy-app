@@ -17,6 +17,72 @@ class MediaGalleryService
     private array $districtNameCache = [];
 
     /**
+     * Select a small, approved/visible set of field photographs for an automated
+     * monthly report. The same availability and workflow-status rules as the
+     * Media Gallery are used, so the report never bypasses gallery approvals.
+     *
+     * @return list<array{section: string, title: string, district: string, date: string, path: string}>
+     */
+    public function monthlyReportHighlights(Carbon $from, Carbon $to, int $limit = 8): array
+    {
+        $highlights = [];
+        $filters = [
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+        ];
+
+        foreach ($this->sections() as $sectionKey => $section) {
+            if (count($highlights) >= $limit || ! $this->sectionIsAvailable($section)) {
+                continue;
+            }
+
+            try {
+                $rows = $this->albumRows($section, $filters, 2);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            foreach ($rows as $row) {
+                if (count($highlights) >= $limit) {
+                    break 2;
+                }
+
+                $photo = $this->photosFromRow($section, $row, $sectionKey)[0] ?? null;
+                if (! is_array($photo)) {
+                    continue;
+                }
+
+                $item = $this->resolveMediaItem(
+                    $sectionKey,
+                    (int) $row->id,
+                    (string) $photo['collection'],
+                    (int) $photo['index'],
+                );
+                if ($item === null) {
+                    continue;
+                }
+
+                $absolutePath = Storage::disk($item['disk'])->path($item['path']);
+                $extension = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
+                if (! in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'bmp'], true)) {
+                    continue;
+                }
+
+                $date = $row->{$section['date']} ?? null;
+                $highlights[] = [
+                    'section' => (string) $section['label'],
+                    'title' => $this->rowTitle($section, $row),
+                    'district' => $this->rowDistrict($section, $row),
+                    'date' => $date ? Carbon::parse($date)->format('d M Y') : '—',
+                    'path' => $absolutePath,
+                ];
+            }
+        }
+
+        return $highlights;
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
     public function sections(): array

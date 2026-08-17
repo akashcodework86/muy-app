@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyDataController;
 use App\Http\Controllers\Admin\MigrationRunController;
+use App\Http\Controllers\Admin\MonthlyProgressReportController;
 use App\Http\Controllers\Admin\OnboardedApplicantController;
 use App\Http\Controllers\Admin\PendingActionsController;
 use App\Http\Controllers\Admin\SpocApprovalAuditController;
@@ -1017,6 +1018,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/breakdown', [DeliverablesReportController::class, 'breakdown'])->name('deliverables.breakdown');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
+        Route::get('mpr-generator', [MonthlyProgressReportController::class, 'index'])->name('mpr.index');
+        Route::get('mpr-generator/download', [MonthlyProgressReportController::class, 'download'])->name('mpr.download');
         Route::patch('deliverables/row-metadata', [DeliverablesReportController::class, 'updateRowMetadata'])->name('deliverables.row-metadata.update');
         Route::get('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly');
         Route::post('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly.update');
