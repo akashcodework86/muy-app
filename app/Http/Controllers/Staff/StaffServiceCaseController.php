@@ -16,6 +16,7 @@ use App\Services\MisFieldActivityListService;
 use App\Services\ReapIncubateeTargetProgressService;
 use App\Services\SchemaValidator;
 use App\Services\ServiceCaseRecorder;
+use App\Services\StaffServiceCasesExcelExport;
 use App\Support\ConvergenceReapSupport;
 use App\Support\ConvergenceReapSupportDeliverablesSupport;
 use App\Support\TodayOnlyDate;
@@ -31,6 +32,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class StaffServiceCaseController extends Controller
@@ -242,8 +244,9 @@ class StaffServiceCaseController extends Controller
         }
 
         $sorted = $listItems->sortByDesc(fn (array $row) => $row['updated_at']?->timestamp ?? 0)->values();
-        $perPage = 20;
-        $page = max(1, (int) $request->query('page', 1));
+        $exporting = (bool) $request->attributes->get('service_export', false);
+        $perPage = $exporting ? max(1, $sorted->count()) : 20;
+        $page = $exporting ? 1 : max(1, (int) $request->query('page', 1));
         $total = $sorted->count();
         $pageItems = $sorted->forPage($page, $perPage)->values();
         $cases = new LengthAwarePaginator(
@@ -273,6 +276,146 @@ class StaffServiceCaseController extends Controller
                 ? $this->reapTargetsProgress->districtProgress($districtId)
                 : null,
         ]);
+    }
+
+    public function export(Request $request, StaffServiceCasesExcelExport $excel): StreamedResponse
+    {
+        $request->attributes->set('service_export', true);
+        $view = $this->index($request);
+        $data = $view->getData();
+        /** @var LengthAwarePaginator $cases */
+        $cases = $data['cases'];
+
+        $rows = $cases->getCollection()
+            ->values()
+            ->map(fn (array $row, int $index): array => $this->serviceExportRow($row, $index + 1))
+            ->all();
+
+        return $excel->download($rows, [
+            'staff' => (string) auth()->user()?->name,
+            'district' => (string) (auth()->user()?->district?->name ?? 'Not assigned'),
+            'scope' => (($data['filterScope'] ?? 'my') === 'all') ? 'All district services (view only)' : 'My services',
+            'search' => (string) ($data['filterSearch'] ?? ''),
+            'status' => (string) ($data['filterStatus'] ?? ''),
+            'service' => $this->serviceFilterLabel(
+                (string) ($data['filterRecordType'] ?? ''),
+                (int) ($data['filterServiceId'] ?? 0),
+                $data['services'] ?? collect(),
+            ),
+            'total' => $cases->total(),
+        ]);
+    }
+
+    /** @return list<string|int> */
+    private function serviceExportRow(array $row, int $serial): array
+    {
+        $type = (string) ($row['type'] ?? 'service_case');
+        $case = $row['service_case'] ?? null;
+        $marketLinkage = $row['market_linkage'] ?? null;
+        $fieldMis = $row['field_mis'] ?? null;
+        $acceleration = $row['acceleration'] ?? null;
+
+        if ($case instanceof ServiceCase) {
+            $legacy = is_array($case->legacyIncubateePreview ?? null) ? $case->legacyIncubateePreview : [];
+            $response = match ((string) $case->status) {
+                ServiceCase::STATUS_APPROVED => 'Approved',
+                ServiceCase::STATUS_SENT_BACK => (string) ($case->sent_back_note ?: 'Sent back for changes'),
+                ServiceCase::STATUS_REJECTED => (string) ($case->rejected_note ?: 'Rejected'),
+                default => 'Awaiting approval',
+            };
+
+            return [
+                $serial, 'Service case',
+                (string) ($case->cfaSubmission?->applicant_name ?? ($legacy['applicant_name'] ?? '')),
+                (string) ($case->cfaSubmission?->application_no ?? ($legacy['application_no'] ?? '')),
+                (string) ($case->cfaSubmission?->district?->name ?? ($legacy['district'] ?? '')),
+                (string) ($case->service?->name ?? ''),
+                (string) ($case->submitter?->name ?? $case->creator?->name ?? ''),
+                (string) ($case->spoc?->name ?? 'Not assigned'),
+                (string) ($case->approver?->name ?? $case->rejector?->name ?? ''),
+                $response, str_replace('_', ' ', (string) $case->status),
+                $this->excelDate($case->serviceDateForReporting()),
+                $this->excelDateTime($case->submitted_at ?? $case->created_at),
+                $this->excelDateTime($case->updated_at), (string) ($case->reference_number ?? ''),
+            ];
+        }
+
+        if ($marketLinkage instanceof MarketLinkageSubmission) {
+            $response = match ((string) $marketLinkage->status) {
+                ServiceCase::STATUS_APPROVED => 'Approved',
+                ServiceCase::STATUS_SENT_BACK => (string) ($marketLinkage->sent_back_note ?: 'Sent back for changes'),
+                ServiceCase::STATUS_REJECTED => (string) ($marketLinkage->rejected_note ?: 'Rejected'),
+                default => 'Awaiting approval',
+            };
+
+            return [
+                $serial, 'Market linkage', (string) $marketLinkage->incubatee_name,
+                (string) $marketLinkage->application_no, (string) $marketLinkage->district_name,
+                MarketLinkageSubmission::SERVICE_LIST_LABEL,
+                (string) ($marketLinkage->submitted_by_name ?? $marketLinkage->submitter?->name ?? ''),
+                (string) ($marketLinkage->spoc?->name ?? 'Not assigned'),
+                (string) ($marketLinkage->approver?->name ?? $marketLinkage->rejector?->name ?? ''),
+                $response, str_replace('_', ' ', (string) $marketLinkage->status),
+                $this->excelDate($marketLinkage->approved_at),
+                $this->excelDateTime($marketLinkage->submitted_at ?? $marketLinkage->created_at),
+                $this->excelDateTime($marketLinkage->updated_at), '',
+            ];
+        }
+
+        if ($acceleration instanceof \App\Models\AccelerationServiceSession) {
+            return [
+                $serial, 'Acceleration services', (string) $acceleration->applicant_name,
+                (string) $acceleration->application_no, (string) $acceleration->district_name,
+                'Acceleration services (7.2)', (string) $acceleration->submitted_by_name,
+                (string) ($acceleration->final_approved_by_name ?: $acceleration->first_approved_by_name ?: 'State SPOC'),
+                (string) ($acceleration->final_approved_by_name ?: $acceleration->first_approved_by_name),
+                (string) ($acceleration->sent_back_remarks ?: $acceleration->statusLabel()),
+                (string) $acceleration->statusLabel(), $this->excelDate($acceleration->service_date),
+                $this->excelDateTime($acceleration->created_at), $this->excelDateTime($acceleration->updated_at), '',
+            ];
+        }
+
+        if (is_object($fieldMis)) {
+            $module = (string) ($row['field_mis_module'] ?? '');
+            $meta = \App\Support\MisFieldActivityApproval::module($module) ?? [];
+            $titleColumn = (string) ($meta['title_column'] ?? 'id');
+            $service = trim((string) (($meta['serial'] ?? '').' — '.($meta['label'] ?? $module)));
+
+            return [
+                $serial, 'Field MIS', (string) ($fieldMis->{$titleColumn} ?? 'Entry #'.$fieldMis->getKey()), '',
+                (string) ($fieldMis->district_name ?? $fieldMis->district?->name ?? ''), $service,
+                (string) ($fieldMis->submitted_by_name ?? $fieldMis->submitter?->name ?? ''),
+                (string) ($fieldMis->misFieldSpoc?->name ?? 'State SPOC'), '',
+                (string) ($fieldMis->sent_back_note ?? $fieldMis->rejected_note ?? ''),
+                str_replace('_', ' ', (string) ($fieldMis->status ?? '')),
+                $this->excelDate($fieldMis->event_date ?? $fieldMis->service_date ?? null),
+                $this->excelDateTime($fieldMis->created_at ?? null),
+                $this->excelDateTime($fieldMis->updated_at ?? null), '',
+            ];
+        }
+
+        return [$serial, ucfirst(str_replace('_', ' ', $type)), '', '', '', '', '', '', '', '', '', '', '', '', ''];
+    }
+
+    private function serviceFilterLabel(string $recordType, int $serviceId, Collection $services): string
+    {
+        return match ($recordType) {
+            'market_linkage' => MarketLinkageSubmission::SERVICE_LIST_LABEL,
+            'acceleration_services' => 'Acceleration services (7.2)',
+            ConvergenceReapSupport::MIS_8_2_LIST_FILTER => ConvergenceReapSupport::MIS_8_2_LIST_LABEL,
+            '' => $serviceId > 0 ? (string) ($services->firstWhere('id', $serviceId)?->name ?? 'Selected service') : 'All services',
+            default => (string) ((\App\Support\MisFieldActivityApproval::module($recordType) ?? [])['label'] ?? $recordType),
+        };
+    }
+
+    private function excelDate(mixed $value): string
+    {
+        return $value ? Carbon::parse($value)->timezone(config('app.timezone'))->format('d M Y') : '';
+    }
+
+    private function excelDateTime(mixed $value): string
+    {
+        return $value ? Carbon::parse($value)->timezone(config('app.timezone'))->format('d M Y, h:i A') : '';
     }
 
     /**

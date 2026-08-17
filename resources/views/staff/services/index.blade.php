@@ -100,6 +100,21 @@
             font-weight: 700;
             cursor: pointer;
         }
+        .svc-export-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #6ee7b7;
+            border-radius: 10px;
+            padding: 0.5rem 0.9rem;
+            min-height: 38px;
+            box-sizing: border-box;
+            background: #ecfdf5;
+            color: #047857;
+            text-decoration: none;
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
         .svc-result-count {
             margin: -0.15rem 0 0.75rem;
             color: #64748b;
@@ -479,6 +494,7 @@
             @endforeach
         </select>
         <button type="submit" class="svc-search-btn">Search</button>
+        <a class="svc-export-btn" href="{{ route('staff.services.export', request()->except('page')) }}">↓ Export Excel</a>
     </form>
 
     <p class="svc-result-count">

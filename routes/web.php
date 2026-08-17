@@ -539,6 +539,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         /** Service delivery (maker–checker) — gated by AppSettingsService in controller + topbar */
         Route::get('services', [StaffServiceCaseController::class, 'index'])->name('services.index');
+        Route::get('services/export', [StaffServiceCaseController::class, 'export'])->name('services.export');
         Route::get('services/create', [StaffServiceCaseController::class, 'create'])->name('services.create');
         Route::post('services', [StaffServiceCaseController::class, 'store'])
             ->middleware('throttle:30,1')

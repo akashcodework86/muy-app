@@ -93,6 +93,7 @@ class StaffServiceSearchTest extends TestCase
             ->assertOk()
             ->assertSee('Jai Baba Enterprise')
             ->assertSee('1 matching service record')
+            ->assertSee(route('staff.services.export', ['q' => 'Jai Baba']), false)
             ->assertDontSee('Recent Applicant 1');
     }
 }
