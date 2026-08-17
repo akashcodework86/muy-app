@@ -52,6 +52,7 @@ class StaffServiceCaseController extends Controller
             $scope = 'my';
         }
         $status = (string) $request->query('status', '');
+        $search = trim((string) $request->query('q', ''));
         $serviceIdRaw = (string) $request->query('service_id', '');
         $recordType = '';
         $serviceId = 0;
@@ -233,6 +234,13 @@ class StaffServiceCaseController extends Controller
             }
         }
 
+        if ($search !== '') {
+            $needle = mb_strtolower($search);
+            $listItems = $listItems
+                ->filter(fn (array $row): bool => str_contains($this->listItemSearchText($row), $needle))
+                ->values();
+        }
+
         $sorted = $listItems->sortByDesc(fn (array $row) => $row['updated_at']?->timestamp ?? 0)->values();
         $perPage = 20;
         $page = max(1, (int) $request->query('page', 1));
@@ -254,6 +262,7 @@ class StaffServiceCaseController extends Controller
         return view('staff.services.index', [
             'cases' => $cases,
             'filterStatus' => $status,
+            'filterSearch' => $search,
             'filterServiceId' => $serviceId,
             'filterRecordType' => $recordType,
             'filterScope' => $scope,
@@ -264,6 +273,30 @@ class StaffServiceCaseController extends Controller
                 ? $this->reapTargetsProgress->districtProgress($districtId)
                 : null,
         ]);
+    }
+
+    /**
+     * Build one searchable representation for every record type shown in the
+     * combined staff services list. Search is applied before pagination.
+     */
+    private function listItemSearchText(array $row): string
+    {
+        $parts = [(string) ($row['type'] ?? '')];
+
+        foreach (['service_case', 'market_linkage', 'field_mis', 'acceleration'] as $key) {
+            $record = $row[$key] ?? null;
+            if (is_object($record) && method_exists($record, 'toArray')) {
+                $parts[] = json_encode(
+                    $record->toArray(),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                ) ?: '';
+            }
+        }
+
+        $parts[] = json_encode(($row['service_case'] ?? null)?->legacyIncubateePreview, JSON_UNESCAPED_UNICODE) ?: '';
+        $parts[] = (string) ($row['field_mis_module'] ?? '');
+
+        return mb_strtolower(implode(' ', $parts));
     }
 
     public function create(Request $request): View

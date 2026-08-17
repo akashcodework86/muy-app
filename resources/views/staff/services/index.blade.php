@@ -88,6 +88,24 @@
         .svc-select {
             min-width: 220px;
         }
+        .svc-search-btn {
+            border: 0;
+            border-radius: 10px;
+            padding: 0.5rem 0.9rem;
+            min-height: 38px;
+            background: #4f46e5;
+            color: #fff;
+            font: inherit;
+            font-size: 0.84rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .svc-result-count {
+            margin: -0.15rem 0 0.75rem;
+            color: #64748b;
+            font-size: 0.82rem;
+        }
+        .svc-result-count strong { color: #0f172a; }
         .svc-card {
             background: #fff;
             border: 1px solid #e5e7eb;
@@ -392,11 +410,11 @@
     @endphp
 
     <div class="svc-status-tabs" style="margin-top:-0.15rem;">
-        <a href="{{ route('staff.services.index', array_filter(['scope' => 'my', 'status' => $filterStatus ?: null, 'service_id' => $serviceFilterParam])) }}"
+        <a href="{{ route('staff.services.index', array_filter(['scope' => 'my', 'status' => $filterStatus ?: null, 'service_id' => $serviceFilterParam, 'q' => $filterSearch ?: null])) }}"
            class="svc-status-tab {{ (($filterScope ?? 'my') === 'my') ? 'is-active' : '' }}">
             My services
         </a>
-        <a href="{{ route('staff.services.index', array_filter(['scope' => 'all', 'status' => $filterStatus ?: null, 'service_id' => $serviceFilterParam])) }}"
+        <a href="{{ route('staff.services.index', array_filter(['scope' => 'all', 'status' => $filterStatus ?: null, 'service_id' => $serviceFilterParam, 'q' => $filterSearch ?: null])) }}"
            class="svc-status-tab {{ (($filterScope ?? 'my') === 'all') ? 'is-active' : '' }}">
             All services (view only)
         </a>
@@ -423,7 +441,7 @@
 
     <div class="svc-status-tabs">
         @foreach ($tabs as $val => $label)
-            <a href="{{ route('staff.services.index', array_filter(['scope' => $filterScope ?? 'my', 'status' => $val, 'service_id' => $serviceFilterParam])) }}"
+            <a href="{{ route('staff.services.index', array_filter(['scope' => $filterScope ?? 'my', 'status' => $val, 'service_id' => $serviceFilterParam, 'q' => $filterSearch ?: null])) }}"
                class="svc-status-tab {{ ($filterStatus === $val) ? 'is-active' : '' }}">
                 {{ $label }}
             </a>
@@ -438,7 +456,9 @@
         <input
             id="globalSearch"
             type="text"
+            name="q"
             class="svc-input"
+            value="{{ $filterSearch ?? '' }}"
             placeholder="Search all fields (incubatee, application no, service, status)"
             autocomplete="off"
         >
@@ -458,7 +478,16 @@
                 </option>
             @endforeach
         </select>
+        <button type="submit" class="svc-search-btn">Search</button>
     </form>
+
+    <p class="svc-result-count">
+        <strong>{{ number_format($cases->total()) }}</strong>
+        matching service record{{ $cases->total() === 1 ? '' : 's' }}
+        @if (($filterSearch ?? '') !== '')
+            for “{{ $filterSearch }}”
+        @endif
+    </p>
 
     @if ($cases->isEmpty())
         <p class="svc-empty">No service, market linkage, or field MIS records in this view.</p>
@@ -859,18 +888,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            var searchInput = document.getElementById('globalSearch');
-            var rows = Array.prototype.slice.call(document.querySelectorAll('.svc-row'));
-            if (searchInput) {
-                searchInput.addEventListener('input', function () {
-                    var q = (searchInput.value || '').trim().toLowerCase();
-                    rows.forEach(function (row) {
-                        var haystack = (row.getAttribute('data-search') || '').toLowerCase();
-                        row.style.display = haystack.indexOf(q) !== -1 ? '' : 'none';
-                    });
-                });
-            }
-
             var modal = document.getElementById('svcDocModal');
             var modalBody = document.getElementById('svcDocBody');
             var modalTitle = document.getElementById('svcDocTitle');
