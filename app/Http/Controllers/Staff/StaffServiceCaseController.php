@@ -32,6 +32,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -278,7 +279,7 @@ class StaffServiceCaseController extends Controller
         ]);
     }
 
-    public function export(Request $request, StaffServiceCasesExcelExport $excel): StreamedResponse
+    public function export(Request $request, StaffServiceCasesExcelExport $excel): BinaryFileResponse
     {
         $request->attributes->set('service_export', true);
         $view = $this->index($request);

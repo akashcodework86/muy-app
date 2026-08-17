@@ -8,7 +8,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 final class StaffServiceCasesExcelExport
 {
@@ -16,7 +16,7 @@ final class StaffServiceCasesExcelExport
      * @param  list<list<string|int>>  $rows
      * @param  array{staff:string,district:string,scope:string,search:string,status:string,service:string,total:int}  $meta
      */
-    public function download(array $rows, array $meta): StreamedResponse
+    public function download(array $rows, array $meta): BinaryFileResponse
     {
         DeliverablesExcelSupport::ensureAvailable();
 
@@ -138,6 +138,14 @@ final class StaffServiceCasesExcelExport
 
         $fileName = 'staff-service-records-'.now()->format('Ymd-His').'.xlsx';
 
-        return DeliverablesExcelSupport::streamDownload($spreadsheet, $fileName);
+        $tempPath = tempnam(sys_get_temp_dir(), 'muy-staff-services-').'.xlsx';
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tempPath);
+        $spreadsheet->disconnectWorksheets();
+
+        return response()->download($tempPath, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0, no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+        ])->deleteFileAfterSend(true);
     }
 }
