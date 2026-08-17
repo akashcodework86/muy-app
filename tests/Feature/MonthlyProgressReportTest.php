@@ -15,7 +15,7 @@ class MonthlyProgressReportTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_state_admin_can_open_private_mpr_generator_page(): void
+    public function test_state_admin_can_open_mpr_generator_page(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
 
@@ -23,7 +23,8 @@ class MonthlyProgressReportTest extends TestCase
             ->get(route('admin.mpr.index'))
             ->assertOk()
             ->assertSee('Generate a formatted MPR in one step')
-            ->assertSee('Download MPR (Word)');
+            ->assertSee('Download MPR (Word)')
+            ->assertSee(route('admin.mpr.index'), false);
     }
 
     public function test_non_state_admin_cannot_open_mpr_generator_page(): void
@@ -67,10 +68,30 @@ class MonthlyProgressReportTest extends TestCase
         $gallery->shouldReceive('monthlyReportHighlights')->once()->andReturn([]);
         $this->app->instance(MediaGalleryService::class, $gallery);
 
+        $response = $this->actingAs($admin)
+            ->get(route('admin.mpr.download', ['report_month' => '2026-07']));
+
+        $response->assertOk();
+        $this->assertTrue($response->headers->has('content-disposition'));
+        $disposition = (string) $response->headers->get('content-disposition');
+        $this->assertStringContainsString('MUY-MPR-July-2026', $disposition);
+
+        $contentType = strtolower((string) $response->headers->get('content-type'));
+        $this->assertTrue(
+            str_contains($contentType, 'wordprocessingml.document')
+            || str_contains($contentType, 'msword'),
+            'Expected a Word document download.',
+        );
+    }
+
+    public function test_future_month_is_rejected(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
         $this->actingAs($admin)
-            ->get(route('admin.mpr.download', ['report_month' => '2026-07']))
-            ->assertOk()
-            ->assertDownload('MUY-MPR-July-2026.docx')
-            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            ->from(route('admin.mpr.index'))
+            ->get(route('admin.mpr.download', ['report_month' => now()->addMonths(2)->format('Y-m')]))
+            ->assertRedirect(route('admin.mpr.index'))
+            ->assertSessionHasErrors('report_month');
     }
 }

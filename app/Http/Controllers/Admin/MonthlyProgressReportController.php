@@ -32,7 +32,8 @@ class MonthlyProgressReportController extends Controller
         abort_unless($request->user()?->role === 'state_admin', 403);
 
         return view('admin.mpr.index', [
-            'defaultMonth' => now()->startOfMonth()->format('Y-m'),
+            'defaultMonth' => old('report_month', now()->startOfMonth()->format('Y-m')),
+            'pageUrl' => route('admin.mpr.index'),
         ]);
     }
 
