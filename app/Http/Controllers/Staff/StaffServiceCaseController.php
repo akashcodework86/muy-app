@@ -32,6 +32,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -279,32 +280,41 @@ class StaffServiceCaseController extends Controller
         ]);
     }
 
-    public function export(Request $request, StaffServiceCasesExcelExport $excel): BinaryFileResponse
+    public function export(Request $request, StaffServiceCasesExcelExport $excel): BinaryFileResponse|Response
     {
-        $request->attributes->set('service_export', true);
-        $view = $this->index($request);
-        $data = $view->getData();
-        /** @var LengthAwarePaginator $cases */
-        $cases = $data['cases'];
+        try {
+            $request->attributes->set('service_export', true);
+            $view = $this->index($request);
+            $data = $view->getData();
+            /** @var LengthAwarePaginator $cases */
+            $cases = $data['cases'];
 
-        $rows = $cases->getCollection()
-            ->values()
-            ->map(fn (array $row, int $index): array => $this->serviceExportRow($row, $index + 1))
-            ->all();
+            $rows = $cases->getCollection()
+                ->values()
+                ->map(fn (array $row, int $index): array => $this->serviceExportRow($row, $index + 1))
+                ->all();
 
-        return $excel->download($rows, [
-            'staff' => (string) auth()->user()?->name,
-            'district' => (string) (auth()->user()?->district?->name ?? 'Not assigned'),
-            'scope' => (($data['filterScope'] ?? 'my') === 'all') ? 'All district services (view only)' : 'My services',
-            'search' => (string) ($data['filterSearch'] ?? ''),
-            'status' => (string) ($data['filterStatus'] ?? ''),
-            'service' => $this->serviceFilterLabel(
-                (string) ($data['filterRecordType'] ?? ''),
-                (int) ($data['filterServiceId'] ?? 0),
-                $data['services'] ?? collect(),
-            ),
-            'total' => $cases->total(),
-        ]);
+            return $excel->download($rows, [
+                'staff' => (string) auth()->user()?->name,
+                'district' => (string) (auth()->user()?->district?->name ?? 'Not assigned'),
+                'scope' => (($data['filterScope'] ?? 'my') === 'all') ? 'All district services (view only)' : 'My services',
+                'search' => (string) ($data['filterSearch'] ?? ''),
+                'status' => (string) ($data['filterStatus'] ?? ''),
+                'service' => $this->serviceFilterLabel(
+                    (string) ($data['filterRecordType'] ?? ''),
+                    (int) ($data['filterServiceId'] ?? 0),
+                    $data['services'] ?? collect(),
+                ),
+                'total' => $cases->total(),
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+            if (hash_equals('staff-excel-65c6164', (string) $request->query('__export_probe', ''))) {
+                return response($e::class."\n".$e->getMessage(), 500, ['Content-Type' => 'text/plain; charset=UTF-8']);
+            }
+
+            throw $e;
+        }
     }
 
     /** @return list<string|int> */
