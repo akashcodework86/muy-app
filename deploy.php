@@ -63,12 +63,11 @@ $run(
     $wordEngineExit,
 );
 if ($wordEngineExit !== 0) {
-    echo "\n<span style='color:#f87171;font-weight:bold'>❌ PHPWord is unavailable. MPR deployment stopped to prevent broken HTML-based Word downloads.</span>\n";
-    echo "<span style='color:#94a3b8'>Set MUY_COMPOSER to the server Composer path, then deploy again.</span>\n";
-    echo '</pre>';
-    exit;
+    echo "\n<span style='color:#fbbf24;font-weight:bold'>⚠️ PHPWord is unavailable. MPR will use compatible .doc fallback until PHPWord is installed.</span>\n";
+    echo "<span style='color:#94a3b8'>Enable ext-gd in cPanel if missing, set MUY_COMPOSER if needed, then open deploy-mpr-word.php or install-word-engine once.</span>\n\n";
+} else {
+    echo "Word export engine: OK\n\n";
 }
-echo "Word export engine: OK\n\n";
 
 echo "--- migrations (php artisan migrate --force) ---\n";
 $run($projectPath, 'php artisan migrate --force --no-interaction', $lines, $migrateExit);

@@ -67,12 +67,59 @@ class MonthlyProgressReportController extends Controller
             return response("Composer install failed ({$exitCode}).\n".implode("\n", $output), 500, ['Content-Type' => 'text/plain']);
         }
 
-        require_once base_path('vendor/autoload.php');
-        if (! class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
-            return response('PHPWord remains unavailable after Composer install.', 500, ['Content-Type' => 'text/plain']);
+        $verifyOutput = [];
+        $verifyExit = 0;
+        exec(
+            'cd '.escapeshellarg(base_path())
+            .' && php -r '.escapeshellarg('require "vendor/autoload.php"; exit(class_exists("PhpOffice\\PhpWord\\PhpWord") ? 0 : 1);')
+            .' 2>&1',
+            $verifyOutput,
+            $verifyExit,
+        );
+
+        if ($verifyExit !== 0) {
+            $diagnostics = $this->wordEngineDiagnostics();
+
+            return response(
+                "PHPWord remains unavailable after Composer install.\n\n"
+                .$diagnostics."\n\n"
+                ."Composer output (last 40 lines):\n"
+                .implode("\n", array_slice($output, -40))."\n\n"
+                ."If ext-gd is MISSING, enable it in cPanel → MultiPHP INI Editor, then run install again.\n"
+                ."MPR download still works via compatible .doc fallback without PHPWord.",
+                500,
+                ['Content-Type' => 'text/plain'],
+            );
         }
 
-        return response('PHPWord installed successfully.', 200, ['Content-Type' => 'text/plain']);
+        if (function_exists('opcache_reset')) {
+            opcache_reset();
+        }
+
+        return response(
+            "PHPWord installed successfully.\n\n"
+            .$this->wordEngineDiagnostics()
+            ."\n\nRefresh the MPR page and download again for .docx output.",
+            200,
+            ['Content-Type' => 'text/plain'],
+        );
+    }
+
+    private function wordEngineDiagnostics(): string
+    {
+        $lines = [
+            'Project: '.base_path(),
+            'PHP (web): '.PHP_VERSION,
+        ];
+
+        foreach (['gd', 'zip', 'dom', 'xml', 'json'] as $extension) {
+            $lines[] = 'ext-'.$extension.': '.(extension_loaded($extension) ? 'loaded' : 'MISSING');
+        }
+
+        $lines[] = 'vendor/autoload.php: '.(is_file(base_path('vendor/autoload.php')) ? 'present' : 'MISSING');
+        $lines[] = 'vendor/phpoffice/phpword: '.(is_dir(base_path('vendor/phpoffice/phpword')) ? 'present' : 'MISSING');
+
+        return implode("\n", $lines);
     }
 
     public function __construct(

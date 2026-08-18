@@ -37,7 +37,11 @@ if ($composer === '') {
 }
 
 echo "Composer: {$composer}\n";
-$run(escapeshellarg($composer).' install --no-dev --no-interaction --optimize-autoloader', $output, $composerExit);
+$composerHome = $projectPath.'/storage/app/composer';
+if (! is_dir($composerHome)) {
+    mkdir($composerHome, 0775, true);
+}
+$run('COMPOSER_HOME='.escapeshellarg($composerHome).' '.escapeshellarg($composer).' install --no-dev --no-interaction --optimize-autoloader', $output, $composerExit);
 echo implode("\n", $output)."\n";
 
 if ($composerExit !== 0) {
@@ -53,7 +57,15 @@ $run(
 );
 
 if ($phpWordExit !== 0) {
-    echo "ERROR: PHPWord is still unavailable.\n";
+    echo "ERROR: PHPWord is still unavailable.\n\n";
+    echo "Diagnostics:\n";
+    echo 'PHP: '.PHP_VERSION."\n";
+    foreach (['gd', 'zip', 'dom', 'xml', 'json'] as $extension) {
+        echo 'ext-'.$extension.': '.(extension_loaded($extension) ? 'loaded' : 'MISSING')."\n";
+    }
+    echo 'vendor/phpoffice/phpword: '.(is_dir($projectPath.'/vendor/phpoffice/phpword') ? 'present' : 'MISSING')."\n";
+    echo "\nIf ext-gd is MISSING, enable it in cPanel → MultiPHP INI Editor, then retry.\n";
+    echo "MPR download still works via compatible .doc fallback without PHPWord.\n";
     http_response_code(500);
     exit;
 }

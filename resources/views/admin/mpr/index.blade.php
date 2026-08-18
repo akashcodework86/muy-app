@@ -33,13 +33,14 @@
             </form>
 
             @unless($wordEngineReady)
-                <p class="mpr-note" style="margin-top:.85rem;background:#fef2f2;border:1px solid #fecaca;color:#991b1b">
-                    <span aria-hidden="true">⚠</span>
+                <p class="mpr-note" style="margin-top:.85rem;background:#fffbeb;border:1px solid #fde68a;color:#92400e">
+                    <span aria-hidden="true">ℹ</span>
                     <span>
-                        The native Word engine (PHPWord) is not installed on this server yet, so downloads use a compatible Word format (.doc) until Composer dependencies are installed.
+                        Native .docx formatting needs PHPWord on the server. Until then, download uses a compatible Word file (.doc).
                         @if($installWordEngineUrl)
-                            <a href="{{ $installWordEngineUrl }}" target="_blank" rel="noopener" style="color:#991b1b;font-weight:800">Run one-time install</a>
-                            (opens in a new tab), then refresh this page for .docx output.
+                            Optional upgrade:
+                            <a href="{{ $installWordEngineUrl }}" target="_blank" rel="noopener" style="color:#92400e;font-weight:800">Run one-time install</a>
+                            (new tab), then refresh this page.
                         @endif
                     </span>
                 </p>
