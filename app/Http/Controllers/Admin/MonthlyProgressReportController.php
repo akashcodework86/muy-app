@@ -46,8 +46,14 @@ class MonthlyProgressReportController extends Controller
 
         $output = [];
         $exitCode = 0;
+        $composerHome = storage_path('app/composer');
+        if (! is_dir($composerHome)) {
+            mkdir($composerHome, 0775, true);
+        }
         exec(
-            'cd '.escapeshellarg(base_path()).' && '.escapeshellarg($composer).' install --no-dev --no-interaction --optimize-autoloader 2>&1',
+            'cd '.escapeshellarg(base_path())
+            .' && COMPOSER_HOME='.escapeshellarg($composerHome)
+            .' '.escapeshellarg($composer).' install --no-dev --no-interaction --optimize-autoloader 2>&1',
             $output,
             $exitCode,
         );
