@@ -13,6 +13,7 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\StateDeliverableTarget;
 use App\Services\CfaBusinessStageService;
+use App\Services\Cfa\CfaSubmissionListQuery;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -99,6 +100,7 @@ class Phase2OnboardedApplicantController extends Controller
             'filters' => $listFilters,
             'businessStages' => self::BUSINESS_STAGES,
             'applicantCategories' => self::APPLICANT_CATEGORIES,
+            'casteOptions' => CfaSubmissionListQuery::casteFilterOptions(),
             'incomeSlabs' => self::INCOME_SLABS,
             'routeIndex' => $this->routeNameFor($request, 'index'),
             'routeExport' => $this->routeNameFor($request, 'export'),
@@ -184,6 +186,8 @@ class Phase2OnboardedApplicantController extends Controller
             $category = '';
         }
 
+        $caste = CfaSubmissionListQuery::normalizeCasteParam($request);
+
         $income = trim((string) $request->string('income')->toString());
         if (! array_key_exists($income, self::INCOME_SLABS)) {
             $income = '';
@@ -200,6 +204,7 @@ class Phase2OnboardedApplicantController extends Controller
             'q' => $q,
             'stage' => $stage,
             'category' => $category,
+            'caste' => $caste,
             'income' => $income,
             'service' => $service,
         ];
@@ -537,10 +542,11 @@ class Phase2OnboardedApplicantController extends Controller
     {
         $stage = (string) ($filters['stage'] ?? '');
         $category = (string) ($filters['category'] ?? '');
+        $caste = (string) ($filters['caste'] ?? '');
         $income = (string) ($filters['income'] ?? '');
         $service = (string) ($filters['service'] ?? '');
 
-        return $rows->filter(function (array $row) use ($stage, $category, $income, $service): bool {
+        return $rows->filter(function (array $row) use ($stage, $category, $caste, $income, $service): bool {
             if ($stage !== '') {
                 $rowStage = mb_strtolower(trim((string) ($row['common_values']['form_stage'] ?? $row['form_stage'] ?? '')));
                 if ($rowStage === '' || $rowStage === '—') {
@@ -554,6 +560,14 @@ class Phase2OnboardedApplicantController extends Controller
             if ($category !== '') {
                 $rowCategory = mb_strtolower(trim((string) ($row['applicant_category'] ?? $row['common_values']['category'] ?? '')));
                 if ($rowCategory !== mb_strtolower($category)) {
+                    return false;
+                }
+            }
+
+            if ($caste !== '') {
+                $allowed = array_map('strtoupper', CfaSubmissionListQuery::casteFilterValues($caste));
+                $rowCaste = strtoupper(trim((string) ($row['common_values']['caste'] ?? $row['caste'] ?? '')));
+                if ($rowCaste === '' || $rowCaste === '—' || ! in_array($rowCaste, $allowed, true)) {
                     return false;
                 }
             }

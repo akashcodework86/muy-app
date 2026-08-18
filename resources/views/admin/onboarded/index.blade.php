@@ -495,6 +495,7 @@
         'q' => $filters['q'] ?? null,
         'stage' => $filters['stage'] ?? null,
         'category' => $filters['category'] ?? null,
+        'caste' => $filters['caste'] ?? null,
         'income' => $filters['income'] ?? null,
         'service' => $filters['service'] ?? null,
     ], fn ($value) => $value !== null && $value !== '');
@@ -503,6 +504,7 @@
         || ($filters['q'] ?? null)
         || ($filters['stage'] ?? null)
         || ($filters['category'] ?? null)
+        || ($filters['caste'] ?? null)
         || ($filters['income'] ?? null)
         || ($filters['service'] ?? null);
 @endphp
@@ -652,6 +654,7 @@
                         'q' => $filters['q'] ?? null,
                         'stage' => $filters['stage'] ?? null,
                         'category' => $filters['category'] ?? null,
+                        'caste' => $filters['caste'] ?? null,
                         'income' => $filters['income'] ?? null,
                         'service' => $filters['service'] ?? null,
                     ], fn ($value) => $value !== null && $value !== '');
@@ -670,6 +673,7 @@
                             'q' => $filters['q'] ?? null,
                             'stage' => $filters['stage'] ?? null,
                             'category' => $filters['category'] ?? null,
+                            'caste' => $filters['caste'] ?? null,
                             'income' => $filters['income'] ?? null,
                             'service' => $filters['service'] ?? null,
                         ], fn ($value) => $value !== null && $value !== '');
@@ -747,6 +751,15 @@
             </select>
         </div>
         <div class="onb-fld">
+            <label for="fld-caste">Caste</label>
+            <select id="fld-caste" name="caste">
+                <option value="">All castes</option>
+                @foreach ($casteOptions ?? \App\Services\Cfa\CfaSubmissionListQuery::casteFilterOptions() as $casteKey => $casteLabel)
+                    <option value="{{ $casteKey }}" @selected(($filters['caste'] ?? '') === $casteKey)>{{ $casteLabel }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="onb-fld">
             <label for="fld-income">Annual income</label>
             <select id="fld-income" name="income">
                 <option value="">-- Select --</option>
@@ -806,6 +819,7 @@
                                 <th>#</th>
                                 <th>Applicant</th>
                                 <th>Category</th>
+                                <th>Caste</th>
                                 <th>District</th>
                                 <th>Phone</th>
                                 <th>Business category</th>
@@ -834,6 +848,7 @@
                                         <div class="muted">{{ $row['common_values']['application_no'] ?? $row['application_no'] ?? '—' }}</div>
                                     </td>
                                     <td>{{ $row['applicant_category'] ?? ($row['common_values']['category'] ?? '—') }}</td>
+                                    <td>{{ $row['common_values']['caste'] ?? ($row['caste'] ?? '—') }}</td>
                                     <td>
                                         <div>{{ $row['district'] ?: '—' }}</div>
                                         <div class="muted">{{ $row['block_name'] ?: '—' }}</div>

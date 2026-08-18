@@ -230,6 +230,8 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSee('Applicant records');
         $response->assertSee('Services taken');
         $response->assertSee('Annual income');
+        $response->assertSee('Category');
+        $response->assertSee('Caste');
         $response->assertSee('Table Applicant');
         $response->assertSee('₹250,000');
         $response->assertDontSee('onb-applicant-card');
@@ -257,6 +259,26 @@ class OnboardedApplicantTest extends TestCase
         $response->assertOk();
         $response->assertSee('SHG Applicant');
         $response->assertDontSee('Individual Applicant');
+    }
+
+    public function test_caste_filter_limits_applicant_list(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('pauri', 'Pauri Garhwal');
+        $this->seedOnboardedApplicant($district, '40814001', 'Sc Applicant', 'female', null, 'phase3', null, 'Individual', null, null, null, null, null, null, null, 'SC');
+        $this->seedOnboardedApplicant($district, '40814002', 'Obc Applicant', 'male', null, 'phase3', null, 'Individual', null, null, null, null, null, null, null, 'OBC');
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index', [
+            'caste' => 'SC',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Sc Applicant');
+        $response->assertDontSee('Obc Applicant');
     }
 
     public function test_annual_income_filter_limits_applicant_list(): void
@@ -398,6 +420,7 @@ class OnboardedApplicantTest extends TestCase
         ?string $lockedAt = null,
         ?string $batchCreatedAt = null,
         ?string $turnoverLastFy = null,
+        ?string $caste = null,
     ): int {
         $payload = [
             'gender' => $gender,
@@ -405,6 +428,9 @@ class OnboardedApplicantTest extends TestCase
             'guardian_name' => 'Guardian',
             'category' => $category,
         ];
+        if ($caste !== null) {
+            $payload['caste'] = $caste;
+        }
         if ($lakhpati !== null) {
             $payload['lakhpati'] = $lakhpati;
         }

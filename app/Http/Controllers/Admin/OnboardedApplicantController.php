@@ -13,6 +13,7 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\StateDeliverableTarget;
 use App\Services\CfaBusinessStageService;
+use App\Services\Cfa\CfaSubmissionListQuery;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -88,6 +89,7 @@ class OnboardedApplicantController extends Controller
             'filters' => $listFilters,
             'businessStages' => self::BUSINESS_STAGES,
             'applicantCategories' => self::APPLICANT_CATEGORIES,
+            'casteOptions' => CfaSubmissionListQuery::casteFilterOptions(),
             'incomeSlabs' => self::INCOME_SLABS,
             'routeIndex' => $this->routeNameFor($request, 'index'),
             'routeExport' => $this->routeNameFor($request, 'export'),
@@ -172,6 +174,8 @@ class OnboardedApplicantController extends Controller
             $category = '';
         }
 
+        $caste = CfaSubmissionListQuery::normalizeCasteParam($request);
+
         $income = trim((string) $request->string('income')->toString());
         if (! array_key_exists($income, self::INCOME_SLABS)) {
             $income = '';
@@ -188,6 +192,7 @@ class OnboardedApplicantController extends Controller
             'q' => $q,
             'stage' => $stage,
             'category' => $category,
+            'caste' => $caste,
             'income' => $income,
             'service' => $service,
         ];
@@ -261,6 +266,7 @@ class OnboardedApplicantController extends Controller
         $districtJson = $this->payloadJson('$.district');
         $blockJson = $this->payloadJson('$.block');
         $categoryJson = $this->payloadJson('$.category');
+        $casteJson = $this->payloadJson('$.caste');
         $turnoverJson = $this->payloadJson('$.turnover_last_fy');
 
         $onboardedAtSql = $this->phase3OnboardedAtSql();
@@ -287,6 +293,7 @@ class OnboardedApplicantController extends Controller
                 COALESCE({$districtJson}, d.name) as district,
                 {$blockJson} as block_name,
                 {$categoryJson} as applicant_category,
+                {$casteJson} as caste,
                 {$turnoverJson} as turnover_last_fy,
                 h.name as hub_name,
                 h.id as hub_id,
@@ -339,6 +346,7 @@ class OnboardedApplicantController extends Controller
         $q = (string) ($filters['q'] ?? '');
         $stage = (string) ($filters['stage'] ?? '');
         $category = (string) ($filters['category'] ?? '');
+        $caste = (string) ($filters['caste'] ?? '');
         $income = (string) ($filters['income'] ?? '');
         $service = (string) ($filters['service'] ?? '');
 
@@ -363,6 +371,9 @@ class OnboardedApplicantController extends Controller
                 "LOWER(TRIM(COALESCE({$categoryJson}, ''))) = ?",
                 [mb_strtolower($category)],
             );
+        }
+        if ($caste !== '') {
+            CfaSubmissionListQuery::applyCasteColumnFilter($query, $this->payloadJson('$.caste'), $caste);
         }
         if ($income !== '' && array_key_exists($income, self::INCOME_SLABS)) {
             $this->applyIncomeSlabFilter($query, $income);

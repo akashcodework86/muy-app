@@ -31,6 +31,8 @@ class Phase2OnboardedApplicantTest extends TestCase
         $response->assertSee('Women onboarded');
         $response->assertSee('Potential Lakhpati Didi/ SHG Members/ CBOs');
         $response->assertSee('Applicant records');
+        $response->assertSee('Category');
+        $response->assertSee('Caste');
         $response->assertSee('FY 2025-26');
         $response->assertDontSee('Phase 3: SHG/CBO or member Yes');
     }
@@ -76,6 +78,9 @@ class Phase2OnboardedApplicantTest extends TestCase
         $response->assertSee('Phase Two Woman');
         $response->assertSee('P2-40801001');
         $response->assertSee('Almora');
+        $response->assertSee('Category');
+        $response->assertSee('Caste');
+        $response->assertSee('SC');
         $response->assertSee('FY 2025-26');
     }
 
@@ -139,6 +144,7 @@ class Phase2OnboardedApplicantTest extends TestCase
             $table->string('is_shg_member')->nullable();
             $table->string('shg_name')->nullable();
             $table->string('lakhpati')->nullable();
+            $table->string('caste')->nullable();
         });
         $schema->create('rbi_onboarded_applicants', function ($table): void {
             $table->increments('id');
@@ -162,6 +168,7 @@ class Phase2OnboardedApplicantTest extends TestCase
         string $gender,
         string $lakhpati,
         string $isShgMember,
+        string $caste = 'SC',
     ): void {
         $appId = (int) DB::connection('legacy')->table('rbi_applications')->insertGetId([
             'application_no' => $applicationNo,
@@ -181,6 +188,7 @@ class Phase2OnboardedApplicantTest extends TestCase
             'block' => 'Test Block',
             'is_shg_member' => $isShgMember,
             'lakhpati' => $lakhpati,
+            'caste' => $caste,
         ]);
 
         $batchId = (int) DB::connection('legacy')->table('rbi_onboarding_batches')->insertGetId([
