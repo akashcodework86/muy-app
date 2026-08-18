@@ -24,6 +24,11 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
+/outputs/
+/tmp/
+/.codex-remote-attachments/
+*.pdf
+
 /rbiphase2 (1).sql
 /rbiphase3 (5).sql
 /ukrbiin_rbi.sql
