@@ -19,6 +19,7 @@ use App\Services\ProgramDeliverablesReportService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -124,6 +125,56 @@ class DeliverablesReportController extends Controller
         ]);
     }
 
+    public function records(Request $request): View
+    {
+        $serial = trim((string) $request->query('serial', ''));
+        abort_if($serial === '', 422, 'Indicator serial is required.');
+
+        $context = $this->resolveRequestContext($request);
+        $payload = $this->buildReportPayload($context);
+        $breakdown = $this->breakdownService->build($context['safeFilter'], $context['scope'], $serial);
+        $listFilters = $this->recordsListFilters($request);
+        $breakdown = $this->applyRecordsListFilters($breakdown, $listFilters);
+
+        $row = collect($payload['rows'])->firstWhere('serial', $serial);
+        $records = $breakdown['records'] ?? [];
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 25;
+        $paginator = new LengthAwarePaginator(
+            array_slice($records, ($page - 1) * $perPage, $perPage),
+            count($records),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ],
+        );
+
+        $listQueryParams = array_filter([
+            ...$payload['filter']->queryParams(),
+            'serial' => $serial,
+            'linkage_mode' => $listFilters['linkage_mode'] !== '' ? $listFilters['linkage_mode'] : null,
+            'q' => $listFilters['q'] !== '' ? $listFilters['q'] : null,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        return view('deliverables.records', [
+            ...$payload,
+            'serial' => $serial,
+            'breakdown' => $breakdown,
+            'row' => is_array($row) ? $row : null,
+            'listFilters' => $listFilters,
+            'records' => $paginator,
+            'recordsTotal' => count($records),
+            'listQueryParams' => $listQueryParams,
+            'modeLabel' => match ($listFilters['linkage_mode']) {
+                'offline' => 'Offline incubatees',
+                'online' => 'Online incubatees',
+                default => 'All linked incubatees',
+            },
+        ]);
+    }
+
     public function breakdownExport(Request $request): StreamedResponse
     {
         try {
@@ -219,9 +270,16 @@ class DeliverablesReportController extends Controller
         abort_if($serial === '', 422, 'Indicator serial is required.');
 
         $context = $this->resolveRequestContext($request);
-        $breakdown = $this->breakdownService->build($context['safeFilter'], $context['scope'], $serial);
+        $breakdown = $this->applyRecordsListFilters(
+            $this->breakdownService->build($context['safeFilter'], $context['scope'], $serial),
+            $this->recordsListFilters($request),
+        );
 
         $payload = $this->buildExportMetaPayload($context, $serial);
+        $mode = $this->recordsListFilters($request)['linkage_mode'];
+        if ($mode !== '') {
+            $payload['periodLabel'] = ($payload['periodLabel'] ?? '').' · '.($mode === 'online' ? 'Online incubatees' : 'Offline incubatees');
+        }
 
         return [
             'serial' => $serial,
@@ -229,6 +287,81 @@ class DeliverablesReportController extends Controller
             'row' => $payload['row'],
             'payload' => $payload,
         ];
+    }
+
+    /**
+     * @return array{linkage_mode: string, q: string}
+     */
+    private function recordsListFilters(Request $request): array
+    {
+        $mode = strtolower(trim((string) $request->query('linkage_mode', '')));
+        if (! in_array($mode, ['offline', 'online'], true)) {
+            $mode = '';
+        }
+
+        return [
+            'linkage_mode' => $mode,
+            'q' => trim((string) $request->query('q', '')),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $breakdown
+     * @param  array{linkage_mode: string, q: string}  $listFilters
+     * @return array<string, mixed>
+     */
+    private function applyRecordsListFilters(array $breakdown, array $listFilters): array
+    {
+        $mode = $listFilters['linkage_mode'];
+        $q = strtolower($listFilters['q']);
+        if ($mode === '' && $q === '') {
+            return $breakdown;
+        }
+
+        $breakdown['records'] = array_values(array_filter(
+            $breakdown['records'] ?? [],
+            static function ($row) use ($mode, $q): bool {
+                if (! is_array($row)) {
+                    return false;
+                }
+
+                if ($mode !== '') {
+                    $rowMode = strtolower((string) ($row['linkage_mode'] ?? ''));
+                    if (! str_contains($rowMode, $mode)) {
+                        return false;
+                    }
+                }
+
+                if ($q !== '') {
+                    $partnerBlob = '';
+                    foreach ($row['partner_rows'] ?? [] as $partner) {
+                        if (! is_array($partner)) {
+                            continue;
+                        }
+                        $partnerBlob .= ' '.($partner['partner_name'] ?? '').' '.($partner['link_url'] ?? '');
+                    }
+                    $haystack = strtolower(implode(' ', [
+                        (string) ($row['applicant'] ?? ''),
+                        (string) ($row['reference'] ?? ''),
+                        (string) ($row['district'] ?? ''),
+                        (string) ($row['hub'] ?? ''),
+                        (string) ($row['phone'] ?? ''),
+                        (string) ($row['block'] ?? ''),
+                        (string) ($row['submitted_by'] ?? ''),
+                        (string) ($row['service'] ?? ''),
+                        (string) ($row['linkage_mode'] ?? ''),
+                        $partnerBlob,
+                    ]));
+                    if (! str_contains($haystack, $q)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            },
+        ));
+
+        return $breakdown;
     }
 
     /**
@@ -305,6 +438,7 @@ class DeliverablesReportController extends Controller
             'exportRoute' => $this->routeNameFor($user, 'export'),
             'wordExportRoute' => $this->routeNameFor($user, 'export.word'),
             'breakdownRoute' => $this->routeNameFor($user, 'breakdown'),
+            'recordsRoute' => $this->routeNameFor($user, 'records'),
             'breakdownExportRoute' => $this->routeNameFor($user, 'breakdown.export'),
             'breakdownExportCsvRoute' => $this->routeNameFor($user, 'breakdown.export.csv'),
             'breakdownExportPdfRoute' => $this->routeNameFor($user, 'breakdown.export.pdf'),

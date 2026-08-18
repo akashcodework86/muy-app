@@ -127,11 +127,26 @@ class ProgramDeliverablesAchievementBreakdownService
                     'label' => 'Offline incubatees',
                     'value' => number_format($offline),
                     'tone' => 'info',
+                    'filter' => 'offline',
                 ], [
                     'label' => 'Online incubatees',
                     'value' => number_format($online),
                     'tone' => 'success',
+                    'filter' => 'online',
                 ]);
+            }
+
+            $leadingRow = collect($breakdown['by_service'] ?? [])
+                ->sortByDesc(fn ($row) => (int) ($row['count'] ?? 0))
+                ->first();
+            $leadingMode = strtolower(trim((string) ($leadingRow['service'] ?? '')));
+            if (in_array($leadingMode, ['offline', 'online'], true)) {
+                foreach ($insights as $index => $insight) {
+                    if (($insight['label'] ?? '') === 'Leading service') {
+                        $insights[$index]['filter'] = $leadingMode;
+                        break;
+                    }
+                }
             }
         }
 
@@ -1754,7 +1769,7 @@ class ProgramDeliverablesAchievementBreakdownService
      * @param  list<array<string, mixed>>  $byDistrict
      * @param  list<array<string, mixed>>  $byMonth
      * @param  list<array<string, mixed>>  $byService
-     * @return list<array{label: string, value: string, tone: string}>
+     * @return list<array{label: string, value: string, tone: string, filter?: string}>
      */
     private function buildInsights(int $total, array $byDistrict, array $byMonth, array $byService): array
     {
@@ -1784,7 +1799,7 @@ class ProgramDeliverablesAchievementBreakdownService
         }
 
         if ($byService !== []) {
-            $topService = $byService[0];
+            $topService = collect($byService)->sortByDesc(fn ($row) => (int) ($row['count'] ?? 0))->first();
             $insights[] = [
                 'label' => 'Leading service',
                 'value' => (string) $topService['service'].' ('.number_format((int) $topService['count']).')',

@@ -219,6 +219,8 @@ class DeliverablesBreakdownExcelExport
                 DeliverablesExcelSupport::sanitizeCell($item['hub'] ?? ''),
                 DeliverablesExcelSupport::sanitizeCell($item['date'] ?? ''),
             ])->all();
+        } elseif ($sourceType === 'market_linkage_incubatees') {
+            return $this->marketLinkageRecordTable($breakdown);
         } else {
             $headers = ['#', 'Reference', 'Applicant', 'District', 'Hub', 'Service', 'Status', 'Date'];
             $rows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
@@ -231,6 +233,86 @@ class DeliverablesBreakdownExcelExport
                 DeliverablesExcelSupport::sanitizeCell($item['status'] ?? ''),
                 DeliverablesExcelSupport::sanitizeCell($item['date'] ?? ''),
             ])->all();
+        }
+
+        return [$headers, $rows];
+    }
+
+    /**
+     * One Excel row per partner linkage so every stored field is exportable.
+     *
+     * @param  array<string, mixed>  $breakdown
+     * @return array{0: list<string>, 1: list<list<mixed>>}
+     */
+    private function marketLinkageRecordTable(array $breakdown): array
+    {
+        $headers = [
+            '#',
+            'Application No.',
+            'Incubatee',
+            'Phone',
+            'Block',
+            'District',
+            'Hub',
+            'Source',
+            'Status',
+            'Submitted by',
+            'Submitted on',
+            'Partner name',
+            'Linkage mode',
+            'Linkage date',
+            'Link / URL',
+            'Bill',
+            'Bill file',
+        ];
+
+        $rows = [];
+        $serial = 0;
+        foreach (array_values($breakdown['records'] ?? []) as $item) {
+            $serial++;
+            $partners = is_array($item['partner_rows'] ?? null) && $item['partner_rows'] !== []
+                ? $item['partner_rows']
+                : [[
+                    'partner_name' => $item['service'] ?? '',
+                    'linkage_mode_label' => $item['linkage_mode'] ?? '',
+                    'linkage_date_display' => '',
+                    'link_url' => '',
+                    'has_document' => false,
+                    'document_name' => '',
+                ]];
+
+            $phone = trim((string) ($item['phone'] ?? ''));
+            if ($phone !== '' && preg_match('/^[\d\s+\-]{10,}$/', $phone)) {
+                $phone = "\t".$phone;
+            }
+
+            $source = (string) ($item['source'] ?? '');
+            $sourceLabel = $source === 'service_case' ? 'Service case' : 'Market linkage';
+            $status = trim((string) ($item['status'] ?? ''));
+            $statusLabel = $status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Approved';
+
+            foreach ($partners as $partner) {
+                $partner = is_array($partner) ? $partner : [];
+                $rows[] = [
+                    $serial,
+                    DeliverablesExcelSupport::sanitizeCell($item['reference'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($item['applicant'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($phone),
+                    DeliverablesExcelSupport::sanitizeCell($item['block'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($item['district'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($item['hub'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($sourceLabel),
+                    DeliverablesExcelSupport::sanitizeCell($statusLabel),
+                    DeliverablesExcelSupport::sanitizeCell($item['submitted_by'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($item['date'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($partner['partner_name'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($partner['linkage_mode_label'] ?? ($item['linkage_mode'] ?? '')),
+                    DeliverablesExcelSupport::sanitizeCell($partner['linkage_date_display'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($partner['link_url'] ?? ''),
+                    ! empty($partner['has_document']) ? 'Yes' : 'No',
+                    DeliverablesExcelSupport::sanitizeCell($partner['document_name'] ?? ''),
+                ];
+            }
         }
 
         return [$headers, $rows];

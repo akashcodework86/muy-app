@@ -2966,6 +2966,201 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(1, $offlineRow['count'] ?? null);
         $this->assertSame(1, $onlineRow['count'] ?? null);
         $this->assertSame('Offline', $breakdown['records'][0]['linkage_mode'] ?? null);
+
+        $insightFilters = collect($breakdown['insights'] ?? [])->pluck('filter', 'label');
+        $this->assertSame('offline', $insightFilters['Offline incubatees'] ?? null);
+        $this->assertSame('online', $insightFilters['Online incubatees'] ?? null);
+        $this->assertSame('offline', $insightFilters['Leading service'] ?? null);
+    }
+
+    public function test_market_linkage_incubatee_records_page_filters_and_csv_export(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ml-rec-hub', 'name' => 'ML Rec Hub', 'sort_order' => 99]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-rec-dist', 'name' => 'ML Rec District', 'sort_order' => 99]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $cfaOffline = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-REC-OFF-001',
+            'applicant_name' => 'Records Offline Incubatee',
+            'phone' => '9000000201',
+            'payload' => json_encode(['block' => 'Bhikiyasain']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $cfaOnline = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'ML-REC-ON-001',
+            'applicant_name' => 'Records Online Incubatee',
+            'phone' => '9000000202',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        foreach ([
+            [$cfaOffline, 'Records Offline Incubatee', 'ML-REC-OFF-001', 'offline', 'Local Haat'],
+            [$cfaOnline, 'Records Online Incubatee', 'ML-REC-ON-001', 'online', 'Flipkart'],
+        ] as [$cfaId, $name, $appNo, $mode, $partner]) {
+            $submissionId = (int) DB::table('market_linkage_submissions')->insertGetId([
+                'submitted_by_user_id' => $staff->id,
+                'submitted_by_name' => $staff->name,
+                'district_id' => $district->id,
+                'district_name' => $district->name,
+                'cfa_submission_id' => $cfaId,
+                'incubatee_name' => $name,
+                'application_no' => $appNo,
+                'status' => 'approved',
+                'submitted_at' => now(),
+                'approved_at' => now(),
+                'approved_by' => $staff->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::table('market_linkage_partners')->insert([
+                'market_linkage_submission_id' => $submissionId,
+                'partner_name' => $partner,
+                'linkage_mode' => $mode,
+                'linkage_date' => '2026-05-16',
+                'sort_order' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.records', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '6.3',
+                'linkage_mode' => 'offline',
+            ]))
+            ->assertOk()
+            ->assertSee('Records Offline Incubatee')
+            ->assertDontSee('Records Online Incubatee')
+            ->assertSee('Local Haat')
+            ->assertSee('Bhikiyasain')
+            ->assertSee('Excel')
+            ->assertSee('CSV');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export.csv', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '6.3',
+                'linkage_mode' => 'offline',
+            ]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Records Offline Incubatee', $csv);
+        $this->assertStringNotContainsString('Records Online Incubatee', $csv);
+        $this->assertStringContainsString('Local Haat', $csv);
+        $this->assertStringContainsString('Bhikiyasain', $csv);
+        $this->assertStringContainsString('Partner name', $csv);
+        $this->assertStringContainsString('Link / URL', $csv);
+        $this->assertStringContainsString('Offline', $csv);
+    }
+
+    public function test_market_linkage_incubatee_records_include_legacy_block(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'ml-leg-hub', 'name' => 'ML Leg Hub', 'sort_order' => 99]);
+        $district = District::query()->create(['hub_id' => $hub->id, 'slug' => 'ml-leg-dist', 'name' => 'ML Leg District', 'sort_order' => 99]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'hub_id' => $hub->id,
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->partialMock(LegacyApplicationServiceCaseSupport::class, function ($mock): void {
+            $mock->shouldReceive('applicantSnapshotsByLegacyApplicationIds')
+                ->andReturn([
+                    1416 => [
+                        'name' => 'Legacy Linked Incubatee',
+                        'application_no' => 'RBI1749712514',
+                        'phone' => '9000000999',
+                        'gender' => '',
+                        'village' => '',
+                        'block_name' => 'Dwarahat',
+                    ],
+                ]);
+        });
+
+        $submissionId = (int) DB::table('market_linkage_submissions')->insertGetId([
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => $staff->name,
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'cfa_submission_id' => null,
+            'legacy_application_id' => 1416,
+            'incubatee_name' => 'Legacy Linked Incubatee',
+            'application_no' => 'RBI1749712514',
+            'status' => 'approved',
+            'submitted_at' => now(),
+            'approved_at' => now(),
+            'approved_by' => $staff->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('market_linkage_partners')->insert([
+            'market_linkage_submission_id' => $submissionId,
+            'partner_name' => 'Local Haat',
+            'linkage_mode' => 'offline',
+            'linkage_date' => '2026-05-16',
+            'sort_order' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deliverables.records', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '6.3',
+                'linkage_mode' => 'offline',
+            ]))
+            ->assertOk()
+            ->assertSee('Legacy Linked Incubatee')
+            ->assertSee('Dwarahat');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export.csv', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '6.3',
+                'linkage_mode' => 'offline',
+            ]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Legacy Linked Incubatee', $csv);
+        $this->assertStringContainsString('Dwarahat', $csv);
     }
 
     public function test_market_linkage_incubatee_deliverable_includes_orphan_service_cases(): void

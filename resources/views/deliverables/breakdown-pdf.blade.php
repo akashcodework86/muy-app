@@ -86,22 +86,80 @@
     @endif
 
     <div class="section">
-        <h2>Recent records</h2>
+        <h2>Records</h2>
+        @php $isMarketIncubatees = ($breakdown['source_type'] ?? '') === 'market_linkage_incubatees'; @endphp
         <table class="data">
-            <thead><tr><th>Reference</th><th>Applicant</th><th>District</th><th>Service</th><th>Date</th></tr></thead>
-            <tbody>
-                @forelse ($breakdown['records'] ?? [] as $item)
+            @if ($isMarketIncubatees)
+                <thead>
                     <tr>
-                        <td>{{ $item['reference'] ?? '' }}</td>
-                        <td>{{ $item['applicant'] ?? '' }}</td>
-                        <td>{{ $item['district'] ?? '' }}</td>
-                        <td>{{ $item['service'] ?? '' }}</td>
-                        <td>{{ $item['date'] ?? '' }}</td>
+                        <th>#</th>
+                        <th>Application</th>
+                        <th>Incubatee</th>
+                        <th>Phone</th>
+                        <th>Block</th>
+                        <th>District</th>
+                        <th>Hub</th>
+                        <th>Submitted by</th>
+                        <th>Partner</th>
+                        <th>Mode</th>
+                        <th>Linkage date</th>
+                        <th>Link / URL</th>
+                        <th>Bill</th>
                     </tr>
-                @empty
-                    <tr><td colspan="5" class="muted">No records found.</td></tr>
-                @endforelse
-            </tbody>
+                </thead>
+                <tbody>
+                    @php $pdfSerial = 0; @endphp
+                    @forelse ($breakdown['records'] ?? [] as $item)
+                        @php
+                            $pdfSerial++;
+                            $partners = is_array($item['partner_rows'] ?? null) && $item['partner_rows'] !== []
+                                ? $item['partner_rows']
+                                : [[
+                                    'partner_name' => $item['service'] ?? '',
+                                    'linkage_mode_label' => $item['linkage_mode'] ?? '',
+                                    'linkage_date_display' => '',
+                                    'link_url' => '',
+                                    'has_document' => false,
+                                    'document_name' => '',
+                                ]];
+                        @endphp
+                        @foreach ($partners as $partner)
+                            <tr>
+                                <td>{{ $pdfSerial }}</td>
+                                <td>{{ $item['reference'] ?? '' }}</td>
+                                <td>{{ $item['applicant'] ?? '' }}</td>
+                                <td>{{ $item['phone'] ?? '' }}</td>
+                                <td>{{ $item['block'] ?? '' }}</td>
+                                <td>{{ $item['district'] ?? '' }}</td>
+                                <td>{{ $item['hub'] ?? '' }}</td>
+                                <td>{{ $item['submitted_by'] ?? '' }}</td>
+                                <td>{{ $partner['partner_name'] ?? '' }}</td>
+                                <td>{{ $partner['linkage_mode_label'] ?? '' }}</td>
+                                <td>{{ $partner['linkage_date_display'] ?? '' }}</td>
+                                <td>{{ $partner['link_url'] ?? '' }}</td>
+                                <td>{{ ! empty($partner['has_document']) ? 'Yes' : 'No' }}</td>
+                            </tr>
+                        @endforeach
+                    @empty
+                        <tr><td colspan="13" class="muted">No records found.</td></tr>
+                    @endforelse
+                </tbody>
+            @else
+                <thead><tr><th>Reference</th><th>Applicant</th><th>District</th><th>Service</th><th>Date</th></tr></thead>
+                <tbody>
+                    @forelse ($breakdown['records'] ?? [] as $item)
+                        <tr>
+                            <td>{{ $item['reference'] ?? '' }}</td>
+                            <td>{{ $item['applicant'] ?? '' }}</td>
+                            <td>{{ $item['district'] ?? '' }}</td>
+                            <td>{{ $item['service'] ?? '' }}</td>
+                            <td>{{ $item['date'] ?? '' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="muted">No records found.</td></tr>
+                    @endforelse
+                </tbody>
+            @endif
         </table>
     </div>
 </body>

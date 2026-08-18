@@ -197,19 +197,66 @@ SQL;
             $query = DB::table('market_linkage_submissions as mls')
                 ->join('districts as d', 'd.id', '=', 'mls.district_id')
                 ->leftJoin('hubs as h', 'h.id', '=', 'd.hub_id')
-                ->join('market_linkage_partners as mlp', 'mlp.market_linkage_submission_id', '=', 'mls.id')
-                ->selectRaw('
+                ->join('market_linkage_partners as mlp', 'mlp.market_linkage_submission_id', '=', 'mls.id');
+
+            if (Schema::hasTable('cfa_submissions')) {
+                $query->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'mls.cfa_submission_id');
+                if (Schema::hasTable('district_blocks')
+                    && Schema::hasColumn('cfa_submissions', 'lgd_block_code')
+                    && Schema::hasColumn('district_blocks', 'lgd_block_code')
+                ) {
+                    $query->leftJoin('district_blocks as db', function ($join): void {
+                        $join->on('db.district_id', '=', 'cs.district_id')
+                            ->on('db.lgd_block_code', '=', 'cs.lgd_block_code')
+                            ->whereNotNull('cs.lgd_block_code')
+                            ->where('cs.lgd_block_code', '!=', '');
+                    });
+                }
+            }
+
+            $select = '
                     '.$keySql.' as incubatee_key,
                     mls.application_no,
                     mls.incubatee_name,
                     mls.submitted_at,
                     mls.created_at,
+                    mls.submitted_by_name,
                     d.name as district_name,
                     h.name as hub_name,
                     mlp.partner_name,
                     mlp.linkage_mode,
                     mlp.linkage_date
-                ');
+                ';
+            if (Schema::hasColumn('market_linkage_submissions', 'legacy_application_id')) {
+                $select .= ', mls.legacy_application_id';
+            }
+            if (Schema::hasColumn('market_linkage_submissions', 'status')) {
+                $select .= ', mls.status';
+            }
+            if (Schema::hasColumn('market_linkage_partners', 'link_url')) {
+                $select .= ', mlp.link_url';
+            }
+            if (Schema::hasColumn('market_linkage_partners', 'document_path')) {
+                $select .= ', mlp.document_path, mlp.document_original_name';
+            }
+            if (Schema::hasTable('cfa_submissions') && Schema::hasColumn('cfa_submissions', 'phone')) {
+                $select .= ', cs.phone as incubatee_phone';
+            }
+            if (Schema::hasTable('cfa_submissions') && Schema::hasColumn('cfa_submissions', 'payload')) {
+                $select .= ', cs.payload as cfa_payload';
+            }
+            if (Schema::hasTable('cfa_submissions') && Schema::hasColumn('cfa_submissions', 'lgd_block_code')) {
+                $select .= ', cs.lgd_block_code';
+            }
+            if (Schema::hasTable('district_blocks')
+                && Schema::hasColumn('district_blocks', 'name')
+                && Schema::hasTable('cfa_submissions')
+                && Schema::hasColumn('cfa_submissions', 'lgd_block_code')
+                && Schema::hasColumn('district_blocks', 'lgd_block_code')
+            ) {
+                $select .= ', db.name as district_block_name';
+            }
+            $query->selectRaw($select);
 
             self::applyMarketLinkageDistrictAndStatusScopes($query, $districtIds, $approvedOnly);
             self::applyMarketLinkagePartnerPeriodScope($query, $periodFrom, $periodTo);
@@ -226,6 +273,14 @@ SQL;
                         (string) ($row->incubatee_name ?: '—'),
                         (string) $row->district_name,
                         (string) ($row->hub_name ?? ''),
+                        [
+                            'phone' => (string) ($row->incubatee_phone ?? ''),
+                            'block' => self::blockLabelFromCfaRow($row),
+                            'legacy_application_id' => (int) ($row->legacy_application_id ?? 0),
+                            'submitted_by' => (string) ($row->submitted_by_name ?? ''),
+                            'status' => (string) ($row->status ?? 'approved'),
+                            'source' => 'market_linkage',
+                        ],
                     );
                 }
 
@@ -236,11 +291,33 @@ SQL;
                     $submissionDate = Carbon::parse((string) $row->created_at)->toDateString();
                 }
 
+                $linkageDate = ! empty($row->linkage_date)
+                    ? Carbon::parse((string) $row->linkage_date)
+                    : null;
+                $modeLabel = self::linkageModeLabelFromPartnerMode((string) ($row->linkage_mode ?? ''));
+                $recordedAt = ! empty($row->created_at)
+                    ? Carbon::parse((string) $row->created_at)
+                    : null;
+
                 self::pushIncubateeAggregate(
                     $incubatees[$key],
                     (string) ($row->partner_name ?? ''),
-                    [self::linkageModeLabelFromPartnerMode((string) ($row->linkage_mode ?? ''))],
+                    [$modeLabel],
                     $submissionDate,
+                    [
+                        'partner_name' => trim((string) ($row->partner_name ?? '')) !== '' ? trim((string) $row->partner_name) : '—',
+                        'linkage_mode' => (string) ($row->linkage_mode ?? ''),
+                        'linkage_mode_label' => $modeLabel !== '' ? $modeLabel : '—',
+                        'linkage_date' => $linkageDate?->toDateString() ?? '',
+                        'linkage_date_display' => $linkageDate?->format('d M Y') ?? '—',
+                        'link_url' => trim((string) ($row->link_url ?? '')),
+                        'has_document' => trim((string) ($row->document_path ?? '')) !== '',
+                        'document_name' => trim((string) ($row->document_original_name ?? '')),
+                        'recorded_by' => (string) ($row->submitted_by_name ?? ''),
+                        'recorded_at' => $recordedAt
+                            ? $recordedAt->timezone((string) config('app.timezone'))->format('d M Y H:i')
+                            : '',
+                    ],
                 );
             }
         }
@@ -253,6 +330,8 @@ SQL;
                 }
             }
         }
+
+        self::fillLegacyIncubateeDetails($incubatees);
 
         $records = array_map(
             static fn (array $agg): array => self::formatIncubateeRecord($agg),
@@ -430,6 +509,8 @@ SQL;
                 'sc.created_at',
                 'cs.application_no',
                 'cs.applicant_name',
+                'cs.phone',
+                'cs.payload as cfa_payload',
                 'd.name as district_name',
                 'h.name as hub_name',
             );
@@ -469,42 +550,95 @@ SQL;
                     (string) ($row->applicant_name ?: '—'),
                     (string) ($row->district_name ?? ''),
                     (string) ($row->hub_name ?? ''),
+                    [
+                        'source' => 'service_case',
+                        'status' => 'approved',
+                        'phone' => (string) ($row->phone ?? ''),
+                        'block' => self::blockLabelFromCfaRow($row),
+                        'legacy_application_id' => (int) ($row->legacy_application_id ?? 0),
+                    ],
                 );
             }
 
             $dateRaw = $row->approved_at ?? $row->created_at;
+            $dateString = $dateRaw ? Carbon::parse((string) $dateRaw)->toDateString() : null;
+            $partnerName = trim((string) ($payload['p'] ?? ''));
+            $partnerRows = [];
+            foreach ($modes as $modeLabel) {
+                $partnerRows[] = [
+                    'partner_name' => $partnerName !== '' ? $partnerName : '—',
+                    'linkage_mode' => strtolower($modeLabel),
+                    'linkage_mode_label' => $modeLabel,
+                    'linkage_date' => $dateString ?? '',
+                    'linkage_date_display' => $dateString ? Carbon::parse($dateString)->format('d M Y') : '—',
+                    'link_url' => '',
+                    'has_document' => false,
+                    'document_name' => '',
+                    'recorded_by' => 'Service case',
+                    'recorded_at' => $dateRaw
+                        ? Carbon::parse((string) $dateRaw)->timezone((string) config('app.timezone'))->format('d M Y H:i')
+                        : '',
+                ];
+            }
+
             self::pushIncubateeAggregate(
                 $aggregates[$key],
-                trim((string) ($payload['p'] ?? '')),
+                $partnerName,
                 $modes,
-                $dateRaw ? Carbon::parse((string) $dateRaw)->toDateString() : null,
+                $dateString,
+                $partnerRows[0] ?? null,
             );
+            foreach (array_slice($partnerRows, 1) as $extraPartner) {
+                $aggregates[$key]['partner_rows'][] = $extraPartner;
+            }
         }
 
         return $aggregates;
     }
 
     /**
-     * @return array{reference: string, applicant: string, district: string, hub: string, partners: list<string>, modes: list<string>, latest_date: ?string}
+     * @param  array<string, mixed>  $extra
+     * @return array{
+     *     reference: string,
+     *     applicant: string,
+     *     district: string,
+     *     hub: string,
+     *     phone: string,
+     *     submitted_by: string,
+     *     status: string,
+     *     source: string,
+     *     partners: list<string>,
+     *     partner_rows: list<array<string, mixed>>,
+     *     modes: list<string>,
+     *     latest_date: ?string
+     * }
      */
-    private static function newIncubateeAggregate(string $reference, string $applicant, string $district, string $hub): array
+    private static function newIncubateeAggregate(string $reference, string $applicant, string $district, string $hub, array $extra = []): array
     {
         return [
             'reference' => $reference !== '' ? $reference : '—',
             'applicant' => $applicant !== '' ? $applicant : '—',
             'district' => $district,
             'hub' => $hub,
+            'phone' => (string) ($extra['phone'] ?? ''),
+            'block' => (string) ($extra['block'] ?? ''),
+            'legacy_application_id' => (int) ($extra['legacy_application_id'] ?? 0),
+            'submitted_by' => (string) ($extra['submitted_by'] ?? ''),
+            'status' => (string) ($extra['status'] ?? ''),
+            'source' => (string) ($extra['source'] ?? 'market_linkage'),
             'partners' => [],
+            'partner_rows' => [],
             'modes' => [],
             'latest_date' => null,
         ];
     }
 
     /**
-     * @param  array{reference: string, applicant: string, district: string, hub: string, partners: list<string>, modes: list<string>, latest_date: ?string}  $aggregate
+     * @param  array<string, mixed>  $aggregate
      * @param  list<string>  $modeLabels
+     * @param  array<string, mixed>|null  $partnerRow
      */
-    private static function pushIncubateeAggregate(array &$aggregate, string $partnerName, array $modeLabels, ?string $dateRaw): void
+    private static function pushIncubateeAggregate(array &$aggregate, string $partnerName, array $modeLabels, ?string $dateRaw, ?array $partnerRow = null): void
     {
         $partnerName = trim($partnerName);
         if ($partnerName !== '' && ! in_array($partnerName, $aggregate['partners'], true)) {
@@ -520,11 +654,15 @@ SQL;
         if ($dateRaw !== null && ($aggregate['latest_date'] === null || $dateRaw > $aggregate['latest_date'])) {
             $aggregate['latest_date'] = $dateRaw;
         }
+
+        if (is_array($partnerRow) && $partnerRow !== []) {
+            $aggregate['partner_rows'][] = $partnerRow;
+        }
     }
 
     /**
-     * @param  array{reference: string, applicant: string, district: string, hub: string, partners: list<string>, modes: list<string>, latest_date: ?string}  $aggregate
-     * @return array{reference: string, applicant: string, service: string, linkage_mode: string, date: string, district: string, hub: string}
+     * @param  array<string, mixed>  $aggregate
+     * @return array<string, mixed>
      */
     private static function formatIncubateeRecord(array $aggregate): array
     {
@@ -546,7 +684,105 @@ SQL;
                 : '—',
             'district' => $aggregate['district'],
             'hub' => $aggregate['hub'],
+            'phone' => (string) ($aggregate['phone'] ?? ''),
+            'block' => (string) ($aggregate['block'] ?? ''),
+            'submitted_by' => (string) ($aggregate['submitted_by'] ?? ''),
+            'status' => (string) ($aggregate['status'] ?? ''),
+            'source' => (string) ($aggregate['source'] ?? 'market_linkage'),
+            'partner_count' => count($aggregate['partner_rows'] ?? []),
+            'partner_rows' => $aggregate['partner_rows'] ?? [],
         ];
+    }
+
+    private static function blockLabelFromCfaRow(object $row): string
+    {
+        $payloadRaw = $row->cfa_payload ?? null;
+        $payload = is_string($payloadRaw) ? json_decode($payloadRaw, true) : (is_array($payloadRaw) ? $payloadRaw : []);
+        $payload = is_array($payload) ? $payload : [];
+        $fromPayload = trim((string) ($payload['block'] ?? $payload['block_name'] ?? ''));
+        if ($fromPayload !== '') {
+            return $fromPayload;
+        }
+
+        return trim((string) ($row->district_block_name ?? ''));
+    }
+
+    /**
+     * Fill missing block (and empty identity fields) from rbiphase2 applicant details.
+     *
+     * @param  array<string, array<string, mixed>>  $incubatees
+     */
+    private static function fillLegacyIncubateeDetails(array &$incubatees): void
+    {
+        $legacyIds = [];
+        $applicationNos = [];
+        foreach ($incubatees as $agg) {
+            if (trim((string) ($agg['block'] ?? '')) !== '') {
+                continue;
+            }
+            $legacyId = (int) ($agg['legacy_application_id'] ?? 0);
+            if ($legacyId > 0) {
+                $legacyIds[] = $legacyId;
+            }
+            $applicationNo = trim((string) ($agg['reference'] ?? ''));
+            if ($applicationNo !== '' && $applicationNo !== '—') {
+                $applicationNos[] = $applicationNo;
+            }
+        }
+
+        if ($legacyIds === [] && $applicationNos === []) {
+            return;
+        }
+
+        try {
+            $support = app(LegacyApplicationServiceCaseSupport::class);
+            $byId = $legacyIds !== []
+                ? $support->applicantSnapshotsByLegacyApplicationIds($legacyIds)
+                : [];
+            $byNo = $applicationNos !== []
+                ? $support->applicantSnapshotsByLegacyApplicationNumbers($applicationNos)
+                : [];
+        } catch (\Throwable) {
+            return;
+        }
+
+        foreach ($incubatees as &$agg) {
+            $snapshot = null;
+            $legacyId = (int) ($agg['legacy_application_id'] ?? 0);
+            if ($legacyId > 0) {
+                $snapshot = $byId[$legacyId] ?? null;
+            }
+            if (! is_array($snapshot)) {
+                $applicationNo = mb_strtolower(trim((string) ($agg['reference'] ?? '')));
+                $snapshot = $applicationNo !== '' && $applicationNo !== '—'
+                    ? ($byNo[$applicationNo] ?? null)
+                    : null;
+            }
+            if (! is_array($snapshot)) {
+                continue;
+            }
+
+            $block = trim((string) ($snapshot['block_name'] ?? ''));
+            if ($block !== '' && trim((string) ($agg['block'] ?? '')) === '') {
+                $agg['block'] = $block;
+            }
+
+            $phone = trim((string) ($snapshot['phone'] ?? ''));
+            if ($phone !== '' && trim((string) ($agg['phone'] ?? '')) === '') {
+                $agg['phone'] = $phone;
+            }
+
+            $name = trim((string) ($snapshot['name'] ?? ''));
+            if ($name !== '' && in_array(trim((string) ($agg['applicant'] ?? '')), ['', '—'], true)) {
+                $agg['applicant'] = $name;
+            }
+
+            $applicationNo = trim((string) ($snapshot['application_no'] ?? ''));
+            if ($applicationNo !== '' && in_array(trim((string) ($agg['reference'] ?? '')), ['', '—'], true)) {
+                $agg['reference'] = $applicationNo;
+            }
+        }
+        unset($agg);
     }
 
     /**

@@ -156,21 +156,54 @@
         justify-content: space-between;
         gap: 0.75rem;
         align-items: center;
+        width: 100%;
+        font: inherit;
+        text-align: left;
+        color: inherit;
     }
     .dlv-insight--success { border-left-color: #10b981; }
     .dlv-insight--info { border-left-color: #0ea5e9; }
     .dlv-insight--muted { border-left-color: #94a3b8; }
+    .dlv-insight--clickable {
+        cursor: pointer;
+        transition: background 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+    .dlv-insight--clickable:hover {
+        background: #f8fafc;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    }
+    .dlv-insight--clickable:focus-visible {
+        outline: 2px solid #0ea5e9;
+        outline-offset: 2px;
+    }
+    .dlv-insight.is-active {
+        background: #f0f9ff;
+        box-shadow: inset 0 0 0 1px #7dd3fc;
+    }
     .dlv-insight__label {
         font-size: 0.78rem;
         color: #64748b;
         font-weight: 600;
     }
+    .dlv-insight__hint {
+        display: block;
+        margin-top: 0.12rem;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: #0284c7;
+        letter-spacing: 0.01em;
+    }
+    .dlv-insight.is-active .dlv-insight__hint { color: #0369a1; }
     .dlv-insight__value {
         font-size: 0.88rem;
         color: #0f172a;
         font-weight: 700;
         text-align: right;
     }
+    .dlv-filter-row { cursor: pointer; }
+    .dlv-filter-row:hover { background: #f8fafc; }
     .dlv-section {
         background: #fff;
         border: 1px solid #e2e8f0;
@@ -390,6 +423,7 @@
     const exportPdf = document.getElementById('dlv-export-pdf');
     const exportCsv = document.getElementById('dlv-export-csv');
     const breakdownUrl = @json(route($breakdownRoute));
+    const recordsUrl = @json(route($recordsRoute));
     const breakdownExportUrl = @json(route($breakdownExportRoute));
     const breakdownExportCsvUrl = @json(route($breakdownExportCsvRoute));
     const breakdownExportPdfUrl = @json(route($breakdownExportPdfRoute));
@@ -473,12 +507,19 @@
             </div>
         `).join('');
 
-        const insights = (data.insights || []).map((item) => `
-            <div class="dlv-insight dlv-insight--${item.tone || 'primary'}">
-                <div class="dlv-insight__label">${item.label}</div>
-                <div class="dlv-insight__value">${item.value}</div>
-            </div>
-        `).join('');
+        const insights = (data.insights || []).map((item) => {
+            const filter = String(item.filter || '').trim();
+            const clickable = filter !== '' && recordsUrl;
+            const hint = clickable ? '<span class="dlv-insight__hint">Open list + export</span>' : '';
+            const inner = `
+                <div class="dlv-insight__label">${escapeHtml(item.label)}${hint}</div>
+                <div class="dlv-insight__value">${escapeHtml(item.value)}</div>
+            `;
+            if (!clickable) {
+                return `<div class="dlv-insight dlv-insight--${item.tone || 'primary'}">${inner}</div>`;
+            }
+            return `<a class="dlv-insight dlv-insight--${item.tone || 'primary'} dlv-insight--clickable" href="${escapeHtml(recordsHref(filter))}">${inner}</a>`;
+        }).join('');
 
         const monthRows = (data.by_month || []).map((row) => `
             <tr><td>${row.month}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td></tr>
@@ -501,7 +542,16 @@
                 <h3 class="dlv-section__title">${data.source_type === 'market_linkage_incubatees' ? 'Online / offline split (incubatees)' : 'Service bifurcation'}</h3>
                 <table class="dlv-table">
                     <thead><tr><th>Service</th><th>Count</th><th>Share</th><th>Applied Amount</th><th>Sanctioned Amount</th></tr></thead>
-                    <tbody>${(data.by_service || []).map((row) => `<tr><td>${row.service}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td><td>${fmtCurrency(row.applied_amount || 0)}</td><td>${fmtCurrency(row.sanctioned_amount || 0)}</td></tr>`).join('')}</tbody>
+                    <tbody>${(data.by_service || []).map((row) => {
+                        const modeFilter = (data.source_type === 'market_linkage_incubatees' && ['offline', 'online'].includes(String(row.service || '').toLowerCase()))
+                            ? String(row.service).toLowerCase()
+                            : '';
+                        const href = modeFilter && recordsUrl ? recordsHref(modeFilter) : '';
+                        const rowAttrs = href
+                            ? ` class="dlv-filter-row" data-dlv-records-href="${escapeHtml(href)}" title="Open ${escapeHtml(row.service)} list"`
+                            : '';
+                        return `<tr${rowAttrs}><td>${href ? `<a href="${escapeHtml(href)}" style="color:inherit;font-weight:700;">${escapeHtml(row.service)}</a>` : escapeHtml(row.service)}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td><td>${fmtCurrency(row.applied_amount || 0)}</td><td>${fmtCurrency(row.sanctioned_amount || 0)}</td></tr>`;
+                    }).join('')}</tbody>
                 </table>
             </div>
         ` : '';
@@ -539,12 +589,24 @@
             ${serviceSection}
             <div class="dlv-section" id="dlv-records-section">
                 <h3 class="dlv-section__title">${recordsSectionTitle}</h3>
+                ${_sourceType === 'market_linkage_incubatees' && recordsUrl ? `<div style="margin-bottom:0.65rem;"><a class="dlv-action-btn dlv-action-btn--ghost" href="${escapeHtml(recordsHref(''))}">Open full list with filters &amp; export</a></div>` : ''}
                 <div id="dlv-records-table-wrap"></div>
                 <div id="dlv-pagination-wrap"></div>
             </div>
         `;
 
+        bindRecordsLinks();
         renderRecordsPage();
+    }
+
+    function bindRecordsLinks() {
+        document.querySelectorAll('[data-dlv-records-href]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('a')) return;
+                const href = el.getAttribute('data-dlv-records-href');
+                if (href) window.location.href = href;
+            });
+        });
     }
 
     function buildRecordsSectionTitle(total) {
@@ -575,6 +637,12 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function recordsHref(filter) {
+        const params = new URLSearchParams({ ...filterParams, serial: activeSerial || '' });
+        if (filter) params.set('linkage_mode', filter);
+        return recordsUrl + '?' + params.toString();
     }
 
     function renderRecordsPage() {

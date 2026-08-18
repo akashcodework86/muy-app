@@ -116,6 +116,66 @@ class DeliverablesBreakdownCsvExport
                         $item['date'] ?? '',
                     ]);
                 }
+            } elseif ($sourceType === 'market_linkage_incubatees') {
+                fputcsv($out, [
+                    '#',
+                    'Application No.',
+                    'Incubatee',
+                    'Phone',
+                    'Block',
+                    'District',
+                    'Hub',
+                    'Source',
+                    'Status',
+                    'Submitted by',
+                    'Submitted on',
+                    'Partner name',
+                    'Linkage mode',
+                    'Linkage date',
+                    'Link / URL',
+                    'Bill',
+                    'Bill file',
+                ]);
+                $serial = 0;
+                foreach ($breakdown['records'] ?? [] as $item) {
+                    $serial++;
+                    $partners = is_array($item['partner_rows'] ?? null) && $item['partner_rows'] !== []
+                        ? $item['partner_rows']
+                        : [[
+                            'partner_name' => $item['service'] ?? '',
+                            'linkage_mode_label' => $item['linkage_mode'] ?? '',
+                            'linkage_date_display' => '',
+                            'link_url' => '',
+                            'has_document' => false,
+                            'document_name' => '',
+                        ]];
+                    $phone = trim((string) ($item['phone'] ?? ''));
+                    $source = ((string) ($item['source'] ?? '')) === 'service_case' ? 'Service case' : 'Market linkage';
+                    $status = trim((string) ($item['status'] ?? ''));
+                    $statusLabel = $status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Approved';
+                    foreach ($partners as $partner) {
+                        $partner = is_array($partner) ? $partner : [];
+                        fputcsv($out, [
+                            $serial,
+                            $item['reference'] ?? '',
+                            $item['applicant'] ?? '',
+                            $phone,
+                            $item['block'] ?? '',
+                            $item['district'] ?? '',
+                            $item['hub'] ?? '',
+                            $source,
+                            $statusLabel,
+                            $item['submitted_by'] ?? '',
+                            $item['date'] ?? '',
+                            $partner['partner_name'] ?? '',
+                            $partner['linkage_mode_label'] ?? ($item['linkage_mode'] ?? ''),
+                            $partner['linkage_date_display'] ?? '',
+                            $partner['link_url'] ?? '',
+                            ! empty($partner['has_document']) ? 'Yes' : 'No',
+                            $partner['document_name'] ?? '',
+                        ]);
+                    }
+                }
             } else {
                 fputcsv($out, ['#', 'Reference', 'Applicant', 'District', 'Hub', 'Service', 'Status', 'Date']);
                 $idx = 1;

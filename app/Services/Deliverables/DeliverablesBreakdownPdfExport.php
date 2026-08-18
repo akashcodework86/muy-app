@@ -34,7 +34,10 @@ class DeliverablesBreakdownPdfExport
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->setPaper(
+            'A4',
+            ($breakdown['source_type'] ?? '') === 'market_linkage_incubatees' ? 'landscape' : 'portrait',
+        );
         $dompdf->render();
 
         $slug = str_replace('.', '-', $serial);
