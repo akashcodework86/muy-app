@@ -1,102 +1,110 @@
 <?php
 
+use App\Http\Controllers\AccelerationServiceController;
+use App\Http\Controllers\AccelerationServicesLandingController;
 use App\Http\Controllers\Account\ProfileController;
-use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\AdditionalStateAdminController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\BlockWorkshopAdminController;
 use App\Http\Controllers\Admin\CatalogServiceController;
 use App\Http\Controllers\Admin\CfaSubmissionController;
 use App\Http\Controllers\Admin\DataCentreController;
 use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\DistrictSpocController;
 use App\Http\Controllers\Admin\DocumentRepositoryController;
-use App\Http\Controllers\Admin\BlockWorkshopAdminController;
-use App\Http\Controllers\Admin\MediaGalleryController;
 use App\Http\Controllers\Admin\FieldCoordinatorAttendanceAdminController;
-use App\Http\Controllers\Admin\StaffCheckInAdminController;
-use App\Http\Controllers\Admin\StateLiveMapController;
 use App\Http\Controllers\Admin\GramPanchayatImportController;
+use App\Http\Controllers\Admin\HomestaySurveyAdminController;
 use App\Http\Controllers\Admin\HubBatchComplianceController;
+use App\Http\Controllers\Admin\LegacyDataController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
-use App\Http\Controllers\Admin\LegacyDataController;
+use App\Http\Controllers\Admin\MediaGalleryController;
 use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\MonthlyProgressReportController;
+use App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController;
+use App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController;
 use App\Http\Controllers\Admin\OnboardedApplicantController;
+use App\Http\Controllers\Admin\OnboardedShgCboDistrictExportController;
 use App\Http\Controllers\Admin\PendingActionsController;
-use App\Http\Controllers\Admin\SpocApprovalAuditController;
+use App\Http\Controllers\Admin\Phase2OnboardedApplicantController;
+use App\Http\Controllers\Admin\Phase3331ShgMembersPackExportController;
 use App\Http\Controllers\Admin\Phase3ServiceCasesController;
+use App\Http\Controllers\Admin\Phase3ShgCboReapPackExportController;
 use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
+use App\Http\Controllers\Admin\ReapIncubateeTargetsController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceModuleSettingsController;
+use App\Http\Controllers\Admin\SpocApprovalAuditController;
+use App\Http\Controllers\Admin\StaffCheckInAdminController;
 use App\Http\Controllers\Admin\StaffController;
-use App\Http\Controllers\Admin\ServiceTargetAllocationController;
 use App\Http\Controllers\Admin\StaffDeliverableMonthlyTargetController;
 use App\Http\Controllers\Admin\StaffPhase3AttendanceNavController;
+use App\Http\Controllers\Admin\StateLiveMapController;
 use App\Http\Controllers\Admin\StateStaffController;
 use App\Http\Controllers\Admin\StateTaskController as AdminStateTaskController;
-use App\Http\Controllers\DeliverablesReportController;
-use App\Http\Controllers\Admin\TargetController;
 use App\Http\Controllers\Admin\TeamDirectoryController;
 use App\Http\Controllers\Admin\TeamPerformanceController;
 use App\Http\Controllers\Admin\TrainingPackageMonthPlanController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BatchReadOnlyController;
 use App\Http\Controllers\BusinessAccelerationPartnerOutreachController;
+use App\Http\Controllers\BusinessAccelerationPartnersOutreachLandingController;
+use App\Http\Controllers\CapacityBuildingStakeholdersLandingController;
+use App\Http\Controllers\CaseStudyEntryController;
+use App\Http\Controllers\CaseStudyEntryLandingController;
+use App\Http\Controllers\CaseStudyShortlistController;
 use App\Http\Controllers\CommunityOrganizationOutreachController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeliverablesReportController;
+use App\Http\Controllers\DemoDayController;
+use App\Http\Controllers\DemoDayLandingController;
 use App\Http\Controllers\DistrictWorkshopSessionAttendanceController;
-use App\Http\Controllers\EapEdpSessionAttendanceController;
 use App\Http\Controllers\DocumentLibraryController;
+use App\Http\Controllers\EapEdpSessionAttendanceController;
 use App\Http\Controllers\FieldCoordinatorReportController;
+use App\Http\Controllers\FundingSchematicPartnerOutreachController;
+use App\Http\Controllers\FundingSchematicPartnerOutreachLandingController;
+use App\Http\Controllers\Hub\FieldActivityHighlightController;
 use App\Http\Controllers\Hub\HubApplicationsController;
 use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Hub\HubOnboardingInsightController;
 use App\Http\Controllers\Hub\HubPendingActionsController;
 use App\Http\Controllers\Hub\HubStaffPerformanceController;
-use App\Http\Controllers\LakhpatiTechnicalTrainingController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
 use App\Http\Controllers\Incubatee\MentorshipRequestController;
+use App\Http\Controllers\LakhpatiTechnicalTrainingController;
+use App\Http\Controllers\LineDepartmentMeetingController;
+use App\Http\Controllers\LineDepartmentMeetingLandingController;
 use App\Http\Controllers\LiveOpsController;
+use App\Http\Controllers\MarketingPartnerOutreachController;
+use App\Http\Controllers\MarketLinkageController;
+use App\Http\Controllers\MediaCampaignController;
+use App\Http\Controllers\MediaCampaignLandingController;
+use App\Http\Controllers\MuyNewsletterController;
+use App\Http\Controllers\MuyNewsletterLandingController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PartnerOutreachLandingController;
+use App\Http\Controllers\PitchDeckPreparationController;
+use App\Http\Controllers\PitchDeckPreparationLandingController;
 use App\Http\Controllers\Public\CfaApplyController;
 use App\Http\Controllers\Public\HomestaySurveyController;
 use App\Http\Controllers\Public\PublicCfaWalkInController;
-use App\Http\Controllers\Admin\HomestaySurveyAdminController;
+use App\Http\Controllers\SocialMediaPostController;
+use App\Http\Controllers\SocialMediaPostLandingController;
+use App\Http\Controllers\Spoc\StateTaskController as SpocStateTaskController;
 use App\Http\Controllers\Staff\BlockWorkshopController;
 use App\Http\Controllers\Staff\FieldCoordinatorAttendanceController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
 use App\Http\Controllers\Staff\LegacyPhase2IncubateeProfileController;
 use App\Http\Controllers\Staff\StaffPortalController;
+use App\Http\Controllers\Staff\StaffServiceCaseController;
 use App\Http\Controllers\StaffCheckInController;
-use App\Http\Controllers\DemoDayController;
-use App\Http\Controllers\DemoDayLandingController;
-use App\Http\Controllers\FundingSchematicPartnerOutreachController;
-use App\Http\Controllers\FundingSchematicPartnerOutreachLandingController;
-use App\Http\Controllers\BusinessAccelerationPartnersOutreachLandingController;
-use App\Http\Controllers\MarketingPartnerOutreachController;
-use App\Http\Controllers\MarketLinkageController;
-use App\Http\Controllers\PartnerOutreachLandingController;
-use App\Http\Controllers\CapacityBuildingStakeholdersLandingController;
-use App\Http\Controllers\PitchDeckPreparationController;
-use App\Http\Controllers\PitchDeckPreparationLandingController;
-use App\Http\Controllers\SocialMediaPostLandingController;
-use App\Http\Controllers\CaseStudyEntryController;
-use App\Http\Controllers\CaseStudyEntryLandingController;
-use App\Http\Controllers\CaseStudyShortlistController;
-use App\Http\Controllers\MediaCampaignController;
-use App\Http\Controllers\MediaCampaignLandingController;
-use App\Http\Controllers\MuyNewsletterController;
-use App\Http\Controllers\MuyNewsletterLandingController;
-use App\Http\Controllers\SocialMediaPostController;
 use App\Http\Controllers\StakeholderCapacityBuildingSessionController;
 use App\Http\Controllers\StakeholderConsultationWorkshopController;
 use App\Http\Controllers\StakeholderConsultationWorkshopLandingController;
-use App\Http\Controllers\LineDepartmentMeetingController;
-use App\Http\Controllers\LineDepartmentMeetingLandingController;
-use App\Http\Controllers\Staff\StaffServiceCaseController;
-use App\Http\Controllers\StateStaff\SpocMarketLinkageController;
 use App\Http\Controllers\StateStaff\FieldMisApprovalController;
-use App\Http\Controllers\Spoc\StateTaskController as SpocStateTaskController;
+use App\Http\Controllers\StateStaff\SpocMarketLinkageController;
 use App\Http\Controllers\StateStaff\SpocServiceCaseController;
 use App\Http\Controllers\TechnicalTrainingAttendanceController;
 use App\Http\Controllers\TrainingPackageAttendanceController;
@@ -259,12 +267,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/records', [DeliverablesReportController::class, 'records'])->name('deliverables.records');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
-        Route::get('fy-targets/state', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
-        Route::get('fy-targets/state/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
-        Route::get('fy-targets/district', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
-        Route::get('fy-targets/district/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'export'])->name('fy-targets.district.export');
-        Route::get('fy-targets/hub', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('fy-targets.hub');
-        Route::get('fy-targets/hub/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('fy-targets.hub.export');
+        Route::get('fy-targets/state', [OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
+        Route::get('fy-targets/state/export', [OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
+        Route::get('fy-targets/district', [OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
+        Route::get('fy-targets/district/export', [OfficialDistrictMonthlyTargetsController::class, 'export'])->name('fy-targets.district.export');
+        Route::get('fy-targets/hub', [OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('fy-targets.hub');
+        Route::get('fy-targets/hub/export', [OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('fy-targets.hub.export');
         Route::get('cfa-targets', function (Request $request) {
             return redirect()->route('staff.monthly-targets', $request->query(), 301);
         });
@@ -279,6 +287,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('applications/{cfa_submission}/edit', [StaffPortalController::class, 'editCfaSubmission'])->name('applications.edit');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
+        Route::get('onboarded-2025-26', [Phase2OnboardedApplicantController::class, 'index'])->name('onboarded-2025-26.index');
+        Route::get('onboarded-2025-26/export', [Phase2OnboardedApplicantController::class, 'export'])->name('onboarded-2025-26.export');
         Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
         Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
         Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');
@@ -593,29 +603,29 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:30,1')
             ->name('community-org-outreach.destroy');
 
-        Route::post('acceleration-services', [\App\Http\Controllers\AccelerationServiceController::class, 'store'])
+        Route::post('acceleration-services', [AccelerationServiceController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('acceleration-services.store');
-        Route::post('acceleration-services/autosave', [\App\Http\Controllers\AccelerationServiceController::class, 'autosave'])
+        Route::post('acceleration-services/autosave', [AccelerationServiceController::class, 'autosave'])
             ->middleware('throttle:120,1')
             ->name('acceleration-services.autosave');
-        Route::get('acceleration-services/create', [\App\Http\Controllers\AccelerationServiceController::class, 'create'])
+        Route::get('acceleration-services/create', [AccelerationServiceController::class, 'create'])
             ->name('acceleration-services.create');
-        Route::get('acceleration-services/incubatees/search', [\App\Http\Controllers\AccelerationServiceController::class, 'searchIncubatees'])
+        Route::get('acceleration-services/incubatees/search', [AccelerationServiceController::class, 'searchIncubatees'])
             ->name('acceleration-services.incubatees.search');
-        Route::get('acceleration-services/incubatees/history', [\App\Http\Controllers\AccelerationServiceController::class, 'incubateeHistory'])
+        Route::get('acceleration-services/incubatees/history', [AccelerationServiceController::class, 'incubateeHistory'])
             ->name('acceleration-services.incubatees.history');
-        Route::get('acceleration-services', \App\Http\Controllers\AccelerationServicesLandingController::class)->name('acceleration-services.index');
-        Route::get('acceleration-services/dashboard', [\App\Http\Controllers\AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
-        Route::get('acceleration-services/export', [\App\Http\Controllers\AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
-        Route::get('acceleration-services/media/{accelerationMedia}', [\App\Http\Controllers\AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
-        Route::get('acceleration-services/{accelerationSession}/edit', [\App\Http\Controllers\AccelerationServiceController::class, 'edit'])
+        Route::get('acceleration-services', AccelerationServicesLandingController::class)->name('acceleration-services.index');
+        Route::get('acceleration-services/dashboard', [AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
+        Route::get('acceleration-services/export', [AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
+        Route::get('acceleration-services/media/{accelerationMedia}', [AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
+        Route::get('acceleration-services/{accelerationSession}/edit', [AccelerationServiceController::class, 'edit'])
             ->name('acceleration-services.edit');
-        Route::put('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'update'])
+        Route::put('acceleration-services/{accelerationSession}', [AccelerationServiceController::class, 'update'])
             ->middleware('throttle:30,1')
             ->name('acceleration-services.update');
-        Route::get('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
-        Route::delete('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'destroy'])
+        Route::get('acceleration-services/{accelerationSession}', [AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
+        Route::delete('acceleration-services/{accelerationSession}', [AccelerationServiceController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('acceleration-services.destroy');
     });
@@ -639,6 +649,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('service-cases.bulk-approve');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
+        Route::get('onboarded-2025-26', [Phase2OnboardedApplicantController::class, 'index'])->name('onboarded-2025-26.index');
+        Route::get('onboarded-2025-26/export', [Phase2OnboardedApplicantController::class, 'export'])->name('onboarded-2025-26.export');
         Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
         Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
         Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
@@ -652,12 +664,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/records', [DeliverablesReportController::class, 'records'])->name('deliverables.records');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
-        Route::get('fy-targets/state', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
-        Route::get('fy-targets/state/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
-        Route::get('fy-targets/district', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
-        Route::get('fy-targets/district/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'export'])->name('fy-targets.district.export');
-        Route::get('fy-targets/hub', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('fy-targets.hub');
-        Route::get('fy-targets/hub/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('fy-targets.hub.export');
+        Route::get('fy-targets/state', [OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
+        Route::get('fy-targets/state/export', [OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
+        Route::get('fy-targets/district', [OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
+        Route::get('fy-targets/district/export', [OfficialDistrictMonthlyTargetsController::class, 'export'])->name('fy-targets.district.export');
+        Route::get('fy-targets/hub', [OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('fy-targets.hub');
+        Route::get('fy-targets/hub/export', [OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('fy-targets.hub.export');
         Route::get('service-cases/{service_case}', [SpocServiceCaseController::class, 'show'])->name('service-cases.show');
         Route::post('service-cases/{service_case}/review-telemetry', [SpocServiceCaseController::class, 'recordReviewTelemetry'])
             ->middleware('throttle:120,1')
@@ -805,35 +817,35 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:30,1')
             ->name('business-acceleration-partners-outreach.destroy');
 
-        Route::post('acceleration-services', [\App\Http\Controllers\AccelerationServiceController::class, 'store'])
+        Route::post('acceleration-services', [AccelerationServiceController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('acceleration-services.store');
-        Route::post('acceleration-services/autosave', [\App\Http\Controllers\AccelerationServiceController::class, 'autosave'])
+        Route::post('acceleration-services/autosave', [AccelerationServiceController::class, 'autosave'])
             ->middleware('throttle:120,1')
             ->name('acceleration-services.autosave');
-        Route::get('acceleration-services/create', [\App\Http\Controllers\AccelerationServiceController::class, 'create'])
+        Route::get('acceleration-services/create', [AccelerationServiceController::class, 'create'])
             ->name('acceleration-services.create');
-        Route::get('acceleration-services/incubatees/search', [\App\Http\Controllers\AccelerationServiceController::class, 'searchIncubatees'])
+        Route::get('acceleration-services/incubatees/search', [AccelerationServiceController::class, 'searchIncubatees'])
             ->name('acceleration-services.incubatees.search');
-        Route::get('acceleration-services/incubatees/history', [\App\Http\Controllers\AccelerationServiceController::class, 'incubateeHistory'])
+        Route::get('acceleration-services/incubatees/history', [AccelerationServiceController::class, 'incubateeHistory'])
             ->name('acceleration-services.incubatees.history');
-        Route::get('acceleration-services', \App\Http\Controllers\AccelerationServicesLandingController::class)->name('acceleration-services.index');
-        Route::get('acceleration-services/dashboard', [\App\Http\Controllers\AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
-        Route::get('acceleration-services/export', [\App\Http\Controllers\AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
-        Route::get('acceleration-services/media/{accelerationMedia}', [\App\Http\Controllers\AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
-        Route::get('acceleration-services/{accelerationSession}/edit', [\App\Http\Controllers\AccelerationServiceController::class, 'edit'])
+        Route::get('acceleration-services', AccelerationServicesLandingController::class)->name('acceleration-services.index');
+        Route::get('acceleration-services/dashboard', [AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
+        Route::get('acceleration-services/export', [AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
+        Route::get('acceleration-services/media/{accelerationMedia}', [AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
+        Route::get('acceleration-services/{accelerationSession}/edit', [AccelerationServiceController::class, 'edit'])
             ->name('acceleration-services.edit');
-        Route::put('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'update'])
+        Route::put('acceleration-services/{accelerationSession}', [AccelerationServiceController::class, 'update'])
             ->middleware('throttle:30,1')
             ->name('acceleration-services.update');
-        Route::get('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
-        Route::delete('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'destroy'])
+        Route::get('acceleration-services/{accelerationSession}', [AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
+        Route::delete('acceleration-services/{accelerationSession}', [AccelerationServiceController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('acceleration-services.destroy');
-        Route::post('acceleration-services/{accelerationSession}/approve', [\App\Http\Controllers\AccelerationServiceController::class, 'approve'])
+        Route::post('acceleration-services/{accelerationSession}/approve', [AccelerationServiceController::class, 'approve'])
             ->middleware('throttle:60,1')
             ->name('acceleration-services.approve');
-        Route::post('acceleration-services/{accelerationSession}/send-back', [\App\Http\Controllers\AccelerationServiceController::class, 'sendBack'])
+        Route::post('acceleration-services/{accelerationSession}/send-back', [AccelerationServiceController::class, 'sendBack'])
             ->middleware('throttle:60,1')
             ->name('acceleration-services.send-back');
 
@@ -976,7 +988,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('data-centre.export-onboarded-turnover-wise');
         Route::get('data-centre/export/homestay-details', [DataCentreController::class, 'exportHomestayDetails'])
             ->name('data-centre.export-homestay-details');
-        Route::get('data-centre/export/3-3-1-shg-members-pack', [\App\Http\Controllers\Admin\Phase3331ShgMembersPackExportController::class, 'download'])
+        Route::get('data-centre/export/3-3-1-shg-members-pack', [Phase3331ShgMembersPackExportController::class, 'download'])
             ->name('data-centre.export-3-3-1-shg-members-pack');
         Route::get('data-centre/export/{section}', [DataCentreController::class, 'export'])
             ->where('section', '[a-z\-]+')
@@ -1006,6 +1018,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('cfa-applications-phase2-legacy/export', [LegacyPhase2CfaApplicationController::class, 'export'])->name('phase2-cfa.export');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
+        Route::get('onboarded-2025-26', [Phase2OnboardedApplicantController::class, 'index'])->name('onboarded-2025-26.index');
+        Route::get('onboarded-2025-26/export', [Phase2OnboardedApplicantController::class, 'export'])->name('onboarded-2025-26.export');
         Route::get('phase3-services', [Phase3ServiceCasesController::class, 'index'])->name('phase3-services.index');
         Route::get('phase3-services/export', [Phase3ServiceCasesController::class, 'export'])->name('phase3-services.export');
         Route::get('phase3-services/{service_case}', [Phase3ServiceCasesController::class, 'show'])->name('phase3-services.show');
@@ -1029,21 +1043,21 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::patch('deliverables/row-metadata', [DeliverablesReportController::class, 'updateRowMetadata'])->name('deliverables.row-metadata.update');
         Route::get('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly');
         Route::post('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly.update');
-        Route::get('targets/official-state-monthly', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('targets.official-state-monthly');
-        Route::get('targets/official-state-monthly/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('targets.official-state-monthly.export');
-        Route::post('targets/official-state-monthly/apply', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'applyAll'])->name('targets.official-state-monthly.apply');
-        Route::get('targets/official-district-monthly', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('targets.official-district-monthly');
-        Route::get('targets/official-district-monthly/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'export'])->name('targets.official-district-monthly.export');
-        Route::post('targets/official-district-monthly/apply', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'applyAll'])->name('targets.official-district-monthly.apply');
-        Route::get('targets/official-hub-distribution-monthly', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('targets.official-hub-distribution-monthly');
-        Route::get('targets/official-hub-distribution-monthly/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('targets.official-hub-distribution-monthly.export');
-        Route::post('targets/official-hub-distribution-monthly/apply', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionApply'])->name('targets.official-hub-distribution-monthly.apply');
-        Route::get('targets/reap-incubatee', [\App\Http\Controllers\Admin\ReapIncubateeTargetsController::class, 'index'])->name('targets.reap-incubatee');
-        Route::get('exports/phase3-shg-cbo-reap-pack', [\App\Http\Controllers\Admin\Phase3ShgCboReapPackExportController::class, 'download'])
+        Route::get('targets/official-state-monthly', [OfficialStateMonthlyTargetsController::class, 'index'])->name('targets.official-state-monthly');
+        Route::get('targets/official-state-monthly/export', [OfficialStateMonthlyTargetsController::class, 'export'])->name('targets.official-state-monthly.export');
+        Route::post('targets/official-state-monthly/apply', [OfficialStateMonthlyTargetsController::class, 'applyAll'])->name('targets.official-state-monthly.apply');
+        Route::get('targets/official-district-monthly', [OfficialDistrictMonthlyTargetsController::class, 'index'])->name('targets.official-district-monthly');
+        Route::get('targets/official-district-monthly/export', [OfficialDistrictMonthlyTargetsController::class, 'export'])->name('targets.official-district-monthly.export');
+        Route::post('targets/official-district-monthly/apply', [OfficialDistrictMonthlyTargetsController::class, 'applyAll'])->name('targets.official-district-monthly.apply');
+        Route::get('targets/official-hub-distribution-monthly', [OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('targets.official-hub-distribution-monthly');
+        Route::get('targets/official-hub-distribution-monthly/export', [OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('targets.official-hub-distribution-monthly.export');
+        Route::post('targets/official-hub-distribution-monthly/apply', [OfficialDistrictMonthlyTargetsController::class, 'hubDistributionApply'])->name('targets.official-hub-distribution-monthly.apply');
+        Route::get('targets/reap-incubatee', [ReapIncubateeTargetsController::class, 'index'])->name('targets.reap-incubatee');
+        Route::get('exports/phase3-shg-cbo-reap-pack', [Phase3ShgCboReapPackExportController::class, 'download'])
             ->name('exports.phase3-shg-cbo-reap-pack');
-        Route::get('exports/phase3-3-3-1-shg-members-pack', [\App\Http\Controllers\Admin\Phase3331ShgMembersPackExportController::class, 'download'])
+        Route::get('exports/phase3-3-3-1-shg-members-pack', [Phase3331ShgMembersPackExportController::class, 'download'])
             ->name('exports.phase3-3-3-1-shg-members-pack');
-        Route::get('exports/onboarded-shg-cbo', [\App\Http\Controllers\Admin\OnboardedShgCboDistrictExportController::class, 'download'])
+        Route::get('exports/onboarded-shg-cbo', [OnboardedShgCboDistrictExportController::class, 'download'])
             ->name('exports.onboarded-shg-cbo');
         Route::get('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state');
         Route::post('targets/state', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state.update');
@@ -1294,11 +1308,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('business-acceleration-partners-outreach/export', [BusinessAccelerationPartnerOutreachController::class, 'export'])->name('business-acceleration-partners-outreach.export');
         Route::get('business-acceleration-partners-outreach/{baPartnerOutreach}', [BusinessAccelerationPartnerOutreachController::class, 'show'])->name('business-acceleration-partners-outreach.show');
 
-        Route::get('acceleration-services/dashboard', [\App\Http\Controllers\AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
-        Route::get('acceleration-services', \App\Http\Controllers\AccelerationServicesLandingController::class)->name('acceleration-services.index');
-        Route::get('acceleration-services/export', [\App\Http\Controllers\AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
-        Route::get('acceleration-services/media/{accelerationMedia}', [\App\Http\Controllers\AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
-        Route::get('acceleration-services/{accelerationSession}', [\App\Http\Controllers\AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
+        Route::get('acceleration-services/dashboard', [AccelerationServiceController::class, 'dashboard'])->name('acceleration-services.dashboard');
+        Route::get('acceleration-services', AccelerationServicesLandingController::class)->name('acceleration-services.index');
+        Route::get('acceleration-services/export', [AccelerationServiceController::class, 'export'])->name('acceleration-services.export');
+        Route::get('acceleration-services/media/{accelerationMedia}', [AccelerationServiceController::class, 'downloadMedia'])->name('acceleration-services.media');
+        Route::get('acceleration-services/{accelerationSession}', [AccelerationServiceController::class, 'show'])->name('acceleration-services.show');
 
         Route::get('capacity-building-stakeholders/dashboard', [StakeholderCapacityBuildingSessionController::class, 'dashboard'])->name('capacity-building-stakeholders.dashboard');
         Route::get('capacity-building-stakeholders', CapacityBuildingStakeholdersLandingController::class)->name('capacity-building-stakeholders.index');
@@ -1398,15 +1412,17 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/records', [DeliverablesReportController::class, 'records'])->name('deliverables.records');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
-        Route::get('fy-targets/state', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
-        Route::get('fy-targets/state/export', [\App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
-        Route::get('fy-targets/district', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
-        Route::get('fy-targets/district/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'export'])->name('fy-targets.district.export');
-        Route::get('fy-targets/hub', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('fy-targets.hub');
-        Route::get('fy-targets/hub/export', [\App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('fy-targets.hub.export');
+        Route::get('fy-targets/state', [OfficialStateMonthlyTargetsController::class, 'index'])->name('fy-targets.state');
+        Route::get('fy-targets/state/export', [OfficialStateMonthlyTargetsController::class, 'export'])->name('fy-targets.state.export');
+        Route::get('fy-targets/district', [OfficialDistrictMonthlyTargetsController::class, 'index'])->name('fy-targets.district');
+        Route::get('fy-targets/district/export', [OfficialDistrictMonthlyTargetsController::class, 'export'])->name('fy-targets.district.export');
+        Route::get('fy-targets/hub', [OfficialDistrictMonthlyTargetsController::class, 'hubDistribution'])->name('fy-targets.hub');
+        Route::get('fy-targets/hub/export', [OfficialDistrictMonthlyTargetsController::class, 'hubDistributionExport'])->name('fy-targets.hub.export');
         Route::get('applications', [HubApplicationsController::class, 'index'])->name('applications.index');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
+        Route::get('onboarded-2025-26', [Phase2OnboardedApplicantController::class, 'index'])->name('onboarded-2025-26.index');
+        Route::get('onboarded-2025-26/export', [Phase2OnboardedApplicantController::class, 'export'])->name('onboarded-2025-26.export');
         Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
         Route::get('field-coordinator-reports/{attendanceReport}/attachment', [FieldCoordinatorReportController::class, 'downloadAttachment'])->name('field-coordinator-reports.attachment');
         Route::get('field-coordinator-reports/{attendanceReport}/attendance-sheet', [FieldCoordinatorReportController::class, 'downloadAttendanceSheet'])->name('field-coordinator-reports.sheet');
@@ -1418,7 +1434,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('onboarding-insight', [HubOnboardingInsightController::class, 'index'])->name('onboarding-insight.index');
         Route::get(
             'field-highlights/{module}/{record}/{collection}/{index}',
-            [\App\Http\Controllers\Hub\FieldActivityHighlightController::class, 'image'],
+            [FieldActivityHighlightController::class, 'image'],
         )
             ->whereNumber('record')
             ->whereNumber('index')

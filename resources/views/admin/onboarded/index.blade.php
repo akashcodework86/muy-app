@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Onboarded Applicants')
-@section('heading', 'Onboarded Applicants')
+@section('title', $pageTitle ?? 'Onboarded Applicants')
+@section('heading', $pageHeading ?? 'Onboarded Applicants')
 
 @push('styles')
 <style>
@@ -484,6 +484,9 @@
     $insights = $insights ?? [];
     $businessStages = $businessStages ?? ['early' => 'Early', 'seed' => 'Seed', 'growth' => 'Growth'];
     $potentialLakhpatiLabel = 'Potential Lakhpati Didi/ SHG Members/ CBOs';
+    $pageVariant = $pageVariant ?? 'phase3';
+    $isPhase2Page = $pageVariant === 'phase2';
+    $sourceBadgeLabel = $sourceBadgeLabel ?? ($isPhase2Page ? 'FY 2025-26' : null);
     $activeDistrict = (int) ($filters['district'] ?? 0);
     $routeIndex = $routeIndex ?? 'admin.onboarded.index';
     $filterQuery = array_filter([
@@ -511,7 +514,12 @@
             <div class="onb-kpi__label">Total onboarded</div>
             <div class="onb-kpi__value">{{ number_format((int) ($overview['total'] ?? 0)) }}</div>
             <div class="onb-kpi__sub">
-                @if ($activeDistrict)
+                @if ($isPhase2Page)
+                    FY 2025-26 · Phase 2
+                    @if (! $activeDistrict)
+                        · {{ number_format((int) ($overview['this_month'] ?? 0)) }} this month
+                    @endif
+                @elseif ($activeDistrict)
                     {{ number_format((int) ($overview['phase3_onboarded_count'] ?? 0)) }} Phase 3 · {{ number_format((int) ($overview['legacy_onboarded_count'] ?? 0)) }} Legacy
                 @else
                     {{ number_format((int) ($overview['phase3_onboarded_count'] ?? 0)) }} Phase 3 · {{ number_format((int) ($overview['legacy_onboarded_count'] ?? 0)) }} Legacy · {{ number_format((int) ($overview['this_month'] ?? 0)) }} this month
@@ -521,7 +529,7 @@
         <div class="onb-kpi onb-kpi--districts">
             <div class="onb-kpi__label">Districts covered</div>
             <div class="onb-kpi__value">{{ number_format((int) ($overview['districts_covered'] ?? 0)) }}</div>
-            <div class="onb-kpi__sub">Active districts with locked onboarding batches</div>
+            <div class="onb-kpi__sub">{{ $isPhase2Page ? 'Active districts with Phase 2 onboarded incubatees' : 'Active districts with locked onboarding batches' }}</div>
         </div>
         <div class="onb-kpi onb-kpi--female">
             <div class="onb-kpi__label">Women onboarded</div>
@@ -539,7 +547,7 @@
             <div class="onb-kpi__value">{{ number_format((int) ($overview['potential_lakhpati_count'] ?? 0)) }}</div>
             <div class="onb-kpi__sub">
                 @if (! is_null($overview['potential_lakhpati_pct'] ?? null))
-                    {{ $overview['potential_lakhpati_pct'] }}% of onboarded · Phase 3: SHG/CBO or member Yes · Legacy: Lakhpati Yes + member Yes
+                    {{ $overview['potential_lakhpati_pct'] }}% of onboarded · {{ $isPhase2Page ? 'Lakhpati Yes + SHG member Yes' : 'Phase 3: SHG/CBO or member Yes · Legacy: Lakhpati Yes + member Yes' }}
                 @else
                     No onboarded applicants in current filter scope
                 @endif
@@ -561,7 +569,11 @@
                 <div>
                     <h3 class="onb-target__title">{{ $targetProgress['label'] ?? 'Onboarding target' }}</h3>
                     <p class="onb-target__sub">
-                        FY {{ $targetProgress['fiscal_year'] ?? '—' }} · {{ number_format((int) ($overview['phase3_onboarded_count'] ?? 0)) }} Phase 3 + {{ number_format((int) ($overview['legacy_onboarded_count'] ?? 0)) }} Legacy = {{ number_format((int) ($targetProgress['achieved'] ?? 0)) }} achieved
+                        @if ($isPhase2Page)
+                            FY {{ $targetProgress['fiscal_year'] ?? '2025-26' }} · {{ number_format((int) ($targetProgress['achieved'] ?? 0)) }} onboarded
+                        @else
+                            FY {{ $targetProgress['fiscal_year'] ?? '—' }} · {{ number_format((int) ($overview['phase3_onboarded_count'] ?? 0)) }} Phase 3 + {{ number_format((int) ($overview['legacy_onboarded_count'] ?? 0)) }} Legacy = {{ number_format((int) ($targetProgress['achieved'] ?? 0)) }} achieved
+                        @endif
                     </p>
                 </div>
                 <div class="onb-target__stats">
@@ -808,6 +820,8 @@
                             @foreach ($rows as $row)
                                 @php
                                     $isLegacy = ($row['data_source'] ?? '') === 'legacy_phase2';
+                                    $rowSourceLabel = $sourceBadgeLabel
+                                        ?? ($isLegacy ? 'Legacy' : 'Phase 3');
                                     $onboardedLabel = ! empty($row['onboarded_at'])
                                         ? \Illuminate\Support\Carbon::parse($row['onboarded_at'])->timezone(config('app.timezone'))->format('d M Y, H:i')
                                         : '—';
@@ -854,8 +868,8 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <span class="onb-badge {{ $isLegacy ? 'onb-badge--legacy' : 'onb-badge--phase3' }}">
-                                            {{ $isLegacy ? 'Legacy' : 'Phase 3' }}
+                                        <span class="onb-badge {{ ($isPhase2Page || $isLegacy) ? 'onb-badge--legacy' : 'onb-badge--phase3' }}">
+                                            {{ $rowSourceLabel }}
                                         </span>
                                     </td>
                                     <td>
@@ -910,7 +924,7 @@
                         <tr>
                             <td><strong>{{ (int) (($rows->firstItem() ?? 1) + $loop->index) }}</strong></td>
                             <td>{{ $row['common_values']['application_no'] ?? $row['application_no'] ?? '—' }}</td>
-                            <td><span class="muted">{{ ($row['data_source'] ?? '') === 'legacy_phase2' ? 'Legacy Phase 2' : 'Phase 3' }}</span></td>
+                            <td><span class="muted">{{ $sourceBadgeLabel ?? (($row['data_source'] ?? '') === 'legacy_phase2' ? 'Legacy Phase 2' : 'Phase 3') }}</span></td>
                             <td>
                                 <div>{{ $row['district'] ?: '—' }}</div>
                                 <div class="muted">Block: {{ $row['block_name'] ?: '—' }}</div>
