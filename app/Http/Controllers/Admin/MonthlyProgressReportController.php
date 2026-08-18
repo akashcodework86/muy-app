@@ -34,6 +34,7 @@ class MonthlyProgressReportController extends Controller
         return view('admin.mpr.index', [
             'defaultMonth' => old('report_month', now()->startOfMonth()->format('Y-m')),
             'pageUrl' => route('admin.mpr.index'),
+            'wordEngineReady' => $this->wordExport->isAvailable(),
         ]);
     }
 

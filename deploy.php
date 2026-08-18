@@ -39,12 +39,36 @@ if ($gitExit !== 0) {
 }
 
 echo "--- composer install ---\n";
-$composerBin = getenv('MUY_COMPOSER') ?: 'composer';
+$composerBin = getenv('MUY_COMPOSER') ?: '';
+if ($composerBin === '') {
+    foreach (['/opt/cpanel/composer/bin/composer', '/usr/local/bin/composer', '/usr/bin/composer'] as $candidate) {
+        if (is_file($candidate) && is_executable($candidate)) {
+            $composerBin = $candidate;
+            break;
+        }
+    }
+}
+$composerBin = $composerBin !== '' ? $composerBin : 'composer';
+echo 'Composer: '.htmlspecialchars($composerBin, ENT_QUOTES, 'UTF-8')."\n";
 $run($projectPath, $composerBin.' install --no-dev --no-interaction --optimize-autoloader', $lines, $composerExit);
 $out(implode("\n", $lines));
 if ($composerExit !== 0) {
     echo "\n<span style='color:#fbbf24;font-weight:bold'>⚠️ composer install failed (exit {$composerExit}). Check MUY_COMPOSER / PATH. Continuing to migrations…</span>\n\n";
 }
+
+$run(
+    $projectPath,
+    "php -r \"require 'vendor/autoload.php'; exit(class_exists('PhpOffice\\\\PhpWord\\\\PhpWord') ? 0 : 1);\"",
+    $lines,
+    $wordEngineExit,
+);
+if ($wordEngineExit !== 0) {
+    echo "\n<span style='color:#f87171;font-weight:bold'>❌ PHPWord is unavailable. MPR deployment stopped to prevent broken HTML-based Word downloads.</span>\n";
+    echo "<span style='color:#94a3b8'>Set MUY_COMPOSER to the server Composer path, then deploy again.</span>\n";
+    echo '</pre>';
+    exit;
+}
+echo "Word export engine: OK\n\n";
 
 echo "--- migrations (php artisan migrate --force) ---\n";
 $run($projectPath, 'php artisan migrate --force --no-interaction', $lines, $migrateExit);

@@ -19,7 +19,7 @@
         <section class="mpr-hero">
             <div class="mpr-eyebrow">MUY · Automated reporting</div>
             <h2 class="mpr-title">Generate a formatted MPR in one step</h2>
-            <p class="mpr-copy">Select the reporting month. The system pulls approved MIS achievements, cumulative FY progress, district breakup and eligible field photographs into an editable Word report.</p>
+            <p class="mpr-copy">Select the reporting month. The system pulls approved MIS achievements, district breakup and eligible field photographs into an editable Word report styled like the approved QPR format.</p>
         </section>
 
         <section class="mpr-card">
@@ -29,8 +29,12 @@
                     <input id="report_month" class="mpr-input" type="month" name="report_month" value="{{ $defaultMonth }}" max="{{ now()->format('Y-m') }}" required>
                     @error('report_month')<p class="mpr-error">{{ $message }}</p>@enderror
                 </div>
-                <button class="mpr-button" type="submit" id="mpr-download-btn">Download MPR (Word)</button>
+                <button class="mpr-button" type="submit" id="mpr-download-btn" data-engine-ready="{{ $wordEngineReady ? '1' : '0' }}" @disabled(! $wordEngineReady)>Download MPR (Word)</button>
             </form>
+
+            @unless($wordEngineReady)
+                <p class="mpr-error">The server Word engine is not installed yet. Run the deployment once to install Composer dependencies.</p>
+            @endunless
 
             <div class="mpr-note">
                 <span aria-hidden="true">ℹ</span>
@@ -58,8 +62,17 @@
 
     if (form && btn) {
         form.addEventListener('submit', function () {
+            if (btn.dataset.engineReady !== '1') return;
             btn.disabled = true;
             btn.textContent = 'Generating…';
+            window.setTimeout(function () {
+                btn.disabled = btn.dataset.engineReady !== '1';
+                btn.textContent = 'Download MPR (Word)';
+            }, 12000);
+        });
+        window.addEventListener('pageshow', function () {
+            btn.disabled = btn.dataset.engineReady !== '1';
+            btn.textContent = 'Download MPR (Word)';
         });
     }
 

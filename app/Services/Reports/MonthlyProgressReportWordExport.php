@@ -19,15 +19,20 @@ use Throwable;
 
 class MonthlyProgressReportWordExport
 {
-    private const ORANGE = 'C2410C';
+    private const ORANGE = 'D04A02';
 
-    private const DEEP_ORANGE = '9A3412';
+    private const DEEP_ORANGE = 'B53A00';
 
-    private const PALE_ORANGE = 'FFEDD5';
+    private const PALE_ORANGE = 'FCE4D6';
 
-    private const LIGHT_ORANGE = 'FFF7ED';
+    private const LIGHT_ORANGE = 'FFF6F0';
 
-    private const INK = '1F2937';
+    private const INK = '111111';
+
+    public function isAvailable(): bool
+    {
+        return class_exists(PhpWord::class) && class_exists(Word2007::class);
+    }
 
     /**
      * @param  list<array<string, mixed>>  $rows
@@ -41,9 +46,11 @@ class MonthlyProgressReportWordExport
         array $districtRows,
         array $photos,
     ): BinaryFileResponse {
-        if (! class_exists(PhpWord::class) || ! class_exists(Word2007::class)) {
-            return $this->downloadCompatibilityDocument($month, $fiscalYearLabel, $rows, $districtRows, $photos);
-        }
+        abort_unless(
+            $this->isAvailable(),
+            503,
+            'The Word export engine is not installed on this server. Run Composer install and try again.',
+        );
 
         $path = tempnam(sys_get_temp_dir(), 'muy-mpr-');
         abort_if($path === false, 500, 'Could not prepare the monthly report.');
@@ -55,8 +62,7 @@ class MonthlyProgressReportWordExport
         } catch (Throwable $exception) {
             @unlink($docxPath);
             report($exception);
-
-            return $this->downloadCompatibilityDocument($month, $fiscalYearLabel, $rows, $districtRows, $photos);
+            abort(500, 'The Word report could not be generated. Please try again or contact the administrator.');
         }
 
         return response()->download(
@@ -96,7 +102,7 @@ class MonthlyProgressReportWordExport
     ): PhpWord {
         Settings::setOutputEscapingEnabled(true);
         $word = new PhpWord;
-        $word->setDefaultFontName('Calibri');
+        $word->setDefaultFontName('Arial');
         $word->setDefaultFontSize(10);
         $word->getSettings()->setZoom(100);
         $word->getDocInfo()
@@ -114,21 +120,22 @@ class MonthlyProgressReportWordExport
         $this->addWorkstreamProgress($word, $month, $rows);
         $this->addFieldHighlights($word, $month, $photos);
         $this->addMethodology($word, $month, $fiscalYearLabel);
+        $this->addClosingPage($word);
 
         return $word;
     }
 
     private function registerStyles(PhpWord $word): void
     {
-        $word->addTitleStyle(1, ['name' => 'Calibri', 'size' => 18, 'bold' => true, 'color' => self::DEEP_ORANGE], ['spaceBefore' => 0, 'spaceAfter' => 160]);
-        $word->addTitleStyle(2, ['name' => 'Calibri', 'size' => 14, 'bold' => true, 'color' => self::DEEP_ORANGE], ['spaceBefore' => 140, 'spaceAfter' => 90, 'keepNext' => true]);
-        $word->addTitleStyle(3, ['name' => 'Calibri', 'size' => 11, 'bold' => true, 'color' => self::INK], ['spaceBefore' => 100, 'spaceAfter' => 60, 'keepNext' => true]);
+        $word->addTitleStyle(1, ['name' => 'Arial', 'size' => 16, 'bold' => true, 'color' => self::DEEP_ORANGE], ['spaceBefore' => 0, 'spaceAfter' => 160, 'keepNext' => true]);
+        $word->addTitleStyle(2, ['name' => 'Arial', 'size' => 12.5, 'bold' => true, 'color' => self::DEEP_ORANGE], ['spaceBefore' => 160, 'spaceAfter' => 80, 'keepNext' => true]);
+        $word->addTitleStyle(3, ['name' => 'Arial', 'size' => 10.5, 'bold' => true, 'color' => self::INK], ['spaceBefore' => 100, 'spaceAfter' => 60, 'keepNext' => true]);
         $word->addTableStyle('MprTable', [
             'width' => 100 * 50,
             'unit' => TblWidth::PERCENT,
             'layout' => TableStyle::LAYOUT_FIXED,
             'borderSize' => 4,
-            'borderColor' => '9CA3AF',
+            'borderColor' => 'F09A78',
             'cellMarginTop' => 60,
             'cellMarginRight' => 70,
             'cellMarginBottom' => 60,
@@ -138,56 +145,70 @@ class MonthlyProgressReportWordExport
 
     private function addCover(PhpWord $word, Carbon $month): void
     {
-        $section = $word->addSection($this->portraitStyle(2.2, 2.2, 2.2, 2.2));
-        $section->addText('', [], ['spaceAfter' => 900]);
+        $section = $word->addSection($this->portraitStyle(0.65, 0.65, 0.65, 0.65));
+        $cover = $section->addTable([
+            'width' => 100 * 50,
+            'unit' => TblWidth::PERCENT,
+            'layout' => TableStyle::LAYOUT_FIXED,
+            'borderSize' => 1,
+            'borderColor' => 'FBE3D6',
+            'cellMarginTop' => 260,
+            'cellMarginRight' => 500,
+            'cellMarginBottom' => 260,
+            'cellMarginLeft' => 500,
+        ]);
+        $cover->addRow(14800, ['exactHeight' => true, 'cantSplit' => true]);
+        $cell = $cover->addCell(null, ['bgColor' => 'FBE3D6', 'valign' => VerticalJc::TOP, 'borderSize' => 1, 'borderColor' => 'FBE3D6']);
 
-        $logo = public_path('images/muy.jpg');
-        if (is_file($logo)) {
-            $section->addImage($logo, ['width' => 92, 'height' => 92, 'alignment' => Jc::CENTER]);
-        }
+        $brand = $cell->addTextRun(['spaceAfter' => 1320]);
+        $brand->addText('pwc', ['name' => 'Georgia', 'size' => 28, 'bold' => true, 'italic' => true, 'color' => '111111']);
+        $brand->addText('  |  MUY', ['name' => 'Arial', 'size' => 10, 'bold' => true, 'color' => self::ORANGE]);
 
-        $section->addText('MUKHYAMANTRI UDYAMSHALA YOJANA', [
-            'size' => 13,
-            'bold' => true,
-            'color' => '475569',
-            'allCaps' => true,
-        ], ['alignment' => Jc::CENTER, 'spaceBefore' => 260, 'spaceAfter' => 200]);
-
-        $rule = $section->addTable(['width' => 100 * 50, 'unit' => TblWidth::PERCENT]);
-        $rule->addRow(110);
-        $rule->addCell(null, ['bgColor' => self::ORANGE]);
-
-        $section->addText('Monthly Progress Report', [
-            'size' => 30,
+        $cell->addText('Monthly Progress', [
+            'name' => 'Arial',
+            'size' => 34,
             'bold' => true,
             'color' => self::DEEP_ORANGE,
-        ], ['alignment' => Jc::CENTER, 'spaceBefore' => 450, 'spaceAfter' => 180]);
-        $section->addText('Mukhyamantri Udyamshala Yojana', [
-            'size' => 18,
+        ], ['alignment' => Jc::LEFT, 'spaceAfter' => 80]);
+        $cell->addText('Report', [
+            'name' => 'Arial',
+            'size' => 34,
+            'bold' => true,
+            'color' => self::DEEP_ORANGE,
+        ], ['alignment' => Jc::LEFT, 'spaceAfter' => 300]);
+        $cell->addText('Mukhyamantri Udyamshala', [
+            'name' => 'Arial',
+            'size' => 19,
+            'color' => self::DEEP_ORANGE,
+        ], ['alignment' => Jc::LEFT, 'spaceAfter' => 40]);
+        $cell->addText('Yojana', [
+            'name' => 'Arial',
+            'size' => 19,
+            'color' => self::DEEP_ORANGE,
+        ], ['alignment' => Jc::LEFT, 'spaceAfter' => 650]);
+        $cell->addText($month->format('F Y'), [
+            'name' => 'Arial',
+            'size' => 21,
+            'color' => self::DEEP_ORANGE,
+        ], ['alignment' => Jc::LEFT, 'spaceAfter' => 950]);
+
+        $bars = $cell->addTable(['width' => 100 * 50, 'unit' => TblWidth::PERCENT, 'layout' => TableStyle::LAYOUT_FIXED, 'borderSize' => 1, 'borderColor' => 'FBE3D6']);
+        $bars->addRow(500, ['exactHeight' => true]);
+        $bars->addCell(3900, ['bgColor' => 'FF5A00', 'borderSize' => 1, 'borderColor' => 'FF5A00']);
+        $bars->addCell(700, ['bgColor' => 'FBE3D6', 'borderSize' => 1, 'borderColor' => 'FBE3D6']);
+        $bars->addCell(3900, ['bgColor' => 'FF5A00', 'borderSize' => 1, 'borderColor' => 'FF5A00']);
+        $cell->addText('Private & Confidential', [
+            'name' => 'Arial',
+            'size' => 8,
             'bold' => true,
             'color' => self::INK,
-        ], ['alignment' => Jc::CENTER, 'spaceAfter' => 160]);
-        $section->addText($month->format('F Y'), [
-            'size' => 22,
-            'bold' => true,
-            'color' => self::ORANGE,
-        ], ['alignment' => Jc::CENTER, 'spaceAfter' => 800]);
-
-        $section->addText('Generated from the MUY Management Information System', [
-            'size' => 10,
-            'color' => '64748B',
-        ], ['alignment' => Jc::CENTER, 'spaceAfter' => 80]);
-        $section->addText('Private & Confidential', [
-            'size' => 9,
-            'italic' => true,
-            'color' => '64748B',
-        ], ['alignment' => Jc::CENTER]);
+        ], ['alignment' => Jc::CENTER, 'spaceBefore' => 1250, 'spaceAfter' => 0]);
     }
 
     private function addContents(PhpWord $word, Carbon $month): void
     {
         $section = $this->contentSection($word, $month);
-        $section->addTitle('Table of Contents', 1);
+        $section->addTitle('Contents', 1);
         $items = [
             ['1.', 'Progress in Mukhyamantri Udyamshala Yojana (MUY)'],
             ['2.', 'Quantitative Progress - Plan vs Achievements'],
@@ -196,11 +217,24 @@ class MonthlyProgressReportWordExport
             ['5.', 'Field Highlights'],
             ['6.', 'Report Basis and Data Notes'],
         ];
-        $table = $section->addTable('MprTable');
+        $table = $section->addTable([
+            'width' => 100 * 50,
+            'unit' => TblWidth::PERCENT,
+            'layout' => TableStyle::LAYOUT_FIXED,
+            'borderSize' => 1,
+            'borderColor' => 'FFFFFF',
+            'cellMarginTop' => 30,
+            'cellMarginRight' => 35,
+            'cellMarginBottom' => 30,
+            'cellMarginLeft' => 35,
+        ]);
         foreach ($items as [$number, $label]) {
-            $table->addRow(480, ['cantSplit' => true]);
-            $this->cell($table->addCell(900, ['bgColor' => self::PALE_ORANGE]), $number, true, self::DEEP_ORANGE, Jc::CENTER, 11);
-            $this->cell($table->addCell(8200), $label, false, self::INK, Jc::LEFT, 11);
+            $table->addRow(390, ['cantSplit' => true]);
+            $this->cell($table->addCell(620, ['borderSize' => 1, 'borderColor' => 'FFFFFF']), $number, true, self::INK, Jc::LEFT, 10.5);
+            $labelCell = $table->addCell(8200, ['borderSize' => 1, 'borderColor' => 'FFFFFF']);
+            $run = $labelCell->addTextRun(['spaceBefore' => 0, 'spaceAfter' => 0]);
+            $run->addText($label, ['name' => 'Arial', 'size' => 10.5, 'color' => self::INK]);
+            $run->addText(' ................................................................', ['name' => 'Arial', 'size' => 8, 'color' => '64748B']);
         }
     }
 
@@ -250,23 +284,23 @@ class MonthlyProgressReportWordExport
     /** @param list<array<string, mixed>> $rows */
     private function addQuantitativeProgress(PhpWord $word, Carbon $month, array $rows): void
     {
-        $section = $this->contentSection($word, $month, true);
+        $section = $this->contentSection($word, $month);
         $section->addTitle('2. Quantitative Progress - Plan vs Achievements', 1);
-        $section->addText('Monthly and fiscal-year cumulative achievements are displayed side by side.', ['color' => '64748B'], ['spaceAfter' => 120]);
+        $section->addText('The table below presents the approved monthly target and MIS-recorded achievement for '.$month->format('F Y').'.', ['name' => 'Times New Roman', 'size' => 10.5, 'color' => self::INK], ['spaceAfter' => 120]);
 
         $table = $section->addTable('MprTable');
-        $headers = ['S.N.', 'Indicator', 'Type', 'Monthly target', 'Monthly achievement', 'Monthly %', 'Cumulative target', 'Cumulative achievement', 'Cumulative %'];
-        $widths = [650, 4200, 1200, 1300, 1400, 950, 1400, 1500, 1000];
+        $headers = ['S.No.', 'Indicator', 'Type of Indicator', 'Target', 'Achievement', 'Achievement (%)'];
+        $widths = [700, 3650, 1550, 1150, 1350, 1450];
         $table->addRow(620, ['tblHeader' => true, 'cantSplit' => true]);
         foreach ($headers as $i => $header) {
-            $this->cell($table->addCell($widths[$i], ['bgColor' => self::DEEP_ORANGE, 'valign' => VerticalJc::CENTER]), $header, true, 'FFFFFF', Jc::CENTER, 7.5);
+            $this->cell($table->addCell($widths[$i], ['bgColor' => 'FF5A00', 'valign' => VerticalJc::CENTER]), $header, true, 'FFFFFF', Jc::CENTER, 8.5);
         }
 
         foreach ($rows as $row) {
             $heading = in_array($row['row_type'] ?? '', ['pillar', 'subcategory'], true);
             $table->addRow(null, ['cantSplit' => true]);
             $values = $heading ? [
-                (string) ($row['serial'] ?? ''), (string) ($row['name'] ?? ''), '', '', '', '', '', '', '',
+                (string) ($row['serial'] ?? ''), (string) ($row['name'] ?? ''), '', '', '', '',
             ] : [
                 (string) ($row['serial'] ?? ''),
                 (string) ($row['name'] ?? ''),
@@ -274,16 +308,19 @@ class MonthlyProgressReportWordExport
                 $this->value($row['target'] ?? null, $row['target_label'] ?? null),
                 $this->value($row['achievement'] ?? null),
                 $this->percent($row['achievement_pct'] ?? null),
-                $this->value($row['cumul_target'] ?? null, $row['cumul_target_label'] ?? null),
-                $this->value($row['cumul_achievement'] ?? null),
-                $this->percent($row['cumul_achievement_pct'] ?? null),
             ];
 
             foreach ($values as $i => $value) {
-                $fill = $heading ? self::PALE_ORANGE : ($i >= 6 ? 'FFFBEB' : 'FFFFFF');
-                $this->cell($table->addCell($widths[$i], ['bgColor' => $fill, 'valign' => VerticalJc::CENTER]), $value, $heading || in_array($i, [4, 7], true), self::INK, $i === 1 ? Jc::LEFT : Jc::CENTER, 7.5);
+                $fill = $heading ? self::PALE_ORANGE : 'FFFFFF';
+                $this->cell($table->addCell($widths[$i], ['bgColor' => $fill, 'valign' => VerticalJc::CENTER]), $value, $heading || $i === 4, self::INK, $i === 1 ? Jc::LEFT : Jc::CENTER, 8.5);
             }
         }
+
+        $section->addText(
+            'The above-mentioned progress is based on the IT/MIS system developed under the Mukhyamantri Udyamshala Yojana and the applicable maker-checker approval workflow.',
+            ['name' => 'Times New Roman', 'size' => 9.5, 'color' => self::INK],
+            ['alignment' => Jc::BOTH, 'spaceBefore' => 120, 'spaceAfter' => 0],
+        );
     }
 
     /** @param list<array<string, mixed>> $districtRows */
@@ -340,8 +377,26 @@ class MonthlyProgressReportWordExport
                 $section->addText('No approved achievement was recorded for this workstream during '.$month->format('F Y').'.', ['italic' => true, 'color' => '64748B'], ['spaceAfter' => 80]);
                 continue;
             }
+            $table = $section->addTable([
+                'width' => 100 * 50,
+                'unit' => TblWidth::PERCENT,
+                'layout' => TableStyle::LAYOUT_FIXED,
+                'borderSize' => 4,
+                'borderColor' => 'F09A78',
+                'cellMarginTop' => 45,
+                'cellMarginRight' => 70,
+                'cellMarginBottom' => 45,
+                'cellMarginLeft' => 70,
+            ]);
+            $table->addRow(360, ['tblHeader' => true, 'cantSplit' => true]);
+            $this->cell($table->addCell(800, ['bgColor' => self::LIGHT_ORANGE]), 'S.No.', true, self::INK, Jc::CENTER, 8.5);
+            $this->cell($table->addCell(7000, ['bgColor' => self::LIGHT_ORANGE]), 'Indicator', true, self::INK, Jc::LEFT, 8.5);
+            $this->cell($table->addCell(1600, ['bgColor' => self::LIGHT_ORANGE]), 'Achievement', true, self::INK, Jc::CENTER, 8.5);
             foreach ($items as $item) {
-                $section->addListItem((string) ($item['name'] ?? 'Activity').': '.number_format((int) ($item['achievement'] ?? 0)), 0, ['size' => 9.5, 'color' => self::INK], 'listStyle', ['spaceAfter' => 45]);
+                $table->addRow(null, ['cantSplit' => true]);
+                $this->cell($table->addCell(800), (string) ($item['serial'] ?? ''), false, self::INK, Jc::CENTER, 8.5);
+                $this->cell($table->addCell(7000), (string) ($item['name'] ?? 'Activity'), false, self::INK, Jc::LEFT, 8.5);
+                $this->cell($table->addCell(1600), number_format((int) ($item['achievement'] ?? 0)), true, self::INK, Jc::CENTER, 8.5);
             }
         }
     }
@@ -351,31 +406,52 @@ class MonthlyProgressReportWordExport
     {
         $section = $this->contentSection($word, $month);
         $section->addTitle('5. Field Highlights', 1);
-        $section->addText('Approved field photographs available in the MIS Media Gallery for the reporting month.', ['color' => '64748B'], ['spaceAfter' => 140]);
+        $section->addText('Approved field photographs available in the MIS Media Gallery for the reporting month.', ['name' => 'Times New Roman', 'size' => 10.5, 'color' => self::INK], ['spaceAfter' => 140]);
         if ($photos === []) {
             $section->addText('No approved field photographs were available for this month.', ['italic' => true, 'color' => '64748B']);
             return;
         }
 
-        foreach (array_chunk($photos, 2) as $pair) {
-            $table = $section->addTable(['width' => 100 * 50, 'unit' => TblWidth::PERCENT, 'layout' => TableStyle::LAYOUT_FIXED, 'cellMargin' => 80]);
-            $table->addRow(null, ['cantSplit' => true]);
-            foreach ([0, 1] as $index) {
-                $photo = $pair[$index] ?? null;
-                $cell = $table->addCell(4600, ['valign' => VerticalJc::TOP]);
-                if ($photo === null) {
-                    continue;
-                }
-                try {
-                    $cell->addImage($photo['path'], ['width' => 235, 'height' => 150, 'alignment' => Jc::CENTER]);
-                } catch (\Throwable) {
-                    $cell->addText('Photograph could not be embedded.', ['italic' => true, 'color' => '64748B']);
-                }
-                $cell->addText($photo['section'].' - '.$photo['title'], ['size' => 9, 'bold' => true, 'color' => self::INK], ['alignment' => Jc::CENTER, 'spaceBefore' => 55, 'spaceAfter' => 20]);
-                $cell->addText(trim($photo['district'].' | '.$photo['date'], ' |'), ['size' => 8, 'color' => '64748B'], ['alignment' => Jc::CENTER]);
+        foreach (array_chunk(array_slice($photos, 0, 12), 4) as $pageIndex => $pagePhotos) {
+            if ($pageIndex > 0) {
+                $section = $this->contentSection($word, $month);
             }
-            $section->addText('', [], ['spaceAfter' => 100]);
+            $table = $section->addTable(['width' => 100 * 50, 'unit' => TblWidth::PERCENT, 'layout' => TableStyle::LAYOUT_FIXED, 'borderSize' => 1, 'borderColor' => 'FFFFFF', 'cellMarginTop' => 55, 'cellMarginRight' => 70, 'cellMarginBottom' => 55, 'cellMarginLeft' => 70]);
+            foreach (array_chunk($pagePhotos, 2) as $pair) {
+                $table->addRow(null, ['cantSplit' => true]);
+                foreach ([0, 1] as $index) {
+                    $photo = $pair[$index] ?? null;
+                    $cell = $table->addCell(4700, ['valign' => VerticalJc::TOP, 'borderSize' => 1, 'borderColor' => 'FFFFFF']);
+                    if ($photo === null) {
+                        continue;
+                    }
+                    try {
+                        $cell->addImage($photo['path'], $this->photoImageStyle((string) $photo['path']));
+                    } catch (\Throwable) {
+                        $cell->addText('Photograph could not be embedded.', ['italic' => true, 'color' => '64748B']);
+                    }
+                    $cell->addText($photo['section'].' - '.$photo['title'], ['name' => 'Arial', 'size' => 8.5, 'bold' => true, 'color' => self::INK], ['alignment' => Jc::CENTER, 'spaceBefore' => 45, 'spaceAfter' => 16]);
+                    $cell->addText(trim($photo['district'].' | '.$photo['date'], ' |'), ['name' => 'Arial', 'size' => 7.5, 'color' => '64748B'], ['alignment' => Jc::CENTER, 'spaceAfter' => 55]);
+                }
+            }
         }
+    }
+
+    /** @return array<string, int|string> */
+    private function photoImageStyle(string $path): array
+    {
+        $maxWidth = 230;
+        $maxHeight = 150;
+        $width = $maxWidth;
+        $height = $maxHeight;
+        $dimensions = @getimagesize($path);
+        if (is_array($dimensions) && ($dimensions[0] ?? 0) > 0 && ($dimensions[1] ?? 0) > 0) {
+            $scale = min($maxWidth / $dimensions[0], $maxHeight / $dimensions[1]);
+            $width = max(1, (int) round($dimensions[0] * $scale));
+            $height = max(1, (int) round($dimensions[1] * $scale));
+        }
+
+        return ['width' => $width, 'height' => $height, 'alignment' => Jc::CENTER];
     }
 
     private function addMethodology(PhpWord $word, Carbon $month, string $fiscalYearLabel): void
@@ -396,6 +472,35 @@ class MonthlyProgressReportWordExport
         $section->addText('Report generated on '.now()->timezone(config('app.timezone'))->format('d M Y, h:i A').'.', ['size' => 9, 'italic' => true, 'color' => '64748B'], ['spaceBefore' => 260]);
     }
 
+    private function addClosingPage(PhpWord $word): void
+    {
+        $section = $word->addSection($this->portraitStyle(0.65, 0.65, 0.65, 0.65));
+        $table = $section->addTable([
+            'width' => 100 * 50,
+            'unit' => TblWidth::PERCENT,
+            'layout' => TableStyle::LAYOUT_FIXED,
+            'borderSize' => 1,
+            'borderColor' => 'D94F70',
+            'cellMarginTop' => 300,
+            'cellMarginRight' => 450,
+            'cellMarginBottom' => 300,
+            'cellMarginLeft' => 450,
+        ]);
+        $table->addRow(14800, ['exactHeight' => true, 'cantSplit' => true]);
+        $cell = $table->addCell(null, ['bgColor' => 'D94F70', 'valign' => VerticalJc::CENTER, 'borderSize' => 1, 'borderColor' => 'D94F70']);
+        $cell->addText('Thank You', ['name' => 'Georgia', 'size' => 43, 'bold' => true, 'color' => 'FFFFFF'], ['alignment' => Jc::LEFT, 'spaceAfter' => 2100]);
+        $notes = [
+            'This report is generated from the MUY MIS for the selected reporting month and is intended for programme review.',
+            'The document should be reviewed by the State Project Management Unit before external circulation.',
+            'The report may contain forward-looking actions and operational observations that remain subject to validation.',
+        ];
+        foreach ($notes as $note) {
+            $cell->addListItem($note, 0, ['name' => 'Arial', 'size' => 8.5, 'color' => 'FFFFFF'], 'listStyle', ['spaceAfter' => 75]);
+        }
+        $section->addHeader()->addText('');
+        $section->addFooter()->addText('');
+    }
+
     private function contentSection(PhpWord $word, Carbon $month, bool $landscape = false): Section
     {
         $section = $word->addSection($landscape ? $this->landscapeStyle() : $this->portraitStyle());
@@ -406,23 +511,20 @@ class MonthlyProgressReportWordExport
     private function addHeaderFooter(Section $section, Carbon $month): void
     {
         $header = $section->addHeader();
-        $table = $header->addTable(['width' => 100 * 50, 'unit' => TblWidth::PERCENT, 'borderBottomSize' => 10, 'borderBottomColor' => self::ORANGE]);
-        $table->addRow(390);
-        $logoCell = $table->addCell(700, ['valign' => VerticalJc::CENTER]);
-        $logo = public_path('images/muy.jpg');
-        if (is_file($logo)) {
-            $logoCell->addImage($logo, ['width' => 28, 'height' => 28]);
-        }
-        $titleCell = $table->addCell(8200, ['valign' => VerticalJc::CENTER]);
-        $titleCell->addText('Monthly Progress Report - '.$month->format('F Y'), ['size' => 9, 'bold' => true, 'color' => self::INK], ['alignment' => Jc::RIGHT]);
+        $table = $header->addTable(['width' => 100 * 50, 'unit' => TblWidth::PERCENT, 'borderSize' => 1, 'borderColor' => 'FFFFFF']);
+        $table->addRow(300);
+        $brand = $table->addCell(1200, ['valign' => VerticalJc::CENTER, 'borderSize' => 1, 'borderColor' => 'FFFFFF']);
+        $brand->addText('pwc  |  MUY', ['name' => 'Arial', 'size' => 7.5, 'bold' => true, 'color' => self::ORANGE]);
+        $titleCell = $table->addCell(8000, ['valign' => VerticalJc::CENTER, 'borderSize' => 1, 'borderColor' => 'FFFFFF']);
+        $titleCell->addText('Monthly Progress Report - '.$month->format('F Y'), ['name' => 'Arial', 'size' => 8, 'bold' => true, 'color' => self::INK], ['alignment' => Jc::RIGHT]);
 
         $footer = $section->addFooter();
-        $footerTable = $footer->addTable(['width' => 100 * 50, 'unit' => TblWidth::PERCENT, 'borderTopSize' => 6, 'borderTopColor' => 'CBD5E1']);
+        $footerTable = $footer->addTable(['width' => 100 * 50, 'unit' => TblWidth::PERCENT, 'borderSize' => 1, 'borderColor' => 'FFFFFF']);
         $footerTable->addRow(300);
-        $this->cell($footerTable->addCell(1400), 'Private & Confidential', false, '64748B', Jc::LEFT, 7.5);
-        $page = $footerTable->addCell(6100);
-        $page->addPreserveText('Page {PAGE} of {NUMPAGES}', ['size' => 7.5, 'color' => '64748B'], ['alignment' => Jc::CENTER]);
-        $this->cell($footerTable->addCell(1400), 'MUY', true, self::ORANGE, Jc::RIGHT, 7.5);
+        $page = $footerTable->addCell(900, ['borderSize' => 1, 'borderColor' => 'FFFFFF']);
+        $page->addPreserveText('{PAGE}', ['name' => 'Arial', 'size' => 7.5, 'color' => self::INK], ['alignment' => Jc::LEFT]);
+        $this->cell($footerTable->addCell(5500, ['borderSize' => 1, 'borderColor' => 'FFFFFF']), 'Monthly Progress Report - '.$month->format('F Y'), true, self::INK, Jc::CENTER, 7.5);
+        $this->cell($footerTable->addCell(2800, ['borderSize' => 1, 'borderColor' => 'FFFFFF']), 'Private & Confidential', false, self::INK, Jc::RIGHT, 7.5);
     }
 
     /** @return array<string, int|string> */
@@ -452,7 +554,7 @@ class MonthlyProgressReportWordExport
 
     private function cell(Cell $cell, string $text, bool $bold = false, string $color = self::INK, string $alignment = Jc::LEFT, float $size = 9): void
     {
-        $cell->addText($text, ['name' => 'Calibri', 'size' => $size, 'bold' => $bold, 'color' => $color], ['alignment' => $alignment, 'spaceBefore' => 0, 'spaceAfter' => 0]);
+        $cell->addText($text, ['name' => 'Arial', 'size' => $size, 'bold' => $bold, 'color' => $color], ['alignment' => $alignment, 'spaceBefore' => 0, 'spaceAfter' => 0]);
     }
 
     private function metricCard(Cell $cell, string $label, mixed $value): void
