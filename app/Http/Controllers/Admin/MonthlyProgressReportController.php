@@ -90,6 +90,7 @@ class MonthlyProgressReportController extends Controller
             'defaultMonth' => old('report_month', now()->startOfMonth()->format('Y-m')),
             'pageUrl' => route('admin.mpr.index'),
             'wordEngineReady' => $this->wordExport->isAvailable(),
+            'installWordEngineUrl' => route('admin.mpr.install-word-engine'),
         ]);
     }
 

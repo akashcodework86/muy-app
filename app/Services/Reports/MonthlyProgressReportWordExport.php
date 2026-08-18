@@ -46,11 +46,9 @@ class MonthlyProgressReportWordExport
         array $districtRows,
         array $photos,
     ): BinaryFileResponse {
-        abort_unless(
-            $this->isAvailable(),
-            503,
-            'The Word export engine is not installed on this server. Run Composer install and try again.',
-        );
+        if (! $this->isAvailable()) {
+            return $this->downloadCompatibilityDocument($month, $fiscalYearLabel, $rows, $districtRows, $photos);
+        }
 
         $path = tempnam(sys_get_temp_dir(), 'muy-mpr-');
         abort_if($path === false, 500, 'Could not prepare the monthly report.');
@@ -62,7 +60,8 @@ class MonthlyProgressReportWordExport
         } catch (Throwable $exception) {
             @unlink($docxPath);
             report($exception);
-            abort(500, 'The Word report could not be generated. Please try again or contact the administrator.');
+
+            return $this->downloadCompatibilityDocument($month, $fiscalYearLabel, $rows, $districtRows, $photos);
         }
 
         return response()->download(
