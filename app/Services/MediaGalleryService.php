@@ -83,6 +83,72 @@ class MediaGalleryService
     }
 
     /**
+     * Approved field photographs grouped by Media Gallery section for QPR-style
+     * field visit pages.
+     *
+     * @return array<string, list<array{section: string, title: string, district: string, date: string, path: string}>>
+     */
+    public function monthlyReportPhotosBySection(Carbon $from, Carbon $to, int $perSection = 4): array
+    {
+        $grouped = [];
+        $filters = [
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+        ];
+
+        foreach ($this->sections() as $sectionKey => $section) {
+            if (! $this->sectionIsAvailable($section)) {
+                continue;
+            }
+
+            try {
+                $rows = $this->albumRows($section, $filters, $perSection);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            foreach ($rows as $row) {
+                $photo = $this->photosFromRow($section, $row, $sectionKey)[0] ?? null;
+                if (! is_array($photo)) {
+                    continue;
+                }
+
+                $item = $this->resolveMediaItem(
+                    $sectionKey,
+                    (int) $row->id,
+                    (string) $photo['collection'],
+                    (int) $photo['index'],
+                );
+                if ($item === null) {
+                    continue;
+                }
+
+                $absolutePath = Storage::disk($item['disk'])->path($item['path']);
+                $extension = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
+                if (! in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'bmp'], true)) {
+                    continue;
+                }
+
+                $label = (string) $section['label'];
+                $date = $row->{$section['date']} ?? null;
+                $grouped[$label][] = [
+                    'section' => $label,
+                    'title' => $this->rowTitle($section, $row),
+                    'district' => $this->rowDistrict($section, $row),
+                    'date' => $date ? Carbon::parse($date)->format('d M Y') : '—',
+                    'path' => $absolutePath,
+                ];
+
+                if (count($grouped[$label]) >= $perSection) {
+                    break;
+                }
+            }
+        }
+
+        return $grouped;
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
     public function sections(): array
