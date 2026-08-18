@@ -33,7 +33,16 @@ class MonthlyProgressReportController extends Controller
             '/usr/bin/composer',
         ])->filter()->first(fn (string $candidate): bool => is_file($candidate) && is_executable($candidate));
 
-        abort_if(! $composer, 500, 'Composer executable was not found on the server.');
+        if (! $composer) {
+            $lookup = [];
+            $lookupExit = 0;
+            exec('command -v composer 2>&1', $lookup, $lookupExit);
+            $composer = $lookupExit === 0 ? trim((string) ($lookup[0] ?? '')) : '';
+        }
+
+        if (! $composer) {
+            return response('Composer executable was not found on the server.', 500, ['Content-Type' => 'text/plain']);
+        }
 
         $output = [];
         $exitCode = 0;
@@ -48,10 +57,14 @@ class MonthlyProgressReportController extends Controller
             opcache_reset();
         }
 
-        abort_if($exitCode !== 0, 500, "Composer install failed.\n".implode("\n", $output));
+        if ($exitCode !== 0) {
+            return response("Composer install failed ({$exitCode}).\n".implode("\n", $output), 500, ['Content-Type' => 'text/plain']);
+        }
 
         require_once base_path('vendor/autoload.php');
-        abort_unless(class_exists(\PhpOffice\PhpWord\PhpWord::class), 500, 'PHPWord remains unavailable after Composer install.');
+        if (! class_exists(\PhpOffice\PhpWord\PhpWord::class)) {
+            return response('PHPWord remains unavailable after Composer install.', 500, ['Content-Type' => 'text/plain']);
+        }
 
         return response('PHPWord installed successfully.', 200, ['Content-Type' => 'text/plain']);
     }
