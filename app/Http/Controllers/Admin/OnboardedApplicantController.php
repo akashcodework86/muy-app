@@ -32,13 +32,16 @@ class OnboardedApplicantController extends Controller
 
     /** @var array<string, string> */
     private const INCOME_SLABS = [
-        'zero' => 'Zero income',
-        '0_1l' => 'INR > 0 – 1 Lakh',
-        '1_5l' => 'INR 1 – 5 Lakh',
-        '5_10l' => 'INR 5 – 10 Lakh',
-        '10_25l' => 'INR 10 – 25 Lakh',
-        '25l_plus' => 'INR 25 Lakh+',
-        'unspecified' => 'Not specified',
+        '0_2l' => '0-2 lakh',
+        '2_5l' => '2-5 lakh',
+        '5_8l' => '5-8 lakh',
+        '8_10l' => '8-10 lakh',
+        '10_12l' => '10-12 lakh',
+        '12_14l' => '12-14 lakh',
+        '14_16l' => '14-16 lakh',
+        '16_18l' => '16-18 lakh',
+        '18_20l' => '18-20 lakh',
+        '20l_plus' => '20+ lakh',
     ];
 
     public function index(Request $request): View
@@ -1046,13 +1049,16 @@ class OnboardedApplicantController extends Controller
         $turnover = $this->turnoverNumSql();
 
         match ($income) {
-            'zero' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} = 0"),
-            '0_1l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} > 0 AND {$turnover} < 100000"),
-            '1_5l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 100000 AND {$turnover} < 500000"),
-            '5_10l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 500000 AND {$turnover} < 1000000"),
-            '10_25l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 1000000 AND {$turnover} < 2500000"),
-            '25l_plus' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 2500000"),
-            'unspecified' => $query->whereRaw("{$turnover} IS NULL"),
+            '0_2l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 0 AND {$turnover} < 200000"),
+            '2_5l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 200000 AND {$turnover} < 500000"),
+            '5_8l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 500000 AND {$turnover} < 800000"),
+            '8_10l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 800000 AND {$turnover} < 1000000"),
+            '10_12l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 1000000 AND {$turnover} < 1200000"),
+            '12_14l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 1200000 AND {$turnover} < 1400000"),
+            '14_16l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 1400000 AND {$turnover} < 1600000"),
+            '16_18l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 1600000 AND {$turnover} < 1800000"),
+            '18_20l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 1800000 AND {$turnover} < 2000000"),
+            '20l_plus' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 2000000"),
             default => null,
         };
     }

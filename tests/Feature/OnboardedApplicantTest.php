@@ -235,6 +235,8 @@ class OnboardedApplicantTest extends TestCase
         $response->assertDontSee('onb-applicant-card');
         $response->assertSee('All services');
         $response->assertSee('No services taken');
+        $response->assertSee('0-2 lakh');
+        $response->assertSee('20+ lakh');
     }
 
     public function test_category_filter_limits_applicant_list(): void
@@ -269,7 +271,7 @@ class OnboardedApplicantTest extends TestCase
         $this->seedOnboardedApplicant($district, '40812002', 'Mid Income Applicant', 'male', null, 'phase3', null, 'Individual', null, null, null, null, null, null, '250000');
 
         $response = $this->actingAs($admin)->get(route('admin.onboarded.index', [
-            'income' => '1_5l',
+            'income' => '2_5l',
         ]));
 
         $response->assertOk();

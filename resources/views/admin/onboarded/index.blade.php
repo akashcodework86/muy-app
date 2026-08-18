@@ -737,7 +737,7 @@
         <div class="onb-fld">
             <label for="fld-income">Annual income</label>
             <select id="fld-income" name="income">
-                <option value="">All income slabs</option>
+                <option value="">-- Select --</option>
                 @foreach ($incomeSlabs ?? [] as $incomeKey => $incomeLabel)
                     <option value="{{ $incomeKey }}" @selected(($filters['income'] ?? '') === $incomeKey)>{{ $incomeLabel }}</option>
                 @endforeach
