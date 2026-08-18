@@ -1019,6 +1019,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
         Route::get('mpr-generator', [MonthlyProgressReportController::class, 'index'])->name('mpr.index');
+        Route::get('mpr-generator/install-word-engine', [MonthlyProgressReportController::class, 'installWordEngine'])->name('mpr.install-word-engine');
         Route::get('mpr-generator/download', [MonthlyProgressReportController::class, 'download'])->name('mpr.download');
         Route::patch('deliverables/row-metadata', [DeliverablesReportController::class, 'updateRowMetadata'])->name('deliverables.row-metadata.update');
         Route::get('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly');

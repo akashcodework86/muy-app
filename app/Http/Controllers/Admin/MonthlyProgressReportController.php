@@ -20,6 +20,40 @@ use Throwable;
 
 class MonthlyProgressReportController extends Controller
 {
+    public function installWordEngine(Request $request)
+    {
+        abort_unless($request->user()?->role === 'state_admin', 403);
+
+        $composer = collect([
+            getenv('MUY_COMPOSER') ?: null,
+            '/opt/cpanel/composer/bin/composer',
+            '/usr/local/bin/composer',
+            '/usr/bin/composer',
+        ])->filter()->first(fn (string $candidate): bool => is_file($candidate) && is_executable($candidate));
+
+        abort_if(! $composer, 500, 'Composer executable was not found on the server.');
+
+        $output = [];
+        $exitCode = 0;
+        exec(
+            'cd '.escapeshellarg(base_path()).' && '.escapeshellarg($composer).' install --no-dev --no-interaction --optimize-autoloader 2>&1',
+            $output,
+            $exitCode,
+        );
+
+        clearstatcache();
+        if (function_exists('opcache_reset')) {
+            opcache_reset();
+        }
+
+        abort_if($exitCode !== 0, 500, "Composer install failed.\n".implode("\n", $output));
+
+        require_once base_path('vendor/autoload.php');
+        abort_unless(class_exists(\PhpOffice\PhpWord\PhpWord::class), 500, 'PHPWord remains unavailable after Composer install.');
+
+        return response('PHPWord installed successfully.', 200, ['Content-Type' => 'text/plain']);
+    }
+
     public function __construct(
         private readonly ProgramDeliverablesReportService $reportService,
         private readonly ProgramDeliverablesAchievementBreakdownService $breakdownService,
