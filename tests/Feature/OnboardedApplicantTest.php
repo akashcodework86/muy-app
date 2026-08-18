@@ -7,6 +7,9 @@ use App\Models\DistrictDeliverableTarget;
 use App\Models\Deliverable;
 use App\Models\FiscalYear;
 use App\Models\Hub;
+use App\Models\Service;
+use App\Models\ServiceCase;
+use App\Models\ServiceCategory;
 use App\Models\StateDeliverableTarget;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -211,6 +214,137 @@ class OnboardedApplicantTest extends TestCase
         $response->assertDontSee('Tehri Applicant');
     }
 
+    public function test_applicant_records_render_as_table_with_new_filters(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('haridwar', 'Haridwar');
+        $this->seedOnboardedApplicant($district, '40810001', 'Table Applicant', 'female', null, 'phase3', 'Homestay', 'Individual', null, null, null, null, null, null, '250000');
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index'));
+
+        $response->assertOk();
+        $response->assertSee('Applicant records');
+        $response->assertSee('Services taken');
+        $response->assertSee('Annual income');
+        $response->assertSee('Table Applicant');
+        $response->assertSee('₹250,000');
+        $response->assertDontSee('onb-applicant-card');
+        $response->assertSee('All services');
+        $response->assertSee('No services taken');
+    }
+
+    public function test_category_filter_limits_applicant_list(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('dehradun', 'Dehradun');
+        $this->seedOnboardedApplicant($district, '40811001', 'Individual Applicant', 'female', null, 'phase3', null, 'Individual');
+        $this->seedOnboardedApplicant($district, '40811002', 'SHG Applicant', 'female', null, 'phase3', null, 'SHG');
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index', [
+            'category' => 'SHG',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('SHG Applicant');
+        $response->assertDontSee('Individual Applicant');
+    }
+
+    public function test_annual_income_filter_limits_applicant_list(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('udham', 'Udham Singh Nagar');
+        $this->seedOnboardedApplicant($district, '40812001', 'Zero Income Applicant', 'female', null, 'phase3', null, 'Individual', null, null, null, null, null, null, '0');
+        $this->seedOnboardedApplicant($district, '40812002', 'Mid Income Applicant', 'male', null, 'phase3', null, 'Individual', null, null, null, null, null, null, '250000');
+
+        $response = $this->actingAs($admin)->get(route('admin.onboarded.index', [
+            'income' => '1_5l',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Mid Income Applicant');
+        $response->assertDontSee('Zero Income Applicant');
+    }
+
+    public function test_services_taken_column_and_filter(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+
+        $district = $this->createDistrict('champawat', 'Champawat');
+        $servedId = $this->seedOnboardedApplicant($district, '40813001', 'Served Applicant', 'female');
+        $this->seedOnboardedApplicant($district, '40813002', 'Unserved Applicant', 'male');
+
+        $serviceCategory = ServiceCategory::query()->create([
+            'slug' => 'onboarded-test-services',
+            'name' => 'Onboarded Test Services',
+            'sort_order' => 1,
+        ]);
+        $service = Service::query()->create([
+            'service_category_id' => $serviceCategory->id,
+            'code' => 'onboarded-gst',
+            'name' => 'GST Registration',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+        $secondService = Service::query()->create([
+            'service_category_id' => $serviceCategory->id,
+            'code' => 'onboarded-fssai',
+            'name' => 'FSSAI Registration',
+            'sort_order' => 2,
+            'is_active' => true,
+        ]);
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $servedId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'created_by' => $admin->id,
+        ]);
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $servedId,
+            'service_id' => $secondService->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'created_by' => $admin->id,
+        ]);
+
+        $list = $this->actingAs($admin)->get(route('admin.onboarded.index'));
+        $list->assertOk();
+        $list->assertSee('Served Applicant');
+        $list->assertSee('Unserved Applicant');
+        $list->assertSee('GST Registration');
+        $list->assertSee('FSSAI Registration');
+        $list->assertSee('name="service"', false);
+        $list->assertSee('All services');
+        $list->assertSee(route('admin.onboarded.index', ['service' => $service->id]), false);
+
+        $filtered = $this->actingAs($admin)->get(route('admin.onboarded.index', [
+            'service' => $service->id,
+        ]));
+        $filtered->assertOk();
+        $filtered->assertSee('Served Applicant');
+        $filtered->assertDontSee('Unserved Applicant');
+
+        $none = $this->actingAs($admin)->get(route('admin.onboarded.index', [
+            'service' => '__none__',
+        ]));
+        $none->assertOk();
+        $none->assertSee('Unserved Applicant');
+        $none->assertDontSee('Served Applicant');
+    }
+
     public function test_onboarded_at_uses_batch_creation_date(): void
     {
         $admin = User::factory()->create([
@@ -261,6 +395,7 @@ class OnboardedApplicantTest extends TestCase
         ?string $membershipCreatedAt = null,
         ?string $lockedAt = null,
         ?string $batchCreatedAt = null,
+        ?string $turnoverLastFy = null,
     ): int {
         $payload = [
             'gender' => $gender,
@@ -279,6 +414,9 @@ class OnboardedApplicantTest extends TestCase
         }
         if ($isShgMember !== null) {
             $payload['is_shg_member'] = $isShgMember;
+        }
+        if ($turnoverLastFy !== null) {
+            $payload['turnover_last_fy'] = $turnoverLastFy;
         }
 
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
@@ -316,21 +454,25 @@ class OnboardedApplicantTest extends TestCase
 
     private function seedOnboardingTargets(District $districtA, District $districtB, int $stateTarget): void
     {
-        $fiscalYear = FiscalYear::query()->create([
-            'code' => '2026-27',
-            'name' => '2026-27',
-            'starts_on' => '2026-04-01',
-            'ends_on' => '2027-03-31',
-            'is_active' => true,
-        ]);
+        $fiscalYear = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => '2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
 
-        $deliverable = Deliverable::query()->create([
-            'sort_order' => 4,
-            'code' => 'onboarding',
-            'name' => 'Number of Incubatees Onboarded',
-            'mis_entry_label' => 'Onboarded Incubatees',
-            'is_active' => true,
-        ]);
+        $deliverable = Deliverable::query()->firstOrCreate(
+            ['code' => 'onboarding'],
+            [
+                'sort_order' => 904,
+                'name' => 'Number of Incubatees Onboarded',
+                'mis_entry_label' => 'Onboarded Incubatees',
+                'is_active' => true,
+            ]
+        );
 
         StateDeliverableTarget::query()->create([
             'fiscal_year_id' => $fiscalYear->id,

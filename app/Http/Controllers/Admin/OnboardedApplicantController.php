@@ -9,7 +9,10 @@ use App\Models\DistrictDeliverableTarget;
 use App\Models\DistrictServiceSpoc;
 use App\Models\FiscalYear;
 use App\Models\Hub;
+use App\Models\Service;
+use App\Models\ServiceCase;
 use App\Models\StateDeliverableTarget;
+use App\Services\CfaBusinessStageService;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -25,10 +28,27 @@ class OnboardedApplicantController extends Controller
 
     private const BUSINESS_STAGES = ['early' => 'Early', 'seed' => 'Seed', 'growth' => 'Growth'];
 
+    private const APPLICANT_CATEGORIES = ['Individual' => 'Individual', 'SHG' => 'SHG', 'CBO' => 'CBO'];
+
+    /** @var array<string, string> */
+    private const INCOME_SLABS = [
+        'zero' => 'Zero income',
+        '0_1l' => 'INR > 0 – 1 Lakh',
+        '1_5l' => 'INR 1 – 5 Lakh',
+        '5_10l' => 'INR 5 – 10 Lakh',
+        '10_25l' => 'INR 10 – 25 Lakh',
+        '25l_plus' => 'INR 25 Lakh+',
+        'unspecified' => 'Not specified',
+    ];
+
     public function index(Request $request): View
     {
         $scope = $this->resolveScope($request);
-        [$hubId, $districtId, $q, $stage] = $this->extractFilters($request, $scope);
+        $listFilters = $this->extractFilters($request, $scope);
+        $hubId = $listFilters['hub'];
+        $districtId = $listFilters['district'];
+        $q = $listFilters['q'];
+        $stage = $listFilters['stage'];
 
         $hubs = Hub::query()
             ->when($scope['hub_id'] !== null, fn ($query) => $query->where('id', $scope['hub_id']))
@@ -43,31 +63,29 @@ class OnboardedApplicantController extends Controller
             ->get(['id', 'name', 'hub_id']);
 
         $commonColumns = $this->commonColumnMap();
-        $mergedRows = $this->buildRows($hubId, $districtId, $q, $stage, $scope);
+        $mergedRows = $this->buildRows($listFilters, $scope);
         $rows = $this->paginateMergedRows($mergedRows, $request, 30);
-        $overview = $this->overviewStats($hubId, $districtId, $q, $stage, $scope);
-        $districtSummaries = $this->districtSummaries($hubId, $q, $stage, $scope);
+        $overview = $this->overviewStats($listFilters, $scope);
+        $districtSummaries = $this->districtSummaries($listFilters, $scope);
         $targetProgress = $this->targetProgress($hubId, $districtId, $scope);
-        $sectorBreakdown = $this->sectorBreakdown($hubId, $districtId, $q, $stage, $scope);
+        $sectorBreakdown = $this->sectorBreakdown($listFilters, $scope);
         $insights = $this->buildInsights($overview, $districtSummaries, $targetProgress, $sectorBreakdown, $districtId);
 
         return view('admin.onboarded.index', [
             'rows' => $rows,
             'hubs' => $hubs,
             'districts' => $districts,
+            'services' => $this->filterServices(),
             'commonColumns' => $commonColumns,
             'overview' => $overview,
             'districtSummaries' => $districtSummaries,
             'targetProgress' => $targetProgress,
             'sectorBreakdown' => $sectorBreakdown,
             'insights' => $insights,
-            'filters' => [
-                'hub' => $hubId,
-                'district' => $districtId,
-                'q' => $q,
-                'stage' => $stage,
-            ],
+            'filters' => $listFilters,
             'businessStages' => self::BUSINESS_STAGES,
+            'applicantCategories' => self::APPLICANT_CATEGORIES,
+            'incomeSlabs' => self::INCOME_SLABS,
             'routeIndex' => $this->routeNameFor($request, 'index'),
             'routeExport' => $this->routeNameFor($request, 'export'),
         ]);
@@ -76,11 +94,11 @@ class OnboardedApplicantController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $scope = $this->resolveScope($request);
-        [$hubId, $districtId, $q, $stage] = $this->extractFilters($request, $scope);
+        $listFilters = $this->extractFilters($request, $scope);
         $commonColumns = $this->commonColumnMap();
-        $rows = $this->buildRows($hubId, $districtId, $q, $stage, $scope);
+        $rows = $this->buildRows($listFilters, $scope);
 
-        $headers = ['Sr No', 'Application No', 'Source', 'District', 'Hub', 'Batch', 'Onboarded At'];
+        $headers = ['Sr No', 'Application No', 'Source', 'District', 'Hub', 'Batch', 'Onboarded At', 'Services Taken'];
         foreach ($commonColumns as $key => $meta) {
             if ($key === 'application_no') {
                 continue;
@@ -106,6 +124,7 @@ class OnboardedApplicantController extends Controller
                     (string) ($row['hub_name'] ?? ''),
                     (string) ($row['onboarding_batch_name'] ?? ''),
                     (string) ($row['onboarded_at'] ?? ''),
+                    (string) ($row['services_taken_label'] ?? ''),
                 ];
                 foreach (array_keys($commonColumns) as $columnKey) {
                     if ($columnKey === 'application_no') {
@@ -145,7 +164,30 @@ class OnboardedApplicantController extends Controller
             $stage = '';
         }
 
-        return [$hubId, $districtId, $q, $stage];
+        $category = trim((string) $request->string('category')->toString());
+        if (! array_key_exists($category, self::APPLICANT_CATEGORIES)) {
+            $category = '';
+        }
+
+        $income = trim((string) $request->string('income')->toString());
+        if (! array_key_exists($income, self::INCOME_SLABS)) {
+            $income = '';
+        }
+
+        $service = trim((string) $request->string('service')->toString());
+        if ($service !== '__none__' && ($service === '' || ! ctype_digit($service))) {
+            $service = '';
+        }
+
+        return [
+            'hub' => $hubId,
+            'district' => $districtId,
+            'q' => $q,
+            'stage' => $stage,
+            'category' => $category,
+            'income' => $income,
+            'service' => $service,
+        ];
     }
 
     private function resolveScope(Request $request): array
@@ -193,27 +235,30 @@ class OnboardedApplicantController extends Controller
         };
     }
 
-    private function buildRows(?int $hubId, ?int $districtId, string $q, string $stage, array $scope = []): Collection
+    private function buildRows(array $filters, array $scope = []): Collection
     {
-        $phase3Rows = $this->phase3Rows($hubId, $districtId, $q, $stage, $scope);
+        $phase3Rows = $this->phase3Rows($filters, $scope);
         $commonColumns = $this->commonColumnMap();
 
         return $phase3Rows
             ->map(fn (array $row) => $this->enrichRowWithDetails($row))
             ->map(fn (array $row) => $this->mapCommonColumnsForRow($row, $commonColumns))
+            ->pipe(fn (Collection $rows) => $this->attachServicesTaken($rows))
             ->values();
     }
 
-    private function phase3Rows(?int $hubId, ?int $districtId, string $q, string $stage, array $scope = []): Collection
+    private function phase3Rows(array $filters, array $scope = []): Collection
     {
         $query = $this->phase3BaseQuery($scope);
-        $this->applyPhase3Filters($query, $hubId, $districtId, $q, $stage);
+        $this->applyPhase3Filters($query, $filters);
 
         $guardianJson = $this->payloadJson('$.guardian_name');
         $genderJson = $this->payloadJson('$.gender');
         $dobJson = $this->payloadJson('$.dob');
         $districtJson = $this->payloadJson('$.district');
         $blockJson = $this->payloadJson('$.block');
+        $categoryJson = $this->payloadJson('$.category');
+        $turnoverJson = $this->payloadJson('$.turnover_last_fy');
 
         $onboardedAtSql = $this->phase3OnboardedAtSql();
 
@@ -238,6 +283,8 @@ class OnboardedApplicantController extends Controller
                 {$dobJson} as dob,
                 COALESCE({$districtJson}, d.name) as district,
                 {$blockJson} as block_name,
+                {$categoryJson} as applicant_category,
+                {$turnoverJson} as turnover_last_fy,
                 h.name as hub_name,
                 h.id as hub_id,
                 ob.id as onboarding_batch_id,
@@ -282,8 +329,16 @@ class OnboardedApplicantController extends Controller
         $query->whereIn('cs.district_id', $allowedDistrictIds);
     }
 
-    private function applyPhase3Filters($query, ?int $hubId, ?int $districtId, string $q, string $stage = ''): void
+    private function applyPhase3Filters($query, array $filters): void
     {
+        $hubId = $filters['hub'] ?? null;
+        $districtId = $filters['district'] ?? null;
+        $q = (string) ($filters['q'] ?? '');
+        $stage = (string) ($filters['stage'] ?? '');
+        $category = (string) ($filters['category'] ?? '');
+        $income = (string) ($filters['income'] ?? '');
+        $service = (string) ($filters['service'] ?? '');
+
         if ($hubId) {
             $query->where('ob.hub_id', $hubId);
         }
@@ -298,6 +353,33 @@ class OnboardedApplicantController extends Controller
                 "LOWER(TRIM(COALESCE(NULLIF({$formStage}, ''), NULLIF({$businessStage}, ''), NULLIF({$legacyStage}, ''), ''))) = ?",
                 [$stage],
             );
+        }
+        if ($category !== '') {
+            $categoryJson = $this->payloadJson('$.category');
+            $query->whereRaw(
+                "LOWER(TRIM(COALESCE({$categoryJson}, ''))) = ?",
+                [mb_strtolower($category)],
+            );
+        }
+        if ($income !== '' && array_key_exists($income, self::INCOME_SLABS)) {
+            $this->applyIncomeSlabFilter($query, $income);
+        }
+        if ($service === '__none__') {
+            $query->whereNotExists(function ($sub): void {
+                $sub->selectRaw('1')
+                    ->from('service_cases as sc')
+                    ->whereColumn('sc.cfa_submission_id', 'cs.id')
+                    ->where('sc.status', ServiceCase::STATUS_APPROVED);
+            });
+        } elseif ($service !== '' && ctype_digit($service)) {
+            $serviceId = (int) $service;
+            $query->whereExists(function ($sub) use ($serviceId): void {
+                $sub->selectRaw('1')
+                    ->from('service_cases as sc')
+                    ->whereColumn('sc.cfa_submission_id', 'cs.id')
+                    ->where('sc.service_id', $serviceId)
+                    ->where('sc.status', ServiceCase::STATUS_APPROVED);
+            });
         }
         if ($q !== '') {
             $like = '%'.$q.'%';
@@ -316,13 +398,13 @@ class OnboardedApplicantController extends Controller
         }
     }
 
-    private function overviewStats(?int $hubId, ?int $districtId, string $q, string $stage, array $scope): array
+    private function overviewStats(array $filters, array $scope): array
     {
         $sevenDaysAgo = now()->subDays(7)->toDateTimeString();
         $monthStart = now()->startOfMonth()->toDateTimeString();
 
         $query = $this->phase3BaseQuery($scope);
-        $this->applyPhase3Filters($query, $hubId, $districtId, $q, $stage);
+        $this->applyPhase3Filters($query, $filters);
 
         $genderJson = $this->payloadJson('$.gender');
         $potentialLakhpatiSql = $this->potentialLakhpatiCountSql();
@@ -377,12 +459,12 @@ class OnboardedApplicantController extends Controller
     }
 
     /** @return list<array<string, mixed>> */
-    private function districtSummaries(?int $hubId, string $q, string $stage, array $scope): array
+    private function districtSummaries(array $filters, array $scope): array
     {
         $sevenDaysAgo = now()->subDays(7)->toDateTimeString();
 
         $query = $this->phase3BaseQuery($scope);
-        $this->applyPhase3Filters($query, $hubId, null, $q, $stage);
+        $this->applyPhase3Filters($query, array_merge($filters, ['district' => null]));
 
         $genderJson = $this->payloadJson('$.gender');
         $districtJson = $this->payloadJson('$.district');
@@ -712,6 +794,7 @@ class OnboardedApplicantController extends Controller
             'business_category' => ['label' => 'Business Category', 'keys' => ['business_category', 'app_business_category']],
             'product' => ['label' => 'Product', 'keys' => ['other_product', 'app_other_product', 'product', 'app_product']],
             'form_stage' => ['label' => 'Form Stage', 'keys' => ['form_stage', 'app_form_stage']],
+            'turnover_last_fy' => ['label' => 'Annual Income', 'keys' => ['turnover_last_fy', 'turnover_last_year']],
             'techuse' => ['label' => 'Tech Use', 'keys' => ['techuse']],
             'empwomen' => ['label' => 'Emp Women', 'keys' => ['empwomen']],
             'sustainability' => ['label' => 'Sustainability', 'keys' => ['sustainability']],
@@ -746,9 +829,17 @@ class OnboardedApplicantController extends Controller
                     break;
                 }
             }
+            if ($canonicalKey === 'turnover_last_fy') {
+                $value = $this->formatAnnualIncome($value);
+            }
             $mapped[$canonicalKey] = $value;
         }
         $row['common_values'] = $mapped;
+        $row['annual_income'] = (string) ($mapped['turnover_last_fy'] ?? '—');
+        $row['applicant_category'] = trim((string) ($mapped['category'] ?? ($row['applicant_category'] ?? '')));
+        if ($row['applicant_category'] === '' || $row['applicant_category'] === '—') {
+            $row['applicant_category'] = '—';
+        }
 
         return $row;
     }
@@ -930,6 +1021,131 @@ class OnboardedApplicantController extends Controller
         return "JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '{$path}'))";
     }
 
+    private function turnoverNumSql(): string
+    {
+        $raw = $this->payloadJson('$.turnover_last_fy');
+        $trimmed = "TRIM(REPLACE(COALESCE({$raw}, ''), ',', ''))";
+
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return "CASE
+                WHEN {$trimmed} = '' OR LOWER({$trimmed}) = 'null' THEN NULL
+                WHEN {$trimmed} GLOB '*[^0-9.]*' THEN NULL
+                ELSE CAST({$trimmed} AS REAL)
+            END";
+        }
+
+        return "CASE
+            WHEN {$trimmed} = '' OR LOWER({$trimmed}) = 'null' THEN NULL
+            WHEN {$trimmed} REGEXP '^[0-9]+(\\.[0-9]+)?$' THEN CAST({$trimmed} AS DECIMAL(15,2))
+            ELSE NULL
+        END";
+    }
+
+    private function applyIncomeSlabFilter($query, string $income): void
+    {
+        $turnover = $this->turnoverNumSql();
+
+        match ($income) {
+            'zero' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} = 0"),
+            '0_1l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} > 0 AND {$turnover} < 100000"),
+            '1_5l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 100000 AND {$turnover} < 500000"),
+            '5_10l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 500000 AND {$turnover} < 1000000"),
+            '10_25l' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 1000000 AND {$turnover} < 2500000"),
+            '25l_plus' => $query->whereRaw("{$turnover} IS NOT NULL AND {$turnover} >= 2500000"),
+            'unspecified' => $query->whereRaw("{$turnover} IS NULL"),
+            default => null,
+        };
+    }
+
+    private function attachServicesTaken(Collection $rows): Collection
+    {
+        if ($rows->isEmpty()) {
+            return $rows;
+        }
+
+        $ids = $rows
+            ->pluck('application_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $namesByCfa = [];
+        if ($ids !== []) {
+            $taken = DB::table('service_cases as sc')
+                ->join('services as s', 's.id', '=', 'sc.service_id')
+                ->whereIn('sc.cfa_submission_id', $ids)
+                ->where('sc.status', ServiceCase::STATUS_APPROVED)
+                ->orderBy('s.sort_order')
+                ->orderBy('s.name')
+                ->get(['sc.cfa_submission_id', 'sc.service_id', 's.name']);
+
+            foreach ($taken as $takenRow) {
+                $cfaId = (int) $takenRow->cfa_submission_id;
+                $serviceId = (int) $takenRow->service_id;
+                $name = trim((string) $takenRow->name);
+                if ($cfaId <= 0 || $serviceId <= 0 || $name === '') {
+                    continue;
+                }
+                $namesByCfa[$cfaId] ??= [];
+                $alreadyListed = false;
+                foreach ($namesByCfa[$cfaId] as $existing) {
+                    if ((int) ($existing['id'] ?? 0) === $serviceId) {
+                        $alreadyListed = true;
+                        break;
+                    }
+                }
+                if (! $alreadyListed) {
+                    $namesByCfa[$cfaId][] = [
+                        'id' => $serviceId,
+                        'name' => $name,
+                    ];
+                }
+            }
+        }
+
+        return $rows->map(function (array $row) use ($namesByCfa): array {
+            $items = $namesByCfa[(int) ($row['application_id'] ?? 0)] ?? [];
+            $row['services_taken'] = $items;
+            $row['services_taken_label'] = $items === []
+                ? ''
+                : implode(', ', array_map(fn (array $item): string => (string) ($item['name'] ?? ''), $items));
+
+            return $row;
+        });
+    }
+
+    /** @return Collection<int, Service> */
+    private function filterServices(): Collection
+    {
+        return Service::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    private function formatAnnualIncome(mixed $raw): string
+    {
+        if ($raw === null) {
+            return '—';
+        }
+        $text = trim((string) $raw);
+        if ($text === '' || $text === '—' || strtolower($text) === 'null') {
+            return '—';
+        }
+        if (str_starts_with($text, '₹')) {
+            return $text;
+        }
+
+        $amount = CfaBusinessStageService::parseTurnover($text);
+        $clean = str_replace(',', '', $text);
+        if (! is_numeric($clean)) {
+            return $text;
+        }
+
+        return '₹'.number_format($amount, 0);
+    }
+
     private function phase3OnboardedAtSql(string $obAlias = 'ob', string $obcAlias = 'obc'): string
     {
         return "{$obAlias}.created_at";
@@ -992,7 +1208,10 @@ class OnboardedApplicantController extends Controller
     private function onboardingAchievedCount(?int $hubId, ?int $districtId, array $scope): int
     {
         $query = $this->phase3BaseQuery($scope);
-        $this->applyPhase3Filters($query, $hubId, $districtId, '');
+        $this->applyPhase3Filters($query, [
+            'hub' => $hubId,
+            'district' => $districtId,
+        ]);
 
         return (int) $query->count();
     }
@@ -1121,10 +1340,10 @@ class OnboardedApplicantController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function sectorBreakdown(?int $hubId, ?int $districtId, string $q, string $stage, array $scope): array
+    private function sectorBreakdown(array $filters, array $scope): array
     {
         $query = $this->phase3BaseQuery($scope);
-        $this->applyPhase3Filters($query, $hubId, $districtId, $q, $stage);
+        $this->applyPhase3Filters($query, $filters);
 
         $category = $this->payloadJson('$.business_category');
         $appCategory = $this->payloadJson('$.app_business_category');

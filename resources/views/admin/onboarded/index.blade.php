@@ -176,27 +176,80 @@
 
     /* ── Filters ── */
     .onb-filters {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.6rem;
-        align-items: flex-end;
-        padding: 0.9rem 1rem;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.75rem 0.7rem;
+        align-items: end;
+        padding: 1rem 1.05rem;
         border-radius: 14px;
         background: #fff;
         border: 1px solid #e2e8f0;
     }
-    .onb-fld { display: flex; flex-direction: column; gap: 0.25rem; min-width: 180px; }
-    .onb-fld--grow { flex: 1 1 260px; min-width: 220px; max-width: 480px; }
-    .onb-fld label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; font-weight: 700; }
+    .onb-fld {
+        display: flex;
+        flex-direction: column;
+        gap: 0.28rem;
+        min-width: 0;
+        width: 100%;
+    }
+    .onb-fld--search { grid-column: span 2; }
+    .onb-fld label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        font-weight: 700;
+        line-height: 1.2;
+    }
     .onb-fld select,
     .onb-fld input {
-        padding: 0.45rem 0.6rem;
+        width: 100%;
+        height: 2.45rem;
+        box-sizing: border-box;
+        padding: 0.45rem 0.65rem;
         border-radius: 10px;
         border: 1px solid #cbd5e1;
         font: inherit;
+        font-size: 0.86rem;
         background: #fff;
+        color: #0f172a;
+        min-width: 0;
     }
-    .onb-actions { display: flex; gap: 0.4rem; margin-left: auto; }
+    .onb-fld select:focus,
+    .onb-fld input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    .onb-actions {
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+    .onb-actions .btn-sm {
+        white-space: nowrap;
+        height: 2.45rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+    @media (max-width: 1100px) {
+        .onb-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .onb-fld--search { grid-column: span 2; }
+        .onb-actions { grid-column: 1 / -1; }
+    }
+    @media (max-width: 700px) {
+        .onb-filters { grid-template-columns: 1fr 1fr; }
+        .onb-fld--search,
+        .onb-actions { grid-column: 1 / -1; }
+    }
+    @media (max-width: 480px) {
+        .onb-filters { grid-template-columns: 1fr; }
+    }
     .btn-sm {
         padding: 0.45rem 0.8rem;
         border-radius: 10px;
@@ -214,7 +267,7 @@
         border-color: transparent;
     }
 
-    /* ── Applicant cards ── */
+    /* ── Applicant records table ── */
     .onb-list-head {
         display: flex;
         align-items: center;
@@ -225,40 +278,22 @@
     .onb-list-head h3 { margin: 0; font-size: 0.95rem; font-weight: 800; color: #0f172a; }
     .onb-list-meta { font-size: 0.82rem; color: #64748b; }
 
-    .onb-applicant-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 0.75rem;
-    }
-
-    .onb-applicant-card {
+    .onb-records {
         background: #fff;
         border: 1px solid #e2e8f0;
         border-radius: 14px;
-        padding: 0.95rem 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.65rem;
+        overflow: hidden;
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
     }
-    .onb-applicant-card__head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.65rem;
+    .onb-records .onb-table { min-width: 1180px; }
+    .onb-records .onb-table tbody tr:hover { background: #fafafe; }
+    .onb-name { font-weight: 800; color: #0f172a; }
+    .onb-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
     }
-    .onb-applicant-card__name {
-        font-size: 0.98rem;
-        font-weight: 800;
-        color: #0f172a;
-        line-height: 1.25;
-    }
-    .onb-applicant-card__appno {
-        font-size: 0.76rem;
-        color: #64748b;
-        margin-top: 0.15rem;
-        font-family: ui-monospace, monospace;
-    }
+    .onb-table thead th.onb-num { text-align: right; }
     .onb-badge {
         display: inline-flex;
         align-items: center;
@@ -270,38 +305,9 @@
     }
     .onb-badge--phase3 { background: #eff6ff; color: #1d4ed8; }
     .onb-badge--legacy { background: #fef3c7; color: #92400e; }
-
-    .onb-applicant-card__grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.45rem 0.75rem;
-    }
-    .onb-applicant-card__field label {
-        display: block;
-        font-size: 0.65rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #94a3b8;
-        font-weight: 700;
-    }
-    .onb-applicant-card__field span {
-        display: block;
-        font-size: 0.82rem;
-        color: #334155;
-        font-weight: 600;
-        margin-top: 0.1rem;
-        word-break: break-word;
-    }
-    .onb-applicant-card__field--full { grid-column: 1 / -1; }
-
-    .onb-applicant-card__batch {
-        padding-top: 0.55rem;
-        border-top: 1px dashed #e2e8f0;
-        font-size: 0.78rem;
-        color: #64748b;
-        line-height: 1.4;
-    }
-    .onb-applicant-card__batch strong { color: #0f172a; }
+    .onb-services { display: flex; flex-wrap: wrap; gap: 0.3rem; max-width: 280px; }
+    .onb-badge--service { background: #ecfdf5; color: #047857; white-space: normal; line-height: 1.25; text-decoration: none; }
+    .onb-badge--service:hover { background: #d1fae5; color: #065f46; }
 
     .onb-empty {
         padding: 2.5rem 1rem;
@@ -485,7 +491,17 @@
         'district' => $filters['district'] ?? null,
         'q' => $filters['q'] ?? null,
         'stage' => $filters['stage'] ?? null,
-    ]);
+        'category' => $filters['category'] ?? null,
+        'income' => $filters['income'] ?? null,
+        'service' => $filters['service'] ?? null,
+    ], fn ($value) => $value !== null && $value !== '');
+    $hasListFilters = ($filters['hub'] ?? null)
+        || ($filters['district'] ?? null)
+        || ($filters['q'] ?? null)
+        || ($filters['stage'] ?? null)
+        || ($filters['category'] ?? null)
+        || ($filters['income'] ?? null)
+        || ($filters['service'] ?? null);
 @endphp
 
 <div class="onb-shell">
@@ -619,7 +635,14 @@
                     <p>Click a district to filter applicants below. Share shows contribution within current hub/search scope.</p>
                 </div>
                 @php
-                    $allDistrictQuery = array_filter(['hub' => $filters['hub'] ?? null, 'q' => $filters['q'] ?? null, 'stage' => $filters['stage'] ?? null]);
+                    $allDistrictQuery = array_filter([
+                        'hub' => $filters['hub'] ?? null,
+                        'q' => $filters['q'] ?? null,
+                        'stage' => $filters['stage'] ?? null,
+                        'category' => $filters['category'] ?? null,
+                        'income' => $filters['income'] ?? null,
+                        'service' => $filters['service'] ?? null,
+                    ], fn ($value) => $value !== null && $value !== '');
                 @endphp
                 <a
                     href="{{ route($routeIndex, $allDistrictQuery) }}"
@@ -634,7 +657,10 @@
                             'district' => $districtRow['district_id'] > 0 ? $districtRow['district_id'] : null,
                             'q' => $filters['q'] ?? null,
                             'stage' => $filters['stage'] ?? null,
-                        ]);
+                            'category' => $filters['category'] ?? null,
+                            'income' => $filters['income'] ?? null,
+                            'service' => $filters['service'] ?? null,
+                        ], fn ($value) => $value !== null && $value !== '');
                         $isActive = $activeDistrict > 0 && $activeDistrict === (int) $districtRow['district_id'];
                     @endphp
                     <a
@@ -699,7 +725,35 @@
                 @endforeach
             </select>
         </div>
-        <div class="onb-fld onb-fld--grow">
+        <div class="onb-fld">
+            <label for="fld-category">Category</label>
+            <select id="fld-category" name="category">
+                <option value="">All categories</option>
+                @foreach ($applicantCategories ?? [] as $categoryKey => $categoryLabel)
+                    <option value="{{ $categoryKey }}" @selected(($filters['category'] ?? '') === $categoryKey)>{{ $categoryLabel }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="onb-fld">
+            <label for="fld-income">Annual income</label>
+            <select id="fld-income" name="income">
+                <option value="">All income slabs</option>
+                @foreach ($incomeSlabs ?? [] as $incomeKey => $incomeLabel)
+                    <option value="{{ $incomeKey }}" @selected(($filters['income'] ?? '') === $incomeKey)>{{ $incomeLabel }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="onb-fld">
+            <label for="fld-service">Service</label>
+            <select id="fld-service" name="service">
+                <option value="">All services</option>
+                <option value="__none__" @selected(($filters['service'] ?? '') === '__none__')">No services taken</option>
+                @foreach ($services ?? [] as $service)
+                    <option value="{{ $service->id }}" @selected((string) ($filters['service'] ?? '') === (string) $service->id)>{{ $service->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="onb-fld onb-fld--search">
             <label for="fld-q">Search</label>
             <input
                 id="fld-q"
@@ -711,7 +765,7 @@
             >
         </div>
         <div class="onb-actions">
-            @if (($filters['hub'] ?? null) || ($filters['district'] ?? null) || ($filters['q'] ?? null) || ($filters['stage'] ?? null))
+            @if ($hasListFilters)
                 <a href="{{ route($routeIndex) }}" class="btn-sm">Clear</a>
             @endif
             <a href="{{ route($routeExport ?? 'admin.onboarded.export', $filterQuery) }}" class="btn-sm">Export Excel</a>
@@ -719,7 +773,7 @@
         </div>
     </form>
 
-    {{-- Applicant cards --}}
+    {{-- Applicant records table --}}
     <div>
         <div class="onb-list-head" style="margin-bottom:0.65rem;">
             <h3>Applicant records</h3>
@@ -732,62 +786,90 @@
         </div>
 
         @if ($rows->count() > 0)
-            <div class="onb-applicant-grid">
-                @foreach ($rows as $row)
-                    @php
-                        $isLegacy = ($row['data_source'] ?? '') === 'legacy_phase2';
-                        $onboardedLabel = ! empty($row['onboarded_at'])
-                            ? \Illuminate\Support\Carbon::parse($row['onboarded_at'])->timezone(config('app.timezone'))->format('d M Y, H:i')
-                            : '—';
-                    @endphp
-                    <article class="onb-applicant-card">
-                        <div class="onb-applicant-card__head">
-                            <div>
-                                <div class="onb-applicant-card__name">{{ $row['common_values']['applicant_name'] ?? $row['applicant_name'] ?? '—' }}</div>
-                                <div class="onb-applicant-card__appno">{{ $row['common_values']['application_no'] ?? $row['application_no'] ?? '—' }}</div>
-                            </div>
-                            <span class="onb-badge {{ $isLegacy ? 'onb-badge--legacy' : 'onb-badge--phase3' }}">
-                                {{ $isLegacy ? 'Legacy' : 'Phase 3' }}
-                            </span>
-                        </div>
-                        <div class="onb-applicant-card__grid">
-                            <div class="onb-applicant-card__field">
-                                <label>District</label>
-                                <span>{{ $row['district'] ?: '—' }}</span>
-                            </div>
-                            <div class="onb-applicant-card__field">
-                                <label>Block</label>
-                                <span>{{ $row['block_name'] ?: '—' }}</span>
-                            </div>
-                            <div class="onb-applicant-card__field">
-                                <label>Phone</label>
-                                <span>{{ $row['common_values']['phone'] ?? $row['phone'] ?? '—' }}</span>
-                            </div>
-                            <div class="onb-applicant-card__field">
-                                <label>Gender</label>
-                                <span>{{ $row['common_values']['gender'] ?? $row['gender'] ?? '—' }}</span>
-                            </div>
-                            <div class="onb-applicant-card__field">
-                                <label>Business Category</label>
-                                <span>{{ $row['common_values']['business_category'] ?? '—' }}</span>
-                            </div>
-                            <div class="onb-applicant-card__field">
-                                <label>Product</label>
-                                <span>{{ $row['common_values']['product'] ?? '—' }}</span>
-                            </div>
-                            <div class="onb-applicant-card__field onb-applicant-card__field--full">
-                                <label>Onboarded at</label>
-                                <span>{{ $onboardedLabel }}</span>
-                            </div>
-                        </div>
-                        <div class="onb-applicant-card__batch">
-                            <strong>{{ $row['onboarding_batch_name'] ?: '—' }}</strong>
-                            @if ($row['hub_name'] ?? null)
-                                · {{ $row['hub_name'] }}
-                            @endif
-                        </div>
-                    </article>
-                @endforeach
+            <div class="onb-records">
+                <div class="onb-table-wrap">
+                    <table class="onb-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Applicant</th>
+                                <th>Category</th>
+                                <th>District</th>
+                                <th>Phone</th>
+                                <th>Business category</th>
+                                <th>Annual income</th>
+                                <th>Services taken</th>
+                                <th>Source</th>
+                                <th>Batch</th>
+                                <th>Onboarded at</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($rows as $row)
+                                @php
+                                    $isLegacy = ($row['data_source'] ?? '') === 'legacy_phase2';
+                                    $onboardedLabel = ! empty($row['onboarded_at'])
+                                        ? \Illuminate\Support\Carbon::parse($row['onboarded_at'])->timezone(config('app.timezone'))->format('d M Y, H:i')
+                                        : '—';
+                                    $servicesTaken = $row['services_taken'] ?? [];
+                                @endphp
+                                <tr>
+                                    <td><strong>{{ (int) (($rows->firstItem() ?? 1) + $loop->index) }}</strong></td>
+                                    <td>
+                                        <div class="onb-name">{{ $row['common_values']['applicant_name'] ?? $row['applicant_name'] ?? '—' }}</div>
+                                        <div class="muted">{{ $row['common_values']['application_no'] ?? $row['application_no'] ?? '—' }}</div>
+                                    </td>
+                                    <td>{{ $row['applicant_category'] ?? ($row['common_values']['category'] ?? '—') }}</td>
+                                    <td>
+                                        <div>{{ $row['district'] ?: '—' }}</div>
+                                        <div class="muted">{{ $row['block_name'] ?: '—' }}</div>
+                                    </td>
+                                    <td>{{ $row['common_values']['phone'] ?? $row['phone'] ?? '—' }}</td>
+                                    <td>{{ $row['common_values']['business_category'] ?? '—' }}</td>
+                                    <td>{{ $row['annual_income'] ?? ($row['common_values']['turnover_last_fy'] ?? '—') }}</td>
+                                    <td>
+                                        @if ($servicesTaken !== [])
+                                            <div class="onb-services">
+                                                @foreach ($servicesTaken as $takenService)
+                                                    @php
+                                                        $takenId = is_array($takenService) ? (int) ($takenService['id'] ?? 0) : 0;
+                                                        $takenName = is_array($takenService) ? (string) ($takenService['name'] ?? '') : (string) $takenService;
+                                                        $takenQuery = array_filter(
+                                                            array_merge($filterQuery, ['service' => $takenId > 0 ? $takenId : null]),
+                                                            fn ($value) => $value !== null && $value !== ''
+                                                        );
+                                                    @endphp
+                                                    @if ($takenName === '')
+                                                        @continue
+                                                    @endif
+                                                    @if ($takenId > 0)
+                                                        <a href="{{ route($routeIndex, $takenQuery) }}" class="onb-badge onb-badge--service">{{ $takenName }}</a>
+                                                    @else
+                                                        <span class="onb-badge onb-badge--service">{{ $takenName }}</span>
+                                                    @endif
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span class="muted">—</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <span class="onb-badge {{ $isLegacy ? 'onb-badge--legacy' : 'onb-badge--phase3' }}">
+                                            {{ $isLegacy ? 'Legacy' : 'Phase 3' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ $row['onboarding_batch_name'] ?: '—' }}</strong>
+                                        @if ($row['hub_name'] ?? null)
+                                            <div class="muted">{{ $row['hub_name'] }}</div>
+                                        @endif
+                                    </td>
+                                    <td>{{ $onboardedLabel }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             </div>
         @else
             <div class="onb-empty">No onboarded applicants found for the selected filters.</div>
@@ -814,6 +896,7 @@
                         <th>Hub</th>
                         <th>Batch</th>
                         <th>Onboarded at</th>
+                        <th>Services taken</th>
                         @foreach (($commonColumns ?? []) as $columnKey => $column)
                             @if ($columnKey === 'application_no')
                                 @continue
@@ -838,6 +921,7 @@
                                 <div class="muted">Batch #{{ $row['onboarding_batch_id'] ?: '—' }}</div>
                             </td>
                             <td>{{ ! empty($row['onboarded_at']) ? \Illuminate\Support\Carbon::parse($row['onboarded_at'])->timezone(config('app.timezone'))->format('d M Y, H:i') : '—' }}</td>
+                            <td>{{ ($row['services_taken_label'] ?? '') !== '' ? $row['services_taken_label'] : '—' }}</td>
                             @foreach (array_keys($commonColumns ?? []) as $columnKey)
                                 @if ($columnKey === 'application_no')
                                     @continue
