@@ -50,7 +50,7 @@
             @foreach ($sections as $section)
                 <a class="mg-album" href="{{ $section['url'] }}{{ request()->getQueryString() ? '?'.request()->getQueryString() : '' }}">
                     @if ($section['cover'])
-                        <img class="mg-album__img" src="{{ $section['cover']['inline_url'] }}" alt="" loading="lazy">
+                        <img class="mg-album__img" src="{{ $section['cover']['thumb_url'] ?? $section['cover']['inline_url'] }}" alt="" loading="lazy" decoding="async">
                     @else
                         <div class="mg-album__ph">No photos yet</div>
                     @endif

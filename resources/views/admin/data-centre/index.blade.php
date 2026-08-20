@@ -1035,6 +1035,51 @@
             </section>
 
             <section class="dc-extract" style="margin-top:.85rem;">
+                <h3 class="dc-extract__title">Full progress (all phases)</h3>
+                <div class="dc-extract__period">Phase 1 (2021–25) · Phase 2 (2025–26) · Phase 3 (2026–27)</div>
+                <ul class="dc-extract__list">
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Overall</strong>
+                        <span>CFA, onboarded, all deliverable counts</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Simple counts by phase: CFA, onboarded incubatees, and mapped service / deliverable deliveries.
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Official MIS</strong>
+                        <span>FY 2026–27 target vs achievement</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Same numbers as Admin → Deliverables for the selected district (or statewide if All).
+                        </div>
+                    </li>
+                    <li class="dc-extract__item" tabindex="0">
+                        <strong>Crosscheck</strong>
+                        <span>List query vs source tables</span>
+                        <div class="dc-extract__tip" role="tooltip">
+                            Pipeline counts checked against Phase 1 / 2 / 3 source tables. OK means both sides match.
+                        </div>
+                    </li>
+                </ul>
+
+                <form method="get" action="{{ route('admin.data-centre.export-full-progress') }}" id="dc-full-progress-form">
+                    <div class="dc-extract-district">
+                        <label for="dc-full-progress-district">District</label>
+                        <select name="district_id" id="dc-full-progress-district">
+                            <option value="">All districts</option>
+                            @foreach ($districts ?? [] as $dist)
+                                <option value="{{ $dist->id }}" @selected((int) (($filter->districtId ?? 0)) === (int) $dist->id)>{{ $dist->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button type="submit" class="dc-btn dc-btn--pack">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                        Download full progress Excel
+                    </button>
+                </form>
+                <p class="dc-extract__note">Pick any district (or All). Sheets: Overall · Official MIS FY 2026-27 · Crosscheck.</p>
+            </section>
+
+            <section class="dc-extract" style="margin-top:.85rem;">
                 <h3 class="dc-extract__title">Onboarded SHG / CBO / Individual</h3>
                 <div class="dc-extract__period">Phase 1 + 2 + 3 · onboarded only</div>
                 <ul class="dc-extract__list">

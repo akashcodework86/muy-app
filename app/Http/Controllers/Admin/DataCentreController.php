@@ -7,6 +7,7 @@ use App\Models\District;
 use App\Models\FiscalYear;
 use App\Services\DataCentre\DataCentreFilter;
 use App\Services\DataCentre\ProgramDataCentreService;
+use App\Services\Exports\DistrictFullProgressPackService;
 use App\Services\Exports\HomestayDetailsPackService;
 use App\Services\Exports\OnboardedShgCboDistrictPackService;
 use App\Services\Exports\OnboardedTurnoverWisePackService;
@@ -26,6 +27,7 @@ class DataCentreController extends Controller
         private readonly OnboardedShgCboDistrictPackService $onboardedShgCboPack,
         private readonly OnboardedTurnoverWisePackService $onboardedTurnoverWisePack,
         private readonly HomestayDetailsPackService $homestayDetailsPack,
+        private readonly DistrictFullProgressPackService $fullProgressPack,
     ) {}
 
     public function index(Request $request): View
@@ -288,6 +290,48 @@ class DataCentreController extends Controller
             $fileName = 'homestay-details-'.$slug.'-'.$scopeSlug.'-'.now()->format('Ymd_His').'.xlsx';
             $tempPath = storage_path('app/temp/'.$fileName);
             $this->homestayDetailsPack->writeToPath($data, $tempPath);
+            unset($data);
+
+            return response()
+                ->download($tempPath, $fileName, [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ])
+                ->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('admin.data-centre.index')
+                ->withErrors(['export' => 'Excel export failed: '.$e->getMessage()]);
+        }
+    }
+
+    /**
+     * Full progress Excel (Phase 1 2021-25 + Phase 2 2025-26 + Phase 3 2026-27), optional district filter.
+     */
+    public function exportFullProgress(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
+    {
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(300);
+
+        $districtId = $request->integer('district_id') ?: null;
+        $districtSlug = trim((string) $request->query('district', ''));
+
+        try {
+            if (! class_exists(\ZipArchive::class)) {
+                return redirect()
+                    ->route('admin.data-centre.index')
+                    ->withErrors(['export' => 'Excel export unavailable: PHP Zip extension (ext-zip) is not enabled on the server.']);
+            }
+
+            $data = $this->fullProgressPack->build(
+                $districtId ?: null,
+                $districtId ? null : ($districtSlug !== '' ? $districtSlug : null),
+            );
+            $slug = (string) ($data['meta']['district_slug'] ?? 'all') ?: 'all';
+            $fileName = 'full-progress-'.$slug.'-'.now()->format('Ymd_His').'.xlsx';
+            $tempPath = storage_path('app/temp/'.$fileName);
+            $this->fullProgressPack->writeToPath($data, $tempPath);
             unset($data);
 
             return response()

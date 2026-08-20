@@ -28,6 +28,8 @@
     .mg-event__title a { color:inherit; text-decoration:none; }
     .mg-event__title a:hover { color:var(--mg-accent); }
     .mg-event__meta { margin:.2rem 0 0; font-size:.78rem; color:var(--mg-muted); }
+    .mg-event__desc { margin:.28rem 0 0; font-size:.8rem; color:#334155; }
+    .mg-event__brief { margin:.35rem 0 0; max-width:46rem; font-size:.82rem; line-height:1.45; color:#475569; }
     .mg-event__actions { display:flex; gap:.45rem; flex-wrap:wrap; }
     .mg-thumbs { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.45rem; padding:.75rem; background:#f8fafc; }
     .mg-thumb { position:relative; display:block; aspect-ratio:1; border-radius:10px; overflow:hidden; background:#e2e8f0; }
@@ -71,6 +73,12 @@
                                 <a href="{{ $album['url'] }}">{{ $album['title'] }}</a>
                             </h2>
                             <p class="mg-event__meta">{{ $album['district'] }} · {{ $album['date'] }} · {{ $album['photo_count'] }} photos</p>
+                            @if (($album['description'] ?? '') !== '')
+                                <p class="mg-event__desc">{{ $album['description'] }}</p>
+                            @endif
+                            @if (($album['briefing'] ?? '') !== '')
+                                <p class="mg-event__brief">{{ \Illuminate\Support\Str::limit($album['briefing'], 220) }}</p>
+                            @endif
                         </div>
                         <div class="mg-event__actions">
                             <a class="mg-btn" href="{{ $album['url'] }}">Open gallery</a>
@@ -81,7 +89,7 @@
                         <div class="mg-thumbs">
                             @foreach ($album['thumbs'] as $i => $thumb)
                                 <a class="mg-thumb" href="{{ $album['url'] }}#photo-{{ $i }}">
-                                    <img src="{{ $thumb['inline_url'] }}" alt="{{ $thumb['name'] }}" loading="lazy">
+                                    <img src="{{ $thumb['thumb_url'] ?? $thumb['inline_url'] }}" alt="{{ $thumb['name'] }}" loading="lazy" decoding="async">
                                     @if ($i === 3 && $album['photo_count'] > 4)
                                         <span class="mg-thumb__more">+{{ $album['photo_count'] - 4 }}</span>
                                     @endif

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ServiceCase;
+use App\Support\LineDepartmentMeetingOptions;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
@@ -168,6 +169,8 @@ class MediaGalleryService
                 'status' => 'submitted_or_null',
                 'detail_route' => 'admin.block-workshops.show',
                 'detail_param' => 'blockWorkshop',
+                'context_fields' => ['area'],
+                'briefing_fields' => ['remark'],
             ],
             'district-workshops' => [
                 'label' => 'District Workshops',
@@ -183,6 +186,8 @@ class MediaGalleryService
                 'status' => null,
                 'detail_route' => 'admin.district-workshop-sessions.show',
                 'detail_param' => 'districtWorkshopSession',
+                'context_fields' => ['workshop_mode'],
+                'briefing_fields' => ['notes'],
             ],
             'demo-days' => [
                 'label' => 'Demo Days',
@@ -198,6 +203,8 @@ class MediaGalleryService
                 'status' => null,
                 'detail_route' => 'admin.demo-days.show',
                 'detail_param' => 'demoDay',
+                'context_fields' => ['event_type', 'venue'],
+                'briefing_fields' => ['summary', 'remarks'],
             ],
             'eap-edp' => [
                 'label' => 'EAP / EDP Sessions',
@@ -213,6 +220,8 @@ class MediaGalleryService
                 'status' => null,
                 'detail_route' => 'admin.eap-edp-sessions.show',
                 'detail_param' => 'eapEdpSession',
+                'context_fields' => ['program_type', 'venue_name_address'],
+                'briefing_fields' => ['notes'],
             ],
             'technical-trainings' => [
                 'label' => 'Technical Trainings',
@@ -228,6 +237,8 @@ class MediaGalleryService
                 'status' => 'approved',
                 'detail_route' => 'admin.technical-trainings.show',
                 'detail_param' => 'technicalTraining',
+                'context_fields' => ['training_batch_name'],
+                'briefing_fields' => ['session_brief'],
             ],
             'lakhpati-trainings' => [
                 'label' => 'Lakhpati Technical Trainings',
@@ -243,6 +254,8 @@ class MediaGalleryService
                 'status' => 'approved',
                 'detail_route' => 'admin.lakhpati-technical-trainings.show',
                 'detail_param' => 'lakhpatiTechnicalTraining',
+                'context_fields' => ['block', 'area'],
+                'briefing_fields' => ['session_brief'],
             ],
             'stakeholder-consultation' => [
                 'label' => 'Stakeholder Consultation',
@@ -258,6 +271,8 @@ class MediaGalleryService
                 'status' => null,
                 'detail_route' => 'admin.stakeholder-consultation-workshops.show',
                 'detail_param' => 'scwWorkshop',
+                'context_fields' => ['consultation_theme', 'venue'],
+                'briefing_fields' => ['key_outcomes'],
             ],
             'capacity-building' => [
                 'label' => 'Capacity Building',
@@ -273,6 +288,8 @@ class MediaGalleryService
                 'status' => null,
                 'detail_route' => 'admin.capacity-building-stakeholders.show',
                 'detail_param' => 'cbsSession',
+                'context_fields' => ['stakeholder_type', 'venue'],
+                'briefing_fields' => ['topics_covered'],
             ],
             'line-department-meetings' => [
                 'label' => 'Line Department Meetings',
@@ -288,6 +305,8 @@ class MediaGalleryService
                 'status' => 'approved',
                 'detail_route' => 'admin.line-department-meetings.show',
                 'detail_param' => 'ldmMeeting',
+                'context_fields' => ['meeting_purpose', 'venue'],
+                'briefing_fields' => ['agenda_summary', 'agenda_remark_outcome'],
             ],
             'community-outreach' => [
                 'label' => 'Community Outreach',
@@ -303,6 +322,8 @@ class MediaGalleryService
                 'status' => 'approved',
                 'detail_route' => 'admin.community-org-outreach.show',
                 'detail_param' => 'communityOrgOutreach',
+                'context_fields' => ['purpose', 'organization_type'],
+                'briefing_fields' => ['remarks', 'outcome'],
             ],
         ];
     }
@@ -390,6 +411,8 @@ class MediaGalleryService
                     'district' => $this->rowDistrict($section, $row),
                     'date' => $date ? Carbon::parse($date)->format('d M Y') : '—',
                     'date_raw' => $date ? Carbon::parse($date)->toDateString() : null,
+                    'description' => $this->rowContext($section, $row),
+                    'briefing' => $this->rowBriefing($section, $row),
                     'photo_count' => count($photos),
                     'thumbs' => array_slice($photos, 0, 4),
                     'url' => route('admin.media-gallery.show', [$sectionKey, (int) $row->id]),
@@ -428,6 +451,8 @@ class MediaGalleryService
                 'title' => $this->rowTitle($section, $row),
                 'district' => $this->rowDistrict($section, $row),
                 'date' => $date ? Carbon::parse($date)->format('d M Y') : '—',
+                'description' => $this->rowContext($section, $row),
+                'briefing' => $this->rowBriefing($section, $row),
                 'detail_url' => route($section['detail_route'], [
                     $section['detail_param'] => (int) $row->id,
                 ]),
@@ -484,17 +509,24 @@ class MediaGalleryService
     }
 
     /**
+     * @param  list<int>|null  $indices
      * @return list<array{path: string, disk: string, original_name: string, mime: string}>
      */
-    public function resolveAlbumMediaFiles(string $sectionKey, int $recordId): array
+    public function resolveAlbumMediaFiles(string $sectionKey, int $recordId, ?array $indices = null): array
     {
         $data = $this->album($sectionKey, $recordId);
         if ($data === null) {
             return [];
         }
 
+        $wanted = is_array($indices) ? array_values(array_unique(array_map('intval', $indices))) : null;
+
         $files = [];
-        foreach ($data['photos'] as $photo) {
+        foreach ($data['photos'] as $i => $photo) {
+            if ($wanted !== null && ! in_array((int) $i, $wanted, true)) {
+                continue;
+            }
+
             $item = $this->resolveMediaItem(
                 $sectionKey,
                 $recordId,
@@ -572,6 +604,7 @@ class MediaGalleryService
             $section['title'],
             $section['district_id'],
             $section['district_name'],
+            ...$this->extraSelectColumns($section),
             ...$availableCollections,
         ], fn (?string $column): bool => $column !== null && $column !== '' && Schema::hasColumn($table, $column))));
 
@@ -675,12 +708,15 @@ class MediaGalleryService
         $titleCol = $section['title'];
         $districtNameCol = $section['district_name'] ?? null;
 
-        $query->where(function (Builder $scope) use ($table, $titleCol, $districtNameCol, $like): void {
+        $query->where(function (Builder $scope) use ($table, $titleCol, $districtNameCol, $like, $section): void {
             if ($titleCol && Schema::hasColumn($table, $titleCol)) {
                 $scope->where($table.'.'.$titleCol, 'like', $like);
             }
             if ($districtNameCol && Schema::hasColumn($table, $districtNameCol)) {
                 $scope->orWhere($table.'.'.$districtNameCol, 'like', $like);
+            }
+            foreach ($this->extraSelectColumns($section) as $col) {
+                $scope->orWhere($table.'.'.$col, 'like', $like);
             }
         });
     }
@@ -702,6 +738,7 @@ class MediaGalleryService
             $section['title'],
             $section['district_id'],
             $section['district_name'],
+            ...$this->extraSelectColumns($section),
             ...$availableCollections,
         ], fn (?string $column): bool => $column !== null && $column !== '' && Schema::hasColumn($table, $column))));
 
@@ -739,24 +776,21 @@ class MediaGalleryService
                 }
 
                 $name = (string) ($item['original_name'] ?? basename($path));
+                $routeParams = [
+                    'section' => $sectionKey,
+                    'record' => (int) $row->id,
+                    'collection' => $collection,
+                    'index' => (int) $index,
+                ];
                 $photos[] = [
                     'collection' => $collection,
                     'index' => (int) $index,
                     'name' => $name,
                     'mime' => (string) ($item['mime'] ?? ''),
-                    'inline_url' => route('admin.media-gallery.photo', [
-                        'section' => $sectionKey,
-                        'record' => (int) $row->id,
-                        'collection' => $collection,
-                        'index' => (int) $index,
-                        'inline' => 1,
-                    ]),
-                    'download_url' => route('admin.media-gallery.photo', [
-                        'section' => $sectionKey,
-                        'record' => (int) $row->id,
-                        'collection' => $collection,
-                        'index' => (int) $index,
-                    ]),
+                    'thumb_url' => route('admin.media-gallery.photo', $routeParams + ['inline' => 1, 'size' => 'thumb']),
+                    'preview_url' => route('admin.media-gallery.photo', $routeParams + ['inline' => 1, 'size' => 'preview']),
+                    'inline_url' => route('admin.media-gallery.photo', $routeParams + ['inline' => 1, 'size' => 'preview']),
+                    'download_url' => route('admin.media-gallery.photo', $routeParams),
                 ];
             }
         }
@@ -775,6 +809,83 @@ class MediaGalleryService
             : '';
 
         return $title !== '' ? $title : (string) $section['title_fallback'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $section
+     * @return list<string>
+     */
+    private function extraSelectColumns(array $section): array
+    {
+        $table = (string) $section['table'];
+        $columns = [];
+        foreach ([...($section['context_fields'] ?? []), ...($section['briefing_fields'] ?? [])] as $column) {
+            if (is_string($column) && $column !== '' && Schema::hasColumn($table, $column)) {
+                $columns[] = $column;
+            }
+        }
+
+        return array_values(array_unique($columns));
+    }
+
+    /**
+     * @param  array<string, mixed>  $section
+     */
+    private function rowContext(array $section, object $row): string
+    {
+        $parts = [];
+        foreach ($section['context_fields'] ?? [] as $column) {
+            if (! is_string($column) || ! isset($row->{$column})) {
+                continue;
+            }
+            $value = trim((string) $row->{$column});
+            if ($value === '') {
+                continue;
+            }
+            $parts[] = $this->humanizeField($column, $value);
+        }
+
+        return implode(' · ', $parts);
+    }
+
+    /**
+     * @param  array<string, mixed>  $section
+     */
+    private function rowBriefing(array $section, object $row): string
+    {
+        $parts = [];
+        foreach ($section['briefing_fields'] ?? [] as $column) {
+            if (! is_string($column) || ! isset($row->{$column})) {
+                continue;
+            }
+            $value = trim((string) $row->{$column});
+            if ($value === '' || in_array($value, $parts, true)) {
+                continue;
+            }
+            $parts[] = $value;
+        }
+
+        return implode("\n\n", $parts);
+    }
+
+    private function humanizeField(string $column, string $value): string
+    {
+        if ($column === 'meeting_purpose') {
+            $label = LineDepartmentMeetingOptions::meetingPurposes()[$value] ?? null;
+            if (is_string($label) && $label !== '') {
+                return $label;
+            }
+        }
+
+        if ($column === 'meeting_purpose_other') {
+            return $value;
+        }
+
+        if (str_contains($value, '_') && ! str_contains($value, ' ')) {
+            return ucfirst(str_replace('_', ' ', $value));
+        }
+
+        return $value;
     }
 
     /**

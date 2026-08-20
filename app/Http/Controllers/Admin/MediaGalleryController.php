@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\District;
 use App\Models\Hub;
 use App\Services\MediaGalleryService;
+use App\Support\MediaGalleryThumbnailCache;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
@@ -70,13 +71,14 @@ class MediaGalleryController extends Controller
         string $section,
         int $record,
         string $collection,
-    ): StreamedResponse|BinaryFileResponse {
+    ): StreamedResponse|BinaryFileResponse|Response {
         $index = max(0, (int) $request->query('index', 0));
         $item = $this->gallery->resolveMediaItem($section, $record, $collection, $index);
         abort_unless($item !== null, 404);
 
         $disk = Storage::disk($item['disk']);
         $path = $item['path'];
+        $absolute = $disk->path($path);
         $filename = $item['original_name'];
         $mime = $item['mime'] !== '' ? $item['mime'] : (string) ($disk->mimeType($path) ?: 'application/octet-stream');
         $inline = $request->boolean('inline') && (
@@ -84,25 +86,38 @@ class MediaGalleryController extends Controller
             || preg_match('/\.(jpe?g|png|webp|gif)$/i', $filename) === 1
         );
 
-        if ($inline) {
-            return response()->file($disk->path($path), [
-                'Content-Type' => $mime,
-                'Content-Disposition' => 'inline; filename="'.str_replace('"', '', $filename).'"',
-            ]);
+        $size = strtolower(trim((string) $request->query('size', '')));
+        $maxWidth = MediaGalleryThumbnailCache::maxWidth($size);
+        if ($inline && $maxWidth !== null) {
+            $cached = MediaGalleryThumbnailCache::ensure($absolute, $maxWidth);
+            if ($cached !== null) {
+                return $this->fileResponse(
+                    $cached['path'],
+                    $cached['mime'],
+                    pathinfo($filename, PATHINFO_FILENAME).'-'.$size.'.jpg',
+                    inline: true,
+                );
+            }
         }
 
-        return $disk->download($path, $filename);
+        if ($inline) {
+            return $this->fileResponse($absolute, $mime, $filename, inline: true);
+        }
+
+        return $this->fileResponse($absolute, $mime, $filename, inline: false);
     }
 
-    public function downloadZip(string $section, int $record): StreamedResponse|Response
+    public function downloadZip(Request $request, string $section, int $record): StreamedResponse|Response
     {
         $data = $this->gallery->album($section, $record);
         abort_unless($data !== null, 404);
 
-        $files = $this->gallery->resolveAlbumMediaFiles($section, $record);
+        $indices = $this->photoIndicesFromRequest($request);
+        $files = $this->gallery->resolveAlbumMediaFiles($section, $record, $indices);
         abort_if($files === [], 404);
 
-        $zipName = $this->safeFilename($section.'-'.$record.'-photos').'.zip';
+        $suffix = $indices === null ? 'photos' : 'selected';
+        $zipName = $this->safeFilename($section.'-'.$record.'-'.$suffix).'.zip';
         $tmp = tempnam(sys_get_temp_dir(), 'mgzip_');
         abort_unless(is_string($tmp), 500);
 
@@ -168,6 +183,43 @@ class MediaGalleryController extends Controller
             ->get(['id', 'name', 'hub_id']);
 
         return [$hubs, $districts];
+    }
+
+    /**
+     * @return list<int>|null
+     */
+    private function photoIndicesFromRequest(Request $request): ?array
+    {
+        $raw = $request->query('indices');
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $parts = is_array($raw) ? $raw : explode(',', (string) $raw);
+        $indices = [];
+        foreach ($parts as $part) {
+            if (is_numeric($part)) {
+                $indices[] = max(0, (int) $part);
+            }
+        }
+
+        return array_values(array_unique($indices));
+    }
+
+    private function fileResponse(string $absolutePath, string $mime, string $filename, bool $inline): BinaryFileResponse
+    {
+        $safeName = str_replace(['"', "\r", "\n"], '', $filename);
+        $disposition = ($inline ? 'inline' : 'attachment').'; filename="'.$safeName.'"';
+
+        $response = response()->file($absolutePath, [
+            'Content-Type' => $mime !== '' ? $mime : 'application/octet-stream',
+            'Content-Disposition' => $disposition,
+        ]);
+        $response->setAutoEtag();
+        $response->setAutoLastModified();
+        $response->headers->set('Cache-Control', 'private, max-age=86400');
+
+        return $response;
     }
 
     private function safeFilename(string $name): string

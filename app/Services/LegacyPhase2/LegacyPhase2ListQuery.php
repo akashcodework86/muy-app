@@ -256,9 +256,9 @@ class LegacyPhase2ListQuery
         return false;
     }
 
-    public static function districtListQuery(string $canonicalDistrictName): Builder
+    public static function latestApplicantListQuery(): Builder
     {
-        $query = self::queryWithLatestApplicantDetails()
+        return self::queryWithLatestApplicantDetails()
             ->leftJoin('rbi_onboarding_batches as ob', 'ob.id', '=', 'oa.onboarding_batch_id')
             ->leftJoin(DB::raw('(
                 SELECT e1.application_id, e1.turnover_last_year
@@ -268,33 +268,38 @@ class LegacyPhase2ListQuery
                     FROM rbi_enterprise_details
                     GROUP BY application_id
                 ) t ON t.application_id = e1.application_id AND t.max_id = e1.id
-            ) as ed'), 'ed.application_id', '=', 'd.application_id');
+            ) as ed'), 'ed.application_id', '=', 'd.application_id')
+            ->select([
+                'd.application_id',
+                'd.applicant_name',
+                'd.phone',
+                'd.district',
+                'd.block',
+                'd.village',
+                'd.gender',
+                'd.is_shg_member',
+                'd.caste',
+                'd.loan_taken',
+                'd.bank_loan',
+                'a.application_no',
+                'a.product',
+                'a.category as app_category',
+                'a.form_stage',
+                'a.submission_date',
+                'a.created_at',
+                'a.business_category',
+                'ob.batch_name as cohort_name',
+                'oa.status as onboard_status_db',
+                'ed.turnover_last_year as turnover_last_year',
+            ]);
+    }
 
+    public static function districtListQuery(string $canonicalDistrictName): Builder
+    {
+        $query = self::latestApplicantListQuery();
         LegacyPhase2DistrictResolver::applyDistrictFilter($query, $canonicalDistrictName);
 
-        return $query->select([
-            'd.application_id',
-            'd.applicant_name',
-            'd.phone',
-            'd.district',
-            'd.block',
-            'd.village',
-            'd.gender',
-            'd.is_shg_member',
-            'd.caste',
-            'd.loan_taken',
-            'd.bank_loan',
-            'a.application_no',
-            'a.product',
-            'a.category as app_category',
-            'a.form_stage',
-            'a.submission_date',
-            'a.created_at',
-            'a.business_category',
-            'ob.batch_name as cohort_name',
-            'oa.status as onboard_status_db',
-            'ed.turnover_last_year as turnover_last_year',
-        ]);
+        return $query;
     }
 
     /**
