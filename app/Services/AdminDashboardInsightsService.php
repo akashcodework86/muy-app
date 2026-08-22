@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FiscalYear;
 use App\Services\Cfa\CfaSubmissionListQuery;
+use App\Support\MarketLinkageUnifiedListingSupport;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -156,8 +157,28 @@ class AdminDashboardInsightsService
             ->orderByDesc('approved_count')
             ->get();
 
-        $topServices = $this->mapSavingsRows($baseRows, 5);
-        $totalTillDate = array_sum(array_map(fn (array $row) => (float) $row['savings'], $this->mapSavingsRows($baseRows)));
+        $allSavingsRows = $this->mapSavingsRows($baseRows);
+        $scopeDistrictIds = $districtIds === [] ? null : $districtIds;
+        // Use the deliverable 6.3 unique-incubatee count, not partner/link rows.
+        $onlineTillDateCount = MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts(
+            $scopeDistrictIds,
+        )['online_incubatees'];
+        $onlineTillDateSavings = $onlineTillDateCount
+            * MarketLinkageUnifiedListingSupport::ESTIMATED_SAVING_PER_ONLINE_INCUBATEE;
+        if ($onlineTillDateCount > 0) {
+            $allSavingsRows[] = [
+                'name' => 'Online Market Linkage',
+                'avg_price' => MarketLinkageUnifiedListingSupport::ESTIMATED_SAVING_PER_ONLINE_INCUBATEE,
+                'approved_count' => $onlineTillDateCount,
+                'savings' => $onlineTillDateSavings,
+            ];
+        }
+        $topServices = collect($allSavingsRows)
+            ->sortByDesc('savings')
+            ->take(5)
+            ->values()
+            ->all();
+        $totalTillDate = array_sum(array_map(fn (array $row) => (float) $row['savings'], $allSavingsRows));
 
         $fyStart = $activeFy?->starts_on
             ? Carbon::parse($activeFy->starts_on)->startOfDay()
@@ -185,6 +206,14 @@ class AdminDashboardInsightsService
             fn (object $row) => (float) $row->approved_count * (float) $row->estimated_market_price_avg,
             $fyRows->all()
         ));
+        $onlineThisFyCount = MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts(
+            $scopeDistrictIds,
+            true,
+            $fyStart,
+            $fyEnd,
+        )['online_incubatees'];
+        $totalThisFy += $onlineThisFyCount
+            * MarketLinkageUnifiedListingSupport::ESTIMATED_SAVING_PER_ONLINE_INCUBATEE;
 
         return [
             'total_till_date' => round((float) $totalTillDate, 2),

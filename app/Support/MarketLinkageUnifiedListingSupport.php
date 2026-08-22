@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Schema;
 
 final class MarketLinkageUnifiedListingSupport
 {
+    public const ESTIMATED_SAVING_PER_ONLINE_INCUBATEE = 5000.0;
+
     /** @var list<string> */
     public const MARKET_LINK_SERVICE_CODES = [
         'incubatees_linked_to_online_offline_market',
