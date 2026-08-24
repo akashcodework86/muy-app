@@ -47,6 +47,7 @@
     $staffDistrictLabel = $showStaffNav
         ? trim((string) ($u->district?->name ?? ''))
         : '';
+    $staffHasAssignedDistrict = $showStaffNav && (int) ($u->district_id ?? 0) > 0;
     $showIncubateeNav = $u && $u->role === 'incubatee';
     $brandSub = match ($u->role ?? '') {
         'state_admin' => $u->displayRoleLabel(),
@@ -1146,6 +1147,14 @@
                     <a href="{{ route('staff.applications') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-apps') is-active @endif" role="menuitem">
                         {!! $i('inbox') !!}<span>Applications</span>
                     </a>
+                    @if ($staffHasAssignedDistrict)
+                    <a href="{{ route('staff.phase1-data') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-phase1-data') is-active @endif" role="menuitem">
+                        {!! $i('database') !!}<span>CFA (FY 2024-25 Data)</span>
+                    </a>
+                    <a href="{{ route('staff.phase2-data') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-phase2-data') is-active @endif" role="menuitem">
+                        {!! $i('database') !!}<span>CFA (FY 2025-26 Data)</span>
+                    </a>
+                    @endif
                     <a href="{{ route('staff.onboarded.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarded') is-active @endif" role="menuitem">
                         {!! $i('batches') !!}<span>Onboarded</span>
                     </a>
