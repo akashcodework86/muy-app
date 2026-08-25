@@ -153,17 +153,9 @@ final class YearwiseIndicatorWorkbookService
             : null;
 
         $agg = Cache::remember('yearwise_indicators_agg_v1', 300, function (): array {
-            $previousLimit = ini_get('memory_limit');
-            if (is_string($previousLimit) && $previousLimit !== '' && $previousLimit !== '-1') {
-                ini_set('memory_limit', '512M');
-            }
-            try {
-                return $this->buildDataCentreAggregate();
-            } finally {
-                if (is_string($previousLimit) && $previousLimit !== '') {
-                    ini_set('memory_limit', $previousLimit);
-                }
-            }
+            $this->raiseMemoryLimit('512M');
+
+            return $this->buildDataCentreAggregate();
         });
 
         $years = $fyCode !== null ? [$fyCode] : self::YEARS;
@@ -302,17 +294,8 @@ final class YearwiseIndicatorWorkbookService
             ? $this->canonicalDistrict($districtName)
             : null;
 
-        $previousLimit = ini_get('memory_limit');
-        if (is_string($previousLimit) && $previousLimit !== '' && $previousLimit !== '-1') {
-            ini_set('memory_limit', '512M');
-        }
-        try {
-            $payload = $this->build();
-        } finally {
-            if (is_string($previousLimit) && $previousLimit !== '') {
-                ini_set('memory_limit', $previousLimit);
-            }
-        }
+        $this->raiseMemoryLimit('512M');
+        $payload = $this->build();
 
         $metrics = [
             'cfa' => 'cfa',
@@ -2175,5 +2158,47 @@ final class YearwiseIndicatorWorkbookService
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Raise memory_limit for heavy builds. Never lower it afterwards —
+     * restoring a smaller limit while usage is higher fatals on live PHP.
+     */
+    private function raiseMemoryLimit(string $target): void
+    {
+        $current = ini_get('memory_limit');
+        if (! is_string($current) || $current === '' || $current === '-1') {
+            return;
+        }
+
+        $currentBytes = $this->memoryLimitToBytes($current);
+        $targetBytes = $this->memoryLimitToBytes($target);
+        if ($currentBytes === null || $targetBytes === null || $targetBytes <= $currentBytes) {
+            return;
+        }
+
+        @ini_set('memory_limit', $target);
+    }
+
+    private function memoryLimitToBytes(string $value): ?int
+    {
+        $value = trim($value);
+        if ($value === '' || $value === '-1') {
+            return null;
+        }
+        if (ctype_digit($value)) {
+            return (int) $value;
+        }
+        if (preg_match('/^(\d+)\s*([KMG])B?$/i', $value, $m) !== 1) {
+            return null;
+        }
+        $n = (int) $m[1];
+
+        return match (strtoupper($m[2])) {
+            'K' => $n * 1024,
+            'M' => $n * 1024 * 1024,
+            'G' => $n * 1024 * 1024 * 1024,
+            default => null,
+        };
     }
 }

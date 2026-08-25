@@ -47,10 +47,32 @@ class DataCentreController extends Controller
         if ($yiDistrictId) {
             $yiDistrictName = District::query()->where('id', $yiDistrictId)->value('name');
         }
-        $yearwise = $this->yearwiseIndicators->dataCentreMatrix(
-            $yiFy !== '' ? $yiFy : null,
-            is_string($yiDistrictName) ? $yiDistrictName : null,
-        );
+
+        try {
+            $yearwise = $this->yearwiseIndicators->dataCentreMatrix(
+                $yiFy !== '' ? $yiFy : null,
+                is_string($yiDistrictName) ? $yiDistrictName : null,
+            );
+        } catch (\Throwable $e) {
+            report($e);
+            $yearwise = [
+                'generated_at' => '',
+                'years' => \App\Services\Exports\YearwiseIndicatorWorkbookService::YEARS,
+                'fy_filter' => $yiFy !== '' ? $yiFy : null,
+                'district_filter' => is_string($yiDistrictName) ? $yiDistrictName : null,
+                'rows' => [],
+                'totals' => [
+                    'cfa' => 0,
+                    'onboarding' => 0,
+                    'udyam' => 0,
+                    'fssai' => 0,
+                    'gst' => 0,
+                    'market_linkage' => 0,
+                    'convergence' => 0,
+                ],
+                'note' => 'Year-wise indicators could not be loaded ('.$e->getMessage().'). Use Refresh Data or Export Excel after checking memory_limit / legacy DB access.',
+            ];
+        }
 
         return view('admin.data-centre.index', array_merge($data, [
             'filter' => $filter,
