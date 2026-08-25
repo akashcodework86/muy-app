@@ -990,6 +990,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('data-centre.export-homestay-details');
         Route::get('data-centre/export/full-progress', [DataCentreController::class, 'exportFullProgress'])
             ->name('data-centre.export-full-progress');
+        Route::get('data-centre/export/yearwise-indicators', [DataCentreController::class, 'exportYearwiseIndicatorsExcel'])
+            ->name('data-centre.export-yearwise-indicators');
         Route::get('data-centre/export/3-3-1-shg-members-pack', [Phase3331ShgMembersPackExportController::class, 'download'])
             ->name('data-centre.export-3-3-1-shg-members-pack');
         Route::get('data-centre/export/{section}', [DataCentreController::class, 'export'])

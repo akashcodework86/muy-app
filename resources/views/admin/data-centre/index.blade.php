@@ -204,6 +204,15 @@
     }
     $recordLabel = $isOnboardedOnly ? 'onboarded' : 'applications';
     $recordLabelTitle = $isOnboardedOnly ? 'Onboarded incubatees' : 'CFA applications';
+    $yiFy = $yi_fy ?? null;
+    $yiDistrictId = $yi_district_id ?? null;
+    $yearwise = $yearwise ?? ['rows' => [], 'totals' => [], 'years' => [], 'note' => '', 'generated_at' => ''];
+    $yiQuery = array_filter([
+        'yi_fy' => $yiFy,
+        'yi_district_id' => $yiDistrictId ?: null,
+    ], fn ($v) => $v !== null && $v !== '');
+    $yiExportQuery = array_merge($dcQuery, $yiQuery);
+    $yiResetQuery = $dcQuery;
 @endphp
 <div class="dc-page">
 
@@ -377,6 +386,12 @@
                 @endif
                 @if ($isOnboardedOnly)
                     <input type="hidden" name="scope" value="onboarded">
+                @endif
+                @if ($yiFy)
+                    <input type="hidden" name="yi_fy" value="{{ $yiFy }}">
+                @endif
+                @if ($yiDistrictId)
+                    <input type="hidden" name="yi_district_id" value="{{ $yiDistrictId }}">
                 @endif
                 <button type="submit" class="dc-btn dc-btn--refresh">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -561,6 +576,120 @@
 
     {{-- ── Sections ── --}}
     <div class="dc-sections">
+
+        {{-- Year-wise indicators (CFA / Onboarding / Udyam / FSSAI / GST / Market / Convergence) --}}
+        <details class="dc-section" id="sec-yearwise-indicators" open>
+            <summary class="dc-section__head">
+                <div class="dc-section__head-left">
+                    <div class="dc-section__icon" style="background:#ecfdf5;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.8"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15v-4"/><path d="M12 15V8"/><path d="M16 15v-7"/></svg>
+                    </div>
+                    <div>
+                        <div class="dc-section__name">Year-wise indicators</div>
+                        <div class="dc-section__desc">
+                            CFA, onboarding, Udyam, FSSAI, GST, market linkage &amp; convergence — FY 2020–21 to 2026–27
+                        </div>
+                    </div>
+                </div>
+                <div class="dc-section__actions" onclick="event.stopPropagation()">
+                    <a href="{{ route('admin.data-centre.export-yearwise-indicators', $yiExportQuery) }}" class="dc-btn dc-btn--export">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                        Export Excel
+                    </a>
+                    <a href="{{ route('admin.data-centre.export', array_merge(['section' => 'yearwise-indicators'], $yiExportQuery)) }}" class="dc-btn dc-btn--export" style="background:#f8fafc; color:#475569;">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                        Summary CSV
+                    </a>
+                    <svg class="dc-section__arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l5 5 5-5"/></svg>
+                </div>
+            </summary>
+            <div class="dc-table-wrap">
+                <form method="get" action="{{ route('admin.data-centre.index') }}" class="dc-filters" style="margin:0 0 1rem; box-shadow:none; border-style:dashed;" id="yi-filters-form" onclick="event.stopPropagation()">
+                    @foreach ($dcQuery as $qk => $qv)
+                        @if ($qv !== null && $qv !== '')
+                            <input type="hidden" name="{{ $qk }}" value="{{ $qv }}">
+                        @endif
+                    @endforeach
+                    <div class="dc-filters__title">Filters — Year-wise indicators</div>
+                    <div class="dc-filters__grid">
+                        <div class="dc-filters__field">
+                            <label for="yi_district_id">District</label>
+                            <select name="yi_district_id" id="yi_district_id">
+                                <option value="">All districts</option>
+                                @foreach ($districts as $d)
+                                    <option value="{{ $d->id }}" @selected((int) $yiDistrictId === (int) $d->id)>{{ $d->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="dc-filters__field">
+                            <label for="yi_fy">Financial year</label>
+                            <select name="yi_fy" id="yi_fy">
+                                <option value="">All years (2020–21 to 2026–27)</option>
+                                @foreach ($yearwise['years'] ?? [] as $fyOpt)
+                                    <option value="{{ $fyOpt }}" @selected($yiFy === $fyOpt)>{{ $fyOpt }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="dc-filters__actions">
+                            <button type="submit" class="dc-btn" style="background:#059669; color:#fff; border:none;">Apply</button>
+                            <a href="{{ route('admin.data-centre.index', $yiResetQuery) }}#sec-yearwise-indicators" class="dc-btn" style="background:#f1f5f9; color:#475569;">Reset</a>
+                        </div>
+                    </div>
+                </form>
+
+                <table class="dc-table">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th class="_num">CFA</th>
+                            <th class="_num">Onboarding</th>
+                            <th class="_num">Udyam registration</th>
+                            <th class="_num">FSSAI</th>
+                            <th class="_num">GST</th>
+                            <th class="_num">Market linkage</th>
+                            <th class="_num">Convergence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($yearwise['rows'] as $yiRow)
+                            <tr>
+                                <td>{{ $yiRow['year'] }}</td>
+                                <td class="_num">{{ number_format($yiRow['cfa']) }}</td>
+                                <td class="_num">{{ number_format($yiRow['onboarding']) }}</td>
+                                <td class="_num">{{ number_format($yiRow['udyam']) }}</td>
+                                <td class="_num">{{ number_format($yiRow['fssai']) }}</td>
+                                <td class="_num">{{ number_format($yiRow['gst']) }}</td>
+                                <td class="_num">{{ number_format($yiRow['market_linkage']) }}</td>
+                                <td class="_num">{{ number_format($yiRow['convergence']) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8" style="text-align:center; color:#64748b;">No data for the selected filters.</td>
+                            </tr>
+                        @endforelse
+                        @if (!empty($yearwise['rows']))
+                            @php $yiTotals = $yearwise['totals'] ?? []; @endphp
+                            <tr class="_total">
+                                <td>Total</td>
+                                <td class="_num">{{ number_format($yiTotals['cfa'] ?? 0) }}</td>
+                                <td class="_num">{{ number_format($yiTotals['onboarding'] ?? 0) }}</td>
+                                <td class="_num">{{ number_format($yiTotals['udyam'] ?? 0) }}</td>
+                                <td class="_num">{{ number_format($yiTotals['fssai'] ?? 0) }}</td>
+                                <td class="_num">{{ number_format($yiTotals['gst'] ?? 0) }}</td>
+                                <td class="_num">{{ number_format($yiTotals['market_linkage'] ?? 0) }}</td>
+                                <td class="_num">{{ number_format($yiTotals['convergence'] ?? 0) }}</td>
+                            </tr>
+                        @endif
+                    </tbody>
+                </table>
+                <p class="dc-note">
+                    {{ $yearwise['note'] ?? '' }}
+                    @if (!empty($yearwise['generated_at']))
+                        Generated {{ $yearwise['generated_at'] }}.
+                    @endif
+                </p>
+            </div>
+        </details>
 
         {{-- 1. CFA by District --}}
         <details class="dc-section" id="sec-cfa-district">

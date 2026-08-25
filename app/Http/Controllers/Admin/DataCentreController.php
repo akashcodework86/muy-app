@@ -13,6 +13,8 @@ use App\Services\Exports\OnboardedShgCboDistrictPackService;
 use App\Services\Exports\OnboardedTurnoverWisePackService;
 use App\Services\Exports\Phase3ShgCboReapPackDataService;
 use App\Services\Exports\Phase3ShgCboReapPackExcelExport;
+use App\Services\Exports\YearwiseIndicatorExcelExport;
+use App\Services\Exports\YearwiseIndicatorWorkbookService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -28,6 +30,8 @@ class DataCentreController extends Controller
         private readonly OnboardedTurnoverWisePackService $onboardedTurnoverWisePack,
         private readonly HomestayDetailsPackService $homestayDetailsPack,
         private readonly DistrictFullProgressPackService $fullProgressPack,
+        private readonly YearwiseIndicatorWorkbookService $yearwiseIndicators,
+        private readonly YearwiseIndicatorExcelExport $yearwiseExcel,
     ) {}
 
     public function index(Request $request): View
@@ -37,6 +41,17 @@ class DataCentreController extends Controller
         $phase3Fy = FiscalYear::phase3Default();
         $data = $this->service->build($viewMode, $dataScope, $filter);
 
+        $yiFy = trim((string) $request->query('yi_fy', ''));
+        $yiDistrictId = $request->integer('yi_district_id') ?: null;
+        $yiDistrictName = null;
+        if ($yiDistrictId) {
+            $yiDistrictName = District::query()->where('id', $yiDistrictId)->value('name');
+        }
+        $yearwise = $this->yearwiseIndicators->dataCentreMatrix(
+            $yiFy !== '' ? $yiFy : null,
+            is_string($yiDistrictName) ? $yiDistrictName : null,
+        );
+
         return view('admin.data-centre.index', array_merge($data, [
             'filter' => $filter,
             'phase3_fy' => $phase3Fy,
@@ -44,6 +59,9 @@ class DataCentreController extends Controller
             'fiscal_month_options' => DataCentreFilter::fiscalMonthOptions($phase3Fy),
             'fy_quarter_periods' => $phase3Fy?->fiscalQuarterPeriodsForJs() ?? [],
             'filter_form_dates' => $filter->formDates($phase3Fy),
+            'yearwise' => $yearwise,
+            'yi_fy' => $yiFy !== '' ? $yiFy : null,
+            'yi_district_id' => $yiDistrictId,
         ]));
     }
 
@@ -53,11 +71,19 @@ class DataCentreController extends Controller
     public function refresh(Request $request): RedirectResponse
     {
         $this->service->bustCache();
+        $this->yearwiseIndicators->bustDataCentreCache();
 
         [$viewMode, $dataScope] = $this->resolveParams($request);
         $filter = $this->resolveFilter($request, $viewMode, $dataScope);
+        $params = $this->routeParams($viewMode, $dataScope, $filter);
+        foreach (['yi_fy', 'yi_district_id'] as $key) {
+            $val = $request->input($key, $request->query($key));
+            if ($val !== null && $val !== '') {
+                $params[$key] = $val;
+            }
+        }
 
-        return redirect()->route('admin.data-centre.index', $this->routeParams($viewMode, $dataScope, $filter))
+        return redirect()->route('admin.data-centre.index', $params)
             ->with('flash_success', 'Data refreshed — latest counts loaded from the database.');
     }
 
@@ -66,13 +92,56 @@ class DataCentreController extends Controller
      */
     public function export(Request $request, string $section): StreamedResponse
     {
-        $allowed = ['summary', 'cfa-by-district', 'gender-state', 'gender-district', 'education-state', 'education-district', 'employment-state'];
+        $allowed = ['summary', 'cfa-by-district', 'gender-state', 'gender-district', 'education-state', 'education-district', 'employment-state', 'yearwise-indicators'];
         if (! in_array($section, $allowed, true)) {
             abort(404, 'Unknown section.');
         }
 
         [$viewMode, $dataScope] = $this->resolveParams($request);
         $filter = $this->resolveFilter($request, $viewMode, $dataScope);
+
+        if ($section === 'yearwise-indicators') {
+            $yiFy = trim((string) $request->query('yi_fy', ''));
+            $yiDistrictId = $request->integer('yi_district_id') ?: null;
+            $yiDistrictName = $yiDistrictId
+                ? District::query()->where('id', $yiDistrictId)->value('name')
+                : null;
+            $matrix = $this->yearwiseIndicators->dataCentreMatrix(
+                $yiFy !== '' ? $yiFy : null,
+                is_string($yiDistrictName) ? $yiDistrictName : null,
+            );
+            $rows = [
+                ['Year', 'CFA', 'Onboarding', 'Udyam registration', 'FSSAI', 'GST', 'Market linkage', 'Convergence'],
+            ];
+            foreach ($matrix['rows'] as $row) {
+                $rows[] = [
+                    $row['year'],
+                    $row['cfa'],
+                    $row['onboarding'],
+                    $row['udyam'],
+                    $row['fssai'],
+                    $row['gst'],
+                    $row['market_linkage'],
+                    $row['convergence'],
+                ];
+            }
+            $t = $matrix['totals'];
+            $rows[] = ['Total', $t['cfa'], $t['onboarding'], $t['udyam'], $t['fssai'], $t['gst'], $t['market_linkage'], $t['convergence']];
+            $filename = 'data-centre-yearwise-indicators-'.now()->format('Ymd_His').'.csv';
+
+            return response()->streamDownload(function () use ($rows): void {
+                $out = fopen('php://output', 'w');
+                if ($out === false) {
+                    return;
+                }
+                fwrite($out, "\xEF\xBB\xBF");
+                foreach ($rows as $row) {
+                    fputcsv($out, $row);
+                }
+                fclose($out);
+            }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }
+
         $rows = $this->service->csvForSection($section, $dataScope, $filter, $viewMode);
         $scopeSuffix = $dataScope === 'onboarded' ? '-onboarded' : '';
         $filename = 'data-centre-'.$section.$scopeSuffix.'-'.now()->format('Ymd_His').'.csv';
@@ -88,6 +157,60 @@ class DataCentreController extends Controller
             }
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Excel export: summary + detailed sheets per indicator (respects yi_fy / yi_district_id filters).
+     */
+    public function exportYearwiseIndicatorsExcel(Request $request): StreamedResponse|RedirectResponse
+    {
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(300);
+
+        try {
+            if (! class_exists(\ZipArchive::class)) {
+                return redirect()
+                    ->route('admin.data-centre.index', $this->yearwiseFilterQuery($request))
+                    ->withErrors(['export' => 'Excel export unavailable: PHP Zip extension (ext-zip) is not enabled on the server.']);
+            }
+
+            $yiFy = trim((string) $request->query('yi_fy', ''));
+            $yiDistrictId = $request->integer('yi_district_id') ?: null;
+            $yiDistrictName = $yiDistrictId
+                ? District::query()->where('id', $yiDistrictId)->value('name')
+                : null;
+
+            $payload = $this->yearwiseIndicators->buildExportPayload(
+                $yiFy !== '' ? $yiFy : null,
+                is_string($yiDistrictName) ? $yiDistrictName : null,
+            );
+
+            return $this->yearwiseExcel->download($payload);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('admin.data-centre.index', $this->yearwiseFilterQuery($request))
+                ->withErrors(['export' => 'Excel export failed: '.$e->getMessage()]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function yearwiseFilterQuery(Request $request): array
+    {
+        $query = [];
+        $yiFy = trim((string) $request->query('yi_fy', ''));
+        $yiDistrictId = $request->integer('yi_district_id') ?: null;
+        if ($yiFy !== '') {
+            $query['yi_fy'] = $yiFy;
+        }
+        if ($yiDistrictId) {
+            $query['yi_district_id'] = $yiDistrictId;
+        }
+
+        return $query;
     }
 
     /**
