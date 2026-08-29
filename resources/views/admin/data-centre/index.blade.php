@@ -587,7 +587,7 @@
                     <div>
                         <div class="dc-section__name">Year-wise indicators</div>
                         <div class="dc-section__desc">
-                            CFA, onboarding, Udyam, FSSAI, GST, market linkage &amp; convergence — FY 2020–21 to 2026–27
+                            CFA, onboarding, Udyam, Artisan card, FSSAI, GST, market linkage &amp; convergence — FY 2020–21 to 2026–27
                         </div>
                     </div>
                 </div>
@@ -644,6 +644,7 @@
                             <th class="_num">CFA</th>
                             <th class="_num">Onboarding</th>
                             <th class="_num">Udyam registration</th>
+                            <th class="_num">Artisan card</th>
                             <th class="_num">FSSAI</th>
                             <th class="_num">GST</th>
                             <th class="_num">Market linkage</th>
@@ -657,6 +658,7 @@
                                 <td class="_num">{{ number_format($yiRow['cfa']) }}</td>
                                 <td class="_num">{{ number_format($yiRow['onboarding']) }}</td>
                                 <td class="_num">{{ number_format($yiRow['udyam']) }}</td>
+                                <td class="_num">{{ number_format($yiRow['artisan_card'] ?? 0) }}</td>
                                 <td class="_num">{{ number_format($yiRow['fssai']) }}</td>
                                 <td class="_num">{{ number_format($yiRow['gst']) }}</td>
                                 <td class="_num">{{ number_format($yiRow['market_linkage']) }}</td>
@@ -664,7 +666,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" style="text-align:center; color:#64748b;">No data for the selected filters.</td>
+                                <td colspan="9" style="text-align:center; color:#64748b;">No data for the selected filters.</td>
                             </tr>
                         @endforelse
                         @if (!empty($yearwise['rows']))
@@ -674,6 +676,7 @@
                                 <td class="_num">{{ number_format($yiTotals['cfa'] ?? 0) }}</td>
                                 <td class="_num">{{ number_format($yiTotals['onboarding'] ?? 0) }}</td>
                                 <td class="_num">{{ number_format($yiTotals['udyam'] ?? 0) }}</td>
+                                <td class="_num">{{ number_format($yiTotals['artisan_card'] ?? 0) }}</td>
                                 <td class="_num">{{ number_format($yiTotals['fssai'] ?? 0) }}</td>
                                 <td class="_num">{{ number_format($yiTotals['gst'] ?? 0) }}</td>
                                 <td class="_num">{{ number_format($yiTotals['market_linkage'] ?? 0) }}</td>

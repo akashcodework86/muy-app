@@ -65,6 +65,7 @@ class DataCentreController extends Controller
                     'cfa' => 0,
                     'onboarding' => 0,
                     'udyam' => 0,
+                    'artisan_card' => 0,
                     'fssai' => 0,
                     'gst' => 0,
                     'market_linkage' => 0,
@@ -133,7 +134,7 @@ class DataCentreController extends Controller
                 is_string($yiDistrictName) ? $yiDistrictName : null,
             );
             $rows = [
-                ['Year', 'CFA', 'Onboarding', 'Udyam registration', 'FSSAI', 'GST', 'Market linkage', 'Convergence'],
+                ['Year', 'CFA', 'Onboarding', 'Udyam registration', 'Artisan card', 'FSSAI', 'GST', 'Market linkage', 'Convergence'],
             ];
             foreach ($matrix['rows'] as $row) {
                 $rows[] = [
@@ -141,6 +142,7 @@ class DataCentreController extends Controller
                     $row['cfa'],
                     $row['onboarding'],
                     $row['udyam'],
+                    $row['artisan_card'] ?? 0,
                     $row['fssai'],
                     $row['gst'],
                     $row['market_linkage'],
@@ -148,7 +150,7 @@ class DataCentreController extends Controller
                 ];
             }
             $t = $matrix['totals'];
-            $rows[] = ['Total', $t['cfa'], $t['onboarding'], $t['udyam'], $t['fssai'], $t['gst'], $t['market_linkage'], $t['convergence']];
+            $rows[] = ['Total', $t['cfa'], $t['onboarding'], $t['udyam'], $t['artisan_card'] ?? 0, $t['fssai'], $t['gst'], $t['market_linkage'], $t['convergence']];
             $filename = 'data-centre-yearwise-indicators-'.now()->format('Ymd_His').'.csv';
 
             return response()->streamDownload(function () use ($rows): void {

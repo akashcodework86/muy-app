@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Year-wise CFA / onboarding / Udyam / FSSAI / GST / market linkage / convergence.
+ * Year-wise CFA / onboarding / Udyam / Artisan Card / FSSAI / GST / market linkage / convergence.
  *
  * ukrbiin_rbi = FY 2020-21 … 2024-25 (date-split).
  * rbiphase2   = FY 2025-26 (april/24.php Achieved FY window).
@@ -68,17 +68,18 @@ final class YearwiseIndicatorWorkbookService
         $onboarding = [];
         $udyam = [];
         $fssai = [];
+        $artisan = [];
         $gst = [];
         $market = [];
         $convergence = [];
         $unmapped = [];
 
         $this->appendPhase1CfaAndOnboarding($p1Apps, $cfa, $onboarding, $unmapped);
-        $this->appendPhase1Services($p1ByAppNo, $udyam, $fssai, $gst, $convergence, $market, $unmapped);
+        $this->appendPhase1Services($p1ByAppNo, $udyam, $fssai, $artisan, $gst, $convergence, $market, $unmapped);
         $this->appendPhase1MarketFromPartners($p1Apps, $market);
 
         // Phase 1 must not spill into 2025-26 / 2026-27 (those come from 24.php + Deliverables).
-        foreach ([&$cfa, &$onboarding, &$udyam, &$fssai, &$gst, &$market, &$convergence] as &$list) {
+        foreach ([&$cfa, &$onboarding, &$udyam, &$fssai, &$artisan, &$gst, &$market, &$convergence] as &$list) {
             $list = array_values(array_filter(
                 $list,
                 static fn (array $row): bool => ! in_array((string) ($row['year'] ?? ''), ['2025-26', '2026-27'], true),
@@ -86,13 +87,14 @@ final class YearwiseIndicatorWorkbookService
             unset($list);
         }
 
-        $this->appendPhase2From24Php($cfa, $onboarding, $udyam, $fssai, $gst, $market, $convergence);
-        $this->appendPhase3FromDeliverables($cfa, $onboarding, $udyam, $fssai, $gst, $market, $convergence);
+        $this->appendPhase2From24Php($cfa, $onboarding, $udyam, $fssai, $artisan, $gst, $market, $convergence);
+        $this->appendPhase3FromDeliverables($cfa, $onboarding, $udyam, $fssai, $artisan, $gst, $market, $convergence);
 
         $this->sortByYear($cfa);
         $this->sortByYear($onboarding);
         $this->sortByYear($udyam);
         $this->sortByYear($fssai);
+        $this->sortByYear($artisan);
         $this->sortByYear($gst);
         $this->sortByYear($market);
         $this->sortByYear($convergence);
@@ -100,10 +102,11 @@ final class YearwiseIndicatorWorkbookService
         return [
             'generated_at' => now()->timezone('Asia/Kolkata')->format('d M Y, g:i A').' IST',
             'years' => self::YEARS,
-            'summary' => $this->summaryTable($cfa, $onboarding, $udyam, $fssai, $gst, $market, $convergence),
+            'summary' => $this->summaryTable($cfa, $onboarding, $udyam, $fssai, $artisan, $gst, $market, $convergence),
             'cfa' => $cfa,
             'onboarding' => $onboarding,
             'udyam' => $udyam,
+            'artisan_card' => $artisan,
             'fssai' => $fssai,
             'gst' => $gst,
             'market_linkage' => $market,
@@ -125,6 +128,7 @@ final class YearwiseIndicatorWorkbookService
      *         cfa: int,
      *         onboarding: int,
      *         udyam: int,
+     *         artisan_card: int,
      *         fssai: int,
      *         gst: int,
      *         market_linkage: int,
@@ -134,6 +138,7 @@ final class YearwiseIndicatorWorkbookService
      *         cfa: int,
      *         onboarding: int,
      *         udyam: int,
+     *         artisan_card: int,
      *         fssai: int,
      *         gst: int,
      *         market_linkage: int,
@@ -152,14 +157,14 @@ final class YearwiseIndicatorWorkbookService
             ? $this->canonicalDistrict($districtName)
             : null;
 
-        $agg = Cache::remember('yearwise_indicators_agg_v1', 300, function (): array {
+        $agg = Cache::remember('yearwise_indicators_agg_v2', 300, function (): array {
             $this->raiseMemoryLimit('512M');
 
             return $this->buildDataCentreAggregate();
         });
 
         $years = $fyCode !== null ? [$fyCode] : self::YEARS;
-        $metrics = ['cfa', 'onboarding', 'udyam', 'fssai', 'gst', 'market_linkage', 'convergence'];
+        $metrics = ['cfa', 'onboarding', 'udyam', 'artisan_card', 'fssai', 'gst', 'market_linkage', 'convergence'];
 
         $rows = [];
         $totals = array_fill_keys($metrics, 0);
@@ -181,7 +186,7 @@ final class YearwiseIndicatorWorkbookService
         $noteParts = [
             '2020-21 to 2024-25 from ukrbiin_rbi (blank CFA date uses onboard_date).',
             '2025-26 from rbiphase2 via april/24.php Achieved (FY) window (2025-04-01 to 2026-03-31).',
-            '2026-27 from MIS Admin Deliverables (serials 1.1, 2.1, 4.1.1 Udyam, 4.2.2, 4.2.4, 6.3, 8.1).',
+            '2026-27 from MIS Admin Deliverables (serials 1.1, 2.1, 4.1.1 Udyam, 4.2.1, 4.2.2, 4.2.4, 6.3, 8.1).',
         ];
         if ($fyCode !== null) {
             $noteParts[] = 'FY filter: '.$fyCode.'.';
@@ -217,6 +222,7 @@ final class YearwiseIndicatorWorkbookService
             'cfa' => 'cfa',
             'onboarding' => 'onboarding',
             'udyam' => 'udyam',
+            'artisan_card' => 'artisan_card',
             'fssai' => 'fssai',
             'gst' => 'gst',
             'market_linkage' => 'market_linkage',
@@ -258,8 +264,8 @@ final class YearwiseIndicatorWorkbookService
 
     public function bustDataCentreCache(): void
     {
-        Cache::forget('yearwise_indicators_agg_v1');
-        Cache::forget('yearwise_indicators_payload_v2');
+        Cache::forget('yearwise_indicators_agg_v2');
+        Cache::forget('yearwise_indicators_payload_v3');
     }
 
     /**
@@ -277,6 +283,7 @@ final class YearwiseIndicatorWorkbookService
      *     cfa: list<array<string, string>>,
      *     onboarding: list<array<string, string>>,
      *     udyam: list<array<string, string>>,
+     *     artisan_card: list<array<string, string>>,
      *     fssai: list<array<string, string>>,
      *     gst: list<array<string, string>>,
      *     market_linkage: list<array<string, string>>,
@@ -301,6 +308,7 @@ final class YearwiseIndicatorWorkbookService
             'cfa' => 'cfa',
             'onboarding' => 'onboarding',
             'udyam' => 'udyam',
+            'artisan_card' => 'artisan_card',
             'fssai' => 'fssai',
             'gst' => 'gst',
             'market_linkage' => 'market_linkage',
@@ -341,7 +349,7 @@ final class YearwiseIndicatorWorkbookService
         $noteParts = [
             '2020-21 to 2024-25 from ukrbiin_rbi (blank CFA date uses onboard_date).',
             '2025-26 from rbiphase2 via april/24.php Achieved (FY) window (2025-04-01 to 2026-03-31).',
-            '2026-27 from MIS Admin Deliverables (serials 1.1, 2.1, 4.1.1 Udyam, 4.2.2, 4.2.4, 6.3, 8.1).',
+            '2026-27 from MIS Admin Deliverables (serials 1.1, 2.1, 4.1.1 Udyam, 4.2.1, 4.2.2, 4.2.4, 6.3, 8.1).',
         ];
         if ($fyCode !== null) {
             $noteParts[] = 'FY filter: '.$fyCode.'.';
@@ -362,6 +370,7 @@ final class YearwiseIndicatorWorkbookService
             'cfa' => $filtered['cfa'],
             'onboarding' => $filtered['onboarding'],
             'udyam' => $filtered['udyam'],
+            'artisan_card' => $filtered['artisan_card'],
             'fssai' => $filtered['fssai'],
             'gst' => $filtered['gst'],
             'market_linkage' => $filtered['market_linkage'],
@@ -470,6 +479,7 @@ final class YearwiseIndicatorWorkbookService
      * @param  array<string, array<string, mixed>>  $p1ByAppNo
      * @param  list<array<string, string>>  $udyam
      * @param  list<array<string, string>>  $fssai
+     * @param  list<array<string, string>>  $artisan
      * @param  list<array<string, string>>  $gst
      * @param  list<array<string, string>>  $convergence
      * @param  list<array<string, string>>  $market
@@ -479,6 +489,7 @@ final class YearwiseIndicatorWorkbookService
         array $p1ByAppNo,
         array &$udyam,
         array &$fssai,
+        array &$artisan,
         array &$gst,
         array &$convergence,
         array &$market,
@@ -490,7 +501,7 @@ final class YearwiseIndicatorWorkbookService
 
         $rows = DB::connection('legacy_phase1')
             ->table('services')
-            ->select(['id', 'ApplicationNumber', 'servicename', 'description', 'other', 'service_date'])
+            ->select(['id', 'ApplicationNumber', 'servicename', 'description', 'other', 'service_date', 'reg', 'enter_service'])
             ->orderBy('id')
             ->get();
 
@@ -524,6 +535,10 @@ final class YearwiseIndicatorWorkbookService
                 continue;
             }
             [$fy, $dateUsed, $dateSource] = $resolved;
+            $serviceNumber = $this->clean((string) ($row->reg ?? ''));
+            if ($serviceNumber === '') {
+                $serviceNumber = $this->clean((string) ($row->enter_service ?? ''));
+            }
             $item = [
                 'year' => $fy,
                 'source_db' => 'ukrbiin_rbi',
@@ -536,6 +551,7 @@ final class YearwiseIndicatorWorkbookService
                 'category' => $serviceName,
                 'service_label' => $description !== '' ? $description : $serviceName,
                 'detail' => $other,
+                'service_number' => $serviceNumber,
                 'date_used' => $dateUsed,
                 'date_source' => $dateSource,
                 'status' => '',
@@ -543,6 +559,7 @@ final class YearwiseIndicatorWorkbookService
             match ($kind) {
                 'Udyam' => $udyam[] = $item,
                 'FSSAI' => $fssai[] = $item,
+                'Artisan Card' => $artisan[] = $item,
                 'GST' => $gst[] = $item,
                 'Convergence' => $convergence[] = $item,
                 'Market linkage' => $this->rememberMarket($market, $fy, $item, $description),
@@ -551,7 +568,7 @@ final class YearwiseIndicatorWorkbookService
         }
 
         if (Schema::connection('legacy_phase1')->hasTable('rbi_services_assigned_jit')) {
-            $this->appendPhase1Jit($p1ByAppNo, $udyam, $fssai, $gst, $convergence, $market, $unmapped);
+            $this->appendPhase1Jit($p1ByAppNo, $udyam, $fssai, $artisan, $gst, $convergence, $market, $unmapped);
         }
     }
 
@@ -559,6 +576,7 @@ final class YearwiseIndicatorWorkbookService
      * @param  array<string, array<string, mixed>>  $p1ByAppNo
      * @param  list<array<string, string>>  $udyam
      * @param  list<array<string, string>>  $fssai
+     * @param  list<array<string, string>>  $artisan
      * @param  list<array<string, string>>  $gst
      * @param  list<array<string, string>>  $convergence
      * @param  list<array<string, string>>  $market
@@ -568,6 +586,7 @@ final class YearwiseIndicatorWorkbookService
         array $p1ByAppNo,
         array &$udyam,
         array &$fssai,
+        array &$artisan,
         array &$gst,
         array &$convergence,
         array &$market,
@@ -630,6 +649,7 @@ final class YearwiseIndicatorWorkbookService
             match ($kind) {
                 'Udyam' => $udyam[] = $item,
                 'FSSAI' => $fssai[] = $item,
+                'Artisan Card' => $artisan[] = $item,
                 'GST' => $gst[] = $item,
                 'Convergence' => $convergence[] = $item,
                 'Market linkage' => $this->rememberMarket($market, $fy, $item, $serviceName),
@@ -698,6 +718,7 @@ final class YearwiseIndicatorWorkbookService
      * @param  list<array<string, string>>  $onboarding
      * @param  list<array<string, string>>  $udyam
      * @param  list<array<string, string>>  $fssai
+     * @param  list<array<string, string>>  $artisan
      * @param  list<array<string, string>>  $gst
      * @param  list<array<string, string>>  $market
      * @param  list<array<string, string>>  $convergence
@@ -707,6 +728,7 @@ final class YearwiseIndicatorWorkbookService
         array &$onboarding,
         array &$udyam,
         array &$fssai,
+        array &$artisan,
         array &$gst,
         array &$market,
         array &$convergence,
@@ -729,9 +751,13 @@ final class YearwiseIndicatorWorkbookService
                 'a.id',
                 'a.application_no',
                 'a.submission_date',
+                'a.business_category',
+                'a.product',
+                'a.other_product',
                 'd.applicant_name',
                 'd.phone',
                 'd.district',
+                'd.block',
             ]);
 
         foreach ($apps as $row) {
@@ -746,6 +772,12 @@ final class YearwiseIndicatorWorkbookService
                 'applicant_name' => $this->clean((string) ($row->applicant_name ?? '')),
                 'district' => $this->canonicalDistrict((string) ($row->district ?? '')),
                 'phone' => $this->clean((string) ($row->phone ?? '')),
+                'block' => $this->clean((string) ($row->block ?? '')),
+                'sector' => $this->clean((string) ($row->business_category ?? '')),
+                'product' => $this->phase2Product(
+                    (string) ($row->product ?? ''),
+                    (string) ($row->other_product ?? ''),
+                ),
                 'application_date' => $raw,
                 'onboard_date' => '',
                 'date_used' => $resolved[1] ?? $raw,
@@ -763,9 +795,13 @@ final class YearwiseIndicatorWorkbookService
                 ->get([
                     'boa.id',
                     'a.application_no',
+                    'a.business_category',
+                    'a.product',
+                    'a.other_product',
                     'd.applicant_name',
                     'd.phone',
                     'd.district',
+                    'd.block',
                     'boa.onboarded_at',
                     'b.onboarding_date',
                 ]);
@@ -782,6 +818,12 @@ final class YearwiseIndicatorWorkbookService
                     'applicant_name' => $this->clean((string) ($row->applicant_name ?? '')),
                     'district' => $this->canonicalDistrict((string) ($row->district ?? '')),
                     'phone' => $this->clean((string) ($row->phone ?? '')),
+                    'block' => $this->clean((string) ($row->block ?? '')),
+                    'sector' => $this->clean((string) ($row->business_category ?? '')),
+                    'product' => $this->phase2Product(
+                        (string) ($row->product ?? ''),
+                        (string) ($row->other_product ?? ''),
+                    ),
                     'onboard_flag' => 'onboarded',
                     'batch_name' => '',
                     'date_used' => $resolved[1] ?? $raw,
@@ -800,13 +842,18 @@ final class YearwiseIndicatorWorkbookService
                     'sa.id',
                     'sa.application_id',
                     'sa.service_name',
+                    'sa.service_number',
                     'sa.category',
                     'sa.assigned_date',
                     'sa.doc_date',
                     'a.application_no',
+                    'a.business_category',
+                    'a.product',
+                    'a.other_product',
                     'd.applicant_name',
                     'd.phone',
                     'd.district',
+                    'd.block',
                 ]);
 
             foreach ($svcRows as $row) {
@@ -824,6 +871,17 @@ final class YearwiseIndicatorWorkbookService
                     'applicant_name' => $this->clean((string) ($row->applicant_name ?? '')),
                     'district' => $this->canonicalDistrict((string) ($row->district ?? '')),
                     'phone' => $this->clean((string) ($row->phone ?? '')),
+                    'block' => $this->clean((string) ($row->block ?? '')),
+                    'sector' => $this->clean((string) ($row->business_category ?? '')),
+                    'product' => $this->phase2Product(
+                        (string) ($row->product ?? ''),
+                        (string) ($row->other_product ?? ''),
+                    ),
+                    'service_number' => \App\Support\ServiceRegistrationNumberExtractor::usable(
+                        (string) ($row->service_number ?? ''),
+                        trim((string) ($row->application_no ?? '')),
+                        $akey.' '.(string) ($row->category ?? '').' '.(string) ($row->service_name ?? ''),
+                    ),
                     'category' => $this->clean((string) ($row->category ?? '')),
                     'service_label' => $this->clean((string) ($row->service_name ?? '')),
                     'detail' => $akey,
@@ -836,6 +894,8 @@ final class YearwiseIndicatorWorkbookService
                     $udyam[] = $item;
                 } elseif ($akey === 'fssai') {
                     $fssai[] = $item;
+                } elseif ($akey === 'artisan card') {
+                    $artisan[] = $item;
                 } elseif ($akey === 'gst') {
                     $gst[] = $item;
                 }
@@ -857,21 +917,35 @@ final class YearwiseIndicatorWorkbookService
             ->leftJoin('rbi_applications as a', 'a.id', '=', 'sa.application_id')
             ->whereRaw('DATE(sp.added_at) BETWEEN ? AND ?', [$winStart, $winEnd])
             ->whereRaw('DATE(sp.added_at) <= ?', [$today])
-            ->get([
-                'sp.id',
-                'a.application_no',
-                'd.applicant_name',
-                'd.phone',
-                'd.district',
-                'sp.partner_name',
-                'sp.partner_type',
-                'sp.added_at',
-            ]);
+                ->get([
+                    'sp.id',
+                    'a.application_no',
+                    'a.business_category',
+                    'a.product',
+                    'a.other_product',
+                    'd.applicant_name',
+                    'd.phone',
+                    'd.district',
+                    'd.block',
+                    'sp.partner_name',
+                    'sp.partner_type',
+                    'sp.partner_link',
+                    'sp.added_at',
+                ]);
 
         foreach ($mlRows as $row) {
             $raw = (string) ($row->added_at ?? '');
             $resolved = $this->yearFromRaw($raw);
             $mode = trim((string) ($row->partner_type ?? 'online'));
+            $partnerName = $this->clean((string) ($row->partner_name ?? ''));
+            $partnerLink = trim((string) ($row->partner_link ?? ''));
+            $marketLinks = [];
+            if ($partnerLink !== '' || $partnerName !== '') {
+                $marketLinks[] = [
+                    'label' => $partnerName !== '' ? $partnerName : 'Link',
+                    'url' => $partnerLink,
+                ];
+            }
             $market[] = [
                 'year' => $fy,
                 'source_db' => 'rbiphase2 (24.php)',
@@ -881,9 +955,16 @@ final class YearwiseIndicatorWorkbookService
                 'applicant_name' => $this->clean((string) ($row->applicant_name ?? '')),
                 'district' => $this->canonicalDistrict((string) ($row->district ?? '')),
                 'phone' => $this->clean((string) ($row->phone ?? '')),
+                'block' => $this->clean((string) ($row->block ?? '')),
+                'sector' => $this->clean((string) ($row->business_category ?? '')),
+                'product' => $this->phase2Product(
+                    (string) ($row->product ?? ''),
+                    (string) ($row->other_product ?? ''),
+                ),
                 'category' => 'market_link',
-                'service_label' => $this->clean((string) ($row->partner_name ?? '')),
+                'service_label' => $partnerName,
                 'detail' => $mode !== '' ? $mode : 'online',
+                'market_links' => $marketLinks,
                 'date_used' => $resolved[1] ?? $raw,
                 'date_source' => '24.php market_link: DATE(rbi_service_partners.added_at)',
                 'status' => '',
@@ -898,6 +979,7 @@ final class YearwiseIndicatorWorkbookService
      * @param  list<array<string, string>>  $onboarding
      * @param  list<array<string, string>>  $udyam
      * @param  list<array<string, string>>  $fssai
+     * @param  list<array<string, string>>  $artisan
      * @param  list<array<string, string>>  $gst
      * @param  list<array<string, string>>  $market
      * @param  list<array<string, string>>  $convergence
@@ -907,6 +989,7 @@ final class YearwiseIndicatorWorkbookService
         array &$onboarding,
         array &$udyam,
         array &$fssai,
+        array &$artisan,
         array &$gst,
         array &$market,
         array &$convergence,
@@ -924,6 +1007,7 @@ final class YearwiseIndicatorWorkbookService
         $map = [
             '1.1' => 'cfa',
             '2.1' => 'onboarding',
+            '4.2.1' => 'artisan',
             '4.2.2' => 'fssai',
             '4.2.4' => 'gst',
             '6.3' => 'market',
@@ -939,11 +1023,17 @@ final class YearwiseIndicatorWorkbookService
                     'year' => $fy,
                     'source_db' => 'muy (deliverables '.$serial.')',
                     'source_table' => 'deliverables',
-                    'record_id' => '',
-                    'application_no' => trim((string) ($rec['reference'] ?? '')),
+                    'record_id' => (string) ($rec['id'] ?? ''),
+                    'application_no' => $this->cleanReference((string) ($rec['reference'] ?? '')),
                     'applicant_name' => $this->clean((string) ($rec['applicant'] ?? '')),
                     'district' => $this->canonicalDistrict((string) ($rec['district'] ?? '')),
-                    'phone' => $this->clean((string) ($rec['spoc'] ?? '')),
+                    'hub' => $this->clean((string) ($rec['hub'] ?? '')),
+                    'phone' => $this->cleanPhone((string) ($rec['phone'] ?? '')),
+                    'block' => $this->clean((string) ($rec['block'] ?? '')),
+                    'sector' => $this->clean((string) ($rec['sector'] ?? '')),
+                    'product' => $this->clean((string) ($rec['product'] ?? '')),
+                    'spoc' => $this->clean((string) ($rec['spoc'] ?? '')),
+                    'service_number' => $this->clean((string) ($rec['service_number'] ?? '')),
                     'date_used' => $resolved[1] ?? $raw,
                 ];
 
@@ -966,6 +1056,14 @@ final class YearwiseIndicatorWorkbookService
                         'service_label' => (string) ($rec['service'] ?? 'FSSAI'),
                         'detail' => (string) ($rec['status'] ?? ''),
                         'date_source' => 'Deliverables 4.2.2 FSSAI',
+                        'status' => (string) ($rec['status'] ?? ''),
+                    ];
+                } elseif ($bucket === 'artisan') {
+                    $artisan[] = $base + [
+                        'category' => (string) ($rec['service'] ?? 'Artisan Card'),
+                        'service_label' => (string) ($rec['service'] ?? 'Artisan Card'),
+                        'detail' => (string) ($rec['status'] ?? ''),
+                        'date_source' => 'Deliverables 4.2.1 Artisan Card',
                         'status' => (string) ($rec['status'] ?? ''),
                     ];
                 } elseif ($bucket === 'gst') {
@@ -1008,11 +1106,17 @@ final class YearwiseIndicatorWorkbookService
                 'year' => $fy,
                 'source_db' => 'muy (deliverables 4.1.1 Udyam)',
                 'source_table' => 'deliverables',
-                'record_id' => '',
-                'application_no' => trim((string) ($rec['reference'] ?? '')),
+                'record_id' => (string) ($rec['id'] ?? ''),
+                'application_no' => $this->cleanReference((string) ($rec['reference'] ?? '')),
                 'applicant_name' => $this->clean((string) ($rec['applicant'] ?? '')),
                 'district' => $this->canonicalDistrict((string) ($rec['district'] ?? '')),
-                'phone' => $this->clean((string) ($rec['spoc'] ?? '')),
+                'hub' => $this->clean((string) ($rec['hub'] ?? '')),
+                'phone' => $this->cleanPhone((string) ($rec['phone'] ?? '')),
+                'block' => $this->clean((string) ($rec['block'] ?? '')),
+                'sector' => $this->clean((string) ($rec['sector'] ?? '')),
+                'product' => $this->clean((string) ($rec['product'] ?? '')),
+                'spoc' => $this->clean((string) ($rec['spoc'] ?? '')),
+                'service_number' => $this->clean((string) ($rec['service_number'] ?? '')),
                 'category' => 'business-formalization',
                 'service_label' => (string) ($rec['service'] ?? 'Udyam Registration'),
                 'detail' => (string) ($rec['status'] ?? ''),
@@ -1029,6 +1133,9 @@ final class YearwiseIndicatorWorkbookService
         $s = str_replace(['_', '-', '/', '.', '(', ')'], ' ', $s);
         $s = (string) preg_replace('/\s+/', ' ', $s);
 
+        if (str_contains($s, 'artisan')) {
+            return 'artisan card';
+        }
         if (str_contains($s, 'fssai')) {
             return 'fssai';
         }
@@ -1102,6 +1209,7 @@ final class YearwiseIndicatorWorkbookService
      * @param  list<array<string, string>>  $onboarding
      * @param  list<array<string, string>>  $udyam
      * @param  list<array<string, string>>  $fssai
+     * @param  list<array<string, string>>  $artisan
      * @param  list<array<string, string>>  $gst
      * @param  list<array<string, string>>  $market
      * @param  list<array<string, string>>  $convergence
@@ -1112,6 +1220,7 @@ final class YearwiseIndicatorWorkbookService
         array &$onboarding,
         array &$udyam,
         array &$fssai,
+        array &$artisan,
         array &$gst,
         array &$market,
         array &$convergence,
@@ -1296,6 +1405,7 @@ final class YearwiseIndicatorWorkbookService
             match ($kind) {
                 'Udyam' => $udyam[] = $item,
                 'FSSAI' => $fssai[] = $item,
+                'Artisan Card' => $artisan[] = $item,
                 'GST' => $gst[] = $item,
                 'Convergence' => $convergence[] = $item,
                 'Market linkage' => $this->rememberMarket($market, $fy, $item, $name.(trim($item['detail']) !== '' ? ' | '.$item['detail'] : '')),
@@ -1309,6 +1419,7 @@ final class YearwiseIndicatorWorkbookService
      * @param  list<array<string, string>>  $onboarding
      * @param  list<array<string, string>>  $udyam
      * @param  list<array<string, string>>  $fssai
+     * @param  list<array<string, string>>  $artisan
      * @param  list<array<string, string>>  $gst
      * @param  list<array<string, string>>  $market
      * @param  list<array<string, string>>  $convergence
@@ -1319,6 +1430,7 @@ final class YearwiseIndicatorWorkbookService
         array &$onboarding,
         array &$udyam,
         array &$fssai,
+        array &$artisan,
         array &$gst,
         array &$market,
         array &$convergence,
@@ -1440,13 +1552,14 @@ final class YearwiseIndicatorWorkbookService
             }
         }
 
-        $this->appendPhase3ServiceCases($udyam, $fssai, $gst, $convergence, $market, $unmapped);
+        $this->appendPhase3ServiceCases($udyam, $fssai, $artisan, $gst, $convergence, $market, $unmapped);
         $this->appendPhase3MarketModule($market, $unmapped);
     }
 
     /**
      * @param  list<array<string, string>>  $udyam
      * @param  list<array<string, string>>  $fssai
+     * @param  list<array<string, string>>  $artisan
      * @param  list<array<string, string>>  $gst
      * @param  list<array<string, string>>  $convergence
      * @param  list<array<string, string>>  $market
@@ -1455,6 +1568,7 @@ final class YearwiseIndicatorWorkbookService
     private function appendPhase3ServiceCases(
         array &$udyam,
         array &$fssai,
+        array &$artisan,
         array &$gst,
         array &$convergence,
         array &$market,
@@ -1475,6 +1589,8 @@ final class YearwiseIndicatorWorkbookService
                 'sc.id',
                 'sc.status',
                 'sc.legacy_application_id',
+                'sc.payload',
+                'sc.reference_number',
                 's.code as service_code',
                 's.name as service_name',
                 'cat.slug as category_slug',
@@ -1513,6 +1629,9 @@ final class YearwiseIndicatorWorkbookService
                 continue;
             }
             [$fy, $dateUsed] = $resolved;
+            $casePayload = is_array($row->payload ?? null)
+                ? $row->payload
+                : (is_string($row->payload ?? null) ? (json_decode((string) $row->payload, true) ?: []) : []);
             $item = [
                 'year' => $fy,
                 'source_db' => 'muy',
@@ -1525,6 +1644,12 @@ final class YearwiseIndicatorWorkbookService
                 'category' => (string) ($row->category_slug ?? ''),
                 'service_label' => $this->clean((string) ($row->service_name ?? '')),
                 'detail' => (string) ($row->service_code ?? ''),
+                'service_number' => \App\Support\ServiceRegistrationNumberExtractor::fromPayload(
+                    is_array($casePayload) ? $casePayload : [],
+                    (string) ($row->reference_number ?? ''),
+                    (string) ($row->service_code ?? '').' '.(string) ($row->service_name ?? '').' '.$kind,
+                    (string) ($row->application_no ?? ''),
+                ),
                 'date_used' => $dateUsed,
                 'date_source' => 'approved_at/coalesce',
                 'status' => (string) ($row->status ?? ''),
@@ -1532,6 +1657,7 @@ final class YearwiseIndicatorWorkbookService
             match ($kind) {
                 'Udyam' => $udyam[] = $item,
                 'FSSAI' => $fssai[] = $item,
+                'Artisan Card' => $artisan[] = $item,
                 'GST' => $gst[] = $item,
                 'Convergence' => $convergence[] = $item,
                 'Market linkage' => $this->rememberMarket(
@@ -1577,7 +1703,9 @@ final class YearwiseIndicatorWorkbookService
 
         $partnersBySubmission = [];
         if (Schema::hasTable('market_linkage_partners')) {
-            foreach (DB::table('market_linkage_partners')->orderBy('sort_order')->orderBy('id')->get(['market_linkage_submission_id', 'partner_name', 'linkage_mode', 'linkage_date']) as $p) {
+            foreach (DB::table('market_linkage_partners')->orderBy('sort_order')->orderBy('id')->get([
+                'market_linkage_submission_id', 'partner_name', 'linkage_mode', 'linkage_date', 'link_url',
+            ]) as $p) {
                 $sid = (int) $p->market_linkage_submission_id;
                 $partnersBySubmission[$sid][] = $p;
             }
@@ -1588,10 +1716,19 @@ final class YearwiseIndicatorWorkbookService
             $partners = $partnersBySubmission[$sid] ?? [];
             $names = [];
             $modes = [];
+            $marketLinks = [];
             $linkDate = '';
             foreach ($partners as $p) {
-                $names[] = $this->clean((string) ($p->partner_name ?? ''));
+                $pname = $this->clean((string) ($p->partner_name ?? ''));
+                $names[] = $pname;
                 $modes[] = $this->clean((string) ($p->linkage_mode ?? ''));
+                $url = trim((string) ($p->link_url ?? ''));
+                if ($url !== '' || $pname !== '') {
+                    $marketLinks[] = [
+                        'label' => $pname !== '' ? $pname : 'Link',
+                        'url' => $url,
+                    ];
+                }
                 if ($linkDate === '' && trim((string) ($p->linkage_date ?? '')) !== '') {
                     $linkDate = (string) $p->linkage_date;
                 }
@@ -1629,6 +1766,7 @@ final class YearwiseIndicatorWorkbookService
                 'category' => implode(', ', array_unique(array_filter($modes))),
                 'service_label' => 'Market linkage',
                 'detail' => implode(', ', array_unique(array_filter($names))),
+                'market_links' => $marketLinks,
                 'date_used' => $dateUsed,
                 'date_source' => $linkDate !== '' ? 'linkage_date' : 'approved_at',
                 'status' => 'approved',
@@ -1876,6 +2014,9 @@ final class YearwiseIndicatorWorkbookService
         if (str_contains($blob, 'udyam') || preg_match('/udyam-uk-/i', $description.$serviceName) === 1) {
             return 'Udyam';
         }
+        if (str_contains($blob, 'artisan')) {
+            return 'Artisan Card';
+        }
         $sn = mb_strtolower($serviceName);
         if ($sn === 'convergence' || str_contains($blob, 'prepared scheme based detailed project report')) {
             return 'Convergence';
@@ -1891,6 +2032,9 @@ final class YearwiseIndicatorWorkbookService
     {
         $c = mb_strtolower($category);
         $n = mb_strtolower($name);
+        if (str_contains($n, 'artisan') || str_contains($c, 'artisan')) {
+            return 'Artisan Card';
+        }
         if (str_contains($n, 'fssai')) {
             return 'FSSAI';
         }
@@ -1917,6 +2061,9 @@ final class YearwiseIndicatorWorkbookService
         $slug = mb_strtolower($slug);
         if (str_contains($code, 'udyam') || str_contains($name, 'udyam')) {
             return 'Udyam';
+        }
+        if (str_contains($code, 'artisan') || str_contains($name, 'artisan')) {
+            return 'Artisan Card';
         }
         if (str_contains($code, 'fssai') || str_contains($code, 'f_s_s_a_i') || str_contains($name, 'fssai')) {
             return 'FSSAI';
@@ -1956,12 +2103,52 @@ final class YearwiseIndicatorWorkbookService
             $existing = $market[$idx]['detail'] ?? '';
             $merged = trim($existing.', '.$partners, ' ,');
             $market[$idx]['detail'] = $merged;
+            $existingLinks = is_array($market[$idx]['market_links'] ?? null) ? $market[$idx]['market_links'] : [];
+            $incomingLinks = is_array($item['market_links'] ?? null) ? $item['market_links'] : [];
+            if ($incomingLinks !== []) {
+                $market[$idx]['market_links'] = $this->mergeMarketLinks($existingLinks, $incomingLinks);
+            }
 
             return;
         }
         $item['detail'] = $partners !== '' ? $partners : (string) ($item['detail'] ?? '');
+        if (! isset($item['market_links']) || ! is_array($item['market_links'])) {
+            $item['market_links'] = [];
+        }
         $market[] = $item;
         $seen[$bucket] = array_key_last($market);
+    }
+
+    /**
+     * @param  list<array{label?: string, url?: string}>  $existing
+     * @param  list<array{label?: string, url?: string}>  $incoming
+     * @return list<array{label: string, url: string}>
+     */
+    private function mergeMarketLinks(array $existing, array $incoming): array
+    {
+        $out = [];
+        $seen = [];
+        foreach (array_merge($existing, $incoming) as $link) {
+            if (! is_array($link)) {
+                continue;
+            }
+            $url = trim((string) ($link['url'] ?? ''));
+            $label = trim((string) ($link['label'] ?? ''));
+            if ($url === '' && $label === '') {
+                continue;
+            }
+            $key = mb_strtolower($url.'|'.$label);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = [
+                'label' => $label !== '' ? $label : ($url !== '' ? $url : 'Link'),
+                'url' => $url,
+            ];
+        }
+
+        return $out;
     }
 
     /**
@@ -1995,6 +2182,7 @@ final class YearwiseIndicatorWorkbookService
      * @param  list<array<string, string>>  $onboarding
      * @param  list<array<string, string>>  $udyam
      * @param  list<array<string, string>>  $fssai
+     * @param  list<array<string, string>>  $artisan
      * @param  list<array<string, string>>  $gst
      * @param  list<array<string, string>>  $market
      * @param  list<array<string, string>>  $convergence
@@ -2005,6 +2193,7 @@ final class YearwiseIndicatorWorkbookService
         array $onboarding,
         array $udyam,
         array $fssai,
+        array $artisan,
         array $gst,
         array $market,
         array $convergence,
@@ -2042,6 +2231,7 @@ final class YearwiseIndicatorWorkbookService
             'CFA' => [$countFy($cfa), $uniqueFy($cfa)],
             'Onboarding' => [$countFy($onboarding), $uniqueFy($onboarding)],
             'Udyam registration' => [$countFy($udyam), $uniqueFy($udyam)],
+            'Artisan Card' => [$countFy($artisan), $uniqueFy($artisan)],
             'FSSAI' => [$countFy($fssai), $uniqueFy($fssai)],
             'GST' => [$countFy($gst), $uniqueFy($gst)],
             'Market linkage (unique incubatees)' => [$countFy($market), $uniqueFy($market)],
@@ -2123,6 +2313,42 @@ final class YearwiseIndicatorWorkbookService
         return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
     }
 
+    /** Keep digits-only phone values; reject SPOC/person names mistakenly stored as phone. */
+    private function cleanPhone(string $value): string
+    {
+        $value = $this->clean($value);
+        if ($value === '' || $value === '—') {
+            return '';
+        }
+        $digits = preg_replace('/\D+/', '', $value) ?? '';
+        if (strlen($digits) < 8) {
+            return '';
+        }
+
+        return $value;
+    }
+
+    private function cleanReference(string $value): string
+    {
+        $value = $this->clean($value);
+        if ($value === '' || $value === '—') {
+            return '';
+        }
+
+        return $value;
+    }
+
+    private function phase2Product(string $product, string $otherProduct): string
+    {
+        $product = $this->clean($product);
+        $otherProduct = $this->clean($otherProduct);
+        if ($product === '' || strcasecmp($product, 'Others') === 0) {
+            return $otherProduct !== '' ? $otherProduct : ($product === 'Others' ? 'Others' : '');
+        }
+
+        return $product;
+    }
+
     private function isNo(string $value): bool
     {
         $v = mb_strtolower(trim($value));
@@ -2158,6 +2384,12 @@ final class YearwiseIndicatorWorkbookService
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /** Public wrapper for callers that build full row lists (drill-down, exports). */
+    public function raiseMemoryLimitPublic(string $target): void
+    {
+        $this->raiseMemoryLimit($target);
     }
 
     /**

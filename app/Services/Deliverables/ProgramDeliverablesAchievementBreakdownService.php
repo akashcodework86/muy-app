@@ -456,9 +456,14 @@ class ProgramDeliverablesAchievementBreakdownService
                 'sc.id',
                 'sc.reference_number',
                 'sc.status',
+                'sc.payload as case_payload',
+                'cs.application_no as cfa_application_no',
                 'cs.applicant_name',
+                'cs.phone as applicant_phone',
+                'cs.payload as cfa_payload',
                 'd.name as district_name',
                 'h.name as hub_name',
+                's.code as service_code',
                 's.name as service_name',
                 'spoc.name as spoc_name',
             ])
@@ -546,6 +551,7 @@ class ProgramDeliverablesAchievementBreakdownService
                 'sc.service_id',
                 'sc.reference_number',
                 'sc.status',
+                'sc.payload as case_payload',
                 's.code as service_code',
                 's.name as service_name',
                 'spoc.name as spoc_name',
@@ -599,6 +605,9 @@ class ProgramDeliverablesAchievementBreakdownService
                 'applicant_name' => (string) ($snapshot['name'] ?? ''),
                 'district_name' => $districtName,
                 'hub_name' => $hubName,
+                'applicant_phone' => (string) ($snapshot['phone'] ?? ''),
+                'block' => (string) ($snapshot['block_name'] ?? ''),
+                'application_no' => (string) ($snapshot['application_no'] ?? ''),
             ]);
         }
 
@@ -645,13 +654,77 @@ class ProgramDeliverablesAchievementBreakdownService
 
         $achievementDate = $row->achievement_date ?? null;
 
+        $payload = [];
+        $rawPayload = $row->cfa_payload ?? null;
+        if (is_array($rawPayload)) {
+            $payload = $rawPayload;
+        } elseif (is_string($rawPayload) && $rawPayload !== '') {
+            $decoded = json_decode($rawPayload, true);
+            $payload = is_array($decoded) ? $decoded : [];
+        }
+
+        $phone = array_key_exists('applicant_phone', $overrides)
+            ? trim((string) $overrides['applicant_phone'])
+            : trim((string) ($row->applicant_phone ?? ''));
+        if ($phone === '') {
+            $phone = trim((string) ($payload['phone'] ?? ''));
+        }
+
+        $block = array_key_exists('block', $overrides)
+            ? trim((string) $overrides['block'])
+            : trim((string) ($payload['block'] ?? ''));
+
+        $sector = trim((string) ($payload['business_category'] ?? ($payload['sector'] ?? '')));
+        $product = trim((string) ($payload['product'] ?? ''));
+        if ($product === 'Others' || $product === '') {
+            $other = trim((string) ($payload['other_product'] ?? ''));
+            if ($other !== '') {
+                $product = $other;
+            }
+        }
+
+        $reference = '';
+        if (array_key_exists('application_no', $overrides) && trim((string) $overrides['application_no']) !== '') {
+            $reference = trim((string) $overrides['application_no']);
+        }
+        if ($reference === '') {
+            $reference = trim((string) ($row->cfa_application_no ?? ''));
+        }
+        if ($reference === '') {
+            $reference = trim((string) ($row->reference_number ?? ''));
+        }
+        if ($reference === '') {
+            $reference = '—';
+        }
+
+        $casePayload = [];
+        $rawCasePayload = $row->case_payload ?? null;
+        if (is_array($rawCasePayload)) {
+            $casePayload = $rawCasePayload;
+        } elseif (is_string($rawCasePayload) && $rawCasePayload !== '') {
+            $decoded = json_decode($rawCasePayload, true);
+            $casePayload = is_array($decoded) ? $decoded : [];
+        }
+
+        $serviceNumber = \App\Support\ServiceRegistrationNumberExtractor::fromPayload(
+            $casePayload,
+            (string) ($row->reference_number ?? ''),
+            (string) ($row->service_code ?? '').' '.(string) ($row->service_name ?? ''),
+            $reference === '—' ? '' : $reference,
+        );
+
         return [
             'id' => (int) ($row->id ?? 0),
-            'reference' => (string) ($row->reference_number ?: '—'),
+            'reference' => $reference,
             'applicant' => $applicant !== '' ? $applicant : '—',
+            'phone' => $phone,
+            'block' => $block,
+            'sector' => $sector,
+            'product' => $product,
             'district' => $districtName !== '' ? $districtName : '—',
             'hub' => $hubName !== '' ? $hubName : '—',
             'service' => (string) ($row->service_name ?? '—'),
+            'service_number' => $serviceNumber,
             'spoc' => (string) ($row->spoc_name ?? '—'),
             'status' => ucfirst(str_replace('_', ' ', (string) ($row->status ?? ''))),
             'date' => $achievementDate ? Carbon::parse($achievementDate)->format('d M Y') : '—',

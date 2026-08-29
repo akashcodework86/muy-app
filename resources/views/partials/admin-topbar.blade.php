@@ -71,6 +71,7 @@
         $r === 'dashboard' => 'dashboard',
         str_starts_with($r, 'admin.media-gallery') => 'media-gallery',
         str_starts_with($r, 'admin.data-centre') => 'data-centre',
+        str_starts_with($r, 'admin.yearwise-indicators-plus') => 'yearwise-indicators-plus',
         str_starts_with($r, 'admin.legacy-data') => 'legacy-data',
         str_starts_with($r, 'hub.legacy-data') => 'legacy-data',
         str_starts_with($r, 'staff.legacy-data') => 'legacy-data',
@@ -716,6 +717,9 @@
             </details>
             <a href="{{ route('library.documents.index') }}" class="admin-topbar__link @if (in_array($activeNav, ['documents', 'admin-documents'], true)) is-active @endif">
                 {!! $i('book') !!}<span class="admin-topbar__link-text">Documents</span>
+            </a>
+            <a href="{{ route('admin.yearwise-indicators-plus.index') }}" class="admin-topbar__link @if ($activeNav === 'yearwise-indicators-plus') is-active @endif">
+                {!! $i('bars') !!}<span class="admin-topbar__link-text">Year-wise indicators</span>
             </a>
 
             <details class="admin-topbar__details">

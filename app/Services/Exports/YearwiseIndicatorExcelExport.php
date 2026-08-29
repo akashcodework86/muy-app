@@ -14,7 +14,7 @@ final class YearwiseIndicatorExcelExport
     private const HEADER_FILL = '1F4E79';
 
     /** @var list<string> */
-    private const METRICS = ['cfa', 'onboarding', 'udyam', 'fssai', 'gst', 'market_linkage', 'convergence'];
+    private const METRICS = ['cfa', 'onboarding', 'udyam', 'artisan_card', 'fssai', 'gst', 'market_linkage', 'convergence'];
 
     /**
      * @param  array<string, mixed>  $payload  From YearwiseIndicatorWorkbookService::buildExportPayload()
@@ -45,13 +45,14 @@ final class YearwiseIndicatorExcelExport
         $spreadsheet->getProperties()
             ->setTitle('MUY year-wise indicators')
             ->setCreator('Mukhyamantri Udyamshala Yojana MIS')
-            ->setDescription('CFA, onboarding, Udyam, FSSAI, GST, market linkage, convergence — summary and detailed lists.');
+            ->setDescription('CFA, onboarding, Udyam, Artisan Card, FSSAI, GST, market linkage, convergence — summary and detailed lists.');
 
         $this->writeSummarySheet($spreadsheet->getActiveSheet(), $payload);
         $this->writeNotesSheet($spreadsheet->createSheet());
         $this->writeListSheet($spreadsheet->createSheet(), 'CFA', $this->cfaHeaders(), $payload['cfa'] ?? [], 'cfa');
         $this->writeListSheet($spreadsheet->createSheet(), 'Onboarding', $this->onboardingHeaders(), $payload['onboarding'] ?? [], 'onboarding');
         $this->writeListSheet($spreadsheet->createSheet(), 'Udyam', $this->serviceHeaders(), $payload['udyam'] ?? [], 'service');
+        $this->writeListSheet($spreadsheet->createSheet(), 'Artisan_Card', $this->serviceHeaders(), $payload['artisan_card'] ?? [], 'service');
         $this->writeListSheet($spreadsheet->createSheet(), 'FSSAI', $this->serviceHeaders(), $payload['fssai'] ?? [], 'fssai');
         $this->writeListSheet($spreadsheet->createSheet(), 'GST', $this->serviceHeaders(), $payload['gst'] ?? [], 'gst');
         $this->writeListSheet($spreadsheet->createSheet(), 'Market_Linkage', $this->marketHeaders(), $payload['market_linkage'] ?? [], 'market');
@@ -111,17 +112,17 @@ final class YearwiseIndicatorExcelExport
         $note = (string) ($payload['note'] ?? '');
 
         $sheet->setCellValue('A1', 'MUY year-wise indicators');
-        $sheet->mergeCells('A1:H1');
+        $sheet->mergeCells('A1:I1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
         $sheet->setCellValue('A2', 'Generated: '.$generatedAt);
         $sheet->setCellValue('A3', $note);
 
-        $headers = ['Year', 'CFA', 'Onboarding', 'Udyam registration', 'FSSAI', 'GST', 'Market linkage', 'Convergence'];
+        $headers = ['Year', 'CFA', 'Onboarding', 'Udyam registration', 'Artisan Card', 'FSSAI', 'GST', 'Market linkage', 'Convergence'];
         $r = 5;
         foreach ($headers as $i => $h) {
             $sheet->setCellValue(Coordinate::stringFromColumnIndex($i + 1).$r, $h);
         }
-        $this->styleHeaderRow($sheet, 'A5:H5');
+        $this->styleHeaderRow($sheet, 'A5:I5');
 
         $totals = array_fill_keys(self::METRICS, 0);
         $r = 6;
@@ -130,10 +131,11 @@ final class YearwiseIndicatorExcelExport
             $sheet->setCellValue('B'.$r, $row['cfa'] ?? 0);
             $sheet->setCellValue('C'.$r, $row['onboarding'] ?? 0);
             $sheet->setCellValue('D'.$r, $row['udyam'] ?? 0);
-            $sheet->setCellValue('E'.$r, $row['fssai'] ?? 0);
-            $sheet->setCellValue('F'.$r, $row['gst'] ?? 0);
-            $sheet->setCellValue('G'.$r, $row['market_linkage'] ?? 0);
-            $sheet->setCellValue('H'.$r, $row['convergence'] ?? 0);
+            $sheet->setCellValue('E'.$r, $row['artisan_card'] ?? 0);
+            $sheet->setCellValue('F'.$r, $row['fssai'] ?? 0);
+            $sheet->setCellValue('G'.$r, $row['gst'] ?? 0);
+            $sheet->setCellValue('H'.$r, $row['market_linkage'] ?? 0);
+            $sheet->setCellValue('I'.$r, $row['convergence'] ?? 0);
             foreach (self::METRICS as $m) {
                 $totals[$m] += (int) ($row[$m] ?? 0);
             }
@@ -142,14 +144,15 @@ final class YearwiseIndicatorExcelExport
 
         $payloadTotals = $payload['totals'] ?? [];
         $sheet->setCellValue('A'.$r, 'Total');
-        $sheet->getStyle('A'.$r.':H'.$r)->getFont()->setBold(true);
+        $sheet->getStyle('A'.$r.':I'.$r)->getFont()->setBold(true);
         $sheet->setCellValue('B'.$r, $payloadTotals['cfa'] ?? $totals['cfa']);
         $sheet->setCellValue('C'.$r, $payloadTotals['onboarding'] ?? $totals['onboarding']);
         $sheet->setCellValue('D'.$r, $payloadTotals['udyam'] ?? $totals['udyam']);
-        $sheet->setCellValue('E'.$r, $payloadTotals['fssai'] ?? $totals['fssai']);
-        $sheet->setCellValue('F'.$r, $payloadTotals['gst'] ?? $totals['gst']);
-        $sheet->setCellValue('G'.$r, $payloadTotals['market_linkage'] ?? $totals['market_linkage']);
-        $sheet->setCellValue('H'.$r, $payloadTotals['convergence'] ?? $totals['convergence']);
+        $sheet->setCellValue('E'.$r, $payloadTotals['artisan_card'] ?? $totals['artisan_card']);
+        $sheet->setCellValue('F'.$r, $payloadTotals['fssai'] ?? $totals['fssai']);
+        $sheet->setCellValue('G'.$r, $payloadTotals['gst'] ?? $totals['gst']);
+        $sheet->setCellValue('H'.$r, $payloadTotals['market_linkage'] ?? $totals['market_linkage']);
+        $sheet->setCellValue('I'.$r, $payloadTotals['convergence'] ?? $totals['convergence']);
 
         $unknown = $payload['unknown'] ?? [];
         $unknownTotal = array_sum(array_map('intval', is_array($unknown) ? $unknown : []));
@@ -163,6 +166,7 @@ final class YearwiseIndicatorExcelExport
                 'CFA '.($unknown['cfa'] ?? 0)
                 .' | Onboarding '.($unknown['onboarding'] ?? 0)
                 .' | Udyam '.($unknown['udyam'] ?? 0)
+                .' | Artisan Card '.($unknown['artisan_card'] ?? 0)
                 .' | FSSAI '.($unknown['fssai'] ?? 0)
                 .' | GST '.($unknown['gst'] ?? 0)
                 .' | Market '.($unknown['market_linkage'] ?? 0)
@@ -170,7 +174,7 @@ final class YearwiseIndicatorExcelExport
             );
         }
 
-        foreach (range(1, 8) as $col) {
+        foreach (range(1, 9) as $col) {
             $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setWidth(22);
         }
         $sheet->freezePane('A6');
@@ -187,8 +191,8 @@ final class YearwiseIndicatorExcelExport
             ['Onboarding 2026-27', 'Same as MIS Deliverables 2.1 Incubatees Onboarded.'],
             ['Udyam 2025-26', 'Same as 24.php Business Registration bifurcation (Udyam / Already Registered).'],
             ['Udyam 2026-27', 'Same as MIS Deliverables 4.1.1 Udyam bifurcation rows.'],
-            ['FSSAI / GST 2025-26', 'Same as 24.php akey:fssai / akey:gst from rbi_services_assigned.'],
-            ['FSSAI / GST 2026-27', 'Same as MIS Deliverables 4.2.2 / 4.2.4.'],
+            ['Artisan Card / FSSAI / GST 2025-26', 'Same as 24.php akey:artisan card / akey:fssai / akey:gst from rbi_services_assigned.'],
+            ['Artisan Card / FSSAI / GST 2026-27', 'Same as MIS Deliverables 4.2.1 / 4.2.2 / 4.2.4.'],
             ['Market linkage 2025-26', 'Same as 24.php: COUNT rbi_service_partners by DATE(added_at).'],
             ['Market linkage 2026-27', 'Same as MIS Deliverables 6.3 incubatees linked.'],
             ['Convergence 2025-26', 'Same as 24.php COMPOSITE_ATF Access to finance through convergence.'],

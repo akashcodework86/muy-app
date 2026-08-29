@@ -980,6 +980,18 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('data-centre', [DataCentreController::class, 'index'])->name('data-centre.index');
         Route::post('data-centre/refresh', [DataCentreController::class, 'refresh'])->name('data-centre.refresh');
         Route::get('data-centre/export-all', [DataCentreController::class, 'exportAll'])->name('data-centre.export-all');
+        Route::get('yearwise-indicators-plus', [\App\Http\Controllers\Admin\YearwiseIndicatorsPlusController::class, 'index'])
+            ->name('yearwise-indicators-plus.index');
+        Route::post('yearwise-indicators-plus/refresh', [\App\Http\Controllers\Admin\YearwiseIndicatorsPlusController::class, 'refresh'])
+            ->name('yearwise-indicators-plus.refresh');
+        Route::get('yearwise-indicators-plus/export', [\App\Http\Controllers\Admin\YearwiseIndicatorsPlusController::class, 'exportCsv'])
+            ->name('yearwise-indicators-plus.export');
+        Route::get('yearwise-indicators-plus/records', [\App\Http\Controllers\Admin\YearwiseIndicatorsPlusController::class, 'records'])
+            ->name('yearwise-indicators-plus.records');
+        Route::get('yearwise-indicators-plus/records/export/csv', [\App\Http\Controllers\Admin\YearwiseIndicatorsPlusController::class, 'exportRecordsCsv'])
+            ->name('yearwise-indicators-plus.records.export.csv');
+        Route::get('yearwise-indicators-plus/records/export/xlsx', [\App\Http\Controllers\Admin\YearwiseIndicatorsPlusController::class, 'exportRecordsExcel'])
+            ->name('yearwise-indicators-plus.records.export.xlsx');
         Route::get('data-centre/export/shg-cbo-reap-pack', [DataCentreController::class, 'exportShgCboReapPack'])
             ->name('data-centre.export-shg-cbo-reap-pack');
         Route::get('data-centre/export/onboarded-shg-cbo-individual', [DataCentreController::class, 'exportOnboardedShgCboIndividual'])
