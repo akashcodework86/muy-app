@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AppSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use ZipArchive;
 
 class HomestaySurveyTest extends TestCase
 {
@@ -131,6 +132,91 @@ class HomestaySurveyTest extends TestCase
             ->get(route('admin.homestay-survey.show', $response))
             ->assertOk()
             ->assertSee('Host Two', false);
+    }
+
+    public function test_state_admin_can_filter_dashboard_by_acceleration_support(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        HomestaySurveyResponse::query()->create([
+            'phone' => '9111111111',
+            'phase' => 'Phase 3',
+            'applicant_name' => 'Willing Host',
+            'district' => 'Nainital',
+            'prefill_snapshot' => [],
+            'answers' => ['respondent_name' => 'Willing Host', 'acceleration_support' => 'Yes', 'consent' => true],
+            'submitted_at' => now(),
+        ]);
+        HomestaySurveyResponse::query()->create([
+            'phone' => '9222222222',
+            'phase' => 'Phase 2',
+            'applicant_name' => 'Unwilling Host',
+            'district' => 'Dehradun',
+            'prefill_snapshot' => [],
+            'answers' => ['respondent_name' => 'Unwilling Host', 'acceleration_support' => 'No', 'consent' => true],
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.homestay-survey.index', ['acceleration' => 'Yes']))
+            ->assertOk()
+            ->assertSee('Willing Host', false)
+            ->assertDontSee('Unwilling Host', false)
+            ->assertSee('Acceleration support', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.homestay-survey.index', ['phase' => 'Phase 2', 'district' => 'Dehradun']))
+            ->assertOk()
+            ->assertSee('Unwilling Host', false)
+            ->assertDontSee('Willing Host', false);
+    }
+
+    public function test_state_admin_export_downloads_xlsx_and_respects_filters(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        HomestaySurveyResponse::query()->create([
+            'phone' => '9333333333',
+            'phase' => 'Phase 3',
+            'applicant_name' => 'Export Yes Host',
+            'district' => 'Almora',
+            'prefill_snapshot' => [],
+            'answers' => ['respondent_name' => 'Export Yes Host', 'acceleration_support' => 'Yes', 'consent' => true],
+            'submitted_at' => now(),
+        ]);
+        HomestaySurveyResponse::query()->create([
+            'phone' => '9444444444',
+            'phase' => 'Phase 1',
+            'applicant_name' => 'Export No Host',
+            'district' => 'Tehri',
+            'prefill_snapshot' => [],
+            'answers' => ['respondent_name' => 'Export No Host', 'acceleration_support' => 'No', 'consent' => true],
+            'submitted_at' => now(),
+        ]);
+
+        $all = $this->actingAs($admin)->get(route('admin.homestay-survey.export'));
+        $all->assertOk();
+        $all->assertDownload();
+        $this->assertStringContainsString('.xlsx', (string) $all->headers->get('content-disposition'));
+
+        $filtered = $this->actingAs($admin)->get(route('admin.homestay-survey.export', ['acceleration' => 'Yes']));
+        $filtered->assertOk();
+        $filtered->assertDownload();
+
+        $path = $filtered->baseResponse->getFile()->getPathname();
+        $this->assertFileExists($path);
+
+        if (! class_exists(ZipArchive::class)) {
+            return;
+        }
+
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($path) === true);
+        $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        $this->assertIsString($sheet);
+        $this->assertStringContainsString('Export Yes Host', $sheet);
+        $this->assertStringNotContainsString('Export No Host', $sheet);
     }
 
     private function createDistrict(string $slug, string $name): District

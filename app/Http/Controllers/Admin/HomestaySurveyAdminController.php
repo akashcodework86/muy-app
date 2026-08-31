@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\HomestaySurveyResponse;
 use App\Services\AppSettingsService;
 use App\Support\SimpleXlsxWriter;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class HomestaySurveyAdminController extends Controller
 {
@@ -20,29 +20,11 @@ class HomestaySurveyAdminController extends Controller
 
     public function index(Request $request): View
     {
-        $q = trim((string) $request->query('q', ''));
-        $phase = trim((string) $request->query('phase', ''));
-        $district = trim((string) $request->query('district', ''));
-
-        $query = HomestaySurveyResponse::query()->orderByDesc('submitted_at');
-
-        if ($q !== '') {
-            $like = '%'.$q.'%';
-            $query->where(function ($w) use ($like): void {
-                $w->where('phone', 'like', $like)
-                    ->orWhere('applicant_name', 'like', $like)
-                    ->orWhere('application_no', 'like', $like)
-                    ->orWhere('district', 'like', $like);
-            });
-        }
-        if ($phase !== '') {
-            $query->where('phase', $phase);
-        }
-        if ($district !== '') {
-            $query->where('district', $district);
-        }
-
-        $responses = $query->paginate(40)->withQueryString();
+        $filters = $this->filtersFrom($request);
+        $responses = $this->filteredQuery($filters)
+            ->orderByDesc('submitted_at')
+            ->paginate(40)
+            ->withQueryString();
 
         $districts = HomestaySurveyResponse::query()
             ->whereNotNull('district')
@@ -54,11 +36,7 @@ class HomestaySurveyAdminController extends Controller
         return view('admin.homestay-survey.index', [
             'responses' => $responses,
             'districts' => $districts,
-            'filters' => [
-                'q' => $q,
-                'phase' => $phase,
-                'district' => $district,
-            ],
+            'filters' => $filters,
             'total' => HomestaySurveyResponse::query()->count(),
             'prefillLocked' => $this->settings->isEnabled('homestay_survey.prefill_locked'),
             'publicUrl' => url('/homestay-survey'),
@@ -85,9 +63,9 @@ class HomestaySurveyAdminController extends Controller
             : 'Prefill fields are now editable on the public survey form.');
     }
 
-    public function export(): StreamedResponse|Response
+    public function export(Request $request): BinaryFileResponse
     {
-        $rows = HomestaySurveyResponse::query()->orderBy('id')->get();
+        $rows = $this->filteredQuery($this->filtersFrom($request))->orderBy('id')->get();
 
         $header = [
             'ID', 'Submitted at', 'Phone', 'Phase', 'Application no', 'Applicant name', 'District',
@@ -185,6 +163,62 @@ class HomestaySurveyAdminController extends Controller
         (new SimpleXlsxWriter)->addSheet('Responses', $data)->save($tmp);
 
         return response()->download($tmp, 'homestay-survey-responses-'.now()->format('Ymd_His').'.xlsx')->deleteFileAfterSend(true);
+    }
+
+    /**
+     * @return array{q: string, phase: string, district: string, acceleration: string}
+     */
+    private function filtersFrom(Request $request): array
+    {
+        $phase = trim((string) $request->query('phase', ''));
+        if (! in_array($phase, ['Phase 1', 'Phase 2', 'Phase 3'], true)) {
+            $phase = '';
+        }
+
+        $acceleration = trim((string) $request->query('acceleration', ''));
+        if (! in_array($acceleration, ['Yes', 'No'], true)) {
+            $acceleration = '';
+        }
+
+        return [
+            'q' => trim((string) $request->query('q', '')),
+            'phase' => $phase,
+            'district' => trim((string) $request->query('district', '')),
+            'acceleration' => $acceleration,
+        ];
+    }
+
+    /**
+     * @param  array{q: string, phase: string, district: string, acceleration: string}  $filters
+     */
+    private function filteredQuery(array $filters): Builder
+    {
+        $query = HomestaySurveyResponse::query();
+
+        if ($filters['q'] !== '') {
+            $like = '%'.$filters['q'].'%';
+            $query->where(function ($w) use ($like): void {
+                $w->where('phone', 'like', $like)
+                    ->orWhere('applicant_name', 'like', $like)
+                    ->orWhere('application_no', 'like', $like)
+                    ->orWhere('district', 'like', $like);
+            });
+        }
+        if ($filters['phase'] !== '') {
+            $query->where('phase', $filters['phase']);
+        }
+        if ($filters['district'] !== '') {
+            $query->where('district', $filters['district']);
+        }
+        if ($filters['acceleration'] !== '') {
+            $value = $filters['acceleration'];
+            $query->where(function ($w) use ($value): void {
+                $w->where('answers->acceleration_support', $value)
+                    ->orWhere('answers->other_support', $value);
+            });
+        }
+
+        return $query;
     }
 
     private function join(mixed $value): string

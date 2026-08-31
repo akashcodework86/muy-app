@@ -229,12 +229,22 @@
 <div class="hs-admin">
     <div class="hs-admin__toolbar">
         <div>
-            <h2>{{ number_format($total) }} response{{ $total === 1 ? '' : 's' }}</h2>
+            @php
+                $filteredTotal = $responses->total();
+                $hasFilters = collect($filters)->contains(fn ($v) => $v !== '');
+            @endphp
+            <h2>
+                @if ($hasFilters)
+                    {{ number_format($filteredTotal) }} of {{ number_format($total) }} response{{ $total === 1 ? '' : 's' }}
+                @else
+                    {{ number_format($total) }} response{{ $total === 1 ? '' : 's' }}
+                @endif
+            </h2>
             <p>{{ $publicUrl }}</p>
         </div>
         <div class="hs-admin__actions">
             <a class="hs-admin__btn hs-admin__btn--ghost" href="{{ $publicUrl }}" target="_blank" rel="noopener">Open form</a>
-            <a class="hs-admin__btn" href="{{ route('admin.homestay-survey.export') }}">Export</a>
+            <a class="hs-admin__btn" href="{{ route('admin.homestay-survey.export', array_filter($filters)) }}">Export</a>
         </div>
     </div>
 
@@ -286,13 +296,22 @@
                     @endforeach
                 </select>
             </div>
+            <div class="hs-admin__field">
+                <label>Acceleration support</label>
+                <select class="hs-admin__input" name="acceleration">
+                    <option value="">All</option>
+                    @foreach (['Yes', 'No'] as $opt)
+                        <option value="{{ $opt }}" @selected($filters['acceleration'] === $opt)>{{ $opt }}</option>
+                    @endforeach
+                </select>
+            </div>
             <button type="submit" class="hs-admin__btn">Filter</button>
             <a class="hs-admin__btn hs-admin__btn--ghost" href="{{ route('admin.homestay-survey.index') }}">Reset</a>
         </div>
     </form>
 
     @if ($responses->isEmpty())
-        <div class="hs-admin__empty">No responses yet.</div>
+        <div class="hs-admin__empty">{{ $hasFilters ? 'No matching responses.' : 'No responses yet.' }}</div>
     @else
         <div style="overflow:auto;">
             <table class="hs-admin__table">
@@ -305,6 +324,7 @@
                         <th>District</th>
                         <th>Phase</th>
                         <th>App no</th>
+                        <th>Acceleration</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -318,6 +338,14 @@
                             <td>{{ $row->district ?: '—' }}</td>
                             <td><span class="hs-admin__badge">{{ $row->phase ?: '—' }}</span></td>
                             <td>{{ $row->application_no ?: '—' }}</td>
+                            @php
+                                $answers = is_array($row->answers) ? $row->answers : [];
+                                $acceleration = $answers['acceleration_support'] ?? ($answers['other_support'] ?? '');
+                                if (is_array($acceleration)) {
+                                    $acceleration = implode(', ', array_map('strval', $acceleration));
+                                }
+                            @endphp
+                            <td>{{ $acceleration !== '' ? $acceleration : '—' }}</td>
                             <td><a href="{{ route('admin.homestay-survey.show', $row) }}">View</a></td>
                         </tr>
                     @endforeach
