@@ -5,6 +5,7 @@ namespace App\Services\Cfa;
 use App\Models\CfaSubmission;
 use App\Models\FiscalYear;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -137,6 +138,56 @@ class CfaSubmissionListQuery
             'districts' => $districts,
             'blocks' => $blocks,
         ];
+    }
+
+    /**
+     * Daily application totals under the exact same filters as the CFA list.
+     *
+     * @param  array{name: string, application_no: string, district_id: int|null, block: string, sector: string, caste: string, submitted_by: int|null, designation_id: int|null, from: string, to: string, onboard: string}  $filters
+     * @return list<array{date: string, label: string, count: int}>
+     */
+    public static function dateWiseCounts(array $filters, bool $includeZeroDates = false): array
+    {
+        $query = self::applyFilters(CfaSubmission::query(), $filters);
+        $rows = $query
+            ->selectRaw('DATE(created_at) as submitted_date, COUNT(*) as aggregate_count')
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderBy('submitted_date')
+            ->get()
+            ->mapWithKeys(fn (object $row): array => [
+                (string) $row->submitted_date => (int) $row->aggregate_count,
+            ]);
+
+        $from = trim((string) ($filters['from'] ?? ''));
+        $to = trim((string) ($filters['to'] ?? ''));
+        if ($includeZeroDates && $from !== '' && $to !== '') {
+            $start = Carbon::parse($from)->startOfDay();
+            $end = Carbon::parse($to)->startOfDay();
+            if ($start->gt($end)) {
+                return [];
+            }
+
+            $result = [];
+            foreach (CarbonPeriod::create($start, $end) as $date) {
+                $key = $date->toDateString();
+                $result[] = [
+                    'date' => $key,
+                    'label' => $date->format('d M Y'),
+                    'count' => (int) ($rows[$key] ?? 0),
+                ];
+            }
+
+            return $result;
+        }
+
+        return $rows
+            ->map(fn (int $count, string $date): array => [
+                'date' => $date,
+                'label' => Carbon::parse($date)->format('d M Y'),
+                'count' => $count,
+            ])
+            ->values()
+            ->all();
     }
 
     public static function enrichSubmission(CfaSubmission $row): CfaSubmission

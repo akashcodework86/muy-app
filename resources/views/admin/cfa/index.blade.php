@@ -47,6 +47,43 @@
         'designations' => $designations ?? [],
     ])
 
+    @if ($showDateWiseSummary ?? false)
+        @php
+            $dateWiseTotal = collect($dateWiseCounts ?? [])->sum('count');
+        @endphp
+        <section class="p1l-table-wrap" style="margin-top:1rem;" aria-labelledby="date-wise-cfa-heading">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;padding:1rem 1.1rem;border-bottom:1px solid #e2e8f0;">
+                <div>
+                    <h3 id="date-wise-cfa-heading" style="margin:0;color:#0f172a;font-size:1rem;">Date-wise form count</h3>
+                    <p class="p1l-muted" style="margin:0.25rem 0 0;font-size:0.8rem;">
+                        {{ \Carbon\Carbon::parse($filters['from'])->format('d M Y') }}–{{ \Carbon\Carbon::parse($filters['to'])->format('d M Y') }} · all current filters applied
+                    </p>
+                </div>
+                <strong style="color:#047857;white-space:nowrap;">Total {{ number_format($dateWiseTotal) }}</strong>
+            </div>
+            <table class="p1l-table">
+                <thead>
+                    <tr>
+                        <th>Submitted date</th>
+                        <th style="text-align:right;">Forms received</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($dateWiseCounts as $daily)
+                        <tr data-date="{{ $daily['date'] }}">
+                            <td>{{ $daily['label'] }}</td>
+                            <td style="text-align:right;font-weight:700;">{{ number_format($daily['count']) }}</td>
+                        </tr>
+                    @endforeach
+                    <tr style="background:#ecfdf5;">
+                        <td><strong>Total</strong></td>
+                        <td style="text-align:right;"><strong>{{ number_format($dateWiseTotal) }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    @endif
+
     @php
         $hasPaginator = $submissions->hasPages();
         $total = (int) $submissions->total();

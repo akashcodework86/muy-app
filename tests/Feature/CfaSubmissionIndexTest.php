@@ -9,6 +9,7 @@ use App\Models\Hub;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 
 class CfaSubmissionIndexTest extends TestCase
@@ -252,6 +253,76 @@ class CfaSubmissionIndexTest extends TestCase
             ->assertSee('ST Applicant')
             ->assertSee('SC Applicant')
             ->assertDontSee('OBC Applicant');
+    }
+
+    public function test_date_wise_count_and_excel_summary_follow_the_active_filters(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $district = $this->createDistrict();
+        $activeFy = FiscalYear::query()->create([
+            'code' => 'FY2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+            'is_phase3_default' => true,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            $this->cfaRow($district, $activeFy, 'DATE-001', '21 Aug First', '2026-08-21 09:00:00'),
+            $this->cfaRow($district, $activeFy, 'DATE-002', '21 Aug Second', '2026-08-21 16:30:00'),
+            $this->cfaRow($district, $activeFy, 'DATE-003', '23 Aug Only', '2026-08-23 10:00:00'),
+            $this->cfaRow($district, $activeFy, 'DATE-004', 'Outside Range', '2026-08-24 10:00:00'),
+        ]);
+
+        $filters = ['from' => '2026-08-21', 'to' => '2026-08-23'];
+        $this->actingAs($admin)
+            ->get(route('admin.cfa.index', $filters))
+            ->assertOk()
+            ->assertSee('Date-wise form count')
+            ->assertSee('data-date="2026-08-22"', false)
+            ->assertDontSee('Outside Range')
+            ->assertViewHas('dateWiseCounts', [
+                ['date' => '2026-08-21', 'label' => '21 Aug 2026', 'count' => 2],
+                ['date' => '2026-08-22', 'label' => '22 Aug 2026', 'count' => 0],
+                ['date' => '2026-08-23', 'label' => '23 Aug 2026', 'count' => 1],
+            ]);
+
+        $export = $this->actingAs($admin)->get(route('admin.cfa.export', $filters));
+        $export->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'cfa-date-wise-');
+        file_put_contents($tempPath, $export->streamedContent());
+        $workbook = IOFactory::load($tempPath);
+
+        $this->assertSame(['Date-wise Summary', 'Applications'], $workbook->getSheetNames());
+        $summary = $workbook->getSheetByName('Date-wise Summary');
+        $this->assertSame(2, (int) $summary?->getCell('B5')->getValue());
+        $this->assertSame(0, (int) $summary?->getCell('B6')->getValue());
+        $this->assertSame(1, (int) $summary?->getCell('B7')->getValue());
+        $this->assertSame(3, (int) $summary?->getCell('B8')->getValue());
+        $this->assertSame(4, $workbook->getSheetByName('Applications')?->getHighestDataRow());
+
+        $workbook->disconnectWorksheets();
+        @unlink($tempPath);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cfaRow(District $district, FiscalYear $fy, string $applicationNo, string $name, string $createdAt): array
+    {
+        return [
+            'district_id' => $district->id,
+            'fiscal_year_id' => $fy->id,
+            'application_no' => $applicationNo,
+            'applicant_name' => $name,
+            'phone' => '900000'.substr(md5($applicationNo), 0, 4),
+            'payload' => json_encode([]),
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ];
     }
 
     private function createDistrict(): District

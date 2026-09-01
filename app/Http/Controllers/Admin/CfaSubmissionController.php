@@ -18,6 +18,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CfaSubmissionController extends Controller
@@ -38,6 +45,11 @@ class CfaSubmissionController extends Controller
             ->withQueryString()
             ->through(fn (CfaSubmission $row) => CfaSubmissionListQuery::enrichSubmission($row));
 
+        $showDateWiseSummary = $filters['from'] !== '' && $filters['to'] !== '';
+        $dateWiseCounts = $showDateWiseSummary
+            ? CfaSubmissionListQuery::dateWiseCounts($filters, includeZeroDates: true)
+            : [];
+
         return view('admin.cfa.index', [
             'submissions' => $submissions,
             'districts' => $districts,
@@ -51,6 +63,8 @@ class CfaSubmissionController extends Controller
             'filters' => $filters,
             'scopeCounts' => $scopeCounts,
             'fyOnboarding' => $fyOnboarding,
+            'showDateWiseSummary' => $showDateWiseSummary,
+            'dateWiseCounts' => $dateWiseCounts,
         ]);
     }
 
@@ -81,27 +95,66 @@ class CfaSubmissionController extends Controller
         ];
         $headers = array_merge($baseHeaders, $payloadHeaders);
 
-        $filename = 'cfa-applications-'.now()->format('Ymd_His').'.csv';
+        $dateWiseCounts = CfaSubmissionListQuery::dateWiseCounts(
+            $filters,
+            includeZeroDates: $filters['from'] !== '' && $filters['to'] !== '',
+        );
+        $filename = 'cfa-applications-'.now()->format('Ymd_His').'.xlsx';
 
-        return response()->streamDownload(function () use ($query, $headers, $payloadColumnsMap): void {
-            $out = fopen('php://output', 'w');
-            if ($out === false) {
-                return;
+        return response()->streamDownload(function () use ($query, $headers, $payloadColumnsMap, $dateWiseCounts, $filters): void {
+            $spreadsheet = new Spreadsheet;
+            $summary = $spreadsheet->getActiveSheet();
+            $summary->setTitle('Date-wise Summary');
+            $summary->mergeCells('A1:B1');
+            $summary->setCellValue('A1', 'CFA applications — Date-wise Summary');
+            $period = $filters['from'] !== '' || $filters['to'] !== ''
+                ? trim(($filters['from'] ?: 'Beginning').' to '.($filters['to'] ?: 'Till date'))
+                : 'Current filtered scope';
+            $summary->mergeCells('A2:B2');
+            $summary->setCellValue('A2', $period);
+            $summary->fromArray(['Submitted date', 'Forms received'], null, 'A4');
+
+            $summaryRow = 5;
+            foreach ($dateWiseCounts as $daily) {
+                $summary->setCellValue('A'.$summaryRow, $daily['label']);
+                $summary->setCellValue('B'.$summaryRow, $daily['count']);
+                $summaryRow++;
             }
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, $headers);
-            (clone $query)->reorder()->chunkById(500, function ($rows) use ($out, $payloadColumnsMap): void {
+            if ($dateWiseCounts === []) {
+                $summary->setCellValue('A'.$summaryRow, 'No applications');
+                $summary->setCellValue('B'.$summaryRow, 0);
+                $summaryRow++;
+            }
+            $summary->setCellValue('A'.$summaryRow, 'Total');
+            $summary->setCellValue('B'.$summaryRow, array_sum(array_column($dateWiseCounts, 'count')));
+            $summary->getStyle('A1:B1')->getFont()->setBold(true)->setSize(16)->getColor()->setARGB('FFFFFFFF');
+            $summary->getStyle('A1:B1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF0F766E');
+            $summary->getStyle('A1:B1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $summary->getStyle('A4:B4')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+            $summary->getStyle('A4:B4')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF2563EB');
+            $summary->getStyle('A4:B'.$summaryRow)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setARGB('FFD1D5DB');
+            $summary->getStyle('A'.$summaryRow.':B'.$summaryRow)->getFont()->setBold(true);
+            $summary->getStyle('A'.$summaryRow.':B'.$summaryRow)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFECFDF5');
+            $summary->getColumnDimension('A')->setWidth(24);
+            $summary->getColumnDimension('B')->setWidth(18);
+            $summary->freezePane('A5');
+
+            $dataSheet = $spreadsheet->createSheet();
+            $dataSheet->setTitle('Applications');
+            foreach ($headers as $index => $header) {
+                $cell = Coordinate::stringFromColumnIndex($index + 1).'1';
+                $dataSheet->setCellValueExplicit($cell, $header, DataType::TYPE_STRING);
+            }
+
+            $excelRow = 2;
+            (clone $query)->reorder()->chunkById(500, function ($rows) use ($dataSheet, $payloadColumnsMap, &$excelRow): void {
                 foreach ($rows as $row) {
                     $payload = is_array($row->payload) ? $row->payload : (array) $row->payload;
-                    $phone = (string) ($row->phone ?? '');
-                    if ($phone !== '' && preg_match('/^[\d\s+\-]{10,}$/', $phone)) {
-                        $phone = "\t".$phone;
-                    }
                     $record = [
                         $row->application_no ?? '',
                         optional($row->created_at)->timezone('Asia/Kolkata')->format('Y-m-d H:i:s') ?? '',
                         $row->applicant_name ?? '',
-                        $phone,
+                        (string) ($row->phone ?? ''),
                         $row->district?->name ?? '',
                         $this->blockFromPayload($row),
                         $row->lgd_state_code ?? '',
@@ -116,12 +169,38 @@ class CfaSubmissionController extends Controller
                     foreach ($payloadColumnsMap as $originalPayloadKey) {
                         $record[] = $this->toCsvValue($payload[$originalPayloadKey] ?? null);
                     }
-                    fputcsv($out, $record);
+                    foreach ($record as $index => $value) {
+                        $cell = Coordinate::stringFromColumnIndex($index + 1).$excelRow;
+                        $dataSheet->setCellValueExplicit($cell, (string) ($value ?? ''), DataType::TYPE_STRING);
+                    }
+                    $excelRow++;
                 }
             }, 'id');
-            fclose($out);
+
+            $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
+            $dataSheet->getStyle('A1:'.$lastColumn.'1')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+            $dataSheet->getStyle('A1:'.$lastColumn.'1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF0F766E');
+            $dataSheet->getStyle('A1:'.$lastColumn.'1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $dataSheet->freezePane('A2');
+            $dataSheet->setAutoFilter('A1:'.$lastColumn.'1');
+            foreach (range(1, count($headers)) as $columnIndex) {
+                $width = match ($columnIndex) {
+                    1 => 18,
+                    2 => 21,
+                    3 => 28,
+                    4 => 16,
+                    5, 6 => 20,
+                    10, 11, 12 => 24,
+                    default => 18,
+                };
+                $dataSheet->getColumnDimension(Coordinate::stringFromColumnIndex($columnIndex))->setWidth($width);
+            }
+
+            $spreadsheet->setActiveSheetIndex(0);
+            (new Xlsx($spreadsheet))->save('php://output');
+            $spreadsheet->disconnectWorksheets();
         }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 
@@ -191,7 +270,7 @@ class CfaSubmissionController extends Controller
             ['from' => $from, 'to' => $to],
             [
                 'from' => ['nullable', 'date_format:Y-m-d'],
-                'to' => ['nullable', 'date_format:Y-m-d'],
+                'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
             ]
         );
         if ($v->fails()) {
