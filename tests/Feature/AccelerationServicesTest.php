@@ -566,6 +566,62 @@ class AccelerationServicesTest extends TestCase
         $this->assertSame(2, (int) ($row['achievement'] ?? -1));
     }
 
+    public function test_deliverable_10_5_does_not_count_acceleration_buyer_seller_meets(): void
+    {
+        $fy = FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+
+        $sessionId = DB::table('acceleration_service_sessions')->insertGetId([
+            'service_date' => '2026-08-10',
+            'fiscal_year_id' => $fy->id,
+            'legacy_phase1_application_id' => 11,
+            'incubatee_key' => 'p1:11',
+            'incubatee_source' => 'phase1',
+            'applicant_name' => 'BSM Applicant',
+            'application_no' => 'BSM-11',
+            'phone' => null,
+            'district_name' => 'Dehradun',
+            'onboard_label' => 'Onboarded',
+            'counts_for_7_2' => true,
+            'status' => 'approved',
+            'submitted_by_user_id' => 1,
+            'submitted_by_name' => 'Ankur',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('acceleration_service_items')->insert([
+            'session_id' => $sessionId,
+            'section' => 'cross_cutting',
+            'item_key' => 'buyer_seller_meet',
+            'item_label' => 'Buyer Seller Meet',
+            'remarks' => null,
+            'is_custom' => false,
+            'is_buyer_seller_meet' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $filter = new ProgramDeliverablesFilter($fy->id, null, 8, 2026, '2026-08-01', '2026-08-31');
+        $scope = ProgramDeliverablesScope::forUser($admin);
+
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '10.5');
+        $this->assertNotNull($row);
+        $this->assertSame(0, (int) ($row['achievement'] ?? -1));
+
+        $breakdown = app(\App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService::class)
+            ->build($filter, $scope, '10.5');
+        $this->assertSame(0, (int) ($breakdown['total'] ?? -1));
+        $this->assertSame([], $breakdown['records'] ?? ['not-empty']);
+    }
+
     public function test_maker_checker_flow_district_entry_needs_two_approvals(): void
     {
         $hubId = DB::table('hubs')->insertGetId([

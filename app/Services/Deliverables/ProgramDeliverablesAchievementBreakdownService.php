@@ -186,12 +186,7 @@ class ProgramDeliverablesAchievementBreakdownService
         }
 
         if (strtolower(trim((string) ($source['code'] ?? ''))) === 'buyer_seller_meets') {
-            $base = $this->serviceCaseBreakdown($source);
-            $accel = AccelerationServicesDeliverablesSupport::buyerSellerRecords($this->periodFrom, $this->periodTo);
-            $base['records'] = array_merge($accel, $base['records'] ?? []);
-            $base['total'] = count($base['records']);
-
-            return $base;
+            return $this->emptyBreakdown();
         }
 
         return $this->serviceCaseBreakdown($source);

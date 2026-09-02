@@ -1160,8 +1160,8 @@ class ProgramDeliverablesReportService
         }
 
         if ($code === 'buyer_seller_meets') {
-            return $this->deliverableAchievementFromServiceCases($code)
-                + AccelerationServicesDeliverablesSupport::countBuyerSellerMeets($this->periodFrom, $this->periodTo);
+            // 10.5 is not fed from Acceleration 7.2 Buyer-Seller ticks.
+            return 0;
         }
 
         if ($code === 'acceleration_services') {
