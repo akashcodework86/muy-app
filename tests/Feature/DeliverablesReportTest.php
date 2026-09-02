@@ -1282,6 +1282,93 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(1, $row['achievement']);
     }
 
+    public function test_business_registration_counts_utdb_and_uk_firm_and_matches_breakdown(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'br-alias-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'br-alias-district',
+            'name' => 'Alias District',
+            'sort_order' => 1,
+        ]);
+
+        $child = ServiceCategory::query()->create([
+            'slug' => 'bf_alias_services',
+            'name' => 'Business formalization',
+            'sort_order' => 0,
+        ]);
+
+        $categoryDeliverable = Deliverable::query()->firstOrCreate(
+            ['code' => 'svc_cat_business_formalization'],
+            [
+                'sort_order' => 1960,
+                'name' => 'Business formalization',
+                'mis_entry_label' => 'Business formalization',
+                'is_active' => true,
+            ],
+        );
+
+        $services = [];
+        foreach ([
+            ['udyam_registration', 'Udyam Registration'],
+            ['u_k_firm_registration', 'UK Firm Registration'],
+            ['u_t_d_b_registration', 'UTDB Registration'],
+        ] as $i => [$code, $name]) {
+            $services[$code] = Service::query()->create([
+                'service_category_id' => $child->id,
+                'deliverable_id' => $categoryDeliverable->id,
+                'code' => $code,
+                'name' => $name,
+                'sort_order' => $i + 1,
+                'is_active' => true,
+                'reporting_tier' => Service::REPORTING_KEY,
+            ]);
+        }
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'BR Applicant',
+            'phone' => '9999999911',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        foreach (array_values($services) as $index => $service) {
+            ServiceCase::query()->create([
+                'cfa_submission_id' => $cfaId,
+                'service_id' => $service->id,
+                'status' => ServiceCase::STATUS_APPROVED,
+                'reference_number' => 'SC-BR-'.$index,
+                'approved_at' => '2026-08-10',
+            ]);
+        }
+
+        $filter = new ProgramDeliverablesFilter($fy->id, null, 8, 2026, '2026-08-01', '2026-08-31');
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '4.1.1');
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '4.1.1');
+
+        $this->assertNotNull($row);
+        $this->assertSame(3, $row['achievement']);
+        $this->assertSame(3, (int) ($breakdown['total'] ?? 0));
+        $this->assertEqualsCanonicalizing(
+            ['Udyam Registration', 'UK Firm Registration', 'UTDB Registration'],
+            collect($breakdown['by_service'] ?? [])->pluck('service')->all(),
+        );
+    }
+
     public function test_fssai_achievement_counts_via_svc_deliverable_and_service_alias(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

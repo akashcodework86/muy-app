@@ -851,12 +851,14 @@ return [
         'bmc' => ['bmc_canvas', 'business_model_canvas', 'bmc'],
         'business_registration' => [
             'udyam_registration', 'shop_establishment', 'company_registration',
-            'uk_firm_registration', 'cooperative', 'already_registered',
+            'uk_firm_registration', 'u_k_firm_registration',
+            'cooperative', 'cooperative_registration', 'already_registered',
+            'utdb_registration_bf', 'utdb_registration', 'utdb', 'u_t_d_b_registration',
         ],
         'fssai' => ['fssai_registration', 'fssai_renewal', 'fssai_registration_renewal'],
         'gst' => ['gst_registration'],
         'artisan_card' => ['artisan_card_registration'],
-        'utdb_registration' => ['utdb_registration_bf', 'utdb_registration', 'utdb'],
+        'utdb_registration' => ['utdb_registration_bf', 'utdb_registration', 'utdb', 'u_t_d_b_registration'],
         'trademark' => ['trademark_registration'],
         'gi_seller' => ['gi_seller_registration'],
     ],
@@ -874,7 +876,10 @@ return [
         'utdb_registration' => ['utdb'],
         'trademark' => ['trademark'],
         'gi_seller' => ['gi seller'],
-        'business_registration' => ['udyam', 'shop & establishment', 'company registration', 'cooperative'],
+        'business_registration' => [
+            'udyam', 'shop & establishment', 'shop establishment',
+            'company registration', 'cooperative', 'uk firm', 'utdb', 'already registered',
+        ],
     ],
 
 ];
