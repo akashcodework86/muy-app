@@ -133,6 +133,51 @@
     .tp-selected-empty { color:#64748b; font-size:0.82rem; margin:0; padding:0.35rem 0.15rem; }
     .tp-actions { margin-top:1.35rem; padding-top:1.15rem; border-top:1px solid #e2e8f0; display:flex; flex-wrap:wrap; gap:0.65rem; align-items:center; }
     .tp-submit { border:none; border-radius:9px; background:#4f46e5; color:#fff; padding:0.62rem 1.05rem; font-weight:700; cursor:pointer; font-size:0.88rem; }
+    .tp-submit:disabled { opacity:0.55; cursor:not-allowed; }
+    .tp-submit--draft { background:#fff; color:#4338ca; border:1px solid #c7d2fe; }
+    .tp-submit--draft:hover { background:#eef2ff; }
+    .tp-min-banner {
+        margin:0 0 0.85rem;
+        padding:0.7rem 0.85rem;
+        border-radius:10px;
+        border:1px solid #fde68a;
+        background:#fffbeb;
+        color:#92400e;
+        font-size:0.84rem;
+        line-height:1.45;
+        font-weight:600;
+    }
+    .tp-min-banner strong { font-weight:800; }
+    .tp-selected-count.is-short { background:#b45309; }
+    .tp-selected-count.is-ready { background:#15803d; }
+    .tp-session-board__item--draft { border-color:#fcd34d; background:#fffbeb; }
+    .tp-filled-by--draft { background:#fef3c7; border-color:#fcd34d; color:#92400e; }
+    .tp-continue-draft {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:0.38rem 0.8rem;
+        border-radius:8px;
+        background:#4f46e5;
+        color:#fff;
+        text-decoration:none;
+        font-size:0.78rem;
+        font-weight:800;
+        box-shadow:0 4px 12px rgba(79,70,229,0.2);
+    }
+    .tp-continue-draft:hover { background:#4338ca; color:#fff; }
+    .tp-draft-resume {
+        margin-top:0.85rem;
+        padding:0.75rem 0.9rem;
+        border-radius:10px;
+        border:1px solid #fcd34d;
+        background:#fffbeb;
+        color:#92400e;
+        font-size:0.84rem;
+        line-height:1.45;
+    }
+    .tp-draft-resume__title { margin:0 0 0.45rem; font-weight:800; }
+    .tp-draft-resume__list { margin:0; padding:0; list-style:none; display:flex; flex-wrap:wrap; gap:0.45rem; }
     .tp-link { display:inline-flex; align-items:center; padding:0.62rem 0.2rem; color:#4f46e5; text-decoration:none; font-size:0.88rem; font-weight:600; }
     .tp-link:hover { text-decoration:underline; }
     .tp-media-preview { margin-top:0.45rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:flex-start; }
@@ -275,6 +320,13 @@
                 $planYearOptions[] = $planYear;
                 rsort($planYearOptions);
             }
+            $currentUserId = (int) ($user->id ?? auth()->id());
+            $myDraftSlots = collect($monthSlots)->concat($monthExtraSlots)->filter(function ($slot) use ($currentUserId) {
+                $pkg = $slot->trainingPackage ?? null;
+                return $pkg
+                    && (bool) ($pkg->is_draft ?? false)
+                    && (int) ($pkg->submitted_by_user_id ?? 0) === $currentUserId;
+            })->values();
         @endphp
 
         @if ($monthPlanningEnabled)
@@ -334,6 +386,21 @@
                     </aside>
                 </div>
 
+                @if ($myDraftSlots->isNotEmpty())
+                    <div class="tp-draft-resume">
+                        <p class="tp-draft-resume__title">You have {{ $myDraftSlots->count() === 1 ? 'a saved draft' : $myDraftSlots->count().' saved drafts' }} this month. Open it to add more incubatees.</p>
+                        <ul class="tp-draft-resume__list">
+                            @foreach ($myDraftSlots as $draftSlot)
+                                <li>
+                                    <a class="tp-continue-draft" href="{{ route('staff.training-packages.edit', $draftSlot->trainingPackage) }}">
+                                        Continue {{ $draftSlot->session_name }}{{ $draftSlot->is_extra ? ' (Extra)' : '' }}
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 @if ((int) ($monthSummary['required'] ?? 0) === 0)
                     <div class="tp-alert tp-alert--warning" style="margin-top:0.75rem;">
                         No planned sessions are assigned for this month yet. Contact the state admin for planned targets.
@@ -374,9 +441,13 @@
                             <select id="month_session_id" name="month_session_id" data-plan-disabled="{{ (int) ($monthSummary['required'] ?? 0) === 0 ? '1' : '0' }}" @disabled((int) ($monthSummary['required'] ?? 0) === 0)>
                                 <option value="">Select a planned session</option>
                             @foreach ($monthSlots as $slot)
-                                @if ($slot->trainingPackage)
+                                @php
+                                    $slotPackage = $slot->trainingPackage;
+                                    $slotIsDraft = $slotPackage && (bool) ($slotPackage->is_draft ?? false);
+                                @endphp
+                                @if ($slotPackage)
                                     <option value="{{ $slot->id }}" disabled>
-                                        {{ $slot->session_name }} — Filled by {{ $slot->trainingPackage->submitted_by_name }} on {{ $slot->trainingPackage->event_date?->format('d M Y') ?: 'NA' }}
+                                        {{ $slot->session_name }} — {{ $slotIsDraft ? 'Draft' : 'Filled' }} by {{ $slotPackage->submitted_by_name }} on {{ $slotPackage->event_date?->format('d M Y') ?: 'NA' }}
                                     </option>
                                 @else
                                     <option value="{{ $slot->id }}" @selected((int) old('month_session_id') === (int) $slot->id)>
@@ -385,19 +456,29 @@
                                 @endif
                             @endforeach
                         </select>
+                            @if ($myDraftSlots->isNotEmpty())
+                                <p class="tp-field-hint">Your saved drafts cannot be selected here. Use <strong>Continue draft</strong> below to open them and add more incubatees.</p>
+                            @endif
                     </div>
 
                         @if ($monthSlots->isNotEmpty())
                             <div class="tp-session-board">
                                 @foreach ($monthSlots as $slot)
-                                    @php $isFilled = $slot->trainingPackage !== null; @endphp
-                                    <div class="tp-session-board__item @if($isFilled) tp-session-board__item--filled @endif">
+                                    @php
+                                        $slotPackage = $slot->trainingPackage;
+                                        $isOccupied = $slotPackage !== null;
+                                        $slotIsDraft = $isOccupied && (bool) ($slotPackage->is_draft ?? false);
+                                        $canContinueDraft = $slotIsDraft && (int) ($slotPackage->submitted_by_user_id ?? 0) === $currentUserId;
+                                    @endphp
+                                    <div class="tp-session-board__item @if($slotIsDraft) tp-session-board__item--draft @elseif($isOccupied) tp-session-board__item--filled @endif">
                                         <span class="tp-session-board__name">{{ $slot->session_name }}</span>
-                                        @if ($isFilled)
-                                            <span class="tp-filled-by">
-                                                Filled by
-                                                <span class="tp-filled-by__name">{{ $slot->trainingPackage->submitted_by_name }}</span>
-                                                on {{ $slot->trainingPackage->event_date?->format('d M Y') ?: 'NA' }}
+                                        @if ($canContinueDraft)
+                                            <a class="tp-continue-draft" href="{{ route('staff.training-packages.edit', $slotPackage) }}">Continue draft</a>
+                                        @elseif ($isOccupied)
+                                            <span class="tp-filled-by @if($slotIsDraft) tp-filled-by--draft @endif">
+                                                {{ $slotIsDraft ? 'Draft by' : 'Filled by' }}
+                                                <span class="tp-filled-by__name">{{ $slotPackage->submitted_by_name }}</span>
+                                                on {{ $slotPackage->event_date?->format('d M Y') ?: 'NA' }}
                                             </span>
                                         @else
                                             <span class="tp-session-board__status">Open for submission</span>
@@ -420,17 +501,26 @@
                     @if ($monthExtraSlots->isNotEmpty())
                         <div class="tp-session-board" style="margin-top:0.75rem;">
                             @foreach ($monthExtraSlots as $slot)
-                                @php $isFilled = $slot->trainingPackage !== null; @endphp
-                                <div class="tp-session-board__item tp-session-board__item--extra @if($isFilled) tp-session-board__item--filled @endif">
+                                @php
+                                    $slotPackage = $slot->trainingPackage;
+                                    $isOccupied = $slotPackage !== null;
+                                    $slotIsDraft = $isOccupied && (bool) ($slotPackage->is_draft ?? false);
+                                @endphp
+                                <div class="tp-session-board__item tp-session-board__item--extra @if($slotIsDraft) tp-session-board__item--draft @elseif($isOccupied) tp-session-board__item--filled @endif">
                                     <span class="tp-session-board__name">
                                         <span class="tp-session-board__badge">Extra</span>
                                         {{ $slot->session_name }}
                                     </span>
-                                    @if ($isFilled)
-                                        <span class="tp-filled-by">
-                                            Filled by
-                                            <span class="tp-filled-by__name">{{ $slot->trainingPackage->submitted_by_name }}</span>
-                                            on {{ $slot->trainingPackage->event_date?->format('d M Y') ?: 'NA' }}
+                                    @php
+                                        $canContinueDraft = $slotIsDraft && (int) ($slotPackage->submitted_by_user_id ?? 0) === $currentUserId;
+                                    @endphp
+                                    @if ($canContinueDraft)
+                                        <a class="tp-continue-draft" href="{{ route('staff.training-packages.edit', $slotPackage) }}">Continue draft</a>
+                                    @elseif ($isOccupied)
+                                        <span class="tp-filled-by @if($slotIsDraft) tp-filled-by--draft @endif">
+                                            {{ $slotIsDraft ? 'Draft by' : 'Filled by' }}
+                                            <span class="tp-filled-by__name">{{ $slotPackage->submitted_by_name }}</span>
+                                            on {{ $slotPackage->event_date?->format('d M Y') ?: 'NA' }}
                                         </span>
                                     @endif
                                 </div>
@@ -491,8 +581,12 @@
                 </div>
             </div>
 
-            <div class="tp-section">
+            <div class="tp-section" id="tpAttendanceSection" data-min-attendees="{{ \App\Models\TrainingPackage::MIN_ATTENDEES }}" data-enforce-min="1">
                 <h4 class="tp-section__title">Manual Attendance Selection * (required)</h4>
+                <p class="tp-min-banner">
+                    Minimum <strong>{{ \App\Models\TrainingPackage::MIN_ATTENDEES }} incubatees</strong> must be selected to submit this session.
+                    Use <strong>Save draft</strong> if you have fewer for now — you can add more later.
+                </p>
                 <div class="tp-two-col">
                     <div class="tp-col">
                         <p class="tp-note">
@@ -518,7 +612,8 @@
                         </div>
                     </div>
                     <div class="tp-col">
-                        <p class="tp-right-title">Selected Incubatees <span id="tpSelectedCount" class="tp-selected-count">0</span></p>
+                        <p class="tp-right-title">Selected Incubatees <span id="tpSelectedCount" class="tp-selected-count is-short">0</span> / {{ \App\Models\TrainingPackage::MIN_ATTENDEES }}</p>
+                        <p class="tp-note" id="tpMinHint">Minimum {{ \App\Models\TrainingPackage::MIN_ATTENDEES }} incubatees required to submit. Save draft to continue later.</p>
                         <div class="tp-list" id="tpSelectedPanel"></div>
                     </div>
                 </div>
@@ -526,7 +621,8 @@
 
             <div id="tpHiddenInputs"></div>
             <div class="tp-actions">
-                <button class="tp-submit" type="submit">Submit attendance</button>
+                <button class="tp-submit tp-submit--draft" type="submit" name="save_as_draft" value="1">Save draft</button>
+                <button class="tp-submit" id="tpSubmitBtn" type="submit">Submit attendance</button>
                 <a class="tp-link" href="{{ route('staff.training-packages.dashboard') }}">View dashboard</a>
             </div>
         </form>
@@ -543,6 +639,10 @@
     const search = document.getElementById('tpSearch');
     const sourceList = document.getElementById('tpSourceList');
     const selectedCount = document.getElementById('tpSelectedCount');
+    const minHint = document.getElementById('tpMinHint');
+    const submitBtn = document.getElementById('tpSubmitBtn');
+    const minAttendees = parseInt(document.getElementById('tpAttendanceSection')?.dataset.minAttendees || '15', 10);
+    const enforceMin = document.getElementById('tpAttendanceSection')?.dataset.enforceMin !== '0';
     const sessionModeInputs = Array.from(document.querySelectorAll('input[name="session_mode"]'));
     const plannedPanel = document.getElementById('tpPlannedPanel');
     const extraPanel = document.getElementById('tpExtraPanel');
@@ -571,8 +671,23 @@
 
     function renderSelected() {
         hiddenInputs.innerHTML = '';
+        const count = selectedMap.size;
         if (selectedCount) {
-            selectedCount.textContent = String(selectedMap.size);
+            selectedCount.textContent = String(count);
+            selectedCount.classList.toggle('is-ready', count >= minAttendees);
+            selectedCount.classList.toggle('is-short', count < minAttendees);
+        }
+        if (minHint) {
+            const left = Math.max(0, minAttendees - count);
+            minHint.textContent = count >= minAttendees
+                ? 'Minimum ' + minAttendees + ' reached. You can submit attendance.'
+                : 'Minimum ' + minAttendees + ' incubatees required to submit. ' + left + ' more needed. Save draft to continue later.';
+        }
+        if (submitBtn) {
+            submitBtn.disabled = enforceMin && count < minAttendees;
+            submitBtn.title = (enforceMin && count < minAttendees)
+                ? 'Select at least ' + minAttendees + ' incubatees to submit'
+                : '';
         }
         if (!selectedMap.size) {
             selectedPanel.innerHTML = '<p class="tp-selected-empty">No incubatee selected yet.</p>';

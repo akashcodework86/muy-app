@@ -7,6 +7,7 @@ use App\Models\TrainingPackage;
 use App\Models\TrainingPackageMonthSession;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -24,7 +25,7 @@ class TrainingPackageMonthSessionService
         }
 
         return TrainingPackageMonthSession::query()
-            ->with(['trainingPackage:id,month_session_id,submitted_by_name,event_date'])
+            ->with([$this->trainingPackageEagerLoad(['submitted_by_name', 'event_date'])])
             ->where('district_id', $districtId)
             ->where('calendar_year', $calendarYear)
             ->where('calendar_month', $calendarMonth)
@@ -40,7 +41,7 @@ class TrainingPackageMonthSessionService
         }
 
         return TrainingPackageMonthSession::query()
-            ->with(['trainingPackage:id,month_session_id,submitted_by_name,event_date'])
+            ->with([$this->trainingPackageEagerLoad(['submitted_by_name', 'event_date'])])
             ->where('district_id', $districtId)
             ->where('calendar_year', $calendarYear)
             ->where('calendar_month', $calendarMonth)
@@ -66,7 +67,7 @@ class TrainingPackageMonthSessionService
     public function statewideMonthSummary(int $calendarYear, int $calendarMonth): array
     {
         $slots = TrainingPackageMonthSession::query()
-            ->with(['trainingPackage:id,month_session_id'])
+            ->with([$this->trainingPackageEagerLoad()])
             ->where('calendar_year', $calendarYear)
             ->where('calendar_month', $calendarMonth)
             ->get();
@@ -94,7 +95,7 @@ class TrainingPackageMonthSessionService
             ->get();
 
         $slotsByDistrict = TrainingPackageMonthSession::query()
-            ->with(['trainingPackage:id,month_session_id,submitted_by_name,event_date'])
+            ->with([$this->trainingPackageEagerLoad(['submitted_by_name', 'event_date'])])
             ->where('calendar_year', $calendarYear)
             ->where('calendar_month', $calendarMonth)
             ->orderBy('sort_order')
@@ -207,7 +208,7 @@ class TrainingPackageMonthSessionService
                     ->values();
 
                 $existing = TrainingPackageMonthSession::query()
-                    ->with('trainingPackage:id,month_session_id')
+                    ->with($this->trainingPackageEagerLoad())
                     ->where('district_id', $districtId)
                     ->where('calendar_year', $calendarYear)
                     ->where('calendar_month', $calendarMonth)
@@ -347,7 +348,7 @@ class TrainingPackageMonthSessionService
     public function clearAllSessionsForMonth(int $calendarYear, int $calendarMonth): array
     {
         $slots = TrainingPackageMonthSession::query()
-            ->with('trainingPackage:id,month_session_id')
+            ->with($this->trainingPackageEagerLoad())
             ->where('calendar_year', $calendarYear)
             ->where('calendar_month', $calendarMonth)
             ->orderBy('id')
@@ -399,10 +400,10 @@ class TrainingPackageMonthSessionService
     {
         $required = $plannedSlots->count();
         $filled = $plannedSlots
-            ->filter(fn (TrainingPackageMonthSession $slot): bool => $slot->trainingPackage !== null)
+            ->filter(fn (TrainingPackageMonthSession $slot): bool => $slot->isFilled())
             ->count();
         $extraFilled = $extraSlots
-            ->filter(fn (TrainingPackageMonthSession $slot): bool => $slot->trainingPackage !== null)
+            ->filter(fn (TrainingPackageMonthSession $slot): bool => $slot->isFilled())
             ->count();
 
         return [
@@ -425,5 +426,21 @@ class TrainingPackageMonthSessionService
                 Storage::delete($path);
             }
         }
+    }
+
+    /**
+     * @param  list<string>  $extra
+     */
+    private function trainingPackageEagerLoad(array $extra = []): string
+    {
+        $cols = array_values(array_unique(array_merge(
+            ['id', 'month_session_id', 'submitted_by_user_id'],
+            $extra
+        )));
+        if (Schema::hasColumn('training_packages', 'is_draft')) {
+            $cols[] = 'is_draft';
+        }
+
+        return 'trainingPackage:'.implode(',', $cols);
     }
 }

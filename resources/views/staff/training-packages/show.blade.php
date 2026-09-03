@@ -108,6 +108,16 @@
                 </span>
             </div>
             <div class="tp-show-field">
+                <span class="tp-show-field__label">Status</span>
+                <span class="tp-show-field__value">
+                    @if ($row->isDraft())
+                        <span class="tp-show-source tp-show-source--legacy">Draft — add incubatees until {{ \App\Models\TrainingPackage::MIN_ATTENDEES }} to submit</span>
+                    @else
+                        Submitted
+                    @endif
+                </span>
+            </div>
+            <div class="tp-show-field">
                 <span class="tp-show-field__label">Total Selected</span>
                 <span class="tp-show-field__value">{{ is_array($row->selected_incubatee_ids) ? count($row->selected_incubatee_ids) : 0 }}</span>
             </div>
@@ -123,7 +133,7 @@
                 default => route('staff.training-packages.export-single', $row),
             } }}">Excel Export</a>
             @if ($canEdit)
-                <a class="tp-show-btn tp-show-btn--secondary" href="{{ route('staff.training-packages.edit', $row) }}">Edit Entry</a>
+                <a class="tp-show-btn tp-show-btn--secondary" href="{{ route('staff.training-packages.edit', $row) }}">{{ $row->isDraft() ? 'Continue Draft' : 'Edit Entry' }}</a>
             @endif
             <a class="tp-show-btn tp-show-btn--secondary" href="{{ match ($currentRole) {
                 'state_admin' => route('admin.training-packages.dashboard'),

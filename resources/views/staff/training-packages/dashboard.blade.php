@@ -28,7 +28,7 @@
     .tp-table th,
     .tp-table td { text-align:left; padding:0.7rem 0.75rem; border-bottom:1px solid #e2e8f0; vertical-align:top; }
     .tp-table tbody tr:last-child td { border-bottom:none; }
-    .tp-pill { display:inline-block; background:#eef2ff; color:#3730a3; border-radius:999px; padding:0.15rem 0.52rem; font-weight:700; }
+    .tp-pill--draft { background:#fef3c7; color:#92400e; }
     .tp-row-actions { display:flex; gap:0.55rem; align-items:center; flex-wrap:wrap; }
     .tp-btn--view {
         display:inline-flex;
@@ -194,7 +194,12 @@
                 <tr>
                     <td>{{ $rowNumber }}</td>
                     <td>{{ $row->event_date?->format('d M Y') ?: 'NA' }}</td>
-                    <td>{{ $row->submitted_by_name }}</td>
+                    <td>
+                        {{ $row->submitted_by_name }}
+                        @if ($row->isDraft())
+                            <span class="tp-pill tp-pill--draft">Draft</span>
+                        @endif
+                    </td>
                     <td>{{ $row->district_name ?: ($row->district?->name ?? 'NA') }}</td>
                     <td>
                         {{ $sessionName }}
@@ -224,7 +229,7 @@
                                 default => route('staff.training-packages.show', $row),
                             } }}">View</a>
                             @if (auth()->user()->role === 'district_staff' && (int) $row->submitted_by_user_id === (int) auth()->id())
-                                <a class="tp-btn--edit" href="{{ route('staff.training-packages.edit', $row) }}">Edit</a>
+                                <a class="tp-btn--edit" href="{{ route('staff.training-packages.edit', $row) }}">{{ $row->isDraft() ? 'Continue draft' : 'Edit' }}</a>
                             @endif
                         </div>
                     </td>

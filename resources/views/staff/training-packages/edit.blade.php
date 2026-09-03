@@ -12,6 +12,12 @@
         $oldModules = (array) old('training_packages', (array) ($row->training_packages ?? [$row->training_package]));
     @endphp
 
+    @if (session('status'))
+        <div class="tp-alert tp-alert--success">
+            {{ session('status') }}
+        </div>
+    @endif
+
     @if ($errors->any())
         <div class="tp-alert tp-alert--error">
             <strong>Please fix:</strong>
@@ -97,8 +103,14 @@
                 </div>
             </div>
 
-            <div class="tp-section">
+            <div class="tp-section" id="tpAttendanceSection" data-min-attendees="{{ \App\Models\TrainingPackage::MIN_ATTENDEES }}" data-enforce-min="{{ $row->isDraft() ? '1' : '0' }}">
                 <h4 class="tp-section__title">Manual Attendance Selection *</h4>
+                <p class="tp-min-banner">
+                    Minimum <strong>{{ \App\Models\TrainingPackage::MIN_ATTENDEES }} incubatees</strong> must be selected to submit this session.
+                    @if ($row->isDraft())
+                        Use <strong>Save draft</strong> if you have fewer for now — you can add more later.
+                    @endif
+                </p>
                 <div class="tp-two-col">
                     <div class="tp-col">
                         <p class="tp-note">
@@ -123,7 +135,8 @@
                         </div>
                     </div>
                     <div class="tp-col">
-                        <p class="tp-right-title">Selected Incubatees <span id="tpSelectedCount" class="tp-selected-count">0</span></p>
+                        <p class="tp-right-title">Selected Incubatees <span id="tpSelectedCount" class="tp-selected-count is-short">0</span> / {{ \App\Models\TrainingPackage::MIN_ATTENDEES }}</p>
+                        <p class="tp-note" id="tpMinHint">Minimum {{ \App\Models\TrainingPackage::MIN_ATTENDEES }} incubatees required to submit. Save draft to continue later.</p>
                         <div class="tp-list" id="tpSelectedPanel"></div>
                     </div>
                 </div>
@@ -131,7 +144,10 @@
 
             <div id="tpHiddenInputs"></div>
             <div class="tp-actions">
-                <button class="tp-submit" type="submit">Update attendance</button>
+                @if ($row->isDraft())
+                    <button class="tp-submit tp-submit--draft" type="submit" name="save_as_draft" value="1">Save draft</button>
+                @endif
+                <button class="tp-submit" id="tpSubmitBtn" type="submit">{{ $row->isDraft() ? 'Submit attendance' : 'Update attendance' }}</button>
                 <a class="tp-link" href="{{ route('staff.training-packages.export-single', $row) }}">Excel Export</a>
                 <a class="tp-link" href="{{ route('staff.training-packages.dashboard') }}">Back to dashboard</a>
             </div>

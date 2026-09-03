@@ -496,28 +496,132 @@ class TrainingPackageMonthSessionTest extends TestCase
             'district_id' => $district->id,
             'is_active' => true,
         ]);
-        $incubateeId = $this->seedOnboardedIncubatee($district);
+        $incubateeIds = $this->seedOnboardedIncubatees($district, TrainingPackage::MIN_ATTENDEES);
+        $sessionDate = now()->toDateString();
 
         $response = $this->actingAs($staff)->post(route('staff.training-packages.store'), [
             'session_mode' => 'extra',
-            'plan_year' => 2026,
-            'plan_month' => 5,
+            'plan_year' => (int) now()->year,
+            'plan_month' => (int) now()->month,
             'extra_session_name' => 'Field visit',
-            'session_date' => '2026-05-18',
+            'session_date' => $sessionDate,
             'workshop_delivery' => 'physical',
             'training_packages' => ['t1'],
-            'selected_incubatees' => [$incubateeId],
+            'selected_incubatees' => $incubateeIds,
         ]);
 
         $response->assertRedirect(route('staff.training-packages.dashboard'));
 
         $this->assertDatabaseHas('training_package_month_sessions', [
             'district_id' => $district->id,
-            'calendar_year' => 2026,
-            'calendar_month' => 5,
+            'calendar_year' => (int) now()->year,
+            'calendar_month' => (int) now()->month,
             'session_name' => 'Field visit',
             'is_extra' => true,
         ]);
+        $this->assertDatabaseHas('training_packages', [
+            'district_id' => $district->id,
+            'is_draft' => 0,
+        ]);
+    }
+
+    public function test_attendance_form_shows_minimum_fifteen_rule(): void
+    {
+        $district = $this->createDistrict('min-rule', 'Min Rule');
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.training-packages.create'))
+            ->assertOk()
+            ->assertSee('Minimum')
+            ->assertSee('15 incubatees')
+            ->assertSee('Save draft');
+    }
+
+    public function test_submit_requires_minimum_fifteen_incubatees(): void
+    {
+        $district = $this->createDistrict('min-submit', 'Min Submit');
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $incubateeId = $this->seedOnboardedIncubatee($district);
+        $slot = $this->seedPlannedSlot($district);
+
+        $response = $this->actingAs($staff)->from(route('staff.training-packages.create'))->post(route('staff.training-packages.store'), [
+            'session_mode' => 'planned',
+            'plan_year' => (int) now()->year,
+            'plan_month' => (int) now()->month,
+            'month_session_id' => $slot->id,
+            'session_date' => now()->toDateString(),
+            'workshop_delivery' => 'physical',
+            'training_packages' => ['t1'],
+            'selected_incubatees' => [$incubateeId],
+        ]);
+
+        $response->assertSessionHasErrors('selected_incubatees');
+        $this->assertDatabaseCount('training_packages', 0);
+    }
+
+    public function test_staff_can_save_draft_with_fewer_than_fifteen_and_submit_later(): void
+    {
+        $district = $this->createDistrict('draft-flow', 'Draft Flow');
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $district->id,
+            'is_active' => true,
+        ]);
+        $incubateeIds = $this->seedOnboardedIncubatees($district, TrainingPackage::MIN_ATTENDEES);
+        $slot = $this->seedPlannedSlot($district);
+        $service = app(TrainingPackageMonthSessionService::class);
+
+        $draftResponse = $this->actingAs($staff)->post(route('staff.training-packages.store'), [
+            'session_mode' => 'planned',
+            'plan_year' => (int) now()->year,
+            'plan_month' => (int) now()->month,
+            'month_session_id' => $slot->id,
+            'session_date' => now()->toDateString(),
+            'workshop_delivery' => 'physical',
+            'training_packages' => ['t1'],
+            'selected_incubatees' => [$incubateeIds[0]],
+            'save_as_draft' => '1',
+        ]);
+
+        $package = TrainingPackage::query()->firstOrFail();
+        $draftResponse->assertRedirect(route('staff.training-packages.edit', $package));
+        $this->assertTrue($package->isDraft());
+
+        $this->actingAs($staff)
+            ->get(route('staff.training-packages.create'))
+            ->assertOk()
+            ->assertSee('Continue draft')
+            ->assertSee('Continue '.$slot->session_name)
+            ->assertSee(route('staff.training-packages.edit', $package, false), false);
+
+        $summary = $service->districtMonthSummary((int) $district->id, (int) now()->year, (int) now()->month);
+        $this->assertSame(0, $summary['filled']);
+        $this->assertSame(1, $summary['remaining']);
+
+        $submitResponse = $this->actingAs($staff)->put(route('staff.training-packages.update', $package), [
+            'session_date' => now()->toDateString(),
+            'workshop_delivery' => 'physical',
+            'training_packages' => ['t1'],
+            'selected_incubatees' => $incubateeIds,
+        ]);
+
+        $submitResponse->assertRedirect(route('staff.training-packages.dashboard'));
+        $package->refresh();
+        $this->assertFalse($package->isDraft());
+        $this->assertCount(TrainingPackage::MIN_ATTENDEES, $package->selected_incubatee_ids);
+
+        $summaryAfter = $service->districtMonthSummary((int) $district->id, (int) now()->year, (int) now()->month);
+        $this->assertSame(1, $summaryAfter['filled']);
+        $this->assertSame(0, $summaryAfter['remaining']);
     }
 
     public function test_planned_slot_flow_still_requires_month_session_id(): void
@@ -735,12 +839,25 @@ class TrainingPackageMonthSessionTest extends TestCase
         ]);
     }
 
-    private function seedOnboardedIncubatee(District $district): int
+    /**
+     * @return list<int>
+     */
+    private function seedOnboardedIncubatees(District $district, int $count): array
+    {
+        $ids = [];
+        for ($n = 1; $n <= $count; $n++) {
+            $ids[] = $this->seedOnboardedIncubatee($district, $n);
+        }
+
+        return $ids;
+    }
+
+    private function seedOnboardedIncubatee(District $district, int $n = 1): int
     {
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
             'district_id' => $district->id,
-            'applicant_name' => 'Test Applicant',
-            'phone' => '9999999999',
+            'applicant_name' => 'Test Applicant '.$n,
+            'phone' => (string) (9000000000 + $n),
             'payload' => json_encode(['gender' => 'M', 'village' => 'Village', 'block' => 'Block']),
             'created_at' => now(),
             'updated_at' => now(),
@@ -749,7 +866,7 @@ class TrainingPackageMonthSessionTest extends TestCase
         $batchId = (int) DB::table('onboarding_batches')->insertGetId([
             'hub_id' => $district->hub_id,
             'district_id' => $district->id,
-            'name' => 'Batch 1',
+            'name' => 'Batch '.$n,
             'target_size' => 1,
             'status' => 'locked',
             'locked_at' => now(),
@@ -765,6 +882,27 @@ class TrainingPackageMonthSessionTest extends TestCase
         ]);
 
         return $cfaId;
+    }
+
+    private function seedPlannedSlot(District $district, string $sessionName = 'Session One'): TrainingPackageMonthSession
+    {
+        $admin = $this->monthPlanManager();
+        app(TrainingPackageMonthSessionService::class)->syncMonthPlan(
+            (int) now()->year,
+            (int) now()->month,
+            [[
+                'district_id' => $district->id,
+                'sessions' => [
+                    ['session_name' => $sessionName],
+                ],
+            ]],
+            (int) $admin->id,
+        );
+
+        return TrainingPackageMonthSession::query()
+            ->where('district_id', $district->id)
+            ->where('session_name', $sessionName)
+            ->firstOrFail();
     }
 
     private function monthPlanManager(array $overrides = []): User

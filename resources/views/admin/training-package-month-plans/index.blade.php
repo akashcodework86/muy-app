@@ -283,13 +283,18 @@
                         <h4 class="tpmp-sessions__label">Required sessions (target)</h4>
                         <div class="js-session-list" data-district-index="{{ $districtIndex }}">
                             @forelse ($slots as $slotIndex => $slot)
-                                @php $filled = $slot->trainingPackage !== null; @endphp
+                                @php
+                                    $slotPackage = $slot->trainingPackage;
+                                    $occupied = $slotPackage !== null;
+                                    $slotIsDraft = $occupied && (bool) ($slotPackage->is_draft ?? false);
+                                    $filled = $occupied && ! $slotIsDraft;
+                                @endphp
                                 <div class="tpmp-session-item js-session-row">
                                     <span class="tpmp-session-num" aria-hidden="true">{{ $slotIndex + 1 }}</span>
                                     <div class="tpmp-session-card @if($filled) tpmp-session-card--filled @else tpmp-session-card--open @endif">
-                                        @if ($filled)
+                                        @if ($occupied)
                                             <div class="tpmp-session-card__meta">
-                                                Filled · {{ $slot->trainingPackage->submitted_by_name }} · {{ $slot->trainingPackage->event_date?->format('d M Y') ?: 'NA' }}
+                                                {{ $slotIsDraft ? 'Draft' : 'Filled' }} · {{ $slotPackage->submitted_by_name }} · {{ $slotPackage->event_date?->format('d M Y') ?: 'NA' }}
                                             </div>
                                         @endif
                                         @if ($slot->id)
@@ -318,13 +323,17 @@
                             <h4 class="tpmp-sessions__label tpmp-sessions__label--extra">Extra sessions</h4>
                             <div class="js-extra-session-list" data-district-index="{{ $districtIndex }}">
                                 @foreach ($extraSlots as $extraIndex => $extraSlot)
-                                    @php $extraFilled = $extraSlot->trainingPackage !== null; @endphp
+                                    @php
+                                        $extraPackage = $extraSlot->trainingPackage;
+                                        $extraOccupied = $extraPackage !== null;
+                                        $extraIsDraft = $extraOccupied && (bool) ($extraPackage->is_draft ?? false);
+                                    @endphp
                                     <div class="tpmp-session-item">
                                         <span class="tpmp-session-num tpmp-session-num--extra" aria-hidden="true">{{ $extraIndex + 1 }}</span>
                                         <div class="tpmp-session-card tpmp-session-card--extra">
-                                            @if ($extraFilled)
+                                            @if ($extraOccupied)
                                                 <div class="tpmp-session-card__meta">
-                                                    Filled · {{ $extraSlot->trainingPackage->submitted_by_name }} · {{ $extraSlot->trainingPackage->event_date?->format('d M Y') ?: 'NA' }}
+                                                    {{ $extraIsDraft ? 'Draft' : 'Filled' }} · {{ $extraPackage->submitted_by_name }} · {{ $extraPackage->event_date?->format('d M Y') ?: 'NA' }}
                                                 </div>
                                             @endif
                                             <input type="hidden" name="districts[{{ $districtIndex }}][extra_sessions][{{ $extraIndex }}][id]" value="{{ $extraSlot->id }}">

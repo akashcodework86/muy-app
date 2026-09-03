@@ -43,6 +43,7 @@ final class BstTrainingDeliverablesSupport
         }
 
         self::applyEventDatePeriod($query, 'tp', $periodFrom, $periodTo);
+        self::excludeDrafts($query);
 
         return $query;
     }
@@ -169,6 +170,17 @@ final class BstTrainingDeliverablesSupport
     /**
      * @param  \Illuminate\Database\Query\Builder  $query
      */
+    public static function excludeDrafts($query): void
+    {
+        if (! Schema::hasColumn('training_packages', 'is_draft')) {
+            return;
+        }
+
+        $query->where(function ($q): void {
+            $q->where('tp.is_draft', false)->orWhereNull('tp.is_draft');
+        });
+    }
+
     public static function applyEventDatePeriod($query, string $alias, ?Carbon $periodFrom, ?Carbon $periodTo): void
     {
         if (! $periodFrom || ! $periodTo) {

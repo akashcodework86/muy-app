@@ -49,10 +49,19 @@ class TrainingPackageMonthSession extends Model
         return $this->belongsTo(User::class, 'updated_by_user_id');
     }
 
-    public function isFilled(): bool
+    public function isOccupied(): bool
     {
         return $this->relationLoaded('trainingPackage')
             ? $this->trainingPackage !== null
             : $this->trainingPackage()->exists();
+    }
+
+    public function isFilled(): bool
+    {
+        $package = $this->relationLoaded('trainingPackage')
+            ? $this->trainingPackage
+            : $this->trainingPackage()->first();
+
+        return $package !== null && ! (bool) ($package->is_draft ?? false);
     }
 }

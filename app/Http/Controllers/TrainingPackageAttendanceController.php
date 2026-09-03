@@ -82,14 +82,13 @@ class TrainingPackageAttendanceController extends Controller
                 ->withErrors(['training_packages' => 'Training packages table is missing. Please run migrations first.']);
         }
 
+        $asDraft = $this->isSaveAsDraft($request);
         $rules = array_merge([
             'session_date' => TodayOnlyDate::rules(),
             'training_batch_name' => ['nullable', 'string', 'max:191'],
             'training_packages' => ['required', 'array', 'min:1'],
             'training_packages.*' => ['required', Rule::in(['t1', 't2', 't3', 't4'])],
-            'selected_incubatees' => ['required', 'array', 'min:1'],
-            'selected_incubatees.*' => ['integer', 'not_in:0'],
-        ], $this->attendanceMediaValidationRules());
+        ], $this->selectedIncubateesRules($asDraft), $this->attendanceMediaValidationRules());
 
         if (Schema::hasColumn('training_packages', 'workshop_delivery')) {
             $rules['workshop_delivery'] = ['required', Rule::in(['virtual', 'physical'])];
@@ -117,7 +116,7 @@ class TrainingPackageAttendanceController extends Controller
             return back()->withInput()->withErrors($uploadErrors);
         }
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, $this->selectedIncubateesMessages());
 
         $districtId = (int) ($user->district_id ?: 0);
         abort_unless($districtId > 0, 422, 'District assignment is required to submit attendance.');
@@ -141,14 +140,15 @@ class TrainingPackageAttendanceController extends Controller
             }
         }
 
-        $selectedIds = $this->normalizeSelectedIncubateeIds((array) $validated['selected_incubatees']);
-        $snapshots = $this->snapshotsForSelectedIncubatees($districtId, $selectedIds);
-
-        if ($snapshots->isEmpty() || $snapshots->count() !== $selectedIds->count()) {
-            return back()
-                ->withInput()
-                ->withErrors(['selected_incubatees' => 'One or more selected incubatees are invalid for your district.']);
+        $selectedResult = $this->resolveSelectedIncubatees(
+            $districtId,
+            (array) ($validated['selected_incubatees'] ?? []),
+            $asDraft,
+        );
+        if ($selectedResult instanceof RedirectResponse) {
+            return $selectedResult;
         }
+        [$selectedIds, $snapshots] = $selectedResult;
 
         $selectedModules = collect((array) $validated['training_packages'])
             ->map(fn ($m): string => strtolower(trim((string) $m)))
@@ -193,12 +193,15 @@ class TrainingPackageAttendanceController extends Controller
             'selected_incubatee_ids' => $selectedIds->all(),
             'selected_incubatees_snapshot' => $snapshots->all(),
         ];
+        if (Schema::hasColumn('training_packages', 'is_draft')) {
+            $attributes['is_draft'] = $asDraft;
+        }
         if (Schema::hasColumn('training_packages', 'workshop_delivery')) {
             $attributes['workshop_delivery'] = (string) $validated['workshop_delivery'];
         }
         $this->mergeLegacyTrainingPackageColumn($attributes, $selectedModules);
 
-        DB::transaction(function () use ($monthPlanningEnabled, $sessionMode, $districtId, $validated, $user, &$monthSession, $attributes): void {
+        $created = DB::transaction(function () use ($monthPlanningEnabled, $sessionMode, $districtId, $validated, $user, &$monthSession, $attributes): TrainingPackage {
             if ($monthPlanningEnabled && $sessionMode === 'extra') {
                 $monthSession = $this->monthSessions->createExtraSlotForDistrictMonth(
                     $districtId,
@@ -211,8 +214,15 @@ class TrainingPackageAttendanceController extends Controller
             }
 
             $attributes['month_session_id'] = $monthSession?->id;
-            TrainingPackage::query()->create($attributes);
+
+            return TrainingPackage::query()->create($attributes);
         });
+
+        if ($asDraft) {
+            return redirect()
+                ->route('staff.training-packages.edit', $created)
+                ->with('status', 'Draft saved. Add more incubatees and submit when you have at least '.TrainingPackage::MIN_ATTENDEES.'.');
+        }
 
         return redirect()
             ->route('staff.training-packages.dashboard')
@@ -260,7 +270,9 @@ class TrainingPackageAttendanceController extends Controller
 
         $eventPeriod = $this->applyEventPeriodFilter($query, $request);
 
-        $allForTotals = (clone $query)->get(['selected_incubatee_ids', 'selected_incubatees_snapshot']);
+        $totalsQuery = clone $query;
+        $this->excludeDraftsFromQuery($totalsQuery);
+        $allForTotals = $totalsQuery->get(['selected_incubatee_ids', 'selected_incubatees_snapshot']);
         $this->enrichSnapshotGenders($allForTotals);
         $totals = IncubateeAttendeeCounts::sumForRecords($allForTotals);
 
@@ -342,6 +354,7 @@ class TrainingPackageAttendanceController extends Controller
         }
 
         $this->applyEventPeriodFilter($query, $request);
+        $this->excludeDraftsFromQuery($query);
 
         $rows = $query->orderByDesc('event_date')->orderByDesc('id')->get();
 
@@ -394,30 +407,32 @@ class TrainingPackageAttendanceController extends Controller
             return back()->withInput()->withErrors($uploadErrors);
         }
 
+        $asDraft = $this->isSaveAsDraft($request, $trainingPackage);
         $updateRules = array_merge([
             'session_date' => TodayOnlyDate::rulesAllowingExisting($trainingPackage->event_date?->toDateString()),
             'training_batch_name' => ['nullable', 'string', 'max:191'],
             'training_packages' => ['required', 'array', 'min:1'],
             'training_packages.*' => ['required', Rule::in(['t1', 't2', 't3', 't4'])],
-            'selected_incubatees' => ['required', 'array', 'min:1'],
-            'selected_incubatees.*' => ['integer', 'not_in:0'],
-        ], $this->attendanceMediaValidationRules());
+        ], $this->selectedIncubateesRules($asDraft, $trainingPackage), $this->attendanceMediaValidationRules());
 
         if (Schema::hasColumn('training_packages', 'workshop_delivery')) {
             $updateRules['workshop_delivery'] = ['required', Rule::in(['virtual', 'physical'])];
         }
 
-        $validated = $request->validate($updateRules);
+        $validated = $request->validate($updateRules, $this->selectedIncubateesMessages());
 
         $districtId = (int) ($trainingPackage->district_id ?: 0);
-        $selectedIds = $this->normalizeSelectedIncubateeIds((array) $validated['selected_incubatees']);
-        $snapshots = $this->snapshotsForSelectedIncubatees($districtId, $selectedIds);
-
-        if ($snapshots->isEmpty() || $snapshots->count() !== $selectedIds->count()) {
-            return back()
-                ->withInput()
-                ->withErrors(['selected_incubatees' => 'One or more selected incubatees are invalid for this district.']);
+        $selectedResult = $this->resolveSelectedIncubatees(
+            $districtId,
+            (array) ($validated['selected_incubatees'] ?? []),
+            $asDraft,
+            'One or more selected incubatees are invalid for this district.',
+            $trainingPackage,
+        );
+        if ($selectedResult instanceof RedirectResponse) {
+            return $selectedResult;
         }
+        [$selectedIds, $snapshots] = $selectedResult;
 
         $trainingPackage->loadMissing('monthSession');
         if ($trainingPackage->monthSession) {
@@ -469,11 +484,20 @@ class TrainingPackageAttendanceController extends Controller
         }
         $trainingPackage->selected_incubatee_ids = $selectedIds->all();
         $trainingPackage->selected_incubatees_snapshot = $snapshots->all();
+        if (Schema::hasColumn('training_packages', 'is_draft')) {
+            $trainingPackage->is_draft = $asDraft;
+        }
         $trainingPackage->save();
+
+        if ($asDraft) {
+            return redirect()
+                ->route('staff.training-packages.edit', $trainingPackage)
+                ->with('status', 'Draft saved. Add more incubatees and submit when you have at least '.TrainingPackage::MIN_ATTENDEES.'.');
+        }
 
         return redirect()
             ->route('staff.training-packages.dashboard')
-            ->with('status', 'Training package attendance updated.');
+            ->with('status', 'Training package attendance submitted.');
     }
 
     public function downloadAttachment(Request $request, TrainingPackage $trainingPackage): StreamedResponse
@@ -1056,6 +1080,104 @@ class TrainingPackageAttendanceController extends Controller
             'state_staff' => 'spoc.training-packages.export',
             default => 'staff.training-packages.export',
         };
+    }
+
+    private function isSaveAsDraft(Request $request, ?TrainingPackage $existing = null): bool
+    {
+        if ($existing !== null && ! $existing->isDraft()) {
+            return false;
+        }
+
+        return $request->boolean('save_as_draft');
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function selectedIncubateesRules(bool $asDraft, ?TrainingPackage $existing = null): array
+    {
+        if ($asDraft) {
+            return [
+                'selected_incubatees' => ['nullable', 'array'],
+                'selected_incubatees.*' => ['integer', 'not_in:0'],
+            ];
+        }
+
+        if ($existing !== null && ! $existing->isDraft()) {
+            return [
+                'selected_incubatees' => ['required', 'array', 'min:1'],
+                'selected_incubatees.*' => ['integer', 'not_in:0'],
+            ];
+        }
+
+        return [
+            'selected_incubatees' => ['required', 'array', 'min:'.TrainingPackage::MIN_ATTENDEES],
+            'selected_incubatees.*' => ['integer', 'not_in:0'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function selectedIncubateesMessages(): array
+    {
+        $min = TrainingPackage::MIN_ATTENDEES;
+
+        return [
+            'selected_incubatees.required' => "Select at least {$min} incubatees to submit. Save draft if you need to add more later.",
+            'selected_incubatees.min' => "Select at least {$min} incubatees to submit. Save draft if you need to add more later.",
+        ];
+    }
+
+    /**
+     * @param  array<int, mixed>  $rawIds
+     * @return RedirectResponse|array{0: Collection<int, int>, 1: Collection<int, array<string, mixed>>}
+     */
+    private function resolveSelectedIncubatees(
+        int $districtId,
+        array $rawIds,
+        bool $asDraft,
+        string $invalidMessage = 'One or more selected incubatees are invalid for your district.',
+        ?TrainingPackage $existing = null,
+    ): RedirectResponse|array {
+        $selectedIds = $this->normalizeSelectedIncubateeIds($rawIds);
+        $enforceMin = ! $asDraft && ($existing === null || $existing->isDraft());
+
+        if ($selectedIds->isEmpty()) {
+            if ($asDraft) {
+                return [$selectedIds, collect()];
+            }
+
+            return back()->withInput()->withErrors([
+                'selected_incubatees' => $enforceMin
+                    ? $this->selectedIncubateesMessages()['selected_incubatees.min']
+                    : 'Select at least one incubatee.',
+            ]);
+        }
+
+        $snapshots = $this->snapshotsForSelectedIncubatees($districtId, $selectedIds);
+        if ($snapshots->isEmpty() || $snapshots->count() !== $selectedIds->count()) {
+            return back()->withInput()->withErrors(['selected_incubatees' => $invalidMessage]);
+        }
+
+        if ($enforceMin && $selectedIds->count() < TrainingPackage::MIN_ATTENDEES) {
+            return back()->withInput()->withErrors([
+                'selected_incubatees' => $this->selectedIncubateesMessages()['selected_incubatees.min'],
+            ]);
+        }
+
+        return [$selectedIds, $snapshots];
+    }
+
+    private function excludeDraftsFromQuery($query): void
+    {
+        if (! Schema::hasColumn('training_packages', 'is_draft')) {
+            return;
+        }
+
+        $query->where(function ($q): void {
+            $q->where('is_draft', false)->orWhereNull('is_draft');
+        });
     }
 
     private function canSubmit(string $role): bool

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TrainingPackage extends Model
 {
+    public const MIN_ATTENDEES = 15;
+
     protected $fillable = [
         'submitted_by_user_id',
         'submitted_by_name',
@@ -26,6 +28,7 @@ class TrainingPackage extends Model
         'attendance_media_json',
         'selected_incubatee_ids',
         'selected_incubatees_snapshot',
+        'is_draft',
     ];
 
     protected function casts(): array
@@ -36,7 +39,13 @@ class TrainingPackage extends Model
             'attendance_media_json' => 'array',
             'selected_incubatee_ids' => 'array',
             'selected_incubatees_snapshot' => 'array',
+            'is_draft' => 'boolean',
         ];
+    }
+
+    public function isDraft(): bool
+    {
+        return (bool) ($this->is_draft ?? false);
     }
 
     public function submitter(): BelongsTo
