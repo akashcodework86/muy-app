@@ -6,16 +6,16 @@ use App\Models\CfaSubmission;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
 use App\Models\User;
-use App\Services\IncubateeLoginEmailResolver;
+use App\Support\IncubateeLoginPhone;
 use Illuminate\Console\Command;
 
 class ExportIncubateeLoginSheetCommand extends Command
 {
     protected $signature = 'incubatees:export-login-sheet
                             {batch_id : onboarding_batches.id for the locked batch}
-                            {--csv : Print CSV only (password hint on stderr)}';
+                            {--csv : Print CSV only}';
 
-    protected $description = 'List login email + applicant details for handouts (after or before provisioning)';
+    protected $description = 'List login mobile + applicant details for handouts';
 
     public function handle(): int
     {
@@ -44,28 +44,28 @@ class ExportIncubateeLoginSheetCommand extends Command
             ->orderBy('id')
             ->get();
 
-        $plain = (string) config('incubatee.default_password', '');
         $rows = [];
         foreach ($submissions as $submission) {
             $user = User::query()
                 ->where('cfa_submission_id', $submission->id)
                 ->where('role', 'incubatee')
                 ->first();
-            $loginEmail = $user?->email ?? IncubateeLoginEmailResolver::forSubmission($submission);
+            $loginMobile = IncubateeLoginPhone::normalize($user?->phone)
+                ?: IncubateeLoginPhone::normalize($submission->phone);
             $rows[] = [
                 $submission->applicant_name ?: '—',
-                (string) ($submission->phone ?? ''),
-                $loginEmail,
+                $loginMobile !== '' ? $loginMobile : '—',
+                $user !== null && $loginMobile !== '' ? $loginMobile : '—',
                 (string) ($submission->application_no ?? ''),
                 (string) $submission->id,
                 $user !== null ? 'yes' : 'no',
             ];
         }
 
-        $headers = ['Name', 'Phone', 'Login email', 'Application no.', 'CFA id', 'Account created'];
+        $headers = ['Name', 'Login mobile', 'Initial password', 'Application no.', 'CFA id', 'Account created'];
 
         if ($this->option('csv')) {
-            fwrite(STDERR, 'Initial password (same for all new accounts): '.$plain."\n");
+            fwrite(STDERR, "Initial password is the login mobile until the incubatee changes it.\n");
             $out = fopen('php://output', 'w');
             fputcsv($out, $headers);
             foreach ($rows as $r) {
@@ -79,7 +79,7 @@ class ExportIncubateeLoginSheetCommand extends Command
         $this->info('Batch: '.$batch->name.' (id '.$batchId.')');
         $this->table($headers, $rows);
         $this->newLine();
-        $this->comment('Initial password (INCUBATEE_DEFAULT_PASSWORD): '.$plain);
+        $this->comment('Login ID = 10-digit mobile. Initial password = same number (until they change it in Settings).');
         $this->comment('Tip: php artisan incubatees:export-login-sheet '.$batchId.' --csv > incubatees.csv');
 
         return self::SUCCESS;

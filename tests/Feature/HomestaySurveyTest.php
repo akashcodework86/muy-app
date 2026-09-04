@@ -119,7 +119,8 @@ class HomestaySurveyTest extends TestCase
             ->get(route('admin.homestay-survey.index'))
             ->assertOk()
             ->assertSee('Host Two', false)
-            ->assertSee('Editable', false);
+            ->assertSee('Editable', false)
+            ->assertSee('Analysis Excel', false);
 
         $this->actingAs($admin)
             ->post(route('admin.homestay-survey.prefill-lock'), ['prefill_locked' => 1])
@@ -217,6 +218,92 @@ class HomestaySurveyTest extends TestCase
         $this->assertIsString($sheet);
         $this->assertStringContainsString('Export Yes Host', $sheet);
         $this->assertStringNotContainsString('Export No Host', $sheet);
+    }
+
+    public function test_state_admin_analysis_excel_has_expected_sheets_and_respects_acceleration_filter(): void
+    {
+        if (! class_exists(ZipArchive::class)) {
+            $this->markTestSkipped('ext-zip required');
+        }
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        HomestaySurveyResponse::query()->create([
+            'phone' => '9555555555',
+            'phase' => 'Phase 3',
+            'application_no' => 'MUY-ACC-YES',
+            'applicant_name' => 'Analysis Yes Host',
+            'district' => 'Nainital',
+            'prefill_snapshot' => [],
+            'answers' => [
+                'respondent_name' => 'Analysis Yes Host',
+                'enterprise_name' => 'Lake View Stay',
+                'acceleration_support' => 'Yes',
+                'gender' => 'Female',
+                'progress_rating' => '5 Excellent',
+                'recommend_muy' => '5',
+                'consent' => true,
+            ],
+            'submitted_at' => now(),
+        ]);
+        HomestaySurveyResponse::query()->create([
+            'phone' => '9666666666',
+            'phase' => 'Phase 1',
+            'application_no' => 'MUY-ACC-NO',
+            'applicant_name' => 'Analysis No Host',
+            'district' => 'Haridwar',
+            'prefill_snapshot' => [],
+            'answers' => [
+                'respondent_name' => 'Analysis No Host',
+                'acceleration_support' => 'No',
+                'consent' => true,
+            ],
+            'submitted_at' => now(),
+        ]);
+
+        $svc = app(\App\Services\Exports\HomestaySurveyAnalysisWorkbookService::class);
+        $allRows = HomestaySurveyResponse::query()->orderBy('id')->get();
+        $sheets = $svc->sheets($allRows, [
+            'q' => '',
+            'phase' => '',
+            'district' => '',
+            'acceleration' => '',
+        ]);
+        $this->assertSame(\App\Services\Exports\HomestaySurveyAnalysisWorkbookService::SHEET_TITLES, array_keys($sheets));
+
+        $accelJoined = json_encode($sheets['Acceleration list'], JSON_THROW_ON_ERROR);
+        $this->assertStringContainsString('Analysis Yes Host', $accelJoined);
+        $this->assertStringNotContainsString('Analysis No Host', $accelJoined);
+
+        $filtered = $this->actingAs($admin)->get(route('admin.homestay-survey.analysis-export', ['acceleration' => 'Yes']));
+        $filtered->assertOk();
+        $filtered->assertDownload();
+
+        $path = $filtered->baseResponse->getFile()->getPathname();
+        $this->assertFileExists($path);
+
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($path) === true);
+        $workbook = $zip->getFromName('xl/workbook.xml');
+        $this->assertIsString($workbook);
+        foreach (\App\Services\Exports\HomestaySurveyAnalysisWorkbookService::SHEET_TITLES as $title) {
+            $this->assertStringContainsString(
+                htmlspecialchars($title, ENT_XML1 | ENT_QUOTES, 'UTF-8'),
+                $workbook
+            );
+        }
+
+        $accelXml = $zip->getFromName('xl/worksheets/sheet10.xml');
+        $rawXml = $zip->getFromName('xl/worksheets/sheet11.xml');
+        $zip->close();
+        $this->assertIsString($accelXml);
+        $this->assertIsString($rawXml);
+        $this->assertStringContainsString('Analysis Yes Host', $accelXml);
+        $this->assertStringNotContainsString('Analysis No Host', $accelXml);
+        $this->assertStringContainsString('Analysis Yes Host', $rawXml);
+        $this->assertStringNotContainsString('Analysis No Host', $rawXml);
+        $this->assertStringContainsString('Revenue during', $rawXml);
+        $this->assertStringContainsString('Other income', $rawXml);
     }
 
     private function createDistrict(string $slug, string $name): District

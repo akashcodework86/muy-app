@@ -363,6 +363,18 @@
                 </div>
             </div>
         </div>
+    <div class="hb-modal-bg" id="modalIncubateePhones">
+        <div class="hb-modal" style="max-width:42rem">
+            <h3 id="incubateePhoneModalTitle" style="margin:0 0 0.5rem">Creating portal logins</h3>
+            <p id="incubateePhoneModalLead" style="margin:0 0 0.85rem;font-size:0.875rem;color:var(--muted);line-height:1.5"></p>
+            <div id="incubateePhoneModalBusy" style="display:none;padding:1.1rem 0;text-align:center;color:#334155;font-size:0.9rem;font-weight:600">Creating accounts…</div>
+            <div id="incubateePhoneModalRows" style="display:flex;flex-direction:column;gap:0.65rem;max-height:22rem;overflow:auto"></div>
+            <div id="incubateePhoneModalActions" style="display:none;gap:0.75rem;margin-top:1.25rem">
+                <button type="button" class="hb-btn hb-btn--primary" id="incubateePhoneModalClose" style="flex:1">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div class="hb-modal-bg" id="modalRatioGap">
         <div class="hb-modal">
             <h3 style="margin:0 0 0.5rem">Onboarding mix (contract)</h3>
@@ -1056,36 +1068,43 @@
             document.getElementById('kpiEarly').textContent = String(stageMix.early);
             document.getElementById('kpiGrowth').textContent = String(stageMix.growth);
 
-            const defaultPwd = (batch.incubatee_default_password && String(batch.incubatee_default_password).trim())
-                ? String(batch.incubatee_default_password)
-                : '';
             const noteEl = document.getElementById('batchPortalLoginNote');
             if (noteEl) {
-                const bid = batch.id != null ? String(batch.id) : '';
-                if (!defaultPwd) {
-                    noteEl.textContent = 'Set INCUBATEE_DEFAULT_PASSWORD in .env so the default password can be shown after accounts exist.';
-                } else {
-                    noteEl.innerHTML = 'Click <strong>Create portal logins</strong> (top right). A message will show <strong>Created</strong> and <strong>skipped</strong> counts — that confirms how many portal accounts were made. The list then reloads; <strong>Password</strong> appears only for rows where an account exists. Until then login will not work. (Advanced: <code style="font-size:0.7rem">php artisan incubatees:provision-users --batch-id=' + esc(bid) + '</code> does the same on the server.)';
-                }
+                noteEl.innerHTML = 'Login ID is the <strong>10-digit mobile</strong>. Click <strong>Create portal logins</strong> for the whole batch, or click <strong>Create login</strong> on a Pending row. Rows with no mobile or a number already used stay here — enter a number on that row and click <strong>Create login</strong>.';
             }
 
             const membersWrap = document.getElementById('batchDetailMembersWrap');
             membersWrap.innerHTML = filteredMembers.length
                 ? `<table class="hb-member-table">
-                    <thead><tr><th>App no.</th><th>Name</th><th>Username</th><th>Password</th><th>Stage</th><th>Category</th></tr></thead>
+                    <thead><tr><th>App no.</th><th>Name</th><th>Login mobile</th><th>Password</th><th>Stage</th><th>Category</th></tr></thead>
                     <tbody>${filteredMembers.map(m => {
                         const ready = !!m.incubatee_account_ready;
+                        const issue = m.login_issue || '';
+                        const phoneVal = m.portal_username || '';
+                        const detail = m.login_issue_detail || '';
+                        const reasonHtml = detail
+                            ? `<div class="hb-login-reason" style="font-size:0.62rem;color:#b45309;margin-top:0.25rem;max-width:13rem;white-space:normal;line-height:1.35">${esc(detail)}</div>`
+                            : '';
                         let pwdCell;
-                        if (!ready) {
-                            pwdCell = '<span style="color:#b45309;font-weight:600">Pending</span>';
-                        } else if (defaultPwd) {
-                            pwdCell = esc(defaultPwd);
+                        if (issue === 'missing') {
+                            pwdCell = '<span style="color:#b45309;font-weight:600">No mobile — enter below</span>' + reasonHtml;
+                        } else if (issue === 'duplicate') {
+                            pwdCell = '<span style="color:#b45309;font-weight:600">Already used</span>' + reasonHtml;
+                        } else if (!ready) {
+                            pwdCell = '<span style="color:#b45309;font-weight:600">Pending</span>' + reasonHtml
+                                + `<div style="margin-top:0.35rem"><button type="button" class="hb-btn hb-btn--primary hb-create-one-login" data-cfa-id="${esc(String(m.id))}" data-phone="${esc(phoneVal)}" data-reason="${esc(detail)}" style="padding:0.22rem 0.5rem;font-size:0.7rem">Create login</button></div>`;
                         } else {
-                            pwdCell = '<span style="color:#64748b">—</span>';
+                            pwdCell = esc(m.login_password_hint || m.portal_username || '');
                         }
-                        const userCell = (m.portal_username || '')
-                            ? `<div style="word-break:break-all">${esc(m.portal_username)}</div>${ready ? '' : '<div style="font-size:0.62rem;color:#b45309;margin-top:0.15rem">Account not created yet</div>'}`
-                            : '—';
+                        const needInput = issue === 'missing' || issue === 'duplicate';
+                        const userCell = needInput
+                            ? `<div style="display:flex;flex-direction:column;gap:0.35rem;align-items:flex-start">
+                                <input type="tel" class="hb-login-phone-input" data-cfa-id="${esc(String(m.id))}" maxlength="10" placeholder="10-digit mobile" value="" style="width:9.5rem;font-family:ui-monospace,monospace;font-size:0.72rem">
+                                <button type="button" class="hb-btn hb-btn--primary hb-create-one-login" data-cfa-id="${esc(String(m.id))}" data-reason="${esc(detail)}" style="padding:0.22rem 0.5rem;font-size:0.7rem">Create login</button>
+                               </div>`
+                            : (phoneVal
+                                ? `<div style="word-break:break-all">${esc(phoneVal)}</div>${ready ? '' : '<div style="font-size:0.62rem;color:#b45309;margin-top:0.15rem">Account not created yet</div>'}`
+                                : '—');
                         return `
                         <tr>
                             <td style="font-family:monospace">${m.profile_url ? `<a class="hb-member-link" href="${esc(m.profile_url)}" target="_blank" rel="noopener noreferrer">${esc(m.application_no)}</a>` : esc(m.application_no)}</td>
@@ -1099,6 +1118,9 @@
                     </tbody>
                 </table>`
                 : '<p style="margin:0;color:var(--muted);font-size:0.82rem">No members matched current filter.</p>';
+            membersWrap.querySelectorAll('.hb-create-one-login').forEach((btn) => {
+                btn.addEventListener('click', () => createOneLoginFromRow(btn));
+            });
 
             const catList = document.getElementById('batchCategoryMixList');
             const applicantCategoryList = document.getElementById('batchApplicantCategoryList');
@@ -1126,7 +1148,8 @@
             const btnProv = document.getElementById('btnProvisionIncubatees');
             if (btnProv) {
                 const locked = String(batch.status || '').toLowerCase() === 'locked';
-                btnProv.style.display = locked ? 'inline-flex' : 'none';
+                const canBulk = allMembers.some((m) => !m.incubatee_account_ready && m.login_issue !== 'missing' && m.login_issue !== 'duplicate');
+                btnProv.style.display = locked && canBulk ? 'inline-flex' : 'none';
                 btnProv.dataset.batchId = String(batch.id || '');
             }
             document.getElementById('batchDetailCard').classList.add('is-open');
@@ -1381,6 +1404,124 @@
             document.getElementById('modalLock').classList.add('is-open');
         });
 
+        function showProvisionModalBusy() {
+            const modal = document.getElementById('modalIncubateePhones');
+            const title = document.getElementById('incubateePhoneModalTitle');
+            const lead = document.getElementById('incubateePhoneModalLead');
+            const busy = document.getElementById('incubateePhoneModalBusy');
+            const wrap = document.getElementById('incubateePhoneModalRows');
+            const actions = document.getElementById('incubateePhoneModalActions');
+            if (title) title.textContent = 'Creating portal logins';
+            if (lead) lead.textContent = 'Accounts are being created for everyone with a unique 10-digit mobile. Leftover rows stay in the member list.';
+            if (busy) busy.style.display = 'block';
+            if (wrap) wrap.innerHTML = '';
+            if (actions) actions.style.display = 'none';
+            modal?.classList.add('is-open');
+        }
+
+        function showProvisionModalResult(res) {
+            const title = document.getElementById('incubateePhoneModalTitle');
+            const lead = document.getElementById('incubateePhoneModalLead');
+            const busy = document.getElementById('incubateePhoneModalBusy');
+            const wrap = document.getElementById('incubateePhoneModalRows');
+            const actions = document.getElementById('incubateePhoneModalActions');
+            const missing = Array.isArray(res.missing_phones) ? res.missing_phones : [];
+            const duplicates = Array.isArray(res.duplicate_phones) ? res.duplicate_phones : [];
+            const created = res.created ?? 0;
+            const converted = res.converted ?? 0;
+            const skipped = res.skipped ?? 0;
+            const leftover = []
+                .concat(missing.map((r) => ({ ...r, reason: 'No mobile on file' })))
+                .concat(duplicates.map((r) => ({ ...r, reason: r.used_by ? ('Already used by ' + r.used_by) : 'Number already used' })));
+            if (busy) busy.style.display = 'none';
+            if (title) title.textContent = leftover.length ? 'Portal logins created — leftovers remain' : 'Portal logins created';
+            const parts = [];
+            if (created) parts.push(created + ' created');
+            if (converted) parts.push(converted + ' converted');
+            if (skipped) parts.push(skipped + ' already ready');
+            const made = parts.length ? parts.join(', ') : 'No new accounts';
+            if (lead) {
+                lead.textContent = leftover.length
+                    ? made + '. These leftover rows were not created. Enter a number on that row in the member list and click Create login later.'
+                    : made + '. Initial password is the same 10-digit mobile until they change it in Settings.';
+            }
+            if (wrap) {
+                wrap.innerHTML = leftover.length
+                    ? leftover.map((r) => `
+                    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:0.65rem 0.75rem">
+                        <div style="font-weight:700;font-size:0.85rem">${esc(r.name || '')}</div>
+                        <div style="font-size:0.72rem;color:#64748b;margin:0.15rem 0 0">${esc(r.application_no || '')} · ${esc(r.reason || '')}</div>
+                    </div>`).join('')
+                    : '';
+            }
+            if (actions) actions.style.display = 'flex';
+        }
+
+        async function runProvision(bid) {
+            showProvisionModalBusy();
+            const res = await api('provision_incubatees', { batch_id: bid });
+            showProvisionModalResult(res);
+            await openBatchDetail(bid);
+        }
+
+        async function createPortalLogins(bid, btn) {
+            if (!confirm('Create portal logins for everyone in this batch who already has a unique 10-digit mobile? Leftover rows (no number or already used) stay in the member list to create later.')) return;
+            btn.disabled = true;
+            try {
+                await runProvision(bid);
+            } catch (e) {
+                document.getElementById('modalIncubateePhones')?.classList.remove('is-open');
+                alert(e.message || 'Failed');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function createOneLoginFromRow(btn) {
+            const bid = openedBatchDetailId || parseInt(document.getElementById('btnProvisionIncubatees')?.dataset.batchId || '0', 10);
+            const cfaId = parseInt(btn.getAttribute('data-cfa-id') || '0', 10);
+            if (!bid || !cfaId) return;
+            const input = document.querySelector('.hb-login-phone-input[data-cfa-id="' + cfaId + '"]');
+            const fromInput = String(input?.value || '').replace(/\D+/g, '');
+            const fromRow = String(btn.getAttribute('data-phone') || '').replace(/\D+/g, '');
+            const phone = fromInput || fromRow;
+            if (phone.length !== 10) {
+                showRowLoginProblem(btn, 'Enter a 10-digit mobile on this row, then click Create login.');
+                input?.focus();
+                return;
+            }
+            const why = String(btn.getAttribute('data-reason') || '').trim();
+            const confirmText = why
+                ? (why + '\n\nCreate this login now?')
+                : 'Create portal login for this incubatee? Login ID and first password will be the 10-digit mobile.';
+            if (!confirm(confirmText)) return;
+            btn.disabled = true;
+            try {
+                await api('provision_one_incubatee', { batch_id: bid, cfa_id: cfaId, phone });
+                await openBatchDetail(bid);
+            } catch (e) {
+                showRowLoginProblem(btn, e.message || 'Login could not be created.');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function showRowLoginProblem(btn, message) {
+            const wrap = btn.parentElement;
+            if (!wrap) {
+                alert(message);
+                return;
+            }
+            let box = wrap.querySelector('.hb-login-create-error');
+            if (!box) {
+                box = document.createElement('div');
+                box.className = 'hb-login-create-error';
+                box.style.cssText = 'font-size:0.62rem;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:0.35rem 0.45rem;margin-top:0.35rem;max-width:14rem;white-space:normal;line-height:1.35';
+                wrap.appendChild(box);
+            }
+            box.textContent = message;
+        }
+
         document.getElementById('btnRefreshBatches').addEventListener('click', loadBatches);
         document.getElementById('btnSelectAllVisible').addEventListener('click', () => {
             const ids = latestPoolRows.map(r => r.id);
@@ -1405,19 +1546,10 @@
             const btn = document.getElementById('btnProvisionIncubatees');
             const bid = parseInt(btn?.dataset.batchId || '0', 10);
             if (!bid) return;
-            if (!confirm('Create incubatee portal accounts for everyone in this locked batch? Large batches may take a minute.')) return;
-            btn.disabled = true;
-            try {
-                const res = await api('provision_incubatees', { batch_id: bid });
-                const c = res.created ?? 0;
-                const s = res.skipped ?? 0;
-                alert('Portal accounts: ' + c + ' created, ' + s + ' skipped (already had account or conflict). The member list will refresh now.');
-                await openBatchDetail(bid);
-            } catch (e) {
-                alert(e.message || 'Failed');
-            } finally {
-                btn.disabled = false;
-            }
+            await createPortalLogins(bid, btn);
+        });
+        document.getElementById('incubateePhoneModalClose')?.addEventListener('click', () => {
+            document.getElementById('modalIncubateePhones')?.classList.remove('is-open');
         });
         document.getElementById('kpiCardMembers').addEventListener('click', () => {
             detailFilters.stage = '';

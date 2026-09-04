@@ -140,6 +140,20 @@
             @endif
         </div>
 
+        @if ($user->role === 'incubatee')
+        <div class="account-card">
+            <h2>Login</h2>
+            <p class="account-hint" style="margin-top:0">Your login ID is this 10-digit mobile number. Only the password can be changed.</p>
+            <div class="account-field">
+                <label>Mobile (login ID)</label>
+                <input type="text" value="{{ $user->phone }}" disabled>
+            </div>
+            <div class="account-field">
+                <label>Name</label>
+                <input type="text" value="{{ $user->name }}" disabled>
+            </div>
+        </div>
+        @else
         <div class="account-card">
             <h2>Profile &amp; contact</h2>
             <form method="post" action="{{ route('account.settings.profile.update') }}">
@@ -171,6 +185,7 @@
                 </div>
             </form>
         </div>
+        @endif
 
         <div class="account-card">
             <h2>Password</h2>

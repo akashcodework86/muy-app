@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\HomestaySurveyResponse;
 use App\Services\AppSettingsService;
+use App\Services\Exports\HomestaySurveyAnalysisWorkbookService;
 use App\Support\SimpleXlsxWriter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -163,6 +164,14 @@ class HomestaySurveyAdminController extends Controller
         (new SimpleXlsxWriter)->addSheet('Responses', $data)->save($tmp);
 
         return response()->download($tmp, 'homestay-survey-responses-'.now()->format('Ymd_His').'.xlsx')->deleteFileAfterSend(true);
+    }
+
+    public function analysisExport(Request $request, HomestaySurveyAnalysisWorkbookService $workbook): BinaryFileResponse
+    {
+        $filters = $this->filtersFrom($request);
+        $rows = $this->filteredQuery($filters)->orderBy('id')->get();
+
+        return $workbook->download($rows, $filters);
     }
 
     /**

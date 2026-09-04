@@ -21,6 +21,7 @@ use App\Support\FundingSchematicPartnersOutreachDeliverablesSupport;
 use App\Support\CapacityBuildingStakeholdersDeliverablesSupport;
 use App\Support\StakeholderConsultationWorkshopDeliverablesSupport;
 use App\Support\LineDepartmentMeetingDeliverablesSupport;
+use App\Support\MentorshipOnlinePortalDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
 use App\Support\MarketLinkageUnifiedListingSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
@@ -106,6 +107,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'capacity_building_stakeholder_sessions' => $this->capacityBuildingStakeholderSessionsBreakdown(),
             'stakeholder_consultation_workshop_sessions' => $this->stakeholderConsultationWorkshopSessionsBreakdown(),
             'line_department_meeting_sessions' => $this->lineDepartmentMeetingSessionsBreakdown(),
+            'mentorship_online_portal_unique' => $this->mentorshipOnlinePortalUniqueBreakdown(),
             'reap_support_services' => $this->reapSupportServicesBreakdown(),
             'pitch_deck_preparations' => $this->pitchDeckPreparationsBreakdown(),
             'pitch_deck_combined' => $this->pitchDeckCombinedBreakdown(),
@@ -1450,6 +1452,24 @@ class ProgramDeliverablesAchievementBreakdownService
     /**
      * @return array<string, mixed>
      */
+    private function mentorshipOnlinePortalUniqueBreakdown(): array
+    {
+        $data = MentorshipOnlinePortalDeliverablesSupport::uniqueIncubateesBreakdown(
+            $this->periodFrom,
+            $this->periodTo,
+            $this->districtIds,
+        );
+
+        return [
+            'total' => (int) ($data['total'] ?? 0),
+            'by_district' => $data['by_district'] ?? [],
+            'by_hub' => $data['by_hub'] ?? [],
+            'by_month' => $data['by_month'] ?? [],
+            'by_service' => [],
+            'records' => $data['records'] ?? [],
+        ];
+    }
+
     private function reapSupportServicesBreakdown(): array
     {
         return $this->serviceCaseBreakdown(['type' => 'reap_support_services']);
@@ -2082,6 +2102,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'capacity_building_stakeholder_sessions' => '3.4 Capacity building of stakeholders',
             'stakeholder_consultation_workshop_sessions' => '12.1 Stakeholder consultation workshops',
             'line_department_meeting_sessions' => '12.2 Line department meetings',
+            'mentorship_online_portal_unique' => '5.2 Mentorship support through online portal (unique incubatees)',
             'reap_support_services' => 'Support to MUY Incubatee through Reap',
             'schematic_convergence_services' => 'Schematic Convergence service cases',
             'pitch_deck_preparations', 'pitch_deck_combined' => '8.3 Incubatees Pitch Deck Preparation',

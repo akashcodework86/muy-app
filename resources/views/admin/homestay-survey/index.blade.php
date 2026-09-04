@@ -244,6 +244,7 @@
         </div>
         <div class="hs-admin__actions">
             <a class="hs-admin__btn hs-admin__btn--ghost" href="{{ $publicUrl }}" target="_blank" rel="noopener">Open form</a>
+            <a class="hs-admin__btn hs-admin__btn--ghost" href="{{ route('admin.homestay-survey.analysis-export', array_filter($filters)) }}">Analysis Excel</a>
             <a class="hs-admin__btn" href="{{ route('admin.homestay-survey.export', array_filter($filters)) }}">Export</a>
         </div>
     </div>

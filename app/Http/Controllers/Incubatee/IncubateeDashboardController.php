@@ -55,9 +55,13 @@ class IncubateeDashboardController extends Controller
             : ($user->email ?? '—');
 
         $membership = $submission->onboardingBatchMembership;
-        $firstMentorshipAt = MentorshipRequest::query()
+        $mentorshipRequests = MentorshipRequest::query()
             ->where('cfa_submission_id', $submission->id)
-            ->min('created_at');
+            ->with('session')
+            ->latest('id')
+            ->limit(20)
+            ->get();
+        $firstMentorshipAt = $mentorshipRequests->min('created_at');
         $mentorshipCount = MentorshipRequest::query()
             ->where('cfa_submission_id', $submission->id)
             ->count();
@@ -132,6 +136,7 @@ class IncubateeDashboardController extends Controller
             'serviceCasesTotalCount' => $cases->count(),
             'journey' => $journey,
             'mentorshipCount' => $mentorshipCount,
+            'mentorshipRequests' => $mentorshipRequests,
         ]);
     }
 

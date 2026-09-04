@@ -81,6 +81,7 @@ use App\Http\Controllers\MarketingPartnerOutreachController;
 use App\Http\Controllers\MarketLinkageController;
 use App\Http\Controllers\MediaCampaignController;
 use App\Http\Controllers\MediaCampaignLandingController;
+use App\Http\Controllers\MentorshipRequestStaffController;
 use App\Http\Controllers\MuyNewsletterController;
 use App\Http\Controllers\MuyNewsletterLandingController;
 use App\Http\Controllers\NotificationController;
@@ -213,6 +214,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('mentorship-requests', [MentorshipRequestController::class, 'store'])
             ->middleware('throttle:15,1')
             ->name('mentorship-requests.store');
+        Route::post('mentorship-requests/{mentorshipRequest}/cancel', [MentorshipRequestController::class, 'cancel'])
+            ->middleware('throttle:15,1')
+            ->name('mentorship-requests.cancel');
     });
 
     Route::middleware('training_package_month_plan_manager')
@@ -543,6 +547,19 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'show'])->name('line-department-meetings.show');
         Route::get('line-department-meetings/{ldmMeeting}/attachment', [LineDepartmentMeetingController::class, 'downloadAttachment'])
             ->name('line-department-meetings.attachment');
+
+        Route::get('mentorship-requests/dashboard', [MentorshipRequestStaffController::class, 'dashboard'])->name('mentorship-requests.dashboard');
+        Route::get('mentorship-requests/export', [MentorshipRequestStaffController::class, 'export'])->name('mentorship-requests.export');
+        Route::get('mentorship-requests/schedule', [MentorshipRequestStaffController::class, 'scheduleForm'])->name('mentorship-requests.schedule');
+        Route::post('mentorship-requests/schedule', [MentorshipRequestStaffController::class, 'scheduleStore'])
+            ->middleware('throttle:30,1')
+            ->name('mentorship-requests.schedule.store');
+        Route::get('mentorship-requests/sessions/{mentorshipSession}/complete', [MentorshipRequestStaffController::class, 'completeForm'])->name('mentorship-requests.complete');
+        Route::post('mentorship-requests/sessions/{mentorshipSession}/complete', [MentorshipRequestStaffController::class, 'completeStore'])
+            ->middleware('throttle:30,1')
+            ->name('mentorship-requests.complete.store');
+        Route::get('mentorship-requests/sessions/{mentorshipSession}/proof', [MentorshipRequestStaffController::class, 'proof'])->name('mentorship-requests.proof');
+        Route::get('mentorship-requests/{mentorshipRequest}', [MentorshipRequestStaffController::class, 'show'])->name('mentorship-requests.show');
 
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
         Route::get('batches/legacy/{legacy_batch}', [BatchReadOnlyController::class, 'showLegacy'])
@@ -903,6 +920,19 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('line-department-meetings/{ldmMeeting}/attachment', [LineDepartmentMeetingController::class, 'downloadAttachment'])
             ->name('line-department-meetings.attachment');
 
+        Route::get('mentorship-requests/dashboard', [MentorshipRequestStaffController::class, 'dashboard'])->name('mentorship-requests.dashboard');
+        Route::get('mentorship-requests/export', [MentorshipRequestStaffController::class, 'export'])->name('mentorship-requests.export');
+        Route::get('mentorship-requests/schedule', [MentorshipRequestStaffController::class, 'scheduleForm'])->name('mentorship-requests.schedule');
+        Route::post('mentorship-requests/schedule', [MentorshipRequestStaffController::class, 'scheduleStore'])
+            ->middleware('throttle:30,1')
+            ->name('mentorship-requests.schedule.store');
+        Route::get('mentorship-requests/sessions/{mentorshipSession}/complete', [MentorshipRequestStaffController::class, 'completeForm'])->name('mentorship-requests.complete');
+        Route::post('mentorship-requests/sessions/{mentorshipSession}/complete', [MentorshipRequestStaffController::class, 'completeStore'])
+            ->middleware('throttle:30,1')
+            ->name('mentorship-requests.complete.store');
+        Route::get('mentorship-requests/sessions/{mentorshipSession}/proof', [MentorshipRequestStaffController::class, 'proof'])->name('mentorship-requests.proof');
+        Route::get('mentorship-requests/{mentorshipRequest}', [MentorshipRequestStaffController::class, 'show'])->name('mentorship-requests.show');
+
         Route::get('pitch-deck-preparations/incubatees/search', [PitchDeckPreparationController::class, 'searchIncubatees'])
             ->name('pitch-deck-preparations.incubatees.search');
         Route::get('pitch-deck-preparations/create', [PitchDeckPreparationController::class, 'create'])->name('pitch-deck-preparations.create');
@@ -1012,6 +1042,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('homestay-survey', [HomestaySurveyAdminController::class, 'index'])->name('homestay-survey.index');
         Route::get('homestay-survey/export', [HomestaySurveyAdminController::class, 'export'])->name('homestay-survey.export');
+        Route::get('homestay-survey/analysis-export', [HomestaySurveyAdminController::class, 'analysisExport'])->name('homestay-survey.analysis-export');
         Route::post('homestay-survey/prefill-lock', [HomestaySurveyAdminController::class, 'updatePrefillLock'])
             ->middleware('throttle:30,1')
             ->name('homestay-survey.prefill-lock');
@@ -1354,6 +1385,19 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('line-department-meetings/{ldmMeeting}/attachment', [LineDepartmentMeetingController::class, 'downloadAttachment'])
             ->name('line-department-meetings.attachment');
 
+        Route::get('mentorship-requests/dashboard', [MentorshipRequestStaffController::class, 'dashboard'])->name('mentorship-requests.dashboard');
+        Route::get('mentorship-requests/export', [MentorshipRequestStaffController::class, 'export'])->name('mentorship-requests.export');
+        Route::get('mentorship-requests/schedule', [MentorshipRequestStaffController::class, 'scheduleForm'])->name('mentorship-requests.schedule');
+        Route::post('mentorship-requests/schedule', [MentorshipRequestStaffController::class, 'scheduleStore'])
+            ->middleware('throttle:30,1')
+            ->name('mentorship-requests.schedule.store');
+        Route::get('mentorship-requests/sessions/{mentorshipSession}/complete', [MentorshipRequestStaffController::class, 'completeForm'])->name('mentorship-requests.complete');
+        Route::post('mentorship-requests/sessions/{mentorshipSession}/complete', [MentorshipRequestStaffController::class, 'completeStore'])
+            ->middleware('throttle:30,1')
+            ->name('mentorship-requests.complete.store');
+        Route::get('mentorship-requests/sessions/{mentorshipSession}/proof', [MentorshipRequestStaffController::class, 'proof'])->name('mentorship-requests.proof');
+        Route::get('mentorship-requests/{mentorshipRequest}', [MentorshipRequestStaffController::class, 'show'])->name('mentorship-requests.show');
+
         Route::get('pitch-deck-preparations/dashboard', [PitchDeckPreparationController::class, 'dashboard'])->name('pitch-deck-preparations.dashboard');
         Route::get('pitch-deck-preparations', PitchDeckPreparationLandingController::class)->name('pitch-deck-preparations.index');
         Route::get('pitch-deck-preparations/export', [PitchDeckPreparationController::class, 'export'])->name('pitch-deck-preparations.export');
@@ -1488,6 +1532,20 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('line-department-meetings/{ldmMeeting}', [LineDepartmentMeetingController::class, 'show'])->name('line-department-meetings.show');
         Route::get('line-department-meetings/{ldmMeeting}/attachment', [LineDepartmentMeetingController::class, 'downloadAttachment'])
             ->name('line-department-meetings.attachment');
+
+        Route::get('mentorship-requests/dashboard', [MentorshipRequestStaffController::class, 'dashboard'])->name('mentorship-requests.dashboard');
+        Route::get('mentorship-requests/export', [MentorshipRequestStaffController::class, 'export'])->name('mentorship-requests.export');
+        Route::get('mentorship-requests/schedule', [MentorshipRequestStaffController::class, 'scheduleForm'])->name('mentorship-requests.schedule');
+        Route::post('mentorship-requests/schedule', [MentorshipRequestStaffController::class, 'scheduleStore'])
+            ->middleware('throttle:30,1')
+            ->name('mentorship-requests.schedule.store');
+        Route::get('mentorship-requests/sessions/{mentorshipSession}/complete', [MentorshipRequestStaffController::class, 'completeForm'])->name('mentorship-requests.complete');
+        Route::post('mentorship-requests/sessions/{mentorshipSession}/complete', [MentorshipRequestStaffController::class, 'completeStore'])
+            ->middleware('throttle:30,1')
+            ->name('mentorship-requests.complete.store');
+        Route::get('mentorship-requests/sessions/{mentorshipSession}/proof', [MentorshipRequestStaffController::class, 'proof'])->name('mentorship-requests.proof');
+        Route::get('mentorship-requests/{mentorshipRequest}', [MentorshipRequestStaffController::class, 'show'])->name('mentorship-requests.show');
+
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
         Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');

@@ -2550,6 +2550,7 @@
                                 <div class="hero-today__head"><i class="fa-solid fa-handshake" aria-hidden="true"></i> Mentorship</div>
                                 <div class="hero-today__value">{{ number_format((int) ($heroMentorshipPending ?? 0)) }}</div>
                                 <span class="hero-today__delta">pending in district</span>
+                                <a href="{{ route('staff.mentorship-requests.dashboard', ['status' => 'pending']) }}" style="font-size:0.62rem;font-weight:700;color:#be185d;text-decoration:none;margin-top:0.2rem">Open requests</a>
                             </div>
                             <div class="hero-today hero-today--online">
                                 <div class="hero-today__head"><i class="fa-solid fa-signal" aria-hidden="true"></i> Online now</div>

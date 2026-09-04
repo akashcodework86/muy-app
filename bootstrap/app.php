@@ -55,9 +55,9 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->routeIs('login') && $request->isMethod('post')) {
                 return redirect()
                     ->route('login')
-                    ->withInput($request->only('email'))
+                    ->withInput($request->only('login', 'email'))
                     ->withErrors([
-                        'email' => 'Session expired. Refresh this page, then log in again.',
+                        'login' => 'Session expired. Refresh this page, then log in again.',
                     ]);
             }
 

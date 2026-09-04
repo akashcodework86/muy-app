@@ -17,6 +17,7 @@ use App\Models\OnboardingBatchEditRequest;
 use App\Models\User;
 use App\Notifications\HubBatchUnlockRequestedNotification;
 use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
+use App\Support\IncubateeLoginPhone;
 use App\Support\TodayOnlyDate;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -275,7 +276,7 @@ class HubBatchService
         $blockedExempt = in_array($action, [
             'dashboard_stats', 'pool_list', 'draft_members', 'batches_list', 'later_list',
             'lock_batch', 'cancel_draft', 'remove_from_draft', 'add_to_draft',
-            'provision_incubatees', 'request_unlock', 'relock_batch', 'batch_detail',
+            'provision_incubatees', 'provision_one_incubatee', 'save_incubatee_login_phone', 'request_unlock', 'relock_batch', 'batch_detail',
             'edit_batch', 'delete_batch',
         ], true);
 
@@ -307,6 +308,8 @@ class HubBatchService
             'restore_later' => $this->restoreLater($hubId, $user, $districtIds, $input),
             'undo_reject' => $this->undoReject($hubId, $user, $districtIds, $input),
             'provision_incubatees' => $this->provisionIncubatees($hubId, $input),
+            'provision_one_incubatee' => $this->provisionOneIncubatee($hubId, $input),
+            'save_incubatee_login_phone' => $this->saveIncubateeLoginPhone($hubId, $input),
             default => ['ok' => false, 'error' => 'Unknown action'],
         };
     }
@@ -339,6 +342,108 @@ class HubBatchService
         }
 
         return ['ok' => true, 'data' => $result];
+    }
+
+    /**
+     * Leftover row: save a new mobile on the member list, then create that one login.
+     *
+     * @return array{ok: bool, error?: string, data?: array<string, mixed>}
+     */
+    private function provisionOneIncubatee(int $hubId, array $input): array
+    {
+        $batchId = (int) ($input['batch_id'] ?? 0);
+        $cfaId = (int) ($input['cfa_id'] ?? 0);
+        $phone = (string) ($input['phone'] ?? '');
+        if ($batchId <= 0 || $cfaId <= 0) {
+            return ['ok' => false, 'error' => 'batch_id and cfa_id required'];
+        }
+
+        $batch = OnboardingBatch::query()->find($batchId);
+        if ($batch === null || (int) $batch->hub_id !== $hubId) {
+            return ['ok' => false, 'error' => 'Batch not found'];
+        }
+        if (! $batch->isLocked()) {
+            return ['ok' => false, 'error' => 'Lock the batch first, then create incubatee portal accounts.'];
+        }
+
+        $inBatch = OnboardingBatchCfa::query()
+            ->where('onboarding_batch_id', $batchId)
+            ->where('cfa_submission_id', $cfaId)
+            ->exists();
+        if (! $inBatch) {
+            return ['ok' => false, 'error' => 'This incubatee is not in the locked batch.'];
+        }
+
+        $submission = CfaSubmission::query()->find($cfaId);
+        if ($submission === null) {
+            return ['ok' => false, 'error' => 'CFA not found'];
+        }
+
+        $service = app(IncubateeProvisioningService::class);
+        try {
+            if (trim($phone) !== '') {
+                $service->saveLoginPhone($submission, $phone);
+                $submission = $submission->fresh();
+            }
+            $result = $service->provisionOneInBatch($batchId, $cfaId);
+        } catch (\InvalidArgumentException $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        $status = (string) ($result['status'] ?? '');
+        if ($status === 'missing') {
+            return ['ok' => false, 'error' => 'Enter a 10-digit mobile number on this row, then click Create login.'];
+        }
+        if ($status === 'duplicate') {
+            $usedBy = (string) (($result['row']['used_by'] ?? '') ?: 'another incubatee');
+
+            return ['ok' => false, 'error' => 'This mobile number is already used by '.$usedBy.'. Enter a different number on this row.'];
+        }
+
+        return ['ok' => true, 'data' => [
+            'status' => $status,
+            'cfa_id' => $cfaId,
+            'phone' => IncubateeLoginPhone::normalize($submission?->phone),
+        ]];
+    }
+
+    /**
+     * @return array{ok: bool, error?: string, data?: array<string, mixed>}
+     */
+    private function saveIncubateeLoginPhone(int $hubId, array $input): array
+    {
+        $batchId = (int) ($input['batch_id'] ?? 0);
+        $cfaId = (int) ($input['cfa_id'] ?? 0);
+        $phone = (string) ($input['phone'] ?? '');
+        if ($batchId <= 0 || $cfaId <= 0) {
+            return ['ok' => false, 'error' => 'batch_id and cfa_id required'];
+        }
+
+        $batch = OnboardingBatch::query()->find($batchId);
+        if ($batch === null || (int) $batch->hub_id !== $hubId) {
+            return ['ok' => false, 'error' => 'Batch not found'];
+        }
+
+        $inBatch = OnboardingBatchCfa::query()
+            ->where('onboarding_batch_id', $batchId)
+            ->where('cfa_submission_id', $cfaId)
+            ->exists();
+        if (! $inBatch) {
+            return ['ok' => false, 'error' => 'This incubatee is not in the locked batch.'];
+        }
+
+        $submission = CfaSubmission::query()->find($cfaId);
+        if ($submission === null) {
+            return ['ok' => false, 'error' => 'CFA not found'];
+        }
+
+        try {
+            $saved = app(IncubateeProvisioningService::class)->saveLoginPhone($submission, $phone);
+        } catch (\InvalidArgumentException $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        return ['ok' => true, 'data' => ['phone' => $saved, 'cfa_id' => $cfaId]];
     }
 
     /**
@@ -1036,21 +1141,57 @@ class HubBatchService
             ->whereIn('id', $cfaIds)
             ->get()
             ->keyBy('id');
-        $userEmails = $cfaIds === [] ? collect() : User::query()
+        $userAccounts = $cfaIds === [] ? collect() : User::query()
             ->where('role', 'incubatee')
             ->whereIn('cfa_submission_id', $cfaIds)
-            ->pluck('email', 'cfa_submission_id');
+            ->get(['email', 'phone', 'cfa_submission_id', 'name'])
+            ->keyBy('cfa_submission_id');
 
-        $members = $members->map(function (array $member) use ($userEmails, $cfaModels): array {
+        $phoneOwners = User::query()
+            ->where('role', 'incubatee')
+            ->whereNotNull('phone')
+            ->where('phone', '!=', '')
+            ->get(['phone', 'cfa_submission_id', 'name']);
+
+        $phoneOwnerMap = [];
+        foreach ($phoneOwners as $owner) {
+            $p = IncubateeLoginPhone::normalize($owner->phone);
+            if ($p !== '' && ! isset($phoneOwnerMap[$p])) {
+                $phoneOwnerMap[$p] = $owner;
+            }
+        }
+
+        $phonesInBatch = [];
+        foreach ($cfaModels as $cfa) {
+            $p = IncubateeLoginPhone::normalize($cfa->phone);
+            if ($p === '') {
+                continue;
+            }
+            $phonesInBatch[$p][] = (int) $cfa->id;
+        }
+
+        $members = $members->map(function (array $member) use ($userAccounts, $cfaModels, $phoneOwnerMap, $phonesInBatch): array {
             $cid = (int) $member['id'];
-            $email = $userEmails[$cid] ?? null;
-            $hasAccount = is_string($email) && $email !== '';
-            $member['incubatee_account_ready'] = $hasAccount;
-            if ($hasAccount) {
-                $member['portal_username'] = $email;
-            } else {
-                $cfa = $cfaModels->get($cid);
-                $member['portal_username'] = $cfa ? IncubateeLoginEmailResolver::forSubmission($cfa) : '';
+            $user = $userAccounts->get($cid);
+            $cfa = $cfaModels->get($cid);
+            $loginPhone = IncubateeLoginPhone::normalize($user?->phone)
+                ?: IncubateeLoginPhone::normalize($cfa?->phone);
+            $hasAccount = $user !== null;
+            $member['incubatee_account_ready'] = $hasAccount && $loginPhone !== '';
+            $member['portal_username'] = $loginPhone;
+            $member['login_password_hint'] = $loginPhone;
+            $member['login_issue'] = null;
+            $member['login_issue_detail'] = null;
+
+            if ($cfa && ! $member['incubatee_account_ready']) {
+                $pending = IncubateeProvisioningService::describePendingIssue(
+                    $cfa,
+                    $user,
+                    $phoneOwnerMap,
+                    $phonesInBatch,
+                );
+                $member['login_issue'] = $pending['issue'];
+                $member['login_issue_detail'] = $pending['detail'];
             }
 
             return $member;
@@ -1095,7 +1236,6 @@ class HubBatchService
                 'target_size' => (int) $batch->target_size,
                 'onboarding_date' => optional($batch->onboarding_date)->toDateString(),
                 'locked_at' => $batch->locked_at?->toIso8601String(),
-                'incubatee_default_password' => (string) config('incubatee.default_password', ''),
             ],
             'summary' => [
                 'members_count' => $members->count(),

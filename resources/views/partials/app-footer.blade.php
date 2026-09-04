@@ -25,7 +25,7 @@
                     <a href="{{ url('/dashboard') }}">Dashboard</a>
                     <a href="{{ route('notifications.index') }}">Notifications</a>
                     <a href="{{ route('account.settings.edit') }}">Settings</a>
-                @else
+                @elseif (empty($hideGuestLogin))
                     <a href="{{ route('login') }}">Log in</a>
                 @endif
             </nav>

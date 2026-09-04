@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Log in — Welcome to MIS</title>
+    <title>@yield('title', 'Log in — Welcome to MIS')</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
@@ -326,7 +326,8 @@
         }
         .muy-card input[type="email"],
         .muy-card input[type="password"],
-        .muy-card input[type="text"] {
+        .muy-card input[type="text"],
+        .muy-card input[type="tel"] {
             width: 100%;
             min-height: 2.4rem;
             padding: 0.5rem 0.75rem;
@@ -451,7 +452,7 @@
         </header>
 
         <div class="muy-hero__center">
-            <span class="muy-hero__eyebrow">Incubation Support Platform</span>
+            <span class="muy-hero__eyebrow">@yield('eyebrow', 'Incubation Support Platform')</span>
             <h2 class="muy-hero__title">
                 Helping Uttarakhand's <em>founders &amp; entrepreneurs</em> turn ideas into real businesses.
             </h2>
@@ -517,43 +518,7 @@
 
     <section class="muy-form-wrap">
         <div class="muy-card">
-            <h1>Welcome back</h1>
-            <p class="muy-card__lead">Sign in to your MUY account.</p>
-
-            @if ($errors->any())
-                <div class="muy-error" role="alert">{{ $errors->first() }}</div>
-            @endif
-
-            <form method="post" action="{{ route('login') }}">
-                @csrf
-                <label for="login">Email or mobile</label>
-                <input id="login" name="login" type="text" value="{{ old('login') }}" required autocomplete="username" autofocus placeholder="Staff email or 10-digit mobile">
-
-                <label for="password">Password</label>
-                <div class="app-auth-password-wrap">
-                    <input id="password" name="password" type="password" required autocomplete="current-password">
-                    <button class="app-auth-password-toggle" type="button" data-toggle-password aria-label="Show password" title="Show password" aria-pressed="false">
-                        <span class="app-auth-sr-only">Show password</span>
-                        <svg data-icon-eye viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M2.2 12.1c2.3-4.8 6-7.1 9.8-7.1s7.5 2.3 9.8 7.1c.1.3.1.6 0 .8-2.3 4.8-6 7.1-9.8 7.1s-7.5-2.3-9.8-7.1a1 1 0 0 1 0-.8Z" stroke="currentColor" stroke-width="1.8" />
-                            <path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="1.8" />
-                        </svg>
-                        <svg data-icon-eye-off viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none">
-                            <path d="M9.9 4.6A10 10 0 0 1 12 4c3.8 0 7.5 2.3 9.8 7.1.1.3.1.6 0 .8a15.8 15.8 0 0 1-3.1 4.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                            <path d="M6.1 6.1A15.8 15.8 0 0 0 2.2 12c-.1.3-.1.6 0 .8C4.5 17.6 8.2 20 12 20c1.2 0 2.4-.2 3.5-.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                            <path d="M10.3 10.3a2.5 2.5 0 0 0 3.4 3.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                            <path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="muy-remember">
-                    <input id="remember" name="remember" type="checkbox" value="1">
-                    <label for="remember">Remember me</label>
-                </div>
-
-                <button type="submit" class="muy-btn">Log in</button>
-            </form>
+            @yield('form')
 
             <p class="muy-card__foot">Mukhyamantri Udyamshala Yojana · Government of Uttarakhand</p>
         </div>
@@ -612,6 +577,6 @@
         sync();
     })();
 </script>
-@include('partials.app-footer')
+@include('partials.app-footer', ['hideGuestLogin' => $hideGuestLogin ?? false])
 </body>
 </html>

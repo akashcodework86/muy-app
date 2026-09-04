@@ -16,9 +16,8 @@
     $firstName = trim((string) strtok((string) ($user->name ?? ''), ' ')) ?: 'there';
     $statusStyles = [
         'pending' => ['bg' => '#fef3c7', 'fg' => '#92400e', 'label' => 'Pending'],
-        'in_review' => ['bg' => '#dbeafe', 'fg' => '#1e40af', 'label' => 'In review'],
         'scheduled' => ['bg' => '#e0e7ff', 'fg' => '#3730a3', 'label' => 'Scheduled'],
-        'completed' => ['bg' => '#dcfce7', 'fg' => '#166534', 'label' => 'Completed'],
+        'done' => ['bg' => '#dcfce7', 'fg' => '#166534', 'label' => 'Done'],
         'cancelled' => ['bg' => '#fee2e2', 'fg' => '#991b1b', 'label' => 'Cancelled'],
     ];
 @endphp
@@ -364,6 +363,20 @@
                         </div>
                         @if (filled($r->comment))
                             <div class="mnt-hist__msg">{{ $r->comment }}</div>
+                        @endif
+                        @if ($r->session)
+                            <p style="margin:0.35rem 0 0;font-size:0.8rem;color:#475569">
+                                Session: {{ $r->session->scheduled_at?->format('d M Y, h:i A') }}
+                                @if ($r->session->meeting_link && ! $r->isCancelled())
+                                    · <a href="{{ $r->session->meeting_link }}" target="_blank" rel="noopener">Join meeting</a>
+                                @endif
+                            </p>
+                        @endif
+                        @if ($r->incubateeCanCancel())
+                            <form method="post" action="{{ route('incubatee.mentorship-requests.cancel', $r) }}" style="margin-top:0.5rem" onsubmit="return confirm('Cancel this mentorship request?');">
+                                @csrf
+                                <button type="submit" style="background:none;border:0;color:#b91c1c;font-size:0.78rem;font-weight:600;cursor:pointer;padding:0">Cancel request</button>
+                            </form>
                         @endif
                     </article>
                 @endforeach

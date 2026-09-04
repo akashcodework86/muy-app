@@ -31,6 +31,10 @@ class NeedBasedDeliverablesSupportTest extends TestCase
             'type' => 'deliverable',
             'code' => 'mentorship_online_portal',
         ]));
+        $this->assertTrue(NeedBasedDeliverablesSupport::isNeedBasedRow('', [
+            'type' => 'mentorship_online_portal_unique',
+            'deliverable_code' => 'mentorship_online_portal',
+        ]));
         $this->assertFalse(NeedBasedDeliverablesSupport::isNeedBasedRow('', [
             'type' => 'deliverable',
             'code' => 'gst',

@@ -18,7 +18,7 @@ class EnsureUserIsActive
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
-                'email' => 'This account has been disabled. Contact the administrator.',
+                'login' => 'This account has been disabled. Contact the administrator.',
             ]);
         }
 

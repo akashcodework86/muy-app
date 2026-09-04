@@ -55,6 +55,12 @@ class ProfileController extends Controller
     public function updateProfile(UpdateProfileRequest $request): RedirectResponse
     {
         $user = $request->user();
+        if ($user->role === 'incubatee') {
+            return redirect()
+                ->route('account.settings.edit')
+                ->withErrors(['name' => 'Incubatees can only change their password. Login mobile cannot be edited.']);
+        }
+
         $data = $request->validated();
 
         $emailChanged = $user->email !== $data['email'];

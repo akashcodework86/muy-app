@@ -32,6 +32,7 @@
     $canViewStakeholderConsultationWorkshops = $u && \App\Support\StakeholderConsultationWorkshopAccess::canViewDashboard($u);
     $canSubmitLineDepartmentMeetings = $u && \App\Support\LineDepartmentMeetingAccess::canSubmit($u);
     $canViewLineDepartmentMeetings = $u && \App\Support\LineDepartmentMeetingAccess::canViewDashboard($u);
+    $canViewMentorshipRequests = $u && \App\Support\MentorshipRequestAccess::canViewDashboard($u);
     $canSubmitCommunityOrgOutreach = $u && \App\Support\CommunityOrgOutreachAccess::canSubmit($u);
     $canSubmitPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canSubmit($u);
     $canViewPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canViewDashboard($u);
@@ -297,6 +298,10 @@
         str_starts_with($r, 'staff.line-department-meetings.dashboard') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'staff.line-department-meetings.show') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'admin.line-department-meetings.dashboard') => 'line-department-meetings-dashboard',
+        str_starts_with($r, 'staff.mentorship-requests') => 'mentorship-requests-dashboard',
+        str_starts_with($r, 'hub.mentorship-requests') => 'mentorship-requests-dashboard',
+        str_starts_with($r, 'admin.mentorship-requests') => 'mentorship-requests-dashboard',
+        str_starts_with($r, 'spoc.mentorship-requests') => 'mentorship-requests-dashboard',
         str_starts_with($r, 'admin.line-department-meetings.show') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'admin.line-department-meetings.destroy') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'spoc.pitch-deck-preparations.create') => 'pitch-deck-preparations-submit',
@@ -374,16 +379,16 @@
         || $staffNavDistrictWorkshop;
     $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'onboarded-2025-26', 'staff-batches', 'legacy-data'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
-    $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true);
+    $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true);
     $staffMoreGroupActive = $staffFieldWorkActive || $activeNav === 'documents';
 
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'onboarded-2025-26', 'hub-onboarding-insight'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
-    $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard'], true);
+    $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents', 'legacy-data'], true);
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
-    $spocSynergiesActive = in_array($activeNav, ['stakeholder-consultation-workshops-submit', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard'], true);
+    $spocSynergiesActive = in_array($activeNav, ['stakeholder-consultation-workshops-submit', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard'], true);
     $spocPitchDeckActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true);
     $approvalQueueNavActive = $activeNav === 'approval-queue';
     $spocFundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard', 'demo-days-submit', 'demo-days-dashboard', 'funding-partners-outreach-submit', 'funding-partners-outreach-dashboard'], true);
@@ -642,6 +647,18 @@
                                 </div>
                             </div>
                             @endif
+                    @if ($canViewMentorshipRequests)
+                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('mentor') !!}<span>Mentorship requests (5.2)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('admin.mentorship-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                         </div>
                     </div>
                     @endif
@@ -943,6 +960,18 @@
                         </div>
                     </div>
                     @endif
+                    @if ($canViewMentorshipRequests)
+                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('mentor') !!}<span>Mentorship requests (5.2)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('spoc.mentorship-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </details>
             @endif
@@ -1095,6 +1124,18 @@
                         </div>
                     </div>
                     @endif
+                    @if ($canViewMentorshipRequests)
+                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('mentor') !!}<span>Mentorship requests (5.2)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('hub.mentorship-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                     <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'market-linkage-dashboard') is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('pin') !!}<span>Market linkage</span>
@@ -1242,6 +1283,18 @@
                                 {!! $i('doc') !!}<span>Submit</span>
                             </a>
                             <a href="{{ route('staff.line-department-meetings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'line-department-meetings-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+                    @if ($canViewMentorshipRequests)
+                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('mentor') !!}<span>Mentorship requests (5.2)</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('staff.mentorship-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>View dashboard</span>
                             </a>
                         </div>

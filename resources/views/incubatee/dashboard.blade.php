@@ -560,7 +560,42 @@
     </section>
 
     <section class="inc-panel">
-        <h2 class="inc-panel__h"><span aria-hidden="true">🚀</span> Coming next</h2>
+        <h2 class="inc-panel__h"><span aria-hidden="true">🤝</span> Mentorship requests</h2>
+        @if (($mentorshipRequests ?? collect())->isEmpty())
+            <p style="margin:0;color:#64748b;font-size:0.9rem">No requests yet. Use Request mentorship when you need help.</p>
+        @else
+            <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0.55rem">
+                @foreach ($mentorshipRequests as $mr)
+                    @php
+                        $cat = config('mentorship.categories.'.$mr->category.'.label', $mr->category);
+                    @endphp
+                    <li style="border:1px solid #e2e8f0;border-radius:10px;padding:0.65rem 0.75rem">
+                        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center">
+                            <strong style="font-size:0.85rem">{{ $cat }}</strong>
+                            <span style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b">{{ str_replace('_', ' ', $mr->status) }}</span>
+                        </div>
+                        @if ($mr->session)
+                            <p style="margin:0.3rem 0 0;font-size:0.78rem;color:#475569">
+                                {{ $mr->session->scheduled_at?->format('d M Y, h:i A') }}
+                                @if ($mr->session->meeting_link && $mr->isScheduled())
+                                    · <a href="{{ $mr->session->meeting_link }}" target="_blank" rel="noopener">Join meeting</a>
+                                @endif
+                            </p>
+                        @endif
+                        @if ($mr->incubateeCanCancel())
+                            <form method="post" action="{{ route('incubatee.mentorship-requests.cancel', $mr) }}" style="margin-top:0.4rem" onsubmit="return confirm('Cancel this mentorship request?');">
+                                @csrf
+                                <button type="submit" style="background:none;border:0;color:#b91c1c;font-size:0.75rem;font-weight:600;cursor:pointer;padding:0">Cancel</button>
+                            </form>
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+            <p style="margin:0.75rem 0 0"><a href="{{ route('incubatee.mentorship.index') }}" style="font-size:0.82rem;font-weight:700;color:#3730a3">Open mentorship page</a></p>
+        @endif
+    </section>
+
+    <section class="inc-panel">
         <div class="inc-soon">
             <div class="inc-soon__card">
                 <h3>Product catalogue</h3>

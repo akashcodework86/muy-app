@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Incubatee;
 
 use App\Http\Controllers\Controller;
 use App\Models\MentorshipRequest;
+use App\Models\MentorshipSession;
 use App\Services\ActivityLogger;
 use App\Services\MentorshipRequestNotifier;
 use Illuminate\Http\RedirectResponse;
@@ -23,6 +24,7 @@ class MentorshipRequestController extends Controller
 
         $requests = MentorshipRequest::query()
             ->where('cfa_submission_id', $submission->id)
+            ->with('session')
             ->latest('id')
             ->limit(50)
             ->get();
@@ -79,5 +81,40 @@ class MentorshipRequestController extends Controller
         }
 
         return back()->with('status', 'Your request was saved. No recipients were found in the system — please contact your hub.');
+    }
+
+    public function cancel(Request $request, MentorshipRequest $mentorshipRequest): RedirectResponse
+    {
+        $user = $request->user();
+        $submission = $user->cfaSubmission;
+        if ($submission === null || (int) $mentorshipRequest->cfa_submission_id !== (int) $submission->id) {
+            abort(403);
+        }
+        if (! $mentorshipRequest->incubateeCanCancel()) {
+            return back()->withErrors(['cancel' => 'This request can no longer be cancelled.']);
+        }
+
+        $sessionId = $mentorshipRequest->mentorship_session_id;
+
+        $mentorshipRequest->status = MentorshipRequest::STATUS_CANCELLED;
+        $mentorshipRequest->cancelled_at = now();
+        $mentorshipRequest->cancelled_by_user_id = (int) $user->id;
+        $mentorshipRequest->mentorship_session_id = null;
+        $mentorshipRequest->save();
+
+        if ($sessionId) {
+            $remaining = MentorshipRequest::query()
+                ->where('mentorship_session_id', $sessionId)
+                ->where('status', MentorshipRequest::STATUS_SCHEDULED)
+                ->count();
+            if ($remaining === 0) {
+                MentorshipSession::query()
+                    ->whereKey($sessionId)
+                    ->where('status', MentorshipSession::STATUS_SCHEDULED)
+                    ->delete();
+            }
+        }
+
+        return back()->with('status', 'Your mentorship request was cancelled.');
     }
 }

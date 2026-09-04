@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Support\IncubateeLoginPhone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -19,28 +22,54 @@ class LoginController extends Controller
 
     public function store(Request $request, ActivityLogger $activity): RedirectResponse
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'string', 'email'],
+        $validated = $request->validate([
+            'login' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
+        ], [], [
+            'login' => 'email or mobile',
         ]);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
-            throw ValidationException::withMessages([
-                'email' => 'Invalid email or password.',
-            ]);
+        $login = trim((string) $validated['login']);
+        $password = (string) $validated['password'];
+        $phone = IncubateeLoginPhone::fromInput($login);
+
+        $user = null;
+        if ($phone !== null) {
+            $user = User::query()
+                ->where('role', 'incubatee')
+                ->where('phone', $phone)
+                ->first();
+            if ($user === null || ! Hash::check($password, (string) $user->password)) {
+                throw ValidationException::withMessages([
+                    'login' => 'Invalid mobile number or password.',
+                ]);
+            }
+            Auth::login($user, $request->boolean('remember'));
+        } else {
+            if (! Auth::attempt(['email' => $login, 'password' => $password], $request->boolean('remember'))) {
+                throw ValidationException::withMessages([
+                    'login' => 'Invalid email or password.',
+                ]);
+            }
+            $user = Auth::user();
+            if ($user && $user->role === 'incubatee') {
+                Auth::logout();
+
+                throw ValidationException::withMessages([
+                    'login' => 'Incubatees must log in with their 10-digit mobile number.',
+                ]);
+            }
         }
 
-        if (! Auth::user()->is_active) {
+        if (! $user->is_active) {
             Auth::logout();
 
             throw ValidationException::withMessages([
-                'email' => 'This account has been disabled. Contact the administrator.',
+                'login' => 'This account has been disabled. Contact the administrator.',
             ]);
         }
 
         $request->session()->regenerate();
-
-        $user = Auth::user();
 
         if (in_array($user->role, ['state_admin', 'hub_admin', 'district_staff'], true)) {
             $roleLabel = str_replace('_', ' ', (string) $user->role);

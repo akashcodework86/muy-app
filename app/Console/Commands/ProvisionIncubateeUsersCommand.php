@@ -11,7 +11,7 @@ class ProvisionIncubateeUsersCommand extends Command
                             {--batch-id= : Only CFAs in this onboarding_batches.id (locked member list)}
                             {--dry-run : Show actions without writing}';
 
-    protected $description = 'Create incubatee portal users (login email + default password) for CFA submissions in a locked batch';
+    protected $description = 'Create incubatee portal users (10-digit mobile login; initial password = mobile)';
 
     public function handle(): int
     {
@@ -31,12 +31,15 @@ class ProvisionIncubateeUsersCommand extends Command
             return self::FAILURE;
         }
 
-        $this->info("Done. Created: {$result['created']}, skipped: {$result['skipped']}.");
-        if ($result['placeholder_email_rows'] > 0) {
-            $this->comment("Placeholder login email (no CFA email): {$result['placeholder_email_rows']} row(s). Use -v to list each.");
+        $this->info("Done. Created: {$result['created']}, converted: {$result['converted']}, skipped: {$result['skipped']}.");
+        if ($result['missing_phones'] !== []) {
+            $this->warn('No 10-digit mobile (enter on hub batch screen): '.count($result['missing_phones']).' row(s).');
+        }
+        if ($result['duplicate_phones'] !== []) {
+            $this->warn('Mobile already used (enter a new number on hub batch screen): '.count($result['duplicate_phones']).' row(s).');
         }
         if (! $dry) {
-            $this->comment('Default password is set from INCUBATEE_DEFAULT_PASSWORD / config.');
+            $this->comment('Login ID is the 10-digit mobile. Initial password is the same number until they change it.');
         }
 
         return self::SUCCESS;
