@@ -287,10 +287,17 @@ class MentorshipRequestStaffController extends Controller
 
         abort_unless($mentorshipSession->proof_path && Storage::exists($mentorshipSession->proof_path), 404);
 
-        return Storage::download(
-            $mentorshipSession->proof_path,
-            $mentorshipSession->proof_original_name ?: 'meeting-screenshot.jpg'
-        );
+        $filename = $mentorshipSession->proof_original_name ?: 'meeting-screenshot.jpg';
+        if ($request->boolean('inline')) {
+            $mime = Storage::mimeType($mentorshipSession->proof_path) ?: 'image/jpeg';
+
+            return Storage::response($mentorshipSession->proof_path, $filename, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'private, max-age=3600',
+            ], 'inline');
+        }
+
+        return Storage::download($mentorshipSession->proof_path, $filename);
     }
 
     private function scopedQuery(User $user): Builder

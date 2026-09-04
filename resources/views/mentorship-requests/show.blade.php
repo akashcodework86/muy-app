@@ -82,6 +82,9 @@
                     @endforeach
                 </ul>
                 @if ($session->isDone() && $session->proof_path)
+                    <p class="mr-card__h" style="margin:1rem 0 0">Meeting screenshot</p>
+                    @include('mentorship-requests.partials.proof-thumb', ['session' => $session, 'proofRoute' => $proofRoute, 'large' => true])
+                    <p class="mr-proof-caption">Click to open full size</p>
                     <div class="mr-actions">
                         <a class="mr-btn mr-btn--ghost" href="{{ route($proofRoute, $session) }}">Download screenshot</a>
                     </div>

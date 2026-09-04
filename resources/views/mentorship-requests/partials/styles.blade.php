@@ -139,4 +139,12 @@
     .ldm-list-table a.mr-link:hover { background:#e0e7ff; }
     .mr-name { font-weight:700; color:#0f172a; }
     .mr-muted { color:#64748b; font-size:.75rem; }
+    .mr-proof-thumb {
+        display:inline-block; margin-top:.4rem;
+        width:48px; height:48px; border-radius:8px; overflow:hidden;
+        border:1px solid #c7d2fe; background:#eef2ff; vertical-align:middle;
+    }
+    .mr-proof-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .mr-proof-thumb--lg { width:148px; height:148px; margin-top:.7rem; }
+    .mr-proof-caption { margin:.4rem 0 0; font-size:.72rem; color:#64748b; font-weight:600; }
 </style>

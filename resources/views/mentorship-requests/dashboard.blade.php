@@ -13,6 +13,7 @@
     $scheduleRoute = $prefix.'mentorship-requests.schedule';
     $dashRoute = $prefix.'mentorship-requests.dashboard';
     $exportRoute = $prefix.'mentorship-requests.export';
+    $proofRoute = $prefix.'mentorship-requests.proof';
     $filterQuery = collect(request()->query())->except('page')->all();
     $statUrl = function (array $overrides = []) use ($dashRoute, $filterQuery): string {
         $merged = array_merge($filterQuery, $overrides);
@@ -217,6 +218,7 @@
                                 @if ($row->done_at)
                                     <div class="mr-muted">Done {{ $row->done_at->format('d M Y') }}</div>
                                 @endif
+                                @include('mentorship-requests.partials.proof-thumb', ['session' => $row->session, 'proofRoute' => $proofRoute])
                             </td>
                             <td><a class="mr-link" href="{{ route($showRoute, $row) }}">Open</a></td>
                         </tr>

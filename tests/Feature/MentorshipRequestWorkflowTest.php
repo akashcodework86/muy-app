@@ -10,6 +10,7 @@ use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\MentorshipRequest;
 use App\Models\User;
+use App\Services\Deliverables\ProgramDeliverablesAchievementBreakdownService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Services\MisMonthlyTargetIndicatorBootstrapService;
@@ -113,6 +114,67 @@ class MentorshipRequestWorkflowTest extends TestCase
         $report = app(ProgramDeliverablesReportService::class)->build($filter, ProgramDeliverablesScope::forUser($admin));
         $row = collect($report['rows'])->firstWhere('serial', '5.2');
         $this->assertSame(1, (int) $row['achievement']);
+    }
+
+    public function test_5_2_breakdown_records_include_reference_service_and_date(): void
+    {
+        Storage::fake();
+        [$im, $district, $cfaA] = $this->seedImAndOneIncubatee();
+        $first = $this->makeRequest($cfaA, $im, 'financial');
+        $this->actingAs($im)->post(route('staff.mentorship-requests.schedule.store'), [
+            'ids' => [$first->id],
+            'scheduled_at' => now()->format('Y-m-d\TH:i'),
+        ]);
+        $this->actingAs($im)->post(route('staff.mentorship-requests.complete.store', $first->fresh()->session), [
+            'proof' => UploadedFile::fake()->image('one.jpg'),
+        ]);
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)
+            ->build($filter, ProgramDeliverablesScope::forUser($admin), '5.2');
+
+        $this->assertSame(1, (int) ($breakdown['total'] ?? 0));
+        $record = $breakdown['records'][0] ?? [];
+        $this->assertSame('APP-A', $record['reference'] ?? null);
+        $this->assertSame('Priya Sharma', $record['applicant'] ?? null);
+        $this->assertSame('Financial', $record['service'] ?? null);
+        $this->assertNotSame('', (string) ($record['date'] ?? ''));
+        $this->assertNotSame('undefined', (string) ($record['date'] ?? ''));
+    }
+
+    public function test_staff_can_view_meeting_screenshot_inline(): void
+    {
+        Storage::fake();
+        [$im, $district, $cfaA] = $this->seedImAndOneIncubatee();
+        $req = $this->makeRequest($cfaA, $im);
+        $this->actingAs($im)->post(route('staff.mentorship-requests.schedule.store'), [
+            'ids' => [$req->id],
+            'scheduled_at' => now()->format('Y-m-d\TH:i'),
+        ]);
+        $this->actingAs($im)->post(route('staff.mentorship-requests.complete.store', $req->fresh()->session), [
+            'proof' => UploadedFile::fake()->image('meeting.jpg'),
+        ]);
+
+        $session = $req->fresh()->session;
+        $this->actingAs($im)
+            ->get(route('staff.mentorship-requests.proof', ['mentorshipSession' => $session, 'inline' => 1]))
+            ->assertOk();
+
+        $this->actingAs($im)
+            ->get(route('staff.mentorship-requests.show', $req->fresh()))
+            ->assertOk()
+            ->assertSee('Meeting screenshot', false)
+            ->assertSee('inline=1', false);
     }
 
     public function test_non_im_district_staff_can_view_but_not_schedule(): void

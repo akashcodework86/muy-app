@@ -95,6 +95,7 @@ final class MentorshipOnlinePortalDeliverablesSupport
         $byHub = [];
         $byMonth = [];
         $records = [];
+        $categories = config('mentorship.categories', []);
 
         foreach ($unique as $row) {
             $district = trim((string) ($row->district_name ?? '')) ?: '—';
@@ -102,6 +103,13 @@ final class MentorshipOnlinePortalDeliverablesSupport
             $doneAt = $row->done_at ? Carbon::parse($row->done_at) : null;
             $monthKey = $doneAt ? $doneAt->format('Y-m') : '';
             $monthLabel = $doneAt ? $doneAt->format('M Y') : '—';
+            $categorySlug = (string) ($row->category ?? '');
+            $categoryLabel = (string) ($categories[$categorySlug]['label'] ?? '');
+            if ($categoryLabel === '') {
+                $categoryLabel = $categorySlug !== ''
+                    ? ucfirst(str_replace('_', ' ', $categorySlug))
+                    : 'Online mentorship';
+            }
 
             $byDistrict[$district] = ($byDistrict[$district] ?? ['district' => $district, 'hub' => $hub, 'count' => 0]) ;
             $byDistrict[$district]['count']++;
@@ -113,10 +121,14 @@ final class MentorshipOnlinePortalDeliverablesSupport
             }
 
             $records[] = [
+                'id' => (int) $row->id,
+                'reference' => (string) ($row->application_no ?: '—'),
                 'applicant' => (string) ($row->applicant_name ?? '—'),
-                'application_no' => (string) ($row->application_no ?? '—'),
                 'district' => $district,
                 'hub' => $hub,
+                'service' => $categoryLabel,
+                'date' => $doneAt?->format('d M Y') ?? '—',
+                'application_no' => (string) ($row->application_no ?? '—'),
                 'category' => (string) ($row->category ?? ''),
                 'done_on' => $doneAt?->format('d M Y') ?? '—',
             ];
