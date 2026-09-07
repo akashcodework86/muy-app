@@ -428,6 +428,9 @@ class DeliverablesReportController extends Controller
             'cumulativeThroughLabel' => $safeFilter->hasExplicitDateFilter()
                 ? ($safeFilter->cumulativeThroughLabel($report['fiscalYear']) ?? 'cumulative')
                 : null,
+            'cumulativeQueryParams' => $safeFilter->hasExplicitDateFilter()
+                ? (object) $safeFilter->toCumulativeThroughPeriodEnd($report['fiscalYear'])->queryParams()
+                : (object) [],
             'hubs' => $scope->hubsForDropdown(),
             'canPickHub' => $scope->canPickHub(),
             'districts' => $scope->districtsForDropdown(),

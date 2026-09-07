@@ -35,12 +35,16 @@ class DeliverablesBreakdownCsvExport
             fputcsv($out, ['Source', $breakdown['source_type_label'] ?? '']);
             fputcsv($out, []);
 
-            fputcsv($out, ['District', 'Hub', 'Count', 'Share %']);
+            fputcsv($out, ['District', 'Hub', 'Target', 'Achievement', 'Achievement %', 'Share %']);
             foreach ($breakdown['by_district'] ?? [] as $item) {
+                $target = $item['target'] ?? null;
+                $achievementPct = $item['achievement_pct'] ?? null;
                 fputcsv($out, [
                     $item['district'] ?? '',
                     $item['hub'] ?? '',
-                    (int) ($item['count'] ?? 0),
+                    $target !== null && $target !== '' ? (int) $target : '',
+                    (int) ($item['achievement'] ?? $item['count'] ?? 0),
+                    $achievementPct !== null ? ((int) $achievementPct).'%' : '',
                     ((int) ($item['share_pct'] ?? 0)).'%',
                 ]);
             }

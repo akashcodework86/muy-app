@@ -4,6 +4,8 @@ namespace App\Services\Deliverables;
 
 use App\Models\Deliverable;
 use App\Models\District;
+use App\Models\DistrictDeliverableTarget;
+use App\Models\DistrictMonthlyTarget;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\FiscalYear;
 use App\Models\MarketLinkageSubmission;
@@ -11,6 +13,7 @@ use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Services\MarketLinkagePartnerCatalogService;
+use App\Services\OfficialMonthlyTargetsReportService;
 use App\Services\ServiceTargetDeliverableSyncService;
 use App\Support\MarketingPartnerOnboardedCombinedDeliverablesSupport;
 use App\Support\MarketingPartnerOutreachDeliverablesSupport;
@@ -50,6 +53,7 @@ class ProgramDeliverablesAchievementBreakdownService
         private readonly ServiceTargetDeliverableSyncService $serviceTargetDeliverables,
         private readonly LegacyApplicationServiceCaseSupport $legacyServiceCases,
         private readonly MarketLinkagePartnerCatalogService $marketLinkagePartners,
+        private readonly OfficialMonthlyTargetsReportService $officialMonthlyTargets,
     ) {}
 
     /** @var array<int, ?District> */
@@ -115,7 +119,7 @@ class ProgramDeliverablesAchievementBreakdownService
         };
 
         $total = (int) ($breakdown['total'] ?? 0);
-        $byDistrict = $breakdown['by_district'] ?? [];
+        $byDistrict = $this->enrichDistrictRowsWithTargets($breakdown['by_district'] ?? [], $source, $total);
         $byMonth = $breakdown['by_month'] ?? [];
 
         $sourceTypeLabel = $this->sourceTypeLabel($sourceType, $source);
@@ -1838,6 +1842,274 @@ class ProgramDeliverablesAchievementBreakdownService
                 'count' => $count,
                 'share_pct' => $total > 0 ? (int) round(($count / $total) * 100) : 0,
             ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Attach period-matched district targets to achievement rows, and include
+     * districts that have a target but zero achievement.
+     *
+     * @param  list<array<string, mixed>>  $byDistrict
+     * @param  array<string, mixed>  $source
+     * @return list<array<string, mixed>>
+     */
+    private function enrichDistrictRowsWithTargets(array $byDistrict, array $source, int $total): array
+    {
+        $targetsByDistrictId = $this->districtTargetsForSource($source);
+        $districts = $this->districtsForTargetMerge($targetsByDistrictId);
+
+        $achievementByName = [];
+        foreach ($byDistrict as $row) {
+            $name = trim((string) ($row['district'] ?? ''));
+            if ($name !== '') {
+                $achievementByName[$name] = $row;
+            }
+        }
+
+        $coveredNames = [];
+        $out = [];
+        foreach ($districts as $district) {
+            $name = (string) $district->name;
+            $coveredNames[$name] = true;
+            $existing = $achievementByName[$name] ?? null;
+            $achievement = (int) ($existing['count'] ?? 0);
+            $target = $targetsByDistrictId[(int) $district->id] ?? null;
+            if ($achievement <= 0 && (int) ($target ?? 0) <= 0) {
+                continue;
+            }
+
+            $out[] = $this->districtBifurcationRow(
+                $name,
+                (string) ($existing['hub'] ?? $district->hub?->name ?: '—'),
+                $target,
+                $achievement,
+                $total,
+            );
+        }
+
+        foreach ($byDistrict as $row) {
+            $name = trim((string) ($row['district'] ?? ''));
+            if ($name === '' || isset($coveredNames[$name])) {
+                continue;
+            }
+            $out[] = $this->districtBifurcationRow(
+                $name,
+                (string) ($row['hub'] ?? '—'),
+                null,
+                (int) ($row['count'] ?? 0),
+                $total,
+            );
+        }
+
+        usort(
+            $out,
+            fn (array $a, array $b): int => ((int) $b['count'] <=> (int) $a['count'])
+                ?: strcmp((string) $a['district'], (string) $b['district']),
+        );
+
+        return $out;
+    }
+
+    /**
+     * @param  array<int, int>  $targetsByDistrictId
+     * @return Collection<int, District>
+     */
+    private function districtsForTargetMerge(array $targetsByDistrictId): Collection
+    {
+        $ids = $this->districtIds ?? array_keys($targetsByDistrictId);
+        if ($ids === [] || ($this->districtIds === null && $targetsByDistrictId === [])) {
+            return collect();
+        }
+
+        return District::query()
+            ->with('hub:id,name')
+            ->whereIn('id', $ids)
+            ->orderBy('name')
+            ->get(['id', 'hub_id', 'name']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function districtBifurcationRow(
+        string $district,
+        string $hub,
+        mixed $target,
+        int $achievement,
+        int $total,
+    ): array {
+        $numericTarget = is_numeric($target) ? (int) $target : null;
+
+        return [
+            'district' => $district,
+            'hub' => $hub !== '' ? $hub : '—',
+            'count' => $achievement,
+            'achievement' => $achievement,
+            'target' => $numericTarget,
+            'achievement_pct' => $numericTarget !== null && $numericTarget > 0
+                ? (int) round(($achievement / $numericTarget) * 100)
+                : null,
+            'share_pct' => $total > 0 ? (int) round(($achievement / $total) * 100) : 0,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     * @return array<int, int> district_id => target
+     */
+    private function districtTargetsForSource(array $source): array
+    {
+        if ($this->activeFiscalYear === null || $this->districtIds === []) {
+            return [];
+        }
+
+        $deliverableIds = $this->deliverableIdsForSource($source);
+        if ($deliverableIds === []) {
+            return [];
+        }
+
+        $periodInfo = $this->filter?->periodMonthWeights($this->activeFiscalYear)
+            ?? ['weights' => [], 'year_fraction' => 1.0, 'has_narrowing' => false];
+        $sumDeliverables = ($source['type'] ?? '') === 'services';
+
+        $official = $this->officialMonthlyTargets->sumByDistrictForDeliverables(
+            $this->activeFiscalYear,
+            $periodInfo,
+            $deliverableIds,
+            $this->districtIds,
+            $sumDeliverables,
+        );
+        if ($official !== []) {
+            return $official;
+        }
+
+        return $this->legacyDistrictTargetsByDistrictId($deliverableIds, $periodInfo, $sumDeliverables);
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     * @return list<int>
+     */
+    private function deliverableIdsForSource(array $source): array
+    {
+        $type = (string) ($source['type'] ?? '');
+        $codes = [];
+        if (in_array($type, ['deliverable', 'service'], true)) {
+            $codes[] = (string) ($source['code'] ?? '');
+        } elseif ($type === 'services') {
+            $codes = array_map('strval', (array) ($source['codes'] ?? []));
+        } else {
+            $codes[] = (string) ($source['deliverable_code'] ?? '');
+        }
+
+        $ids = [];
+        foreach ($codes as $code) {
+            $ids = array_merge($ids, $this->deliverableIdsForLookupCode($code));
+        }
+
+        return array_values(array_unique(array_filter($ids)));
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function deliverableIdsForLookupCode(string $code): array
+    {
+        $code = strtolower(trim($code));
+        if ($code === '') {
+            return [];
+        }
+
+        $candidates = array_values(array_unique(array_filter([
+            $code,
+            $this->serviceTargetDeliverables->deliverableCodeForServiceCode($code),
+            str_starts_with($code, 'svc_') ? substr($code, 4) : 'svc_'.$code,
+        ])));
+
+        $ids = Deliverable::query()
+            ->whereIn('code', $candidates)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $serviceIds = Service::query()
+            ->where('is_active', true)
+            ->where(function ($q) use ($candidates): void {
+                $q->whereIn('code', $candidates)
+                    ->orWhereHas('deliverable', fn ($dq) => $dq->whereIn('code', $candidates));
+            })
+            ->pluck('deliverable_id');
+
+        foreach ($serviceIds as $id) {
+            if ($id) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  list<int>  $deliverableIds
+     * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
+     * @return array<int, int>
+     */
+    private function legacyDistrictTargetsByDistrictId(
+        array $deliverableIds,
+        array $periodInfo,
+        bool $sumDeliverables,
+    ): array {
+        $byDistrictDeliverable = [];
+
+        if (Schema::hasTable('district_monthly_targets')) {
+            $query = DistrictMonthlyTarget::query()
+                ->where('fiscal_year_id', $this->activeFiscalYear?->id)
+                ->whereIn('deliverable_id', $deliverableIds);
+
+            if ($this->districtIds !== null) {
+                $query->whereIn('district_id', $this->districtIds);
+            }
+            if ($periodInfo['has_narrowing'] && $periodInfo['weights'] !== []) {
+                $query->whereIn('month_number', array_keys($periodInfo['weights']));
+            }
+
+            foreach ($query->get(['district_id', 'deliverable_id', 'month_number', 'target_count']) as $row) {
+                $weight = $periodInfo['has_narrowing']
+                    ? (float) ($periodInfo['weights'][(int) $row->month_number] ?? 0.0)
+                    : 1.0;
+                if ($periodInfo['has_narrowing'] && $weight <= 0) {
+                    continue;
+                }
+                $districtId = (int) $row->district_id;
+                $deliverableId = (int) $row->deliverable_id;
+                $value = (int) round((int) $row->target_count * ($periodInfo['has_narrowing'] ? $weight : 1));
+                $byDistrictDeliverable[$districtId][$deliverableId] = ($byDistrictDeliverable[$districtId][$deliverableId] ?? 0) + $value;
+            }
+        }
+
+        if ($byDistrictDeliverable === [] && Schema::hasTable('district_deliverable_targets')) {
+            $query = DistrictDeliverableTarget::query()
+                ->where('fiscal_year_id', $this->activeFiscalYear?->id)
+                ->whereIn('deliverable_id', $deliverableIds);
+            if ($this->districtIds !== null) {
+                $query->whereIn('district_id', $this->districtIds);
+            }
+            $fraction = $periodInfo['has_narrowing'] ? (float) $periodInfo['year_fraction'] : 1.0;
+            foreach ($query->get(['district_id', 'deliverable_id', 'target_total']) as $row) {
+                $districtId = (int) $row->district_id;
+                $deliverableId = (int) $row->deliverable_id;
+                $value = (int) round((int) $row->target_total * $fraction);
+                $byDistrictDeliverable[$districtId][$deliverableId] = ($byDistrictDeliverable[$districtId][$deliverableId] ?? 0) + $value;
+            }
+        }
+
+        $out = [];
+        foreach ($byDistrictDeliverable as $districtId => $byDeliverable) {
+            $out[(int) $districtId] = $sumDeliverables
+                ? (int) array_sum($byDeliverable)
+                : (int) max($byDeliverable);
         }
 
         return $out;

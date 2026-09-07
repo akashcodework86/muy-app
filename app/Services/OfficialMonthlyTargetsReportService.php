@@ -158,6 +158,63 @@ class OfficialMonthlyTargetsReportService
     }
 
     /**
+     * Per-district official monthly targets for the given deliverables and period.
+     *
+     * When several deliverable ids map to one indicator, the highest district total is kept
+     * so MIS + svc_* rows are not double-counted.
+     *
+     * @param  list<int>  $deliverableIds
+     * @param  list<int>|null  $districtIds
+     * @return array<int, int> district_id => target
+     */
+    public function sumByDistrictForDeliverables(
+        FiscalYear $fiscalYear,
+        array $periodInfo,
+        array $deliverableIds,
+        ?array $districtIds,
+        bool $sumDeliverables = false,
+    ): array {
+        if ($deliverableIds === [] || ! Schema::hasTable('official_district_monthly_targets')) {
+            return [];
+        }
+
+        $query = OfficialDistrictMonthlyTarget::query()
+            ->where('fiscal_year_id', $fiscalYear->id)
+            ->whereIn('deliverable_id', $deliverableIds);
+
+        if ($districtIds !== null) {
+            $query->whereIn('district_id', $districtIds);
+        }
+
+        if (($periodInfo['has_narrowing'] ?? false) && ($periodInfo['weights'] ?? []) !== []) {
+            $query->whereIn('month_number', array_keys($periodInfo['weights']));
+        }
+
+        $byDistrictDeliverable = [];
+        foreach ($query->get(['district_id', 'deliverable_id', 'month_number', 'target_count']) as $row) {
+            $weight = ($periodInfo['has_narrowing'] ?? false)
+                ? (float) ($periodInfo['weights'][(int) $row->month_number] ?? 0.0)
+                : 1.0;
+            if (($periodInfo['has_narrowing'] ?? false) && $weight <= 0) {
+                continue;
+            }
+            $districtId = (int) $row->district_id;
+            $deliverableId = (int) $row->deliverable_id;
+            $value = (int) round((int) $row->target_count * (($periodInfo['has_narrowing'] ?? false) ? $weight : 1));
+            $byDistrictDeliverable[$districtId][$deliverableId] = ($byDistrictDeliverable[$districtId][$deliverableId] ?? 0) + $value;
+        }
+
+        $out = [];
+        foreach ($byDistrictDeliverable as $districtId => $byDeliverable) {
+            $out[(int) $districtId] = $sumDeliverables
+                ? (int) array_sum($byDeliverable)
+                : (int) max($byDeliverable);
+        }
+
+        return $out;
+    }
+
+    /**
      * @param  list<int>|null  $districtIds
      * @param  array<int, true>  $excludeDeliverableIds
      * @return array<int, int>

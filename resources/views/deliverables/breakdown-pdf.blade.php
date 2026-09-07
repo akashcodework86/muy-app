@@ -33,17 +33,19 @@
     <div class="section">
         <h2>District split</h2>
         <table class="data">
-            <thead><tr><th>District</th><th>Hub</th><th>Count</th><th>Share</th></tr></thead>
+            <thead><tr><th>District</th><th>Hub</th><th>Target</th><th>Achievement</th><th>Achievement %</th><th>Share</th></tr></thead>
             <tbody>
                 @forelse ($breakdown['by_district'] ?? [] as $item)
                     <tr>
                         <td>{{ $item['district'] ?? '' }}</td>
                         <td>{{ $item['hub'] ?? '' }}</td>
-                        <td>{{ number_format((int) ($item['count'] ?? 0)) }}</td>
+                        <td>{{ isset($item['target']) && $item['target'] !== null ? number_format((int) $item['target']) : '—' }}</td>
+                        <td>{{ number_format((int) ($item['achievement'] ?? $item['count'] ?? 0)) }}</td>
+                        <td>{{ isset($item['achievement_pct']) && $item['achievement_pct'] !== null ? $item['achievement_pct'].'%' : '—' }}</td>
                         <td>{{ (int) ($item['share_pct'] ?? 0) }}%</td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="muted">No district data.</td></tr>
+                    <tr><td colspan="6" class="muted">No district data.</td></tr>
                 @endforelse
             </tbody>
         </table>

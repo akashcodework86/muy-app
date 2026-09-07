@@ -53,11 +53,13 @@ class DeliverablesBreakdownExcelExport
         $this->writeDataSheet(
             $spreadsheet,
             'By District',
-            ['District', 'Hub', 'Count', 'Share %'],
+            ['District', 'Hub', 'Target', 'Achievement', 'Achievement %', 'Share %'],
             collect($breakdown['by_district'] ?? [])->map(fn ($item) => [
                 DeliverablesExcelSupport::sanitizeCell($item['district'] ?? ''),
                 DeliverablesExcelSupport::sanitizeCell($item['hub'] ?? ''),
-                (int) ($item['count'] ?? 0),
+                $item['target'] ?? '',
+                (int) ($item['achievement'] ?? $item['count'] ?? 0),
+                isset($item['achievement_pct']) && $item['achievement_pct'] !== null ? ((int) $item['achievement_pct']).'%' : '',
                 ((int) ($item['share_pct'] ?? 0)).'%',
             ])->all(),
             centerFromColumn: 'C',

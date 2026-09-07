@@ -428,7 +428,9 @@
     const breakdownExportCsvUrl = @json(route($breakdownExportCsvRoute));
     const breakdownExportPdfUrl = @json(route($breakdownExportPdfRoute));
     const filterParams = @json($queryParams);
+    const cumulativeFilterParams = @json($cumulativeQueryParams ?? (object) []);
     let activeSerial = null;
+    let activeBreakdownParams = filterParams;
 
     const fmt = (n) => new Intl.NumberFormat('en-IN').format(Number(n || 0));
     const fmtCurrency = (n) => {
@@ -443,7 +445,14 @@
     let _currentPage = 1;
     let _sourceType = '';
 
-    function openDrawer(serial, name) {
+    function breakdownQuery(serial, window) {
+        const base = window === 'cumulative' && cumulativeFilterParams && Object.keys(cumulativeFilterParams).length
+            ? { ...cumulativeFilterParams }
+            : { ...filterParams };
+        return new URLSearchParams({ ...base, serial });
+    }
+
+    function openDrawer(serial, name, window = 'period') {
         activeSerial = serial;
         document.getElementById('dlv-drawer-serial').textContent = 'S.N. ' + serial;
         document.getElementById('dlv-drawer-title').textContent = name;
@@ -455,7 +464,8 @@
         overlay.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
 
-        const params = new URLSearchParams({ ...filterParams, serial });
+        const params = breakdownQuery(serial, window);
+        activeBreakdownParams = Object.fromEntries(params.entries());
         exportXlsx.href = breakdownExportUrl + '?' + params.toString();
         exportPdf.href = breakdownExportPdfUrl + '?' + params.toString();
         exportCsv.href = breakdownExportCsvUrl + '?' + params.toString();
@@ -497,15 +507,22 @@
         _sourceType = data.source_type || '';
 
         const districtRows = data.by_district || [];
-        const maxDistrict = Math.max(...districtRows.map((r) => r.count), 1);
-        // Show every district with achievement (do not cap — e.g. 2.1 covers all 13 districts).
-        const districtBars = districtRows.map((row) => `
-            <div class="dlv-bar-row">
-                <div class="dlv-bar-row__label" title="${row.district}">${row.district}</div>
-                <div class="dlv-bar-row__track"><div class="dlv-bar-row__fill" style="width:${Math.round((row.count / maxDistrict) * 100)}%"></div></div>
-                <div class="dlv-bar-row__count">${fmt(row.count)}</div>
-            </div>
-        `).join('');
+        const districtTable = districtRows.length ? `<table class="dlv-table">
+            <thead><tr><th>District</th><th>Hub</th><th>Target</th><th>Achievement</th><th>Achievement %</th><th>Share</th></tr></thead>
+            <tbody>${districtRows.map((row) => {
+                const achievement = Number(row.achievement ?? row.count ?? 0);
+                const target = row.target == null || row.target === '' ? null : Number(row.target);
+                const pct = row.achievement_pct != null ? row.achievement_pct + '%' : (target > 0 ? Math.round((achievement / target) * 100) + '%' : '—');
+                return `<tr>
+                    <td>${escapeHtml(row.district || '')}</td>
+                    <td>${escapeHtml(row.hub || '—')}</td>
+                    <td>${target != null ? fmt(target) : '—'}</td>
+                    <td>${fmt(achievement)}</td>
+                    <td>${pct}</td>
+                    <td>${fmt(row.share_pct || 0)}%</td>
+                </tr>`;
+            }).join('')}</tbody>
+        </table>` : '';
 
         const insights = (data.insights || []).map((item) => {
             const filter = String(item.filter || '').trim();
@@ -577,7 +594,7 @@
             <div class="dlv-insights">${insights || '<div class="dlv-insight dlv-insight--muted"><div class="dlv-insight__label">Insights</div><div class="dlv-insight__value">No data in this period</div></div>'}</div>
             <div class="dlv-section">
                 <h3 class="dlv-section__title">District split</h3>
-                ${districtBars || '<div style="color:#64748b;font-size:0.85rem;">No district data.</div>'}
+                ${districtTable || '<div style="color:#64748b;font-size:0.85rem;">No district data.</div>'}
             </div>
             <div class="dlv-section">
                 <h3 class="dlv-section__title">Monthly trend</h3>
@@ -640,7 +657,7 @@
     }
 
     function recordsHref(filter) {
-        const params = new URLSearchParams({ ...filterParams, serial: activeSerial || '' });
+        const params = new URLSearchParams({ ...activeBreakdownParams, serial: activeSerial || '' });
         if (filter) params.set('linkage_mode', filter);
         return recordsUrl + '?' + params.toString();
     }
@@ -868,7 +885,7 @@
     }
 
     document.querySelectorAll('[data-dlv-breakdown]').forEach((btn) => {
-        btn.addEventListener('click', () => openDrawer(btn.dataset.serial, btn.dataset.name));
+        btn.addEventListener('click', () => openDrawer(btn.dataset.serial, btn.dataset.name, btn.dataset.window || 'period'));
     });
 
     document.getElementById('dlv-drawer-close').addEventListener('click', closeDrawer);

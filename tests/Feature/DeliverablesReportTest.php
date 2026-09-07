@@ -8,6 +8,7 @@ use App\Models\DistrictDeliverableTarget;
 use App\Models\FieldCoordinatorAttendanceReport;
 use App\Models\FiscalYear;
 use App\Models\Hub;
+use App\Models\OfficialDistrictMonthlyTarget;
 use App\Models\OnboardingBatch;
 use App\Models\OnboardingBatchCfa;
 use App\Models\ProgramDeliverableRowMetadata;
@@ -27,6 +28,7 @@ use App\Services\Deliverables\ProgramDeliverablesActivityGuideService;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Services\OfficialMonthlyTargetCodeResolver;
 use App\Services\ProgramDeliverablesReportService;
 use App\Services\StateMonthlyTargetIndicatorBootstrapService;
 use Dompdf\Dompdf;
@@ -1140,7 +1142,171 @@ class DeliverablesReportTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('(period)', false)
-            ->assertSee('till May 2026', false);
+            ->assertSee('till May 2026', false)
+            ->assertSee('data-window="cumulative"', false);
+    }
+
+    public function test_cumulative_breakdown_covers_fy_start_through_selected_month(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'cumul-bd-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'cumul-bd-district',
+            'name' => 'Cumul Breakdown District',
+            'sort_order' => 1,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $fy->id,
+                'application_no' => 'CFA-APR-1',
+                'applicant_name' => 'April Applicant',
+                'phone' => '9999999920',
+                'payload' => json_encode([]),
+                'created_at' => '2026-04-10 09:00:00',
+                'updated_at' => now(),
+            ],
+            [
+                'district_id' => $district->id,
+                'fiscal_year_id' => $fy->id,
+                'application_no' => 'CFA-MAY-1',
+                'applicant_name' => 'May Applicant',
+                'phone' => '9999999921',
+                'payload' => json_encode([]),
+                'created_at' => '2026-05-12 09:00:00',
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.deliverables.breakdown', [
+                'fiscal_year_id' => $fy->id,
+                'month' => 5,
+                'year' => 2026,
+                'serial' => '1.1',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('total', 1);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.deliverables.breakdown', [
+                'fiscal_year_id' => $fy->id,
+                'date_from' => '2026-04-01',
+                'date_to' => '2026-05-31',
+                'serial' => '1.1',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('total', 2);
+    }
+
+    public function test_breakdown_district_rows_include_matching_targets_and_achievements(): void
+    {
+        app(\App\Services\ServiceTargetDeliverableSyncService::class)->syncAllServices();
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'target-bd-hub', 'name' => 'Kumaon', 'sort_order' => 1]);
+        $withAchievement = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'target-bd-achieved',
+            'name' => 'Target Achieved District',
+            'sort_order' => 1,
+        ]);
+        $targetOnly = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'target-bd-only',
+            'name' => 'Target Only District',
+            'sort_order' => 2,
+        ]);
+
+        $cfa = app(OfficialMonthlyTargetCodeResolver::class)
+            ->deliverableForMisSerial('1.1', 'Call for application');
+
+        OfficialDistrictMonthlyTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $withAchievement->id,
+            'deliverable_id' => $cfa->id,
+            'month_number' => 1,
+            'target_count' => 8,
+        ]);
+        OfficialDistrictMonthlyTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $targetOnly->id,
+            'deliverable_id' => $cfa->id,
+            'month_number' => 1,
+            'target_count' => 5,
+        ]);
+
+        DB::table('cfa_submissions')->insert([
+            'district_id' => $withAchievement->id,
+            'fiscal_year_id' => $fy->id,
+            'application_no' => 'CFA-TGT-1',
+            'applicant_name' => 'Target Applicant',
+            'phone' => '9999999922',
+            'payload' => json_encode([]),
+            'created_at' => '2026-04-15 09:00:00',
+            'updated_at' => now(),
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $response = $this->actingAs($admin)
+            ->getJson(route('admin.deliverables.breakdown', [
+                'fiscal_year_id' => $fy->id,
+                'month' => 4,
+                'year' => 2026,
+                'serial' => '1.1',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('total', 1);
+
+        $byDistrict = collect($response->json('by_district'));
+        $achieved = $byDistrict->firstWhere('district', 'Target Achieved District');
+        $onlyTarget = $byDistrict->firstWhere('district', 'Target Only District');
+
+        $this->assertNotNull($achieved);
+        $this->assertSame(8, (int) ($achieved['target'] ?? 0));
+        $this->assertSame(1, (int) ($achieved['achievement'] ?? 0));
+        $this->assertSame(13, (int) ($achieved['achievement_pct'] ?? 0));
+
+        $this->assertNotNull($onlyTarget);
+        $this->assertSame(5, (int) ($onlyTarget['target'] ?? 0));
+        $this->assertSame(0, (int) ($onlyTarget['achievement'] ?? $onlyTarget['count'] ?? -1));
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export.csv', [
+                'fiscal_year_id' => $fy->id,
+                'month' => 4,
+                'year' => 2026,
+                'serial' => '1.1',
+            ]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Target,Achievement', $csv);
+        $this->assertStringContainsString('Target Achieved District', $csv);
+        $this->assertMatchesRegularExpression('/8,1,13%/', $csv);
     }
 
     public function test_state_monthly_partner_outreach_uses_exact_month_on_deliverables_report(): void

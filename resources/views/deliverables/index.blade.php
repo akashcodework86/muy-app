@@ -335,7 +335,17 @@
                                 @endif
                             </td>
                             <td style="padding:0.45rem;border:1px solid #d4d4d8;text-align:center;background:#fffbeb;">
-                                @if (! $isHeading && ($row['cumul_achievement'] ?? null) !== null)
+                                @if (! $isHeading && ($row['drilldown'] ?? false))
+                                    <button
+                                        type="button"
+                                        class="dlv-ach-btn"
+                                        data-dlv-breakdown
+                                        data-serial="{{ $row['serial'] }}"
+                                        data-name="{{ $row['name'] }}"
+                                        data-window="cumulative"
+                                        title="View till-date achievement breakdown"
+                                    >{{ number_format((int) ($row['cumul_achievement'] ?? 0)) }}</button>
+                                @elseif (! $isHeading && ($row['cumul_achievement'] ?? null) !== null)
                                     <span class="dlv-ach-static">{{ number_format((int) $row['cumul_achievement']) }}</span>
                                 @endif
                             </td>
