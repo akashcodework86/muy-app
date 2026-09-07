@@ -53,6 +53,30 @@ class ProgramDeliverableCodeLookup
     }
 
     /**
+     * Deliverable IDs used for official / district monthly targets, including
+     * serial-code overrides and name matches (GST/FSSAI plans often sit on
+     * catalog svc_* alias rows rather than the matrix code).
+     *
+     * @param  array<string, mixed>  $source
+     * @return list<int>
+     */
+    public function deliverableIdsForOfficialTargets(array $source, string $serial = '', string $indicatorName = ''): array
+    {
+        $ids = $this->deliverableIdsForSource($source, $indicatorName);
+
+        $override = config('official_monthly_target_serial_codes.'.$serial);
+        if (is_string($override) && $override !== '') {
+            $ids = array_merge($ids, $this->deliverableIdsForLookupCode($override));
+        }
+
+        if ($indicatorName !== '') {
+            $ids = array_merge($ids, $this->deliverableIdsByIndicatorName($indicatorName));
+        }
+
+        return array_values(array_unique(array_filter($ids)));
+    }
+
+    /**
      * @param  array<string, mixed>  $source
      * @return list<string>
      */

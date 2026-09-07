@@ -109,6 +109,7 @@ class DeliverablesReportController extends Controller
         $payload = $this->buildReportPayload($context);
         $breakdown = $this->breakdownService->build($context['safeFilter'], $context['scope'], $serial);
         $row = collect($payload['rows'])->firstWhere('serial', $serial);
+        $row = $this->rowWithDistrictTargetFallback(is_array($row) ? $row : null, $breakdown);
         $breakdownTotal = (int) ($breakdown['total'] ?? 0);
         $target = is_array($row) ? ($row['target'] ?? null) : null;
         $achievementPct = is_array($row) ? ($row['achievement_pct'] ?? null) : null;
@@ -284,9 +285,42 @@ class DeliverablesReportController extends Controller
         return [
             'serial' => $serial,
             'breakdown' => $breakdown,
-            'row' => $payload['row'],
+            'row' => $this->rowWithDistrictTargetFallback($payload['row'], $breakdown),
             'payload' => $payload,
         ];
+    }
+
+    /**
+     * When the programme row has no numeric target (GST/FSSAI alias plans), use
+     * the sum of By District targets so Excel Summary is not blank.
+     *
+     * @param  array<string, mixed>|null  $row
+     * @param  array<string, mixed>  $breakdown
+     * @return array<string, mixed>|null
+     */
+    private function rowWithDistrictTargetFallback(?array $row, array $breakdown): ?array
+    {
+        $target = is_array($row) ? ($row['target'] ?? null) : null;
+        if ($target !== null) {
+            return $row;
+        }
+
+        $districtTargetSum = collect($breakdown['by_district'] ?? [])
+            ->sum(fn ($item) => is_numeric($item['target'] ?? null) ? (int) $item['target'] : 0);
+        if ($districtTargetSum <= 0) {
+            return $row;
+        }
+
+        if (! is_array($row)) {
+            $row = [];
+        }
+        $row['target'] = $districtTargetSum;
+        $total = (int) ($breakdown['total'] ?? 0);
+        if ($total > 0) {
+            $row['achievement_pct'] = (int) round(($total / $districtTargetSum) * 100);
+        }
+
+        return $row;
     }
 
     /**

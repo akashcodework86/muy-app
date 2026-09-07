@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\District;
 use App\Services\DataCentre\YearwiseIndicatorsPlusRecordsService;
 use App\Services\DataCentre\YearwiseIndicatorsWithJitLakhpatiService;
+use App\Services\Exports\YearwiseOnboardingRecordsExcelExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -126,13 +127,23 @@ class YearwiseIndicatorsPlusController extends Controller
         $filters = $this->recordsFiltersFromRequest($request);
         $rows = $this->recordsService->exportRows($filters);
         $filename = 'yearwise-plus-records-'.$filters['metric'].'-'.now()->format('Ymd_His').'.csv';
+        $isOnboarding = $filters['metric'] === 'onboarding';
 
-        return response()->streamDownload(function () use ($rows, $filters): void {
+        return response()->streamDownload(function () use ($rows, $filters, $isOnboarding): void {
             $out = fopen('php://output', 'w');
             if ($out === false) {
                 return;
             }
             fwrite($out, "\xEF\xBB\xBF");
+            if ($isOnboarding) {
+                fputcsv($out, $this->recordsService->onboardingExportHeaders());
+                foreach ($rows as $row) {
+                    fputcsv($out, $this->recordsService->onboardingExportRow($row));
+                }
+                fclose($out);
+
+                return;
+            }
             $regLabel = $this->recordsService->registrationLabel($filters['metric']);
             fputcsv($out, [
                 'Name', 'Application No', 'Phone', 'District', 'Block', 'Sector', 'Product',
@@ -183,6 +194,11 @@ class YearwiseIndicatorsPlusController extends Controller
     {
         $filters = $this->recordsFiltersFromRequest($request);
         $rows = $this->recordsService->exportRows($filters);
+
+        if ($filters['metric'] === 'onboarding') {
+            return (new YearwiseOnboardingRecordsExcelExport)->download($rows, $filters, $this->recordsService);
+        }
+
         $filename = 'yearwise-plus-records-'.$filters['metric'].'-'.now()->format('Ymd_His').'.xlsx';
 
         return response()->streamDownload(function () use ($rows, $filters): void {

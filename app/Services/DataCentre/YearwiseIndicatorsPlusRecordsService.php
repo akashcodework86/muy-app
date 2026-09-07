@@ -23,7 +23,20 @@ use Illuminate\Support\Facades\URL;
  */
 final class YearwiseIndicatorsPlusRecordsService
 {
-    public const CACHE_KEY = 'yearwise_indicators_plus_records_v7';
+    public const CACHE_KEY = 'yearwise_indicators_plus_records_v8';
+
+    public const MISSING_LABEL = "don't have";
+
+    /** @var list<string> */
+    private const ONBOARDING_CFA_KEYS = [
+        'cfa_category', 'guardian_name', 'shg_cbo_name', 'gender', 'dob', 'caste', 'education',
+        'email', 'alt_mobile', 'village', 'pincode', 'is_member', 'shg_name', 'lakhpati',
+        'id_proof_type', 'id_proof_number', 'is_registered', 'registration_type',
+        'cfa_registration_number', 'business_age', 'turnover_last_fy', 'current_employment',
+        'employed_count', 'loan_taken', 'bank_loan', 'location_type', 'enterprise_name',
+        'training_received', 'training_mode', 'info_source', 'techuse', 'sustainability',
+        'empwomen', 'challenges', 'expectations',
+    ];
 
     public const PER_PAGE = 50;
 
@@ -141,10 +154,18 @@ final class YearwiseIndicatorsPlusRecordsService
      */
     public function exportRows(array $filters): array
     {
-        $this->workbook->raiseMemoryLimitPublic('1024M');
+        $this->workbook->raiseMemoryLimitPublic('2048M');
         $normalized = $this->normalizeFilters($filters);
+        $rows = $this->hydratePageRows($this->filteredRows($normalized), $normalized['metric'], false);
+        if ($normalized['metric'] === 'onboarding') {
+            foreach ($rows as $i => $row) {
+                $rows[$i] = $this->slimOnboardingExportRow($row);
+            }
+            unset($row);
+            gc_collect_cycles();
+        }
 
-        return $this->hydratePageRows($this->filteredRows($normalized), $normalized['metric'], false);
+        return $rows;
     }
 
     public function bustCache(): void
@@ -154,6 +175,7 @@ final class YearwiseIndicatorsPlusRecordsService
         }
         // Legacy mega-cache keys (pre per-metric split).
         Cache::store('file')->forget('yearwise_indicators_plus_records_v1');
+        Cache::store('file')->forget('yearwise_indicators_plus_records_v7');
         Cache::store('file')->forget(self::CACHE_KEY);
     }
 
@@ -200,6 +222,156 @@ final class YearwiseIndicatorsPlusRecordsService
             'onboarding' => 'Reg. / Service No.',
             default => 'Service / Reg. No.',
         };
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function yearsForFilters(array $filters): array
+    {
+        return $this->normalizeFilters($filters)['years'];
+    }
+
+    /**
+     * Combined / year-sheet columns for the onboarded-applicant Excel/CSV.
+     *
+     * @return list<string>
+     */
+    public function onboardingExportHeaders(): array
+    {
+        return [
+            'FY', 'Source', 'Application No', 'Applicant Name', 'Guardian Name', 'SHG / CBO Name',
+            'Category', 'Gender', 'DOB', 'Caste', 'Education',
+            'Phone', 'Alt Mobile', 'Email',
+            'District', 'Block', 'Village', 'Pincode', 'Hub',
+            'SHG Member', 'SHG Name', 'Lakhpati',
+            'ID Proof Type', 'ID Proof Number',
+            'Sector', 'Product', 'Enterprise Name', 'Business Age', 'Turnover last FY',
+            'CFA Registered', 'CFA Registration Type', 'CFA Registration No.',
+            'Current Employment', 'Employed Count', 'Loan Taken', 'Bank Loan', 'Location Type',
+            'Training Received', 'Training Mode', 'Info Source', 'Tech Use', 'Employs Women', 'Sustainability',
+            'Challenges', 'Expectations',
+            'GSTIN', 'FSSAI Licence No.',
+            'Market linkage partners', 'Market linkage links',
+            'Onboard Date', 'Batch / Detail', 'Status',
+            'Source DB', 'Source Table', 'Record ID',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return list<string>
+     */
+    public function onboardingExportRow(array $row): array
+    {
+        $missing = self::MISSING_LABEL;
+        $sector = trim((string) ($row['sector'] ?? ''));
+        $product = trim((string) ($row['product'] ?? ''));
+        $gst = trim((string) ($row['gst_number'] ?? ''));
+        $fssai = trim((string) ($row['fssai_number'] ?? ''));
+        $partners = trim((string) ($row['market_partners'] ?? ''));
+        $links = trim((string) ($row['market_link_urls'] ?? ''));
+        if ($partners === '' || $links === '') {
+            $display = $this->marketDisplayFromLinks(is_array($row['market_links'] ?? null) ? $row['market_links'] : []);
+            if ($partners === '') {
+                $partners = $display['partners'];
+            }
+            if ($links === '') {
+                $links = $display['links'];
+            }
+        }
+
+        return [
+            (string) ($row['year'] ?? ''),
+            (string) ($row['source_label'] ?? ''),
+            (string) ($row['application_no'] ?? ''),
+            (string) ($row['applicant_name'] ?? ''),
+            (string) ($row['guardian_name'] ?? ''),
+            (string) ($row['shg_cbo_name'] ?? ''),
+            (string) ($row['cfa_category'] ?? ''),
+            (string) ($row['gender'] ?? ''),
+            (string) ($row['dob'] ?? ''),
+            (string) ($row['caste'] ?? ''),
+            (string) ($row['education'] ?? ''),
+            (string) ($row['phone'] ?? ''),
+            (string) ($row['alt_mobile'] ?? ''),
+            (string) ($row['email'] ?? ''),
+            (string) ($row['district'] ?? ''),
+            (string) ($row['block'] ?? ''),
+            (string) ($row['village'] ?? ''),
+            (string) ($row['pincode'] ?? ''),
+            (string) ($row['hub'] ?? ''),
+            (string) ($row['is_member'] ?? ''),
+            (string) ($row['shg_name'] ?? ''),
+            (string) ($row['lakhpati'] ?? ''),
+            (string) ($row['id_proof_type'] ?? ''),
+            (string) ($row['id_proof_number'] ?? ''),
+            $sector !== '' ? $sector : $missing,
+            $product !== '' ? $product : $missing,
+            (string) ($row['enterprise_name'] ?? ''),
+            (string) ($row['business_age'] ?? ''),
+            (string) ($row['turnover_last_fy'] ?? ''),
+            (string) ($row['is_registered'] ?? ''),
+            (string) ($row['registration_type'] ?? ''),
+            (string) ($row['cfa_registration_number'] ?? ''),
+            (string) ($row['current_employment'] ?? ''),
+            (string) ($row['employed_count'] ?? ''),
+            (string) ($row['loan_taken'] ?? ''),
+            (string) ($row['bank_loan'] ?? ''),
+            (string) ($row['location_type'] ?? ''),
+            (string) ($row['training_received'] ?? ''),
+            (string) ($row['training_mode'] ?? ''),
+            (string) ($row['info_source'] ?? ''),
+            (string) ($row['techuse'] ?? ''),
+            (string) ($row['empwomen'] ?? ''),
+            (string) ($row['sustainability'] ?? ''),
+            (string) ($row['challenges'] ?? ''),
+            (string) ($row['expectations'] ?? ''),
+            $gst !== '' ? $gst : $missing,
+            $fssai !== '' ? $fssai : $missing,
+            $partners !== '' ? $partners : $missing,
+            $links !== '' ? $links : $missing,
+            (string) ($row['date_used'] ?? ''),
+            (string) ($row['detail'] ?? ''),
+            (string) ($row['status'] ?? ''),
+            (string) ($row['source_db'] ?? ''),
+            (string) ($row['source_table'] ?? ''),
+            (string) ($row['record_id'] ?? ''),
+        ];
+    }
+
+    /**
+     * Drop bulky nested arrays after export hydration so Excel/CSV can stream.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function slimOnboardingExportRow(array $row): array
+    {
+        $display = $this->marketDisplayFromLinks(is_array($row['market_links'] ?? null) ? $row['market_links'] : []);
+        $keep = [
+            'year', 'source_label', 'application_no', 'applicant_name', 'guardian_name', 'shg_cbo_name',
+            'cfa_category', 'gender', 'dob', 'caste', 'education', 'phone', 'alt_mobile', 'email',
+            'district', 'block', 'village', 'pincode', 'hub', 'is_member', 'shg_name', 'lakhpati',
+            'id_proof_type', 'id_proof_number', 'sector', 'product', 'enterprise_name', 'business_age',
+            'turnover_last_fy', 'is_registered', 'registration_type', 'cfa_registration_number',
+            'current_employment', 'employed_count', 'loan_taken', 'bank_loan', 'location_type',
+            'training_received', 'training_mode', 'info_source', 'techuse', 'empwomen', 'sustainability',
+            'challenges', 'expectations', 'gst_number', 'fssai_number', 'market_partners', 'market_link_urls',
+            'date_used', 'detail', 'status', 'source_db', 'source_table', 'record_id',
+        ];
+        $out = [];
+        foreach ($keep as $key) {
+            $out[$key] = $row[$key] ?? '';
+        }
+        if (trim((string) $out['market_partners']) === '') {
+            $out['market_partners'] = $display['partners'];
+        }
+        if (trim((string) $out['market_link_urls']) === '') {
+            $out['market_link_urls'] = $display['links'];
+        }
+
+        return $out;
     }
 
     private function normalizeFilters(array $filters): array
@@ -685,34 +857,33 @@ final class YearwiseIndicatorsPlusRecordsService
         }
 
         if ($appNos !== [] && Schema::hasTable('cfa_submissions')) {
-            $subs = CfaSubmission::query()
-                ->whereIn('application_no', array_keys($appNos))
-                ->get(['application_no', 'phone', 'payload']);
-            foreach ($subs as $sub) {
-                $payload = is_array($sub->payload) ? $sub->payload : [];
-                $product = trim((string) ($payload['product'] ?? ''));
-                if ($product === 'Others' || $product === '') {
-                    $other = trim((string) ($payload['other_product'] ?? ''));
-                    if ($other !== '') {
-                        $product = $other;
+            foreach (array_chunk(array_keys($appNos), 400) as $chunk) {
+                $subs = CfaSubmission::query()
+                    ->whereIn('application_no', $chunk)
+                    ->get(['application_no', 'phone', 'payload', 'applicant_name']);
+                foreach ($subs as $sub) {
+                    $payload = is_array($sub->payload) ? $sub->payload : [];
+                    $appNo = trim((string) $sub->application_no);
+                    if ($appNo === '') {
+                        continue;
                     }
-                }
-                $byApp[trim((string) $sub->application_no)] = [
-                    'phone' => trim((string) ($sub->phone ?: ($payload['phone'] ?? ''))),
-                    'block' => trim((string) ($payload['block'] ?? '')),
-                    'sector' => trim((string) ($payload['business_category'] ?? ($payload['sector'] ?? ''))),
-                    'product' => $product,
-                    // Never borrow CFA enterprise registration for convergence /
-                    // service metrics — those numbers belong to other services.
-                    'service_number' => in_array($metric, ['convergence', 'market_linkage', 'onboarding', 'cfa'], true)
-                        ? ''
-                        : ServiceRegistrationNumberExtractor::fromPayload(
+                    $profile = $this->profileFromCfaPayload(
+                        $payload,
+                        trim((string) ($sub->phone ?: ($payload['phone'] ?? ''))),
+                        trim((string) ($sub->applicant_name ?? '')),
+                    );
+                    if (in_array($metric, ['convergence', 'market_linkage', 'onboarding', 'cfa'], true)) {
+                        $profile['service_number'] = '';
+                    } else {
+                        $profile['service_number'] = ServiceRegistrationNumberExtractor::fromPayload(
                             $payload,
                             '',
                             $metric,
-                            trim((string) $sub->application_no),
-                        ),
-                ];
+                            $appNo,
+                        );
+                    }
+                    $byApp[$appNo] = $profile;
+                }
             }
         }
 
@@ -726,7 +897,7 @@ final class YearwiseIndicatorsPlusRecordsService
                     if ($appNo === '') {
                         continue;
                     }
-                    $existing = $byApp[$appNo] ?? ['phone' => '', 'block' => '', 'sector' => '', 'product' => '', 'service_number' => ''];
+                    $existing = $byApp[$appNo] ?? $this->emptyOnboardingProfile();
                     if (($existing['phone'] ?? '') === '') {
                         $existing['phone'] = trim((string) ($snap['phone'] ?? ''));
                     }
@@ -758,7 +929,7 @@ final class YearwiseIndicatorsPlusRecordsService
                         if ($appNo === '') {
                             continue;
                         }
-                        $existing = $byApp[$appNo] ?? ['phone' => '', 'block' => '', 'sector' => '', 'product' => '', 'service_number' => ''];
+                        $existing = $byApp[$appNo] ?? $this->emptyOnboardingProfile();
                         if (($existing['phone'] ?? '') === '') {
                             $existing['phone'] = trim((string) ($p2->phone ?? ''));
                         }
@@ -782,6 +953,11 @@ final class YearwiseIndicatorsPlusRecordsService
             } catch (\Throwable) {
                 // ignore
             }
+        }
+
+        if ($metric === 'onboarding' && $appNos !== []) {
+            $this->mergePhase1OnboardingProfiles($byApp, array_keys($appNos));
+            $this->mergePhase2OnboardingProfiles($byApp, array_keys($appNos));
         }
 
         if ($attachDocs && $appNos !== [] && Schema::hasTable('market_linkage_submissions') && Schema::hasTable('market_linkage_partners')) {
@@ -817,8 +993,13 @@ final class YearwiseIndicatorsPlusRecordsService
         $linksBySubmissionId = [];
         $linksByPartnerId = [];
         $linksByAppNo = [];
-        if ($metric === 'market_linkage') {
+        $gstByApp = [];
+        $fssaiByApp = [];
+        if ($metric === 'market_linkage' || $metric === 'onboarding') {
             [$linksBySubmissionId, $linksByPartnerId, $linksByAppNo] = $this->loadMarketLinksForRows($rows, $appNos);
+        }
+        if ($metric === 'onboarding' && $appNos !== []) {
+            [$gstByApp, $fssaiByApp] = $this->loadGstFssaiNumbersByAppNos(array_keys($appNos));
         }
 
         foreach ($rows as &$row) {
@@ -878,7 +1059,7 @@ final class YearwiseIndicatorsPlusRecordsService
             $row['service_number'] = $serviceNumber;
 
             $marketLinks = is_array($row['market_links'] ?? null) ? $row['market_links'] : [];
-            if ($metric === 'market_linkage' && $marketLinks === []) {
+            if (($metric === 'market_linkage' || $metric === 'onboarding') && $marketLinks === []) {
                 $sourceTable = (string) ($row['source_table'] ?? '');
                 if ($rid !== '' && ctype_digit($rid) && $sourceTable === 'market_linkage_submissions' && isset($linksBySubmissionId[(int) $rid])) {
                     $marketLinks = $linksBySubmissionId[(int) $rid];
@@ -888,12 +1069,57 @@ final class YearwiseIndicatorsPlusRecordsService
                     $marketLinks = $linksByAppNo[$appNo];
                 }
             }
-            $row['market_links'] = $marketLinks;
+            $row['market_links'] = $this->uniqueMarketLinks($marketLinks);
 
             $row['block'] = (string) ($row['block'] ?? '');
             $row['sector'] = (string) ($row['sector'] ?? '');
             $row['product'] = (string) ($row['product'] ?? '');
             $row['hub'] = (string) ($row['hub'] ?? '');
+
+            if ($metric === 'onboarding') {
+                if ($extra) {
+                    foreach (self::ONBOARDING_CFA_KEYS as $key) {
+                        if (trim((string) ($row[$key] ?? '')) === '' && trim((string) ($extra[$key] ?? '')) !== '') {
+                            $row[$key] = (string) $extra[$key];
+                        }
+                    }
+                    if (trim((string) ($row['applicant_name'] ?? '')) === '' && trim((string) ($extra['cfa_name'] ?? '')) !== '') {
+                        $row['applicant_name'] = (string) $extra['cfa_name'];
+                    }
+                    if (trim((string) ($row['hub'] ?? '')) === '' && trim((string) ($extra['hub'] ?? '')) !== '') {
+                        $row['hub'] = (string) $extra['hub'];
+                    }
+                    if (trim((string) ($row['email'] ?? '')) === '' && trim((string) ($extra['email'] ?? '')) !== '') {
+                        $row['email'] = (string) $extra['email'];
+                    }
+                }
+
+                $gst = '';
+                $fssai = '';
+                if ($appNo !== '' && $appNo !== '—') {
+                    $gst = $this->joinUniqueNumbers($gstByApp[$appNo] ?? []);
+                    $fssai = $this->joinUniqueNumbers($fssaiByApp[$appNo] ?? []);
+                }
+                if ($gst === '' && $extra) {
+                    $gst = $this->cfaFallbackRegistration((string) ($extra['registration_type'] ?? ''), (string) ($extra['cfa_registration_number'] ?? ''), 'gst');
+                }
+                if ($fssai === '' && $extra) {
+                    $fssai = $this->cfaFallbackRegistration((string) ($extra['registration_type'] ?? ''), (string) ($extra['cfa_registration_number'] ?? ''), 'fssai');
+                }
+                $row['gst_number'] = $gst !== '' ? $gst : self::MISSING_LABEL;
+                $row['fssai_number'] = $fssai !== '' ? $fssai : self::MISSING_LABEL;
+
+                $marketDisplay = $this->marketDisplayFromLinks($row['market_links']);
+                $row['market_partners'] = $marketDisplay['partners'];
+                $row['market_link_urls'] = $marketDisplay['links'];
+
+                if (trim($row['sector']) === '') {
+                    $row['sector'] = self::MISSING_LABEL;
+                }
+                if (trim($row['product']) === '') {
+                    $row['product'] = self::MISSING_LABEL;
+                }
+            }
 
             if (! $attachDocs) {
                 $row['documents'] = [];
@@ -998,26 +1224,28 @@ final class YearwiseIndicatorsPlusRecordsService
         }
 
         if ($appNos !== [] && Schema::hasTable('market_linkage_submissions') && Schema::hasTable('market_linkage_partners')) {
-            $query = DB::table('market_linkage_partners as mlp')
-                ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id')
-                ->whereIn('mls.application_no', array_keys($appNos))
-                ->orderBy('mlp.sort_order')
-                ->orderBy('mlp.id');
-            foreach ($query->limit(2000)->get(['mls.id', 'mls.application_no', 'mlp.partner_name', 'mlp.link_url']) as $p) {
-                $appNo = trim((string) ($p->application_no ?? ''));
-                $label = trim((string) ($p->partner_name ?? ''));
-                $url = trim((string) ($p->link_url ?? ''));
-                if (($label === '' && $url === '') || $appNo === '') {
-                    continue;
-                }
-                $entry = [
-                    'label' => $label !== '' ? $label : 'Link',
-                    'url' => $url,
-                ];
-                $linksByAppNo[$appNo][] = $entry;
-                $sid = (int) ($p->id ?? 0);
-                if ($sid > 0) {
-                    $linksBySubmissionId[$sid][] = $entry;
+            foreach (array_chunk(array_keys($appNos), 400) as $chunk) {
+                $query = DB::table('market_linkage_partners as mlp')
+                    ->join('market_linkage_submissions as mls', 'mls.id', '=', 'mlp.market_linkage_submission_id')
+                    ->whereIn('mls.application_no', $chunk)
+                    ->orderBy('mlp.sort_order')
+                    ->orderBy('mlp.id');
+                foreach ($query->get(['mls.id', 'mls.application_no', 'mlp.partner_name', 'mlp.link_url']) as $p) {
+                    $appNo = trim((string) ($p->application_no ?? ''));
+                    $label = trim((string) ($p->partner_name ?? ''));
+                    $url = trim((string) ($p->link_url ?? ''));
+                    if (($label === '' && $url === '') || $appNo === '') {
+                        continue;
+                    }
+                    $entry = [
+                        'label' => $label !== '' ? $label : 'Link',
+                        'url' => $url,
+                    ];
+                    $linksByAppNo[$appNo][] = $entry;
+                    $sid = (int) ($p->id ?? 0);
+                    if ($sid > 0) {
+                        $linksBySubmissionId[$sid][] = $entry;
+                    }
                 }
             }
         }
@@ -1025,39 +1253,33 @@ final class YearwiseIndicatorsPlusRecordsService
         if ($partnerIds !== [] || $appNos !== []) {
             try {
                 if (Schema::connection('legacy')->hasTable('rbi_service_partners')) {
-                    $q = DB::connection('legacy')->table('rbi_service_partners as sp')
-                        ->leftJoin('rbi_applications as a', 'a.id', '=', 'sp.application_id');
-                    $q->where(function ($inner) use ($partnerIds, $appNos): void {
-                        if ($partnerIds !== []) {
-                            $inner->orWhereIn('sp.id', array_keys($partnerIds));
-                        }
-                        if ($appNos !== []) {
-                            $inner->orWhereIn('a.application_no', array_keys($appNos));
-                        }
-                    });
-                    foreach ($q->limit(2000)->get(['sp.id', 'sp.partner_name', 'sp.partner_link', 'a.application_no']) as $p) {
-                        $label = trim((string) ($p->partner_name ?? ''));
-                        $url = trim((string) ($p->partner_link ?? ''));
-                        if ($label === '' && $url === '') {
-                            continue;
-                        }
-                        $entry = [
-                            'label' => $label !== '' ? $label : 'Link',
-                            'url' => $url,
-                        ];
-                        $pid = (int) ($p->id ?? 0);
-                        if ($pid > 0) {
-                            $linksByPartnerId[$pid][] = $entry;
-                        }
-                        $appNo = trim((string) ($p->application_no ?? ''));
-                        if ($appNo !== '') {
-                            $linksByAppNo[$appNo][] = $entry;
+                    $appChunks = array_keys($appNos);
+                    if ($appChunks === [] && $partnerIds !== []) {
+                        $q = DB::connection('legacy')->table('rbi_service_partners as sp')
+                            ->leftJoin('rbi_applications as a', 'a.id', '=', 'sp.application_id')
+                            ->whereIn('sp.id', array_keys($partnerIds));
+                        $this->appendLegacyPartnerLinks($q->get(['sp.id', 'sp.partner_name', 'sp.partner_link', 'a.application_no']), $linksByPartnerId, $linksByAppNo);
+                    } else {
+                        foreach (array_chunk($appChunks, 400) as $chunk) {
+                            $q = DB::connection('legacy')->table('rbi_service_partners as sp')
+                                ->leftJoin('rbi_applications as a', 'a.id', '=', 'sp.application_id')
+                                ->where(function ($inner) use ($partnerIds, $chunk): void {
+                                    if ($partnerIds !== []) {
+                                        $inner->orWhereIn('sp.id', array_keys($partnerIds));
+                                    }
+                                    $inner->orWhereIn('a.application_no', $chunk);
+                                });
+                            $this->appendLegacyPartnerLinks($q->get(['sp.id', 'sp.partner_name', 'sp.partner_link', 'a.application_no']), $linksByPartnerId, $linksByAppNo);
                         }
                     }
                 }
             } catch (\Throwable) {
                 // Phase-2 DB may be unavailable.
             }
+        }
+
+        if ($appNos !== []) {
+            $this->appendPhase1MarketPartners(array_keys($appNos), $linksByAppNo);
         }
 
         return [$linksBySubmissionId, $linksByPartnerId, $linksByAppNo];
@@ -1099,6 +1321,662 @@ final class YearwiseIndicatorsPlusRecordsService
         }
 
         return $out;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, string>
+     */
+    private function profileFromCfaPayload(array $payload, string $phone = '', string $applicantName = ''): array
+    {
+        $product = trim((string) ($payload['product'] ?? ''));
+        if ($product === '' || strcasecmp($product, 'Others') === 0) {
+            $other = trim((string) ($payload['other_product'] ?? ''));
+            if ($other !== '') {
+                $product = $other;
+            }
+        }
+
+        $name = trim((string) ($payload['applicant_name'] ?? ''));
+        if ($name === '') {
+            $name = trim((string) ($payload['shg_cbo_name'] ?? ''));
+        }
+        if ($name === '') {
+            $name = $applicantName;
+        }
+
+        $profile = $this->emptyOnboardingProfile();
+        $profile['phone'] = $phone !== '' ? $phone : trim((string) ($payload['phone'] ?? ''));
+        $profile['block'] = trim((string) ($payload['block'] ?? ($payload['block_name'] ?? '')));
+        $profile['sector'] = trim((string) ($payload['business_category'] ?? ($payload['sector'] ?? '')));
+        $profile['product'] = $product;
+        $profile['cfa_name'] = $name;
+        $profile['hub'] = trim((string) ($payload['hub'] ?? ''));
+        $profile['cfa_category'] = trim((string) ($payload['category'] ?? ''));
+        $profile['guardian_name'] = trim((string) ($payload['guardian_name'] ?? ''));
+        $profile['shg_cbo_name'] = trim((string) ($payload['shg_cbo_name'] ?? ''));
+        $profile['gender'] = trim((string) ($payload['gender'] ?? ''));
+        $profile['dob'] = trim((string) ($payload['dob'] ?? ''));
+        $profile['caste'] = trim((string) ($payload['caste'] ?? ''));
+        $profile['education'] = trim((string) ($payload['education'] ?? ''));
+        $profile['email'] = trim((string) ($payload['email'] ?? ''));
+        $profile['alt_mobile'] = trim((string) ($payload['alt_mobile'] ?? ''));
+        $profile['village'] = trim((string) ($payload['village'] ?? ''));
+        $profile['pincode'] = trim((string) ($payload['pincode'] ?? ''));
+        $profile['is_member'] = trim((string) ($payload['is_member'] ?? ($payload['is_shg_member'] ?? '')));
+        $profile['shg_name'] = trim((string) ($payload['shg_name'] ?? ''));
+        $profile['lakhpati'] = trim((string) ($payload['lakhpati'] ?? ''));
+        $profile['id_proof_type'] = trim((string) ($payload['id_proof_type'] ?? ''));
+        $profile['id_proof_number'] = trim((string) ($payload['id_proof_number'] ?? ''));
+        $profile['is_registered'] = trim((string) ($payload['is_registered'] ?? ''));
+        $profile['registration_type'] = trim((string) ($payload['registration_type'] ?? ''));
+        $profile['cfa_registration_number'] = trim((string) ($payload['registration_number'] ?? ''));
+        $profile['business_age'] = trim((string) ($payload['business_age'] ?? ''));
+        $profile['turnover_last_fy'] = trim((string) ($payload['turnover_last_fy'] ?? ($payload['turnover_last_year'] ?? '')));
+        $profile['current_employment'] = trim((string) ($payload['current_employment'] ?? ''));
+        $profile['employed_count'] = trim((string) ($payload['employed_count'] ?? ''));
+        $profile['loan_taken'] = trim((string) ($payload['loan_taken'] ?? ''));
+        $profile['bank_loan'] = trim((string) ($payload['bank_loan'] ?? ''));
+        $profile['location_type'] = trim((string) ($payload['location_type'] ?? ''));
+        $profile['enterprise_name'] = trim((string) ($payload['enterprise_name'] ?? ''));
+        $profile['training_received'] = trim((string) ($payload['training_received'] ?? ''));
+        $profile['training_mode'] = trim((string) ($payload['training_mode'] ?? ''));
+        $profile['info_source'] = trim((string) ($payload['info_source'] ?? ''));
+        $profile['techuse'] = $this->flattenPayloadValue($payload['techuse'] ?? '');
+        $profile['sustainability'] = trim((string) ($payload['sustainability'] ?? ''));
+        $profile['empwomen'] = trim((string) ($payload['empwomen'] ?? ''));
+        $profile['challenges'] = $this->flattenPayloadValue($payload['challenges'] ?? '');
+        $profile['expectations'] = $this->flattenPayloadValue($payload['expectations'] ?? '');
+
+        return $profile;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function emptyOnboardingProfile(): array
+    {
+        $profile = [
+            'phone' => '',
+            'block' => '',
+            'sector' => '',
+            'product' => '',
+            'service_number' => '',
+            'cfa_name' => '',
+            'hub' => '',
+        ];
+        foreach (self::ONBOARDING_CFA_KEYS as $key) {
+            $profile[$key] = '';
+        }
+
+        return $profile;
+    }
+
+    /**
+     * @param  array<string, array<string, string>>  $byApp
+     * @param  list<string>  $appNos
+     */
+    private function mergePhase1OnboardingProfiles(array &$byApp, array $appNos): void
+    {
+        try {
+            if ((string) config('database.connections.legacy_phase1.database', '') === ''
+                || ! Schema::connection('legacy_phase1')->hasTable('tblapplication')) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;
+        }
+
+        $available = Schema::connection('legacy_phase1')->getColumnListing('tblapplication');
+        $wanted = [
+            'ApplicationNumber', 'FullName', 'MobileNumber', 'gender', 'dob', 'cast', 'education',
+            'Email', 'FatherName', 'City', 'Pincode', 'Address', 'hub', 'business_desp',
+            'idea', 'idea2', 'other_idea', 'enterprise_name', 'registered', 'loan', 'loan_amount',
+            'current_emp', 'job_count', 'ApplicationDate',
+        ];
+        $select = array_values(array_intersect($wanted, $available));
+        if ($select === [] || ! in_array('ApplicationNumber', $select, true)) {
+            return;
+        }
+
+        foreach (array_chunk($appNos, 400) as $chunk) {
+            $rows = DB::connection('legacy_phase1')
+                ->table('tblapplication')
+                ->whereIn('ApplicationNumber', $chunk)
+                ->get($select);
+            foreach ($rows as $row) {
+                $appNo = trim((string) ($row->ApplicationNumber ?? ''));
+                if ($appNo === '') {
+                    continue;
+                }
+                $existing = $byApp[$appNo] ?? $this->emptyOnboardingProfile();
+                $sector = $this->objStr($row, 'idea');
+                if ($sector === '') {
+                    $sector = $this->objStr($row, 'idea2');
+                }
+                if ($sector === '') {
+                    $sector = $this->objStr($row, 'other_idea');
+                }
+                $product = $this->objStr($row, 'business_desp');
+                if ($product === '') {
+                    $product = $this->objStr($row, 'enterprise_name');
+                }
+                $incoming = [
+                    'phone' => $this->objStr($row, 'MobileNumber'),
+                    'block' => $this->objStr($row, 'City'),
+                    'sector' => $sector,
+                    'product' => $product,
+                    'cfa_name' => $this->objStr($row, 'FullName'),
+                    'hub' => $this->objStr($row, 'hub'),
+                    'gender' => $this->objStr($row, 'gender'),
+                    'dob' => $this->objStr($row, 'dob'),
+                    'caste' => $this->objStr($row, 'cast'),
+                    'education' => $this->objStr($row, 'education'),
+                    'email' => $this->objStr($row, 'Email'),
+                    'village' => $this->objStr($row, 'Address'),
+                    'pincode' => $this->objStr($row, 'Pincode'),
+                    'enterprise_name' => $this->objStr($row, 'enterprise_name'),
+                    'is_registered' => $this->objStr($row, 'registered'),
+                    'loan_taken' => $this->objStr($row, 'loan'),
+                    'bank_loan' => $this->objStr($row, 'loan_amount'),
+                    'current_employment' => $this->objStr($row, 'current_emp'),
+                    'employed_count' => $this->objStr($row, 'job_count'),
+                ];
+                $this->fillEmptyProfile($existing, $incoming);
+                $byApp[$appNo] = $existing;
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, array<string, string>>  $byApp
+     * @param  list<string>  $appNos
+     */
+    private function mergePhase2OnboardingProfiles(array &$byApp, array $appNos): void
+    {
+        try {
+            if (! Schema::connection('legacy')->hasTable('rbi_applications')
+                || ! Schema::connection('legacy')->hasTable('rbi_applicant_details')) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;
+        }
+
+        $detailCols = Schema::connection('legacy')->getColumnListing('rbi_applicant_details');
+        $appCols = Schema::connection('legacy')->getColumnListing('rbi_applications');
+
+        $select = ['a.application_no', 'a.business_category', 'a.product', 'a.other_product'];
+        if (in_array('category', $appCols, true)) {
+            $select[] = 'a.category';
+        }
+        $detailMap = [
+            'phone' => 'phone',
+            'block' => 'block',
+            'applicant_name' => 'cfa_name',
+            'guardian_name' => 'guardian_name',
+            'gender' => 'gender',
+            'dob' => 'dob',
+            'education' => 'education',
+            'email' => 'email',
+            'alt_mobile' => 'alt_mobile',
+            'caste' => 'caste',
+            'is_shg_member' => 'is_member',
+            'shg_name' => 'shg_name',
+            'lakhpati' => 'lakhpati',
+            'village' => 'village',
+            'pincode' => 'pincode',
+            'loan_taken' => 'loan_taken',
+            'bank_loan' => 'bank_loan',
+            'current_employment' => 'current_employment',
+            'employed_count' => 'employed_count',
+            'id_proof_type' => 'id_proof_type',
+            'id_proof_number' => 'id_proof_number',
+            'training_mode' => 'training_mode',
+            'info_source' => 'info_source',
+            'challenges' => 'challenges',
+            'expectations' => 'expectations',
+        ];
+        foreach (array_keys($detailMap) as $col) {
+            if (in_array($col, $detailCols, true)) {
+                $select[] = 'd.'.$col;
+            }
+        }
+
+        foreach (array_chunk($appNos, 400) as $chunk) {
+            $rows = DB::connection('legacy')
+                ->table('rbi_applications as a')
+                ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
+                ->whereIn('a.application_no', $chunk)
+                ->get($select);
+            foreach ($rows as $row) {
+                $appNo = trim((string) ($row->application_no ?? ''));
+                if ($appNo === '') {
+                    continue;
+                }
+                $existing = $byApp[$appNo] ?? $this->emptyOnboardingProfile();
+                $product = trim((string) ($row->product ?? ''));
+                $other = trim((string) ($row->other_product ?? ''));
+                if ($product === '' || strcasecmp($product, 'Others') === 0) {
+                    $product = $other !== '' ? $other : $product;
+                }
+                $incoming = [
+                    'sector' => trim((string) ($row->business_category ?? '')),
+                    'product' => $product,
+                    'cfa_category' => $this->objStr($row, 'category'),
+                ];
+                foreach ($detailMap as $col => $key) {
+                    if (isset($row->{$col})) {
+                        $incoming[$key] = $this->flattenPayloadValue($row->{$col});
+                    }
+                }
+                $this->fillEmptyProfile($existing, $incoming);
+                $byApp[$appNo] = $existing;
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $target
+     * @param  array<string, string>  $source
+     */
+    private function fillEmptyProfile(array &$target, array $source): void
+    {
+        foreach ($source as $key => $value) {
+            $value = trim((string) $value);
+            if ($value === '') {
+                continue;
+            }
+            if (trim((string) ($target[$key] ?? '')) === '') {
+                $target[$key] = $value;
+            }
+        }
+    }
+
+    /**
+     * @param  list<string>  $appNos
+     * @return array{0: array<string, list<string>>, 1: array<string, list<string>>}
+     */
+    private function loadGstFssaiNumbersByAppNos(array $appNos): array
+    {
+        $gst = [];
+        $fssai = [];
+
+        if ($appNos !== [] && Schema::hasTable('service_cases') && Schema::hasTable('services')) {
+            foreach (array_chunk($appNos, 400) as $chunk) {
+                $query = DB::table('service_cases as sc')
+                    ->join('services as s', 's.id', '=', 'sc.service_id')
+                    ->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
+                    ->whereIn('sc.status', ['approved', 'completed'])
+                    ->where(function ($q) use ($chunk): void {
+                        $q->whereIn('cs.application_no', $chunk)
+                            ->orWhereIn('sc.reference_number', $chunk);
+                    })
+                    ->where(function ($q): void {
+                        $q->where('s.code', 'like', '%gst%')
+                            ->orWhere('s.code', 'like', '%fssai%')
+                            ->orWhere('s.code', 'like', '%g_s_t%')
+                            ->orWhere('s.code', 'like', '%f_s_s_a_i%')
+                            ->orWhere('s.name', 'like', '%GST%')
+                            ->orWhere('s.name', 'like', '%FSSAI%');
+                    });
+                foreach ($query->get(['cs.application_no', 'sc.reference_number', 'sc.payload', 's.code', 's.name']) as $row) {
+                    $kind = $this->gstOrFssaiKind((string) ($row->code ?? ''), (string) ($row->name ?? ''));
+                    if ($kind === null) {
+                        continue;
+                    }
+                    $payload = $row->payload;
+                    if (is_string($payload)) {
+                        $payload = json_decode($payload, true) ?: [];
+                    }
+                    if (! is_array($payload)) {
+                        $payload = [];
+                    }
+                    $appNo = trim((string) ($row->application_no ?? ''));
+                    $ref = trim((string) ($row->reference_number ?? ''));
+                    $number = ServiceRegistrationNumberExtractor::fromPayload($payload, $ref, $kind, $appNo);
+                    if ($number === '') {
+                        continue;
+                    }
+                    $keys = [];
+                    if ($appNo !== '') {
+                        $keys[] = $appNo;
+                    }
+                    if ($ref !== '' && $ref !== $appNo && in_array($ref, $appNos, true)) {
+                        $keys[] = $ref;
+                    }
+                    foreach ($keys as $key) {
+                        if ($kind === 'gst') {
+                            $gst[$key][] = $number;
+                        } else {
+                            $fssai[$key][] = $number;
+                        }
+                    }
+                }
+            }
+        }
+
+        try {
+            if ($appNos !== [] && Schema::connection('legacy')->hasTable('rbi_services_assigned')) {
+                $hasNumber = Schema::connection('legacy')->hasColumn('rbi_services_assigned', 'service_number');
+                foreach (array_chunk($appNos, 400) as $chunk) {
+                    $q = DB::connection('legacy')->table('rbi_services_assigned as sa')
+                        ->leftJoin('rbi_applications as a', 'a.id', '=', 'sa.application_id')
+                        ->whereIn('a.application_no', $chunk);
+                    $cols = ['a.application_no', 'sa.service_name', 'sa.category'];
+                    if ($hasNumber) {
+                        $cols[] = 'sa.service_number';
+                    }
+                    foreach ($q->get($cols) as $row) {
+                        $kind = $this->gstOrFssaiKind('', (string) ($row->service_name ?? ''), (string) ($row->category ?? ''));
+                        if ($kind === null) {
+                            continue;
+                        }
+                        $appNo = trim((string) ($row->application_no ?? ''));
+                        $number = ServiceRegistrationNumberExtractor::usable(
+                            $hasNumber ? (string) ($row->service_number ?? '') : '',
+                            $appNo,
+                            $kind,
+                        );
+                        if ($appNo === '' || $number === '') {
+                            continue;
+                        }
+                        if ($kind === 'gst') {
+                            $gst[$appNo][] = $number;
+                        } else {
+                            $fssai[$appNo][] = $number;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Phase-2 DB may be unavailable.
+        }
+
+        try {
+            if ($appNos !== []
+                && (string) config('database.connections.legacy_phase1.database', '') !== ''
+                && Schema::connection('legacy_phase1')->hasTable('services')) {
+                $cols = Schema::connection('legacy_phase1')->getColumnListing('services');
+                $select = array_values(array_intersect(
+                    ['ApplicationNumber', 'servicename', 'description', 'other', 'reg', 'enter_service'],
+                    $cols,
+                ));
+                if (in_array('ApplicationNumber', $select, true)) {
+                    foreach (array_chunk($appNos, 400) as $chunk) {
+                        $rows = DB::connection('legacy_phase1')
+                            ->table('services')
+                            ->whereIn('ApplicationNumber', $chunk)
+                            ->get($select);
+                        foreach ($rows as $row) {
+                            $blob = trim((string) ($row->servicename ?? '')).' '.trim((string) ($row->description ?? '')).' '.trim((string) ($row->other ?? ''));
+                            $kind = $this->gstOrFssaiKind('', $blob);
+                            if ($kind === null) {
+                                continue;
+                            }
+                            $appNo = trim((string) ($row->ApplicationNumber ?? ''));
+                            $number = ServiceRegistrationNumberExtractor::usable(
+                                trim((string) ($row->reg ?? '')) !== ''
+                                    ? (string) $row->reg
+                                    : (string) ($row->enter_service ?? ''),
+                                $appNo,
+                                $kind,
+                            );
+                            if ($appNo === '' || $number === '') {
+                                continue;
+                            }
+                            if ($kind === 'gst') {
+                                $gst[$appNo][] = $number;
+                            } else {
+                                $fssai[$appNo][] = $number;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Phase-1 DB may be unavailable.
+        }
+
+        return [$gst, $fssai];
+    }
+
+    private function gstOrFssaiKind(string $code, string $name, string $category = ''): ?string
+    {
+        $blob = mb_strtolower($code.' '.$name.' '.$category);
+        if (str_contains($blob, 'fssai') || str_contains($blob, 'f_s_s_a_i') || str_contains($blob, 'fssa')) {
+            return 'fssai';
+        }
+        if ($code === 'g_s_t' || $code === 'gst' || preg_match('/\bgst\b/', $blob) === 1) {
+            return 'gst';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<string>  $numbers
+     */
+    private function joinUniqueNumbers(array $numbers): string
+    {
+        $out = [];
+        $seen = [];
+        foreach ($numbers as $n) {
+            $n = trim((string) $n);
+            if ($n === '' || $n === self::MISSING_LABEL) {
+                continue;
+            }
+            $key = mb_strtolower($n);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = $n;
+        }
+
+        return implode(' | ', $out);
+    }
+
+    private function cfaFallbackRegistration(string $registrationType, string $number, string $kind): string
+    {
+        $type = mb_strtolower($registrationType);
+        $number = ServiceRegistrationNumberExtractor::usable($number, '', $kind);
+        if ($number === '') {
+            return '';
+        }
+        if ($kind === 'gst' && (str_contains($type, 'gst') || preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/i', $number) === 1)) {
+            return $number;
+        }
+        if ($kind === 'fssai' && str_contains($type, 'fssai')) {
+            return $number;
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  list<array{label?: string, url?: string}>  $links
+     * @return list<array{label: string, url: string}>
+     */
+    private function uniqueMarketLinks(array $links): array
+    {
+        $seen = [];
+        $out = [];
+        foreach ($links as $link) {
+            if (! is_array($link)) {
+                continue;
+            }
+            $label = trim((string) ($link['label'] ?? ''));
+            $url = trim((string) ($link['url'] ?? ''));
+            if ($label === '' && $url === '') {
+                continue;
+            }
+            $key = mb_strtolower($url.'|'.$label);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = [
+                'label' => $label !== '' ? $label : ($url !== '' ? $url : 'Link'),
+                'url' => $url,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array{label?: string, url?: string}>  $links
+     * @return array{partners: string, links: string}
+     */
+    public function marketDisplayFromLinks(array $links): array
+    {
+        $names = [];
+        $urls = [];
+        foreach ($links as $link) {
+            if (! is_array($link)) {
+                continue;
+            }
+            $label = trim((string) ($link['label'] ?? ''));
+            $url = trim((string) ($link['url'] ?? ''));
+            if ($label !== '' && strcasecmp($label, 'Link') !== 0 && ! in_array($label, $names, true)) {
+                $names[] = $label;
+            }
+            if ($url !== '' && ! in_array($url, $urls, true)) {
+                $urls[] = $url;
+            }
+        }
+
+        return [
+            'partners' => $names === [] ? self::MISSING_LABEL : implode(' | ', $names),
+            'links' => $urls === [] ? self::MISSING_LABEL : implode(' | ', $urls),
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, object>|list<object>  $rows
+     * @param  array<int, list<array{label: string, url: string}>>  $linksByPartnerId
+     * @param  array<string, list<array{label: string, url: string}>>  $linksByAppNo
+     */
+    private function appendLegacyPartnerLinks($rows, array &$linksByPartnerId, array &$linksByAppNo): void
+    {
+        foreach ($rows as $p) {
+            $label = trim((string) ($p->partner_name ?? ''));
+            $url = trim((string) ($p->partner_link ?? ''));
+            if ($label === '' && $url === '') {
+                continue;
+            }
+            $entry = [
+                'label' => $label !== '' ? $label : 'Link',
+                'url' => $url,
+            ];
+            $pid = (int) ($p->id ?? 0);
+            if ($pid > 0) {
+                $linksByPartnerId[$pid][] = $entry;
+            }
+            $appNo = trim((string) ($p->application_no ?? ''));
+            if ($appNo !== '') {
+                $linksByAppNo[$appNo][] = $entry;
+            }
+        }
+    }
+
+    /**
+     * @param  list<string>  $appNos
+     * @param  array<string, list<array{label: string, url: string}>>  $linksByAppNo
+     */
+    private function appendPhase1MarketPartners(array $appNos, array &$linksByAppNo): void
+    {
+        try {
+            if ((string) config('database.connections.legacy_phase1.database', '') === ''
+                || ! Schema::connection('legacy_phase1')->hasTable('tblapplication')) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;
+        }
+
+        $available = Schema::connection('legacy_phase1')->getColumnListing('tblapplication');
+        $wanted = ['ApplicationNumber', 'partner1', 'partner2', 'partner3', 'partner4', 'partner5', 'mar_partner'];
+        $select = array_values(array_intersect($wanted, $available));
+        if ($select === [] || ! in_array('ApplicationNumber', $select, true)) {
+            return;
+        }
+
+        foreach (array_chunk($appNos, 400) as $chunk) {
+            $rows = DB::connection('legacy_phase1')
+                ->table('tblapplication')
+                ->whereIn('ApplicationNumber', $chunk)
+                ->get($select);
+            foreach ($rows as $row) {
+                $appNo = trim((string) ($row->ApplicationNumber ?? ''));
+                if ($appNo === '') {
+                    continue;
+                }
+                foreach (['partner1', 'partner2', 'partner3', 'partner4', 'partner5', 'mar_partner'] as $col) {
+                    $raw = trim((string) ($row->{$col} ?? ''));
+                    if ($raw === '' || $this->isNoPartner($raw)) {
+                        continue;
+                    }
+                    foreach (preg_split('/[,;]+/', $raw) ?: [] as $part) {
+                        $part = trim($part);
+                        if ($part === '' || $this->isNoPartner($part) || stripos($part, 'offline') !== false) {
+                            continue;
+                        }
+                        $linksByAppNo[$appNo][] = ['label' => $part, 'url' => ''];
+                    }
+                }
+            }
+        }
+
+        try {
+            if (Schema::connection('legacy_phase1')->hasTable('partner')) {
+                foreach (array_chunk($appNos, 400) as $chunk) {
+                    $rows = DB::connection('legacy_phase1')
+                        ->table('partner')
+                        ->whereIn('ApplicationNumber', $chunk)
+                        ->get(['ApplicationNumber', 'partner_name']);
+                    foreach ($rows as $row) {
+                        $appNo = trim((string) ($row->ApplicationNumber ?? ''));
+                        $name = trim((string) ($row->partner_name ?? ''));
+                        if ($appNo === '' || $name === '' || $this->isNoPartner($name)) {
+                            continue;
+                        }
+                        $linksByAppNo[$appNo][] = ['label' => $name, 'url' => ''];
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // optional partner table
+        }
+    }
+
+    private function isNoPartner(string $value): bool
+    {
+        $v = mb_strtolower(trim($value));
+
+        return in_array($v, ['no', 'n', '0', 'false', 'na', 'n/a', '#n/a', '-', 'none', 'nil'], true);
+    }
+
+    private function flattenPayloadValue(mixed $value): string
+    {
+        if (is_array($value)) {
+            $parts = [];
+            foreach ($value as $item) {
+                if (is_scalar($item) && trim((string) $item) !== '') {
+                    $parts[] = trim((string) $item);
+                }
+            }
+
+            return implode(', ', $parts);
+        }
+
+        return trim((string) ($value ?? ''));
+    }
+
+    private function objStr(object $row, string $key): string
+    {
+        return isset($row->{$key}) ? trim((string) $row->{$key}) : '';
     }
 
     /**

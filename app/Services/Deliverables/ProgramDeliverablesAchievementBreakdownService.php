@@ -54,6 +54,7 @@ class ProgramDeliverablesAchievementBreakdownService
         private readonly LegacyApplicationServiceCaseSupport $legacyServiceCases,
         private readonly MarketLinkagePartnerCatalogService $marketLinkagePartners,
         private readonly OfficialMonthlyTargetsReportService $officialMonthlyTargets,
+        private readonly ProgramDeliverableCodeLookup $codeLookup,
     ) {}
 
     /** @var array<int, ?District> */
@@ -119,7 +120,13 @@ class ProgramDeliverablesAchievementBreakdownService
         };
 
         $total = (int) ($breakdown['total'] ?? 0);
-        $byDistrict = $this->enrichDistrictRowsWithTargets($breakdown['by_district'] ?? [], $source, $total);
+        $byDistrict = $this->enrichDistrictRowsWithTargets(
+            $breakdown['by_district'] ?? [],
+            $source,
+            $total,
+            $serial,
+            (string) ($leaf['name'] ?? ''),
+        );
         $byMonth = $breakdown['by_month'] ?? [];
 
         $sourceTypeLabel = $this->sourceTypeLabel($sourceType, $source);
@@ -1855,9 +1862,14 @@ class ProgramDeliverablesAchievementBreakdownService
      * @param  array<string, mixed>  $source
      * @return list<array<string, mixed>>
      */
-    private function enrichDistrictRowsWithTargets(array $byDistrict, array $source, int $total): array
-    {
-        $targetsByDistrictId = $this->districtTargetsForSource($source);
+    private function enrichDistrictRowsWithTargets(
+        array $byDistrict,
+        array $source,
+        int $total,
+        string $serial = '',
+        string $indicatorName = '',
+    ): array {
+        $targetsByDistrictId = $this->districtTargetsForSource($source, $serial, $indicatorName);
         $districts = $this->districtsForTargetMerge($targetsByDistrictId);
 
         $achievementByName = [];
@@ -1959,13 +1971,14 @@ class ProgramDeliverablesAchievementBreakdownService
      * @param  array<string, mixed>  $source
      * @return array<int, int> district_id => target
      */
-    private function districtTargetsForSource(array $source): array
+    private function districtTargetsForSource(array $source, string $serial = '', string $indicatorName = ''): array
     {
         if ($this->activeFiscalYear === null || $this->districtIds === []) {
             return [];
         }
 
-        $deliverableIds = $this->deliverableIdsForSource($source);
+        $this->codeLookup->boot();
+        $deliverableIds = $this->codeLookup->deliverableIdsForOfficialTargets($source, $serial, $indicatorName);
         if ($deliverableIds === []) {
             return [];
         }
@@ -1986,69 +1999,6 @@ class ProgramDeliverablesAchievementBreakdownService
         }
 
         return $this->legacyDistrictTargetsByDistrictId($deliverableIds, $periodInfo, $sumDeliverables);
-    }
-
-    /**
-     * @param  array<string, mixed>  $source
-     * @return list<int>
-     */
-    private function deliverableIdsForSource(array $source): array
-    {
-        $type = (string) ($source['type'] ?? '');
-        $codes = [];
-        if (in_array($type, ['deliverable', 'service'], true)) {
-            $codes[] = (string) ($source['code'] ?? '');
-        } elseif ($type === 'services') {
-            $codes = array_map('strval', (array) ($source['codes'] ?? []));
-        } else {
-            $codes[] = (string) ($source['deliverable_code'] ?? '');
-        }
-
-        $ids = [];
-        foreach ($codes as $code) {
-            $ids = array_merge($ids, $this->deliverableIdsForLookupCode($code));
-        }
-
-        return array_values(array_unique(array_filter($ids)));
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function deliverableIdsForLookupCode(string $code): array
-    {
-        $code = strtolower(trim($code));
-        if ($code === '') {
-            return [];
-        }
-
-        $candidates = array_values(array_unique(array_filter([
-            $code,
-            $this->serviceTargetDeliverables->deliverableCodeForServiceCode($code),
-            str_starts_with($code, 'svc_') ? substr($code, 4) : 'svc_'.$code,
-        ])));
-
-        $ids = Deliverable::query()
-            ->whereIn('code', $candidates)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        $serviceIds = Service::query()
-            ->where('is_active', true)
-            ->where(function ($q) use ($candidates): void {
-                $q->whereIn('code', $candidates)
-                    ->orWhereHas('deliverable', fn ($dq) => $dq->whereIn('code', $candidates));
-            })
-            ->pluck('deliverable_id');
-
-        foreach ($serviceIds as $id) {
-            if ($id) {
-                $ids[] = (int) $id;
-            }
-        }
-
-        return array_values(array_unique($ids));
     }
 
     /**

@@ -6,6 +6,8 @@
 return [
     '2.1' => 'onboarding',
     '2.1.1' => 'potential_lakhpati_onboarding',
+    '4.2.2' => 'fssai',
+    '4.2.4' => 'gst',
     '5.1' => 'specialized_mentorship_support',
     '6.3' => 'market_link',
     '5.2' => 'mentorship_online_portal',

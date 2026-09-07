@@ -727,7 +727,7 @@ class ProgramDeliverablesReportService
         if ($rowType === 'pillar' || $rowType === 'subcategory') {
             $rows[] = $this->formatHeadingRow($node, $serial);
         } elseif (isset($node['source'])) {
-            $metrics = $this->resolveNodeMetrics($node);
+            $metrics = $this->resolveNodeMetrics($node, $serial);
             $rows[] = $this->formatRow($node, $serial, $metrics);
         }
 
@@ -764,11 +764,11 @@ class ProgramDeliverablesReportService
      * @param  array<string, mixed>  $node
      * @return array{target: ?int, achievement: int}
      */
-    private function resolveNodeMetrics(array $node): array
+    private function resolveNodeMetrics(array $node, string $serial = ''): array
     {
         $source = $node['source'] ?? ['type' => 'none'];
         $achievement = $this->achievementForSource($source);
-        $target = $this->targetForSource($source, (string) ($node['name'] ?? ''));
+        $target = $this->targetForSource($source, (string) ($node['name'] ?? ''), $serial);
 
         return [
             'target' => $target,
@@ -824,7 +824,7 @@ class ProgramDeliverablesReportService
     /**
      * @param  array<string, mixed>  $source
      */
-    private function targetForSource(array $source, string $indicatorName = ''): ?int
+    private function targetForSource(array $source, string $indicatorName = '', string $serial = ''): ?int
     {
         $target = match ($source['type'] ?? 'none') {
             'deliverable', 'service' => $this->resolveStateTargetForCodes([
@@ -846,6 +846,13 @@ class ProgramDeliverablesReportService
             'target_name' => $this->resolveStateTargetByNameKeyword((string) ($source['match'] ?? '')),
             default => null,
         };
+
+        if ($target === null && $serial !== '') {
+            $override = config('official_monthly_target_serial_codes.'.$serial);
+            if (is_string($override) && $override !== '') {
+                $target = $this->resolveStateTargetForCodes([$override]);
+            }
+        }
 
         if ($target !== null) {
             return $target;

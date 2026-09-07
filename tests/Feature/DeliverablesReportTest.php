@@ -1309,6 +1309,164 @@ class DeliverablesReportTest extends TestCase
         $this->assertMatchesRegularExpression('/8,1,13%/', $csv);
     }
 
+    public function test_gst_and_fssai_breakdown_excel_includes_aliased_district_targets(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'legal-tgt-hub', 'name' => 'Legal Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'legal-tgt-district',
+            'name' => 'Legal Target District',
+            'sort_order' => 1,
+        ]);
+
+        $child = ServiceCategory::query()->create(['slug' => 'legal-tgt', 'name' => 'Legal', 'sort_order' => 1]);
+
+        $nextSort = ((int) Deliverable::query()->max('sort_order')) + 1;
+
+        Deliverable::query()->firstOrCreate(
+            ['code' => 'fssai'],
+            [
+                'sort_order' => $nextSort++,
+                'name' => 'FSSAI',
+                'mis_entry_label' => 'FSSAI',
+                'is_active' => true,
+            ]
+        );
+        Deliverable::query()->firstOrCreate(
+            ['code' => 'gst'],
+            [
+                'sort_order' => $nextSort++,
+                'name' => 'GST Registration',
+                'mis_entry_label' => 'GST',
+                'is_active' => true,
+            ]
+        );
+
+        $svcFssai = Deliverable::query()->firstOrCreate(
+            ['code' => 'svc_fssai_registration'],
+            [
+                'sort_order' => $nextSort++,
+                'name' => 'FSSAI Registration',
+                'mis_entry_label' => 'FSSAI',
+                'is_active' => true,
+            ]
+        );
+        $svcGst = Deliverable::query()->firstOrCreate(
+            ['code' => 'svc_gst_registration'],
+            [
+                'sort_order' => $nextSort++,
+                'name' => 'GST Registration Service',
+                'mis_entry_label' => 'GST',
+                'is_active' => true,
+            ]
+        );
+
+        $fssaiService = Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcFssai->id,
+            'code' => 'fssai_registration',
+            'name' => 'FSSAI Registration',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+        $gstService = Service::query()->create([
+            'service_category_id' => $child->id,
+            'deliverable_id' => $svcGst->id,
+            'code' => 'gst_registration',
+            'name' => 'GST Registration',
+            'sort_order' => 2,
+            'is_active' => true,
+        ]);
+
+        OfficialDistrictMonthlyTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $svcFssai->id,
+            'month_number' => 2,
+            'target_count' => 9,
+        ]);
+        OfficialDistrictMonthlyTarget::query()->create([
+            'fiscal_year_id' => $fy->id,
+            'district_id' => $district->id,
+            'deliverable_id' => $svcGst->id,
+            'month_number' => 2,
+            'target_count' => 6,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Legal Target Applicant',
+            'phone' => '9999999930',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $fssaiService->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-FSSAI-TGT-1',
+            'submitted_at' => '2026-05-10 09:00:00',
+            'approved_at' => '2026-05-10 09:00:00',
+        ]);
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $gstService->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-GST-TGT-1',
+            'submitted_at' => '2026-05-11 09:00:00',
+            'approved_at' => '2026-05-11 09:00:00',
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $query = [
+            'fiscal_year_id' => $fy->id,
+            'month' => 5,
+            'year' => 2026,
+        ];
+
+        $fssai = $this->actingAs($admin)
+            ->getJson(route('admin.deliverables.breakdown', $query + ['serial' => '4.2.2']))
+            ->assertOk();
+        $fssaiDistrict = collect($fssai->json('by_district'))->firstWhere('district', 'Legal Target District');
+        $this->assertNotNull($fssaiDistrict);
+        $this->assertSame(9, (int) ($fssaiDistrict['target'] ?? 0));
+        $this->assertSame(1, (int) ($fssaiDistrict['achievement'] ?? 0));
+
+        $gst = $this->actingAs($admin)
+            ->getJson(route('admin.deliverables.breakdown', $query + ['serial' => '4.2.4']))
+            ->assertOk();
+        $gstDistrict = collect($gst->json('by_district'))->firstWhere('district', 'Legal Target District');
+        $this->assertNotNull($gstDistrict);
+        $this->assertSame(6, (int) ($gstDistrict['target'] ?? 0));
+        $this->assertSame(1, (int) ($gstDistrict['achievement'] ?? 0));
+
+        $fssaiCsv = $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export.csv', $query + ['serial' => '4.2.2']))
+            ->assertOk()
+            ->streamedContent();
+        $this->assertStringContainsString('Legal Target District', $fssaiCsv);
+        $this->assertMatchesRegularExpression('/9,1,/', $fssaiCsv);
+
+        $gstCsv = $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export.csv', $query + ['serial' => '4.2.4']))
+            ->assertOk()
+            ->streamedContent();
+        $this->assertStringContainsString('Legal Target District', $gstCsv);
+        $this->assertMatchesRegularExpression('/6,1,/', $gstCsv);
+    }
+
     public function test_state_monthly_partner_outreach_uses_exact_month_on_deliverables_report(): void
     {
         app(StateMonthlyTargetIndicatorBootstrapService::class)->ensureDeliverables();

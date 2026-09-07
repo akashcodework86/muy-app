@@ -11,8 +11,10 @@
     $regLabel = $payload['registration_label'] ?? 'Service / Reg. No.';
     $metric = (string) ($filters['metric'] ?? 'onboarding');
     $isServiceMetric = in_array($metric, ['udyam', 'artisan_card', 'fssai', 'gst', 'market_linkage', 'convergence'], true);
-    $showLinks = $metric === 'market_linkage';
-    $colspan = $showLinks ? 13 : 12;
+    $isOnboarding = $metric === 'onboarding';
+    $showLinks = $metric === 'market_linkage' || $isOnboarding;
+    $missingLabel = \App\Services\DataCentre\YearwiseIndicatorsPlusRecordsService::MISSING_LABEL;
+    $colspan = 12 + ($showLinks ? 1 : 0) + ($isOnboarding ? 3 : 0);
 @endphp
 <style>
 .yi-rec-nav{display:flex;flex-wrap:wrap;gap:.55rem;align-items:center;margin-bottom:.75rem;font-size:.86rem}
@@ -36,7 +38,7 @@
 .yi-rec-btn--xlsx{background:#065f46;color:#fff}
 .yi-rec-btn--csv{background:#f1f5f9;color:#334155;border:1px solid #d4d4d8}
 .yi-rec-table-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:auto;max-height:calc(100vh - 220px)}
-.yi-rec-table{width:100%;border-collapse:collapse;font-size:.84rem;min-width:1280px}
+.yi-rec-table{width:100%;border-collapse:collapse;font-size:.84rem;min-width:1560px}
 .yi-rec-table th,.yi-rec-table td{padding:.55rem .65rem;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}
 .yi-rec-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;color:#64748b;background:#f8fafc;position:sticky;top:0;z-index:1}
 .yi-rec-table tbody tr:hover{background:#fffbeb}
@@ -56,6 +58,7 @@
 .yi-rec-links a{color:#9a3412;font-weight:650;text-decoration:none;font-size:.78rem;word-break:break-all}
 .yi-rec-links a:hover{text-decoration:underline}
 .yi-rec-muted{color:#94a3b8}
+.yi-rec-missing{color:#94a3b8;font-style:italic}
 .yi-rec-foot{padding:.7rem .85rem;display:flex;justify-content:space-between;gap:.75rem;flex-wrap:wrap;align-items:center;color:#64748b;font-size:.82rem;background:#f8fafc;border-top:1px solid #e2e8f0}
 .yi-rec-error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:.75rem;padding:.7rem 1rem;margin-bottom:.85rem;font-size:.88rem;font-weight:600}
 .yi-rec-loc{white-space:nowrap}
@@ -87,7 +90,9 @@
             {{ $regLabel }} is shown when captured in the source system.
         @elseif ($metric === 'onboarding')
             Onboarding list includes Verified incubatees plus JIT and Lakhpati Didi rows that feed the Plus matrix
-            (notably FY 2023-24).
+            (notably FY 2023-24). Sector, product, GSTIN, FSSAI licence and market-linkage partners are joined from CFA
+            and service records. Missing GST / FSSAI / market linkage is shown as “{{ $missingLabel }}”.
+            Excel export has a Summary sheet, one Combined list, and a sheet per financial year.
         @else
             CFA achievement rows for the selected scope. Registration number appears when present on the application.
         @endif
@@ -177,12 +182,18 @@
                 <th>Phone</th>
                 <th>Location</th>
                 <th>Sector / Product</th>
-                <th>{{ $regLabel }}</th>
-                @if ($showLinks)
-                    <th>Links</th>
+                @if ($isOnboarding)
+                    <th>CFA</th>
+                    <th>GSTIN</th>
+                    <th>FSSAI</th>
+                @else
+                    <th>{{ $regLabel }}</th>
                 @endif
-                <th>Service</th>
-                <th>Service date</th>
+                @if ($showLinks)
+                    <th>{{ $isOnboarding ? 'Market linkage' : 'Links' }}</th>
+                @endif
+                <th>{{ $isOnboarding ? 'Batch / notes' : 'Service' }}</th>
+                <th>{{ $isOnboarding ? 'Onboard date' : 'Service date' }}</th>
                 <th>FY</th>
                 <th>Source</th>
                 <th>Documents</th>
@@ -204,10 +215,21 @@
                     $phone = $dash($row['phone'] ?? '');
                     $district = $dash($row['district'] ?? '');
                     $block = $dash($row['block'] ?? '');
-                    $sector = $dash($row['sector'] ?? '');
-                    $product = $dash($row['product'] ?? '');
+                    $sectorRaw = trim((string) ($row['sector'] ?? ''));
+                    $productRaw = trim((string) ($row['product'] ?? ''));
+                    $sector = $dash($sectorRaw === $missingLabel ? '' : $sectorRaw);
+                    $product = $dash($productRaw === $missingLabel ? '' : $productRaw);
                     $serviceNumber = $dash($row['service_number'] ?? '');
                     $marketLinks = is_array($row['market_links'] ?? null) ? $row['market_links'] : [];
+                    $gstNumber = trim((string) ($row['gst_number'] ?? $missingLabel));
+                    $fssaiNumber = trim((string) ($row['fssai_number'] ?? $missingLabel));
+                    $cfaCategory = $dash($row['cfa_category'] ?? '');
+                    $gender = $dash($row['gender'] ?? '');
+                    $guardian = $dash($row['guardian_name'] ?? '');
+                    $email = $dash($row['email'] ?? '');
+                    $shg = $dash($row['shg_name'] ?? '') ?: $dash($row['shg_cbo_name'] ?? '');
+                    $education = $dash($row['education'] ?? '');
+                    $village = $dash($row['village'] ?? '');
                     $serviceTitle = $dash($row['service_label'] ?? '') ?: $dash($row['category'] ?? '');
                     $detail = $dash($row['detail'] ?? '');
                     $status = $dash($row['status'] ?? '');
@@ -220,6 +242,17 @@
                             <div class="yi-rec-name">{{ $name }}</div>
                         @else
                             <span class="yi-rec-muted">—</span>
+                        @endif
+                        @if ($isOnboarding && ($gender || $cfaCategory || $guardian || $email))
+                            @if ($cfaCategory || $gender)
+                                <div class="yi-rec-sub">{{ trim(implode(' · ', array_filter([$cfaCategory, $gender]))) }}</div>
+                            @endif
+                            @if ($guardian)
+                                <div class="yi-rec-sub">Guardian: {{ $guardian }}</div>
+                            @endif
+                            @if ($email)
+                                <div class="yi-rec-sub">{{ $email }}</div>
+                            @endif
                         @endif
                     </td>
                     <td>
@@ -245,9 +278,37 @@
                             @if ($sector)<div>{{ $sector }}</div>@endif
                             @if ($product)<div class="yi-rec-sub">{{ $product }}</div>@endif
                         @else
-                            <span class="yi-rec-muted">—</span>
+                            <span class="{{ $isOnboarding ? 'yi-rec-missing' : 'yi-rec-muted' }}">{{ $isOnboarding ? $missingLabel : '—' }}</span>
                         @endif
                     </td>
+                    @if ($isOnboarding)
+                        <td>
+                            @if ($education || $shg || $village || ($row['lakhpati'] ?? '') !== '')
+                                @if ($education)<div>{{ $education }}</div>@endif
+                                @if ($shg)<div class="yi-rec-sub">SHG: {{ $shg }}</div>@endif
+                                @if ($village)<div class="yi-rec-sub">{{ $village }}</div>@endif
+                                @if (trim((string) ($row['lakhpati'] ?? '')) !== '')
+                                    <div class="yi-rec-sub">Lakhpati: {{ $row['lakhpati'] }}</div>
+                                @endif
+                            @else
+                                <span class="yi-rec-muted">—</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if ($gstNumber === $missingLabel || $gstNumber === '')
+                                <span class="yi-rec-missing">{{ $missingLabel }}</span>
+                            @else
+                                <span class="yi-rec-mono">{{ $gstNumber }}</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if ($fssaiNumber === $missingLabel || $fssaiNumber === '')
+                                <span class="yi-rec-missing">{{ $missingLabel }}</span>
+                            @else
+                                <span class="yi-rec-mono">{{ $fssaiNumber }}</span>
+                            @endif
+                        </td>
+                    @else
                     <td>
                         @if ($serviceNumber)
                             <span class="yi-rec-mono">{{ $serviceNumber }}</span>
@@ -255,10 +316,11 @@
                             <span class="yi-rec-muted">—</span>
                         @endif
                     </td>
+                    @endif
                     @if ($showLinks)
                         <td>
                             @if ($marketLinks === [])
-                                <span class="yi-rec-muted">—</span>
+                                <span class="{{ $isOnboarding ? 'yi-rec-missing' : 'yi-rec-muted' }}">{{ $isOnboarding ? $missingLabel : '—' }}</span>
                             @else
                                 <div class="yi-rec-links">
                                     @foreach ($marketLinks as $link)
