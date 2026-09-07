@@ -105,4 +105,30 @@ class ProgramDeliverablesFilterTest extends TestCase
         $this->assertSame('2026-05-18', $dates['dateFrom']);
         $this->assertSame('2026-05-18', $dates['dateTo']);
     }
+
+    public function test_query_params_include_hub_id_and_keep_it_through_derived_dates(): void
+    {
+        $fy = FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+
+        $filter = new ProgramDeliverablesFilter(
+            fiscalYearId: $fy->id,
+            districtId: null,
+            month: 5,
+            year: null,
+            dateFrom: null,
+            dateTo: null,
+            hubId: 7,
+        );
+        $derived = $filter->withDerivedDates($fy);
+
+        $this->assertSame(7, $derived->hubId);
+        $this->assertSame(7, $derived->queryParams()['hub_id']);
+        $this->assertSame(7, $derived->toCumulativeThroughPeriodEnd($fy)->hubId);
+    }
 }

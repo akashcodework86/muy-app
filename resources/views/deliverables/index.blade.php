@@ -96,13 +96,24 @@
 
     <form method="get" action="{{ route($indexRoute) }}" id="deliverables-filter-form" style="display:flex;flex-wrap:wrap;gap:0.65rem;align-items:flex-end;margin-bottom:1rem;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.9rem;">
         <input type="hidden" name="fiscal_year_id" id="fiscal_year_id" value="{{ $fiscalYearId }}">
+        @if ($canPickHub ?? false)
+            <div style="display:flex;flex-direction:column;gap:0.25rem;">
+                <label for="hub_id" style="font-size:0.75rem;font-weight:600;color:#475569;">Hub</label>
+                <select name="hub_id" id="hub_id" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:14rem;">
+                    <option value="">All hubs</option>
+                    @foreach ($hubs ?? [] as $h)
+                        <option value="{{ $h->id }}" @selected((int) ($filter->hubId ?? 0) === (int) $h->id)>{{ $h->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
         @if ($canPickDistrict)
             <div style="display:flex;flex-direction:column;gap:0.25rem;">
                 <label for="district_id" style="font-size:0.75rem;font-weight:600;color:#475569;">District</label>
                 <select name="district_id" id="district_id" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;min-width:11rem;">
                     <option value="">All in scope</option>
                     @foreach ($districts as $d)
-                        <option value="{{ $d->id }}" @selected((int) ($filter->districtId ?? 0) === (int) $d->id)>{{ $d->name }}</option>
+                        <option value="{{ $d->id }}" data-hub-id="{{ $d->hub_id }}" @selected((int) ($filter->districtId ?? 0) === (int) $d->id)>{{ $d->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -1250,5 +1261,6 @@
             })();
             @endif
         </script>
+        @include('deliverables.partials.hub-district-cascade')
     @endpush
 @endsection

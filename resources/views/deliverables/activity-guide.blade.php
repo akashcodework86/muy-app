@@ -44,13 +44,24 @@
                 @endforeach
             </select>
         </div>
+        @if ($canPickHub ?? false)
+            <div style="display:flex;flex-direction:column;gap:0.2rem;">
+                <label for="hub_id" style="font-size:0.72rem;font-weight:600;color:#475569;">Hub</label>
+                <select name="hub_id" id="hub_id" style="padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:8px;min-width:13rem;">
+                    <option value="">All hubs</option>
+                    @foreach ($hubs ?? [] as $h)
+                        <option value="{{ $h->id }}" @selected((int) ($filter->hubId ?? 0) === (int) $h->id)>{{ $h->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
         @if ($canPickDistrict)
             <div style="display:flex;flex-direction:column;gap:0.2rem;">
                 <label for="district_id" style="font-size:0.72rem;font-weight:600;color:#475569;">District</label>
                 <select name="district_id" id="district_id" style="padding:0.4rem 0.5rem;border:1px solid #d4d4d8;border-radius:8px;min-width:10rem;">
                     <option value="">All in scope</option>
                     @foreach ($districts as $d)
-                        <option value="{{ $d->id }}" @selected((int) ($filter->districtId ?? 0) === (int) $d->id)>{{ $d->name }}</option>
+                        <option value="{{ $d->id }}" data-hub-id="{{ $d->hub_id }}" @selected((int) ($filter->districtId ?? 0) === (int) $d->id)>{{ $d->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -152,4 +163,5 @@
     </div>
 
     @include('deliverables.partials.breakdown-drawer')
+    @include('deliverables.partials.hub-district-cascade')
 @endsection

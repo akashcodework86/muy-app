@@ -76,7 +76,7 @@ class ProgramDeliverablesAchievementBreakdownService
         $this->activeFiscalYear = $fiscalYears->firstWhere('id', $resolvedFyId);
         $this->filter = $filter;
         $this->legacyDistrictCache = [];
-        $this->districtIds = $scope->effectiveDistrictIds($filter->districtId);
+        $this->districtIds = $scope->effectiveDistrictIds($filter->districtId, $filter->hubId);
         [$this->periodFrom, $this->periodTo] = $filter->resolvePeriod($this->activeFiscalYear);
 
         $breakdown = match ($sourceType) {

@@ -122,9 +122,11 @@ class ProgramDeliverablesReportService
         $this->filter = $filter;
         $this->viewerRole = $scope->role;
         $this->activeFiscalYear = $fiscalYear;
-        $this->districtIds = $scope->effectiveDistrictIds($filter->districtId);
-        // State-wide targets for state admin; when a district is selected, use that district's targets.
-        $this->useStateTargets = $scope->usesStateTargets && ($filter->districtId === null || $filter->districtId <= 0);
+        $this->districtIds = $scope->effectiveDistrictIds($filter->districtId, $filter->hubId);
+        // State-wide targets for state admin; when a hub or district is selected, use that scope's targets.
+        $this->useStateTargets = $scope->usesStateTargets
+            && ($filter->districtId === null || $filter->districtId <= 0)
+            && ($filter->hubId === null || $filter->hubId <= 0);
         $this->useOfficialMonthlyTargets = false;
         [$this->periodFrom, $this->periodTo] = $filter->resolvePeriod($fiscalYear);
 

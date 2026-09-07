@@ -49,7 +49,8 @@ class DeliverablesReportTest extends TestCase
             ->assertSee('Deliverables')
             ->assertSee('Call for Application')
             ->assertSee('Outreach and Mobilisation')
-            ->assertSee('District');
+            ->assertSee('District')
+            ->assertSee('name="hub_id"', false);
     }
 
     public function test_staff_deliverables_page_is_scoped_to_district(): void
@@ -69,7 +70,98 @@ class DeliverablesReportTest extends TestCase
             ->get(route('staff.deliverables.index'))
             ->assertOk()
             ->assertSee('Deliverables')
-            ->assertDontSee('name="district_id"', false);
+            ->assertDontSee('name="district_id"', false)
+            ->assertDontSee('name="hub_id"', false);
+    }
+
+    public function test_hub_admin_deliverables_page_has_district_filter_but_not_hub(): void
+    {
+        $hub = Hub::query()->create(['slug' => 'kumaon', 'name' => 'Kumaon Region (Eastern Uttarakhand)', 'sort_order' => 1]);
+        District::query()->create(['hub_id' => $hub->id, 'slug' => 'almora', 'name' => 'Almora', 'sort_order' => 1]);
+        District::query()->create(['hub_id' => $hub->id, 'slug' => 'nainital', 'name' => 'Nainital', 'sort_order' => 2]);
+
+        $hubAdmin = User::factory()->create([
+            'role' => 'hub_admin',
+            'is_active' => true,
+            'hub_id' => $hub->id,
+            'district_id' => null,
+        ]);
+
+        $this->actingAs($hubAdmin)
+            ->get(route('hub.deliverables.index'))
+            ->assertOk()
+            ->assertSee('name="district_id"', false)
+            ->assertDontSee('name="hub_id"', false);
+    }
+
+    public function test_admin_can_filter_deliverables_by_hub(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2025-26'],
+            [
+                'name' => 'FY 2025-26',
+                'starts_on' => '2025-04-01',
+                'ends_on' => '2026-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $kumaon = Hub::query()->create(['slug' => 'kumaon', 'name' => 'Kumaon Region (Eastern Uttarakhand)', 'sort_order' => 1]);
+        $garhwal = Hub::query()->create(['slug' => 'garhwal', 'name' => 'Garhwal Region (Western Uttarakhand)', 'sort_order' => 2]);
+        $almora = District::query()->create(['hub_id' => $kumaon->id, 'slug' => 'almora', 'name' => 'Almora', 'sort_order' => 1]);
+        $pauri = District::query()->create(['hub_id' => $garhwal->id, 'slug' => 'pauri-garhwal', 'name' => 'Pauri Garhwal', 'sort_order' => 1]);
+
+        DB::table('cfa_submissions')->insert([
+            [
+                'district_id' => $almora->id,
+                'fiscal_year_id' => $fy->id,
+                'applicant_name' => 'Kumaon applicant',
+                'phone' => '9000000101',
+                'payload' => json_encode([]),
+                'created_at' => '2025-06-01',
+                'updated_at' => now(),
+            ],
+            [
+                'district_id' => $pauri->id,
+                'fiscal_year_id' => $fy->id,
+                'applicant_name' => 'Garhwal applicant',
+                'phone' => '9000000102',
+                'payload' => json_encode([]),
+                'created_at' => '2025-06-02',
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $admin = User::factory()->make(['role' => 'state_admin', 'is_active' => true]);
+        $scope = ProgramDeliverablesScope::forUser($admin);
+
+        $this->assertTrue($scope->canPickHub());
+        $this->assertSame([$almora->id], $scope->effectiveDistrictIds(null, $kumaon->id));
+        $this->assertSame($kumaon->name, $scope->scopeLabel(null, $kumaon->id));
+        $this->assertFalse($scope->districtBelongsToHub($pauri->id, $kumaon->id));
+
+        $statewide = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, null, null, null, null),
+            $scope,
+        );
+        $kumaonReport = app(ProgramDeliverablesReportService::class)->build(
+            new ProgramDeliverablesFilter($fy->id, null, null, null, null, null, null, null, null, $kumaon->id),
+            $scope,
+        );
+
+        $this->assertSame(2, collect($statewide['rows'])->firstWhere('serial', '1.1')['achievement']);
+        $this->assertSame(1, collect($kumaonReport['rows'])->firstWhere('serial', '1.1')['achievement']);
+
+        $pageAdmin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $this->actingAs($pageAdmin)
+            ->get(route('admin.deliverables.index', [
+                'fiscal_year_id' => $fy->id,
+                'hub_id' => $kumaon->id,
+                'district_id' => $pauri->id,
+            ]))
+            ->assertOk()
+            ->assertSee($kumaon->name, false)
+            ->assertSee('name="hub_id"', false);
     }
 
     public function test_report_follows_official_mis_sequence(): void
@@ -4344,6 +4436,7 @@ class DeliverablesReportTest extends TestCase
         $this->assertTrue($scope->usesStateTargets);
         $this->assertSame('All districts (state)', $scope->scopeLabel(null));
         $this->assertTrue($scope->canPickDistrict());
+        $this->assertTrue($scope->canPickHub());
     }
 
     public function test_dedicated_reap_support_service_store_counts_mis_8_2(): void

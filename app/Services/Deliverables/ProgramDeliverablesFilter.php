@@ -18,6 +18,7 @@ class ProgramDeliverablesFilter
         public readonly ?int $quarter = null,
         public readonly ?string $indicatorType = null,
         public readonly ?string $level = null,
+        public readonly ?int $hubId = null,
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -36,6 +37,7 @@ class ProgramDeliverablesFilter
             quarter: $quarter !== null && $quarter !== '' ? (int) $quarter : null,
             indicatorType: self::normalizeIndicatorType($request->query('indicator_type')),
             level: self::normalizeLevel($request->query('level')),
+            hubId: $request->query('hub_id') ? (int) $request->query('hub_id') : null,
         );
     }
 
@@ -123,6 +125,7 @@ class ProgramDeliverablesFilter
             quarter: null,
             indicatorType: $this->indicatorType,
             level: $this->level,
+            hubId: $this->hubId,
         );
     }
 
@@ -186,6 +189,7 @@ class ProgramDeliverablesFilter
             quarter: $this->quarter,
             indicatorType: $this->indicatorType,
             level: $this->level,
+            hubId: $this->hubId,
         );
     }
 
@@ -196,6 +200,7 @@ class ProgramDeliverablesFilter
     {
         return array_filter([
             'fiscal_year_id' => $this->fiscalYearId,
+            'hub_id' => $this->hubId,
             'district_id' => $this->districtId,
             'quarter' => $this->quarter,
             'month' => $this->month,

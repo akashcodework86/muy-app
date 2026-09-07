@@ -102,13 +102,24 @@
                 <label for="q">Search</label>
                 <input type="search" name="q" id="q" value="{{ $listFilters['q'] ?? '' }}" placeholder="Name, application no, partner">
             </div>
+            @if ($canPickHub ?? false)
+                <div>
+                    <label for="hub_id">Hub</label>
+                    <select name="hub_id" id="hub_id">
+                        <option value="">All hubs</option>
+                        @foreach ($hubs ?? [] as $h)
+                            <option value="{{ $h->id }}" @selected((int) ($filter->hubId ?? 0) === (int) $h->id)>{{ $h->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
             @if ($canPickDistrict)
                 <div>
                     <label for="district_id">District</label>
                     <select name="district_id" id="district_id">
                         <option value="">All in scope</option>
                         @foreach ($districts as $d)
-                            <option value="{{ $d->id }}" @selected((int) ($filter->districtId ?? 0) === (int) $d->id)>{{ $d->name }}</option>
+                            <option value="{{ $d->id }}" data-hub-id="{{ $d->hub_id }}" @selected((int) ($filter->districtId ?? 0) === (int) $d->id)>{{ $d->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -267,4 +278,5 @@
             <div>{{ $records->links() }}</div>
         </div>
     </div>
+    @include('deliverables.partials.hub-district-cascade')
 @endsection

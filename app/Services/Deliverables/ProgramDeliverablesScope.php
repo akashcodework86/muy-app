@@ -3,6 +3,7 @@
 namespace App\Services\Deliverables;
 
 use App\Models\District;
+use App\Models\Hub;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -48,19 +49,40 @@ class ProgramDeliverablesScope
     /**
      * District ids used for achievement queries after applying user filter.
      *
-     * @return list<int>|null  null = all Uttarakhand (state admin, no district filter)
+     * @return list<int>|null  null = all Uttarakhand (state admin, no district/hub filter)
      */
-    public function effectiveDistrictIds(?int $filterDistrictId): ?array
+    public function effectiveDistrictIds(?int $filterDistrictId, ?int $filterHubId = null): ?array
     {
+        $ids = $this->districtIds;
+
+        if ($filterHubId !== null && $filterHubId > 0) {
+            $hubDistrictIds = District::query()
+                ->where('hub_id', $filterHubId)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            if ($ids === null) {
+                $ids = $hubDistrictIds;
+            } else {
+                $ids = array_values(array_intersect($ids, $hubDistrictIds));
+            }
+        }
+
         if ($filterDistrictId !== null && $filterDistrictId > 0) {
-            if ($this->districtIds === null || in_array($filterDistrictId, $this->districtIds, true)) {
+            if ($ids === null || in_array($filterDistrictId, $ids, true)) {
                 return [$filterDistrictId];
             }
 
             return [];
         }
 
-        return $this->districtIds;
+        return $ids;
+    }
+
+    public function canPickHub(): bool
+    {
+        return $this->districtIds === null;
     }
 
     public function canPickDistrict(): bool
@@ -70,6 +92,38 @@ class ProgramDeliverablesScope
         }
 
         return count($this->districtIds) > 1;
+    }
+
+    public function isHubInScope(int $hubId): bool
+    {
+        if ($hubId <= 0 || ! Hub::query()->whereKey($hubId)->exists()) {
+            return false;
+        }
+
+        if ($this->districtIds === null) {
+            return true;
+        }
+
+        if ($this->hubId !== null) {
+            return $this->hubId === $hubId;
+        }
+
+        return District::query()
+            ->where('hub_id', $hubId)
+            ->whereIn('id', $this->districtIds)
+            ->exists();
+    }
+
+    /**
+     * @return Collection<int, Hub>
+     */
+    public function hubsForDropdown(): Collection
+    {
+        if (! $this->canPickHub()) {
+            return collect();
+        }
+
+        return Hub::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
     }
 
     /**
@@ -92,12 +146,30 @@ class ProgramDeliverablesScope
             ->get();
     }
 
-    public function scopeLabel(?int $filterDistrictId): string
+    public function districtBelongsToHub(int $districtId, int $hubId): bool
+    {
+        if ($districtId <= 0 || $hubId <= 0) {
+            return false;
+        }
+
+        return District::query()
+            ->whereKey($districtId)
+            ->where('hub_id', $hubId)
+            ->exists();
+    }
+
+    public function scopeLabel(?int $filterDistrictId, ?int $filterHubId = null): string
     {
         if ($filterDistrictId) {
             $name = District::query()->whereKey($filterDistrictId)->value('name');
 
             return $name ? (string) $name.' district' : 'Selected district';
+        }
+
+        if ($filterHubId) {
+            $name = Hub::query()->whereKey($filterHubId)->value('name');
+
+            return $name ? (string) $name : 'Selected hub';
         }
 
         return match ($this->role) {

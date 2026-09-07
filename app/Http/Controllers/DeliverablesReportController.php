@@ -372,7 +372,7 @@ class DeliverablesReportController extends Controller
     {
         $scope = $context['scope'];
         $safeFilter = $context['safeFilter'];
-        $scopeLabel = $scope->scopeLabel($safeFilter->districtId);
+        $scopeLabel = $scope->scopeLabel($safeFilter->districtId, $safeFilter->hubId);
 
         try {
             $report = $this->reportService->build($safeFilter, $scope);
@@ -428,9 +428,11 @@ class DeliverablesReportController extends Controller
             'cumulativeThroughLabel' => $safeFilter->hasExplicitDateFilter()
                 ? ($safeFilter->cumulativeThroughLabel($report['fiscalYear']) ?? 'cumulative')
                 : null,
+            'hubs' => $scope->hubsForDropdown(),
+            'canPickHub' => $scope->canPickHub(),
             'districts' => $scope->districtsForDropdown(),
             'canPickDistrict' => $scope->canPickDistrict(),
-            'scopeLabel' => $scope->scopeLabel($safeFilter->districtId),
+            'scopeLabel' => $scope->scopeLabel($safeFilter->districtId, $safeFilter->hubId),
             'periodLabel' => $this->periodLabel($periodFrom, $periodTo, $safeFilter),
             'indexRoute' => $this->routeNameFor($user, 'index'),
             'showActivityGuideLink' => $user->role === 'state_admin',
@@ -468,16 +470,26 @@ class DeliverablesReportController extends Controller
         $scope = ProgramDeliverablesScope::forUser($user);
         $filter = ProgramDeliverablesFilter::fromRequest($request);
 
-        $allowedDistrictId = $scope->effectiveDistrictIds($filter->districtId);
+        $hubId = $filter->hubId && $scope->canPickHub() && $scope->isHubInScope($filter->hubId)
+            ? $filter->hubId
+            : null;
+
+        $districtId = $filter->districtId && ($scope->districtIds === null || in_array($filter->districtId, $scope->districtIds, true))
+            ? $filter->districtId
+            : null;
+
+        if ($hubId && $districtId && ! $scope->districtBelongsToHub($districtId, $hubId)) {
+            $districtId = null;
+        }
+
+        $allowedDistrictId = $scope->effectiveDistrictIds($districtId, $hubId);
         if ($allowedDistrictId === []) {
             abort(403, 'No district scope for deliverables.');
         }
 
         $safeFilter = new ProgramDeliverablesFilter(
             fiscalYearId: $filter->fiscalYearId,
-            districtId: $filter->districtId && ($scope->districtIds === null || in_array($filter->districtId, $scope->districtIds, true))
-                ? $filter->districtId
-                : null,
+            districtId: $districtId,
             month: $filter->month,
             year: $filter->year,
             dateFrom: $filter->dateFrom,
@@ -485,6 +497,7 @@ class DeliverablesReportController extends Controller
             quarter: $filter->quarter,
             indicatorType: $filter->indicatorType,
             level: $filter->level,
+            hubId: $hubId,
         );
 
         $fiscalYears = FiscalYear::forUiDropdown();
