@@ -3312,6 +3312,13 @@ class DeliverablesReportTest extends TestCase
         $this->assertSame(1, $onlineRow['count'] ?? null);
         $this->assertSame('Offline', $breakdown['records'][0]['linkage_mode'] ?? null);
 
+        $districtRow = collect($breakdown['by_district'] ?? [])->firstWhere('district', 'ML Mode District');
+        $this->assertNotNull($districtRow);
+        $this->assertSame(2, (int) ($districtRow['count'] ?? 0));
+        $this->assertSame('ML Mode Hub', (string) ($districtRow['hub'] ?? ''));
+        $this->assertNotEmpty($breakdown['by_month'] ?? []);
+        $this->assertSame(2, (int) collect($breakdown['by_month'])->sum('count'));
+
         $insightFilters = collect($breakdown['insights'] ?? [])->pluck('filter', 'label');
         $this->assertSame('offline', $insightFilters['Offline incubatees'] ?? null);
         $this->assertSame('online', $insightFilters['Online incubatees'] ?? null);

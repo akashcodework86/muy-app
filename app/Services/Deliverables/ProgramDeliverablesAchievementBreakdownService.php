@@ -2535,17 +2535,74 @@ class ProgramDeliverablesAchievementBreakdownService
 
         // Market Linkage module + approved orphan market-link service cases (each incubatee once).
         $modeCounts = MarketLinkageUnifiedListingSupport::approvedIncubateeModeCounts($this->districtIds, true, $from, $to, true);
+        $records = MarketLinkageUnifiedListingSupport::unifiedApprovedIncubateeRecords($this->districtIds, true, 5000, $from, $to, true);
+        $geo = $this->breakdownFromIncubateeRecords($records, (int) $modeCounts['total_incubatees']);
 
         return [
             'total' => $modeCounts['total_incubatees'],
-            'by_district' => [],
+            'by_district' => $geo['by_district'],
             'by_hub' => [],
-            'by_month' => [],
+            'by_month' => $geo['by_month'],
             'by_service' => MarketLinkageUnifiedListingSupport::linkageModeBifurcationRows($this->districtIds, true, $from, $to, true),
-            'records' => MarketLinkageUnifiedListingSupport::unifiedApprovedIncubateeRecords($this->districtIds, true, 5000, $from, $to, true),
+            'records' => $records,
             'offline_incubatees' => $modeCounts['offline_incubatees'],
             'online_incubatees' => $modeCounts['online_incubatees'],
         ];
+    }
+
+    /**
+     * Unique incubatees → district / month splits for Excel and the drawer.
+     *
+     * @param  list<array<string, mixed>>  $records
+     * @return array{by_district: list<array<string, mixed>>, by_month: list<array<string, mixed>>}
+     */
+    private function breakdownFromIncubateeRecords(array $records, int $total): array
+    {
+        $byDistrictCounts = [];
+        $hubByDistrict = [];
+        $byMonthCounts = [];
+
+        foreach ($records as $record) {
+            $district = trim((string) ($record['district'] ?? ''));
+            if ($district === '') {
+                $district = 'Unknown';
+            }
+            $byDistrictCounts[$district] = ($byDistrictCounts[$district] ?? 0) + 1;
+            if (! isset($hubByDistrict[$district])) {
+                $hub = trim((string) ($record['hub'] ?? ''));
+                $hubByDistrict[$district] = $hub !== '' ? $hub : '—';
+            }
+
+            $monthKey = $this->monthKeyFromRecordDate((string) ($record['date'] ?? ''));
+            if ($monthKey !== null) {
+                $byMonthCounts[$monthKey] = ($byMonthCounts[$monthKey] ?? 0) + 1;
+            }
+        }
+
+        arsort($byDistrictCounts);
+        ksort($byMonthCounts);
+
+        return [
+            'by_district' => $this->formatBreakdownList($byDistrictCounts, $total, fn ($name) => [
+                'district' => $name,
+                'hub' => $hubByDistrict[$name] ?? '—',
+            ]),
+            'by_month' => $this->formatMonthBreakdown($byMonthCounts, $total),
+        ];
+    }
+
+    private function monthKeyFromRecordDate(string $dateRaw): ?string
+    {
+        $dateRaw = trim($dateRaw);
+        if ($dateRaw === '' || $dateRaw === '—') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($dateRaw)->format('Y-m');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

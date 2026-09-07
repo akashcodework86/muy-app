@@ -262,7 +262,7 @@ return [
                     'row_type' => 'leaf',
                     'indicator_type' => 'Key Indicator',
                     'level' => 'Spoke & Hub',
-                    'source' => ['type' => 'market_linkage_incubatees'],
+                    'source' => ['type' => 'market_linkage_incubatees', 'deliverable_code' => 'market_link'],
                 ],
             ],
         ],
