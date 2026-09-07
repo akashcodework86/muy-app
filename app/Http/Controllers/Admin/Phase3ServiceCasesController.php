@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccelerationServiceSession;
 use App\Models\District;
 use App\Models\DistrictServiceSpoc;
 use App\Models\FiscalYear;
@@ -13,6 +14,7 @@ use App\Models\ServiceCaseAttachment;
 use App\Models\User;
 use App\Services\Admin\Phase3UnifiedMarketLinkageListBuilder;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Support\AccelerationServicesApproval;
 use App\Support\ApplicantCategoryShgSupport;
 use App\Support\ConvergenceReapSupport;
 use App\Support\ConvergenceReapSupportDeliverablesSupport;
@@ -63,8 +65,23 @@ class Phase3ServiceCasesController extends Controller
             $filters['has_docs'] = '';
         }
 
-        if ($this->shouldMirrorSpocQueueWithMarketLinkages($filters)) {
+        if ($this->isAccelerationFilter($filters)) {
+            $listResult = $this->buildCombinedServiceCaseAndAccelerationList($filters, $request, includeServiceCases: false);
+            $cases = $listResult['items'];
+            $summary = $listResult['summary'];
+            $unifiedMarketLinkage = false;
+            $uniqueIncubateesView = false;
+        } elseif ($this->shouldMirrorSpocQueueWithMarketLinkages($filters)) {
             $listResult = $this->buildSpocAlignedCombinedList($filters, $request);
+            $cases = $listResult['items'];
+            $summary = $listResult['summary'];
+            $unifiedMarketLinkage = false;
+            $uniqueIncubateesView = false;
+        } elseif ($this->shouldIncludeAcceleration($filters)
+            && ! MarketLinkageUnifiedListingSupport::isMarketLinkServiceId(
+                is_numeric($filters['service_id'] ?? '') ? (int) $filters['service_id'] : 0
+            )) {
+            $listResult = $this->buildCombinedServiceCaseAndAccelerationList($filters, $request, includeServiceCases: true);
             $cases = $listResult['items'];
             $summary = $listResult['summary'];
             $unifiedMarketLinkage = false;
@@ -128,6 +145,16 @@ class Phase3ServiceCasesController extends Controller
 
             if ($unifiedDistrictCounts !== null) {
                 $districtCounts = collect($unifiedDistrictCounts);
+            } elseif ($this->isAccelerationFilter($filters)) {
+                $districtCounts = District::query()
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (District $district): array => [
+                        'id' => (int) $district->id,
+                        'name' => (string) $district->name,
+                        'total' => 0,
+                    ]);
+                $districtCounts = $this->addAccelerationDistrictCounts($districtCounts, $filters);
             } else {
                 $districtCounts = District::query()
                     ->orderBy('name')
@@ -143,10 +170,13 @@ class Phase3ServiceCasesController extends Controller
                             'total' => $total,
                         ];
                     });
+                if ($this->shouldIncludeAcceleration($filters)) {
+                    $districtCounts = $this->addAccelerationDistrictCounts($districtCounts, $filters);
+                }
             }
         }
 
-        $legacyPreviews = ($unifiedMarketLinkage || $this->shouldMirrorSpocQueueWithMarketLinkages($filters))
+        $legacyPreviews = ($unifiedMarketLinkage || $this->shouldMirrorSpocQueueWithMarketLinkages($filters) || $this->shouldIncludeAcceleration($filters))
             ? $this->buildLegacyPreviewMapFromUnifiedRows($cases->getCollection())
             : $this->buildLegacyPreviewMap($cases->getCollection());
 
@@ -164,6 +194,7 @@ class Phase3ServiceCasesController extends Controller
             'summary' => $summary,
             'filters' => $filters,
             'fiscalYear' => $fiscalYear,
+            'monthOptions' => $this->monthFilterOptions($fiscalYear),
             'unifiedMarketLinkage' => $unifiedMarketLinkage,
             'uniqueIncubateesView' => $uniqueIncubateesView,
             'services' => Service::query()->orderBy('name')->get(['id', 'name', 'service_category_id']),
@@ -239,6 +270,17 @@ class Phase3ServiceCasesController extends Controller
             return $this->downloadExcelOrCsv($matrix, 'phase3-market-linkage-'.now()->format('Ymd_His'));
         }
 
+        if ($this->isAccelerationFilter($filters)) {
+            $matrix = [];
+            $sn = 0;
+            foreach ($this->buildAccelerationQuery($filters)->orderByDesc('updated_at')->get() as $session) {
+                $sn++;
+                $matrix[] = $this->exportAccelerationRow($session, $sn);
+            }
+
+            return $this->downloadExcelOrCsv($matrix, 'phase3-acceleration-services-'.now()->format('Ymd_His'));
+        }
+
         $query = $this->buildFilteredQuery($filters);
         $this->applyFilters($query, $filters);
         $query->setEagerLoads([])
@@ -273,6 +315,13 @@ class Phase3ServiceCasesController extends Controller
                     $matrix[] = $this->exportRowValues($case, $sn, $lp, $legacyRow);
                 }
             }, 'service_cases.id', 'id');
+
+        if ($this->shouldIncludeAcceleration($filters)) {
+            foreach ($this->buildAccelerationQuery($filters)->orderByDesc('updated_at')->get() as $session) {
+                $sn++;
+                $matrix[] = $this->exportAccelerationRow($session, $sn);
+            }
+        }
 
         return $this->downloadExcelOrCsv($matrix, 'phase3-service-cases-'.now()->format('Ymd_His'));
     }
@@ -338,6 +387,11 @@ class Phase3ServiceCasesController extends Controller
         $case = $row['service_case'] ?? null;
         $ml = $row['market_linkage'] ?? null;
         $partner = $row['partner'] ?? null;
+        $accel = $row['acceleration'] ?? null;
+
+        if ($accel instanceof AccelerationServiceSession) {
+            return $this->exportAccelerationRow($accel, $sn);
+        }
 
         if ($case instanceof ServiceCase) {
             $lp = $legacyPreviews[(int) ($case->legacy_application_id ?? 0)] ?? null;
@@ -847,6 +901,9 @@ class Phase3ServiceCasesController extends Controller
         if ($serviceId === ConvergenceReapSupport::MIS_8_2_LIST_FILTER) {
             return false;
         }
+        if ($serviceId === AccelerationServiceSession::LIST_FILTER) {
+            return false;
+        }
         if (is_numeric($serviceId) && (int) $serviceId > 0) {
             return false;
         }
@@ -889,6 +946,7 @@ class Phase3ServiceCasesController extends Controller
         foreach ($summaryRows as $row) {
             $status = match ((string) ($row['type'] ?? '')) {
                 'market_linkage_partner', 'market_linkage_incubatee' => (string) ($row['market_linkage']?->status ?? ''),
+                'acceleration' => $this->accelerationRowStatus($row['acceleration'] ?? null),
                 default => (string) ($row['service_case']?->status ?? ''),
             };
             if (isset($statusCounts[$status])) {
@@ -954,15 +1012,16 @@ class Phase3ServiceCasesController extends Controller
 
         $items = collect();
         foreach ($serviceCases as $case) {
-            $items->push([
-                'type' => 'service_case',
-                'service_case' => $case,
-                'market_linkage' => null,
-                'partner' => null,
-                'linkage_mode' => '—',
-                'partner_name' => '—',
-                'updated_at' => $case->updated_at ?? $case->created_at,
-            ]);
+                $items->push([
+                    'type' => 'service_case',
+                    'service_case' => $case,
+                    'market_linkage' => null,
+                    'partner' => null,
+                    'acceleration' => null,
+                    'linkage_mode' => '—',
+                    'partner_name' => '—',
+                    'updated_at' => $case->updated_at ?? $case->created_at,
+                ]);
         }
 
         foreach ($marketLinkages as $submission) {
@@ -991,11 +1050,18 @@ class Phase3ServiceCasesController extends Controller
                 'service_case' => null,
                 'market_linkage' => $submission,
                 'partner' => null,
+                'acceleration' => null,
                 'linkage_mode' => $modes !== [] ? implode(', ', $modes) : '—',
                 'partner_name' => $partnerSummary,
                 'partner_count' => $partnerCount,
                 'updated_at' => $submission->updated_at ?? $submission->created_at,
             ]);
+        }
+
+        if ($this->shouldIncludeAcceleration($filters)) {
+            foreach ($this->buildAccelerationQuery($filters)->orderByDesc('updated_at')->get() as $session) {
+                $items->push($this->accelerationListRow($session));
+            }
         }
 
         return $items
@@ -1016,7 +1082,10 @@ class Phase3ServiceCasesController extends Controller
         $totals = [];
         foreach ($rows as $row) {
             $ml = $row['market_linkage'] ?? null;
-            if ($ml instanceof MarketLinkageSubmission) {
+            $accel = $row['acceleration'] ?? null;
+            if ($accel instanceof AccelerationServiceSession) {
+                $districtId = $this->laravelDistrictIdFromName((string) $accel->district_name);
+            } elseif ($ml instanceof MarketLinkageSubmission) {
                 $districtId = (int) ($ml->district_id ?? 0);
             } else {
                 $case = $row['service_case'] ?? null;
@@ -1202,6 +1271,37 @@ class Phase3ServiceCasesController extends Controller
     }
 
     /**
+     * Direct month chips: FY calendar months with year (Apr 2026 … Mar 2027).
+     * Value is the calendar month number used by applyMonthDateRange().
+     *
+     * @return list<array{value: int, label: string}>
+     */
+    private function monthFilterOptions(?FiscalYear $fy): array
+    {
+        $options = [];
+        if ($fy?->starts_on === null) {
+            for ($m = 1; $m <= 12; $m++) {
+                $options[] = [
+                    'value' => $m,
+                    'label' => Carbon::create(null, $m, 1)->format('M'),
+                ];
+            }
+
+            return $options;
+        }
+
+        for ($i = 0; $i < 12; $i++) {
+            $start = $fy->starts_on->copy()->startOfMonth()->addMonths($i);
+            $options[] = [
+                'value' => (int) $start->month,
+                'label' => $start->format('M Y'),
+            ];
+        }
+
+        return $options;
+    }
+
+    /**
      * @return array{
      *   rows: list<array{service_id: int, service_name: string, approved: int, pending: int, total: int}>,
      *   totals: array{approved: int, pending: int, total: int}
@@ -1256,6 +1356,20 @@ class Phase3ServiceCasesController extends Controller
             ->values()
             ->all();
 
+        if ($this->shouldIncludeAcceleration($breakdownFilters) || $this->isAccelerationFilter($filters)) {
+            $accelSummary = $this->accelerationSummary($breakdownFilters);
+            if ((int) ($accelSummary['total'] ?? 0) > 0) {
+                $rows[] = [
+                    'service_id' => 0,
+                    'service_name' => AccelerationServiceSession::SERVICE_LIST_LABEL,
+                    'approved' => (int) ($accelSummary['approved'] ?? 0),
+                    'pending' => (int) ($accelSummary['pending_approval'] ?? 0),
+                    'total' => (int) ($accelSummary['total'] ?? 0),
+                ];
+                usort($rows, fn (array $a, array $b): int => strcasecmp((string) $a['service_name'], (string) $b['service_name']));
+            }
+        }
+
         return [
             'rows' => $rows,
             'totals' => [
@@ -1264,6 +1378,465 @@ class Phase3ServiceCasesController extends Controller
                 'total' => (int) collect($rows)->sum('total'),
             ],
         ];
+    }
+
+    /**
+     * @return array{
+     *   items: LengthAwarePaginator,
+     *   summary: array{total: int, approved: int, pending_approval: int, sent_back: int, rejected: int, offline_rows: int, online_rows: int, deliverable_incubatees: int, offline_incubatees: int, online_incubatees: int}
+     * }
+     */
+    private function buildCombinedServiceCaseAndAccelerationList(array $filters, Request $request, bool $includeServiceCases): array
+    {
+        $meta = collect();
+
+        if ($includeServiceCases) {
+            $caseQuery = $this->buildFilteredQuery($filters);
+            $this->applyFilters($caseQuery, $filters);
+            $caseQuery->setEagerLoads([]);
+            foreach ((clone $caseQuery)->reorder()->select('service_cases.id', 'service_cases.updated_at', 'service_cases.created_at')->get() as $row) {
+                $meta->push([
+                    'type' => 'service_case',
+                    'id' => (int) $row->id,
+                    'updated_at' => $row->updated_at ?? $row->created_at,
+                ]);
+            }
+        }
+
+        foreach ($this->baseAccelerationQuery($filters)->select('id', 'updated_at', 'created_at')->orderByDesc('id')->get() as $row) {
+            $meta->push([
+                'type' => 'acceleration',
+                'id' => (int) $row->id,
+                'updated_at' => $row->updated_at ?? $row->created_at,
+            ]);
+        }
+
+        $sorted = $meta
+            ->sortByDesc(fn (array $row) => $row['updated_at']?->timestamp ?? 0)
+            ->values();
+
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 20;
+        $slice = $sorted->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $caseIds = $slice->where('type', 'service_case')->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $accelIds = $slice->where('type', 'acceleration')->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $casesById = $caseIds === []
+            ? collect()
+            : $this->buildFilteredQuery($filters)->whereIn('service_cases.id', $caseIds)->get()->keyBy('id');
+        $accelsById = $accelIds === []
+            ? collect()
+            : $this->buildAccelerationQuery($filters)->whereIn('acceleration_service_sessions.id', $accelIds)->get()->keyBy('id');
+
+        $pageItems = $slice->map(function (array $row) use ($casesById, $accelsById): array {
+            if (($row['type'] ?? '') === 'acceleration') {
+                $session = $accelsById->get((int) $row['id']);
+
+                return $session instanceof AccelerationServiceSession
+                    ? $this->accelerationListRow($session)
+                    : ['type' => 'acceleration', 'acceleration' => null, 'service_case' => null, 'market_linkage' => null, 'updated_at' => $row['updated_at'] ?? null];
+            }
+
+            $case = $casesById->get((int) $row['id']);
+
+            return [
+                'type' => 'service_case',
+                'service_case' => $case,
+                'market_linkage' => null,
+                'partner' => null,
+                'acceleration' => null,
+                'linkage_mode' => '—',
+                'partner_name' => '—',
+                'updated_at' => $case?->updated_at ?? $row['updated_at'] ?? null,
+            ];
+        })->values();
+
+        $paginator = new LengthAwarePaginator(
+            $pageItems,
+            $sorted->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
+        $summary = $includeServiceCases
+            ? $this->serviceCaseSummary($filters)
+            : [
+                'total' => 0,
+                'approved' => 0,
+                'pending_approval' => 0,
+                'sent_back' => 0,
+                'rejected' => 0,
+                'offline_rows' => 0,
+                'online_rows' => 0,
+                'deliverable_incubatees' => 0,
+                'offline_incubatees' => 0,
+                'online_incubatees' => 0,
+            ];
+
+        return [
+            'items' => $paginator,
+            'summary' => $this->addSummaries($summary, $this->accelerationSummary($filters)),
+        ];
+    }
+
+    /**
+     * @return array{total: int, approved: int, pending_approval: int, sent_back: int, rejected: int, offline_rows: int, online_rows: int, deliverable_incubatees: int, offline_incubatees: int, online_incubatees: int}
+     */
+    private function serviceCaseSummary(array $filters): array
+    {
+        $summaryQuery = $this->buildFilteredQuery($filters);
+        $this->applyFilters($summaryQuery, $filters, ignoreStatusFilter: true);
+
+        $summaryRows = (clone $summaryQuery)
+            ->select('service_cases.status', DB::raw('COUNT(DISTINCT service_cases.id) as total'))
+            ->groupBy('service_cases.status')
+            ->pluck('total', 'status');
+
+        return [
+            'total' => (int) $summaryRows->sum(),
+            'approved' => (int) ($summaryRows[ServiceCase::STATUS_APPROVED] ?? 0),
+            'pending_approval' => (int) ($summaryRows[ServiceCase::STATUS_PENDING_APPROVAL] ?? 0),
+            'sent_back' => (int) ($summaryRows[ServiceCase::STATUS_SENT_BACK] ?? 0),
+            'rejected' => (int) ($summaryRows[ServiceCase::STATUS_REJECTED] ?? 0),
+            'offline_rows' => 0,
+            'online_rows' => 0,
+            'deliverable_incubatees' => 0,
+            'offline_incubatees' => 0,
+            'online_incubatees' => 0,
+        ];
+    }
+
+    /**
+     * @return array{total: int, approved: int, pending_approval: int, sent_back: int, rejected: int}
+     */
+    private function accelerationSummary(array $filters): array
+    {
+        $countFilters = $filters;
+        $countFilters['status'] = '';
+        if (! AccelerationServicesApproval::workflowReady()) {
+            $total = (int) $this->baseAccelerationQuery($countFilters)->count();
+
+            return [
+                'total' => $total,
+                'approved' => $total,
+                'pending_approval' => 0,
+                'sent_back' => 0,
+                'rejected' => 0,
+            ];
+        }
+
+        $counts = $this->baseAccelerationQuery($countFilters)
+            ->toBase()
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $pending = (int) ($counts[AccelerationServicesApproval::STATUS_PENDING_REVIEW] ?? 0)
+            + (int) ($counts[AccelerationServicesApproval::STATUS_PENDING_FINAL] ?? 0);
+
+        return [
+            'total' => (int) $counts->sum(),
+            'approved' => (int) ($counts[AccelerationServicesApproval::STATUS_APPROVED] ?? 0),
+            'pending_approval' => $pending,
+            'sent_back' => (int) ($counts[AccelerationServicesApproval::STATUS_SENT_BACK] ?? 0),
+            'rejected' => 0,
+        ];
+    }
+
+    /**
+     * @param  array<string, int>  $a
+     * @param  array<string, int>  $b
+     * @return array<string, int>
+     */
+    private function addSummaries(array $a, array $b): array
+    {
+        foreach (['total', 'approved', 'pending_approval', 'sent_back', 'rejected'] as $key) {
+            $a[$key] = (int) ($a[$key] ?? 0) + (int) ($b[$key] ?? 0);
+        }
+
+        return $a;
+    }
+
+    /**
+     * @param  Collection<int, array{id: int, name: string, total: int}>  $districtCounts
+     * @return Collection<int, array{id: int, name: string, total: int}>
+     */
+    private function addAccelerationDistrictCounts(Collection $districtCounts, array $filters): Collection
+    {
+        $countFilters = $filters;
+        $countFilters['district_id'] = 0;
+        $countFilters['status'] = '';
+        $rows = $this->baseAccelerationQuery($countFilters)
+            ->toBase()
+            ->select('district_name', DB::raw('COUNT(*) as total'))
+            ->groupBy('district_name')
+            ->pluck('total', 'district_name');
+
+        $byNorm = [];
+        foreach ($rows as $name => $total) {
+            $key = mb_strtolower(trim((string) $name));
+            if ($key === '') {
+                continue;
+            }
+            $byNorm[$key] = ($byNorm[$key] ?? 0) + (int) $total;
+        }
+
+        return $districtCounts->map(function (array $dc) use ($byNorm): array {
+            $key = mb_strtolower(trim((string) $dc['name']));
+            $dc['total'] = (int) $dc['total'] + (int) ($byNorm[$key] ?? 0);
+
+            return $dc;
+        });
+    }
+
+    private function isAccelerationFilter(array $filters): bool
+    {
+        return ($filters['service_id'] ?? '') === AccelerationServiceSession::LIST_FILTER;
+    }
+
+    private function shouldIncludeAcceleration(array $filters): bool
+    {
+        if (! Schema::hasTable('acceleration_service_sessions')) {
+            return false;
+        }
+        if ($this->isAccelerationFilter($filters)) {
+            return true;
+        }
+        if (($filters['service_id'] ?? '') === ConvergenceReapSupport::MIS_8_2_LIST_FILTER) {
+            return false;
+        }
+        if (is_numeric($filters['service_id'] ?? '') && (int) $filters['service_id'] > 0) {
+            return false;
+        }
+        if (($filters['reporting_tier'] ?? '') !== '') {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return Builder<AccelerationServiceSession>
+     */
+    private function baseAccelerationQuery(array $filters)
+    {
+        $query = AccelerationServiceSession::query();
+
+        if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
+            $query->where('is_draft', false);
+        }
+        if (AccelerationServicesApproval::workflowReady()) {
+            $query->where('status', '!=', AccelerationServicesApproval::STATUS_DRAFT);
+        }
+
+        $statuses = $this->accelerationStatusesForFilter((string) ($filters['status'] ?? ''));
+        if ($statuses !== null) {
+            if ($statuses === []) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn('status', $statuses);
+            }
+        }
+
+        if (($filters['q'] ?? '') !== '') {
+            $like = '%'.$filters['q'].'%';
+            $query->where(function ($q) use ($like): void {
+                $q->where('applicant_name', 'like', $like)
+                    ->orWhere('application_no', 'like', $like)
+                    ->orWhere('district_name', 'like', $like)
+                    ->orWhere('submitted_by_name', 'like', $like)
+                    ->orWhere('phone', 'like', $like);
+            });
+        }
+
+        if ((int) ($filters['district_id'] ?? 0) > 0) {
+            $name = (string) (District::query()->whereKey((int) $filters['district_id'])->value('name') ?? '');
+            if ($name !== '') {
+                $query->whereRaw('LOWER(TRIM(district_name)) = ?', [mb_strtolower(trim($name))]);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if (($filters['spoc_id'] ?? '') === 'unassigned') {
+            $query->whereRaw('1 = 0');
+        } elseif (is_numeric($filters['spoc_id'] ?? '') && (int) $filters['spoc_id'] > 0) {
+            $districtIds = $this->spocDistrictIds((int) $filters['spoc_id']);
+            $names = $districtIds === []
+                ? []
+                : District::query()->whereIn('id', $districtIds)->pluck('name')
+                    ->map(fn ($n) => mb_strtolower(trim((string) $n)))
+                    ->filter()
+                    ->values()
+                    ->all();
+            if ($names === []) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->where(function ($q) use ($names): void {
+                    foreach ($names as $i => $n) {
+                        if ($i === 0) {
+                            $q->whereRaw('LOWER(TRIM(district_name)) = ?', [$n]);
+                        } else {
+                            $q->orWhereRaw('LOWER(TRIM(district_name)) = ?', [$n]);
+                        }
+                    }
+                });
+            }
+        }
+
+        if ((int) ($filters['given_by_id'] ?? 0) > 0) {
+            $query->where('submitted_by_user_id', (int) $filters['given_by_id']);
+        }
+
+        if (($filters['has_docs'] ?? '') === '1') {
+            $query->whereHas('items.media');
+        } elseif (($filters['has_docs'] ?? '') === '0') {
+            $query->whereDoesntHave('items.media');
+        }
+
+        if (($filters['date_from'] ?? '') !== '') {
+            $query->whereRaw('DATE(COALESCE(service_date, created_at)) >= ?', [$filters['date_from']]);
+        }
+        if (($filters['date_to'] ?? '') !== '') {
+            $query->whereRaw('DATE(COALESCE(service_date, created_at)) <= ?', [$filters['date_to']]);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @return Builder<AccelerationServiceSession>
+     */
+    private function buildAccelerationQuery(array $filters)
+    {
+        return $this->baseAccelerationQuery($filters)
+            ->with([
+                'items.media',
+                'submitter:id,name',
+            ])
+            ->withCount('items');
+    }
+
+    /**
+     * @return list<string>|null  null = no status constraint
+     */
+    private function accelerationStatusesForFilter(string $status): ?array
+    {
+        if ($status === '') {
+            return null;
+        }
+
+        return match ($status) {
+            ServiceCase::STATUS_PENDING_APPROVAL => [
+                AccelerationServicesApproval::STATUS_PENDING_REVIEW,
+                AccelerationServicesApproval::STATUS_PENDING_FINAL,
+            ],
+            ServiceCase::STATUS_SENT_BACK => [AccelerationServicesApproval::STATUS_SENT_BACK],
+            ServiceCase::STATUS_APPROVED => [AccelerationServicesApproval::STATUS_APPROVED],
+            default => [],
+        };
+    }
+
+    private function accelerationRowStatus(mixed $session): string
+    {
+        $status = (string) ($session?->status ?? '');
+
+        return match ($status) {
+            AccelerationServicesApproval::STATUS_PENDING_REVIEW,
+            AccelerationServicesApproval::STATUS_PENDING_FINAL => ServiceCase::STATUS_PENDING_APPROVAL,
+            AccelerationServicesApproval::STATUS_SENT_BACK => ServiceCase::STATUS_SENT_BACK,
+            AccelerationServicesApproval::STATUS_APPROVED => ServiceCase::STATUS_APPROVED,
+            AccelerationServicesApproval::STATUS_DRAFT => ServiceCase::STATUS_DRAFT,
+            default => $status,
+        };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function accelerationListRow(AccelerationServiceSession $session): array
+    {
+        return [
+            'type' => 'acceleration',
+            'service_case' => null,
+            'market_linkage' => null,
+            'partner' => null,
+            'acceleration' => $session,
+            'linkage_mode' => '—',
+            'partner_name' => '—',
+            'updated_at' => $session->updated_at ?? $session->created_at,
+        ];
+    }
+
+    /**
+     * @return list<string|int>
+     */
+    private function exportAccelerationRow(AccelerationServiceSession $session, int $sn): array
+    {
+        $phone = (string) ($session->phone ?? '');
+        if ($phone !== '' && preg_match('/^[\d\s+\-]{10,}$/', $phone)) {
+            $phone = "\t".$phone;
+        }
+
+        $docs = 0;
+        if ($session->relationLoaded('items')) {
+            foreach ($session->items as $item) {
+                $docs += $item->relationLoaded('media') ? $item->media->count() : 0;
+            }
+        }
+
+        $spocRemark = (string) $session->status === AccelerationServicesApproval::STATUS_SENT_BACK
+            ? (string) ($session->sent_back_remarks ?? '')
+            : '';
+
+        return [
+            $sn,
+            (string) ($session->application_no ?: ''),
+            (string) ($session->application_no ?: ''),
+            (string) ($session->applicant_name ?: ''),
+            '',
+            '',
+            (string) ($session->district_name ?: ''),
+            $phone,
+            '',
+            '',
+            '',
+            '',
+            '',
+            'Acceleration',
+            AccelerationServiceSession::SERVICE_LIST_LABEL,
+            'KEY',
+            AccelerationServicesApproval::statusLabel($session->status),
+            $session->service_date?->format('Y-m-d') ?? '',
+            '',
+            $this->fmtDate($session->created_at),
+            (string) ($session->submitted_by_name ?? $session->submitter?->name ?? ''),
+            (string) ($session->final_approved_by_name ?: $session->first_approved_by_name ?: 'State SPOC'),
+            (string) ($session->final_approved_by_name ?: $session->first_approved_by_name ?: ''),
+            $this->fmtDate($session->created_at),
+            $docs > 0 ? $docs : (int) ($session->items_count ?? 0),
+            $spocRemark,
+        ];
+    }
+
+    private function laravelDistrictIdFromName(string $name): int
+    {
+        $norm = mb_strtolower(trim($name));
+        if ($norm === '') {
+            return 0;
+        }
+
+        static $map = null;
+        if ($map === null) {
+            $map = District::query()
+                ->get(['id', 'name'])
+                ->mapWithKeys(fn (District $district): array => [mb_strtolower(trim((string) $district->name)) => (int) $district->id])
+                ->all();
+        }
+
+        return (int) ($map[$norm] ?? 0);
     }
 
     private function fmtDate($value): string

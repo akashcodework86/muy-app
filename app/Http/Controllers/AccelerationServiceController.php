@@ -375,18 +375,23 @@ class AccelerationServiceController extends Controller
         $canSubmit = AccelerationServicesAccess::canSubmit($user);
         $isAdmin = $user->role === 'state_admin';
 
-        $filters = [
-            'q' => trim((string) $request->query('q', '')),
-            'from' => (string) $request->query('from', ''),
-            'to' => (string) $request->query('to', ''),
-            'status' => (string) $request->query('status', ''),
-        ];
+        $filters = $this->accelerationDashboardFilters($request, $isAdmin);
 
         $workflowReady = AccelerationServicesApproval::workflowReady();
         $isApprover = AccelerationServicesApproval::isApprover($user);
 
         $rows = collect();
-        $totals = ['sessions' => 0, 'initiations_fy' => 0, 'buyer_seller_ticks' => 0, 'pending_mine' => 0];
+        $totals = [
+            'sessions' => 0,
+            'initiations_fy' => 0,
+            'buyer_seller_ticks' => 0,
+            'pending_mine' => 0,
+            'approved' => 0,
+            'pending_approval' => 0,
+            'pending_review' => 0,
+            'pending_final' => 0,
+            'sent_back' => 0,
+        ];
 
         if (! $migrationMissing) {
             $query = AccelerationServiceSession::query()
@@ -396,55 +401,12 @@ class AccelerationServiceController extends Controller
                         ->select(['id', 'session_id', 'section', 'item_key', 'item_label']),
                 ])
                 ->withCount('items');
-            if (in_array($user->role, ['state_staff', 'district_staff'], true)) {
-                if ($isApprover) {
-                    // Checkers see their own entries plus every submitted (non-draft) entry.
-                    $query->where(function ($q) use ($user): void {
-                        $q->where('submitted_by_user_id', (int) $user->id);
-                        if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
-                            $q->orWhere('is_draft', false);
-                        }
-                    });
-                } else {
-                    $query->where('submitted_by_user_id', (int) $user->id);
-                }
-            }
+            $this->applyAccelerationDashboardListingScope($query, $user, $filters, ignoreStatusFilter: false);
 
-            // State admin: submitted / in-review / approved only — never drafts.
-            if ($isAdmin) {
-                if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
-                    $query->where('is_draft', false);
-                }
-                if ($workflowReady) {
-                    $query->where('status', '!=', AccelerationServicesApproval::STATUS_DRAFT);
-                }
-                if ($filters['status'] === AccelerationServicesApproval::STATUS_DRAFT) {
-                    $filters['status'] = '';
-                }
-            }
-
-            if ($workflowReady && $filters['status'] !== '') {
-                $query->where('status', $filters['status']);
-            }
-
-            if ($filters['q'] !== '') {
-                $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']).'%';
-                $query->where(function ($q) use ($like): void {
-                    $q->where('applicant_name', 'like', $like)
-                        ->orWhere('application_no', 'like', $like)
-                        ->orWhere('phone', 'like', $like)
-                        ->orWhere('district_name', 'like', $like)
-                        ->orWhere('submitted_by_name', 'like', $like);
-                });
-            }
-            if ($filters['from'] !== '') {
-                $query->whereDate('service_date', '>=', $filters['from']);
-            }
-            if ($filters['to'] !== '') {
-                $query->whereDate('service_date', '<=', $filters['to']);
-            }
-
-            $totals['sessions'] = (int) (clone $query)->count();
+            $summaryQuery = AccelerationServiceSession::query();
+            $this->applyAccelerationDashboardListingScope($summaryQuery, $user, $filters, ignoreStatusFilter: true);
+            $totals['sessions'] = (int) (clone $summaryQuery)->count();
+            $totals = array_merge($totals, $this->accelerationDashboardStatusCounts($summaryQuery, $workflowReady));
 
             $activeFy = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first();
             $periodFrom = $activeFy?->starts_on ? Carbon::parse($activeFy->starts_on) : null;
@@ -470,10 +432,26 @@ class AccelerationServiceController extends Controller
                 ->withQueryString();
         }
 
+        $submitters = collect();
+        $districtOptions = collect();
+        $showCreatorFilter = $isAdmin || $isApprover;
+        if (! $migrationMissing && $showCreatorFilter) {
+            $submitters = $this->accelerationDashboardSubmitters($user, $filters);
+        }
+        if (! $migrationMissing) {
+            $districtOptions = $this->accelerationDashboardDistricts($user, $filters);
+        }
+
+        $fiscalYear = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first();
         $prefix = AccelerationServicesAccess::routePrefixForUser($user);
 
         return view('acceleration-services.dashboard', [
             'rows' => $rows,
+            'submitters' => $submitters,
+            'showCreatorFilter' => $showCreatorFilter,
+            'districtOptions' => $districtOptions,
+            'serviceOptions' => $this->accelerationDashboardServiceOptions(),
+            'fiscalYear' => $fiscalYear,
             'migrationMissing' => $migrationMissing,
             'isAdminView' => $isAdmin,
             'canSubmit' => $canSubmit,
@@ -525,36 +503,11 @@ class AccelerationServiceController extends Controller
         $user = $request->user();
         abort_unless(AccelerationServicesAccess::canViewDashboard($user), 403);
 
+        $isAdmin = $user->role === 'state_admin';
+        $filters = $this->accelerationDashboardFilters($request, $isAdmin);
+
         $query = AccelerationServiceSession::query()->with('items');
-        if (in_array($user->role, ['state_staff', 'district_staff'], true)) {
-            if (AccelerationServicesApproval::isApprover($user)) {
-                $query->where(function ($q) use ($user): void {
-                    $q->where('submitted_by_user_id', (int) $user->id);
-                    if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
-                        $q->orWhere('is_draft', false);
-                    }
-                });
-            } else {
-                $query->where('submitted_by_user_id', (int) $user->id);
-            }
-        }
-
-        // State admin export: exclude drafts (same as dashboard).
-        if ($user->role === 'state_admin') {
-            if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
-                $query->where('is_draft', false);
-            }
-            if (AccelerationServicesApproval::workflowReady()) {
-                $query->where('status', '!=', AccelerationServicesApproval::STATUS_DRAFT);
-            }
-        }
-
-        if ($request->filled('from')) {
-            $query->whereDate('service_date', '>=', (string) $request->query('from'));
-        }
-        if ($request->filled('to')) {
-            $query->whereDate('service_date', '<=', (string) $request->query('to'));
-        }
+        $this->applyAccelerationDashboardListingScope($query, $user, $filters, ignoreStatusFilter: false);
 
         $rows = $query->orderByDesc('service_date')->orderByDesc('id')->get();
         $filename = 'acceleration-services-'.now()->format('Ymd_His').'.csv';
@@ -687,6 +640,279 @@ class AccelerationServiceController extends Controller
             (string) $accelerationMedia->original_name,
             $request->boolean('inline') ? ['Content-Disposition' => 'inline'] : []
         );
+    }
+
+    /**
+     * @return array{q: string, from: string, to: string, status: string, submitted_by_id: int, district: string, service_key: string, month: int}
+     */
+    private function accelerationDashboardFilters(Request $request, bool $isAdmin): array
+    {
+        $monthRaw = $request->query('month', '');
+        $month = ($monthRaw !== null && $monthRaw !== '') ? (int) $monthRaw : 0;
+        if ($month < 1 || $month > 12) {
+            $month = 0;
+        }
+
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'from' => (string) $request->query('from', ''),
+            'to' => (string) $request->query('to', ''),
+            'status' => (string) $request->query('status', ''),
+            'submitted_by_id' => (int) $request->query('submitted_by_id', 0),
+            'district' => trim((string) $request->query('district', '')),
+            'service_key' => trim((string) $request->query('service_key', '')),
+            'month' => $month,
+        ];
+        if ($filters['submitted_by_id'] < 1) {
+            $filters['submitted_by_id'] = 0;
+        }
+        if ($filters['service_key'] !== '' && ! preg_match('/^[a-z0-9_]+$/', $filters['service_key'])) {
+            $filters['service_key'] = '';
+        }
+
+        $allowed = [
+            '',
+            'pending_approval',
+            AccelerationServicesApproval::STATUS_PENDING_REVIEW,
+            AccelerationServicesApproval::STATUS_PENDING_FINAL,
+            AccelerationServicesApproval::STATUS_APPROVED,
+            AccelerationServicesApproval::STATUS_SENT_BACK,
+            AccelerationServicesApproval::STATUS_DRAFT,
+        ];
+        if (! in_array($filters['status'], $allowed, true)) {
+            $filters['status'] = '';
+        }
+
+        if ($isAdmin && $filters['status'] === AccelerationServicesApproval::STATUS_DRAFT) {
+            $filters['status'] = '';
+        }
+
+        return $this->applyAccelerationMonthDateRange($filters);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    private function applyAccelerationMonthDateRange(array $filters): array
+    {
+        $month = (int) ($filters['month'] ?? 0);
+        if ($month < 1 || $month > 12) {
+            return $filters;
+        }
+
+        $fy = FiscalYear::query()->where('is_active', true)->orderByDesc('starts_on')->first();
+        $fiscalStartYear = (int) ($fy?->starts_on?->year ?? now()->year);
+        $fiscalStartMonth = (int) ($fy?->starts_on?->month ?? 4);
+        $year = $month >= $fiscalStartMonth ? $fiscalStartYear : $fiscalStartYear + 1;
+
+        $from = Carbon::create($year, $month, 1)->startOfDay();
+        $filters['from'] = $from->toDateString();
+        $filters['to'] = $from->copy()->endOfMonth()->toDateString();
+
+        return $filters;
+    }
+
+    /**
+     * Staff who have submitted acceleration entries, with counts for the current filters
+     * (except the creator filter itself).
+     *
+     * @param  array{q: string, from: string, to: string, status: string, submitted_by_id: int}  $filters
+     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, total: int}>
+     */
+    private function accelerationDashboardSubmitters(User $user, array $filters)
+    {
+        $countFilters = $filters;
+        $countFilters['submitted_by_id'] = 0;
+        $countFilters['status'] = '';
+
+        $rows = AccelerationServiceSession::query();
+        $this->applyAccelerationDashboardListingScope($rows, $user, $countFilters, ignoreStatusFilter: true);
+
+        return $rows
+            ->toBase()
+            ->select('submitted_by_user_id', 'submitted_by_name', DB::raw('COUNT(*) as total'))
+            ->groupBy('submitted_by_user_id', 'submitted_by_name')
+            ->orderBy('submitted_by_name')
+            ->get()
+            ->map(fn ($row): array => [
+                'id' => (int) $row->submitted_by_user_id,
+                'name' => trim((string) $row->submitted_by_name) !== '' ? (string) $row->submitted_by_name : 'Unknown',
+                'total' => (int) $row->total,
+            ])
+            ->filter(fn (array $row): bool => $row['id'] > 0)
+            ->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    private function accelerationDashboardDistricts(User $user, array $filters)
+    {
+        $countFilters = $filters;
+        $countFilters['district'] = '';
+
+        $query = AccelerationServiceSession::query();
+        $this->applyAccelerationDashboardListingScope($query, $user, $countFilters, ignoreStatusFilter: true);
+
+        return $query
+            ->toBase()
+            ->select('district_name')
+            ->whereNotNull('district_name')
+            ->where('district_name', '!=', '')
+            ->distinct()
+            ->orderBy('district_name')
+            ->pluck('district_name')
+            ->map(fn ($name) => trim((string) $name))
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * @return list<array{group: string, items: list<array{key: string, label: string}>}>
+     */
+    private function accelerationDashboardServiceOptions(): array
+    {
+        $labels = [
+            AccelerationServicesOptions::SECTION_SERVICE_DETAIL => 'In-house',
+            AccelerationServicesOptions::SECTION_CROSS_CUTTING => 'Cross-cutting',
+            AccelerationServicesOptions::SECTION_PARTNERSHIP => 'Partners',
+        ];
+
+        $groups = [];
+        foreach (AccelerationServicesOptions::allSections() as $section => $items) {
+            $groups[] = [
+                'group' => $labels[$section] ?? $section,
+                'items' => array_map(
+                    fn (array $item): array => [
+                        'key' => (string) $item['key'],
+                        'label' => (string) $item['label'],
+                    ],
+                    $items,
+                ),
+            ];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<AccelerationServiceSession>  $query
+     * @param  array{q: string, from: string, to: string, status: string, submitted_by_id: int, district: string, service_key: string, month: int}  $filters
+     */
+    private function applyAccelerationDashboardListingScope($query, User $user, array $filters, bool $ignoreStatusFilter = false): void
+    {
+        $workflowReady = AccelerationServicesApproval::workflowReady();
+        $isApprover = AccelerationServicesApproval::isApprover($user);
+
+        if (in_array($user->role, ['state_staff', 'district_staff'], true)) {
+            if ($isApprover) {
+                $query->where(function ($q) use ($user): void {
+                    $q->where('submitted_by_user_id', (int) $user->id);
+                    if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
+                        $q->orWhere('is_draft', false);
+                    }
+                });
+            } else {
+                $query->where('submitted_by_user_id', (int) $user->id);
+            }
+        }
+
+        if ($user->role === 'state_admin') {
+            if (Schema::hasColumn('acceleration_service_sessions', 'is_draft')) {
+                $query->where('is_draft', false);
+            }
+            if ($workflowReady) {
+                $query->where('status', '!=', AccelerationServicesApproval::STATUS_DRAFT);
+            }
+        }
+
+        if ((int) ($filters['submitted_by_id'] ?? 0) > 0) {
+            $query->where('submitted_by_user_id', (int) $filters['submitted_by_id']);
+        }
+
+        $district = trim((string) ($filters['district'] ?? ''));
+        if ($district !== '') {
+            $query->whereRaw('LOWER(TRIM(district_name)) = ?', [mb_strtolower($district)]);
+        }
+
+        $serviceKey = trim((string) ($filters['service_key'] ?? ''));
+        if ($serviceKey !== '') {
+            $query->whereHas('items', function ($items) use ($serviceKey): void {
+                $items->where(function ($w) use ($serviceKey): void {
+                    $w->where('item_key', $serviceKey)
+                        ->orWhere('item_key', 'like', $serviceKey.'__%');
+                    if ($serviceKey === 'market_linkage') {
+                        $w->orWhere('item_key', 'like', 'market_linkage_%');
+                    }
+                });
+            });
+        }
+
+        if (! $ignoreStatusFilter && $workflowReady && ($filters['status'] ?? '') !== '') {
+            $statuses = match ((string) $filters['status']) {
+                'pending_approval' => [
+                    AccelerationServicesApproval::STATUS_PENDING_REVIEW,
+                    AccelerationServicesApproval::STATUS_PENDING_FINAL,
+                ],
+                default => [(string) $filters['status']],
+            };
+            $query->whereIn('status', $statuses);
+        }
+
+        if (($filters['q'] ?? '') !== '') {
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], (string) $filters['q']).'%';
+            $query->where(function ($q) use ($like): void {
+                $q->where('applicant_name', 'like', $like)
+                    ->orWhere('application_no', 'like', $like)
+                    ->orWhere('phone', 'like', $like)
+                    ->orWhere('district_name', 'like', $like)
+                    ->orWhere('submitted_by_name', 'like', $like);
+            });
+        }
+
+        if (($filters['from'] ?? '') !== '') {
+            $query->whereDate('service_date', '>=', (string) $filters['from']);
+        }
+        if (($filters['to'] ?? '') !== '') {
+            $query->whereDate('service_date', '<=', (string) $filters['to']);
+        }
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<AccelerationServiceSession>  $query
+     * @return array{approved: int, pending_approval: int, pending_review: int, pending_final: int, sent_back: int}
+     */
+    private function accelerationDashboardStatusCounts($query, bool $workflowReady): array
+    {
+        $empty = [
+            'approved' => 0,
+            'pending_approval' => 0,
+            'pending_review' => 0,
+            'pending_final' => 0,
+            'sent_back' => 0,
+        ];
+        if (! $workflowReady) {
+            return $empty;
+        }
+
+        $counts = (clone $query)
+            ->toBase()
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $pendingReview = (int) ($counts[AccelerationServicesApproval::STATUS_PENDING_REVIEW] ?? 0);
+        $pendingFinal = (int) ($counts[AccelerationServicesApproval::STATUS_PENDING_FINAL] ?? 0);
+
+        return [
+            'approved' => (int) ($counts[AccelerationServicesApproval::STATUS_APPROVED] ?? 0),
+            'pending_approval' => $pendingReview + $pendingFinal,
+            'pending_review' => $pendingReview,
+            'pending_final' => $pendingFinal,
+            'sent_back' => (int) ($counts[AccelerationServicesApproval::STATUS_SENT_BACK] ?? 0),
+        ];
     }
 
     private function submitterOrAbort(Request $request): User

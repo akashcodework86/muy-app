@@ -59,6 +59,29 @@
     }
 
     .accel-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:0.75rem; }
+    .accel-stats--approvals { margin-top:0.15rem; }
+    .accel-stat {
+        background:#fff;
+        border:1px solid #e2e8f0;
+        border-radius:14px;
+        padding:0.95rem 1.05rem;
+        box-shadow:0 1px 2px rgba(15,23,42,0.04);
+        position:relative;
+        overflow:hidden;
+    }
+    .accel-stat--link {
+        display:block;
+        text-decoration:none;
+        color:inherit;
+        cursor:pointer;
+    }
+    .accel-stat--link:hover { border-color:#99f6e4; box-shadow:0 4px 12px rgba(13,148,136,0.08); }
+    .accel-stat--link.is-active { border-color:#0d9488; box-shadow:0 0 0 1px #0d9488; }
+    .accel-stat--approved::before { background:linear-gradient(90deg, #16a34a, #86efac); }
+    .accel-stat--pending::before { background:linear-gradient(90deg, #d97706, #fcd34d); }
+    .accel-stat--review::before { background:linear-gradient(90deg, #b45309, #fdba74); }
+    .accel-stat--final::before { background:linear-gradient(90deg, #2563eb, #93c5fd); }
+    .accel-stat--back::before { background:linear-gradient(90deg, #dc2626, #fca5a5); }
     .accel-stat {
         background:#fff;
         border:1px solid #e2e8f0;
@@ -519,6 +542,17 @@
 
     .accel-filter-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.75rem; margin-bottom:1rem; align-items:end; }
     .accel-filter-form .accel-field { margin:0; }
+    .accel-creator-pills { display:flex; flex-wrap:wrap; gap:0.4rem; margin:0 0 0.9rem; }
+    .accel-creator-pill {
+        display:inline-flex; align-items:center; gap:0.4rem;
+        padding:0.32rem 0.6rem; border-radius:999px; text-decoration:none;
+        border:1px solid #e2e8f0; background:#f8fafc; color:#334155;
+        font-size:0.78rem; font-weight:600;
+    }
+    .accel-creator-pill strong { font-variant-numeric:tabular-nums; color:#0f766e; }
+    .accel-creator-pill:hover { background:#ecfeff; border-color:#99f6e4; }
+    .accel-creator-pill.is-active { background:#0f766e; border-color:#0f766e; color:#fff; }
+    .accel-creator-pill.is-active strong { color:#fff; }
 
     .accel-table-wrap { overflow:auto; border:1px solid #e2e8f0; border-radius:12px; }
     .accel-table { width:100%; border-collapse:collapse; font-size:0.84rem; }

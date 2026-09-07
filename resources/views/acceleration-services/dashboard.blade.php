@@ -31,10 +31,10 @@
             <div class="accel-stat__label">7.2 Unique initiations (FY)</div>
             <div class="accel-stat__value">{{ number_format((int) ($totals['initiations_fy'] ?? 0)) }}</div>
         </div>
-        <div class="accel-stat">
-            <div class="accel-stat__label">Sessions logged</div>
+        <a class="accel-stat accel-stat--link @if (($filters['status'] ?? '') === '') is-active @endif" href="{{ route($dashboardRoute, array_filter(array_merge($filters ?? [], ['status' => '', 'page' => null]), fn ($v) => $v !== null && $v !== '')) }}">
+            <div class="accel-stat__label">All approvals</div>
             <div class="accel-stat__value">{{ number_format((int) ($totals['sessions'] ?? 0)) }}</div>
-        </div>
+        </a>
         <div class="accel-stat">
             <div class="accel-stat__label">Buyer Seller ticks (FY)</div>
             <div class="accel-stat__value">{{ number_format((int) ($totals['buyer_seller_ticks'] ?? 0)) }}</div>
@@ -47,11 +47,39 @@
         @endif
     </div>
 
+    @if (!empty($workflowReady))
+        @php
+            $statusCardQuery = array_filter($filters ?? [], fn ($v) => $v !== null && $v !== '');
+            unset($statusCardQuery['status'], $statusCardQuery['page']);
+            $statusCards = [
+                ['key' => 'approved', 'label' => 'Approved', 'tone' => 'approved'],
+                ['key' => 'pending_approval', 'label' => 'Pending approval', 'tone' => 'pending'],
+                ['key' => 'pending_review', 'label' => 'Pending state review', 'tone' => 'review'],
+                ['key' => 'pending_final', 'label' => 'Pending final approval', 'tone' => 'final'],
+                ['key' => 'sent_back', 'label' => 'Sent back', 'tone' => 'back'],
+            ];
+        @endphp
+        <div class="accel-stats accel-stats--approvals">
+            @foreach ($statusCards as $card)
+                <a
+                    class="accel-stat accel-stat--link accel-stat--{{ $card['tone'] }} @if (($filters['status'] ?? '') === $card['key']) is-active @endif"
+                    href="{{ route($dashboardRoute, array_merge($statusCardQuery, ['status' => $card['key']])) }}"
+                >
+                    <div class="accel-stat__label">{{ $card['label'] }}</div>
+                    <div class="accel-stat__value">{{ number_format((int) ($totals[$card['key']] ?? 0)) }}</div>
+                </a>
+            @endforeach
+        </div>
+    @endif
+
     <div class="accel-card">
         <div class="accel-card__toolbar">
             <h3 class="accel-card__title" style="margin:0;">
                 @if (!empty($isAdminView))
-                    All acceleration sessions (state)
+                    All acceleration approvals
+                    <span style="display:block;font-size:0.78rem;font-weight:600;color:#64748b;margin-top:0.2rem;">
+                        From every staff member — not only state SPOC entries.
+                    </span>
                 @elseif (!empty($isApprover))
                     All submitted acceleration entries
                 @else
@@ -66,10 +94,43 @@
             </div>
         </div>
 
-        <form method="get" action="{{ route($dashboardRoute) }}" class="accel-filter-form">
+        <form method="get" action="{{ route($dashboardRoute) }}" class="accel-filter-form" id="accelFilterForm">
             <div class="accel-field">
                 <label for="filter_q">Search</label>
                 <input type="text" id="filter_q" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Name, app no, phone">
+            </div>
+            <div class="accel-field">
+                <label for="filter_service">Service</label>
+                <select id="filter_service" name="service_key">
+                    <option value="">All services</option>
+                    @foreach (($serviceOptions ?? []) as $group)
+                        <optgroup label="{{ $group['group'] }}">
+                            @foreach ($group['items'] as $serviceItem)
+                                <option value="{{ $serviceItem['key'] }}" @selected(($filters['service_key'] ?? '') === $serviceItem['key'])>
+                                    {{ $serviceItem['label'] }}
+                                </option>
+                            @endforeach
+                        </optgroup>
+                    @endforeach
+                </select>
+            </div>
+            <div class="accel-field">
+                <label for="filter_district">District</label>
+                <select id="filter_district" name="district">
+                    <option value="">All districts</option>
+                    @foreach (($districtOptions ?? collect()) as $districtName)
+                        <option value="{{ $districtName }}" @selected(($filters['district'] ?? '') === $districtName)>{{ $districtName }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="accel-field">
+                <label for="filter_month">Month</label>
+                <select id="filter_month" name="month">
+                    <option value="">All months</option>
+                    @foreach (range(1, 12) as $m)
+                        <option value="{{ $m }}" @selected((int) ($filters['month'] ?? 0) === $m)>{{ \Carbon\Carbon::create(null, $m, 1)->format('F') }}</option>
+                    @endforeach
+                </select>
             </div>
             <div class="accel-field">
                 <label for="filter_from">From</label>
@@ -86,27 +147,68 @@
                         <option value="">All statuses</option>
                         @php
                             $statusOptions = [
-                                \App\Support\AccelerationServicesApproval::STATUS_PENDING_REVIEW,
-                                \App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL,
-                                \App\Support\AccelerationServicesApproval::STATUS_APPROVED,
-                                \App\Support\AccelerationServicesApproval::STATUS_SENT_BACK,
+                                'pending_approval' => 'Pending approval',
+                                \App\Support\AccelerationServicesApproval::STATUS_PENDING_REVIEW => \App\Support\AccelerationServicesApproval::statusLabel(\App\Support\AccelerationServicesApproval::STATUS_PENDING_REVIEW),
+                                \App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL => \App\Support\AccelerationServicesApproval::statusLabel(\App\Support\AccelerationServicesApproval::STATUS_PENDING_FINAL),
+                                \App\Support\AccelerationServicesApproval::STATUS_APPROVED => \App\Support\AccelerationServicesApproval::statusLabel(\App\Support\AccelerationServicesApproval::STATUS_APPROVED),
+                                \App\Support\AccelerationServicesApproval::STATUS_SENT_BACK => \App\Support\AccelerationServicesApproval::statusLabel(\App\Support\AccelerationServicesApproval::STATUS_SENT_BACK),
                             ];
                             if (empty($isAdminView)) {
-                                $statusOptions[] = \App\Support\AccelerationServicesApproval::STATUS_DRAFT;
+                                $statusOptions[\App\Support\AccelerationServicesApproval::STATUS_DRAFT] = \App\Support\AccelerationServicesApproval::statusLabel(\App\Support\AccelerationServicesApproval::STATUS_DRAFT);
                             }
                         @endphp
-                        @foreach ($statusOptions as $statusOption)
+                        @foreach ($statusOptions as $statusOption => $statusOptionLabel)
                             <option value="{{ $statusOption }}" @selected(($filters['status'] ?? '') === $statusOption)>
-                                {{ \App\Support\AccelerationServicesApproval::statusLabel($statusOption) }}
+                                {{ $statusOptionLabel }}
                             </option>
                         @endforeach
                     </select>
                 </div>
             @endif
-            <div>
+            @if (!empty($showCreatorFilter))
+                <div class="accel-field">
+                    <label for="filter_submitted_by">Submitted by</label>
+                    <select id="filter_submitted_by" name="submitted_by_id">
+                        <option value="0">All creators</option>
+                        @foreach (($submitters ?? collect()) as $submitter)
+                            <option value="{{ $submitter['id'] }}" @selected((int) ($filters['submitted_by_id'] ?? 0) === (int) $submitter['id'])>
+                                {{ $submitter['name'] }} ({{ number_format((int) $submitter['total']) }})
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+            <div style="display:flex;gap:0.45rem;flex-wrap:wrap;">
                 <button type="submit" class="accel-btn">Filter</button>
+                <a href="{{ route($dashboardRoute) }}" class="accel-btn accel-btn--secondary">Clear</a>
             </div>
         </form>
+
+        @if (!empty($showCreatorFilter) && ($submitters ?? collect())->isNotEmpty())
+            @php
+                $creatorQuery = array_filter($filters ?? [], fn ($v) => $v !== null && $v !== '');
+                unset($creatorQuery['submitted_by_id'], $creatorQuery['page']);
+                $selectedCreatorId = (int) ($filters['submitted_by_id'] ?? 0);
+            @endphp
+            <div class="accel-creator-pills" aria-label="Filter by creator">
+                <a
+                    class="accel-creator-pill @if ($selectedCreatorId === 0) is-active @endif"
+                    href="{{ route($dashboardRoute, $creatorQuery) }}"
+                >
+                    <span>All creators</span>
+                    <strong>{{ number_format((int) ($submitters->sum('total'))) }}</strong>
+                </a>
+                @foreach ($submitters as $submitter)
+                    <a
+                        class="accel-creator-pill @if ($selectedCreatorId === (int) $submitter['id']) is-active @endif"
+                        href="{{ route($dashboardRoute, array_merge($creatorQuery, ['submitted_by_id' => $submitter['id']])) }}"
+                    >
+                        <span>{{ $submitter['name'] }}</span>
+                        <strong>{{ number_format((int) $submitter['total']) }}</strong>
+                    </a>
+                @endforeach
+            </div>
+        @endif
 
         <div class="accel-table-wrap">
             <table class="accel-table">
@@ -225,4 +327,37 @@
         @endif
     </div>
 </div>
+<script>
+    (function () {
+        const form = document.getElementById('accelFilterForm');
+        const monthEl = document.getElementById('filter_month');
+        const dateFromEl = document.getElementById('filter_from');
+        const dateToEl = document.getElementById('filter_to');
+        if (!form || !monthEl || !dateFromEl || !dateToEl) return;
+
+        const fiscalStartYear = @json((int) ($fiscalYear?->starts_on?->year ?? now()->year));
+        const fiscalStartMonth = @json((int) ($fiscalYear?->starts_on?->month ?? 4));
+        let syncing = false;
+
+        function pad2(n) { return String(n).padStart(2, '0'); }
+        function calendarYearForMonth(month) {
+            return month >= fiscalStartMonth ? fiscalStartYear : fiscalStartYear + 1;
+        }
+        function syncDatesFromMonth() {
+            const month = parseInt(monthEl.value, 10);
+            if (!month || month < 1 || month > 12) {
+                return;
+            }
+            const year = calendarYearForMonth(month);
+            const lastDay = new Date(year, month, 0).getDate();
+            syncing = true;
+            dateFromEl.value = year + '-' + pad2(month) + '-01';
+            dateToEl.value = year + '-' + pad2(month) + '-' + pad2(lastDay);
+            syncing = false;
+        }
+        monthEl.addEventListener('change', syncDatesFromMonth);
+        dateFromEl.addEventListener('change', function () { if (!syncing) monthEl.value = ''; });
+        dateToEl.addEventListener('change', function () { if (!syncing) monthEl.value = ''; });
+    })();
+</script>
 @endsection

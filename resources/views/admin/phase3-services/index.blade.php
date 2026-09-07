@@ -28,6 +28,9 @@
         $listQuery = request()->query();
         $uniqueViewQuery = array_merge($listQuery, ['unique_incubatees' => '1', 'page' => null]);
         $allRowsQuery = collect($listQuery)->except(['unique_incubatees', 'page'])->all();
+        $monthOptions = $monthOptions ?? [];
+        $selectedMonth = (int) ($filters['month'] ?? 0);
+        $monthAllQuery = collect($listQuery)->except(['month', 'date_from', 'date_to', 'page'])->all();
     @endphp
 
     <style>
@@ -342,6 +345,17 @@
             font-size: 0.86rem;
             color: #334155;
         }
+        .p3-month-bar { background:#fff; border:1px solid #e4e4e7; border-radius:10px; padding:0.75rem 0.85rem; margin-bottom:1rem; }
+        .p3-month-bar__label { font-weight:700; margin-bottom:0.5rem; }
+        .p3-month-bar__chips { display:flex; flex-wrap:wrap; gap:0.4rem; }
+        .p3-month-chip {
+            display:inline-flex; align-items:center; justify-content:center;
+            padding:0.38rem 0.7rem; border-radius:999px; text-decoration:none;
+            font-size:0.82rem; font-weight:700; border:1px solid #e5e7eb;
+            background:#f9fafb; color:#374151; white-space:nowrap;
+        }
+        .p3-month-chip:hover { border-color:#93c5fd; background:#eff6ff; color:#1d4ed8; }
+        .p3-month-chip.is-active { border-color:#2563eb; background:#dbeafe; color:#1d4ed8; }
     </style>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.7rem;margin-bottom:1rem;">
@@ -454,6 +468,24 @@
         </section>
     @endif
 
+    @if ($monthOptions !== [])
+        <div class="p3-month-bar" aria-label="Filter by month">
+            <div class="p3-month-bar__label">Month</div>
+            <div class="p3-month-bar__chips">
+                <a
+                    href="{{ route('admin.phase3-services.index', $monthAllQuery) }}"
+                    class="p3-month-chip @if ($selectedMonth < 1) is-active @endif"
+                >All months</a>
+                @foreach ($monthOptions as $opt)
+                    <a
+                        href="{{ route('admin.phase3-services.index', array_merge($monthAllQuery, ['month' => $opt['value']])) }}"
+                        class="p3-month-chip @if ($selectedMonth === (int) $opt['value']) is-active @endif"
+                    >{{ $opt['label'] }}</a>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:0.75rem 0.85rem;margin-bottom:1rem;">
         <div style="font-weight:700;margin-bottom:0.5rem;">District-wise count</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.45rem;">
@@ -505,6 +537,7 @@
 
             <select name="service_id" id="serviceFilter" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
                 <option value="0">All services</option>
+                <option value="{{ \App\Models\AccelerationServiceSession::LIST_FILTER }}" @selected(($filters['service_id'] ?? '') === \App\Models\AccelerationServiceSession::LIST_FILTER)>{{ \App\Models\AccelerationServiceSession::SERVICE_LIST_LABEL }}</option>
                 <option value="{{ \App\Support\ConvergenceReapSupport::MIS_8_2_LIST_FILTER }}" @selected(($filters['service_id'] ?? '') === \App\Support\ConvergenceReapSupport::MIS_8_2_LIST_FILTER)>{{ \App\Support\ConvergenceReapSupport::MIS_8_2_LIST_LABEL }}</option>
                 @foreach ($services as $service)
                     <option value="{{ $service->id }}" data-category-id="{{ $service->service_category_id }}" @selected(is_numeric($filters['service_id'] ?? '') && (int) $filters['service_id'] === (int) $service->id)>{{ $service->name }}</option>
@@ -546,10 +579,10 @@
                 <option value="0" @selected($filters['has_docs'] === '0')>Without document entry</option>
             </select>
 
-            <select name="month" id="monthFilter" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;">
+            <select name="month" id="monthFilter" style="padding:0.45rem 0.55rem;border:1px solid #d4d4d8;border-radius:8px;" title="Month">
                 <option value="">All months</option>
-                @foreach (range(1, 12) as $m)
-                    <option value="{{ $m }}" @selected((int) ($filters['month'] ?? 0) === $m)>{{ \Carbon\Carbon::create(null, $m, 1)->format('F') }}</option>
+                @foreach ($monthOptions as $opt)
+                    <option value="{{ $opt['value'] }}" @selected($selectedMonth === (int) $opt['value'])>{{ $opt['label'] }}</option>
                 @endforeach
             </select>
 
@@ -568,8 +601,13 @@
             unique incubatees
         @elseif ($unifiedMarketLinkage)
             market linkage rows
+        @elseif (($filters['service_id'] ?? '') === \App\Models\AccelerationServiceSession::LIST_FILTER)
+            acceleration approvals
         @else
             cases
+        @endif
+        @if ($selectedMonth > 0 && ($filters['date_from'] ?? '') !== '')
+            · {{ \Carbon\Carbon::parse($filters['date_from'])->format('F Y') }}
         @endif
         @if ($unifiedMarketLinkage)
             <span style="color:#64748b;">
@@ -616,6 +654,7 @@
                         $rowType = $isUnifiedRow ? (string) ($row['type'] ?? 'service_case') : 'service_case';
                         $case = $isUnifiedRow ? ($row['service_case'] ?? null) : $row;
                         $ml = $isUnifiedRow ? ($row['market_linkage'] ?? null) : null;
+                        $accel = $isUnifiedRow ? ($row['acceleration'] ?? null) : null;
                         $linkageMode = '—';
                         if ($isUnifiedRow) {
                             $linkageMode = (string) ($row['linkage_mode'] ?? '—');
@@ -652,6 +691,35 @@
                         $rowStatus = in_array($rowType, ['market_linkage_partner', 'market_linkage_incubatee'], true)
                             ? (string) ($ml?->status ?? '')
                             : (string) ($case?->status ?? '');
+                        $statusDisplay = $statusLabel[$rowStatus] ?? ucfirst(str_replace('_', ' ', $rowStatus));
+                        if ($rowType === 'acceleration' && $accel) {
+                            $rowStatus = match ((string) $accel->status) {
+                                'pending_review', 'pending_final' => 'pending_approval',
+                                'sent_back' => 'sent_back',
+                                'approved' => 'approved',
+                                'draft' => 'draft',
+                                default => 'pending_approval',
+                            };
+                            $statusDisplay = $accel->statusLabel();
+                            $applicantCategory = '';
+                            $shgMember = '';
+                            $batchName = (string) ($accel->onboard_label ?? '');
+                            $isLegacyBatch = false;
+                            $attachments = [];
+                            if ($accel->relationLoaded('items')) {
+                                foreach ($accel->items as $accelItem) {
+                                    foreach ($accelItem->media ?? [] as $mediaRow) {
+                                        $attachments[] = [
+                                            'id' => (int) $mediaRow->id,
+                                            'name' => (string) ($mediaRow->original_name ?: ($accelItem->item_label ?? 'Attachment')),
+                                            'size' => (int) ($mediaRow->size_bytes ?? 0),
+                                            'mime' => (string) ($mediaRow->mime_type ?? ''),
+                                            'url' => route('admin.acceleration-services.media', ['accelerationMedia' => $mediaRow, 'inline' => 1]),
+                                        ];
+                                    }
+                                }
+                            }
+                        }
                         $isSlaBreached = $case
                             && $case->sla_deadline_at
                             && \Illuminate\Support\Carbon::parse($case->sla_deadline_at)->isPast()
@@ -676,41 +744,56 @@
                         $srNo = $loop->iteration + (($cases->currentPage() - 1) * $cases->perPage());
                         $applicantName = $case?->cfaSubmission?->applicant_name
                             ?? ($ml?->incubatee_name ?? null)
+                            ?? ($accel?->applicant_name ?? null)
                             ?? ($lp['applicant_name'] ?? null)
                             ?: '—';
                         $applicationNo = $case?->cfaSubmission?->application_no
                             ?? ($ml?->application_no ?? null)
+                            ?? ($accel?->application_no ?? null)
                             ?? ($lp['application_no'] ?? null)
                             ?: '—';
                         $districtName = $case?->cfaSubmission?->district?->name
                             ?? ($ml?->district_name ?? null)
+                            ?? ($accel?->district_name ?? null)
                             ?? ($lp['district'] ?? null)
                             ?: '—';
                         $referenceNumber = $case?->reference_number
                             ?: ($rowType === 'market_linkage_incubatee'
                                 ? ($ml?->application_no ?: '—')
-                                : ($isUnifiedRow ? (string) ($row['partner_name'] ?? '—') : '—'));
-                        $serviceLabel = in_array($rowType, ['market_linkage_partner', 'market_linkage_incubatee'], true)
-                            ? \App\Models\MarketLinkageSubmission::SERVICE_LIST_LABEL
-                            : ($case?->service?->name ?? '—');
-                        $serviceSubLabel = $rowType === 'market_linkage_incubatee'
-                            ? (string) ($row['partner_name'] ?? '—')
-                            : ($rowType === 'market_linkage_partner'
+                                : ($rowType === 'acceleration'
+                                    ? ($accel?->application_no ?: '—')
+                                    : ($isUnifiedRow ? (string) ($row['partner_name'] ?? '—') : '—')));
+                        $serviceLabel = $rowType === 'acceleration'
+                            ? \App\Models\AccelerationServiceSession::SERVICE_LIST_LABEL
+                            : (in_array($rowType, ['market_linkage_partner', 'market_linkage_incubatee'], true)
+                                ? \App\Models\MarketLinkageSubmission::SERVICE_LIST_LABEL
+                                : ($case?->service?->name ?? '—'));
+                        $serviceSubLabel = $rowType === 'acceleration'
+                            ? (((int) ($accel?->items_count ?? 0)).' service'.(((int) ($accel?->items_count ?? 0)) === 1 ? '' : 's'))
+                            : ($rowType === 'market_linkage_incubatee'
                                 ? (string) ($row['partner_name'] ?? '—')
-                                : ($case?->service?->category?->name ?? '—'));
-                        $submittedAt = $case?->submitted_at ?? $ml?->submitted_at;
-                        $assignedBy = $case?->submitter?->name ?? $case?->creator?->name ?? $ml?->submitted_by_name ?? $ml?->submitter?->name ?? '—';
-                        $spocName = $case?->spoc?->name ?? $ml?->spoc?->name ?? 'Unassigned';
+                                : ($rowType === 'market_linkage_partner'
+                                    ? (string) ($row['partner_name'] ?? '—')
+                                    : ($case?->service?->category?->name ?? '—')));
+                        $submittedAt = $case?->submitted_at ?? $ml?->submitted_at ?? $accel?->created_at;
+                        $assignedBy = $case?->submitter?->name ?? $case?->creator?->name ?? $ml?->submitted_by_name ?? $ml?->submitter?->name ?? $accel?->submitted_by_name ?? $accel?->submitter?->name ?? '—';
+                        $spocName = $case?->spoc?->name
+                            ?? $ml?->spoc?->name
+                            ?? ($rowType === 'acceleration'
+                                ? (string) ($accel?->final_approved_by_name ?: $accel?->first_approved_by_name ?: 'State SPOC')
+                                : 'Unassigned');
                         $spocRemark = match ($rowStatus) {
-                            'sent_back' => $case?->sent_back_note ?? $ml?->sent_back_note,
+                            'sent_back' => $case?->sent_back_note ?? $ml?->sent_back_note ?? $accel?->sent_back_remarks,
                             'rejected' => $case?->rejected_note ?? $ml?->rejected_note,
-                            default => null,
+                            default => $rowType === 'acceleration' && (string) ($accel?->status ?? '') === 'pending_final' && $accel?->first_approved_by_name
+                                ? 'Reviewed by '.$accel->first_approved_by_name
+                                : null,
                         };
-                        $serviceDate = $case?->serviceDateForReporting();
+                        $serviceDate = $rowType === 'acceleration' ? $accel?->service_date : $case?->serviceDateForReporting();
                         $slaDeadline = $case?->sla_deadline_at ?? $ml?->sla_deadline_at;
                         $detailsUrl = $case
                             ? route('admin.phase3-services.show', $case)
-                            : ($ml ? route('admin.market-linkages.show', $ml) : '#');
+                            : ($ml ? route('admin.market-linkages.show', $ml) : ($accel ? route('admin.acceleration-services.show', $accel) : '#'));
                     @endphp
                     <tr class="p3-row--{{ $rowStatus ?: 'draft' }}">
                         <td class="p3-sr">{{ $srNo }}</td>
@@ -759,7 +842,9 @@
                             @endif
                         </td>
                         <td>
-                            @if ($case?->service?->reporting_tier)
+                            @if ($rowType === 'acceleration')
+                                <span class="p3-pill" style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">KEY</span>
+                            @elseif ($case?->service?->reporting_tier)
                                 <span class="p3-pill" style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;">
                                     {{ strtoupper((string) $case->service->reporting_tier) }}
                                 </span>
@@ -769,7 +854,7 @@
                         </td>
                         <td>
                             <span class="p3-pill" style="{{ $statusStyle[$rowStatus] ?? $statusStyle['draft'] }}">
-                                {{ $statusLabel[$rowStatus] ?? ucfirst(str_replace('_', ' ', $rowStatus)) }}
+                                {{ $statusDisplay }}
                             </span>
                         </td>
                         <td class="p3-remark">{{ $spocRemark ?: '—' }}</td>
@@ -788,13 +873,13 @@
                         <td>{{ $assignedBy }}</td>
                         <td>{{ $spocName }}</td>
                         <td style="white-space:nowrap;">
-                            @if ($case)
+                            @if ($case || ($rowType === 'acceleration' && $attachments !== []))
                                 <strong>{{ count($attachments) }}</strong>
                                 <button
                                     type="button"
                                     class="js-documents-open p3-btn"
-                                    data-case-label="{{ $case->service?->name ?? 'Service case' }}"
-                                    data-case-ref="{{ $case->reference_number ?: '—' }}"
+                                    data-case-label="{{ $rowType === 'acceleration' ? \App\Models\AccelerationServiceSession::SERVICE_LIST_LABEL : ($case->service?->name ?? 'Service case') }}"
+                                    data-case-ref="{{ $rowType === 'acceleration' ? ($accel?->application_no ?: '—') : ($case->reference_number ?: '—') }}"
                                     data-documents='@json($attachments)'
                                 >View</button>
                             @else

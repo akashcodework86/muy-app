@@ -10,6 +10,7 @@ use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Services\MisMonthlyTargetIndicatorBootstrapService;
 use App\Services\ProgramDeliverablesReportService;
+use App\Support\AccelerationServicesApproval;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -331,6 +332,122 @@ class AccelerationServicesTest extends TestCase
         $this->assertSame('udyam', $bf->payload['registration_type'] ?? null);
         $bsm = $session->items()->where('item_key', 'buyer_seller_meet')->first();
         $this->assertSame(['sales'], $bsm->payload['outcome_type'] ?? null);
+    }
+
+    public function test_state_admin_dashboard_lists_sessions_from_all_creators(): void
+    {
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $ankur = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Ankur Rawat',
+            'email' => 'ankur.rawat@pwc.com',
+            'is_active' => true,
+        ]);
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'name' => 'Yamini Joshi',
+            'is_active' => true,
+        ]);
+        $fy = FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+
+        $ankurSessionId = (int) DB::table('acceleration_service_sessions')->insertGetId([
+            'service_date' => '2026-09-03',
+            'fiscal_year_id' => $fy->id,
+            'legacy_phase1_application_id' => 501,
+            'incubatee_key' => 'p1:501',
+            'incubatee_source' => 'phase1',
+            'applicant_name' => 'Ankur Incubatee',
+            'application_no' => 'APP-ANKUR-501',
+            'district_name' => 'Almora',
+            'onboard_label' => 'Onboarded',
+            'counts_for_7_2' => true,
+            'is_draft' => false,
+            'status' => AccelerationServicesApproval::STATUS_APPROVED,
+            'submitted_by_user_id' => $ankur->id,
+            'submitted_by_name' => $ankur->name,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $yaminiSessionId = (int) DB::table('acceleration_service_sessions')->insertGetId([
+            'service_date' => '2026-08-01',
+            'fiscal_year_id' => $fy->id,
+            'legacy_phase1_application_id' => 502,
+            'incubatee_key' => 'p1:502',
+            'incubatee_source' => 'phase1',
+            'applicant_name' => 'Yamini Incubatee',
+            'application_no' => 'APP-YAMINI-502',
+            'district_name' => 'Haridwar',
+            'onboard_label' => 'Onboarded',
+            'counts_for_7_2' => true,
+            'is_draft' => false,
+            'status' => AccelerationServicesApproval::STATUS_PENDING_REVIEW,
+            'submitted_by_user_id' => $staff->id,
+            'submitted_by_name' => $staff->name,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('acceleration_service_items')->insert([
+            [
+                'session_id' => $ankurSessionId,
+                'section' => 'partnership',
+                'item_key' => 'tbi_graphic_era',
+                'item_label' => 'TBI (Graphic Era)',
+                'is_custom' => false,
+                'is_buyer_seller_meet' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'session_id' => $yaminiSessionId,
+                'section' => 'service_detail',
+                'item_key' => 'market_linkage',
+                'item_label' => 'Market Linkage',
+                'is_custom' => false,
+                'is_buyer_seller_meet' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.acceleration-services.dashboard'))
+            ->assertOk()
+            ->assertSee('All creators')
+            ->assertSee('TBI (Graphic Era)')
+            ->assertSee('All districts')
+            ->assertSee('All months')
+            ->assertSee('Ankur Rawat')
+            ->assertSee('Yamini Joshi')
+            ->assertSee('Ankur Incubatee')
+            ->assertSee('Yamini Incubatee');
+
+        $this->actingAs($admin)
+            ->get(route('admin.acceleration-services.dashboard', ['submitted_by_id' => $staff->id]))
+            ->assertOk()
+            ->assertSee('Yamini Incubatee')
+            ->assertDontSee('Ankur Incubatee');
+
+        $this->actingAs($admin)
+            ->get(route('admin.acceleration-services.dashboard', [
+                'service_key' => 'tbi_graphic_era',
+                'month' => 9,
+            ]))
+            ->assertOk()
+            ->assertSee('Ankur Incubatee')
+            ->assertDontSee('Yamini Incubatee');
+
+        $this->actingAs($admin)
+            ->get(route('admin.acceleration-services.dashboard', ['district' => 'Haridwar']))
+            ->assertOk()
+            ->assertSee('Yamini Incubatee')
+            ->assertDontSee('Ankur Incubatee');
     }
 
     public function test_follow_up_session_does_not_recount_7_2_for_same_incubatee(): void

@@ -10,6 +10,10 @@ class AccelerationServiceSession extends Model
 {
     public const MODULE_LABEL = 'MUY Acceleration Services — 7.2 Initiation';
 
+    public const LIST_FILTER = 'acceleration_services';
+
+    public const SERVICE_LIST_LABEL = 'Acceleration services (7.2)';
+
     protected $fillable = [
         'service_date',
         'fiscal_year_id',
