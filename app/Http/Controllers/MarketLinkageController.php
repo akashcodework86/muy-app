@@ -683,7 +683,7 @@ class MarketLinkageController extends Controller
     }
 
     /**
-     * @return array{dashboard: string, export: string, show: string, document: string}
+     * @return array{dashboard: string, export: string, show: string, document: string, partners: string}
      */
     private function marketLinkageRoutes(User $user): array
     {
@@ -693,18 +693,21 @@ class MarketLinkageController extends Controller
                 'export' => 'admin.market-linkages.export',
                 'show' => 'admin.market-linkages.show',
                 'document' => 'admin.market-linkages.document',
+                'partners' => 'admin.market-linkages.partners',
             ],
             'hub_admin' => [
                 'dashboard' => 'hub.market-linkages.dashboard',
                 'export' => 'hub.market-linkages.export',
                 'show' => 'hub.market-linkages.show',
                 'document' => 'hub.market-linkages.document',
+                'partners' => 'hub.market-linkages.partners',
             ],
             default => [
                 'dashboard' => 'staff.market-linkages.dashboard',
                 'export' => 'staff.market-linkages.export',
                 'show' => 'staff.market-linkages.show',
                 'document' => 'staff.market-linkages.document',
+                'partners' => 'staff.market-linkages.partners',
             ],
         };
     }
@@ -1013,6 +1016,7 @@ class MarketLinkageController extends Controller
             'dashboardRoute' => $routes['dashboard'],
             'exportRoute' => $routes['export'],
             'showRoute' => $routes['show'],
+            'partnerDirectoryRoute' => $routes['partners'],
             'createRoute' => $this->settings->isEnabled('service_module.enabled')
                 && MarketLinkageAccess::canSubmit($user)
                 ? 'staff.market-linkages.create'

@@ -349,6 +349,9 @@
                 @if ($createRoute)
                     <a href="{{ route($createRoute) }}" class="ml-btn ml-btn--primary">+ Add market linkage</a>
                 @endif
+                @if (! empty($partnerDirectoryRoute))
+                    <a href="{{ route($partnerDirectoryRoute) }}" class="ml-btn ml-btn--ghost">Partners &amp; incubatees</a>
+                @endif
                 <a href="{{ route($exportRoute, request()->query()) }}" class="ml-btn ml-btn--export">⬇ Export Excel</a>
             </div>
         </div>

@@ -330,8 +330,10 @@
         str_starts_with($r, 'staff.market-linkages.create') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.store') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.dashboard') => 'market-linkages-dashboard',
+        str_starts_with($r, 'staff.market-linkages.partners') => 'market-linkage-partners',
         str_starts_with($r, 'staff.market-linkages.show') => 'market-linkages-dashboard',
         str_starts_with($r, 'admin.market-linkages.dashboard') => 'market-linkage-dashboard',
+        str_starts_with($r, 'admin.market-linkages.partners') => 'market-linkage-partners',
         str_starts_with($r, 'admin.market-linkages.show') => 'market-linkage-dashboard',
         str_starts_with($r, 'hub.community-org-outreach.create') => 'community-org-outreach-submit',
         str_starts_with($r, 'hub.community-org-outreach.store') => 'community-org-outreach-submit',
@@ -342,6 +344,7 @@
         str_starts_with($r, 'staff.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'staff.community-org-outreach.show') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'hub.market-linkages.dashboard') => 'market-linkage-dashboard',
+        str_starts_with($r, 'hub.market-linkages.partners') => 'market-linkage-partners',
         str_starts_with($r, 'hub.market-linkages.show') => 'market-linkage-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.show') => 'community-org-outreach-dashboard',
@@ -361,7 +364,7 @@
     $fyTargetsGroupActive = in_array($activeNav, ['fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'onboarded', 'onboarded-2025-26', 'phase3-services'], true);
-    $serviceGroupActive = in_array($activeNav, ['case-study-shortlists', 'service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['case-study-shortlists', 'service-catalog', 'phase3-services', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -379,12 +382,12 @@
         || $staffNavDistrictWorkshop;
     $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'onboarded-2025-26', 'staff-batches', 'legacy-data'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
-    $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true);
+    $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true);
     $staffMoreGroupActive = $staffFieldWorkActive || $activeNav === 'documents';
 
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'onboarded-2025-26', 'hub-onboarding-insight'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
-    $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard'], true);
+    $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents', 'legacy-data'], true);
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
@@ -705,13 +708,16 @@
                         </div>
                     </div>
                     @endif
-                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['market-linkage-dashboard', 'partner-outreach-dashboard'], true)) is-active @endif">
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['market-linkage-dashboard', 'market-linkage-partners', 'partner-outreach-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('pin') !!}<span>Forward Linkages</span>
                         </span>
                         <div class="admin-topbar__dropdown-subpanel" role="menu">
                             <a href="{{ route('admin.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>Market Linkage</span>
+                            </a>
+                            <a href="{{ route('admin.market-linkages.partners') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-partners') is-active @endif" role="menuitem">
+                                {!! $i('pin') !!}<span>All partners (all phases)</span>
                             </a>
                             @if ($canViewPartnerOutreach)
                             <a href="{{ route('admin.partner-outreach.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'partner-outreach-dashboard') is-active @endif" role="menuitem">
@@ -1136,13 +1142,16 @@
                         </div>
                     </div>
                     @endif
-                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'market-linkage-dashboard') is-active @endif">
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['market-linkage-dashboard', 'market-linkage-partners'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('pin') !!}<span>Market linkage</span>
                         </span>
                         <div class="admin-topbar__dropdown-subpanel" role="menu">
                             <a href="{{ route('hub.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>View dashboard</span>
+                            </a>
+                            <a href="{{ route('hub.market-linkages.partners') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-partners') is-active @endif" role="menuitem">
+                                {!! $i('pin') !!}<span>All partners (all phases)</span>
                             </a>
                         </div>
                     </div>
@@ -1235,6 +1244,9 @@
                     </a>
                     <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Market linkage</span>
+                    </a>
+                    <a href="{{ route('staff.market-linkages.partners') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-partners') is-active @endif" role="menuitem">
+                        {!! $i('pin') !!}<span>All partners (all phases)</span>
                     </a>
                     @if ($canSubmitAccelerationServices)
                     <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['acceleration-services-submit', 'acceleration-services-dashboard'], true)) is-active @endif">

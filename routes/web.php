@@ -79,6 +79,7 @@ use App\Http\Controllers\LineDepartmentMeetingLandingController;
 use App\Http\Controllers\LiveOpsController;
 use App\Http\Controllers\MarketingPartnerOutreachController;
 use App\Http\Controllers\MarketLinkageController;
+use App\Http\Controllers\MarketLinkagePartnerDirectoryController;
 use App\Http\Controllers\MediaCampaignController;
 use App\Http\Controllers\MediaCampaignLandingController;
 use App\Http\Controllers\MentorshipRequestStaffController;
@@ -599,6 +600,9 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('market-linkages.destroy');
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
+        Route::get('market-linkages/partners', [MarketLinkagePartnerDirectoryController::class, 'index'])->name('market-linkages.partners');
+        Route::get('market-linkages/partners/export', [MarketLinkagePartnerDirectoryController::class, 'export'])->name('market-linkages.partners.export');
+        Route::get('market-linkages/partners/{partner}', [MarketLinkagePartnerDirectoryController::class, 'show'])->name('market-linkages.partners.show');
         Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
         Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
             ->name('market-linkages.document');
@@ -1424,6 +1428,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
+        Route::get('market-linkages/partners', [MarketLinkagePartnerDirectoryController::class, 'index'])->name('market-linkages.partners');
+        Route::get('market-linkages/partners/export', [MarketLinkagePartnerDirectoryController::class, 'export'])->name('market-linkages.partners.export');
+        Route::get('market-linkages/partners/{partner}', [MarketLinkagePartnerDirectoryController::class, 'show'])->name('market-linkages.partners.show');
         Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
         Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
             ->name('market-linkages.document');
@@ -1548,6 +1555,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
+        Route::get('market-linkages/partners', [MarketLinkagePartnerDirectoryController::class, 'index'])->name('market-linkages.partners');
+        Route::get('market-linkages/partners/export', [MarketLinkagePartnerDirectoryController::class, 'export'])->name('market-linkages.partners.export');
+        Route::get('market-linkages/partners/{partner}', [MarketLinkagePartnerDirectoryController::class, 'show'])->name('market-linkages.partners.show');
         Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
         Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
             ->name('market-linkages.document');
