@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('district_name', 191)->nullable();
             $table->string('block', 191)->nullable();
             $table->string('training_batch_name', 191)->nullable();
-            $table->enum('training_package', ['t1', 't2', 't3']);
+            $table->enum('training_package', ['t1', 't2', 't3', 't4']);
             $table->string('attendance_file_path');
             $table->string('attendance_file_name', 191);
             $table->string('attendance_file_mime', 191)->nullable();
