@@ -129,9 +129,126 @@ class OnboardedApplicantTest extends TestCase
         $response->assertSee('3 / 10');
         $response->assertSee('Key insights');
         $response->assertSee('Sector mix (all onboarded)');
+        $response->assertSee('Business stage mix');
         $response->assertSee('Homestay');
         $response->assertSee('Top sector: Homestay');
         $response->assertSee('Almora leads with');
+    }
+
+    public function test_district_staff_sees_stage_mix_counts_and_percentages(): void
+    {
+        $district = $this->createDistrict('staff-stage', 'Stage District');
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'is_active' => true,
+            'hub_id' => $district->hub_id,
+            'district_id' => $district->id,
+        ]);
+
+        // Stored Early
+        $this->seedOnboardedApplicant(
+            $district,
+            '40815001',
+            'Stored Early',
+            'female',
+            null,
+            'phase3',
+            null,
+            'Individual',
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            'Early',
+            null,
+        );
+        // Unregistered + turnover 0 → Seed
+        $this->seedOnboardedApplicant(
+            $district,
+            '40815002',
+            'Computed Seed',
+            'female',
+            null,
+            'phase3',
+            null,
+            'Individual',
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            '0',
+            null,
+            null,
+            'No',
+        );
+        // Registered + turnover > 5L → Growth
+        $this->seedOnboardedApplicant(
+            $district,
+            '40815003',
+            'Computed Growth',
+            'male',
+            null,
+            'phase3',
+            null,
+            'Individual',
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            '600000',
+            null,
+            null,
+            'Yes',
+        );
+        // Unregistered + turnover > 0 → Early
+        $this->seedOnboardedApplicant(
+            $district,
+            '40815004',
+            'Computed Early',
+            'female',
+            null,
+            'phase3',
+            null,
+            'Individual',
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            '10000',
+            null,
+            null,
+            'No',
+        );
+
+        $response = $this->actingAs($staff)->get(route('staff.onboarded.index'));
+
+        $response->assertOk();
+        $response->assertSee('Business stage mix');
+        $response->assertSee('of onboarded');
+        $response->assertSee('Target 60%');
+        $response->assertSee('Target 30%');
+        $response->assertSee('Target 10%');
+        // Early 2/4 = 50%, Seed 1/4 = 25%, Growth 1/4 = 25%
+        $response->assertSee('Stage mix: Early 2 (50%) · Seed 1 (25%) · Growth 1 (25%).');
+
+        $filtered = $this->actingAs($staff)->get(route('staff.onboarded.index', ['stage' => 'growth']));
+        $filtered->assertOk();
+        $filtered->assertSee('Computed Growth');
+        $filtered->assertDontSee('Stored Early');
+        $filtered->assertDontSee('Computed Seed');
+        // Mix still shows all stages when filtering
+        $filtered->assertSee('Business stage mix');
+        $filtered->assertSee('Stage mix: Early 2 (50%) · Seed 1 (25%) · Growth 1 (25%).');
     }
 
     public function test_potential_lakhpati_counts_shg_and_cbo_category(): void
@@ -421,6 +538,8 @@ class OnboardedApplicantTest extends TestCase
         ?string $batchCreatedAt = null,
         ?string $turnoverLastFy = null,
         ?string $caste = null,
+        ?string $formStage = null,
+        ?string $isRegistered = null,
     ): int {
         $payload = [
             'gender' => $gender,
@@ -445,6 +564,12 @@ class OnboardedApplicantTest extends TestCase
         }
         if ($turnoverLastFy !== null) {
             $payload['turnover_last_fy'] = $turnoverLastFy;
+        }
+        if ($formStage !== null) {
+            $payload['form_stage'] = $formStage;
+        }
+        if ($isRegistered !== null) {
+            $payload['is_registered'] = $isRegistered;
         }
 
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([

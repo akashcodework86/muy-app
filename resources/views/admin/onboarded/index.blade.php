@@ -472,6 +472,108 @@
         border-radius: inherit;
         background: linear-gradient(90deg, #6366f1, #8b5cf6);
     }
+
+    /* ── Stage mix cards ── */
+    .onb-stage-section {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 0.85rem 1rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .onb-stage-section__head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.65rem;
+    }
+    .onb-stage-section__head h3 {
+        margin: 0;
+        font-size: 0.88rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+    .onb-stage-section__head p {
+        margin: 0;
+        font-size: 0.72rem;
+        color: #64748b;
+    }
+    .onb-stage-cards {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.55rem;
+    }
+    @media (max-width: 900px) { .onb-stage-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 420px) { .onb-stage-cards { grid-template-columns: 1fr; } }
+
+    .onb-stage-card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        padding: 0.7rem 0.75rem;
+        background: #f8fafc;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    }
+    a.onb-stage-card:hover {
+        border-color: #c7d2fe;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
+        transform: translateY(-1px);
+    }
+    .onb-stage-card.is-active {
+        border-color: #818cf8;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        background: #eef2ff;
+    }
+    .onb-stage-card--early { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-color: #93c5fd; }
+    .onb-stage-card--seed { background: linear-gradient(135deg, #fffbeb, #fef3c7); border-color: #fcd34d; }
+    .onb-stage-card--growth { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-color: #6ee7b7; }
+    .onb-stage-card--unknown { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-color: #cbd5e1; }
+
+    .onb-stage-card__label {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #475569;
+    }
+    .onb-stage-card__value {
+        margin-top: 0.15rem;
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+    }
+    .onb-stage-card__meta {
+        margin-top: 0.2rem;
+        font-size: 0.72rem;
+        color: #64748b;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.55rem;
+    }
+    .onb-stage-card__meta strong { color: #334155; }
+    .onb-stage-card__bar {
+        margin-top: 0.45rem;
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .onb-stage-card__bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+    }
+    .onb-stage-card--early .onb-stage-card__bar span { background: linear-gradient(90deg, #60a5fa, #6366f1); }
+    .onb-stage-card--seed .onb-stage-card__bar span { background: linear-gradient(90deg, #facc15, #f97316); }
+    .onb-stage-card--growth .onb-stage-card__bar span { background: linear-gradient(90deg, #34d399, #14b8a6); }
+    .onb-stage-card--unknown .onb-stage-card__bar span { background: linear-gradient(90deg, #94a3b8, #64748b); }
 </style>
 @endpush
 
@@ -481,6 +583,7 @@
     $districtSummaries = $districtSummaries ?? [];
     $targetProgress = $targetProgress ?? [];
     $sectorBreakdown = $sectorBreakdown ?? [];
+    $stageBreakdown = $stageBreakdown ?? [];
     $insights = $insights ?? [];
     $businessStages = $businessStages ?? ['early' => 'Early', 'seed' => 'Seed', 'growth' => 'Growth'];
     $potentialLakhpatiLabel = 'Potential Lakhpati Didi/ SHG Members/ CBOs';
@@ -488,12 +591,22 @@
     $isPhase2Page = $pageVariant === 'phase2';
     $sourceBadgeLabel = $sourceBadgeLabel ?? ($isPhase2Page ? 'FY 2025-26' : null);
     $activeDistrict = (int) ($filters['district'] ?? 0);
+    $activeStage = (string) ($filters['stage'] ?? '');
     $routeIndex = $routeIndex ?? 'admin.onboarded.index';
     $filterQuery = array_filter([
         'hub' => $filters['hub'] ?? null,
         'district' => $filters['district'] ?? null,
         'q' => $filters['q'] ?? null,
         'stage' => $filters['stage'] ?? null,
+        'category' => $filters['category'] ?? null,
+        'caste' => $filters['caste'] ?? null,
+        'income' => $filters['income'] ?? null,
+        'service' => $filters['service'] ?? null,
+    ], fn ($value) => $value !== null && $value !== '');
+    $stageFilterBaseQuery = array_filter([
+        'hub' => $filters['hub'] ?? null,
+        'district' => $filters['district'] ?? null,
+        'q' => $filters['q'] ?? null,
         'category' => $filters['category'] ?? null,
         'caste' => $filters['caste'] ?? null,
         'income' => $filters['income'] ?? null,
@@ -603,6 +716,51 @@
                         vs expected
                     </span>
                 @endif
+            </div>
+        </div>
+    @endif
+
+    @if ((($stageBreakdown['rows'] ?? []) !== []) && (int) ($stageBreakdown['total'] ?? 0) > 0)
+        <div class="onb-stage-section">
+            <div class="onb-stage-section__head">
+                <h3>Business stage mix</h3>
+                <p>Policy target Early 60% · Seed 30% · Growth 10% · {{ number_format((int) $stageBreakdown['total']) }} onboarded</p>
+            </div>
+            <div class="onb-stage-cards">
+                @foreach ($stageBreakdown['rows'] as $stageRow)
+                    @php
+                        $stageKey = (string) ($stageRow['key'] ?? '');
+                        $isClickable = in_array($stageKey, ['early', 'seed', 'growth'], true);
+                        $stageQuery = $isClickable
+                            ? array_filter(array_merge($stageFilterBaseQuery, ['stage' => $stageKey]), fn ($value) => $value !== null && $value !== '')
+                            : $stageFilterBaseQuery;
+                        $isStageActive = $activeStage !== '' && $activeStage === $stageKey;
+                    @endphp
+                    @if ($isClickable)
+                        <a
+                            href="{{ route($routeIndex, $stageQuery) }}"
+                            class="onb-stage-card onb-stage-card--{{ $stageKey }} @if ($isStageActive) is-active @endif"
+                        >
+                    @else
+                        <div class="onb-stage-card onb-stage-card--{{ $stageKey }}">
+                    @endif
+                            <div class="onb-stage-card__label">{{ $stageRow['label'] }}</div>
+                            <div class="onb-stage-card__value">{{ number_format((int) ($stageRow['count'] ?? 0)) }}</div>
+                            <div class="onb-stage-card__meta">
+                                <span><strong>{{ (int) ($stageRow['pct'] ?? 0) }}%</strong> of onboarded</span>
+                                @if (! is_null($stageRow['target_pct'] ?? null))
+                                    <span>Target {{ (int) $stageRow['target_pct'] }}%</span>
+                                @endif
+                            </div>
+                            <div class="onb-stage-card__bar" aria-hidden="true">
+                                <span style="width: {{ max(4, (int) ($stageRow['pct'] ?? 0)) }}%;"></span>
+                            </div>
+                    @if ($isClickable)
+                        </a>
+                    @else
+                        </div>
+                    @endif
+                @endforeach
             </div>
         </div>
     @endif

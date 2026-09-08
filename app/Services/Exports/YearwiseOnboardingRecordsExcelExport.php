@@ -23,7 +23,10 @@ final class YearwiseOnboardingRecordsExcelExport
         }
 
         @set_time_limit(0);
-        $fileName = 'yearwise-plus-onboarding-'.now()->format('Ymd_His').'.xlsx';
+        $isMarket = ($filters['metric'] ?? '') === 'market_linkage';
+        $fileName = $isMarket
+            ? 'yearwise-plus-market-linkage-'.now()->format('Ymd_His').'.xlsx'
+            : 'yearwise-plus-onboarding-'.now()->format('Ymd_His').'.xlsx';
 
         return response()->streamDownload(function () use ($rows, $filters, $records): void {
             $tmp = tempnam(sys_get_temp_dir(), 'yi-onb-xlsx-');
@@ -62,16 +65,10 @@ final class YearwiseOnboardingRecordsExcelExport
         mkdir($workDir.'/xl/_rels', 0755, true);
         mkdir($workDir.'/_rels', 0755, true);
 
-        $headers = $records->onboardingExportHeaders();
+        $headers = ($filters['metric'] ?? '') === 'market_linkage'
+            ? $records->marketLinkageExportHeaders()
+            : $records->onboardingExportHeaders();
         $years = $records->yearsForFilters($filters);
-        $yearSet = array_fill_keys($years, true);
-        foreach ($rows as $row) {
-            $fy = (string) ($row['year'] ?? '');
-            if ($fy !== '' && ! isset($yearSet[$fy])) {
-                $years[] = $fy;
-                $yearSet[$fy] = true;
-            }
-        }
 
         $sheetMetas = [];
         $n = 1;
@@ -80,7 +77,7 @@ final class YearwiseOnboardingRecordsExcelExport
         $sheetMetas[] = ['name' => 'Summary', 'id' => $n, 'file' => 'worksheets/sheet'.$n.'.xml'];
         $n++;
 
-        $this->writeListSheetXml($workDir.'/xl/worksheets/sheet'.$n.'.xml', $headers, $rows, $records, null);
+        $this->writeListSheetXml($workDir.'/xl/worksheets/sheet'.$n.'.xml', $headers, $rows, $records, $filters, null);
         $sheetMetas[] = ['name' => 'Combined', 'id' => $n, 'file' => 'worksheets/sheet'.$n.'.xml'];
         $n++;
 
@@ -90,6 +87,7 @@ final class YearwiseOnboardingRecordsExcelExport
                 $headers,
                 $rows,
                 $records,
+                $filters,
                 (string) $fy,
             );
             $sheetMetas[] = ['name' => $this->sheetTitle((string) $fy), 'id' => $n, 'file' => 'worksheets/sheet'.$n.'.xml'];
@@ -126,10 +124,15 @@ final class YearwiseOnboardingRecordsExcelExport
      */
     private function writeSummarySheetXml(string $path, array $rows, array $years, array $filters): void
     {
+        $isMarket = ($filters['metric'] ?? '') === 'market_linkage';
+        $onboardFilter = (string) ($filters['onboard'] ?? 'all');
         $missing = YearwiseIndicatorsPlusRecordsService::MISSING_LABEL;
         $byYear = [];
+        $empty = $isMarket
+            ? ['n' => 0, 'onboarded' => 0, 'turnover' => 0, 'stage' => 0]
+            : ['n' => 0, 'sector' => 0, 'product' => 0, 'gst' => 0, 'fssai' => 0, 'market' => 0];
         foreach ($years as $fy) {
-            $byYear[$fy] = ['n' => 0, 'sector' => 0, 'product' => 0, 'gst' => 0, 'fssai' => 0, 'market' => 0];
+            $byYear[$fy] = $empty;
         }
         foreach ($rows as $row) {
             $fy = (string) ($row['year'] ?? '');
@@ -137,30 +140,42 @@ final class YearwiseOnboardingRecordsExcelExport
                 continue;
             }
             if (! isset($byYear[$fy])) {
-                $byYear[$fy] = ['n' => 0, 'sector' => 0, 'product' => 0, 'gst' => 0, 'fssai' => 0, 'market' => 0];
+                $byYear[$fy] = $empty;
             }
             $byYear[$fy]['n']++;
-            if ($this->hasValue($row['sector'] ?? '', $missing)) {
-                $byYear[$fy]['sector']++;
-            }
-            if ($this->hasValue($row['product'] ?? '', $missing)) {
-                $byYear[$fy]['product']++;
-            }
-            if ($this->hasValue($row['gst_number'] ?? '', $missing)) {
-                $byYear[$fy]['gst']++;
-            }
-            if ($this->hasValue($row['fssai_number'] ?? '', $missing)) {
-                $byYear[$fy]['fssai']++;
-            }
-            if ($this->hasValue($row['market_partners'] ?? '', $missing)) {
-                $byYear[$fy]['market']++;
+            if ($isMarket) {
+                if (strcasecmp(trim((string) ($row['onboard_status'] ?? '')), 'Onboarded') === 0) {
+                    $byYear[$fy]['onboarded']++;
+                }
+                if ($this->hasValue($row['turnover_last_fy'] ?? '', $missing)) {
+                    $byYear[$fy]['turnover']++;
+                }
+                if ($this->hasValue($row['form_stage'] ?? '', $missing)) {
+                    $byYear[$fy]['stage']++;
+                }
+            } else {
+                if ($this->hasValue($row['sector'] ?? '', $missing)) {
+                    $byYear[$fy]['sector']++;
+                }
+                if ($this->hasValue($row['product'] ?? '', $missing)) {
+                    $byYear[$fy]['product']++;
+                }
+                if ($this->hasValue($row['gst_number'] ?? '', $missing)) {
+                    $byYear[$fy]['gst']++;
+                }
+                if ($this->hasValue($row['fssai_number'] ?? '', $missing)) {
+                    $byYear[$fy]['fssai']++;
+                }
+                if ($this->hasValue($row['market_partners'] ?? '', $missing)) {
+                    $byYear[$fy]['market']++;
+                }
             }
         }
 
-        $totals = ['n' => 0, 'sector' => 0, 'product' => 0, 'gst' => 0, 'fssai' => 0, 'market' => 0];
+        $totals = $empty;
         $fh = $this->openSheet($path, 'A7');
         $this->writeRow($fh, 1, [
-            'Onboarded applicants — year-wise indicators',
+            $isMarket ? 'Market linkage — year-wise indicators' : 'Onboarded applicants — year-wise indicators',
             '', '', '', '', '', '',
         ], 2);
         $this->writeRow($fh, 2, ['Generated: '.now()->timezone('Asia/Kolkata')->format('d M Y, g:i A').' IST']);
@@ -169,37 +184,60 @@ final class YearwiseOnboardingRecordsExcelExport
             .((trim((string) ($filters['year'] ?? '')) !== '') ? ' · FY '.$filters['year'] : '')
             .((trim((string) ($filters['phase'] ?? '')) !== '') ? ' · phase '.$filters['phase'] : '')
             .((trim((string) ($filters['district'] ?? '')) !== '') ? ' · '.$filters['district'] : '')
-            .((trim((string) ($filters['source'] ?? 'all')) !== 'all') ? ' · source '.$filters['source'] : ''),
+            .((trim((string) ($filters['source'] ?? 'all')) !== 'all') ? ' · source '.$filters['source'] : '')
+            .($onboardFilter !== 'all' ? ' · onboard '.$onboardFilter : ''),
         ]);
-        $this->writeRow($fh, 4, ['GST / FSSAI / market linkage show "'.$missing.'" when the incubatee has no register number or partner.']);
-        $this->writeRow($fh, 6, ['Year', 'Onboarded', 'With sector', 'With product', 'With GSTIN', 'With FSSAI', 'With market linkage'], 1);
+        $this->writeRow($fh, 4, [
+            $isMarket
+                ? 'Applicant details, turnover, stage and onboard status are joined from CFA / Phase 2 enterprise records.'
+                : 'GST / FSSAI / market linkage show "'.$missing.'" when the incubatee has no register number or partner.',
+        ]);
+        $this->writeRow($fh, 6, $isMarket
+            ? ['Year', 'Records', 'Onboarded', 'With turnover', 'With stage']
+            : ['Year', 'Onboarded', 'With sector', 'With product', 'With GSTIN', 'With FSSAI', 'With market linkage'], 1);
 
         $r = 7;
         foreach ($byYear as $fy => $counts) {
-            $this->writeRow($fh, $r, [
-                (string) $fy,
-                (string) $counts['n'],
-                (string) $counts['sector'],
-                (string) $counts['product'],
-                (string) $counts['gst'],
-                (string) $counts['fssai'],
-                (string) $counts['market'],
-            ]);
+            $this->writeRow($fh, $r, $isMarket
+                ? [
+                    (string) $fy,
+                    (string) $counts['n'],
+                    (string) $counts['onboarded'],
+                    (string) $counts['turnover'],
+                    (string) $counts['stage'],
+                ]
+                : [
+                    (string) $fy,
+                    (string) $counts['n'],
+                    (string) $counts['sector'],
+                    (string) $counts['product'],
+                    (string) $counts['gst'],
+                    (string) $counts['fssai'],
+                    (string) $counts['market'],
+                ]);
             foreach ($totals as $k => $_) {
                 $totals[$k] += $counts[$k];
             }
             $r++;
         }
-        $this->writeRow($fh, $r, [
-            'Total',
-            (string) ($totals['n'] ?: count($rows)),
-            (string) $totals['sector'],
-            (string) $totals['product'],
-            (string) $totals['gst'],
-            (string) $totals['fssai'],
-            (string) $totals['market'],
-        ], 1);
-        $this->closeSheet($fh, 'A6:G'.max(6, $r));
+        $this->writeRow($fh, $r, $isMarket
+            ? [
+                'Total',
+                (string) ($totals['n'] ?: count($rows)),
+                (string) $totals['onboarded'],
+                (string) $totals['turnover'],
+                (string) $totals['stage'],
+            ]
+            : [
+                'Total',
+                (string) ($totals['n'] ?: count($rows)),
+                (string) $totals['sector'],
+                (string) $totals['product'],
+                (string) $totals['gst'],
+                (string) $totals['fssai'],
+                (string) $totals['market'],
+            ], 1);
+        $this->closeSheet($fh, $isMarket ? 'A6:E'.max(6, $r) : 'A6:G'.max(6, $r));
     }
 
     /**
@@ -211,6 +249,7 @@ final class YearwiseOnboardingRecordsExcelExport
         array $headers,
         array $rows,
         YearwiseIndicatorsPlusRecordsService $records,
+        array $filters,
         ?string $onlyYear,
     ): void {
         $colCount = count($headers);
@@ -218,11 +257,14 @@ final class YearwiseOnboardingRecordsExcelExport
         $fh = $this->openSheet($path, 'A2');
         $this->writeRow($fh, 1, $headers, 1);
         $r = 2;
+        $isMarket = ($filters['metric'] ?? '') === 'market_linkage';
         foreach ($rows as $row) {
             if ($onlyYear !== null && (string) ($row['year'] ?? '') !== $onlyYear) {
                 continue;
             }
-            $this->writeRow($fh, $r, $records->onboardingExportRow($row));
+            $this->writeRow($fh, $r, $isMarket
+                ? $records->marketLinkageExportRow($row)
+                : $records->onboardingExportRow($row));
             $r++;
         }
         $lastDataRow = max(1, $r - 1);

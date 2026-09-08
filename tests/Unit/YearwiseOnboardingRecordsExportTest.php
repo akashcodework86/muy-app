@@ -38,6 +38,47 @@ class YearwiseOnboardingRecordsExportTest extends TestCase
         $this->assertSame("don't have", $byHeader['Market linkage links']);
         $this->assertSame("don't have", $byHeader['Sector']);
         $this->assertSame("don't have", $byHeader['Product']);
+        $this->assertArrayHasKey('Stage', $byHeader);
+        $this->assertArrayHasKey('Onboard Status', $byHeader);
+    }
+
+    #[Test]
+    public function market_linkage_export_row_includes_turnover_stage_and_onboard(): void
+    {
+        $service = app(YearwiseIndicatorsPlusRecordsService::class);
+        $headers = $service->marketLinkageExportHeaders();
+        $row = $service->marketLinkageExportRow([
+            'year' => '2025-26',
+            'source_label' => 'Verified',
+            'application_no' => 'RBI-ML-1',
+            'applicant_name' => 'Meera',
+            'guardian_name' => 'Ram',
+            'gender' => 'Female',
+            'phone' => '9876543210',
+            'district' => 'Almora',
+            'block' => 'Hawalbagh',
+            'sector' => 'Food Processing',
+            'product' => 'Pickle',
+            'enterprise_name' => 'Meera Foods',
+            'turnover_last_fy' => '250000',
+            'form_stage' => 'Early',
+            'onboard_status' => 'Onboarded',
+            'service_number' => 'Amazon',
+            'market_links' => [
+                ['label' => 'Amazon', 'url' => 'https://amazon.in/shop'],
+            ],
+        ]);
+
+        $this->assertSame(count($headers), count($row));
+        $byHeader = array_combine($headers, $row);
+        $this->assertSame('250000', $byHeader['Turnover last FY']);
+        $this->assertSame('Early', $byHeader['Stage']);
+        $this->assertSame('Onboarded', $byHeader['Onboard Status']);
+        $this->assertSame('Meera', $byHeader['Applicant Name']);
+        $this->assertSame('Ram', $byHeader['Guardian Name']);
+        $this->assertSame('Female', $byHeader['Gender']);
+        $this->assertSame('Meera Foods', $byHeader['Enterprise Name']);
+        $this->assertSame('Amazon', $byHeader['Market linkage partners']);
     }
 
     #[Test]
@@ -120,6 +161,58 @@ class YearwiseOnboardingRecordsExportTest extends TestCase
             $this->assertStringContainsString('Combined', $workbook);
             $this->assertStringContainsString('2024-25', $workbook);
             $this->assertStringContainsString('2025-26', $workbook);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    #[Test]
+    public function market_linkage_streaming_xlsx_contains_summary_and_combined(): void
+    {
+        if (! class_exists(\ZipArchive::class)) {
+            $this->markTestSkipped('ZipArchive is required for Excel export.');
+        }
+
+        $service = app(YearwiseIndicatorsPlusRecordsService::class);
+        $export = new \App\Services\Exports\YearwiseOnboardingRecordsExcelExport;
+        $path = sys_get_temp_dir().'/yi-ml-test-'.uniqid('', true).'.xlsx';
+        try {
+            $export->writeToPath($path, [
+                [
+                    'year' => '2025-26',
+                    'applicant_name' => 'Meera',
+                    'application_no' => 'RBI-ML-1',
+                    'turnover_last_fy' => '250000',
+                    'form_stage' => 'Early',
+                    'onboard_status' => 'Onboarded',
+                    'market_partners' => 'Amazon',
+                    'market_link_urls' => 'https://amazon.in/shop',
+                ],
+            ], [
+                'metric' => 'market_linkage',
+                'scope' => 'phase',
+                'year' => null,
+                'phase' => 'phase2',
+                'district' => null,
+                'source' => 'all',
+                'onboard' => 'onboarded',
+                'q' => '',
+            ], $service);
+
+            $this->assertFileExists($path);
+            $zip = new \ZipArchive;
+            $this->assertTrue($zip->open($path) === true);
+            $workbook = (string) $zip->getFromName('xl/workbook.xml');
+            $combined = (string) $zip->getFromName('xl/worksheets/sheet2.xml');
+            $zip->close();
+            $this->assertStringContainsString('Summary', $workbook);
+            $this->assertStringContainsString('Combined', $workbook);
+            $this->assertStringContainsString('2025-26', $workbook);
+            $this->assertStringContainsString('2026-27', $workbook);
+            $this->assertStringNotContainsString('2023-24', $workbook);
+            $this->assertStringContainsString('Onboard Status', $combined);
+            $this->assertStringContainsString('Turnover last FY', $combined);
+            $this->assertStringContainsString('Meera', $combined);
         } finally {
             @unlink($path);
         }

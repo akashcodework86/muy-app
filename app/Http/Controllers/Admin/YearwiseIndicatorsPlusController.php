@@ -106,6 +106,7 @@ class YearwiseIndicatorsPlusController extends Controller
                 'years' => YearwiseIndicatorsWithJitLakhpatiService::DISPLAY_YEARS,
                 'district' => $filters['district'],
                 'source' => $filters['source'],
+                'onboard' => $filters['onboard'] ?? 'all',
                 'q' => $filters['q'],
                 'total' => 0,
                 'records' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50, 1),
@@ -114,11 +115,21 @@ class YearwiseIndicatorsPlusController extends Controller
             ];
         }
 
+        $viewFilters = array_merge($filters, [
+            'scope' => $payload['scope'] ?? $filters['scope'],
+            'phase' => $payload['phase'] ?? $filters['phase'],
+            'year' => $payload['year'] ?? $filters['year'],
+            'district' => $payload['district'] ?? $filters['district'],
+            'source' => $payload['source'] ?? $filters['source'],
+            'onboard' => $payload['onboard'] ?? $filters['onboard'],
+            'q' => $payload['q'] ?? $filters['q'],
+        ]);
+
         return view('admin.yearwise-indicators-plus.records', [
             'payload' => $payload,
-            'filters' => $filters,
+            'filters' => $viewFilters,
             'districts' => District::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
-            'queryParams' => $this->recordsQueryParams($filters),
+            'queryParams' => $this->recordsQueryParams($viewFilters),
         ]);
     }
 
@@ -128,8 +139,9 @@ class YearwiseIndicatorsPlusController extends Controller
         $rows = $this->recordsService->exportRows($filters);
         $filename = 'yearwise-plus-records-'.$filters['metric'].'-'.now()->format('Ymd_His').'.csv';
         $isOnboarding = $filters['metric'] === 'onboarding';
+        $isMarketLinkage = $filters['metric'] === 'market_linkage';
 
-        return response()->streamDownload(function () use ($rows, $filters, $isOnboarding): void {
+        return response()->streamDownload(function () use ($rows, $filters, $isOnboarding, $isMarketLinkage): void {
             $out = fopen('php://output', 'w');
             if ($out === false) {
                 return;
@@ -139,6 +151,15 @@ class YearwiseIndicatorsPlusController extends Controller
                 fputcsv($out, $this->recordsService->onboardingExportHeaders());
                 foreach ($rows as $row) {
                     fputcsv($out, $this->recordsService->onboardingExportRow($row));
+                }
+                fclose($out);
+
+                return;
+            }
+            if ($isMarketLinkage) {
+                fputcsv($out, $this->recordsService->marketLinkageExportHeaders());
+                foreach ($rows as $row) {
+                    fputcsv($out, $this->recordsService->marketLinkageExportRow($row));
                 }
                 fclose($out);
 
@@ -195,7 +216,7 @@ class YearwiseIndicatorsPlusController extends Controller
         $filters = $this->recordsFiltersFromRequest($request);
         $rows = $this->recordsService->exportRows($filters);
 
-        if ($filters['metric'] === 'onboarding') {
+        if (in_array($filters['metric'], ['onboarding', 'market_linkage'], true)) {
             return (new YearwiseOnboardingRecordsExcelExport)->download($rows, $filters, $this->recordsService);
         }
 
@@ -376,6 +397,11 @@ class YearwiseIndicatorsPlusController extends Controller
             $source = 'all';
         }
 
+        $onboard = trim((string) $request->query('onboard', 'all'));
+        if (! isset(YearwiseIndicatorsPlusRecordsService::ONBOARD_FILTERS[$onboard])) {
+            $onboard = 'all';
+        }
+
         return [
             'metric' => $metric,
             'scope' => $scope,
@@ -383,6 +409,7 @@ class YearwiseIndicatorsPlusController extends Controller
             'phase' => $phase,
             'district' => $district,
             'source' => $source,
+            'onboard' => $onboard,
             'q' => trim((string) $request->query('q', '')),
             'page' => max(1, (int) $request->query('page', 1)),
             'per_page' => YearwiseIndicatorsPlusRecordsService::PER_PAGE,
@@ -403,6 +430,7 @@ class YearwiseIndicatorsPlusController extends Controller
             'phase' => $filters['phase'] ?? null,
             'district' => $filters['district'] ?? null,
             'source' => ($filters['source'] ?? 'all') !== 'all' ? ($filters['source'] ?? null) : null,
+            'onboard' => ($filters['onboard'] ?? 'all') !== 'all' ? ($filters['onboard'] ?? null) : null,
             'q' => ($filters['q'] ?? '') !== '' ? $filters['q'] : null,
         ], static fn ($v) => $v !== null && $v !== '');
     }

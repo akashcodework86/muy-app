@@ -73,7 +73,8 @@ class OnboardedApplicantController extends Controller
         $districtSummaries = $this->districtSummaries($listFilters, $scope);
         $targetProgress = $this->targetProgress($hubId, $districtId, $scope);
         $sectorBreakdown = $this->sectorBreakdown($listFilters, $scope);
-        $insights = $this->buildInsights($overview, $districtSummaries, $targetProgress, $sectorBreakdown, $districtId);
+        $stageBreakdown = $this->stageBreakdown($listFilters, $scope);
+        $insights = $this->buildInsights($overview, $districtSummaries, $targetProgress, $sectorBreakdown, $districtId, $stageBreakdown);
 
         return view('admin.onboarded.index', [
             'rows' => $rows,
@@ -85,6 +86,7 @@ class OnboardedApplicantController extends Controller
             'districtSummaries' => $districtSummaries,
             'targetProgress' => $targetProgress,
             'sectorBreakdown' => $sectorBreakdown,
+            'stageBreakdown' => $stageBreakdown,
             'insights' => $insights,
             'filters' => $listFilters,
             'businessStages' => self::BUSINESS_STAGES,
@@ -357,13 +359,7 @@ class OnboardedApplicantController extends Controller
             $query->where('cs.district_id', $districtId);
         }
         if ($stage !== '') {
-            $formStage = $this->payloadJson('$.form_stage');
-            $businessStage = $this->payloadJson('$.business_stage');
-            $legacyStage = $this->payloadJson('$.rbi_applications.form_stage');
-            $query->whereRaw(
-                "LOWER(TRIM(COALESCE(NULLIF({$formStage}, ''), NULLIF({$businessStage}, ''), NULLIF({$legacyStage}, ''), ''))) = ?",
-                [$stage],
-            );
+            $query->whereRaw('('.$this->resolvedStageSql().') = ?', [$stage]);
         }
         if ($category !== '') {
             $categoryJson = $this->payloadJson('$.category');
@@ -1400,6 +1396,112 @@ class OnboardedApplicantController extends Controller
         ];
     }
 
+    /**
+     * Early / Seed / Growth mix for onboarded incubatees.
+     * Uses stored stage when valid, otherwise computes from registration + turnover.
+     * Ignores the stage filter so the mix stays visible while drilling into one stage.
+     *
+     * @return array{total: int, rows: list<array{key: string, label: string, count: int, pct: int, target_pct: int|null}>}
+     */
+    private function stageBreakdown(array $filters, array $scope): array
+    {
+        $query = $this->phase3BaseQuery($scope);
+        $this->applyPhase3Filters($query, array_merge($filters, ['stage' => '']));
+
+        $stageSql = $this->resolvedStageSql();
+        $row = (array) $query
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN ({$stageSql}) = 'early' THEN 1 ELSE 0 END) as early_count,
+                SUM(CASE WHEN ({$stageSql}) = 'seed' THEN 1 ELSE 0 END) as seed_count,
+                SUM(CASE WHEN ({$stageSql}) = 'growth' THEN 1 ELSE 0 END) as growth_count
+            ")
+            ->first();
+
+        return $this->formatStageBreakdownRows(
+            (int) ($row['total'] ?? 0),
+            (int) ($row['early_count'] ?? 0),
+            (int) ($row['seed_count'] ?? 0),
+            (int) ($row['growth_count'] ?? 0),
+        );
+    }
+
+    /**
+     * @return array{total: int, rows: list<array{key: string, label: string, count: int, pct: int, target_pct: int|null}>}
+     */
+    private function formatStageBreakdownRows(int $total, int $early, int $seed, int $growth): array
+    {
+        $unknown = max(0, $total - $early - $seed - $growth);
+        $pct = static fn (int $count): int => $total > 0 ? (int) round(($count / $total) * 100) : 0;
+
+        $rows = [
+            ['key' => 'early', 'label' => 'Early', 'count' => $early, 'pct' => $pct($early), 'target_pct' => 60],
+            ['key' => 'seed', 'label' => 'Seed', 'count' => $seed, 'pct' => $pct($seed), 'target_pct' => 30],
+            ['key' => 'growth', 'label' => 'Growth', 'count' => $growth, 'pct' => $pct($growth), 'target_pct' => 10],
+        ];
+        if ($unknown > 0) {
+            $rows[] = [
+                'key' => 'unknown',
+                'label' => 'Not specified',
+                'count' => $unknown,
+                'pct' => $pct($unknown),
+                'target_pct' => null,
+            ];
+        }
+
+        return [
+            'total' => $total,
+            'rows' => $rows,
+        ];
+    }
+
+    private function storedStageSql(): string
+    {
+        $formStage = $this->payloadJson('$.form_stage');
+        $businessStage = $this->payloadJson('$.business_stage');
+        $stage = $this->payloadJson('$.stage');
+        $legacyStage = $this->payloadJson('$.rbi_applications.form_stage');
+
+        return "LOWER(TRIM(COALESCE(
+            NULLIF({$formStage}, ''),
+            NULLIF({$formStage}, 'null'),
+            NULLIF({$businessStage}, ''),
+            NULLIF({$businessStage}, 'null'),
+            NULLIF({$stage}, ''),
+            NULLIF({$stage}, 'null'),
+            NULLIF({$legacyStage}, ''),
+            NULLIF({$legacyStage}, 'null'),
+            ''
+        )))";
+    }
+
+    private function isRegisteredSql(): string
+    {
+        $raw = $this->payloadJson('$.is_registered');
+
+        return "LOWER(TRIM(COALESCE(NULLIF({$raw}, ''), NULLIF({$raw}, 'null'), '')))";
+    }
+
+    /**
+     * Stored form_stage when it is early/seed/growth; otherwise compute from registration + turnover
+     * (same rules as CfaBusinessStageService).
+     */
+    private function resolvedStageSql(): string
+    {
+        $stored = $this->storedStageSql();
+        $registered = $this->isRegisteredSql();
+        $turnover = $this->turnoverNumSql();
+        $isYes = "{$registered} IN ('yes', 'y', '1')";
+
+        return "CASE
+            WHEN {$stored} IN ('seed', 'early', 'growth') THEN {$stored}
+            WHEN {$isYes} AND {$turnover} IS NOT NULL AND {$turnover} > 500000 THEN 'growth'
+            WHEN {$isYes} AND {$turnover} IS NOT NULL AND {$turnover} > 0 AND {$turnover} <= 500000 THEN 'early'
+            WHEN (NOT ({$isYes})) AND {$turnover} IS NOT NULL AND {$turnover} > 0 THEN 'early'
+            ELSE 'seed'
+        END";
+    }
+
     private function resolveSectorLabel(object $row): string
     {
         $label = trim((string) ($row->sector_category ?? ''));
@@ -1414,6 +1516,7 @@ class OnboardedApplicantController extends Controller
      * @param  list<array<string, mixed>>  $districtSummaries
      * @param  array<string, mixed>  $targetProgress
      * @param  array<string, mixed>  $sectorBreakdown
+     * @param  array<string, mixed>  $stageBreakdown
      * @return list<string>
      */
     private function buildInsights(
@@ -1422,6 +1525,7 @@ class OnboardedApplicantController extends Controller
         array $targetProgress,
         array $sectorBreakdown,
         ?int $districtId,
+        array $stageBreakdown = [],
     ): array {
         $insights = [];
 
@@ -1493,6 +1597,16 @@ class OnboardedApplicantController extends Controller
                 $insights[] = 'Top sector: '.($topSector['sector'] ?? 'Unknown')
                     .' ('.(int) ($topSector['pct'] ?? 0).'% of all onboarded).';
             }
+        }
+
+        $stageRows = collect((array) ($stageBreakdown['rows'] ?? []))
+            ->filter(fn (array $row) => ($row['key'] ?? '') !== 'unknown' && (int) ($row['count'] ?? 0) > 0)
+            ->values();
+        if ($stageRows->isNotEmpty() && (int) ($stageBreakdown['total'] ?? 0) > 0) {
+            $parts = $stageRows
+                ->map(fn (array $row) => ($row['label'] ?? '').' '.(int) ($row['count'] ?? 0).' ('.(int) ($row['pct'] ?? 0).'%)')
+                ->all();
+            $insights[] = 'Stage mix: '.implode(' · ', $parts).'.';
         }
 
         if ((int) ($overview['this_month'] ?? 0) > 0) {

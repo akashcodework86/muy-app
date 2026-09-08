@@ -80,7 +80,11 @@ class Phase2OnboardedApplicantController extends Controller
         $districtSummaries = $this->districtSummaries($allDistrictRows);
         $targetProgress = $this->targetProgress((int) $overview['total'], $hubId, $districtId, $scope);
         $sectorBreakdown = $this->sectorBreakdown($mergedRows);
-        $insights = $this->buildInsights($overview, $districtSummaries, $targetProgress, $sectorBreakdown, $districtId);
+        $stageSourceRows = ((string) ($listFilters['stage'] ?? '') === '')
+            ? $mergedRows
+            : $this->buildRows(array_merge($listFilters, ['stage' => '']), $scope);
+        $stageBreakdown = $this->stageBreakdown($stageSourceRows);
+        $insights = $this->buildInsights($overview, $districtSummaries, $targetProgress, $sectorBreakdown, $districtId, $stageBreakdown);
 
         return view('admin.onboarded.index', [
             'pageTitle' => '2025-26 onboarding',
@@ -96,6 +100,7 @@ class Phase2OnboardedApplicantController extends Controller
             'districtSummaries' => $districtSummaries,
             'targetProgress' => $targetProgress,
             'sectorBreakdown' => $sectorBreakdown,
+            'stageBreakdown' => $stageBreakdown,
             'insights' => $insights,
             'filters' => $listFilters,
             'businessStages' => self::BUSINESS_STAGES,
@@ -816,6 +821,62 @@ class Phase2OnboardedApplicantController extends Controller
         ];
     }
 
+    /**
+     * @return array{total: int, rows: list<array{key: string, label: string, count: int, pct: int, target_pct: int|null}>}
+     */
+    private function stageBreakdown(Collection $rows): array
+    {
+        $early = 0;
+        $seed = 0;
+        $growth = 0;
+        foreach ($rows as $row) {
+            $key = $this->resolvedStageKey($row);
+            if ($key === 'early') {
+                $early++;
+            } elseif ($key === 'seed') {
+                $seed++;
+            } elseif ($key === 'growth') {
+                $growth++;
+            }
+        }
+
+        $total = $rows->count();
+        $unknown = max(0, $total - $early - $seed - $growth);
+        $pct = static fn (int $count): int => $total > 0 ? (int) round(($count / $total) * 100) : 0;
+
+        $mapped = [
+            ['key' => 'early', 'label' => 'Early', 'count' => $early, 'pct' => $pct($early), 'target_pct' => 60],
+            ['key' => 'seed', 'label' => 'Seed', 'count' => $seed, 'pct' => $pct($seed), 'target_pct' => 30],
+            ['key' => 'growth', 'label' => 'Growth', 'count' => $growth, 'pct' => $pct($growth), 'target_pct' => 10],
+        ];
+        if ($unknown > 0) {
+            $mapped[] = [
+                'key' => 'unknown',
+                'label' => 'Not specified',
+                'count' => $unknown,
+                'pct' => $pct($unknown),
+                'target_pct' => null,
+            ];
+        }
+
+        return [
+            'total' => $total,
+            'rows' => $mapped,
+        ];
+    }
+
+    private function resolvedStageKey(array $row): string
+    {
+        $rowStage = mb_strtolower(trim((string) ($row['common_values']['form_stage'] ?? $row['form_stage'] ?? '')));
+        if (in_array($rowStage, ['early', 'seed', 'growth'], true)) {
+            return $rowStage;
+        }
+
+        $computed = mb_strtolower($this->computedStage($row));
+
+        return in_array($computed, ['early', 'seed', 'growth'], true) ? $computed : 'unknown';
+    }
+
     private function isPotentialLakhpati(array $row): bool
     {
         $lakhpati = (string) ($row['lakhpati'] ?? $row['common_values']['lakhpati'] ?? '');
@@ -1368,6 +1429,7 @@ class Phase2OnboardedApplicantController extends Controller
      * @param  list<array<string, mixed>>  $districtSummaries
      * @param  array<string, mixed>  $targetProgress
      * @param  array<string, mixed>  $sectorBreakdown
+     * @param  array<string, mixed>  $stageBreakdown
      * @return list<string>
      */
     private function buildInsights(
@@ -1376,6 +1438,7 @@ class Phase2OnboardedApplicantController extends Controller
         array $targetProgress,
         array $sectorBreakdown,
         ?int $districtId,
+        array $stageBreakdown = [],
     ): array {
         $insights = [];
 
@@ -1438,6 +1501,16 @@ class Phase2OnboardedApplicantController extends Controller
                 $insights[] = 'Top sector: '.($topSector['sector'] ?? 'Unknown')
                     .' ('.(int) ($topSector['pct'] ?? 0).'% of all onboarded).';
             }
+        }
+
+        $stageRows = collect((array) ($stageBreakdown['rows'] ?? []))
+            ->filter(fn (array $row) => ($row['key'] ?? '') !== 'unknown' && (int) ($row['count'] ?? 0) > 0)
+            ->values();
+        if ($stageRows->isNotEmpty() && (int) ($stageBreakdown['total'] ?? 0) > 0) {
+            $parts = $stageRows
+                ->map(fn (array $row) => ($row['label'] ?? '').' '.(int) ($row['count'] ?? 0).' ('.(int) ($row['pct'] ?? 0).'%)')
+                ->all();
+            $insights[] = 'Stage mix: '.implode(' · ', $parts).'.';
         }
 
         if ((int) ($overview['this_month'] ?? 0) > 0) {

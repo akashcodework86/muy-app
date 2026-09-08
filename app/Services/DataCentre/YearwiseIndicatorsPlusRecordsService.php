@@ -7,6 +7,7 @@ use App\Models\MarketLinkagePartner;
 use App\Models\MarketLinkageSubmission;
 use App\Models\ServiceCase;
 use App\Models\ServiceCaseAttachment;
+use App\Services\CfaBusinessStageService;
 use App\Services\Exports\YearwiseIndicatorWorkbookService;
 use App\Support\ServiceRegistrationNumberExtractor;
 use App\Services\LegacyApplicationServiceCaseSupport;
@@ -35,7 +36,7 @@ final class YearwiseIndicatorsPlusRecordsService
         'cfa_registration_number', 'business_age', 'turnover_last_fy', 'current_employment',
         'employed_count', 'loan_taken', 'bank_loan', 'location_type', 'enterprise_name',
         'training_received', 'training_mode', 'info_source', 'techuse', 'sustainability',
-        'empwomen', 'challenges', 'expectations',
+        'empwomen', 'challenges', 'expectations', 'form_stage',
     ];
 
     public const PER_PAGE = 50;
@@ -56,6 +57,12 @@ final class YearwiseIndicatorsPlusRecordsService
         'verified' => 'Verified',
         'jit' => 'JIT (justintime)',
         'lakhpati_didi' => 'Lakhpati Didi',
+    ];
+
+    public const ONBOARD_FILTERS = [
+        'all' => 'All applicants',
+        'onboarded' => 'Onboarded only',
+        'not_onboarded' => 'Not onboarded',
     ];
 
     public const SCOPES = [
@@ -139,6 +146,7 @@ final class YearwiseIndicatorsPlusRecordsService
             'years' => $normalized['years'],
             'district' => $normalized['district'],
             'source' => $normalized['source'],
+            'onboard' => $normalized['onboard'],
             'q' => $normalized['q'],
             'total' => $total,
             'records' => $paginator,
@@ -157,7 +165,7 @@ final class YearwiseIndicatorsPlusRecordsService
         $this->workbook->raiseMemoryLimitPublic('2048M');
         $normalized = $this->normalizeFilters($filters);
         $rows = $this->hydratePageRows($this->filteredRows($normalized), $normalized['metric'], false);
-        if ($normalized['metric'] === 'onboarding') {
+        if (in_array($normalized['metric'], ['onboarding', 'market_linkage'], true)) {
             foreach ($rows as $i => $row) {
                 $rows[$i] = $this->slimOnboardingExportRow($row);
             }
@@ -188,6 +196,7 @@ final class YearwiseIndicatorsPlusRecordsService
             'metrics' => self::METRICS,
             'scopes' => self::SCOPES,
             'sources' => self::SOURCES,
+            'onboard' => self::ONBOARD_FILTERS,
             'years' => YearwiseIndicatorsWithJitLakhpatiService::DISPLAY_YEARS,
             'phases' => collect($this->plus->phaseGroups())
                 ->mapWithKeys(fn (array $g) => [$g['key'] => $g['label']])
@@ -253,7 +262,31 @@ final class YearwiseIndicatorsPlusRecordsService
             'Challenges', 'Expectations',
             'GSTIN', 'FSSAI Licence No.',
             'Market linkage partners', 'Market linkage links',
+            'Stage', 'Onboard Status',
             'Onboard Date', 'Batch / Detail', 'Status',
+            'Source DB', 'Source Table', 'Record ID',
+        ];
+    }
+
+    /**
+     * Combined / year-sheet columns for market-linkage incubatee Excel/CSV.
+     *
+     * @return list<string>
+     */
+    public function marketLinkageExportHeaders(): array
+    {
+        return [
+            'FY', 'Source', 'Application No', 'Applicant Name', 'Guardian Name', 'SHG / CBO Name',
+            'Category', 'Gender', 'DOB', 'Caste', 'Education',
+            'Phone', 'Alt Mobile', 'Email',
+            'District', 'Block', 'Village', 'Pincode', 'Hub',
+            'SHG Member', 'SHG Name', 'Lakhpati',
+            'Sector', 'Product', 'Enterprise Name', 'Business Age', 'Turnover last FY',
+            'Stage', 'Onboard Status',
+            'CFA Registered', 'CFA Registration Type', 'CFA Registration No.',
+            'Current Employment', 'Employed Count', 'Loan Taken', 'Bank Loan', 'Location Type',
+            'Partner / Ref. No.', 'Market linkage partners', 'Market linkage links',
+            'Service date', 'Service', 'Detail', 'Status',
             'Source DB', 'Source Table', 'Record ID',
         ];
     }
@@ -331,7 +364,79 @@ final class YearwiseIndicatorsPlusRecordsService
             $fssai !== '' ? $fssai : $missing,
             $partners !== '' ? $partners : $missing,
             $links !== '' ? $links : $missing,
+            (string) ($row['form_stage'] ?? ''),
+            (string) ($row['onboard_status'] ?? ''),
             (string) ($row['date_used'] ?? ''),
+            (string) ($row['detail'] ?? ''),
+            (string) ($row['status'] ?? ''),
+            (string) ($row['source_db'] ?? ''),
+            (string) ($row['source_table'] ?? ''),
+            (string) ($row['record_id'] ?? ''),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return list<string>
+     */
+    public function marketLinkageExportRow(array $row): array
+    {
+        $missing = self::MISSING_LABEL;
+        $partners = trim((string) ($row['market_partners'] ?? ''));
+        $links = trim((string) ($row['market_link_urls'] ?? ''));
+        if ($partners === '' || $links === '') {
+            $display = $this->marketDisplayFromLinks(is_array($row['market_links'] ?? null) ? $row['market_links'] : []);
+            if ($partners === '') {
+                $partners = $display['partners'];
+            }
+            if ($links === '') {
+                $links = $display['links'];
+            }
+        }
+
+        return [
+            (string) ($row['year'] ?? ''),
+            (string) ($row['source_label'] ?? ''),
+            (string) ($row['application_no'] ?? ''),
+            (string) ($row['applicant_name'] ?? ''),
+            (string) ($row['guardian_name'] ?? ''),
+            (string) ($row['shg_cbo_name'] ?? ''),
+            (string) ($row['cfa_category'] ?? ''),
+            (string) ($row['gender'] ?? ''),
+            (string) ($row['dob'] ?? ''),
+            (string) ($row['caste'] ?? ''),
+            (string) ($row['education'] ?? ''),
+            (string) ($row['phone'] ?? ''),
+            (string) ($row['alt_mobile'] ?? ''),
+            (string) ($row['email'] ?? ''),
+            (string) ($row['district'] ?? ''),
+            (string) ($row['block'] ?? ''),
+            (string) ($row['village'] ?? ''),
+            (string) ($row['pincode'] ?? ''),
+            (string) ($row['hub'] ?? ''),
+            (string) ($row['is_member'] ?? ''),
+            (string) ($row['shg_name'] ?? ''),
+            (string) ($row['lakhpati'] ?? ''),
+            (string) ($row['sector'] ?? ''),
+            (string) ($row['product'] ?? ''),
+            (string) ($row['enterprise_name'] ?? ''),
+            (string) ($row['business_age'] ?? ''),
+            (string) ($row['turnover_last_fy'] ?? ''),
+            (string) ($row['form_stage'] ?? ''),
+            (string) ($row['onboard_status'] ?? ''),
+            (string) ($row['is_registered'] ?? ''),
+            (string) ($row['registration_type'] ?? ''),
+            (string) ($row['cfa_registration_number'] ?? ''),
+            (string) ($row['current_employment'] ?? ''),
+            (string) ($row['employed_count'] ?? ''),
+            (string) ($row['loan_taken'] ?? ''),
+            (string) ($row['bank_loan'] ?? ''),
+            (string) ($row['location_type'] ?? ''),
+            (string) ($row['service_number'] ?? ''),
+            $partners !== '' ? $partners : $missing,
+            $links !== '' ? $links : $missing,
+            (string) ($row['date_used'] ?? ''),
+            (string) ($row['service_label'] ?? ''),
             (string) ($row['detail'] ?? ''),
             (string) ($row['status'] ?? ''),
             (string) ($row['source_db'] ?? ''),
@@ -358,7 +463,8 @@ final class YearwiseIndicatorsPlusRecordsService
             'current_employment', 'employed_count', 'loan_taken', 'bank_loan', 'location_type',
             'training_received', 'training_mode', 'info_source', 'techuse', 'empwomen', 'sustainability',
             'challenges', 'expectations', 'gst_number', 'fssai_number', 'market_partners', 'market_link_urls',
-            'date_used', 'detail', 'status', 'source_db', 'source_table', 'record_id',
+            'form_stage', 'onboard_status', 'date_used', 'detail', 'status', 'service_label', 'service_number',
+            'source_db', 'source_table', 'record_id',
         ];
         $out = [];
         foreach ($keep as $key) {
@@ -395,6 +501,16 @@ final class YearwiseIndicatorsPlusRecordsService
         $phaseKeys = array_column($this->plus->phaseGroups(), 'key');
         $phase = $phase !== '' && in_array($phase, $phaseKeys, true) ? $phase : null;
 
+        // A selected phase/year must actually filter the list and export, even if
+        // Scope was left on Grand Total (the form default).
+        if ($scope === 'grand') {
+            if ($phase !== null) {
+                $scope = 'phase';
+            } elseif ($year !== null) {
+                $scope = 'year';
+            }
+        }
+
         $years = match ($scope) {
             'year' => $year !== null ? [$year] : YearwiseIndicatorsWithJitLakhpatiService::DISPLAY_YEARS,
             'phase' => $this->yearsForPhase($phase),
@@ -414,6 +530,11 @@ final class YearwiseIndicatorsPlusRecordsService
 
         $q = trim((string) ($filters['q'] ?? ''));
 
+        $onboard = trim((string) ($filters['onboard'] ?? 'all'));
+        if (! isset(self::ONBOARD_FILTERS[$onboard])) {
+            $onboard = 'all';
+        }
+
         return [
             'metric' => $metric,
             'scope' => $scope,
@@ -422,6 +543,7 @@ final class YearwiseIndicatorsPlusRecordsService
             'years' => $years,
             'district' => $district,
             'source' => $source,
+            'onboard' => $onboard,
             'q' => $q,
         ];
     }
@@ -484,6 +606,25 @@ final class YearwiseIndicatorsPlusRecordsService
 
                 $out[] = $row;
             }
+        }
+
+        $onboard = (string) ($filters['onboard'] ?? 'all');
+        if ($onboard !== 'all' && $out !== []) {
+            $appNos = [];
+            foreach ($out as $row) {
+                $appNo = trim((string) ($row['application_no'] ?? ''));
+                if ($appNo !== '' && $appNo !== '—') {
+                    $appNos[$appNo] = true;
+                }
+            }
+            $onboarded = $this->loadOnboardStatusByAppNos(array_keys($appNos));
+            $wantOnboarded = $onboard === 'onboarded';
+            $out = array_values(array_filter($out, static function (array $row) use ($onboarded, $wantOnboarded): bool {
+                $appNo = trim((string) ($row['application_no'] ?? ''));
+                $isOnboarded = $appNo !== '' && $appNo !== '—' && isset($onboarded[$appNo]);
+
+                return $wantOnboarded ? $isOnboarded : ! $isOnboarded;
+            }));
         }
 
         return $out;
@@ -955,9 +1096,10 @@ final class YearwiseIndicatorsPlusRecordsService
             }
         }
 
-        if ($metric === 'onboarding' && $appNos !== []) {
+        if (in_array($metric, ['onboarding', 'market_linkage'], true) && $appNos !== []) {
             $this->mergePhase1OnboardingProfiles($byApp, array_keys($appNos));
             $this->mergePhase2OnboardingProfiles($byApp, array_keys($appNos));
+            $this->mergePhase2EnterpriseDetails($byApp, array_keys($appNos));
         }
 
         if ($attachDocs && $appNos !== [] && Schema::hasTable('market_linkage_submissions') && Schema::hasTable('market_linkage_partners')) {
@@ -995,11 +1137,15 @@ final class YearwiseIndicatorsPlusRecordsService
         $linksByAppNo = [];
         $gstByApp = [];
         $fssaiByApp = [];
+        $onboardByApp = [];
         if ($metric === 'market_linkage' || $metric === 'onboarding') {
             [$linksBySubmissionId, $linksByPartnerId, $linksByAppNo] = $this->loadMarketLinksForRows($rows, $appNos);
         }
         if ($metric === 'onboarding' && $appNos !== []) {
             [$gstByApp, $fssaiByApp] = $this->loadGstFssaiNumbersByAppNos(array_keys($appNos));
+        }
+        if (in_array($metric, ['onboarding', 'market_linkage'], true) && $appNos !== []) {
+            $onboardByApp = $this->loadOnboardStatusByAppNos(array_keys($appNos));
         }
 
         foreach ($rows as &$row) {
@@ -1076,24 +1222,25 @@ final class YearwiseIndicatorsPlusRecordsService
             $row['product'] = (string) ($row['product'] ?? '');
             $row['hub'] = (string) ($row['hub'] ?? '');
 
-            if ($metric === 'onboarding') {
-                if ($extra) {
-                    foreach (self::ONBOARDING_CFA_KEYS as $key) {
-                        if (trim((string) ($row[$key] ?? '')) === '' && trim((string) ($extra[$key] ?? '')) !== '') {
-                            $row[$key] = (string) $extra[$key];
-                        }
-                    }
-                    if (trim((string) ($row['applicant_name'] ?? '')) === '' && trim((string) ($extra['cfa_name'] ?? '')) !== '') {
-                        $row['applicant_name'] = (string) $extra['cfa_name'];
-                    }
-                    if (trim((string) ($row['hub'] ?? '')) === '' && trim((string) ($extra['hub'] ?? '')) !== '') {
-                        $row['hub'] = (string) $extra['hub'];
-                    }
-                    if (trim((string) ($row['email'] ?? '')) === '' && trim((string) ($extra['email'] ?? '')) !== '') {
-                        $row['email'] = (string) $extra['email'];
+            $copyApplicant = in_array($metric, ['onboarding', 'market_linkage'], true);
+            if ($copyApplicant && $extra) {
+                foreach (self::ONBOARDING_CFA_KEYS as $key) {
+                    if (trim((string) ($row[$key] ?? '')) === '' && trim((string) ($extra[$key] ?? '')) !== '') {
+                        $row[$key] = (string) $extra[$key];
                     }
                 }
+                if (trim((string) ($row['applicant_name'] ?? '')) === '' && trim((string) ($extra['cfa_name'] ?? '')) !== '') {
+                    $row['applicant_name'] = (string) $extra['cfa_name'];
+                }
+                if (trim((string) ($row['hub'] ?? '')) === '' && trim((string) ($extra['hub'] ?? '')) !== '') {
+                    $row['hub'] = (string) $extra['hub'];
+                }
+                if (trim((string) ($row['email'] ?? '')) === '' && trim((string) ($extra['email'] ?? '')) !== '') {
+                    $row['email'] = (string) $extra['email'];
+                }
+            }
 
+            if ($metric === 'onboarding') {
                 $gst = '';
                 $fssai = '';
                 if ($appNo !== '' && $appNo !== '—') {
@@ -1118,6 +1265,17 @@ final class YearwiseIndicatorsPlusRecordsService
                 }
                 if (trim($row['product']) === '') {
                     $row['product'] = self::MISSING_LABEL;
+                }
+            }
+
+            if ($copyApplicant) {
+                $isOnboarded = $appNo !== '' && $appNo !== '—' && isset($onboardByApp[$appNo]);
+                $row['onboard_status'] = $isOnboarded ? 'Onboarded' : 'Not onboarded';
+                $row['form_stage'] = $this->resolveFormStage($row);
+                if ($metric === 'market_linkage') {
+                    $marketDisplay = $this->marketDisplayFromLinks($row['market_links']);
+                    $row['market_partners'] = $marketDisplay['partners'];
+                    $row['market_link_urls'] = $marketDisplay['links'];
                 }
             }
 
@@ -1387,6 +1545,13 @@ final class YearwiseIndicatorsPlusRecordsService
         $profile['empwomen'] = trim((string) ($payload['empwomen'] ?? ''));
         $profile['challenges'] = $this->flattenPayloadValue($payload['challenges'] ?? '');
         $profile['expectations'] = $this->flattenPayloadValue($payload['expectations'] ?? '');
+        $profile['form_stage'] = trim((string) ($payload['form_stage'] ?? ($payload['business_stage'] ?? ($payload['stage'] ?? ''))));
+        if ($profile['form_stage'] === '') {
+            $nested = $payload['rbi_applications'] ?? null;
+            if (is_array($nested)) {
+                $profile['form_stage'] = trim((string) ($nested['form_stage'] ?? ''));
+            }
+        }
 
         return $profile;
     }
@@ -1510,6 +1675,9 @@ final class YearwiseIndicatorsPlusRecordsService
         if (in_array('category', $appCols, true)) {
             $select[] = 'a.category';
         }
+        if (in_array('form_stage', $appCols, true)) {
+            $select[] = 'a.form_stage';
+        }
         $detailMap = [
             'phone' => 'phone',
             'block' => 'block',
@@ -1564,6 +1732,7 @@ final class YearwiseIndicatorsPlusRecordsService
                     'sector' => trim((string) ($row->business_category ?? '')),
                     'product' => $product,
                     'cfa_category' => $this->objStr($row, 'category'),
+                    'form_stage' => $this->objStr($row, 'form_stage'),
                 ];
                 foreach ($detailMap as $col => $key) {
                     if (isset($row->{$col})) {
@@ -1574,6 +1743,183 @@ final class YearwiseIndicatorsPlusRecordsService
                 $byApp[$appNo] = $existing;
             }
         }
+    }
+
+    /**
+     * Latest Phase 2 enterprise row (turnover, registered, etc.).
+     *
+     * @param  array<string, array<string, string>>  $byApp
+     * @param  list<string>  $appNos
+     */
+    private function mergePhase2EnterpriseDetails(array &$byApp, array $appNos): void
+    {
+        try {
+            if (! Schema::connection('legacy')->hasTable('rbi_enterprise_details')
+                || ! Schema::connection('legacy')->hasTable('rbi_applications')) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;
+        }
+
+        $entCols = Schema::connection('legacy')->getColumnListing('rbi_enterprise_details');
+        $selectEnt = [];
+        $map = [
+            'turnover_last_year' => 'turnover_last_fy',
+            'is_registered' => 'is_registered',
+            'business_age' => 'business_age',
+            'enterprise_name' => 'enterprise_name',
+            'location_type' => 'location_type',
+            'current_employment' => 'current_employment',
+            'employed_count' => 'employed_count',
+        ];
+        foreach ($map as $col => $key) {
+            if (in_array($col, $entCols, true)) {
+                $selectEnt[] = 'e.'.$col;
+            }
+        }
+        if ($selectEnt === []) {
+            return;
+        }
+
+        foreach (array_chunk($appNos, 400) as $chunk) {
+            $rows = DB::connection('legacy')
+                ->table('rbi_applications as a')
+                ->join(DB::raw('(
+                    SELECT application_id, MAX(id) AS max_id
+                    FROM rbi_enterprise_details
+                    GROUP BY application_id
+                ) as latest'), 'latest.application_id', '=', 'a.id')
+                ->join('rbi_enterprise_details as e', function ($join): void {
+                    $join->on('e.application_id', '=', 'latest.application_id')
+                        ->on('e.id', '=', 'latest.max_id');
+                })
+                ->whereIn('a.application_no', $chunk)
+                ->get(array_merge(['a.application_no'], $selectEnt));
+
+            foreach ($rows as $row) {
+                $appNo = trim((string) ($row->application_no ?? ''));
+                if ($appNo === '') {
+                    continue;
+                }
+                $existing = $byApp[$appNo] ?? $this->emptyOnboardingProfile();
+                $incoming = [];
+                foreach ($map as $col => $key) {
+                    if (isset($row->{$col})) {
+                        $incoming[$key] = $this->flattenPayloadValue($row->{$col});
+                    }
+                }
+                $this->fillEmptyProfile($existing, $incoming);
+                $byApp[$appNo] = $existing;
+            }
+        }
+    }
+
+    /**
+     * Application numbers that appear in any phase onboarded list.
+     *
+     * @param  list<string>  $appNos
+     * @return array<string, true>
+     */
+    private function loadOnboardStatusByAppNos(array $appNos): array
+    {
+        $found = [];
+        if ($appNos === []) {
+            return $found;
+        }
+
+        foreach (array_chunk($appNos, 400) as $chunk) {
+            try {
+                if (Schema::hasTable('onboarding_batch_cfa')
+                    && Schema::hasTable('onboarding_batches')
+                    && Schema::hasTable('cfa_submissions')
+                ) {
+                    $rows = DB::table('onboarding_batch_cfa as obc')
+                        ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                        ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
+                        ->where('ob.status', 'locked')
+                        ->whereNotNull('ob.locked_at')
+                        ->whereIn('cs.application_no', $chunk)
+                        ->pluck('cs.application_no');
+                    foreach ($rows as $appNo) {
+                        $appNo = trim((string) $appNo);
+                        if ($appNo !== '') {
+                            $found[$appNo] = true;
+                        }
+                    }
+                }
+            } catch (\Throwable) {
+                // ignore
+            }
+
+            try {
+                if (Schema::connection('legacy')->hasTable('rbi_onboarded_applicants')
+                    && Schema::connection('legacy')->hasTable('rbi_applications')
+                ) {
+                    $query = DB::connection('legacy')
+                        ->table('rbi_onboarded_applicants as oa')
+                        ->join('rbi_applications as a', 'a.id', '=', 'oa.application_id')
+                        ->whereIn('a.application_no', $chunk)
+                        ->whereNotNull('oa.application_id');
+                    if (Schema::connection('legacy')->hasColumn('rbi_onboarded_applicants', 'status')) {
+                        $query->whereNotNull('oa.status')->where('oa.status', '<>', '');
+                    }
+                    foreach ($query->pluck('a.application_no') as $appNo) {
+                        $appNo = trim((string) $appNo);
+                        if ($appNo !== '') {
+                            $found[$appNo] = true;
+                        }
+                    }
+                }
+            } catch (\Throwable) {
+                // ignore
+            }
+
+            try {
+                if ((string) config('database.connections.legacy_phase1.database', '') !== ''
+                    && Schema::connection('legacy_phase1')->hasTable('tblapplication')
+                    && Schema::connection('legacy_phase1')->hasColumn('tblapplication', 'onboard')
+                ) {
+                    $rows = DB::connection('legacy_phase1')
+                        ->table('tblapplication')
+                        ->whereIn('ApplicationNumber', $chunk)
+                        ->whereRaw('LOWER(TRIM(onboard)) = ?', ['yes'])
+                        ->pluck('ApplicationNumber');
+                    foreach ($rows as $appNo) {
+                        $appNo = trim((string) $appNo);
+                        if ($appNo !== '') {
+                            $found[$appNo] = true;
+                        }
+                    }
+                }
+            } catch (\Throwable) {
+                // ignore
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function resolveFormStage(array $row): string
+    {
+        $stage = trim((string) ($row['form_stage'] ?? ''));
+        if ($stage !== '') {
+            return $stage;
+        }
+
+        $registered = trim((string) ($row['is_registered'] ?? ''));
+        $turnoverRaw = trim((string) ($row['turnover_last_fy'] ?? ''));
+        if ($registered === '' && $turnoverRaw === '') {
+            return '';
+        }
+
+        return (new CfaBusinessStageService)->compute(
+            $registered,
+            CfaBusinessStageService::parseTurnover($turnoverRaw),
+        )['stage'];
     }
 
     /**

@@ -12,9 +12,11 @@
     $metric = (string) ($filters['metric'] ?? 'onboarding');
     $isServiceMetric = in_array($metric, ['udyam', 'artisan_card', 'fssai', 'gst', 'market_linkage', 'convergence'], true);
     $isOnboarding = $metric === 'onboarding';
-    $showLinks = $metric === 'market_linkage' || $isOnboarding;
+    $isMarketLinkage = $metric === 'market_linkage';
+    $showApplicantExtras = $isOnboarding || $isMarketLinkage;
+    $showLinks = $isMarketLinkage || $isOnboarding;
     $missingLabel = \App\Services\DataCentre\YearwiseIndicatorsPlusRecordsService::MISSING_LABEL;
-    $colspan = 12 + ($showLinks ? 1 : 0) + ($isOnboarding ? 3 : 0);
+    $colspan = 12 + ($showLinks ? 1 : 0) + ($isOnboarding ? 3 : 0) + ($isMarketLinkage ? 3 : 0);
 @endphp
 <style>
 .yi-rec-nav{display:flex;flex-wrap:wrap;gap:.55rem;align-items:center;margin-bottom:.75rem;font-size:.86rem}
@@ -38,7 +40,7 @@
 .yi-rec-btn--xlsx{background:#065f46;color:#fff}
 .yi-rec-btn--csv{background:#f1f5f9;color:#334155;border:1px solid #d4d4d8}
 .yi-rec-table-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:auto;max-height:calc(100vh - 220px)}
-.yi-rec-table{width:100%;border-collapse:collapse;font-size:.84rem;min-width:1560px}
+.yi-rec-table{width:100%;border-collapse:collapse;font-size:.84rem;min-width:1680px}
 .yi-rec-table th,.yi-rec-table td{padding:.55rem .65rem;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}
 .yi-rec-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;color:#64748b;background:#f8fafc;position:sticky;top:0;z-index:1}
 .yi-rec-table tbody tr:hover{background:#fffbeb}
@@ -46,6 +48,7 @@
 .yi-rec-chip--verified{background:#ecfdf5;color:#047857}
 .yi-rec-chip--jit{background:#eff6ff;color:#1d4ed8}
 .yi-rec-chip--lakhpati_didi{background:#fdf4ff;color:#86198f}
+.yi-rec-chip--off{background:#f1f5f9;color:#64748b}
 .yi-rec-name{font-weight:700;color:#0f172a}
 .yi-rec-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:.8rem;letter-spacing:.01em;color:#1e293b;word-break:break-all}
 .yi-rec-svc{min-width:11rem}
@@ -85,9 +88,15 @@
     <h2>{{ $payload['metric_label'] ?? 'Records' }}</h2>
     <p>
         @if ($isServiceMetric)
-            Each row is one incubatee service achievement for this indicator, including Verified workbook rows
-            plus JIT / Lakhpati extras where they contribute to the matrix total.
-            {{ $regLabel }} is shown when captured in the source system.
+            @if ($isMarketLinkage)
+                Each row is one market-linkage achievement. Applicant basics, turnover, business stage and
+                onboard status are joined from CFA / Phase 2 enterprise records. Use the Onboard filter to
+                export onboarded incubatees only.
+            @else
+                Each row is one incubatee service achievement for this indicator, including Verified workbook rows
+                plus JIT / Lakhpati extras where they contribute to the matrix total.
+                {{ $regLabel }} is shown when captured in the source system.
+            @endif
         @elseif ($metric === 'onboarding')
             Onboarding list includes Verified incubatees plus JIT and Lakhpati Didi rows that feed the Plus matrix
             (notably FY 2023-24). Sector, product, GSTIN, FSSAI licence and market-linkage partners are joined from CFA
@@ -100,8 +109,14 @@
     <div class="yi-rec-stats">
         <div class="yi-rec-stat"><strong>{{ number_format((int) ($payload['total'] ?? 0)) }}</strong> matching records</div>
         <div class="yi-rec-stat">Page size <strong>{{ (int) ($records->perPage() ?? 50) }}</strong></div>
+        @if (!empty($payload['phase_label']))
+            <div class="yi-rec-stat">Phase: <strong>{{ $payload['phase_label'] }}</strong></div>
+        @endif
         @if (!empty($filters['source']) && $filters['source'] !== 'all')
             <div class="yi-rec-stat">Source filter: <strong>{{ $opts['sources'][$filters['source']] ?? $filters['source'] }}</strong></div>
+        @endif
+        @if (!empty($filters['onboard']) && $filters['onboard'] !== 'all')
+            <div class="yi-rec-stat">Onboard: <strong>{{ $opts['onboard'][$filters['onboard']] ?? $filters['onboard'] }}</strong></div>
         @endif
     </div>
 </div>
@@ -160,6 +175,14 @@
             </select>
         </div>
         <div>
+            <label for="onboard">Onboard</label>
+            <select name="onboard" id="onboard">
+                @foreach (($opts['onboard'] ?? []) as $key => $label)
+                    <option value="{{ $key }}" @selected(($filters['onboard'] ?? 'all') === $key)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
             <label for="q">Search</label>
             <input type="text" name="q" id="q" value="{{ $filters['q'] ?? '' }}" placeholder="Name / phone / app no. / reg no.">
         </div>
@@ -167,8 +190,8 @@
     <div class="yi-rec-actions">
         <button type="submit" class="yi-rec-btn yi-rec-btn--apply">Apply filters</button>
         <a href="{{ route('admin.yearwise-indicators-plus.records', ['metric' => $filters['metric'] ?? 'onboarding', 'scope' => 'grand']) }}" class="yi-rec-btn yi-rec-btn--ghost">Reset</a>
-        <a href="{{ route('admin.yearwise-indicators-plus.records.export.csv', $qp) }}" class="yi-rec-btn yi-rec-btn--csv">Export CSV</a>
-        <a href="{{ route('admin.yearwise-indicators-plus.records.export.xlsx', $qp) }}" class="yi-rec-btn yi-rec-btn--xlsx">Export Excel</a>
+        <button type="submit" formaction="{{ route('admin.yearwise-indicators-plus.records.export.csv') }}" class="yi-rec-btn yi-rec-btn--csv">Export CSV</button>
+        <button type="submit" formaction="{{ route('admin.yearwise-indicators-plus.records.export.xlsx') }}" class="yi-rec-btn yi-rec-btn--xlsx">Export Excel</button>
     </div>
 </form>
 
@@ -188,6 +211,11 @@
                     <th>FSSAI</th>
                 @else
                     <th>{{ $regLabel }}</th>
+                @endif
+                @if ($isMarketLinkage)
+                    <th>Turnover</th>
+                    <th>Stage</th>
+                    <th>Onboard</th>
                 @endif
                 @if ($showLinks)
                     <th>{{ $isOnboarding ? 'Market linkage' : 'Links' }}</th>
@@ -234,6 +262,10 @@
                     $detail = $dash($row['detail'] ?? '');
                     $status = $dash($row['status'] ?? '');
                     $dateUsed = $dash($row['date_used'] ?? '');
+                    $turnover = $dash($row['turnover_last_fy'] ?? '');
+                    $formStage = $dash($row['form_stage'] ?? '');
+                    $onboardStatus = trim((string) ($row['onboard_status'] ?? ''));
+                    $isOnboarded = strcasecmp($onboardStatus, 'Onboarded') === 0;
                 @endphp
                 <tr>
                     <td>{{ $records->firstItem() + $i }}</td>
@@ -243,7 +275,7 @@
                         @else
                             <span class="yi-rec-muted">—</span>
                         @endif
-                        @if ($isOnboarding && ($gender || $cfaCategory || $guardian || $email))
+                        @if ($showApplicantExtras && ($gender || $cfaCategory || $guardian || $email || ($isMarketLinkage && ($education || $shg))))
                             @if ($cfaCategory || $gender)
                                 <div class="yi-rec-sub">{{ trim(implode(' · ', array_filter([$cfaCategory, $gender]))) }}</div>
                             @endif
@@ -252,6 +284,14 @@
                             @endif
                             @if ($email)
                                 <div class="yi-rec-sub">{{ $email }}</div>
+                            @endif
+                            @if ($isMarketLinkage && ($education || $shg))
+                                @if ($education)
+                                    <div class="yi-rec-sub">{{ $education }}</div>
+                                @endif
+                                @if ($shg)
+                                    <div class="yi-rec-sub">SHG: {{ $shg }}</div>
+                                @endif
                             @endif
                         @endif
                     </td>
@@ -264,10 +304,13 @@
                     </td>
                     <td>{{ $phone ?? '—' }}</td>
                     <td class="yi-rec-loc">
-                        @if ($district || $block)
+                        @if ($district || $block || ($isMarketLinkage && $village))
                             <div>{{ $district ?? '—' }}</div>
                             @if ($block)
                                 <div class="yi-rec-sub">{{ $block }}</div>
+                            @endif
+                            @if ($isMarketLinkage && $village)
+                                <div class="yi-rec-sub">{{ $village }}</div>
                             @endif
                         @else
                             <span class="yi-rec-muted">—</span>
@@ -316,6 +359,26 @@
                             <span class="yi-rec-muted">—</span>
                         @endif
                     </td>
+                    @endif
+                    @if ($isMarketLinkage)
+                        <td>
+                            @if ($turnover || trim((string) ($row['enterprise_name'] ?? '')) !== '')
+                                @if ($turnover)
+                                    <div>{{ $turnover }}</div>
+                                @endif
+                                @if (trim((string) ($row['enterprise_name'] ?? '')) !== '')
+                                    <div class="yi-rec-sub">{{ $row['enterprise_name'] }}</div>
+                                @endif
+                            @else
+                                <span class="yi-rec-muted">—</span>
+                            @endif
+                        </td>
+                        <td>{{ $formStage ?? '—' }}</td>
+                        <td>
+                            <span class="yi-rec-chip {{ $isOnboarded ? 'yi-rec-chip--verified' : 'yi-rec-chip--off' }}">
+                                {{ $onboardStatus !== '' ? $onboardStatus : 'Not onboarded' }}
+                            </span>
+                        </td>
                     @endif
                     @if ($showLinks)
                         <td>
@@ -390,4 +453,22 @@
         <div>{{ $records->withQueryString()->links() }}</div>
     </div>
 </div>
+<script>
+(function () {
+    var scopeEl = document.getElementById('scope');
+    var yearEl = document.getElementById('year');
+    var phaseEl = document.getElementById('phase');
+    if (!scopeEl) return;
+    if (phaseEl) {
+        phaseEl.addEventListener('change', function () {
+            if (this.value) scopeEl.value = 'phase';
+        });
+    }
+    if (yearEl) {
+        yearEl.addEventListener('change', function () {
+            if (this.value) scopeEl.value = 'year';
+        });
+    }
+})();
+</script>
 @endsection
