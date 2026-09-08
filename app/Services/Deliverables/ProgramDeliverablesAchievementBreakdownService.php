@@ -26,6 +26,7 @@ use App\Support\StakeholderConsultationWorkshopDeliverablesSupport;
 use App\Support\LineDepartmentMeetingDeliverablesSupport;
 use App\Support\MentorshipOnlinePortalDeliverablesSupport;
 use App\Support\BstTrainingDeliverablesSupport;
+use App\Support\IncubateeAttendeeCounts;
 use App\Support\MarketLinkageUnifiedListingSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use App\Support\PotentialLakhpatiTechnicalTrainingDeliverablesSupport;
@@ -616,6 +617,7 @@ class ProgramDeliverablesAchievementBreakdownService
                 'applicant_phone' => (string) ($snapshot['phone'] ?? ''),
                 'block' => (string) ($snapshot['block_name'] ?? ''),
                 'application_no' => (string) ($snapshot['application_no'] ?? ''),
+                'gender' => (string) ($snapshot['gender'] ?? ''),
             ]);
         }
 
@@ -682,6 +684,14 @@ class ProgramDeliverablesAchievementBreakdownService
             ? trim((string) $overrides['block'])
             : trim((string) ($payload['block'] ?? ''));
 
+        $gender = '';
+        if (array_key_exists('gender', $overrides)) {
+            $gender = IncubateeAttendeeCounts::normalizeGender((string) $overrides['gender']);
+        }
+        if ($gender === '') {
+            $gender = IncubateeAttendeeCounts::normalizeGender((string) ($payload['gender'] ?? ''));
+        }
+
         $sector = trim((string) ($payload['business_category'] ?? ($payload['sector'] ?? '')));
         $product = trim((string) ($payload['product'] ?? ''));
         if ($product === 'Others' || $product === '') {
@@ -725,6 +735,7 @@ class ProgramDeliverablesAchievementBreakdownService
             'id' => (int) ($row->id ?? 0),
             'reference' => $reference,
             'applicant' => $applicant !== '' ? $applicant : '—',
+            'gender' => $gender,
             'phone' => $phone,
             'block' => $block,
             'sector' => $sector,

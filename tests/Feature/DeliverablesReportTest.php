@@ -4886,6 +4886,89 @@ class DeliverablesReportTest extends TestCase
         $this->assertGreaterThanOrEqual($row82['achievement'], $row81['achievement']);
     }
 
+    public function test_reap_support_breakdown_export_includes_gender(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'reap-gender-hub', 'name' => 'Hub', 'sort_order' => 94]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'reap-gender-district',
+            'name' => 'Reap Gender District',
+            'sort_order' => 94,
+        ]);
+
+        $category = ServiceCategory::query()->create([
+            'slug' => 'reap_support_gender',
+            'name' => 'REAP Support',
+            'sort_order' => 94,
+        ]);
+
+        $service = Service::query()->create([
+            'service_category_id' => $category->id,
+            'code' => 'support_muy_incubatee_reap_gender',
+            'name' => 'Support to MUY Incubatee through REAP',
+            'sort_order' => 1,
+            'is_active' => true,
+            'counts_toward_reap_support' => true,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => 'REAP-G-001',
+            'applicant_name' => 'Reap Gender Applicant',
+            'phone' => '9999999944',
+            'payload' => json_encode(['gender' => 'female']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'approved_at' => '2026-05-15 10:00:00',
+            'submitted_at' => '2026-05-14 10:00:00',
+            'through_reap' => true,
+            'payload' => [
+                'through_reap' => '1',
+                'reap_sector' => 'non_farm',
+                'reap_amount' => '3_lakh',
+                'reap_activity' => 'Equipment support',
+            ],
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $scope = ProgramDeliverablesScope::forUser($admin);
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '8.2');
+
+        $this->assertSame('reap_support_services', $breakdown['source_type'] ?? null);
+        $record = collect($breakdown['records'] ?? [])->firstWhere('applicant', 'Reap Gender Applicant');
+        $this->assertNotNull($record);
+        $this->assertSame('Female', $record['gender'] ?? null);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export.csv', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '8.2',
+            ]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Gender', $csv);
+        $this->assertStringContainsString('Female', $csv);
+        $this->assertStringContainsString('Reap Gender Applicant', $csv);
+    }
+
     public function test_staff_services_index_reap_support_8_2_filter_shows_unified_label(): void
     {
         app(AppSettingsService::class)->setMany(['service_module.enabled' => true]);

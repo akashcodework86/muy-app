@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\URL;
  */
 final class YearwiseIndicatorsPlusRecordsService
 {
-    public const CACHE_KEY = 'yearwise_indicators_plus_records_v8';
+    public const CACHE_KEY = 'yearwise_indicators_plus_records_v9';
 
     public const MISSING_LABEL = "don't have";
 
@@ -1097,9 +1097,10 @@ final class YearwiseIndicatorsPlusRecordsService
         }
 
         if (in_array($metric, ['onboarding', 'market_linkage'], true) && $appNos !== []) {
-            $this->mergePhase1OnboardingProfiles($byApp, array_keys($appNos));
+            // CFA / Phase 2 first; Phase 1 tblapplication (avg_turnover etc.) only fills gaps.
             $this->mergePhase2OnboardingProfiles($byApp, array_keys($appNos));
             $this->mergePhase2EnterpriseDetails($byApp, array_keys($appNos));
+            $this->mergePhase1OnboardingProfiles($byApp, array_keys($appNos));
         }
 
         if ($attachDocs && $appNos !== [] && Schema::hasTable('market_linkage_submissions') && Schema::hasTable('market_linkage_partners')) {
@@ -1596,7 +1597,8 @@ final class YearwiseIndicatorsPlusRecordsService
         $wanted = [
             'ApplicationNumber', 'FullName', 'MobileNumber', 'gender', 'dob', 'cast', 'education',
             'Email', 'FatherName', 'City', 'Pincode', 'Address', 'hub', 'business_desp',
-            'idea', 'idea2', 'other_idea', 'enterprise_name', 'registered', 'loan', 'loan_amount',
+            'idea', 'idea2', 'other_idea', 'enterprise_name', 'registered', 'registered_in',
+            'avg_turnover', 'pre_turnover', 'loan', 'loan_amount',
             'current_emp', 'job_count', 'ApplicationDate',
         ];
         $select = array_values(array_intersect($wanted, $available));
@@ -1626,6 +1628,14 @@ final class YearwiseIndicatorsPlusRecordsService
                 if ($product === '') {
                     $product = $this->objStr($row, 'enterprise_name');
                 }
+                // Prefer avg_turnover; fall back to pre_turnover (same as HomestayDetailsPackService).
+                $turnover = $this->objStr($row, 'avg_turnover');
+                if ($turnover === '' || strcasecmp($turnover, 'null') === 0 || strcasecmp($turnover, 'na') === 0) {
+                    $turnover = $this->objStr($row, 'pre_turnover');
+                }
+                if (strcasecmp($turnover, 'null') === 0 || strcasecmp($turnover, 'na') === 0) {
+                    $turnover = '';
+                }
                 $incoming = [
                     'phone' => $this->objStr($row, 'MobileNumber'),
                     'block' => $this->objStr($row, 'City'),
@@ -1642,6 +1652,8 @@ final class YearwiseIndicatorsPlusRecordsService
                     'pincode' => $this->objStr($row, 'Pincode'),
                     'enterprise_name' => $this->objStr($row, 'enterprise_name'),
                     'is_registered' => $this->objStr($row, 'registered'),
+                    'registration_type' => $this->objStr($row, 'registered_in'),
+                    'turnover_last_fy' => $turnover,
                     'loan_taken' => $this->objStr($row, 'loan'),
                     'bank_loan' => $this->objStr($row, 'loan_amount'),
                     'current_employment' => $this->objStr($row, 'current_emp'),

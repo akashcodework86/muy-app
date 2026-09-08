@@ -223,6 +223,19 @@ class DeliverablesBreakdownExcelExport
             ])->all();
         } elseif ($sourceType === 'market_linkage_incubatees') {
             return $this->marketLinkageRecordTable($breakdown);
+        } elseif ($sourceType === 'reap_support_services') {
+            $headers = ['#', 'Reference', 'Applicant', 'Gender', 'District', 'Hub', 'Service', 'Status', 'Date'];
+            $rows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
+                $idx + 1,
+                DeliverablesExcelSupport::sanitizeCell($item['reference'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['applicant'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['gender'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['district'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['hub'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['service'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['status'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['date'] ?? ''),
+            ])->all();
         } else {
             $headers = ['#', 'Reference', 'Applicant', 'District', 'Hub', 'Service', 'Status', 'Date'];
             $rows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [

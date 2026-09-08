@@ -180,6 +180,22 @@ class DeliverablesBreakdownCsvExport
                         ]);
                     }
                 }
+            } elseif ($sourceType === 'reap_support_services') {
+                fputcsv($out, ['#', 'Reference', 'Applicant', 'Gender', 'District', 'Hub', 'Service', 'Status', 'Date']);
+                $idx = 1;
+                foreach ($breakdown['records'] ?? [] as $item) {
+                    fputcsv($out, [
+                        $idx++,
+                        $item['reference'] ?? '',
+                        $item['applicant'] ?? '',
+                        $item['gender'] ?? '',
+                        $item['district'] ?? '',
+                        $item['hub'] ?? '',
+                        $item['service'] ?? '',
+                        $item['status'] ?? '',
+                        $item['date'] ?? '',
+                    ]);
+                }
             } else {
                 fputcsv($out, ['#', 'Reference', 'Applicant', 'District', 'Hub', 'Service', 'Status', 'Date']);
                 $idx = 1;
