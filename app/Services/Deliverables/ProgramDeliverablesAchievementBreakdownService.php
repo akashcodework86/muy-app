@@ -2203,6 +2203,12 @@ class ProgramDeliverablesAchievementBreakdownService
             return [];
         }
 
+        // UTDB is linked to the shared Business formalization category. Expanding
+        // that parent would also include Udyam, UK Firm and other registrations.
+        if ($code === 'utdb_registration') {
+            return $this->serviceIdsForServiceCode($code);
+        }
+
         $deliverableIds = [];
         $deliverableIdsByCode = Deliverable::query()->pluck('id', 'code')->map(fn ($id) => (int) $id)->all();
 

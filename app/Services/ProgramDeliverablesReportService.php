@@ -1097,6 +1097,17 @@ class ProgramDeliverablesReportService
 
     private function deliverableAchievementFromServiceCases(string $code): int
     {
+        $code = strtolower(trim($code));
+        if ($code === '') {
+            return 0;
+        }
+
+        // UTDB shares the Business formalization parent deliverable with Udyam and
+        // other registration services. It must count only UTDB service aliases.
+        if ($code === 'utdb_registration') {
+            return (int) ($this->achievementByMisCode[$code] ?? 0);
+        }
+
         foreach ($this->candidateCodesForLookup($code) as $candidate) {
             $keys = [$candidate];
             if (str_starts_with($candidate, 'svc_')) {

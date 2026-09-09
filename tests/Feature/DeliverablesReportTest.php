@@ -1785,6 +1785,111 @@ class DeliverablesReportTest extends TestCase
         );
     }
 
+    public function test_utdb_counts_only_utdb_services_from_shared_business_formalization_deliverable(): void
+    {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            DB::connection()->getPdo()->sqliteCreateFunction(
+                'CONCAT',
+                static fn (...$values): string => implode('', array_map(static fn ($value): string => (string) $value, $values)),
+                -1,
+            );
+        }
+
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'utdb-count-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'utdb-count-district',
+            'name' => 'UTDB District',
+            'sort_order' => 1,
+        ]);
+        $category = ServiceCategory::query()->create([
+            'slug' => 'utdb_count_services',
+            'name' => 'Business formalization',
+            'sort_order' => 0,
+        ]);
+        $categoryDeliverable = Deliverable::query()->firstOrCreate(
+            ['code' => 'svc_cat_business_formalization'],
+            [
+                'sort_order' => 1961,
+                'name' => 'Business formalization',
+                'mis_entry_label' => 'Business formalization',
+                'is_active' => true,
+            ],
+        );
+
+        $udyam = Service::query()->create([
+            'service_category_id' => $category->id,
+            'deliverable_id' => $categoryDeliverable->id,
+            'code' => 'udyam_registration',
+            'name' => 'Udyam Registration',
+            'sort_order' => 1,
+            'is_active' => true,
+            'reporting_tier' => Service::REPORTING_KEY,
+        ]);
+        $utdb = Service::query()->create([
+            'service_category_id' => $category->id,
+            'deliverable_id' => $categoryDeliverable->id,
+            'code' => 'u_t_d_b_registration',
+            'name' => 'UTDB Registration',
+            'sort_order' => 2,
+            'is_active' => true,
+            'reporting_tier' => Service::REPORTING_NON_KEY,
+        ]);
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'UTDB Count Applicant',
+            'phone' => '9999999912',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        foreach ([$udyam, $utdb] as $index => $service) {
+            ServiceCase::query()->create([
+                'cfa_submission_id' => $cfaId,
+                'service_id' => $service->id,
+                'status' => ServiceCase::STATUS_APPROVED,
+                'reference_number' => 'SC-UTDB-'.$index,
+                'approved_at' => $service->is($utdb) ? '2026-09-10' : '2026-08-10',
+            ]);
+        }
+
+        $scope = ProgramDeliverablesScope::forUser(User::factory()->make(['role' => 'state_admin']));
+        $augustFilter = new ProgramDeliverablesFilter($fy->id, null, 8, 2026, '2026-08-01', '2026-08-31');
+        $augustReport = app(ProgramDeliverablesReportService::class)->build($augustFilter, $scope);
+        $augustRow = collect($augustReport['rows'])->firstWhere('serial', '4.2.3');
+        $augustBreakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($augustFilter, $scope, '4.2.3');
+
+        $this->assertNotNull($augustRow);
+        $this->assertSame(0, $augustRow['achievement']);
+        $this->assertSame(0, (int) ($augustBreakdown['total'] ?? 0));
+        $this->assertSame([], $augustBreakdown['by_service'] ?? []);
+
+        $septemberFilter = new ProgramDeliverablesFilter($fy->id, null, 9, 2026, '2026-09-01', '2026-09-30');
+        $septemberReport = app(ProgramDeliverablesReportService::class)->build($septemberFilter, $scope);
+        $septemberRow = collect($septemberReport['rows'])->firstWhere('serial', '4.2.3');
+        $septemberBreakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($septemberFilter, $scope, '4.2.3');
+
+        $this->assertNotNull($septemberRow);
+        $this->assertSame(1, $septemberRow['achievement']);
+        $this->assertSame(1, (int) ($septemberBreakdown['total'] ?? 0));
+        $this->assertSame(
+            ['UTDB Registration'],
+            collect($septemberBreakdown['by_service'] ?? [])->pluck('service')->all(),
+        );
+    }
+
     public function test_fssai_achievement_counts_via_svc_deliverable_and_service_alias(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(
