@@ -212,6 +212,7 @@ class AccelerationServicesTest extends TestCase
             ->assertSee('UTDB Registration')
             ->assertSee('+ Add another Buyer Seller Meet')
             ->assertSee('+ Add another TBI (Graphic Era)')
+            ->assertSee('IIM Kashipur')
             ->assertDontSee('Add new service');
     }
 

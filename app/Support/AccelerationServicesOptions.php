@@ -39,6 +39,7 @@ final class AccelerationServicesOptions
             ['key' => 'tbi_graphic_era', 'label' => 'TBI (Graphic Era)'],
             ['key' => 'uplift_foundation', 'label' => 'Uplift Foundation'],
             ['key' => 'sse_india', 'label' => 'SSE India'],
+            ['key' => 'iim_kashipur', 'label' => 'IIM Kashipur'],
         ],
     ];
 
