@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\District;
+use App\Models\Deliverable;
 use App\Models\FiscalYear;
 use App\Models\OfficialDistrictMonthlyTarget;
 use App\Models\OfficialHubMonthlyTarget;
@@ -46,9 +47,8 @@ class OfficialMonthlyTargetsReportService
             return [];
         }
 
-        $districtTotals = $this->sumDistrictMonthly($fiscalYear, $periodInfo, $districtIds, []);
-
         $hubTargetDistrictIds = HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($districtIds);
+        $districtTotals = $this->sumDistrictMonthly($fiscalYear, $periodInfo, $districtIds, [], $hubTargetDistrictIds);
 
         $hubIds = $hubTargetDistrictIds !== []
             ? District::query()
@@ -72,7 +72,24 @@ class OfficialMonthlyTargetsReportService
             $hubTotals,
         );
 
-        return $this->mergeTotals($districtTotals, $hubTotals, $stateTotals);
+        $merged = $this->mergeTotals($districtTotals, $hubTotals, $stateTotals);
+
+        // Hub-only indicators are owned by the configured primary district line.
+        // Prefer that scoped district total over a combined hub row when both exist.
+        if ($hubTargetDistrictIds !== []) {
+            $hubTargetDeliverableIds = Deliverable::query()
+                ->whereIn('code', HubTargetDeliverablesSupport::deliverableCodes())
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+            foreach ($hubTargetDeliverableIds as $deliverableId) {
+                if (array_key_exists($deliverableId, $districtTotals)) {
+                    $merged[$deliverableId] = $districtTotals[$deliverableId];
+                }
+            }
+        }
+
+        return $merged;
     }
 
     public function hasAnyForFiscalYear(FiscalYear $fiscalYear): bool
@@ -224,6 +241,7 @@ class OfficialMonthlyTargetsReportService
         array $periodInfo,
         ?array $districtIds,
         array $excludeDeliverableIds,
+        array $hubTargetDistrictIds = [],
     ): array {
         $query = OfficialDistrictMonthlyTarget::query()
             ->where('fiscal_year_id', $fiscalYear->id);
@@ -237,9 +255,21 @@ class OfficialMonthlyTargetsReportService
         }
 
         $rawTotals = [];
-        foreach ($query->get(['deliverable_id', 'month_number', 'target_count']) as $row) {
+        $hubTargetDeliverableIds = $hubTargetDistrictIds === []
+            ? []
+            : Deliverable::query()
+                ->whereIn('code', HubTargetDeliverablesSupport::deliverableCodes())
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+        foreach ($query->get(['deliverable_id', 'district_id', 'month_number', 'target_count']) as $row) {
             $deliverableId = (int) $row->deliverable_id;
             if (isset($excludeDeliverableIds[$deliverableId])) {
+                continue;
+            }
+            if (in_array($deliverableId, $hubTargetDeliverableIds, true)
+                && ! in_array((int) $row->district_id, $hubTargetDistrictIds, true)) {
                 continue;
             }
             $weight = $periodInfo['has_narrowing']

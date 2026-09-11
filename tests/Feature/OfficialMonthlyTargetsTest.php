@@ -40,6 +40,40 @@ class OfficialMonthlyTargetsTest extends TestCase
         }
     }
 
+    public function test_hub_scoped_hub_only_target_uses_its_primary_district_line(): void
+    {
+        $fy = FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+        $utdb = app(OfficialMonthlyTargetCodeResolver::class)
+            ->deliverableForMisSerial('4.2.3', 'UTDB');
+        $almoraId = (int) District::query()->where('slug', 'almora')->value('id');
+        $dehradunId = (int) District::query()->where('slug', 'dehradun')->value('id');
+
+        foreach ([[$almoraId, 130], [$dehradunId, 150]] as [$districtId, $target]) {
+            OfficialDistrictMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'district_id' => $districtId,
+                'deliverable_id' => $utdb->id,
+                'month_number' => 1,
+                'target_count' => $target,
+            ]);
+        }
+
+        $targets = app(\App\Services\OfficialMonthlyTargetsReportService::class)
+            ->loadDistrictScopedTargets($fy, [$almoraId, $dehradunId], [
+                'weights' => [],
+                'year_fraction' => 1.0,
+                'has_narrowing' => false,
+            ]);
+
+        $this->assertSame(130, $targets[$utdb->id]);
+    }
+
     public function test_2_1_and_2_1_1_map_to_distinct_deliverables(): void
     {
         app(ServiceTargetDeliverableSyncService::class)->syncAllServices();
