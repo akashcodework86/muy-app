@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use App\Models\District;
+use App\Models\MarketLinkageSubmission;
 use App\Models\ServiceCase;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class PendingActionsReportService
 {
@@ -33,6 +35,10 @@ class PendingActionsReportService
      *     districtOptions: Collection,
      *     filterSpocId: int,
      *     filterDistrictId: int,
+     *     marketLinkagePendingTotal: int,
+     *     marketLinkagePendingOnline: int,
+     *     marketLinkagePendingOffline: int,
+     *     marketLinkagePending: LengthAwarePaginator,
      * }
      */
     public function build(?array $scopedDistrictIds, int $filterSpocId, int $filterDistrictId): array
@@ -230,6 +236,12 @@ class PendingActionsReportService
 
         $cases = $caseQuery->paginate(25)->withQueryString();
 
+        $marketLinkageData = $this->marketLinkagePendingData(
+            $scopedDistrictIds,
+            $filterSpocId,
+            $filterDistrictId,
+        );
+
         if ($scopedDistrictIds !== null) {
             $districtOptions = District::query()
                 ->whereIn('id', $scopedDistrictIds)
@@ -260,6 +272,84 @@ class PendingActionsReportService
             'districtOptions' => $districtOptions,
             'filterSpocId' => $filterSpocId,
             'filterDistrictId' => $filterDistrictId,
+            ...$marketLinkageData,
+        ];
+    }
+
+    /**
+     * Pending market-linkage submissions are displayed read-only on this report.
+     * Online/offline counts are submission counts; one submission can contain both modes.
+     *
+     * @param  list<int>|null  $scopedDistrictIds
+     * @return array{
+     *     marketLinkagePendingTotal: int,
+     *     marketLinkagePendingOnline: int,
+     *     marketLinkagePendingOffline: int,
+     *     marketLinkagePending: LengthAwarePaginator,
+     * }
+     */
+    private function marketLinkagePendingData(
+        ?array $scopedDistrictIds,
+        int $filterSpocId,
+        int $filterDistrictId,
+    ): array {
+        if (! Schema::hasTable('market_linkage_submissions') || ! MarketLinkageSubmission::supportsWorkflow()) {
+            return [
+                'marketLinkagePendingTotal' => 0,
+                'marketLinkagePendingOnline' => 0,
+                'marketLinkagePendingOffline' => 0,
+                'marketLinkagePending' => new \Illuminate\Pagination\LengthAwarePaginator(
+                    [],
+                    0,
+                    25,
+                    1,
+                    ['path' => request()->url(), 'pageName' => 'market_page'],
+                ),
+            ];
+        }
+
+        $query = MarketLinkageSubmission::query()
+            ->where('status', ServiceCase::STATUS_PENDING_APPROVAL);
+
+        if ($scopedDistrictIds !== null) {
+            $query->whereIn('district_id', $scopedDistrictIds);
+        }
+        if ($filterDistrictId > 0) {
+            $query->where('district_id', $filterDistrictId);
+        }
+        if ($filterSpocId > 0) {
+            $query->where('spoc_user_id', $filterSpocId);
+        } elseif ($filterSpocId === -1) {
+            $query->where(function ($q): void {
+                $q->whereNull('spoc_user_id')
+                    ->orWhereHas('spoc', fn ($sq) => $sq->where('role', '!=', self::SPOC_ROLE));
+            });
+        }
+
+        $total = (clone $query)->count();
+        $online = (clone $query)
+            ->whereHas('partners', fn ($q) => $q->where('linkage_mode', MarketLinkageSubmission::LINKAGE_ONLINE))
+            ->count();
+        $offline = (clone $query)
+            ->whereHas('partners', fn ($q) => $q->where('linkage_mode', MarketLinkageSubmission::LINKAGE_OFFLINE))
+            ->count();
+
+        $rows = (clone $query)
+            ->with([
+                'partners:id,market_linkage_submission_id,partner_name,linkage_mode,linkage_date,sort_order',
+                'district:id,name',
+                'submitter:id,name',
+                'spoc:id,name,role',
+            ])
+            ->orderByDesc('updated_at')
+            ->paginate(25, ['*'], 'market_page')
+            ->withQueryString();
+
+        return [
+            'marketLinkagePendingTotal' => $total,
+            'marketLinkagePendingOnline' => $online,
+            'marketLinkagePendingOffline' => $offline,
+            'marketLinkagePending' => $rows,
         ];
     }
 

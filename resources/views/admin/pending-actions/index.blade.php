@@ -243,6 +243,89 @@
             </table>
         </div>
         <div>{{ $cases->links() }}</div>
+
+        @php
+            $marketLinkageShowRoute = str_starts_with((string) ($pageRoute ?? ''), 'hub.')
+                ? 'hub.market-linkages.show'
+                : 'admin.market-linkages.show';
+        @endphp
+        <div class="pa-panel">
+            <div class="pa-head">
+                Market linkage pending (read-only)
+                <div class="pa-mini">Pending online/offline submissions in the same district scope. Approval remains with the State SPOC.</div>
+            </div>
+            <div class="pa-cards" style="padding:0.75rem;">
+                <div class="pa-card">
+                    <div class="pa-k">Total market linkage pending</div>
+                    <div class="pa-v">{{ number_format((int) ($marketLinkagePendingTotal ?? 0)) }}</div>
+                    <div class="pa-sub">Unique pending submissions</div>
+                </div>
+                <div class="pa-card">
+                    <div class="pa-k">Online pending</div>
+                    <div class="pa-v">{{ number_format((int) ($marketLinkagePendingOnline ?? 0)) }}</div>
+                    <div class="pa-sub">Submissions containing online linkage</div>
+                </div>
+                <div class="pa-card">
+                    <div class="pa-k">Offline pending</div>
+                    <div class="pa-v">{{ number_format((int) ($marketLinkagePendingOffline ?? 0)) }}</div>
+                    <div class="pa-sub">Submissions containing offline linkage</div>
+                </div>
+            </div>
+            <div style="overflow:auto;border-top:1px solid #e5e7eb;">
+                <table class="pa-table">
+                    <thead>
+                        <tr>
+                            <th>Incubatee</th>
+                            <th>District</th>
+                            <th>Linkage type</th>
+                            <th>Partner(s)</th>
+                            <th>Submitted by</th>
+                            <th>Assigned SPOC</th>
+                            <th>Updated</th>
+                            <th>Access</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse (($marketLinkagePending ?? collect()) as $submission)
+                            @php
+                                $linkageModes = $submission->partners
+                                    ->pluck('linkage_mode')
+                                    ->filter()
+                                    ->unique()
+                                    ->map(fn ($mode) => \App\Models\MarketLinkageSubmission::linkageModeLabel((string) $mode))
+                                    ->implode(', ');
+                                $partnerNames = $submission->partners
+                                    ->pluck('partner_name')
+                                    ->filter()
+                                    ->unique()
+                                    ->implode(', ');
+                            @endphp
+                            <tr>
+                                <td>
+                                    <strong>{{ $submission->incubatee_name ?: '—' }}</strong>
+                                    <div class="pa-mini">{{ $submission->application_no ?: '—' }}</div>
+                                </td>
+                                <td>{{ $submission->district?->name ?? $submission->district_name ?? '—' }}</td>
+                                <td>{{ $linkageModes !== '' ? $linkageModes : '—' }}</td>
+                                <td>{{ $partnerNames !== '' ? $partnerNames : '—' }}</td>
+                                <td>{{ $submission->submitter?->name ?? $submission->submitted_by_name ?? '—' }}</td>
+                                <td>{{ ($submission->spoc && $submission->spoc->role === 'state_staff') ? $submission->spoc->name : 'Unassigned' }}</td>
+                                <td>{{ $submission->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
+                                <td>
+                                    <a href="{{ route($marketLinkageShowRoute, $submission) }}" class="pa-link pa-link--ghost">View details</a>
+                                    <div class="pa-mini">Read only</div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="8" class="pa-mini">No pending market-linkage submissions found for selected filters.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @if (($marketLinkagePending ?? null) instanceof \Illuminate\Contracts\Pagination\Paginator)
+            <div>{{ $marketLinkagePending->links() }}</div>
+        @endif
     </div>
 
     <div id="paModal" class="pa-modal" aria-hidden="true">
@@ -304,4 +387,3 @@
         })();
     </script>
 @endsection
-

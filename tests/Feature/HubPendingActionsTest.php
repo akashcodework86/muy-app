@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\District;
 use App\Models\Hub;
+use App\Models\MarketLinkageSubmission;
 use App\Models\Service;
 use App\Models\ServiceCase;
 use App\Models\ServiceCategory;
@@ -96,14 +97,89 @@ class HubPendingActionsTest extends TestCase
             'submitted_at' => now(),
         ]);
 
+        $onlinePending = MarketLinkageSubmission::query()->create([
+            'submitted_by_user_id' => $staffA->id,
+            'submitted_by_name' => $staffA->name,
+            'district_id' => $districtA->id,
+            'district_name' => $districtA->name,
+            'cfa_submission_id' => $cfaA,
+            'incubatee_name' => 'Hub A Online Linkage',
+            'application_no' => 'ML-ONLINE-A',
+            'status' => ServiceCase::STATUS_PENDING_APPROVAL,
+            'submitted_at' => now(),
+        ]);
+        $onlinePending->partners()->create([
+            'partner_name' => 'Online Marketplace',
+            'linkage_mode' => MarketLinkageSubmission::LINKAGE_ONLINE,
+            'linkage_date' => now()->toDateString(),
+            'sort_order' => 1,
+        ]);
+
+        $offlinePending = MarketLinkageSubmission::query()->create([
+            'submitted_by_user_id' => $staffA->id,
+            'submitted_by_name' => $staffA->name,
+            'district_id' => $districtA->id,
+            'district_name' => $districtA->name,
+            'cfa_submission_id' => $cfaA,
+            'incubatee_name' => 'Hub A Offline Linkage',
+            'application_no' => 'ML-OFFLINE-A',
+            'status' => ServiceCase::STATUS_PENDING_APPROVAL,
+            'submitted_at' => now(),
+        ]);
+        $offlinePending->partners()->create([
+            'partner_name' => 'Offline Buyer',
+            'linkage_mode' => MarketLinkageSubmission::LINKAGE_OFFLINE,
+            'linkage_date' => now()->toDateString(),
+            'sort_order' => 1,
+        ]);
+
+        $outsideHubPending = MarketLinkageSubmission::query()->create([
+            'submitted_by_user_id' => $staffB->id,
+            'submitted_by_name' => $staffB->name,
+            'district_id' => $districtB->id,
+            'district_name' => $districtB->name,
+            'cfa_submission_id' => $cfaB,
+            'incubatee_name' => 'Hub B Market Linkage',
+            'application_no' => 'ML-OUTSIDE-B',
+            'status' => ServiceCase::STATUS_PENDING_APPROVAL,
+            'submitted_at' => now(),
+        ]);
+        $outsideHubPending->partners()->create([
+            'partner_name' => 'Outside Marketplace',
+            'linkage_mode' => MarketLinkageSubmission::LINKAGE_ONLINE,
+            'linkage_date' => now()->toDateString(),
+            'sort_order' => 1,
+        ]);
+
+        $response = $this->actingAs($hubAdmin)->get(route('hub.pending-actions.index'));
+        $response->assertOk();
+
+        $content = $response->getContent();
+        foreach ([
+            'Pending Actions',
+            'Kumaon Region',
+            'Hub A Applicant',
+            'Pauri Garhwal',
+            'Market linkage pending (read-only)',
+            'Hub A Online Linkage',
+            'Hub A Offline Linkage',
+        ] as $expected) {
+            $this->assertStringContainsString($expected, $content, "Missing expected page text: {$expected}");
+        }
+        foreach (['Hub B Applicant', 'Hub B Market Linkage'] as $unexpected) {
+            $this->assertStringNotContainsString($unexpected, $content, "Found out-of-scope page text: {$unexpected}");
+        }
+
+        $data = app(PendingActionsReportService::class)->build([$districtA->id], 0, 0);
+        $this->assertSame(2, $data['marketLinkagePendingTotal']);
+        $this->assertSame(1, $data['marketLinkagePendingOnline']);
+        $this->assertSame(1, $data['marketLinkagePendingOffline']);
+        $this->assertSame(2, $data['marketLinkagePending']->total());
+
         $this->actingAs($hubAdmin)
-            ->get(route('hub.pending-actions.index'))
+            ->get(route('hub.market-linkages.show', $onlinePending))
             ->assertOk()
-            ->assertSee('Pending Actions')
-            ->assertSee('Kumaon Region')
-            ->assertSee('Hub A Applicant')
-            ->assertSee('Pauri Garhwal')
-            ->assertDontSee('Hub B Applicant');
+            ->assertSee('Hub A Online Linkage');
     }
 
     public function test_state_admin_still_sees_all_pending_actions(): void
