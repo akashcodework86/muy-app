@@ -885,6 +885,16 @@ class ProgramDeliverablesReportService
      */
     private function resolveStateTargetForCodes(array $codes, bool $sumServiceTargets = false): ?int
     {
+        // UTDB has its own official target line even though its service records
+        // are linked to the shared business-registration deliverable. Do not let
+        // the shared parent target (280) override the hub-scoped UTDB target.
+        if (! $sumServiceTargets && count($codes) === 1 && strtolower(trim((string) $codes[0])) === 'utdb_registration') {
+            $utdbId = Deliverable::query()->where('code', 'utdb_registration')->value('id');
+            if ($utdbId !== null && array_key_exists((int) $utdbId, $this->targetsByDeliverableId)) {
+                return (int) $this->targetsByDeliverableId[(int) $utdbId];
+            }
+        }
+
         $deliverableIds = [];
         foreach ($codes as $code) {
             $deliverableIds = array_merge($deliverableIds, $this->deliverableIdsForLookupCode((string) $code));
