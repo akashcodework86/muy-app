@@ -112,6 +112,7 @@ class HubPendingActionsTest extends TestCase
             'partner_name' => 'Online Marketplace',
             'linkage_mode' => MarketLinkageSubmission::LINKAGE_ONLINE,
             'linkage_date' => now()->toDateString(),
+            'link_url' => 'https://example.com/hub-a-shop',
             'sort_order' => 1,
         ]);
 
@@ -163,6 +164,8 @@ class HubPendingActionsTest extends TestCase
             'Market linkage pending (read-only)',
             'Hub A Online Linkage',
             'Hub A Offline Linkage',
+            'https://example.com/hub-a-shop',
+            'Open link',
         ] as $expected) {
             $this->assertStringContainsString($expected, $content, "Missing expected page text: {$expected}");
         }

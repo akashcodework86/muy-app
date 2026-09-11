@@ -336,7 +336,7 @@ class PendingActionsReportService
 
         $rows = (clone $query)
             ->with([
-                'partners:id,market_linkage_submission_id,partner_name,linkage_mode,linkage_date,sort_order',
+                'partners:id,market_linkage_submission_id,partner_name,linkage_mode,linkage_date,link_url,sort_order',
                 'district:id,name',
                 'submitter:id,name',
                 'spoc:id,name,role',

@@ -279,6 +279,7 @@
                             <th>District</th>
                             <th>Linkage type</th>
                             <th>Partner(s)</th>
+                            <th>Online link(s)</th>
                             <th>Submitted by</th>
                             <th>Assigned SPOC</th>
                             <th>Updated</th>
@@ -299,6 +300,9 @@
                                     ->filter()
                                     ->unique()
                                     ->implode(', ');
+                                $onlinePartnersWithLinks = $submission->partners
+                                    ->filter(fn ($partner) => $partner->linkage_mode === \App\Models\MarketLinkageSubmission::LINKAGE_ONLINE)
+                                    ->filter(fn ($partner) => filled($partner->link_url));
                             @endphp
                             <tr>
                                 <td>
@@ -308,6 +312,24 @@
                                 <td>{{ $submission->district?->name ?? $submission->district_name ?? '—' }}</td>
                                 <td>{{ $linkageModes !== '' ? $linkageModes : '—' }}</td>
                                 <td>{{ $partnerNames !== '' ? $partnerNames : '—' }}</td>
+                                <td>
+                                    @forelse ($onlinePartnersWithLinks as $partner)
+                                        @if ($partner->linkHref())
+                                            <a
+                                                href="{{ $partner->linkHref() }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="pa-link"
+                                                title="{{ $partner->link_url }}"
+                                            >Open link</a>
+                                        @else
+                                            <span class="pa-mini" title="{{ $partner->link_url }}">{{ $partner->link_url }}</span>
+                                        @endif
+                                        @unless ($loop->last)<br>@endunless
+                                    @empty
+                                        <span class="pa-mini">—</span>
+                                    @endforelse
+                                </td>
                                 <td>{{ $submission->submitter?->name ?? $submission->submitted_by_name ?? '—' }}</td>
                                 <td>{{ ($submission->spoc && $submission->spoc->role === 'state_staff') ? $submission->spoc->name : 'Unassigned' }}</td>
                                 <td>{{ $submission->updated_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}</td>
@@ -317,7 +339,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="pa-mini">No pending market-linkage submissions found for selected filters.</td></tr>
+                            <tr><td colspan="9" class="pa-mini">No pending market-linkage submissions found for selected filters.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
