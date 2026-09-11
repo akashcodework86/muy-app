@@ -71,6 +71,8 @@ class ProgramDeliverablesReportService
 
     /** @var array<string, int> normalized deliverable name => target */
     private array $targetsByNameNorm = [];
+    private ?array $hubPrimaryTargetDistrictIds = null;
+    private ?array $hubTargetDeliverableIds = null;
 
     /** @var array<string, int> deliverable / service code => state target (incl. svc_* rows) */
     private array $stateTargetsByLookupCode = [];
@@ -123,6 +125,8 @@ class ProgramDeliverablesReportService
         $this->viewerRole = $scope->role;
         $this->activeFiscalYear = $fiscalYear;
         $this->districtIds = $scope->effectiveDistrictIds($filter->districtId, $filter->hubId);
+        $this->hubPrimaryTargetDistrictIds = null;
+        $this->hubTargetDeliverableIds = null;
         // State-wide targets for state admin; when a hub or district is selected, use that scope's targets.
         $this->useStateTargets = $scope->usesStateTargets
             && ($filter->districtId === null || $filter->districtId <= 0)
@@ -351,8 +355,11 @@ class ProgramDeliverablesReportService
             $districtQuery->whereIn('district_id', $this->districtIds);
         }
 
-        foreach ($districtQuery->get(['deliverable_id', 'target_total']) as $row) {
+        foreach ($districtQuery->get(['deliverable_id', 'district_id', 'target_total']) as $row) {
             $id = (int) $row->deliverable_id;
+            if ($this->shouldFilterHubTargetDistrict($id, (int) $row->district_id)) {
+                continue;
+            }
             $districtFy[$id] = ($districtFy[$id] ?? 0) + (int) $row->target_total;
         }
 
@@ -540,11 +547,14 @@ class ProgramDeliverablesReportService
             $query->whereIn('month_number', array_keys($periodInfo['weights']));
         }
 
-        $rows = $query->get(['deliverable_id', 'month_number', 'target_count']);
+        $rows = $query->get(['deliverable_id', 'district_id', 'month_number', 'target_count']);
         $totals = [];
 
         foreach ($rows as $row) {
             $deliverableId = (int) $row->deliverable_id;
+            if ($this->shouldFilterHubTargetDistrict($deliverableId, (int) $row->district_id)) {
+                continue;
+            }
             $weight = $periodInfo['has_narrowing']
                 ? ($periodInfo['weights'][(int) $row->month_number] ?? 0.0)
                 : 1.0;
@@ -587,9 +597,11 @@ class ProgramDeliverablesReportService
                 ->where('fiscal_year_id', $fiscalYear->id)
                 ->whereIn('district_id', $this->districtIds)
                 ->where('target_count', '>', 0)
-                ->distinct()
+                ->get(['deliverable_id', 'district_id'])
+                ->filter(fn ($row) => ! $this->shouldFilterHubTargetDistrict((int) $row->deliverable_id, (int) $row->district_id))
                 ->pluck('deliverable_id')
                 ->map(fn ($id) => (int) $id)
+                ->unique()
                 ->all();
         }
 
@@ -598,12 +610,15 @@ class ProgramDeliverablesReportService
                 ->where('fiscal_year_id', $fiscalYear->id)
                 ->whereIn('district_id', $this->districtIds ?? [])
                 ->whereIn('month_number', array_keys($periodInfo['weights']))
-                ->selectRaw('deliverable_id, month_number, SUM(target_count) as total')
-                ->groupBy('deliverable_id', 'month_number')
+                ->selectRaw('deliverable_id, district_id, month_number, SUM(target_count) as total')
+                ->groupBy('deliverable_id', 'district_id', 'month_number')
                 ->get();
 
             foreach ($rows as $row) {
                 $deliverableId = (int) $row->deliverable_id;
+                if ($this->shouldFilterHubTargetDistrict($deliverableId, (int) $row->district_id)) {
+                    continue;
+                }
                 $weight = $periodInfo['weights'][(int) $row->month_number] ?? 0.0;
                 $weightedMonthly[$deliverableId] = ($weightedMonthly[$deliverableId] ?? 0.0)
                     + ((int) $row->total) * $weight;
@@ -1934,6 +1949,31 @@ class ProgramDeliverablesReportService
         $districtIds = $this->districtIds ?? [];
 
         return HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($districtIds) !== [];
+    }
+
+    /**
+     * Hub admins must receive only the primary district line for hub-only targets.
+     * A custom hub without a configured primary line keeps the existing fallback.
+     */
+    private function shouldFilterHubTargetDistrict(int $deliverableId, int $districtId): bool
+    {
+        if ($this->viewerRole !== 'hub_admin') {
+            return false;
+        }
+
+        $primaryDistrictIds = $this->hubPrimaryTargetDistrictIds ??= HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($this->districtIds ?? []);
+        if ($primaryDistrictIds === []) {
+            return false;
+        }
+
+        $hubTargetDeliverableIds = $this->hubTargetDeliverableIds ??= Deliverable::query()
+            ->whereIn('code', HubTargetDeliverablesSupport::deliverableCodes())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return in_array($deliverableId, $hubTargetDeliverableIds, true)
+            && ! in_array($districtId, $primaryDistrictIds, true);
     }
 
     /**
