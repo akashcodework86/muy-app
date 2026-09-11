@@ -314,16 +314,22 @@
                                 <td>{{ $partnerNames !== '' ? $partnerNames : '—' }}</td>
                                 <td>
                                     @forelse ($onlinePartnersWithLinks as $partner)
-                                        @if ($partner->linkHref())
+                                        @php
+                                            $onlineHref = $partner->linkHref();
+                                            if (! $onlineHref && preg_match('#https?://[^\\s]+#i', (string) $partner->link_url, $urlMatch)) {
+                                                $onlineHref = rtrim($urlMatch[0], '.,);');
+                                            }
+                                        @endphp
+                                        @if ($onlineHref)
                                             <a
-                                                href="{{ $partner->linkHref() }}"
+                                                href="{{ $onlineHref }}"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 class="pa-link"
                                                 title="{{ $partner->link_url }}"
-                                            >Open link</a>
+                                            >Link</a>
                                         @else
-                                            <span class="pa-mini" title="{{ $partner->link_url }}">{{ $partner->link_url }}</span>
+                                            <span class="pa-mini" title="Online link unavailable">Link</span>
                                         @endif
                                         @unless ($loop->last)<br>@endunless
                                     @empty

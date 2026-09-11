@@ -164,8 +164,8 @@ class HubPendingActionsTest extends TestCase
             'Market linkage pending (read-only)',
             'Hub A Online Linkage',
             'Hub A Offline Linkage',
-            'https://example.com/hub-a-shop',
-            'Open link',
+            'href="https://example.com/hub-a-shop"',
+            '>Link</a>',
         ] as $expected) {
             $this->assertStringContainsString($expected, $content, "Missing expected page text: {$expected}");
         }
