@@ -41,13 +41,13 @@ class OfficialMonthlyTargetsReportService
      * @param  array{weights: array<int, float>, year_fraction: float, has_narrowing: bool}  $periodInfo
      * @return array<int, int>
      */
-    public function loadDistrictScopedTargets(FiscalYear $fiscalYear, array $districtIds, array $periodInfo): array
+    public function loadDistrictScopedTargets(FiscalYear $fiscalYear, array $districtIds, array $periodInfo, ?int $hubId = null): array
     {
         if ($districtIds === [] || ! $this->tablesExist()) {
             return [];
         }
 
-        $hubTargetDistrictIds = HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($districtIds);
+        $hubTargetDistrictIds = HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($districtIds, $hubId);
         $districtTotals = $this->sumDistrictMonthly($fiscalYear, $periodInfo, $districtIds, [], $hubTargetDistrictIds);
 
         $hubIds = $hubTargetDistrictIds !== []

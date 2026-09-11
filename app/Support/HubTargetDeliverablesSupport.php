@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\District;
+use App\Models\Hub;
 
 /**
  * Hub-only deliverables on the official monthly plan (Almora + Pauri Garhwal lines).
@@ -47,15 +48,24 @@ final class HubTargetDeliverablesSupport
      * @param  list<int>  $districtIds
      * @return list<int>
      */
-    public static function filterDistrictIdsForHubTargets(array $districtIds): array
+    public static function filterDistrictIdsForHubTargets(array $districtIds, ?int $hubId = null): array
     {
         if ($districtIds === []) {
             return [];
         }
 
+        $slugs = self::primaryDistrictSlugs();
+        if ($hubId !== null && $hubId > 0) {
+            $hubSlug = Hub::query()->whereKey($hubId)->value('slug');
+            $byHub = config('program_deliverables.hub_target_primary_district_slugs_by_hub', []);
+            if (is_string($hubSlug) && is_array($byHub) && is_array($byHub[$hubSlug] ?? null)) {
+                $slugs = array_values(array_map('strval', $byHub[$hubSlug]));
+            }
+        }
+
         return District::query()
             ->whereIn('id', $districtIds)
-            ->whereIn('slug', self::primaryDistrictSlugs())
+            ->whereIn('slug', $slugs)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->values()

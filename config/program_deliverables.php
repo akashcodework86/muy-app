@@ -477,6 +477,12 @@ return [
         'pauri-garhwal',
     ],
 
+    // Each hub owns the target line for its own regional seat district.
+    'hub_target_primary_district_slugs_by_hub' => [
+        'kumaon' => ['almora'],
+        'garhwal' => ['pauri-garhwal'],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Need-based indicators (no fixed annual target on Deliverables page)

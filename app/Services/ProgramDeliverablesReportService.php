@@ -82,6 +82,7 @@ class ProgramDeliverablesReportService
 
     /** @var list<int>|null */
     private ?array $districtIds = null;
+    private ?int $scopeHubId = null;
 
     private ?Carbon $periodFrom = null;
 
@@ -125,6 +126,7 @@ class ProgramDeliverablesReportService
         $this->viewerRole = $scope->role;
         $this->activeFiscalYear = $fiscalYear;
         $this->districtIds = $scope->effectiveDistrictIds($filter->districtId, $filter->hubId);
+        $this->scopeHubId = $scope->hubId ? (int) $scope->hubId : null;
         $this->hubPrimaryTargetDistrictIds = null;
         $this->hubTargetDeliverableIds = null;
         // State-wide targets for state admin; when a hub or district is selected, use that scope's targets.
@@ -289,7 +291,7 @@ class ProgramDeliverablesReportService
             }
 
             $districtIds = $this->districtIds ?? [];
-            $targets = $this->officialMonthlyTargets->loadDistrictScopedTargets($fiscalYear, $districtIds, $periodInfo);
+            $targets = $this->officialMonthlyTargets->loadDistrictScopedTargets($fiscalYear, $districtIds, $periodInfo, $this->scopeHubId);
             $this->buildTargetIndexesFromTotals($targets);
 
             return $targets;
@@ -1948,7 +1950,7 @@ class ProgramDeliverablesReportService
     {
         $districtIds = $this->districtIds ?? [];
 
-        return HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($districtIds) !== [];
+        return HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($districtIds, $this->scopeHubId) !== [];
     }
 
     /**
@@ -1961,7 +1963,7 @@ class ProgramDeliverablesReportService
             return false;
         }
 
-        $primaryDistrictIds = $this->hubPrimaryTargetDistrictIds ??= HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($this->districtIds ?? []);
+        $primaryDistrictIds = $this->hubPrimaryTargetDistrictIds ??= HubTargetDeliverablesSupport::filterDistrictIdsForHubTargets($this->districtIds ?? [], $this->scopeHubId);
         if ($primaryDistrictIds === []) {
             return false;
         }
