@@ -5,7 +5,6 @@ use App\Http\Middleware\EnsureStaffDailyCheckInUser;
 use App\Http\Middleware\EnsureDistrictStaffPhase3AttendanceNavVisible;
 use App\Http\Middleware\EnsureHubAdmin;
 use App\Http\Middleware\EnsureIncubatee;
-use App\Http\Middleware\EnsureIncubateeApi;
 use App\Http\Middleware\EnsurePrimaryStateAdmin;
 use App\Http\Middleware\EnsureStateAdmin;
 use App\Http\Middleware\EnsureStateStaff;
@@ -23,7 +22,6 @@ use Symfony\Component\HttpFoundation\Response;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
-        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -39,7 +37,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'district_staff' => EnsureDistrictStaff::class,
             'staff_phase3_attendance_nav' => EnsureDistrictStaffPhase3AttendanceNavVisible::class,
             'incubatee' => EnsureIncubatee::class,
-            'incubatee_api' => EnsureIncubateeApi::class,
             'staff_daily_check_in' => EnsureStaffDailyCheckInUser::class,
             'active' => EnsureUserIsActive::class,
             'training_package_month_plan_manager' => EnsureTrainingPackageMonthPlanManager::class,
