@@ -59,4 +59,9 @@ class CfaSubmission extends Model
     {
         return $this->hasMany(ServiceCase::class, 'cfa_submission_id')->orderByDesc('created_at');
     }
+
+    public function bills(): HasMany
+    {
+        return $this->hasMany(IncubateeBill::class, 'cfa_submission_id')->orderByDesc('bill_date')->orderByDesc('id');
+    }
 }

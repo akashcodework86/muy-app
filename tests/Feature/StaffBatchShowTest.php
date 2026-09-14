@@ -33,9 +33,11 @@ class StaffBatchShowTest extends TestCase
             ->get(route('staff.batches.show', $batch))
             ->assertOk()
             ->assertSee('View')
+            ->assertSee('Add bill')
             ->assertSee('Filter by stage', false)
             ->assertSee('Filter by business category', false)
-            ->assertSee(route('staff.applications.show', $cfaId), false);
+            ->assertSee(route('staff.applications.show', $cfaId), false)
+            ->assertSee(route('staff.batches.members.bills', [$batch, $cfaId]), false);
     }
 
     public function test_district_staff_sees_add_intervention_when_service_module_enabled(): void

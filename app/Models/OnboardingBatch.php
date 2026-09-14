@@ -64,6 +64,11 @@ class OnboardingBatch extends Model
         return $this->hasMany(OnboardingBatchDocument::class);
     }
 
+    public function bills(): HasMany
+    {
+        return $this->hasMany(IncubateeBill::class, 'onboarding_batch_id');
+    }
+
     public function editRequests(): HasMany
     {
         return $this->hasMany(OnboardingBatchEditRequest::class, 'onboarding_batch_id');

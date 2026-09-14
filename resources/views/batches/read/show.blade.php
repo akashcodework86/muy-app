@@ -499,6 +499,7 @@
                             @php $memberCfaId = (int) ($m['id'] ?? 0); @endphp
                             @if (auth()->user()->role === 'district_staff' && $memberCfaId > 0)
                                 <a href="{{ route('staff.applications.show', $memberCfaId) }}" style="display:inline-block;padding:0.35rem 0.6rem;margin-right:0.35rem;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;">View</a>
+                                <a href="{{ route('staff.batches.members.bills', [$batch, $memberCfaId]) }}" style="display:inline-block;padding:0.35rem 0.6rem;margin-right:0.35rem;background:#1d4ed8;color:#fff;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;">Add bill</a>
                                 @if ($serviceModuleOn ?? false)
                                     <a href="{{ route('staff.services.create', ['cfa_submission_id' => $memberCfaId]) }}" style="display:inline-block;padding:0.35rem 0.6rem;background:#0f766e;color:#fff;border-radius:6px;font-size:0.78rem;font-weight:600;text-decoration:none;">Add intervention</a>
                                 @endif

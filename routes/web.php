@@ -71,6 +71,7 @@ use App\Http\Controllers\Hub\HubBatchController;
 use App\Http\Controllers\Hub\HubOnboardingInsightController;
 use App\Http\Controllers\Hub\HubPendingActionsController;
 use App\Http\Controllers\Hub\HubStaffPerformanceController;
+use App\Http\Controllers\IncubateeBillDashboardController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
 use App\Http\Controllers\Incubatee\MentorshipRequestController;
 use App\Http\Controllers\LakhpatiTechnicalTrainingController;
@@ -95,6 +96,7 @@ use App\Http\Controllers\Public\PublicCfaWalkInController;
 use App\Http\Controllers\SocialMediaPostController;
 use App\Http\Controllers\SocialMediaPostLandingController;
 use App\Http\Controllers\Spoc\StateTaskController as SpocStateTaskController;
+use App\Http\Controllers\Staff\BatchMemberBillController;
 use App\Http\Controllers\Staff\BlockWorkshopController;
 use App\Http\Controllers\Staff\FieldCoordinatorAttendanceController;
 use App\Http\Controllers\Staff\IncubateeServiceCaseController;
@@ -568,6 +570,12 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('batches.legacy.show');
         Route::get('batches/{batch}', [BatchReadOnlyController::class, 'show'])->name('batches.show');
         Route::get('batches/{batch}/onboarding-letter', [BatchReadOnlyController::class, 'downloadOnboardingLetter'])->name('batches.onboarding-letter');
+        Route::get('batches/{batch}/members/{cfa_submission}/bills', [BatchMemberBillController::class, 'index'])->name('batches.members.bills');
+        Route::post('batches/{batch}/members/{cfa_submission}/bills', [BatchMemberBillController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('batches.members.bills.store');
+        Route::get('batches/{batch}/members/{cfa_submission}/bills/{bill}/document', [BatchMemberBillController::class, 'document'])
+            ->name('batches.members.bills.document');
 
         /** Service delivery (maker–checker) — gated by AppSettingsService in controller + topbar */
         Route::get('services', [StaffServiceCaseController::class, 'index'])->name('services.index');
@@ -672,6 +680,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
         Route::get('onboarded-2025-26', [Phase2OnboardedApplicantController::class, 'index'])->name('onboarded-2025-26.index');
         Route::get('onboarded-2025-26/export', [Phase2OnboardedApplicantController::class, 'export'])->name('onboarded-2025-26.export');
+        Route::get('bills/dashboard', [IncubateeBillDashboardController::class, 'dashboard'])->name('bills.dashboard');
+        Route::get('bills/export', [IncubateeBillDashboardController::class, 'export'])
+            ->middleware('throttle:15,1')
+            ->name('bills.export');
+        Route::get('bills/{bill}/document', [IncubateeBillDashboardController::class, 'document'])->name('bills.document');
         Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
         Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
         Route::get('field-coordinator-reports', [FieldCoordinatorReportController::class, 'index'])->name('field-coordinator-reports.index');
@@ -1435,6 +1448,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
             ->name('market-linkages.document');
 
+        Route::get('bills/dashboard', [IncubateeBillDashboardController::class, 'dashboard'])->name('bills.dashboard');
+        Route::get('bills/export', [IncubateeBillDashboardController::class, 'export'])
+            ->middleware('throttle:15,1')
+            ->name('bills.export');
+        Route::get('bills/{bill}/document', [IncubateeBillDashboardController::class, 'document'])->name('bills.document');
+
         Route::get('community-org-outreach/dashboard', [CommunityOrganizationOutreachController::class, 'dashboard'])->name('community-org-outreach.dashboard');
         Route::get('community-org-outreach/export', [CommunityOrganizationOutreachController::class, 'export'])->name('community-org-outreach.export');
         Route::get('community-org-outreach/{communityOrgOutreach}', [CommunityOrganizationOutreachController::class, 'show'])->name('community-org-outreach.show');
@@ -1561,6 +1580,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('market-linkages/{market_linkage}', [MarketLinkageController::class, 'show'])->name('market-linkages.show');
         Route::get('market-linkages/{market_linkage}/partners/{partner}/document', [MarketLinkageController::class, 'downloadDocument'])
             ->name('market-linkages.document');
+        Route::get('bills/dashboard', [IncubateeBillDashboardController::class, 'dashboard'])->name('bills.dashboard');
+        Route::get('bills/export', [IncubateeBillDashboardController::class, 'export'])
+            ->middleware('throttle:15,1')
+            ->name('bills.export');
+        Route::get('bills/{bill}/document', [IncubateeBillDashboardController::class, 'document'])->name('bills.document');
         Route::post('batches/api', [HubBatchController::class, 'api'])->name('batches.api');
         Route::post('batches/upload-cdo', [HubBatchController::class, 'uploadCdo'])->name('batches.upload-cdo');
         Route::get('cfa-applications/{cfa_submission}', [HubBatchController::class, 'showCfaSubmission'])->name('batches.cfa.show');
