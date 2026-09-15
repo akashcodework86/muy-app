@@ -572,8 +572,39 @@
                 <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if ($serviceGroupActive) is-active @endif">
                     {!! $i('catalog') !!}<span class="admin-topbar__link-text">Service</span>
                 </summary>
-                <div class="admin-topbar__dropdown-panel" role="menu">
+                <div class="admin-topbar__dropdown-panel admin-topbar__dropdown-panel--service" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Service module</p>
+                    <div
+                        id="stateAdminServiceSearch"
+                        class="admin-topbar__service-search"
+                        data-service-search
+                    >
+                        <label class="admin-topbar__service-search-field">
+                            <span class="admin-topbar__service-search-ico" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+                            </span>
+                            <input
+                                type="search"
+                                id="stateAdminServiceSearchInput"
+                                placeholder="Search services…"
+                                autocomplete="off"
+                                spellcheck="false"
+                                role="combobox"
+                                aria-autocomplete="list"
+                                aria-expanded="false"
+                                aria-controls="stateAdminServiceSearchResults"
+                                aria-label="Search services"
+                            >
+                        </label>
+                        <div
+                            id="stateAdminServiceSearchResults"
+                            class="admin-topbar__service-search-results"
+                            role="listbox"
+                            aria-label="Matching services"
+                            hidden
+                        ></div>
+                        <script type="application/json" id="stateAdminServiceSearchItems">@json(\App\Support\StateAdminServiceNavIndex::forUser($u))</script>
+                    </div>
                     <a href="{{ route('admin.service-catalog.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-catalog') is-active @endif" role="menuitem">
                         {!! $i('catalog') !!}<span>Service catalog</span>
                     </a>
@@ -1534,6 +1565,172 @@
         }
     }
 
+    function initStateAdminServiceSearch() {
+        var root = document.getElementById('stateAdminServiceSearch');
+        var input = document.getElementById('stateAdminServiceSearchInput');
+        var list = document.getElementById('stateAdminServiceSearchResults');
+        var dataNode = document.getElementById('stateAdminServiceSearchItems');
+        if (!root || !input || !list || !dataNode) return;
+
+        var items = [];
+        try {
+            items = JSON.parse(dataNode.textContent || '[]');
+        } catch (e) {
+            items = [];
+        }
+        if (!Array.isArray(items)) items = [];
+
+        var activeIndex = -1;
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, function (ch) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+            });
+        }
+
+        function highlight(text, query) {
+            var src = String(text);
+            if (!query) return escapeHtml(src);
+            var lower = src.toLowerCase();
+            var at = lower.indexOf(query);
+            if (at < 0) return escapeHtml(src);
+            return escapeHtml(src.slice(0, at))
+                + '<mark>' + escapeHtml(src.slice(at, at + query.length)) + '</mark>'
+                + escapeHtml(src.slice(at + query.length));
+        }
+
+        function score(item, query) {
+            var label = String(item.label || '').toLowerCase();
+            if (label.indexOf(query) === 0) return 0;
+            if (label.indexOf(query) !== -1) return 1;
+            return 2;
+        }
+
+        function matches(item, query) {
+            var hay = String(item.keywords || (item.label + ' ' + item.group)).toLowerCase();
+            var tokens = query.split(/\s+/).filter(Boolean);
+            return tokens.every(function (token) {
+                return hay.indexOf(token) !== -1;
+            });
+        }
+
+        function setExpanded(open) {
+            input.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        function render() {
+            var query = String(input.value || '').trim().toLowerCase();
+            list.innerHTML = '';
+            activeIndex = -1;
+
+            if (!query) {
+                list.hidden = true;
+                setExpanded(false);
+                return;
+            }
+
+            var visible = [];
+            items.forEach(function (item) {
+                if (matches(item, query)) {
+                    visible.push({ item: item, score: score(item, query) });
+                }
+            });
+            visible.sort(function (a, b) {
+                if (a.score !== b.score) return a.score - b.score;
+                return String(a.item.label).localeCompare(String(b.item.label));
+            });
+
+            var shown = visible.slice(0, 15);
+            if (!shown.length) {
+                list.innerHTML = '<p class="admin-topbar__service-search-empty">No matching services</p>';
+                list.hidden = false;
+                setExpanded(true);
+                return;
+            }
+
+            shown.forEach(function (row, index) {
+                var item = row.item;
+                var link = document.createElement('a');
+                link.href = item.url;
+                link.className = 'admin-topbar__service-search-hit';
+                link.setAttribute('role', 'option');
+                link.id = 'stateAdminServiceSearchOption-' + index;
+                var subtitle = item.group || '';
+                if (item.kind === 'catalog') {
+                    subtitle = subtitle ? subtitle + ' · service cases' : 'service cases';
+                }
+                link.innerHTML = '<span class="admin-topbar__service-search-hit-label">'
+                    + highlight(item.label, query)
+                    + '</span><small>' + escapeHtml(subtitle) + '</small>';
+                list.appendChild(link);
+            });
+            list.hidden = false;
+            setExpanded(true);
+        }
+
+        function markActive(next) {
+            var hits = list.querySelectorAll('.admin-topbar__service-search-hit');
+            if (!hits.length) {
+                activeIndex = -1;
+                input.removeAttribute('aria-activedescendant');
+                return;
+            }
+            if (next < 0) next = hits.length - 1;
+            if (next >= hits.length) next = 0;
+            activeIndex = next;
+            Array.prototype.forEach.call(hits, function (hit, i) {
+                hit.classList.toggle('is-active', i === activeIndex);
+            });
+            input.setAttribute('aria-activedescendant', hits[activeIndex].id);
+            hits[activeIndex].scrollIntoView({ block: 'nearest' });
+        }
+
+        function goActive(event) {
+            var hits = list.querySelectorAll('.admin-topbar__service-search-hit');
+            if (!hits.length) return;
+            var target = hits[activeIndex >= 0 ? activeIndex : 0];
+            if (!target) return;
+            event.preventDefault();
+            window.location.href = target.getAttribute('href');
+        }
+
+        input.addEventListener('input', render);
+        input.addEventListener('keydown', function (event) {
+            if (list.hidden) {
+                if (event.key === 'Escape') {
+                    input.value = '';
+                    render();
+                }
+                return;
+            }
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                markActive(activeIndex + 1);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                markActive(activeIndex - 1);
+            } else if (event.key === 'Enter') {
+                goActive(event);
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                input.value = '';
+                render();
+            }
+        });
+
+        var details = root.closest('details');
+        if (details) {
+            details.addEventListener('toggle', function () {
+                if (details.open) {
+                    window.setTimeout(function () { input.focus(); }, 0);
+                } else {
+                    input.value = '';
+                    render();
+                }
+            });
+        }
+    }
+
     function initMobileMenu() {
         var hamburger = document.getElementById('muyMobileMenuToggle');
         if (!hamburger) return;
@@ -1551,10 +1748,12 @@
         document.addEventListener('DOMContentLoaded', function () {
             initTopbarDropdowns();
             initMobileMenu();
+            initStateAdminServiceSearch();
         });
     } else {
         initTopbarDropdowns();
         initMobileMenu();
+        initStateAdminServiceSearch();
     }
 }());
 </script>

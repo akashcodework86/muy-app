@@ -254,6 +254,97 @@
         color: #64748b;
         font-weight: 700;
     }
+    .admin-topbar__dropdown-panel--service {
+        min-width: 20rem;
+        max-width: min(24rem, calc(100vw - 1.5rem));
+    }
+    .admin-topbar__service-search {
+        position: relative;
+        margin: 0 0 0.4rem;
+        padding: 0 0.15rem 0.4rem;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+    }
+    .admin-topbar__service-search-field {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin: 0;
+        padding: 0.38rem 0.6rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #f8fafc;
+        cursor: text;
+    }
+    .admin-topbar__service-search-field:focus-within {
+        border-color: rgba(20, 184, 166, 0.55);
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+    }
+    .admin-topbar__service-search-ico {
+        display: inline-flex;
+        width: 0.95rem;
+        height: 0.95rem;
+        color: #64748b;
+        flex-shrink: 0;
+    }
+    .admin-topbar__service-search-ico svg {
+        width: 100%;
+        height: 100%;
+    }
+    .admin-topbar__service-search-field input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        background: transparent;
+        font-size: 0.82rem;
+        line-height: 1.3;
+        color: #0f172a;
+        outline: none;
+    }
+    .admin-topbar__service-search-field input::placeholder {
+        color: #94a3b8;
+    }
+    .admin-topbar__service-search-results {
+        margin-top: 0.3rem;
+        max-height: 16rem;
+        overflow-y: auto;
+    }
+    .admin-topbar__service-search-hit {
+        display: flex;
+        flex-direction: column;
+        gap: 0.08rem;
+        padding: 0.45rem 0.7rem;
+        border-radius: 10px;
+        text-decoration: none;
+        color: #334155;
+    }
+    .admin-topbar__service-search-hit:hover,
+    .admin-topbar__service-search-hit.is-active {
+        background: rgba(20, 184, 166, 0.12);
+        color: #0f766e;
+    }
+    .admin-topbar__service-search-hit-label {
+        font-size: 0.84rem;
+        font-weight: 600;
+        line-height: 1.25;
+    }
+    .admin-topbar__service-search-hit small {
+        font-size: 0.68rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+    .admin-topbar__service-search-hit mark {
+        background: rgba(250, 204, 21, 0.45);
+        color: inherit;
+        padding: 0;
+        font-weight: 700;
+    }
+    .admin-topbar__service-search-empty {
+        margin: 0;
+        padding: 0.45rem 0.7rem;
+        font-size: 0.8rem;
+        color: #64748b;
+    }
     .admin-topbar__dropdown-hr {
         border: none;
         border-top: 1px solid #e2e8f0;
