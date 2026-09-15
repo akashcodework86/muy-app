@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\MediaGalleryController;
 use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\MonthlyProgressReportController;
+use App\Http\Controllers\Admin\ReviewPptGeneratorController;
 use App\Http\Controllers\Admin\OfficialDistrictMonthlyTargetsController;
 use App\Http\Controllers\Admin\OfficialStateMonthlyTargetsController;
 use App\Http\Controllers\Admin\OnboardedApplicantController;
@@ -1102,6 +1103,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
         Route::get('mpr-generator', [MonthlyProgressReportController::class, 'index'])->name('mpr.index');
+        Route::get('review-ppt-generator', [ReviewPptGeneratorController::class, 'index'])->name('review-ppt.index');
+        Route::get('review-ppt-generator/download', [ReviewPptGeneratorController::class, 'download'])->name('review-ppt.download');
         Route::get('mpr-generator/install-word-engine', [MonthlyProgressReportController::class, 'installWordEngine'])->name('mpr.install-word-engine');
         Route::get('mpr-generator/download', [MonthlyProgressReportController::class, 'download'])->name('mpr.download');
         Route::patch('deliverables/row-metadata', [DeliverablesReportController::class, 'updateRowMetadata'])->name('deliverables.row-metadata.update');
