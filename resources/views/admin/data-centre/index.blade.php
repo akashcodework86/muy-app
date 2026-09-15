@@ -151,6 +151,7 @@
 .dc-analysis__row:last-child { border-bottom:none; }
 .dc-analysis__row strong { font-weight:800; color:#991b1b; font-variant-numeric:tabular-nums; text-align:right; }
 .dc-analysis__row span.dc-analysis__pct { font-weight:700; color:#991b1b; font-variant-numeric:tabular-nums; text-align:right; min-width:3rem; }
+.dc-others{margin:.55rem 0 .75rem;border:1px solid #dbe4f0;border-radius:10px;background:#f8fafc;overflow:hidden}.dc-others summary{cursor:pointer;padding:.65rem .75rem;color:#1d4ed8;font-size:.8rem;font-weight:800}.dc-others__body{max-height:340px;overflow:auto;padding:0 .75rem .65rem;background:#fff}.dc-others__body .dc-analysis__row{font-size:.77rem}.dc-others__hint{padding:.45rem 0;color:#64748b;font-size:.72rem}
 .dc-analysis__stages { margin:.35rem 0 .65rem; padding:.5rem .65rem; background:#fff7ed; border:1px solid #fed7aa; border-radius:.5rem; }
 .dc-analysis__stages .dc-analysis__row { border-bottom-color:#ffedd5; }
 .dc-analysis__stages .dc-analysis__row:last-child { border-bottom:none; }
@@ -502,6 +503,18 @@
                             <strong>{{ number_format($row['count']) }}</strong>
                             <span class="dc-analysis__pct">{{ number_format($row['pct'], 1) }}%</span>
                         </div>
+                        @if (in_array(strtolower(trim($row['sector'])), ['other', 'others'], true))
+                            <details class="dc-others">
+                                <summary>View Others breakup ({{ number_format($row['count']) }})</summary>
+                                <div class="dc-others__body">
+                                    <div class="dc-others__hint">Product / enterprise details recorded under Others. {{ count($analysis['other_breakdown'] ?? []) }} distinct descriptions.</div>
+                                    @foreach ($analysis['other_breakdown'] ?? [] as $other)
+                                        <div class="dc-analysis__row"><span>{{ $other['product'] }}</span><strong>{{ number_format($other['count']) }}</strong></div>
+                                    @endforeach
+                                    <div class="dc-analysis__row"><strong>Total</strong><strong>{{ number_format(array_sum(array_column($analysis['other_breakdown'] ?? [], 'count'))) }}</strong></div>
+                                </div>
+                            </details>
+                        @endif
                     @endforeach
                     <p class="dc-note" style="margin:.5rem 0 0;padding:0;font-size:.68rem;">Sector counts sum to {{ number_format($analysis['total']) }}.</p>
                 </div>

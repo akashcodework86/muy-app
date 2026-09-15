@@ -85,7 +85,7 @@ class ProgramDataCentreService
         $dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
         $filter = $filter ?? DataCentreFilter::empty();
         $this->prepareContext($dataScope, $viewMode, $filter);
-        $cacheKey = 'data_centre_build_v11_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
+        $cacheKey = 'data_centre_build_v12_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode, $dataScope, $filter) {
             $this->prepareContext($dataScope, $viewMode, $filter);
@@ -143,7 +143,7 @@ class ProgramDataCentreService
     {
         foreach (['all', 'rbiphase3'] as $viewMode) {
             foreach (['all', 'onboarded'] as $dataScope) {
-                Cache::forget('data_centre_build_v11_'.$viewMode.'_'.$dataScope.'_none');
+                Cache::forget('data_centre_build_v12_'.$viewMode.'_'.$dataScope.'_none');
             }
         }
     }
@@ -166,6 +166,7 @@ class ProgramDataCentreService
                 'total' => 0,
                 'entrepreneur' => [],
                 'sectors' => [],
+                'other_breakdown' => [],
                 'business_stats' => [],
                 'income_slabs' => [],
                 'accuracy_checks' => [],
@@ -207,6 +208,27 @@ class ProgramDataCentreService
                 'pct' => $pct($count),
             ];
         }
+
+        // Use the very same filtered/onboarded query and sector expression as the
+        // headline count, so the expanded product counts reconcile to "Others".
+        $product = "NULLIF(NULLIF(TRIM({$this->phase3PayloadExpr('$.product')}), ''), 'null')";
+        $specifiedOther = "NULLIF(NULLIF(TRIM({$this->phase3PayloadExpr('$.other_product')}), ''), 'null')";
+        $otherProduct = "CASE WHEN LOWER(TRIM(COALESCE({$product}, ''))) IN ('other', 'others')
+            THEN {$specifiedOther} ELSE {$product} END";
+        if ($this->phase3LegacyEnrichmentEnabled()) {
+            $otherProduct = "COALESCE({$otherProduct}, NULLIF(TRIM(leg_a.other_product), ''), NULLIF(TRIM(leg_a.product), ''))";
+        }
+        $otherProduct = "COALESCE({$otherProduct}, 'Not specified')";
+        $otherProductKey = "LOWER(TRIM({$otherProduct}))";
+        $othersSector = collect($sectors)->first(fn ($row) => in_array(strtolower(trim($row['sector'])), ['other', 'others'], true));
+        $otherBreakdown = $othersSector ? (clone $this->phase3AnalysisQuery())
+            ->whereRaw("{$sectorExpr} = ?", [$othersSector['sector']])
+            ->selectRaw("MIN({$otherProduct}) as product, COUNT(*) as count")
+            ->groupByRaw($otherProductKey)
+            ->orderByDesc('count')
+            ->get()
+            ->map(fn ($row) => ['product' => (string) $row->product, 'count' => (int) $row->count])
+            ->all() : [];
 
         $loanCounts = $this->phase3YesNoFieldCounts('loan_taken');
         $registeredCounts = $this->phase3YesNoFieldCounts('is_registered');
@@ -263,6 +285,7 @@ class ProgramDataCentreService
             'full_total' => $this->filter->isActive() ? $this->phase3CountUnfiltered() : null,
             'entrepreneur' => $entrepreneur,
             'sectors' => $sectors,
+            'other_breakdown' => $otherBreakdown,
             'business_stats' => [
                 ['label' => 'No Credit History', 'count' => $noCredit, 'pct' => $pct($noCredit)],
                 ['label' => 'Businesses are unorganized', 'count' => $unorganized, 'pct' => $pct($unorganized)],
