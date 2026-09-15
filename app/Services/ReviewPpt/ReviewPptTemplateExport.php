@@ -2,7 +2,6 @@
 
 namespace App\Services\ReviewPpt;
 
-use Carbon\Carbon;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
@@ -16,7 +15,7 @@ class ReviewPptTemplateExport
     public function __construct(private readonly ?string $templatePath = null) {}
 
     /** @param array{districts: array<string, string>, targets: array<string, array<string, int>>, achievements: array<string, array<string, int>>} $data */
-    public function write(array $data, Carbon $asOf, int $quarter, string $outputPath): void
+    public function write(array $data, ReviewPptSelection $selection, string $outputPath): void
     {
         $template = $this->templatePath ?? resource_path('templates/review-ppt/muy-review-2026.pptx');
         if (! is_file($template)) {
@@ -28,6 +27,10 @@ class ReviewPptTemplateExport
             throw new RuntimeException('Could not open the review PowerPoint.');
         }
 
+        $hasKumaon = count(array_intersect($selection->districtSlugs, config('review_ppt.kumaon', []))) > 0;
+        $hasGarhwal = count(array_intersect($selection->districtSlugs, config('review_ppt.garhwal', []))) > 0;
+        $excludedSlides = $hasKumaon && $hasGarhwal ? [] : ($hasKumaon ? [4, 5] : [2, 3]);
+
         try {
             for ($i = 0; $i < $source->numFiles; $i++) {
                 $name = $source->getNameIndex($i);
@@ -35,8 +38,16 @@ class ReviewPptTemplateExport
                 if ($name === false || $content === false) {
                     throw new RuntimeException('Could not read the PowerPoint template.');
                 }
+                if (preg_match('~^ppt/slides/(?:_rels/)?slide([1-5])\.xml(?:\.rels)?$~', $name, $match)
+                    && in_array((int) $match[1], $excludedSlides, true)) {
+                    continue;
+                }
                 if (preg_match('~^ppt/slides/slide([1-5])\.xml$~', $name, $match)) {
-                    $content = $this->updateSlide((int) $match[1], $content, $data, $asOf, $quarter);
+                    $content = $this->updateSlide((int) $match[1], $content, $data, $selection);
+                } elseif ($excludedSlides !== [] && in_array($name, ['ppt/presentation.xml', 'ppt/_rels/presentation.xml.rels', '[Content_Types].xml'], true)) {
+                    $content = $this->removeSlideReferences($name, $content, $excludedSlides);
+                } elseif ($name === 'docProps/app.xml' && $excludedSlides !== []) {
+                    $content = preg_replace('~<Slides>\d+</Slides>~', '<Slides>'.(5 - count($excludedSlides)).'</Slides>', $content);
                 }
                 $destination->addFromString($name, $content);
             }
@@ -47,7 +58,7 @@ class ReviewPptTemplateExport
     }
 
     /** @param array<string, mixed> $data */
-    private function updateSlide(int $slide, string $xml, array $data, Carbon $asOf, int $quarter): string
+    private function updateSlide(int $slide, string $xml, array $data, ReviewPptSelection $selection): string
     {
         $dom = new DOMDocument('1.0', 'UTF-8');
         if (! $dom->loadXML($xml, LIBXML_NONET)) {
@@ -62,7 +73,11 @@ class ReviewPptTemplateExport
 
         foreach ($xp->query('//a:t') as $textNode) {
             if (str_starts_with(trim((string) $textNode->textContent), 'Target Q2 vs Achievement')) {
-                $textNode->nodeValue = 'Target Q'.$quarter.' vs Achievement ('.$asOf->format('d-m-Y').')';
+                $textNode->nodeValue = 'Target vs Achievement: '.$selection->slideLabel();
+            } elseif (count($selection->districtSlugs) === 1 && $slide > 1) {
+                $districtName = $data['districts'][$selection->districtSlugs[0]];
+                $textNode->nodeValue = str_replace(['(Kumaon Region)', '(Garhwal Region)'],
+                    '('.$districtName.')', (string) $textNode->textContent);
             }
         }
 
@@ -73,6 +88,9 @@ class ReviewPptTemplateExport
             $region = in_array($slide, [2, 3], true) ? 'kumaon' : 'garhwal';
             $indicators = in_array($slide, [2, 4], true) ? 'key_indicators' : 'non_key_indicators';
             $this->updateRegionTable($xp, $tables[0], config('review_ppt.'.$region), config('review_ppt.'.$indicators), $data);
+            if (count($selection->districtSlugs) === 1) {
+                $this->retainDistrictColumns($xp, $tables[0], config('review_ppt.'.$region), $selection->districtSlugs);
+            }
         }
 
         return $dom->saveXML();
@@ -116,6 +134,9 @@ class ReviewPptTemplateExport
         $this->setCellText($xp, $totalCells[4], $this->percent($totalTarget, $totalAchievement));
         $totalTone = $this->tone($totalTarget, $totalAchievement);
         $this->setFill($xp, $totalCells[4], $totalTone === 'green' ? 'state-green' : $totalTone);
+        for ($index = 13; $index > count($slugs); $index--) {
+            $table->removeChild($rows[$index]);
+        }
     }
 
     /** @param list<string> $slugs @param list<string> $serials @param array<string, mixed> $data */
@@ -145,6 +166,73 @@ class ReviewPptTemplateExport
                 $this->setFill($xp, $achievementCell, $needBased ? 'white' : $this->tone($target, $achievement));
             }
         }
+    }
+
+    /** Narrow the supplied editable regional table to one district without changing its branding or row order. */
+    private function retainDistrictColumns(DOMXPath $xp, DOMElement $table, array $regionSlugs, array $selectedSlugs): void
+    {
+        $rows = $this->tableRows($xp, $table);
+        $grid = iterator_to_array($xp->query('./a:tblGrid/a:gridCol', $table));
+        $selectedIndex = array_search($selectedSlugs[0], $regionSlugs, true);
+        if ($selectedIndex === false || count($grid) !== count($regionSlugs) * 2 + 2) {
+            throw new RuntimeException('Selected district does not match its regional review table.');
+        }
+        $originalWidth = array_sum(array_map(fn (DOMElement $col) => (int) $col->getAttribute('w'), $grid));
+        for ($districtIndex = count($regionSlugs) - 1; $districtIndex >= 0; $districtIndex--) {
+            if ($districtIndex === $selectedIndex) {
+                continue;
+            }
+            foreach ($rows as $row) {
+                $cells = $this->rowCells($xp, $row);
+                $row->removeChild($cells[$districtIndex * 2 + 3]);
+                $row->removeChild($cells[$districtIndex * 2 + 2]);
+            }
+            $grid[$districtIndex * 2 + 3]->parentNode->removeChild($grid[$districtIndex * 2 + 3]);
+            $grid[$districtIndex * 2 + 2]->parentNode->removeChild($grid[$districtIndex * 2 + 2]);
+        }
+        $remaining = iterator_to_array($xp->query('./a:tblGrid/a:gridCol', $table));
+        $districtWidth = (int) floor(($originalWidth - (int) $remaining[0]->getAttribute('w')
+            - (int) $remaining[1]->getAttribute('w')) / 2);
+        $remaining[2]->setAttribute('w', (string) $districtWidth);
+        $remaining[3]->setAttribute('w', (string) ($originalWidth - (int) $remaining[0]->getAttribute('w')
+            - (int) $remaining[1]->getAttribute('w') - $districtWidth));
+    }
+
+    /** Remove the unused regional slides from the PPTX package manifest and presentation order. */
+    private function removeSlideReferences(string $name, string $xml, array $excludedSlides): string
+    {
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        if (! $dom->loadXML($xml, LIBXML_NONET)) {
+            throw new RuntimeException('Invalid PowerPoint package manifest.');
+        }
+        $xp = new DOMXPath($dom);
+        if ($name === 'ppt/presentation.xml') {
+            $xp->registerNamespace('p', 'http://schemas.openxmlformats.org/presentationml/2006/main');
+            $xp->registerNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+            foreach (iterator_to_array($xp->query('//p:sldIdLst/p:sldId')) as $index => $node) {
+                if (in_array($index + 1, $excludedSlides, true)) {
+                    $node->parentNode->removeChild($node);
+                }
+            }
+        } elseif ($name === 'ppt/_rels/presentation.xml.rels') {
+            $xp->registerNamespace('rel', 'http://schemas.openxmlformats.org/package/2006/relationships');
+            foreach (iterator_to_array($xp->query('//rel:Relationship')) as $node) {
+                if (preg_match('~^slides/slide([1-5])\.xml$~', $node->getAttribute('Target'), $match)
+                    && in_array((int) $match[1], $excludedSlides, true)) {
+                    $node->parentNode->removeChild($node);
+                }
+            }
+        } else {
+            $xp->registerNamespace('ct', 'http://schemas.openxmlformats.org/package/2006/content-types');
+            foreach (iterator_to_array($xp->query('//ct:Override')) as $node) {
+                if (preg_match('~^/ppt/slides/slide([1-5])\.xml$~', $node->getAttribute('PartName'), $match)
+                    && in_array((int) $match[1], $excludedSlides, true)) {
+                    $node->parentNode->removeChild($node);
+                }
+            }
+        }
+
+        return $dom->saveXML();
     }
 
     /** @return list<DOMElement> */

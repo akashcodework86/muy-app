@@ -9,7 +9,6 @@ use App\Models\OfficialDistrictMonthlyTarget;
 use App\Services\Deliverables\ProgramDeliverablesFilter;
 use App\Services\Deliverables\ProgramDeliverablesScope;
 use App\Services\ProgramDeliverablesReportService;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
@@ -18,12 +17,12 @@ class ReviewPptDataService
     public function __construct(private readonly ProgramDeliverablesReportService $reportService) {}
 
     /** @return array{districts: array<string, string>, targets: array<string, array<string, int>>, achievements: array<string, array<string, int>>} */
-    public function build(FiscalYear $fiscalYear, Carbon $asOf, int $targetThroughMonth): array
+    public function build(FiscalYear $fiscalYear, ReviewPptSelection $selection): array
     {
-        $slugs = array_merge(config('review_ppt.kumaon', []), config('review_ppt.garhwal', []));
+        $slugs = $selection->districtSlugs;
         $districts = District::query()->whereIn('slug', $slugs)->get()->keyBy('slug');
-        if ($districts->count() !== 13) {
-            throw new RuntimeException('The review deck requires all 13 Uttarakhand districts.');
+        if ($districts->count() !== count($slugs)) {
+            throw new RuntimeException('One or more selected Uttarakhand districts are missing.');
         }
 
         $blocks = collect(config('official_district_monthly_targets.district_blocks', []))
@@ -45,8 +44,8 @@ class ReviewPptDataService
                 districtId: $districtId,
                 month: null,
                 year: null,
-                dateFrom: $fiscalYear->starts_on->toDateString(),
-                dateTo: $asOf->toDateString(),
+                dateFrom: $selection->achievementFrom->toDateString(),
+                dateTo: $selection->periodTo->toDateString(),
             );
             $report = $this->reportService->build($filter, $scope, attachCompanionColumns: false);
             $reportRows = collect($report['rows'])->keyBy('serial');
@@ -55,7 +54,7 @@ class ReviewPptDataService
                 $block = $blocks->get($serial);
                 $months = is_array($block['districts'][$slug] ?? null) ? array_values($block['districts'][$slug]) : [];
                 $target = 0;
-                for ($month = 1; $month <= $targetThroughMonth; $month++) {
+                for ($month = $selection->targetFromMonth; $month <= $selection->targetToMonth; $month++) {
                     $target += $saved[$serial][$districtId][$month]
                         ?? max(0, (int) ($months[$month - 1] ?? 0));
                 }
@@ -64,7 +63,8 @@ class ReviewPptDataService
             }
         }
 
-        return ['districts' => $names, 'targets' => $targets, 'achievements' => $achievements];
+        return ['districts' => $names, 'targets' => $targets, 'achievements' => $achievements,
+            'selection' => $selection];
     }
 
     /** @param list<string> $serials

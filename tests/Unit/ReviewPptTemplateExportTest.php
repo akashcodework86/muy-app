@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\ReviewPpt\ReviewPptTemplateExport;
+use App\Services\ReviewPpt\ReviewPptSelection;
 use Carbon\Carbon;
 use DOMDocument;
 use DOMXPath;
@@ -38,7 +39,9 @@ class ReviewPptTemplateExportTest extends TestCase
         $output = tempnam(sys_get_temp_dir(), 'review-test-');
 
         try {
-            (new ReviewPptTemplateExport($template))->write($data, Carbon::parse('2026-09-14'), 2, $output);
+            $selection = new ReviewPptSelection(Carbon::parse('2026-07-01'), Carbon::parse('2026-09-14'),
+                Carbon::parse('2026-07-01'), 4, 6, $slugs, 'all', 'period', 'quarter', 'Q2 period');
+            (new ReviewPptTemplateExport($template))->write($data, $selection, $output);
             $zip = new ZipArchive;
             $this->assertTrue($zip->open($output) === true);
             $this->assertSame(5, count(array_filter(array_keys(iterator_to_array($this->zipEntries($zip))),
@@ -50,13 +53,47 @@ class ReviewPptTemplateExportTest extends TestCase
             $this->assertSame('1300', $slide1->evaluate('string((//a:tbl)[2]/a:tr[15]/a:tc[3]//a:t)'));
             $this->assertSame('960', $slide1->evaluate('string((//a:tbl)[2]/a:tr[15]/a:tc[4]//a:t)'));
             $this->assertSame('120', $slide1->evaluate('string((//a:tbl)[1]/a:tr[2]/a:tc[4]//a:t)'));
-            $this->assertStringContainsString('14-09-2026', $zip->getFromName('ppt/slides/slide2.xml'));
+            $this->assertStringContainsString('14 Sep 2026', $zip->getFromName('ppt/slides/slide2.xml'));
 
             $slide2 = $this->slideXPath($zip->getFromName('ppt/slides/slide2.xml'));
             $this->assertSame('120', $slide2->evaluate('string((//a:tbl)[1]/a:tr[3]/a:tc[4]//a:t)'));
             $this->assertSame('70', $slide2->evaluate('string((//a:tbl)[1]/a:tr[3]/a:tc[6]//a:t)'));
             $zip->close();
             $this->assertSame($before, hash_file('sha256', $template));
+        } finally {
+            @unlink($output);
+        }
+    }
+
+    public function test_single_district_keeps_only_relevant_editable_slides_and_columns(): void
+    {
+        $template = base_path('resources/templates/review-ppt/muy-review-2026.pptx');
+        $serials = array_merge(config('review_ppt.key_indicators'), config('review_ppt.non_key_indicators'));
+        $data = ['districts' => ['almora' => 'Almora'], 'targets' => ['almora' => []],
+            'achievements' => ['almora' => []]];
+        foreach ($serials as $serial) {
+            $data['targets']['almora'][$serial] = 25;
+            $data['achievements']['almora'][$serial] = 12;
+        }
+        $selection = new ReviewPptSelection(Carbon::parse('2026-08-01'), Carbon::parse('2026-08-31'),
+            Carbon::parse('2026-08-01'), 5, 5, ['almora'], 'almora', 'period', 'month', 'Aug 2026 period');
+        $output = tempnam(sys_get_temp_dir(), 'review-test-');
+
+        try {
+            (new ReviewPptTemplateExport($template))->write($data, $selection, $output);
+            $zip = new ZipArchive;
+            $this->assertTrue($zip->open($output) === true);
+            $this->assertSame(3, count(array_filter(array_keys(iterator_to_array($this->zipEntries($zip))),
+                fn ($name) => preg_match('~^ppt/slides/slide[1-5]\.xml$~', $name))));
+            $this->assertFalse($zip->locateName('ppt/slides/slide4.xml') !== false);
+            $slide1 = $this->slideXPath($zip->getFromName('ppt/slides/slide1.xml'));
+            $this->assertSame(3, (int) $slide1->evaluate('count((//a:tbl)[1]/a:tr)'));
+            $this->assertSame('25', $slide1->evaluate('string((//a:tbl)[1]/a:tr[3]/a:tc[3]//a:t)'));
+            $slide2 = $this->slideXPath($zip->getFromName('ppt/slides/slide2.xml'));
+            $this->assertSame(4, (int) $slide2->evaluate('count((//a:tbl)[1]/a:tr[1]/a:tc)'));
+            $this->assertSame('12', $slide2->evaluate('string((//a:tbl)[1]/a:tr[3]/a:tc[4]//a:t)'));
+            $this->assertSame(3, substr_count($zip->getFromName('ppt/presentation.xml'), '<p:sldId '));
+            $zip->close();
         } finally {
             @unlink($output);
         }
