@@ -30,7 +30,7 @@
                     <label for="quarter">Quarter</label>
                     <select id="quarter" name="quarter">
                         @for ($q = 1; $q <= 4; $q++)
-                            <option value="{{ $q }}" @selected($q === $defaultQuarter)>Q{{ $q }} · {{ ['Apr–Jun', 'Jul–Sep', 'Oct–Dec', 'Jan–Mar'][$q - 1] }}</option>
+                            <option value="{{ $q }}" @selected($q === $defaultQuarter) @disabled($q > $defaultQuarter)>Q{{ $q }} · {{ ['Apr–Jun', 'Jul–Sep', 'Oct–Dec', 'Jan–Mar'][$q - 1] }}</option>
                         @endfor
                     </select>
                 </div>
