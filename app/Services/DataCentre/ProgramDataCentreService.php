@@ -93,7 +93,7 @@ class ProgramDataCentreService
         $dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
         $filter = $filter ?? DataCentreFilter::empty();
         $this->prepareContext($dataScope, $viewMode, $filter);
-        $cacheKey = 'data_centre_build_v12_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
+        $cacheKey = 'data_centre_build_v13_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode, $dataScope, $filter) {
             $this->prepareContext($dataScope, $viewMode, $filter);
@@ -155,6 +155,7 @@ class ProgramDataCentreService
     {
         foreach (['all', 'rbiphase3'] as $viewMode) {
             foreach (['all', 'onboarded'] as $dataScope) {
+                Cache::forget('data_centre_build_v13_'.$viewMode.'_'.$dataScope.'_none');
                 Cache::forget('data_centre_build_v12_'.$viewMode.'_'.$dataScope.'_none');
             }
         }
@@ -1814,11 +1815,15 @@ class ProgramDataCentreService
             return $this->p1Age;
         }
 
-        foreach ($this->p1BaseQuery()
-            ->selectRaw('LOWER(TRIM(FatherName)) as d, dob as age, COUNT(*) as c')
-            ->groupByRaw('LOWER(TRIM(FatherName)), dob')
-            ->get() as $r) {
-            $this->p1Age[(string) $r->d][(string) ($r->age ?? '')] = (int) $r->c;
+        try {
+            foreach ($this->p1BaseQuery()
+                ->selectRaw('LOWER(TRIM(FatherName)) as d, dob as age, COUNT(*) as c')
+                ->groupByRaw('LOWER(TRIM(FatherName)), dob')
+                ->get() as $r) {
+                $this->p1Age[(string) $r->d][(string) ($r->age ?? '')] = (int) $r->c;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return $this->p1Age;
@@ -1838,11 +1843,15 @@ class ProgramDataCentreService
             return $this->p2Age;
         }
 
-        foreach ($this->p2BaseQuery()
-            ->selectRaw("LOWER(TRIM(d.district)) as dist, CASE WHEN LOWER(TRIM(a.category)) IN ('shg', 'cbo') THEN '__organisation__' ELSE d.dob END as age, COUNT(DISTINCT a.id) as c")
-            ->groupByRaw("LOWER(TRIM(d.district)), CASE WHEN LOWER(TRIM(a.category)) IN ('shg', 'cbo') THEN '__organisation__' ELSE d.dob END")
-            ->get() as $r) {
-            $this->p2Age[(string) $r->dist][(string) ($r->age ?? '')] = (int) $r->c;
+        try {
+            foreach ($this->p2BaseQuery()
+                ->selectRaw("LOWER(TRIM(d.district)) as dist, CASE WHEN LOWER(TRIM(a.category)) IN ('shg', 'cbo') THEN '__organisation__' ELSE d.dob END as age, COUNT(DISTINCT a.id) as c")
+                ->groupByRaw("LOWER(TRIM(d.district)), CASE WHEN LOWER(TRIM(a.category)) IN ('shg', 'cbo') THEN '__organisation__' ELSE d.dob END")
+                ->get() as $r) {
+                $this->p2Age[(string) $r->dist][(string) ($r->age ?? '')] = (int) $r->c;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return $this->p2Age;
@@ -1862,14 +1871,18 @@ class ProgramDataCentreService
             return $this->p3Age;
         }
 
-        foreach (DB::table('cfa_submissions as cs')
-            ->join('districts as d', 'd.id', '=', 'cs.district_id')
-            ->selectRaw("LOWER(d.name) as dist, CASE WHEN LOWER(TRIM(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')), 'null'), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')), ''))) IN ('shg', 'cbo') THEN '__organisation__' ELSE JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) END as age, COUNT(*) as c")
-            ->whereIn('cs.id', $this->phase3BaseQuery()->select('cs.id'))
-            ->groupByRaw("LOWER(d.name), CASE WHEN LOWER(TRIM(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')), 'null'), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')), ''))) IN ('shg', 'cbo') THEN '__organisation__' ELSE JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) END")
-            ->get() as $r) {
-            $e = ($r->age === 'null' || $r->age === null) ? '' : (string) $r->age;
-            $this->p3Age[(string) $r->dist][$e] = (int) $r->c;
+        try {
+            foreach (DB::table('cfa_submissions as cs')
+                ->join('districts as d', 'd.id', '=', 'cs.district_id')
+                ->selectRaw("LOWER(d.name) as dist, CASE WHEN LOWER(TRIM(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')), 'null'), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')), ''))) IN ('shg', 'cbo') THEN '__organisation__' ELSE JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) END as age, COUNT(*) as c")
+                ->whereIn('cs.id', $this->phase3BaseQuery()->select('cs.id'))
+                ->groupByRaw("LOWER(d.name), CASE WHEN LOWER(TRIM(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')), 'null'), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')), ''))) IN ('shg', 'cbo') THEN '__organisation__' ELSE JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) END")
+                ->get() as $r) {
+                $e = ($r->age === 'null' || $r->age === null) ? '' : (string) $r->age;
+                $this->p3Age[(string) $r->dist][$e] = (int) $r->c;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return $this->p3Age;

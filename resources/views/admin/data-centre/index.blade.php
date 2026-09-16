@@ -208,6 +208,8 @@
     $yiFy = $yi_fy ?? null;
     $yiDistrictId = $yi_district_id ?? null;
     $yearwise = $yearwise ?? ['rows' => [], 'totals' => [], 'years' => [], 'note' => '', 'generated_at' => ''];
+    $age_state = $age_state ?? [];
+    $age_district = $age_district ?? [];
     $yiQuery = array_filter([
         'yi_fy' => $yiFy,
         'yi_district_id' => $yiDistrictId ?: null,
@@ -1140,9 +1142,9 @@
                             <tr class="{{ !empty($row['_is_total']) ? '_total' : '' }}">
                                 <td>{{ $row['phase'] }}</td>
                                 @foreach (\App\Services\DataCentre\ProgramDataCentreService::AGE_GROUPS as $ageGroup)
-                                    <td class="_num">{{ number_format($row[$ageGroup]) }}</td>
+                                    <td class="_num">{{ number_format((int) ($row[$ageGroup] ?? 0)) }}</td>
                                 @endforeach
-                                <td class="_num">{{ number_format($row['total']) }}</td>
+                                <td class="_num">{{ number_format((int) ($row['total'] ?? 0)) }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -1189,9 +1191,9 @@
                             <tr class="{{ !empty($row['_is_total']) ? '_total' : '' }}">
                                 <td>{{ $row['name'] }}</td>
                                 @foreach (\App\Services\DataCentre\ProgramDataCentreService::AGE_GROUPS as $ageGroup)
-                                    <td class="_num">{{ number_format($row[$ageGroup]) }}</td>
+                                    <td class="_num">{{ number_format((int) ($row[$ageGroup] ?? 0)) }}</td>
                                 @endforeach
-                                <td class="_num">{{ number_format($row['total']) }}</td>
+                                <td class="_num">{{ number_format((int) ($row['total'] ?? 0)) }}</td>
                             </tr>
                         @endforeach
                     </tbody>
