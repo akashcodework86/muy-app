@@ -162,6 +162,8 @@ final class LegacyDataController extends Controller
     public function export(Request $request): StreamedResponse
     {
         abort_unless(LegacyDataAccess::canView($request->user()), 403);
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(300);
         $filters = $this->filters($request);
         $data = $this->service->build($filters);
         $exportServices = $request->query('view') === 'services';
@@ -182,16 +184,62 @@ final class LegacyDataController extends Controller
             if ($exportServices) {
                 fputcsv($out, ['FY', 'Phase', 'Application No', 'Applicant', 'Mobile', 'District', 'Business Category', 'Standard Phase 3 Service', 'Original Source Service', 'Mapping', 'Detail', 'Status', 'Delivery/Event Date']);
                 foreach ($rows as $row) {
-                    fputcsv($out, [$row['financial_year'], $row['phase'], $row['application_no'], $row['applicant'], $row['phone'], $row['district'], $row['business_category'], $row['service'], $row['original_service'], $row['mapping_source'], $row['service_detail'], $row['service_status'], $row['service_date']]);
+                    fputcsv($out, $this->csvCells([
+                        $row['financial_year'] ?? '',
+                        $row['phase'] ?? '',
+                        $row['application_no'] ?? '',
+                        $row['applicant'] ?? '',
+                        $row['phone'] ?? '',
+                        $row['district'] ?? '',
+                        $row['business_category'] ?? '',
+                        $row['service'] ?? '',
+                        $row['original_service'] ?? '',
+                        $row['mapping_source'] ?? '',
+                        $row['service_detail'] ?? '',
+                        $row['service_status'] ?? '',
+                        $row['service_date'] ?? '',
+                    ]));
                 }
             } else {
                 fputcsv($out, ['FY', 'Phase', 'Application No', 'Applicant', 'Mobile', 'District', 'Block', 'Beneficiary Type', 'Business Category', 'Business Stage', 'Gender', 'Education', 'Onboarding Date', 'Approved Services Count', 'Standard Services', 'Original Source Services']);
                 foreach ($rows as $row) {
-                    fputcsv($out, [$row['financial_year'], $row['phase'], $row['application_no'], $row['applicant'], $row['phone'], $row['district'], $row['block'], $row['beneficiary_type'], $row['business_category'], $row['business_stage'], $row['gender'], $row['education'], $row['onboarding_date'], $row['filtered_services_count'], $row['services'], $row['original_services']]);
+                    fputcsv($out, $this->csvCells([
+                        $row['financial_year'] ?? '',
+                        $row['phase'] ?? '',
+                        $row['application_no'] ?? '',
+                        $row['applicant'] ?? '',
+                        $row['phone'] ?? '',
+                        $row['district'] ?? '',
+                        $row['block'] ?? '',
+                        $row['beneficiary_type'] ?? '',
+                        $row['business_category'] ?? '',
+                        $row['business_stage'] ?? '',
+                        $row['gender'] ?? '',
+                        $row['education'] ?? '',
+                        $row['onboarding_date'] ?? '',
+                        $row['filtered_services_count'] ?? 0,
+                        $row['services'] ?? '',
+                        $row['original_services'] ?? '',
+                    ]));
                 }
             }
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** @param list<mixed> $values @return list<string> */
+    private function csvCells(array $values): array
+    {
+        return array_map(function (mixed $value): string {
+            if (is_bool($value)) {
+                return $value ? '1' : '0';
+            }
+            if (is_array($value)) {
+                return implode('; ', array_map(fn (mixed $item): string => trim((string) $item), $value));
+            }
+
+            return trim((string) ($value ?? ''));
+        }, $values);
     }
 
     /** @return array<string,mixed> */

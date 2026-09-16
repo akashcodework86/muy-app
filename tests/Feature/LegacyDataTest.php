@@ -225,6 +225,26 @@ class LegacyDataTest extends TestCase
         $this->assertSame(2, $result['district_summary']->first()['deliveries']);
     }
 
+    public function test_state_admin_can_export_beneficiaries_csv(): void
+    {
+        Cache::forever('legacy-data-explorer:version', 12);
+        Cache::store('file')->put('legacy-data-explorer:dataset:s6:v12', collect([
+            $this->cachedRow('APP-EXPORT', 'Phase 1', 'Approved'),
+        ]), now()->addMinute());
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('admin.legacy-data.export', ['view' => 'beneficiaries']));
+
+        $response->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
+        $this->assertStringContainsString('legacy-data-onboarded-', (string) $response->headers->get('content-disposition'));
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('APP-EXPORT', $csv);
+        $this->assertStringContainsString('Demo Applicant', $csv);
+    }
+
     /** @return array<string,mixed> */
     private function cachedRow(string $applicationNo, string $phase, string $status): array
     {
