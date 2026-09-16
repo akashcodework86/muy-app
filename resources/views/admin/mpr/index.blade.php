@@ -4,7 +4,7 @@
 @section('heading', 'Progress Report Generator')
 
 @section('page_meta')
-    <p class="admin-page-meta">State Admin · direct link · MIS auto-report with yellow team placeholders</p>
+    <p class="admin-page-meta">{{ $accessLabel }} · direct link · MIS auto-report with yellow team placeholders</p>
 @endsection
 
 @section('content')

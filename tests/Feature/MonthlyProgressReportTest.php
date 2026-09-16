@@ -15,6 +15,14 @@ class MonthlyProgressReportTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function createApplication()
+    {
+        $app = require dirname(__DIR__, 2).'/bootstrap/app.php';
+        $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+        return $app;
+    }
+
     public function test_state_admin_can_open_mpr_generator_page(): void
     {
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
@@ -35,6 +43,18 @@ class MonthlyProgressReportTest extends TestCase
         $this->actingAs($staff)
             ->get(route('admin.mpr.index'))
             ->assertForbidden();
+    }
+
+    public function test_hub_admin_can_open_mpr_generator_page(): void
+    {
+        $hubAdmin = User::factory()->create(['role' => 'hub_admin', 'is_active' => true]);
+
+        $this->actingAs($hubAdmin)
+            ->get(route('admin.mpr.index'))
+            ->assertOk()
+            ->assertSee('Generate MPR or QPR from MIS')
+            ->assertSee('Hub Admin')
+            ->assertDontSee('Run one-time install');
     }
 
     public function test_state_admin_can_download_a_word_mpr_for_one_month(): void
@@ -88,6 +108,49 @@ class MonthlyProgressReportTest extends TestCase
             || str_contains($contentType, 'msword'),
             'Expected a Word document download.',
         );
+    }
+
+    public function test_hub_admin_can_download_a_word_mpr_for_one_month(): void
+    {
+        $hubAdmin = User::factory()->create(['role' => 'hub_admin', 'is_active' => true]);
+        FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+
+        $context = new ProgressReportContext(
+            reportType: 'mpr',
+            periodFrom: Carbon::parse('2026-07-01'),
+            periodTo: Carbon::parse('2026-07-31'),
+            periodLabel: 'July 2026',
+            reportKindLabel: 'Monthly Progress Report',
+            filePrefix: 'MUY-MPR',
+            headerMonth: Carbon::parse('2026-07-01'),
+            fiscalYearLabel: 'FY 2026-27',
+            rows: [],
+            districtRows: [],
+            photos: [],
+            photosBySection: [],
+            breakdowns: [],
+            teamRoster: [],
+        );
+
+        $reportData = Mockery::mock(ProgressReportDataService::class);
+        $reportData->shouldReceive('buildMonthly')->once()->withArgs(
+            fn ($user, $month): bool => $user->is($hubAdmin) && $month->isSameMonth(Carbon::parse('2026-07-01')),
+        )->andReturn($context);
+        $this->app->instance(ProgressReportDataService::class, $reportData);
+
+        $this->actingAs($hubAdmin)
+            ->get(route('admin.mpr.download', [
+                'report_type' => 'mpr',
+                'report_month' => '2026-07',
+            ]))
+            ->assertOk()
+            ->assertHeader('content-disposition');
     }
 
     public function test_state_admin_can_download_a_word_qpr_for_one_quarter(): void

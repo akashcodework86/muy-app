@@ -124,7 +124,7 @@ class MonthlyProgressReportController extends Controller
 
     public function index(Request $request): View
     {
-        abort_unless($request->user()?->role === 'state_admin', 403);
+        $this->authorizeGeneratorAccess($request);
 
         $fiscalYears = FiscalYear::forUiDropdown();
         $anchorMonth = Carbon::createFromFormat('Y-m', old('report_month', now()->startOfMonth()->format('Y-m')));
@@ -151,13 +151,16 @@ class MonthlyProgressReportController extends Controller
             'quarters' => $quarters,
             'pageUrl' => route('admin.mpr.index'),
             'wordEngineReady' => $this->wordExport->isAvailable(),
-            'installWordEngineUrl' => route('admin.mpr.install-word-engine'),
+            'installWordEngineUrl' => $request->user()?->role === 'state_admin'
+                ? route('admin.mpr.install-word-engine')
+                : null,
+            'accessLabel' => $request->user()?->role === 'hub_admin' ? 'Hub Admin' : 'State Admin',
         ]);
     }
 
     public function download(Request $request): BinaryFileResponse
     {
-        abort_unless($request->user()?->role === 'state_admin', 403);
+        $this->authorizeGeneratorAccess($request);
 
         $validated = $request->validate([
             'report_type' => ['required', Rule::in(['mpr', 'qpr'])],
@@ -204,5 +207,13 @@ class MonthlyProgressReportController extends Controller
         }
 
         return $this->wordExport->download($context);
+    }
+
+    private function authorizeGeneratorAccess(Request $request): void
+    {
+        abort_unless(
+            in_array($request->user()?->role, ['state_admin', 'hub_admin'], true),
+            403,
+        );
     }
 }

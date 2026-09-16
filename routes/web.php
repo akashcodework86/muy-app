@@ -208,6 +208,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('team-directory', [TeamDirectoryController::class, 'index'])->name('team.index');
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
+    /** Direct-link report generator shared by State Admin and Hub Admin. */
+    Route::prefix('admin')->name('admin.')->group(function (): void {
+        Route::get('mpr-generator', [MonthlyProgressReportController::class, 'index'])->name('mpr.index');
+        Route::get('mpr-generator/download', [MonthlyProgressReportController::class, 'download'])->name('mpr.download');
+    });
+
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
@@ -1121,9 +1127,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/records', [DeliverablesReportController::class, 'records'])->name('deliverables.records');
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
-        Route::get('mpr-generator', [MonthlyProgressReportController::class, 'index'])->name('mpr.index');
         Route::get('mpr-generator/install-word-engine', [MonthlyProgressReportController::class, 'installWordEngine'])->name('mpr.install-word-engine');
-        Route::get('mpr-generator/download', [MonthlyProgressReportController::class, 'download'])->name('mpr.download');
         Route::patch('deliverables/row-metadata', [DeliverablesReportController::class, 'updateRowMetadata'])->name('deliverables.row-metadata.update');
         Route::get('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly');
         Route::post('targets/state-monthly', fn () => redirect()->route('admin.targets.official-state-monthly'))->name('targets.state-monthly.update');
