@@ -42,7 +42,8 @@ class CaseStudyShortlistTest extends TestCase
 
         $this->actingAs($staff)->post(route('staff.case-study-shortlists.store'), [
             'source' => 'phase3', 'source_application_id' => $candidate->id,
-            'services' => ['acceleration', 'technical_training'],
+            'services' => ['acceleration', 'technical_training', 'other'],
+            'other_service' => 'Product packaging and branding support',
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('case_study_shortlists', [
@@ -61,7 +62,14 @@ class CaseStudyShortlistTest extends TestCase
                 'nominated_by_user_id' => $staff->id,
             ]);
         }
-        $this->assertDatabaseCount('case_study_shortlist_nomination_events', 2);
+        $this->assertDatabaseHas('case_study_shortlist_nominations', [
+            'case_study_shortlist_id' => $shortlist->id,
+            'service_code' => 'other',
+            'custom_service_name' => 'Product packaging and branding support',
+            'status' => 'nominated',
+            'nominated_by_user_id' => $staff->id,
+        ]);
+        $this->assertDatabaseCount('case_study_shortlist_nomination_events', 3);
 
         $this->actingAs($staff)->post(route('staff.case-study-shortlists.store'), [
             'source' => 'phase3', 'source_application_id' => $candidate->id,
@@ -82,6 +90,8 @@ class CaseStudyShortlistTest extends TestCase
             ->assertSee('Pitch Deck Preparation')
             ->assertSee('Technical Training')
             ->assertSee('Case Study')
+            ->assertSee('Other')
+            ->assertSee('Enter proposed service name')
             ->assertSee('Shortlist &amp; propose', false);
     }
 
@@ -99,6 +109,22 @@ class CaseStudyShortlistTest extends TestCase
 
         $this->assertDatabaseCount('case_study_shortlists', 0);
         $this->assertDatabaseCount('case_study_shortlist_nominations', 0);
+    }
+
+    public function test_other_service_requires_custom_service_name(): void
+    {
+        Carbon::setTestNow('2026-08-05 10:00:00');
+        [$district, $staff] = $this->districtAndStaff();
+        $candidate = $this->onboardedCandidate($district, 1, '9999900001');
+
+        $this->actingAs($staff)->post(route('staff.case-study-shortlists.store'), [
+            'source' => 'phase3',
+            'source_application_id' => $candidate->id,
+            'services' => ['other'],
+            'other_service' => '',
+        ])->assertSessionHasErrors('other_service');
+
+        $this->assertDatabaseCount('case_study_shortlists', 0);
     }
 
     public function test_monthly_limit_is_shared_by_all_staff_in_the_district(): void
@@ -177,14 +203,16 @@ class CaseStudyShortlistTest extends TestCase
             ->assertSee('Acceleration Services')
             ->assertSee('Pitch Deck Preparation')
             ->assertSee('Technical Training')
-            ->assertSee('Case Study');
+            ->assertSee('Case Study')
+            ->assertSee('Other');
 
         $this->actingAs($stateAdmin)->put(route('admin.case-study-shortlists.nominations.update', $shortlist), [
-            'services' => ['acceleration', 'pitch_deck', 'technical_training', 'case_study'],
+            'services' => ['acceleration', 'pitch_deck', 'technical_training', 'case_study', 'other'],
+            'other_service' => 'E-commerce catalogue support',
             'nomination_note' => 'Strong candidate for structured support.',
         ])->assertRedirect()->assertSessionHasNoErrors();
 
-        foreach (['acceleration', 'pitch_deck', 'technical_training', 'case_study'] as $code) {
+        foreach (['acceleration', 'pitch_deck', 'technical_training', 'case_study', 'other'] as $code) {
             $this->assertDatabaseHas('case_study_shortlist_nominations', [
                 'case_study_shortlist_id' => $shortlist->id,
                 'service_code' => $code,
@@ -192,7 +220,12 @@ class CaseStudyShortlistTest extends TestCase
                 'nominated_by_user_id' => $stateAdmin->id,
             ]);
         }
-        $this->assertDatabaseCount('case_study_shortlist_nomination_events', 4);
+        $this->assertDatabaseHas('case_study_shortlist_nominations', [
+            'case_study_shortlist_id' => $shortlist->id,
+            'service_code' => 'other',
+            'custom_service_name' => 'E-commerce catalogue support',
+        ]);
+        $this->assertDatabaseCount('case_study_shortlist_nomination_events', 5);
     }
 
     public function test_hub_and_district_users_can_view_profile_but_only_state_admin_can_update_nominations(): void

@@ -15,11 +15,18 @@ class CaseStudyShortlistNominationManager
      * @param list<string> $selectedCodes
      * @param array<string, bool> $alreadyReceived
      */
-    public function sync(User $user, CaseStudyShortlist $shortlist, array $selectedCodes, array $alreadyReceived, ?string $note): void
+    public function sync(
+        User $user,
+        CaseStudyShortlist $shortlist,
+        array $selectedCodes,
+        array $alreadyReceived,
+        ?string $note,
+        ?string $customServiceName = null,
+    ): void
     {
         abort_unless($user->role === 'state_admin' && CaseStudyShortlistAccess::canAccessDistrict($user, (int) $shortlist->district_id), 403);
 
-        $this->syncSelection($user, $shortlist, $selectedCodes, $alreadyReceived, $note);
+        $this->syncSelection($user, $shortlist, $selectedCodes, $alreadyReceived, $note, $customServiceName);
     }
 
     /**
@@ -34,6 +41,7 @@ class CaseStudyShortlistNominationManager
         CaseStudyShortlist $shortlist,
         array $selectedCodes,
         array $alreadyReceived,
+        ?string $customServiceName = null,
     ): void {
         abort_unless(
             $user->role === 'district_staff'
@@ -43,7 +51,7 @@ class CaseStudyShortlistNominationManager
             403,
         );
 
-        $this->syncSelection($user, $shortlist, $selectedCodes, $alreadyReceived, null);
+        $this->syncSelection($user, $shortlist, $selectedCodes, $alreadyReceived, null, $customServiceName);
     }
 
     /**
@@ -56,17 +64,22 @@ class CaseStudyShortlistNominationManager
         array $selectedCodes,
         array $alreadyReceived,
         ?string $note,
+        ?string $customServiceName,
     ): void {
 
         $options = (array) config('case_study_shortlists.nomination_services', []);
         $selectedCodes = array_values(array_unique(array_filter($selectedCodes, fn ($code) => isset($options[$code]))));
+        $customServiceName = trim((string) $customServiceName);
+        if (in_array('other', $selectedCodes, true) && $customServiceName === '') {
+            throw ValidationException::withMessages(['other_service' => 'Please enter the proposed service name for Other.']);
+        }
         foreach ($selectedCodes as $code) {
             if ($alreadyReceived[$code] ?? false) {
                 throw ValidationException::withMessages(['services' => $options[$code]['label'].' has already been received.']);
             }
         }
 
-        DB::transaction(function () use ($user, $shortlist, $selectedCodes, $options, $note): void {
+        DB::transaction(function () use ($user, $shortlist, $selectedCodes, $options, $note, $customServiceName): void {
             CaseStudyShortlist::query()->whereKey($shortlist->id)->lockForUpdate()->firstOrFail();
             $existing = CaseStudyShortlistNomination::query()
                 ->where('case_study_shortlist_id', $shortlist->id)
@@ -85,6 +98,7 @@ class CaseStudyShortlistNominationManager
                     $nomination->fill([
                         'status' => CaseStudyShortlistNomination::STATUS_NOMINATED,
                         'nomination_note' => trim((string) $note) ?: null,
+                        'custom_service_name' => $code === 'other' ? $customServiceName : null,
                         'nominated_by_user_id' => $user->id,
                         'nominated_at' => now(),
                         'cancelled_by_user_id' => null,
@@ -94,6 +108,16 @@ class CaseStudyShortlistNominationManager
                         'action' => $from ? 'renominated' : 'nominated', 'from_status' => $from,
                         'to_status' => CaseStudyShortlistNomination::STATUS_NOMINATED,
                         'note' => trim((string) $note) ?: null, 'actor_user_id' => $user->id,
+                    ]);
+                } elseif ($selected && $nomination?->isActive() && $code === 'other'
+                    && $nomination->custom_service_name !== $customServiceName) {
+                    $nomination->update(['custom_service_name' => $customServiceName]);
+                    $nomination->events()->create([
+                        'action' => 'updated',
+                        'from_status' => $nomination->status,
+                        'to_status' => $nomination->status,
+                        'note' => 'Other service updated to: '.$customServiceName,
+                        'actor_user_id' => $user->id,
                     ]);
                 } elseif (! $selected && $nomination?->isActive()) {
                     $from = $nomination->status;

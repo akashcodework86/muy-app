@@ -15,6 +15,7 @@ class CaseStudyShortlistNomination extends Model
 
     protected $fillable = [
         'case_study_shortlist_id', 'service_code', 'status', 'nomination_note',
+        'custom_service_name',
         'nominated_by_user_id', 'nominated_at', 'cancelled_by_user_id', 'cancelled_at',
     ];
 

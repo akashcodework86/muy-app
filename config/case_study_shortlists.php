@@ -18,5 +18,9 @@ return [
             'label' => 'Case Study',
             'description' => 'Development and documentation of the incubatee case study.',
         ],
+        'other' => [
+            'label' => 'Other',
+            'description' => 'Propose another support service not listed above.',
+        ],
     ],
 ];

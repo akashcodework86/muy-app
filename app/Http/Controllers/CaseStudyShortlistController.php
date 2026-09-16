@@ -134,6 +134,12 @@ class CaseStudyShortlistController extends Controller
                 'max:64',
                 Rule::in(array_keys((array) config('case_study_shortlists.nomination_services', []))),
             ],
+            'other_service' => [
+                'nullable',
+                Rule::requiredIf(fn (): bool => in_array('other', (array) $request->input('services', []), true)),
+                'string',
+                'max:255',
+            ],
         ]);
 
         $selectedServices = array_values(array_unique($validated['services'] ?? []));
@@ -153,6 +159,7 @@ class CaseStudyShortlistController extends Controller
                 $shortlist,
                 $selectedServices,
                 (array) ($profile['received'] ?? []),
+                $validated['other_service'] ?? null,
             );
         }, 3);
 
@@ -191,6 +198,12 @@ class CaseStudyShortlistController extends Controller
         $validated = $request->validate([
             'services' => ['nullable', 'array'],
             'services.*' => ['string', 'max:64', Rule::in($serviceCodes)],
+            'other_service' => [
+                'nullable',
+                Rule::requiredIf(fn (): bool => in_array('other', (array) $request->input('services', []), true)),
+                'string',
+                'max:255',
+            ],
             'nomination_note' => ['nullable', 'string', 'max:2000'],
         ]);
         $profile = $this->profiles->build($caseStudyShortlist);
@@ -200,6 +213,7 @@ class CaseStudyShortlistController extends Controller
             array_values($validated['services'] ?? []),
             (array) ($profile['received'] ?? []),
             $validated['nomination_note'] ?? null,
+            $validated['other_service'] ?? null,
         );
 
         return back()->with('status', 'Service nominations updated successfully.');
