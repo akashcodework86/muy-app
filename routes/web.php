@@ -130,6 +130,25 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+/**
+ * Unlisted public review PowerPoint generator.
+ *
+ * These routes intentionally live outside the authenticated portal groups so
+ * anyone who has the direct link can build the report. They are deliberately
+ * not linked from any application menu.
+ */
+Route::prefix('admin/review-ppt-generator')->name('admin.review-ppt.')->group(function (): void {
+    Route::get('/', [ReviewPptGeneratorController::class, 'index'])
+        ->middleware('throttle:60,1')
+        ->name('index');
+    Route::get('preview', [ReviewPptGeneratorController::class, 'preview'])
+        ->middleware('throttle:20,1')
+        ->name('preview');
+    Route::get('download', [ReviewPptGeneratorController::class, 'download'])
+        ->middleware('throttle:10,1')
+        ->name('download');
+});
+
 Route::get('/assets/mascot/lakhpati-didi.png', function () {
     $path = public_path('lakhpati_didi.png');
     abort_unless(is_file($path), 404);
@@ -1103,9 +1122,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('deliverables/export', [DeliverablesReportController::class, 'export'])->name('deliverables.export');
         Route::get('deliverables/export/word', [DeliverablesReportController::class, 'exportWord'])->name('deliverables.export.word');
         Route::get('mpr-generator', [MonthlyProgressReportController::class, 'index'])->name('mpr.index');
-        Route::get('review-ppt-generator', [ReviewPptGeneratorController::class, 'index'])->name('review-ppt.index');
-        Route::get('review-ppt-generator/preview', [ReviewPptGeneratorController::class, 'preview'])->name('review-ppt.preview');
-        Route::get('review-ppt-generator/download', [ReviewPptGeneratorController::class, 'download'])->name('review-ppt.download');
         Route::get('mpr-generator/install-word-engine', [MonthlyProgressReportController::class, 'installWordEngine'])->name('mpr.install-word-engine');
         Route::get('mpr-generator/download', [MonthlyProgressReportController::class, 'download'])->name('mpr.download');
         Route::patch('deliverables/row-metadata', [DeliverablesReportController::class, 'updateRowMetadata'])->name('deliverables.row-metadata.update');
