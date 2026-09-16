@@ -20,6 +20,14 @@ class CaseStudyShortlistTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function createApplication()
+    {
+        $app = require dirname(__DIR__, 2).'/bootstrap/app.php';
+        $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+        return $app;
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();
@@ -34,20 +42,63 @@ class CaseStudyShortlistTest extends TestCase
 
         $this->actingAs($staff)->post(route('staff.case-study-shortlists.store'), [
             'source' => 'phase3', 'source_application_id' => $candidate->id,
+            'services' => ['acceleration', 'technical_training'],
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('case_study_shortlists', [
             'candidate_key' => 'phase3:'.$candidate->id,
             'district_id' => $district->id,
             'program_year' => '2026-27',
-            'shortlist_month' => '2026-08-01',
             'created_by_user_id' => $staff->id,
         ]);
+        $shortlist = CaseStudyShortlist::query()->firstOrFail();
+        $this->assertSame('2026-08-01', $shortlist->shortlist_month->toDateString());
+        foreach (['acceleration', 'technical_training'] as $serviceCode) {
+            $this->assertDatabaseHas('case_study_shortlist_nominations', [
+                'case_study_shortlist_id' => $shortlist->id,
+                'service_code' => $serviceCode,
+                'status' => 'nominated',
+                'nominated_by_user_id' => $staff->id,
+            ]);
+        }
+        $this->assertDatabaseCount('case_study_shortlist_nomination_events', 2);
 
         $this->actingAs($staff)->post(route('staff.case-study-shortlists.store'), [
             'source' => 'phase3', 'source_application_id' => $candidate->id,
         ])->assertSessionHasErrors('candidate');
         $this->assertSame(1, CaseStudyShortlist::query()->count());
+    }
+
+    public function test_shortlist_page_uses_new_name_and_shows_all_service_proposals(): void
+    {
+        Carbon::setTestNow('2026-08-05 10:00:00');
+        [$district, $staff] = $this->districtAndStaff();
+        $this->onboardedCandidate($district, 1, '9999900001');
+
+        $this->actingAs($staff)->get(route('staff.case-study-shortlists.index'))
+            ->assertOk()
+            ->assertSee('Monthly - Short Listed Incubatees')
+            ->assertSee('Acceleration Services')
+            ->assertSee('Pitch Deck Preparation')
+            ->assertSee('Technical Training')
+            ->assertSee('Case Study')
+            ->assertSee('Shortlist &amp; propose', false);
+    }
+
+    public function test_invalid_service_proposal_does_not_create_shortlist(): void
+    {
+        Carbon::setTestNow('2026-08-05 10:00:00');
+        [$district, $staff] = $this->districtAndStaff();
+        $candidate = $this->onboardedCandidate($district, 1, '9999900001');
+
+        $this->actingAs($staff)->post(route('staff.case-study-shortlists.store'), [
+            'source' => 'phase3',
+            'source_application_id' => $candidate->id,
+            'services' => ['unknown_service'],
+        ])->assertSessionHasErrors('services.0');
+
+        $this->assertDatabaseCount('case_study_shortlists', 0);
+        $this->assertDatabaseCount('case_study_shortlist_nominations', 0);
     }
 
     public function test_monthly_limit_is_shared_by_all_staff_in_the_district(): void

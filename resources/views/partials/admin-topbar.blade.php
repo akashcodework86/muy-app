@@ -805,7 +805,7 @@
                         {!! $i('image') !!}<span>Media Gallery</span>
                     </a>
                     <a href="{{ route('admin.case-study-shortlists.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'case-study-shortlists') is-active @endif" role="menuitem">
-                        {!! $i('book') !!}<span>Monthly case study shortlist</span>
+                        {!! $i('book') !!}<span>Monthly - Short Listed Incubatees</span>
                     </a>
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Operations</p>
                     <a href="{{ route('admin.batches.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'admin-batches') is-active @endif" role="menuitem">
@@ -1147,7 +1147,7 @@
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Service module</p>
                     <a href="{{ route('hub.case-study-shortlists.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'case-study-shortlists') is-active @endif" role="menuitem">
-                        {!! $i('book') !!}<span>Monthly case study shortlist</span>
+                        {!! $i('book') !!}<span>Monthly - Short Listed Incubatees</span>
                     </a>
                     <div class="admin-topbar__dropdown-subgroup @if ($hubServiceGroupActive) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
@@ -1297,7 +1297,7 @@
                         {!! $i('doc') !!}<span>Services</span>
                     </a>
                     <a href="{{ route('staff.case-study-shortlists.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'case-study-shortlists') is-active @endif" role="menuitem">
-                        {!! $i('book') !!}<span>Monthly case study shortlist</span>
+                        {!! $i('book') !!}<span>Monthly - Short Listed Incubatees</span>
                     </a>
                     <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Market linkage</span>

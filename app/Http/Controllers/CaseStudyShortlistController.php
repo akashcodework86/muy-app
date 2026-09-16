@@ -22,6 +22,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -116,6 +117,7 @@ class CaseStudyShortlistController extends Controller
         ) + [
             'programYears' => CaseStudyShortlistCandidateCatalog::YEARS,
             'monthlyLimit' => CaseStudyShortlistManager::MONTHLY_LIMIT,
+            'nominationServices' => (array) config('case_study_shortlists.nomination_services', []),
         ]);
     }
 
@@ -126,10 +128,39 @@ class CaseStudyShortlistController extends Controller
         $validated = $request->validate([
             'source' => ['required', 'in:phase1,phase2,phase3'],
             'source_application_id' => ['required', 'integer', 'min:1'],
+            'services' => ['nullable', 'array'],
+            'services.*' => [
+                'string',
+                'max:64',
+                Rule::in(array_keys((array) config('case_study_shortlists.nomination_services', []))),
+            ],
         ]);
-        $this->manager->create($user, $validated['source'], (int) $validated['source_application_id']);
 
-        return back()->with('status', 'Incubatee shortlisted successfully. It is now visible to the hub and state admins.');
+        $selectedServices = array_values(array_unique($validated['services'] ?? []));
+        DB::transaction(function () use ($user, $validated, $selectedServices): void {
+            $shortlist = $this->manager->create(
+                $user,
+                $validated['source'],
+                (int) $validated['source_application_id'],
+            );
+            if ($selectedServices === []) {
+                return;
+            }
+
+            $profile = $this->profiles->build($shortlist);
+            $this->nominations->proposeAtShortlisting(
+                $user,
+                $shortlist,
+                $selectedServices,
+                (array) ($profile['received'] ?? []),
+            );
+        }, 3);
+
+        $message = $selectedServices === []
+            ? 'Incubatee shortlisted successfully. It is now visible to the hub and state admins.'
+            : 'Incubatee shortlisted and proposed services shared successfully.';
+
+        return back()->with('status', $message);
     }
 
     public function show(Request $request, CaseStudyShortlist $caseStudyShortlist): View

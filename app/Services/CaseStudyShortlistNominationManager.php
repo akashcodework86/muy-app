@@ -19,6 +19,45 @@ class CaseStudyShortlistNominationManager
     {
         abort_unless($user->role === 'state_admin' && CaseStudyShortlistAccess::canAccessDistrict($user, (int) $shortlist->district_id), 403);
 
+        $this->syncSelection($user, $shortlist, $selectedCodes, $alreadyReceived, $note);
+    }
+
+    /**
+     * Save the initial service proposals selected by District Staff while the
+     * incubatee is being shortlisted. This does not mark a service delivered.
+     *
+     * @param list<string> $selectedCodes
+     * @param array<string, bool> $alreadyReceived
+     */
+    public function proposeAtShortlisting(
+        User $user,
+        CaseStudyShortlist $shortlist,
+        array $selectedCodes,
+        array $alreadyReceived,
+    ): void {
+        abort_unless(
+            $user->role === 'district_staff'
+            && (int) $shortlist->district_id === (int) $user->district_id
+            && (int) $shortlist->created_by_user_id === (int) $user->id
+            && $shortlist->removed_at === null,
+            403,
+        );
+
+        $this->syncSelection($user, $shortlist, $selectedCodes, $alreadyReceived, null);
+    }
+
+    /**
+     * @param list<string> $selectedCodes
+     * @param array<string, bool> $alreadyReceived
+     */
+    private function syncSelection(
+        User $user,
+        CaseStudyShortlist $shortlist,
+        array $selectedCodes,
+        array $alreadyReceived,
+        ?string $note,
+    ): void {
+
         $options = (array) config('case_study_shortlists.nomination_services', []);
         $selectedCodes = array_values(array_unique(array_filter($selectedCodes, fn ($code) => isset($options[$code]))));
         foreach ($selectedCodes as $code) {

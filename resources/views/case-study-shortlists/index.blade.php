@@ -1,11 +1,11 @@
 @extends('layouts.admin')
 
-@section('title', 'Monthly case study shortlist')
-@section('heading', 'Monthly case study shortlist')
+@section('title', 'Monthly - Short Listed Incubatees')
+@section('heading', 'Monthly - Short Listed Incubatees')
 
 @push('styles')
 <style>
-    .css-shell{display:flex;flex-direction:column;gap:1rem}.css-card{background:#fff;border:1px solid #dce4ee;border-radius:16px;padding:1rem}.css-alert{border-radius:10px;padding:.75rem 1rem;font-size:.88rem}.css-alert--ok{background:#ecfdf5;color:#166534;border:1px solid #86efac}.css-alert--warn{background:#fffbeb;color:#92400e;border:1px solid #fde68a}.css-title{margin:0;color:#172033}.css-muted{color:#64748b;font-size:.82rem}.css-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.7rem}.css-field label{display:block;font-size:.75rem;font-weight:800;color:#475569;margin-bottom:.3rem}.css-input{box-sizing:border-box;width:100%;padding:.58rem .65rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;font:inherit;font-size:.86rem}.css-actions{display:flex;gap:.5rem;align-items:end;flex-wrap:wrap}.css-btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:.58rem .9rem;font:inherit;font-size:.82rem;font-weight:800;cursor:pointer;text-decoration:none;background:#4f46e5;color:#fff}.css-btn--light{background:#fff;color:#334155;border:1px solid #cbd5e1}.css-btn--danger{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}.css-btn:disabled{opacity:.5;cursor:not-allowed}.css-quota{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}.css-quota__bar{width:180px;height:8px;border-radius:99px;background:#e2e8f0;overflow:hidden}.css-quota__fill{height:100%;background:#4f46e5}.css-candidates{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.75rem;margin-top:1rem}.css-candidate{border:1px solid #dbe4f0;border-radius:13px;padding:.9rem;background:#f8fafc}.css-candidate__top{display:flex;justify-content:space-between;gap:.5rem}.css-name{font-size:.94rem;font-weight:850;color:#0f172a}.css-tags{display:flex;flex-wrap:wrap;gap:.35rem;margin:.6rem 0}.css-tag{padding:.2rem .5rem;border-radius:99px;background:#eef2ff;color:#4338ca;font-size:.72rem;font-weight:750}.css-tag--green{background:#dcfce7;color:#166534}.css-table-wrap{overflow-x:auto}.css-table{width:100%;border-collapse:collapse;font-size:.83rem}.css-table th{background:#f1f5f9;color:#334155;text-align:left;padding:.65rem;border-bottom:1px solid #cbd5e1;white-space:nowrap}.css-table td{padding:.75rem .65rem;border-bottom:1px solid #e2e8f0;vertical-align:top}.css-remarks{display:flex;flex-direction:column;gap:.45rem;min-width:240px}.css-remark{background:#f8fafc;border-radius:8px;padding:.48rem .55rem}.css-remark strong{font-size:.75rem}.css-doc{display:inline-flex;margin-top:.3rem;color:#4338ca;font-size:.7rem;font-weight:800;text-decoration:none}.css-doc:hover{text-decoration:underline}.css-inline{display:flex;gap:.4rem}.css-inline .css-input{min-width:170px}.css-status{font-weight:800}.css-status--removed{color:#be123c}@media(max-width:720px){.css-card{padding:.75rem}.css-table{min-width:900px}}
+    .css-shell{display:flex;flex-direction:column;gap:1rem}.css-card{background:#fff;border:1px solid #dce4ee;border-radius:16px;padding:1rem}.css-alert{border-radius:10px;padding:.75rem 1rem;font-size:.88rem}.css-alert--ok{background:#ecfdf5;color:#166534;border:1px solid #86efac}.css-alert--warn{background:#fffbeb;color:#92400e;border:1px solid #fde68a}.css-title{margin:0;color:#172033}.css-muted{color:#64748b;font-size:.82rem}.css-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.7rem}.css-field label{display:block;font-size:.75rem;font-weight:800;color:#475569;margin-bottom:.3rem}.css-input{box-sizing:border-box;width:100%;padding:.58rem .65rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;font:inherit;font-size:.86rem}.css-actions{display:flex;gap:.5rem;align-items:end;flex-wrap:wrap}.css-btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:.58rem .9rem;font:inherit;font-size:.82rem;font-weight:800;cursor:pointer;text-decoration:none;background:#4f46e5;color:#fff}.css-btn--light{background:#fff;color:#334155;border:1px solid #cbd5e1}.css-btn--danger{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}.css-btn:disabled{opacity:.5;cursor:not-allowed}.css-quota{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}.css-quota__bar{width:180px;height:8px;border-radius:99px;background:#e2e8f0;overflow:hidden}.css-quota__fill{height:100%;background:#4f46e5}.css-candidates{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:.75rem;margin-top:1rem}.css-candidate{border:1px solid #dbe4f0;border-radius:13px;padding:.9rem;background:#f8fafc}.css-candidate__top{display:flex;justify-content:space-between;gap:.5rem}.css-name{font-size:.94rem;font-weight:850;color:#0f172a}.css-tags{display:flex;flex-wrap:wrap;gap:.35rem;margin:.6rem 0}.css-tag{padding:.2rem .5rem;border-radius:99px;background:#eef2ff;color:#4338ca;font-size:.72rem;font-weight:750}.css-tag--green{background:#dcfce7;color:#166534}.css-proposal{margin:.75rem 0;border:1px solid #dbe4f0;border-radius:11px;padding:.7rem;background:#fff}.css-proposal legend{padding:0 .3rem;color:#334155;font-size:.75rem;font-weight:850}.css-proposal__note{margin:0 0 .55rem;color:#64748b;font-size:.72rem}.css-proposal__options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem}.css-proposal__option{display:flex;gap:.45rem;align-items:flex-start;border:1px solid #e2e8f0;border-radius:9px;padding:.55rem;color:#172033;font-size:.76rem;font-weight:800;cursor:pointer}.css-proposal__option input{margin:.12rem 0 0;accent-color:#4f46e5}.css-proposal__option small{display:block;margin-top:.15rem;color:#64748b;font-size:.66rem;font-weight:500;line-height:1.35}.css-table-wrap{overflow-x:auto}.css-table{width:100%;border-collapse:collapse;font-size:.83rem}.css-table th{background:#f1f5f9;color:#334155;text-align:left;padding:.65rem;border-bottom:1px solid #cbd5e1;white-space:nowrap}.css-table td{padding:.75rem .65rem;border-bottom:1px solid #e2e8f0;vertical-align:top}.css-remarks{display:flex;flex-direction:column;gap:.45rem;min-width:240px}.css-remark{background:#f8fafc;border-radius:8px;padding:.48rem .55rem}.css-remark strong{font-size:.75rem}.css-doc{display:inline-flex;margin-top:.3rem;color:#4338ca;font-size:.7rem;font-weight:800;text-decoration:none}.css-doc:hover{text-decoration:underline}.css-inline{display:flex;gap:.4rem}.css-inline .css-input{min-width:170px}.css-status{font-weight:800}.css-status--removed{color:#be123c}@media(max-width:720px){.css-card{padding:.75rem}.css-table{min-width:900px}.css-proposal__options{grid-template-columns:1fr}}
 </style>
 @endpush
 
@@ -19,7 +19,7 @@
     <section class="css-card">
         <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
             <div>
-                <h2 class="css-title">{{ $user->role === 'district_staff' ? 'Choose this month’s incubatees' : 'District shortlists' }}</h2>
+                <h2 class="css-title">Monthly - Short Listed Incubatees</h2>
                 <p class="css-muted" style="margin:.35rem 0 0">Maximum 5 active selections per district per month. An incubatee can be shortlisted only once across all programme years.</p>
             </div>
             @if($user->role === 'district_staff')
@@ -72,7 +72,24 @@
                         @if($candidate['applicant_type'])<span class="css-tag">{{ $candidate['applicant_type'] }}</span>@endif
                     </div>
                     @if($candidate['product'])<div class="css-muted" style="margin-bottom:.6rem">Product/enterprise: {{ $candidate['product'] }}</div>@endif
-                    <form method="post" action="{{ route($routePrefix.'.store') }}">@csrf<input type="hidden" name="source" value="{{ $candidate['source'] }}"><input type="hidden" name="source_application_id" value="{{ $candidate['source_id'] }}"><button class="css-btn" type="submit" @disabled($activeCount >= $monthlyLimit)>+ Shortlist incubatee</button></form>
+                    <form method="post" action="{{ route($routePrefix.'.store') }}">
+                        @csrf
+                        <input type="hidden" name="source" value="{{ $candidate['source'] }}">
+                        <input type="hidden" name="source_application_id" value="{{ $candidate['source_id'] }}">
+                        <fieldset class="css-proposal">
+                            <legend>Propose services</legend>
+                            <p class="css-proposal__note">Recommendations only; selecting these does not mark any service as delivered.</p>
+                            <div class="css-proposal__options">
+                                @foreach($nominationServices as $serviceCode => $serviceOption)
+                                    <label class="css-proposal__option">
+                                        <input type="checkbox" name="services[]" value="{{ $serviceCode }}">
+                                        <span>{{ $serviceOption['label'] }}<small>{{ $serviceOption['description'] }}</small></span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </fieldset>
+                        <button class="css-btn" type="submit" @disabled($activeCount >= $monthlyLimit)>+ Shortlist &amp; propose</button>
+                    </form>
                 </article>
             @empty
                 <div class="css-alert css-alert--warn">No eligible incubatee matched these filters, or the selected legacy database is currently unavailable.</div>
