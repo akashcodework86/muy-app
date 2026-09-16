@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Schema;
 
 class ProgramDataCentreService
 {
+    public const AGE_GROUPS = ['Below 18', '18–25', '26–35', '36–45', '46–60', '60+', 'Not applicable (SHG/CBO)', 'NA/Blank'];
+
     // ─── Phase 2 FY window ────────────────────────────────────────────────
     private const P2_START = '2025-04-02';
 
@@ -62,6 +64,12 @@ class ProgramDataCentreService
 
     /** @var array<string,array<string,int>>|null */
     private ?array $p3Education = null;
+
+    private ?array $p1Age = null;
+
+    private ?array $p2Age = null;
+
+    private ?array $p3Age = null;
 
     private ?bool $hasCfaTable = null;
 
@@ -116,7 +124,9 @@ class ProgramDataCentreService
                     'gender_state' => $this->genderStatePhase3Only($districts),
                     'gender_district' => $this->genderByDistrictPhase3Only($districts),
                     'education_state' => $this->educationStatePhase3Only($districts),
+                    'age_state' => $this->ageStatePhase3Only($districts),
                     'education_district' => $this->educationByDistrictPhase3Only($districts),
+                    'age_district' => $this->ageByDistrictPhase3Only($districts),
                     'employment_state' => $this->employmentStatePhase3Only(),
                     'application_analysis' => $this->phase3ApplicationAnalysis(),
                 ];
@@ -131,7 +141,9 @@ class ProgramDataCentreService
                 'gender_state' => $this->genderState($districts),
                 'gender_district' => $this->genderByDistrict($districts),
                 'education_state' => $this->educationState($districts),
+                'age_state' => $this->ageState($districts),
                 'education_district' => $this->educationByDistrict($districts),
+                'age_district' => $this->ageByDistrict($districts),
                 'employment_state' => $this->employmentState(),
                 'application_analysis' => null,
             ];
@@ -727,7 +739,9 @@ class ProgramDataCentreService
                 'gender-state' => $this->toCsv($this->genderStatePhase3Only($districts)),
                 'gender-district' => $this->toCsv($this->genderByDistrictPhase3Only($districts)),
                 'education-state' => $this->toCsv($this->educationStatePhase3Only($districts)),
+                'age-state' => $this->toCsv($this->ageStatePhase3Only($districts)),
                 'education-district' => $this->toCsv($this->educationByDistrictPhase3Only($districts)),
+                'age-district' => $this->toCsv($this->ageByDistrictPhase3Only($districts)),
                 'employment-state' => $this->toCsv($this->employmentStatePhase3Only()),
                 default => [['error' => 'Unknown section']],
             };
@@ -739,7 +753,9 @@ class ProgramDataCentreService
             'gender-state' => $this->toCsv($this->genderState($districts)),
             'gender-district' => $this->toCsv($this->genderByDistrict($districts)),
             'education-state' => $this->toCsv($this->educationState($districts)),
+            'age-state' => $this->toCsv($this->ageState($districts)),
             'education-district' => $this->toCsv($this->educationByDistrict($districts)),
+            'age-district' => $this->toCsv($this->ageByDistrict($districts)),
             'employment-state' => $this->toCsv($this->employmentState()),
             default => [['error' => 'Unknown section']],
         };
@@ -1265,12 +1281,15 @@ class ProgramDataCentreService
         $this->p1Counts = null;
         $this->p1Gender = null;
         $this->p1Education = null;
+        $this->p1Age = null;
         $this->p2Counts = null;
         $this->p2Gender = null;
         $this->p2Education = null;
+        $this->p2Age = null;
         $this->p3Counts = null;
         $this->p3Gender = null;
         $this->p3Education = null;
+        $this->p3Age = null;
     }
 
     /**
@@ -1687,6 +1706,256 @@ class ProgramDataCentreService
         }
 
         return 'Other';
+    }
+
+    public function ageStatePhase3Only(array $districts): array
+    {
+        $s3 = $this->ageBuckets('p3', $districts);
+        $cats = self::AGE_GROUPS;
+        $row = ['phase' => 'Phase 3 (FY 2026–27)'];
+        foreach ($cats as $k) {
+            $row[$k] = $s3[$k] ?? 0;
+        }
+        $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
+
+        return [$row];
+    }
+
+    public function ageByDistrictPhase3Only(array $districts): array
+    {
+        $cats = self::AGE_GROUPS;
+        $rows = [];
+        $total = array_fill_keys($cats, 0);
+
+        foreach ($districts as $name) {
+            $b = $this->ageBucketsForDistrictPhase($name, 'p3');
+            $row = ['name' => $name];
+            foreach ($cats as $k) {
+                $v = $b[$k] ?? 0;
+                $row[$k] = $v;
+                $total[$k] += $v;
+            }
+            $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
+            $rows[] = $row;
+        }
+
+        $totRow = ['name' => 'Total', '_is_total' => true] + $total;
+        $totRow['total'] = array_sum(array_intersect_key($total, array_flip($cats)));
+        $rows[] = $totRow;
+
+        return $rows;
+    }
+
+    public function ageState(array $districts): array
+    {
+        $s1 = $this->ageBuckets('p1', $districts);
+        $s2 = $this->ageBuckets('p2', $districts);
+        $s3 = $this->ageBuckets('p3', $districts);
+
+        $cats = self::AGE_GROUPS;
+        $rows = [];
+
+        foreach ([
+            'Phase 1 (FY 2024–25)' => $s1,
+            'Phase 2 (FY 2025–26)' => $s2,
+            'Phase 3 (FY 2026–27)' => $s3,
+        ] as $label => $b) {
+            $row = ['phase' => $label];
+            foreach ($cats as $k) {
+                $row[$k] = $b[$k] ?? 0;
+            }
+            $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
+            $rows[] = $row;
+        }
+
+        $combined = ['phase' => 'Combined'];
+        foreach ($cats as $k) {
+            $combined[$k] = ($s1[$k] ?? 0) + ($s2[$k] ?? 0) + ($s3[$k] ?? 0);
+        }
+        $combined['total'] = array_sum(array_intersect_key($combined, array_flip($cats)));
+        $combined['_is_total'] = true;
+        $rows[] = $combined;
+
+        return $rows;
+    }
+
+    public function ageByDistrict(array $districts): array
+    {
+        $cats = self::AGE_GROUPS;
+        $rows = [];
+        $total = array_fill_keys($cats, 0);
+
+        foreach ($districts as $name) {
+            $b = $this->ageBucketsForDistrict($name);
+            $row = ['name' => $name];
+            foreach ($cats as $k) {
+                $v = $b[$k] ?? 0;
+                $row[$k] = $v;
+                $total[$k] += $v;
+            }
+            $row['total'] = array_sum(array_intersect_key($row, array_flip($cats)));
+            $rows[] = $row;
+        }
+
+        $totRow = ['name' => 'Total', '_is_total' => true] + $total;
+        $totRow['total'] = array_sum(array_intersect_key($total, array_flip($cats)));
+        $rows[] = $totRow;
+
+        return $rows;
+    }
+
+    private function loadP1Age(): array
+    {
+        if ($this->p1Age !== null) {
+            return $this->p1Age;
+        }
+        $this->p1Age = [];
+        if (! $this->legacyPhase1Ok) {
+            return $this->p1Age;
+        }
+
+        foreach ($this->p1BaseQuery()
+            ->selectRaw('LOWER(TRIM(FatherName)) as d, dob as age, COUNT(*) as c')
+            ->groupByRaw('LOWER(TRIM(FatherName)), dob')
+            ->get() as $r) {
+            $this->p1Age[(string) $r->d][(string) ($r->age ?? '')] = (int) $r->c;
+        }
+
+        return $this->p1Age;
+    }
+
+    private function loadP2Age(): array
+    {
+        if ($this->p2Age !== null) {
+            return $this->p2Age;
+        }
+        $this->p2Age = [];
+        if (! $this->legacyPhase2Ok) {
+            return $this->p2Age;
+        }
+
+        if ($this->isOnboardedScope() && ! $this->legacyPhase2OnboardOk()) {
+            return $this->p2Age;
+        }
+
+        foreach ($this->p2BaseQuery()
+            ->selectRaw("LOWER(TRIM(d.district)) as dist, CASE WHEN LOWER(TRIM(a.category)) IN ('shg', 'cbo') THEN '__organisation__' ELSE d.dob END as age, COUNT(DISTINCT a.id) as c")
+            ->groupByRaw("LOWER(TRIM(d.district)), CASE WHEN LOWER(TRIM(a.category)) IN ('shg', 'cbo') THEN '__organisation__' ELSE d.dob END")
+            ->get() as $r) {
+            $this->p2Age[(string) $r->dist][(string) ($r->age ?? '')] = (int) $r->c;
+        }
+
+        return $this->p2Age;
+    }
+
+    private function loadP3Age(): array
+    {
+        if ($this->p3Age !== null) {
+            return $this->p3Age;
+        }
+        $this->p3Age = [];
+        if ($this->isOnboardedScope()) {
+            if (! $this->hasOnboardingTables()) {
+                return $this->p3Age;
+            }
+        } elseif (! $this->hasCfaTable()) {
+            return $this->p3Age;
+        }
+
+        foreach (DB::table('cfa_submissions as cs')
+            ->join('districts as d', 'd.id', '=', 'cs.district_id')
+            ->selectRaw("LOWER(d.name) as dist, CASE WHEN LOWER(TRIM(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')), 'null'), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')), ''))) IN ('shg', 'cbo') THEN '__organisation__' ELSE JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) END as age, COUNT(*) as c")
+            ->whereIn('cs.id', $this->phase3BaseQuery()->select('cs.id'))
+            ->groupByRaw("LOWER(d.name), CASE WHEN LOWER(TRIM(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')), 'null'), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')), ''))) IN ('shg', 'cbo') THEN '__organisation__' ELSE JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) END")
+            ->get() as $r) {
+            $e = ($r->age === 'null' || $r->age === null) ? '' : (string) $r->age;
+            $this->p3Age[(string) $r->dist][$e] = (int) $r->c;
+        }
+
+        return $this->p3Age;
+    }
+
+    private function ageBuckets(string $phase, array $districts): array
+    {
+        $b = [];
+        foreach ($districts as $name) {
+            foreach ($this->ageBucketsForDistrictPhase($name, $phase) as $k => $v) {
+                $b[$k] = ($b[$k] ?? 0) + $v;
+            }
+        }
+
+        return $b;
+    }
+
+    private function ageBucketsForDistrict(string $name): array
+    {
+        $b = [];
+        foreach (['p1', 'p2', 'p3'] as $phase) {
+            foreach ($this->ageBucketsForDistrictPhase($name, $phase) as $k => $v) {
+                $b[$k] = ($b[$k] ?? 0) + $v;
+            }
+        }
+
+        return $b;
+    }
+
+    private function ageBucketsForDistrictPhase(string $name, string $phase): array
+    {
+        $b = [];
+
+        if ($phase === 'p1') {
+            $data = $this->loadP1Age();
+            foreach (LegacyPhase1DistrictResolver::legacyKeysForDistrict($name) as $norm) {
+                foreach ($data[$norm] ?? [] as $raw => $cnt) {
+                    $key = $this->normAge((string) $raw);
+                    $b[$key] = ($b[$key] ?? 0) + $cnt;
+                }
+            }
+        } elseif ($phase === 'p2') {
+            $data = $this->loadP2Age();
+            foreach ($this->p2Norms($name) as $norm) {
+                foreach ($data[$norm] ?? [] as $raw => $cnt) {
+                    $key = $this->normAge((string) $raw);
+                    $b[$key] = ($b[$key] ?? 0) + $cnt;
+                }
+            }
+        } else {
+            $data = $this->loadP3Age();
+            foreach ($data[mb_strtolower($name)] ?? [] as $raw => $cnt) {
+                $key = $this->normAge((string) $raw);
+                $b[$key] = ($b[$key] ?? 0) + $cnt;
+            }
+        }
+
+        return $b;
+    }
+
+    private function normAge(string $raw): string
+    {
+        $raw = trim($raw);
+        if ($raw === '__organisation__') {
+            return 'Not applicable (SHG/CBO)';
+        }
+        $today = new \DateTimeImmutable(now()->timezone('Asia/Kolkata')->toDateString());
+        foreach (['Y-m-d', 'd-m-Y', 'd/m/Y', 'Y/m/d', 'Y-m-d H:i:s'] as $format) {
+            $dob = \DateTimeImmutable::createFromFormat('!'.$format, $raw);
+            if ($dob === false || $dob->format($format) !== $raw) {
+                continue;
+            }
+            $age = $dob->diff($today)->y;
+            if ($dob > $today || $age > 120) {
+                return 'NA/Blank';
+            }
+            return match (true) {
+                $age < 18 => 'Below 18',
+                $age <= 25 => '18–25',
+                $age <= 35 => '26–35',
+                $age <= 45 => '36–45',
+                $age <= 60 => '46–60',
+                default => '60+',
+            };
+        }
+        return 'NA/Blank';
     }
 
     private function normEducation(string $raw): string

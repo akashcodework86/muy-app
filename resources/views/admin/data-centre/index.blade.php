@@ -1102,6 +1102,103 @@
             </div>
         </details>
 
+        {{-- 4. Age — State --}}
+        <details class="dc-section" id="sec-age-state">
+            <summary class="dc-section__head">
+                <div class="dc-section__head-left">
+                    <div class="dc-section__icon" style="background:#ecfdf5;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M6 3v16"/><path d="M11 8h5M11 12h5M11 16h3"/></svg>
+                    </div>
+                    <div>
+                        <div class="dc-section__name">Age Breakdown — State Totals</div>
+                        <div class="dc-section__desc">
+                            Age groups from date of birth — {{ $isPhase3View ? 'Phase 3 only' : 'per phase and combined' }}
+                        </div>
+                    </div>
+                </div>
+                <div class="dc-section__actions" onclick="event.stopPropagation()">
+                    <a href="{{ route('admin.data-centre.export', array_merge(['section' => 'age-state'], $dcQuery)) }}" class="dc-btn dc-btn--export">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                        Export CSV
+                    </a>
+                    <svg class="dc-section__arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l5 5 5-5"/></svg>
+                </div>
+            </summary>
+            <div class="dc-table-wrap">
+                <table class="dc-table">
+                    <thead>
+                        <tr>
+                            <th>Phase</th>
+                            @foreach (\App\Services\DataCentre\ProgramDataCentreService::AGE_GROUPS as $ageGroup)
+                                <th class="_num">{{ $ageGroup }}</th>
+                            @endforeach
+                            <th class="_num">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($age_state as $row)
+                            <tr class="{{ !empty($row['_is_total']) ? '_total' : '' }}">
+                                <td>{{ $row['phase'] }}</td>
+                                @foreach (\App\Services\DataCentre\ProgramDataCentreService::AGE_GROUPS as $ageGroup)
+                                    <td class="_num">{{ number_format($row[$ageGroup]) }}</td>
+                                @endforeach
+                                <td class="_num">{{ number_format($row['total']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+                <p class="dc-note">Age in completed years as of {{ now()->timezone('Asia/Kolkata')->format('d M Y') }}. Missing, invalid, future or implausible DOBs appear under NA/Blank. SHG/CBO formation dates are not treated as personal ages.</p>
+            </div>
+        </details>
+
+        {{-- 5. Age — By District --}}
+        <details class="dc-section" id="sec-age-district">
+            <summary class="dc-section__head">
+                <div class="dc-section__head-left">
+                    <div class="dc-section__icon" style="background:#ecfdf5;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M6 3v16"/><path d="M11 8h5M11 12h5M11 16h3"/></svg>
+                    </div>
+                    <div>
+                        <div class="dc-section__name">Age Breakdown — By District {{ $isPhase3View ? '(Phase 3)' : '(Combined)' }}</div>
+                        <div class="dc-section__desc">
+                            Age groups from date of birth — {{ $isPhase3View ? 'Phase 3 only' : 'per phase and combined' }}
+                        </div>
+                    </div>
+                </div>
+                <div class="dc-section__actions" onclick="event.stopPropagation()">
+                    <a href="{{ route('admin.data-centre.export', array_merge(['section' => 'age-district'], $dcQuery)) }}" class="dc-btn dc-btn--export">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
+                        Export CSV
+                    </a>
+                    <svg class="dc-section__arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l5 5 5-5"/></svg>
+                </div>
+            </summary>
+            <div class="dc-table-wrap">
+                <table class="dc-table">
+                    <thead>
+                        <tr>
+                            <th>District</th>
+                            @foreach (\App\Services\DataCentre\ProgramDataCentreService::AGE_GROUPS as $ageGroup)
+                                <th class="_num">{{ $ageGroup }}</th>
+                            @endforeach
+                            <th class="_num">Total {{ $isOnboardedOnly ? 'onboarded' : 'CFA' }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($age_district as $row)
+                            <tr class="{{ !empty($row['_is_total']) ? '_total' : '' }}">
+                                <td>{{ $row['name'] }}</td>
+                                @foreach (\App\Services\DataCentre\ProgramDataCentreService::AGE_GROUPS as $ageGroup)
+                                    <td class="_num">{{ number_format($row[$ageGroup]) }}</td>
+                                @endforeach
+                                <td class="_num">{{ number_format($row['total']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
     </div>{{-- /.dc-sections --}}
 
     {{-- ── Methodology note ── --}}
