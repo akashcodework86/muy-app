@@ -93,7 +93,7 @@ class ProgramDataCentreService
         $dataScope = $dataScope === 'onboarded' ? 'onboarded' : 'all';
         $filter = $filter ?? DataCentreFilter::empty();
         $this->prepareContext($dataScope, $viewMode, $filter);
-        $cacheKey = 'data_centre_build_v13_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
+        $cacheKey = 'data_centre_build_v14_'.$viewMode.'_'.$dataScope.'_'.$filter->cacheKeySuffix();
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($viewMode, $dataScope, $filter) {
             $this->prepareContext($dataScope, $viewMode, $filter);
@@ -155,6 +155,7 @@ class ProgramDataCentreService
     {
         foreach (['all', 'rbiphase3'] as $viewMode) {
             foreach (['all', 'onboarded'] as $dataScope) {
+                Cache::forget('data_centre_build_v14_'.$viewMode.'_'.$dataScope.'_none');
                 Cache::forget('data_centre_build_v13_'.$viewMode.'_'.$dataScope.'_none');
                 Cache::forget('data_centre_build_v12_'.$viewMode.'_'.$dataScope.'_none');
             }
@@ -1874,18 +1875,47 @@ class ProgramDataCentreService
         try {
             foreach (DB::table('cfa_submissions as cs')
                 ->join('districts as d', 'd.id', '=', 'cs.district_id')
-                ->selectRaw("LOWER(d.name) as dist, CASE WHEN LOWER(TRIM(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')), 'null'), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')), ''))) IN ('shg', 'cbo') THEN '__organisation__' ELSE JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) END as age, COUNT(*) as c")
+                ->selectRaw("
+                    LOWER(d.name) as dist,
+                    JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')) as category,
+                    JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')) as app_category,
+                    JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) as dob,
+                    COUNT(*) as c
+                ")
                 ->whereIn('cs.id', $this->phase3BaseQuery()->select('cs.id'))
-                ->groupByRaw("LOWER(d.name), CASE WHEN LOWER(TRIM(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')), 'null'), JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')), ''))) IN ('shg', 'cbo') THEN '__organisation__' ELSE JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob')) END")
+                ->groupByRaw("
+                    LOWER(d.name),
+                    JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.category')),
+                    JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.app_category')),
+                    JSON_UNQUOTE(JSON_EXTRACT(cs.payload, '$.dob'))
+                ")
                 ->get() as $r) {
-                $e = ($r->age === 'null' || $r->age === null) ? '' : (string) $r->age;
-                $this->p3Age[(string) $r->dist][$e] = (int) $r->c;
+                $raw = $this->ageRawFromCategoriesAndDob(
+                    (string) ($r->category ?? ''),
+                    (string) ($r->app_category ?? ''),
+                    (string) ($r->dob ?? ''),
+                );
+                $dist = (string) $r->dist;
+                $this->p3Age[$dist][$raw] = ($this->p3Age[$dist][$raw] ?? 0) + (int) $r->c;
             }
         } catch (\Throwable $e) {
             report($e);
         }
 
         return $this->p3Age;
+    }
+
+    private function ageRawFromCategoriesAndDob(string $category, string $appCategory, string $dob): string
+    {
+        $category = strtolower(trim($category === 'null' ? '' : $category));
+        $appCategory = strtolower(trim($appCategory === 'null' ? '' : $appCategory));
+        if (in_array($category, ['shg', 'cbo'], true) || in_array($appCategory, ['shg', 'cbo'], true)) {
+            return '__organisation__';
+        }
+
+        $dob = trim($dob === 'null' ? '' : $dob);
+
+        return $dob;
     }
 
     private function ageBuckets(string $phase, array $districts): array
