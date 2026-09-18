@@ -191,15 +191,26 @@
     $viewMode = $view_mode ?? 'all';
     $dataScope = $data_scope ?? 'all';
     $isPhase3View = $viewMode === 'rbiphase3';
+    $isAnalysisView = $viewMode === 'analysis';
+    $isAllPhasesView = $viewMode === 'all';
     $isOnboardedOnly = $dataScope === 'onboarded';
+    $analysisPhase = $analysis_phase ?? 'combined';
+    $analysisPhaseLabel = $analysis_phase_label ?? \App\Services\DataCentre\ApplicationAnalysisService::phaseLabel($analysisPhase);
     $filterQuery = ($filter ?? \App\Services\DataCentre\DataCentreFilter::empty())->queryParams();
     $dcQuery = [];
     if ($isPhase3View) {
         $dcQuery['view'] = 'rbiphase3';
         $dcQuery = array_merge($dcQuery, $filterQuery);
     }
+    if ($isAnalysisView) {
+        $dcQuery['view'] = 'analysis';
+        $dcQuery['phase'] = $analysisPhase;
+        $dcQuery = array_merge($dcQuery, $filterQuery);
+    }
     $phase3ToggleQuery = array_merge(['view' => 'rbiphase3'], $filterQuery);
     $phase3OnboardedQuery = array_merge($phase3ToggleQuery, ['scope' => 'onboarded']);
+    $analysisToggleQuery = array_merge(['view' => 'analysis', 'phase' => $analysisPhase], $filterQuery);
+    $analysisOnboardedQuery = array_merge($analysisToggleQuery, ['scope' => 'onboarded']);
     if ($isOnboardedOnly) {
         $dcQuery['scope'] = 'onboarded';
     }
@@ -230,9 +241,9 @@
     {{-- ── View toggle ── --}}
     <div class="dc-view-toggle" role="tablist" aria-label="Data centre phase view">
         <a href="{{ route('admin.data-centre.index', $isOnboardedOnly ? ['scope' => 'onboarded'] : []) }}"
-           class="dc-view-toggle__btn {{ ! $isPhase3View ? 'is-active' : '' }}"
+           class="dc-view-toggle__btn {{ $isAllPhasesView ? 'is-active' : '' }}"
            role="tab"
-           aria-selected="{{ ! $isPhase3View ? 'true' : 'false' }}">
+           aria-selected="{{ $isAllPhasesView ? 'true' : 'false' }}">
             All Phases
         </a>
         <a href="{{ route('admin.data-centre.index', $isOnboardedOnly ? $phase3OnboardedQuery : $phase3ToggleQuery) }}"
@@ -241,17 +252,23 @@
            aria-selected="{{ $isPhase3View ? 'true' : 'false' }}">
             rbiphase3
         </a>
+        <a href="{{ route('admin.data-centre.index', $isOnboardedOnly ? ['view' => 'analysis', 'phase' => 'combined', 'scope' => 'onboarded'] : ['view' => 'analysis', 'phase' => 'combined']) }}"
+           class="dc-view-toggle__btn {{ $isAnalysisView ? 'is-active' : '' }}"
+           role="tab"
+           aria-selected="{{ $isAnalysisView ? 'true' : 'false' }}">
+            Analysis Card (All phase)
+        </a>
     </div>
 
     {{-- ── Data scope toggle ── --}}
     <div class="dc-view-toggle" role="tablist" aria-label="Data centre scope" style="margin-top:-.65rem;">
-        <a href="{{ route('admin.data-centre.index', $isPhase3View ? $phase3ToggleQuery : []) }}"
+        <a href="{{ route('admin.data-centre.index', $isAnalysisView ? $analysisToggleQuery : ($isPhase3View ? $phase3ToggleQuery : [])) }}"
            class="dc-view-toggle__btn {{ ! $isOnboardedOnly ? 'is-active' : '' }}"
            role="tab"
            aria-selected="{{ ! $isOnboardedOnly ? 'true' : 'false' }}">
             All applications
         </a>
-        <a href="{{ route('admin.data-centre.index', $isPhase3View ? $phase3OnboardedQuery : ['scope' => 'onboarded']) }}"
+        <a href="{{ route('admin.data-centre.index', $isAnalysisView ? $analysisOnboardedQuery : ($isPhase3View ? $phase3OnboardedQuery : ['scope' => 'onboarded'])) }}"
            class="dc-view-toggle__btn {{ $isOnboardedOnly ? 'is-active is-active--onboarded' : '' }}"
            role="tab"
            aria-selected="{{ $isOnboardedOnly ? 'true' : 'false' }}">
@@ -338,6 +355,110 @@
         </form>
     @endif
 
+    {{-- ── Application Analysis tab filters ── --}}
+    @if ($isAnalysisView)
+        @php
+            $dcFilter = $filter ?? \App\Services\DataCentre\DataCentreFilter::empty();
+            $dcFilterDates = $filter_form_dates ?? ['dateFrom' => null, 'dateTo' => null];
+            $analysisFy = $analysis_fy ?? $phase3_fy ?? null;
+            $dcFilterResetQuery = array_filter([
+                'view' => 'analysis',
+                'phase' => $analysisPhase,
+                'scope' => $isOnboardedOnly ? 'onboarded' : null,
+            ]);
+        @endphp
+        <form method="get" action="{{ route('admin.data-centre.index') }}" class="dc-filters" id="dc-filters-form">
+            <input type="hidden" name="view" value="analysis">
+            @if ($isOnboardedOnly)
+                <input type="hidden" name="scope" value="onboarded">
+            @endif
+            <div class="dc-filters__title">Filters — Analysis Card (All phase)</div>
+            <div class="dc-filters__grid">
+                <div class="dc-filters__field">
+                    <label for="dc-analysis-phase">Phase</label>
+                    <select name="phase" id="dc-analysis-phase">
+                        <option value="combined" @selected($analysisPhase === 'combined')>Combined (Phase 1 + 2 + 3)</option>
+                        <option value="phase1" @selected($analysisPhase === 'phase1')>Phase 1 (FY 2024–25)</option>
+                        <option value="phase2" @selected($analysisPhase === 'phase2')>Phase 2 (FY 2025–26)</option>
+                        <option value="phase3" @selected($analysisPhase === 'phase3')>Phase 3 (FY 2026–27)</option>
+                    </select>
+                </div>
+                <div class="dc-filters__field">
+                    <label for="dc-district">District</label>
+                    <select name="district_id" id="dc-district">
+                        <option value="">All districts</option>
+                        @foreach ($districts ?? [] as $dist)
+                            <option value="{{ $dist->id }}" @selected((int) ($dcFilter->districtId ?? 0) === (int) $dist->id)>{{ $dist->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="dc-filters__field">
+                    <label for="dc-quarter">Quarter</label>
+                    <select name="quarter" id="dc-quarter">
+                        <option value="">All quarters</option>
+                        @foreach (range(1, 4) as $q)
+                            <option value="{{ $q }}" @selected((int) ($dcFilter->quarter ?? 0) === $q)>
+                                Q{{ $q }}
+                                @if ($analysisPhase === 'combined')
+                                    (each phase FY)
+                                @elseif (!empty($analysisFy))
+                                    ({{ $analysisFy->fiscalQuarterLabel($q) }})
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="dc-filters__field">
+                    <label for="dc-fiscal-month">Month</label>
+                    <select name="fiscal_month" id="dc-fiscal-month">
+                        <option value="">All months</option>
+                        @foreach ($fiscal_month_options ?? [] as $opt)
+                            <option value="{{ $opt['value'] }}" @selected((int) ($dcFilter->fiscalMonth ?? 0) === (int) $opt['value'])>
+                                @if ($analysisPhase === 'combined')
+                                    Month {{ $opt['value'] }} ({{ explode(' ', $opt['label'])[0] ?? '' }} of each phase FY)
+                                @else
+                                    {{ $opt['label'] }}
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="dc-filters__field">
+                    <label for="dc-date-from">From date</label>
+                    <input type="date" name="date_from" id="dc-date-from" value="{{ $dcFilterDates['dateFrom'] ?? '' }}">
+                </div>
+                <div class="dc-filters__field">
+                    <label for="dc-date-to">To date</label>
+                    <input type="date" name="date_to" id="dc-date-to" value="{{ $dcFilterDates['dateTo'] ?? '' }}">
+                </div>
+                <div class="dc-filters__actions">
+                    <button type="submit" class="dc-btn dc-btn--export-all">Apply</button>
+                    <a href="{{ route('admin.data-centre.index', $dcFilterResetQuery) }}" class="dc-btn" style="background:#fff;border-color:#d4d4d8;color:#475569;">Reset</a>
+                </div>
+            </div>
+            @if (!empty($meta['filter_active']))
+                @php
+                    $dcFilterBarDistrict = $dcFilter->districtId
+                        ? (($districts ?? collect())->firstWhere('id', $dcFilter->districtId)?->name)
+                        : null;
+                    $dcFilterBarLabels = $dcFilter->activeLabels($analysisFy, $dcFilterBarDistrict);
+                @endphp
+                <p class="dc-note" style="margin:.65rem 0 0;padding:0;">
+                    Filtered view — {{ $analysisPhaseLabel }}
+                    @if (! empty($dcFilterBarLabels))
+                        · {{ implode(' · ', $dcFilterBarLabels) }}
+                    @endif
+                    @if ($analysisPhase === 'combined' && ($dcFilter->quarter || $dcFilter->fiscalMonth))
+                        · quarter/month is applied to each phase’s own FY
+                    @endif
+                    @if ($isOnboardedOnly)
+                        · onboarded date: P1 onboard_date, P2 onboarded_at, P3 batch locked_at
+                    @endif
+                </p>
+            @endif
+        </form>
+    @endif
+
     @if ($errors->any())
         <div class="dc-alert dc-alert--error" role="alert" style="margin-bottom:1rem;padding:.85rem 1rem;border-radius:.75rem;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:.88rem;">
             <strong>Export error:</strong>
@@ -356,6 +477,9 @@
                 Program Data Centre
                 @if ($isPhase3View)
                     <span style="font-size:.85rem;font-weight:600;color:#4f46e5;margin-left:.35rem;">· rbiphase3 only</span>
+                @endif
+                @if ($isAnalysisView)
+                    <span style="font-size:.85rem;font-weight:600;color:#ea580c;margin-left:.35rem;">· {{ $analysisPhaseLabel }}</span>
                 @endif
                 @if ($isOnboardedOnly)
                     <span style="font-size:.85rem;font-weight:600;color:#0f766e;margin-left:.35rem;">· onboarded only</span>
@@ -387,6 +511,13 @@
                         <input type="hidden" name="{{ $fk }}" value="{{ $fv }}">
                     @endforeach
                 @endif
+                @if ($isAnalysisView)
+                    <input type="hidden" name="view" value="analysis">
+                    <input type="hidden" name="phase" value="{{ $analysisPhase }}">
+                    @foreach (($filter ?? null)?->queryParams() ?? [] as $fk => $fv)
+                        <input type="hidden" name="{{ $fk }}" value="{{ $fv }}">
+                    @endforeach
+                @endif
                 @if ($isOnboardedOnly)
                     <input type="hidden" name="scope" value="onboarded">
                 @endif
@@ -401,21 +532,23 @@
                     Refresh Data
                 </button>
             </form>
+            @unless ($isAnalysisView)
             <a href="{{ route('admin.data-centre.export-all', $dcQuery) }}" class="dc-btn dc-btn--export-all">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M3 15h14" stroke-linecap="round"/></svg>
                 Export All (CSV)
             </a>
+            @endunless
         </div>
     </div>
 
     @php
         $dcExtractTill = now()->timezone(config('app.timezone'))->format('d M Y');
     @endphp
-    <div class="dc-shell">
+    <div class="dc-shell" @if ($isAnalysisView) style="grid-template-columns:1fr" @endif>
         <div class="dc-shell__main">
 
-    {{-- ── Application Analysis (rbiphase3 only) ── --}}
-    @if ($isPhase3View && ! empty($application_analysis))
+    {{-- ── Application Analysis ── --}}
+    @if (($isPhase3View || $isAnalysisView) && ! empty($application_analysis))
         @php
             $analysis = $application_analysis;
             $allChecksPass = collect($analysis['accuracy_checks'] ?? [])->every(fn ($c) => ! empty($c['pass']));
@@ -423,7 +556,7 @@
             $dcFilterDistrictName = $dcFilter->districtId
                 ? (($districts ?? collect())->firstWhere('id', $dcFilter->districtId)?->name)
                 : null;
-            $dcActiveFilterLabels = $dcFilter->activeLabels($phase3_fy ?? null, $dcFilterDistrictName);
+            $dcActiveFilterLabels = $dcFilter->activeLabels($isAnalysisView ? ($analysis_fy ?? $phase3_fy ?? null) : ($phase3_fy ?? null), $dcFilterDistrictName);
             $stageRowLabels = ['Seed-Stage Entrepreneurs', 'Early-Stage Entrepreneurs', 'Growth-Stage Entrepreneurs', 'Stage not specified'];
             $entrepreneurWomen = collect($analysis['entrepreneur'] ?? [])->filter(fn ($row) => ($row['label'] ?? '') === 'Women Entrepreneurs')->values();
             $entrepreneurStages = collect($analysis['entrepreneur'] ?? [])->filter(fn ($row) => in_array($row['label'] ?? '', $stageRowLabels, true))->values();
@@ -433,7 +566,13 @@
             <div class="dc-analysis__head">
                 <div>
                     <div class="dc-analysis__title" id="dc-analysis-title">{{ $isOnboardedOnly ? 'Onboarded Incubatees' : 'Call for Applications' }}</div>
-                    <div class="dc-analysis__subtitle">{{ $isOnboardedOnly ? 'Onboarded Analysis' : 'Application Analysis' }} — rbiphase3 ({{ $meta['phase3_fy'] ?? 'FY 2026-27' }})</div>
+                    <div class="dc-analysis__subtitle">
+                        @if ($isAnalysisView)
+                            Analysis Card (All phase) · {{ $analysisPhaseLabel }} · {{ $isOnboardedOnly ? 'Onboarded only' : 'All applications' }}
+                        @else
+                            {{ $isOnboardedOnly ? 'Onboarded Analysis' : 'Application Analysis' }} — rbiphase3 ({{ $meta['phase3_fy'] ?? 'FY 2026-27' }})
+                        @endif
+                    </div>
                 </div>
                 <div class="dc-analysis__total">
                     <div class="dc-analysis__total-label">Total Number of {{ $isOnboardedOnly ? 'Onboarded' : 'Applications' }}</div>
@@ -574,6 +713,7 @@
         </section>
     @endif
 
+    @unless ($isAnalysisView)
     {{-- ── Summary cards ── --}}
     <div class="dc-cards">
         @foreach ($summary as $row)
@@ -1202,6 +1342,7 @@
         </details>
 
     </div>{{-- /.dc-sections --}}
+    @endunless
 
     {{-- ── Methodology note ── --}}
     <details class="dc-method" style="margin-top:1.5rem;">
@@ -1221,6 +1362,9 @@
             @if ($isPhase3View)
                 <li><strong>rbiphase3 view:</strong> Shows Phase 3 data only. {{ $isOnboardedOnly ? 'Onboarded analysis uses locked batch members (MIS + rbiphase2 legacy). Filters (district / quarter / month / date) apply within FY 2026-27; onboarded date uses batch locked_at.' : 'Application Analysis uses live payload fields with Phase 2 legacy fallback (rbiphase2 DB) for sector, turnover, loan and registration when MIS payload is sparse. Filters (district / quarter / month / date) apply within FY 2026-27 on this view.' }}</li>
             @endif
+            @if ($isAnalysisView)
+                <li><strong>Analysis Card (All phase):</strong> Same card layout for every filter (Combined / Phase 1 / Phase 2 / Phase 3, all applications or onboarded). Sector labels are normalized to English (Hindi / legacy encoding rows roll into standard sectors or Others).</li>
+            @endif
             @unless ($isOnboardedOnly)
                 <li><strong>No double-counting:</strong> Phase 3 new-only count + Phase 2 = no overlap. 4,414 Phase 2 rows were imported into cfa_submissions and are excluded from Phase 3 counts.</li>
             @endunless
@@ -1231,6 +1375,7 @@
 
         </div>{{-- /.dc-shell__main --}}
 
+        @unless ($isAnalysisView)
         <aside class="dc-shell__aside" aria-labelledby="dc-extract-title">
             <section class="dc-extract">
                 <h3 class="dc-extract__title" id="dc-extract-title">Quick data extract</h3>
@@ -1415,20 +1560,20 @@
 
             <section class="dc-extract" style="margin-top:.85rem;">
                 <h3 class="dc-extract__title">Homestay details</h3>
-                <div class="dc-extract__period">Phase 1 + 2 + 3 · sector Homestay</div>
+                <div class="dc-extract__period">Phase 1 + 2 + 3 · sector Homestay · all ages</div>
                 <ul class="dc-extract__list">
                     <li class="dc-extract__item" tabindex="0">
-                        <strong>Combined</strong>
-                        <span>All phases in one sheet</span>
+                        <strong>Combined + year-wise</strong>
+                        <span>FY sheets 2020-21 to 2026-27</span>
                         <div class="dc-extract__tip" role="tooltip">
-                            One Combined sheet plus year-wise Phase 1 / Phase 2 / Phase 3 sheets. Full applicant details; Phase 2 includes Marketing / Finance / Training services.
+                            Combined sheet, then Kalsi / Chakrata / Tehri / Nainital, then one sheet per fiscal year. Full applicant details, onboard status, and services taken. All ages.
                         </div>
                     </li>
                     <li class="dc-extract__item" tabindex="0">
                         <strong>Match rules</strong>
-                        <span>P2/P3 category · P1 strict label</span>
+                        <span>P2/P3 category · P1 strict label · all ages</span>
                         <div class="dc-extract__tip" role="tooltip">
-                            Phase 2/3: business_category = Homestay. Phase 1: business_desp is Homestay / Home stay only (strict).
+                            Phase 2/3: business_category = Homestay. Phase 1: business_desp is Homestay / Home stay only (strict). Age column is from DOB as of today.
                         </div>
                     </li>
                     <li class="dc-extract__item" tabindex="0">
@@ -1463,14 +1608,15 @@
                         Download Homestay Excel
                     </button>
                 </form>
-                <p class="dc-extract__note">Sheets: Summary · Combined · Phase 1 · Phase 2 · Phase 3.</p>
+                <p class="dc-extract__note">All ages. Sheets: Summary · Combined · Kalsi · Chakrata · Tehri · Nainital · 2020-21 … 2026-27 · Phase 1 · Phase 2 · Phase 3.</p>
             </section>
         </aside>
+        @endunless
     </div>{{-- /.dc-shell --}}
 
 </div>
 
-@if ($isPhase3View ?? false)
+@if (($isPhase3View ?? false) || ($isAnalysisView ?? false))
 @push('scripts')
 <script>
 (function () {
@@ -1478,6 +1624,13 @@
     const monthEl = document.getElementById('dc-fiscal-month');
     const dateFromEl = document.getElementById('dc-date-from');
     const dateToEl = document.getElementById('dc-date-to');
+    const phaseEl = document.getElementById('dc-analysis-phase');
+    if (phaseEl) {
+        phaseEl.addEventListener('change', function () {
+            phaseEl.form.submit();
+        });
+    }
+    const isCombinedPhase = phaseEl && phaseEl.value === 'combined';
     if (!quarterEl || !monthEl || !dateFromEl || !dateToEl) return;
 
     const fyQuarterMonths = @json($fy_quarter_periods ?? []);
@@ -1501,6 +1654,9 @@
             if (!quarterEl.value) clearPeriodFields();
             return;
         }
+        if (isCombinedPhase) {
+            return;
+        }
         const opt = fiscalMonthOptions.find(function (o) { return parseInt(o.value, 10) === fiscalMonth; });
         if (!opt) return;
         const parts = String(opt.label).split(' ');
@@ -1519,7 +1675,7 @@
             return;
         }
         const range = fyQuarterMonths[quarter];
-        if (!range) { clearPeriodFields(); return; }
+        if (!range || isCombinedPhase) { if (isCombinedPhase) setDateRange('', ''); else clearPeriodFields(); return; }
         setDateRange(range.from, range.to);
     }
 

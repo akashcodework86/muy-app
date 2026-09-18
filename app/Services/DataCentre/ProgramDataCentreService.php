@@ -163,6 +163,18 @@ class ProgramDataCentreService
     }
 
     /**
+     * Application analysis for Phase 3 using the same queries as the rbiphase3 card.
+     *
+     * @return array<string, mixed>
+     */
+    public function applicationAnalysisForPhase3(string $dataScope, DataCentreFilter $filter): array
+    {
+        $this->prepareContext($dataScope === 'onboarded' ? 'onboarded' : 'all', 'rbiphase3', $filter);
+
+        return $this->phase3ApplicationAnalysis();
+    }
+
+    /**
      * @return array{
      *   total: int,
      *   entrepreneur: list<array{label: string, count: int, pct: float}>,
@@ -1845,11 +1857,19 @@ class ProgramDataCentreService
         }
 
         try {
+            // Group by raw category + dob (not a CASE expression) so MySQL ONLY_FULL_GROUP_BY
+            // accepts the query; organisation vs personal age is resolved in PHP.
             foreach ($this->p2BaseQuery()
-                ->selectRaw("LOWER(TRIM(d.district)) as dist, CASE WHEN LOWER(TRIM(a.category)) IN ('shg', 'cbo') THEN '__organisation__' ELSE d.dob END as age, COUNT(DISTINCT a.id) as c")
-                ->groupByRaw("LOWER(TRIM(d.district)), CASE WHEN LOWER(TRIM(a.category)) IN ('shg', 'cbo') THEN '__organisation__' ELSE d.dob END")
+                ->selectRaw('LOWER(TRIM(d.district)) as dist, a.category as category, d.dob as dob, COUNT(DISTINCT a.id) as c')
+                ->groupByRaw('LOWER(TRIM(d.district)), a.category, d.dob')
                 ->get() as $r) {
-                $this->p2Age[(string) $r->dist][(string) ($r->age ?? '')] = (int) $r->c;
+                $raw = $this->ageRawFromCategoriesAndDob(
+                    (string) ($r->category ?? ''),
+                    '',
+                    (string) ($r->dob ?? ''),
+                );
+                $dist = (string) $r->dist;
+                $this->p2Age[$dist][$raw] = ($this->p2Age[$dist][$raw] ?? 0) + (int) $r->c;
             }
         } catch (\Throwable $e) {
             report($e);

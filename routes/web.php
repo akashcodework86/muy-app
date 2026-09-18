@@ -1494,9 +1494,11 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
-        Route::get('review-ppt-generator', [ReviewPptGeneratorController::class, 'index'])->name('review-ppt.index');
-        Route::get('review-ppt-generator/preview', [ReviewPptGeneratorController::class, 'preview'])->name('review-ppt.preview');
-        Route::get('review-ppt-generator/download', [ReviewPptGeneratorController::class, 'download'])->name('review-ppt.download');
+        Route::middleware('review_ppt')->group(function () {
+            Route::get('review-ppt-generator', [ReviewPptGeneratorController::class, 'index'])->name('review-ppt.index');
+            Route::get('review-ppt-generator/preview', [ReviewPptGeneratorController::class, 'preview'])->name('review-ppt.preview');
+            Route::get('review-ppt-generator/download', [ReviewPptGeneratorController::class, 'download'])->name('review-ppt.download');
+        });
         Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
         Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');

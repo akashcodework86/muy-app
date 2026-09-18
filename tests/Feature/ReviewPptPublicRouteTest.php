@@ -15,12 +15,15 @@ class ReviewPptPublicRouteTest extends TestCase
         return $app;
     }
 
-    public function test_review_ppt_routes_are_public_and_unlisted_by_auth_middleware(): void
+    public function test_review_ppt_routes_require_auth_and_review_ppt_access(): void
     {
         $expected = [
             ['admin.review-ppt.index', 'admin/review-ppt-generator'],
             ['admin.review-ppt.preview', 'admin/review-ppt-generator/preview'],
             ['admin.review-ppt.download', 'admin/review-ppt-generator/download'],
+            ['hub.review-ppt.index', 'hub/review-ppt-generator'],
+            ['hub.review-ppt.preview', 'hub/review-ppt-generator/preview'],
+            ['hub.review-ppt.download', 'hub/review-ppt-generator/download'],
         ];
 
         foreach ($expected as [$name, $uri]) {
@@ -32,12 +35,8 @@ class ReviewPptPublicRouteTest extends TestCase
             $this->assertSame(['GET', 'HEAD'], $route->methods());
 
             $middleware = $route->gatherMiddleware();
-            $this->assertNotContains('auth', $middleware);
-            $this->assertNotContains('active', $middleware);
-            $this->assertNotContains('state_admin', $middleware);
-            $this->assertTrue(collect($middleware)->contains(
-                fn (string $item): bool => str_starts_with($item, 'throttle:'),
-            ));
+            $this->assertContains('auth', $middleware);
+            $this->assertContains('review_ppt', $middleware);
         }
     }
 }

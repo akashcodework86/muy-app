@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Homestay details Excel: Phase 1 + 2 + 3.
- * Sheets: Summary, Combined, Phase 1, Phase 2, Phase 3.
+ * Homestay details Excel: Phase 1 + 2 + 3, all ages.
+ * Sheets: Summary, Combined, Kalsi, Chakrata, Tehri, Nainital, FY 2020-21…2026-27, Phase 1–3.
  * Filters: district + onboard scope (all | onboarded | non_onboarded).
  * Phase 1 match: strict Homestay / Home stay labels on business_desp (option A).
  */
@@ -23,15 +23,25 @@ final class HomestayDetailsPackService
     private const P2_END = '2026-04-01';
 
     /** @var list<string> */
+    private const YEARS = [
+        '2020-21', '2021-22', '2022-23', '2023-24', '2024-25', '2025-26', '2026-27',
+    ];
+
+    /** @var list<string> */
+    private const LOCATION_SHEETS = ['Kalsi', 'Chakrata', 'Tehri', 'Nainital'];
+
+    /** @var list<string> */
     private const DETAIL_KEYS = [
         'sn',
         'phase',
+        'fiscal_year',
         'onboarded_status',
         'application_no',
         'applicant_name',
         'guardian_name',
         'gender',
         'dob',
+        'age',
         'phone',
         'alt_mobile',
         'email',
@@ -77,6 +87,7 @@ final class HomestayDetailsPackService
         'batch',
         'onboarded_at',
         'source_note',
+        'service_taken',
         'marketing_service',
         'marketing_details',
         'finance_service',
@@ -94,7 +105,9 @@ final class HomestayDetailsPackService
      *     combined: list<array<string, mixed>>,
      *     phase1: list<array<string, mixed>>,
      *     phase2: list<array<string, mixed>>,
-     *     phase3: list<array<string, mixed>>
+     *     phase3: list<array<string, mixed>>,
+     *     by_year: array<string, list<array<string, mixed>>>,
+     *     by_location: array<string, list<array<string, mixed>>>
      * }
      */
     public function build(
@@ -108,9 +121,9 @@ final class HomestayDetailsPackService
         $districtLabel = $district?->name ?? 'All districts';
         $legacyDistrictNames = $this->legacyDistrictNames($district);
 
-        $phase1 = $this->filterByScope($this->phase1Rows($legacyDistrictNames), $onboardScope);
-        $phase2 = $this->filterByScope($this->phase2Rows($legacyDistrictNames), $onboardScope);
-        $phase3 = $this->filterByScope($this->phase3Rows($districtId), $onboardScope);
+        $phase1 = $this->finalizeAgeYearAndServices($this->filterByScope($this->phase1Rows($legacyDistrictNames), $onboardScope));
+        $phase2 = $this->finalizeAgeYearAndServices($this->filterByScope($this->phase2Rows($legacyDistrictNames), $onboardScope));
+        $phase3 = $this->finalizeAgeYearAndServices($this->filterByScope($this->phase3Rows($districtId), $onboardScope));
 
         $this->sortByDistrictName($phase1);
         $this->sortByDistrictName($phase2);
@@ -119,6 +132,18 @@ final class HomestayDetailsPackService
         $combined = array_merge($phase1, $phase2, $phase3);
         $this->sortCombined($combined);
 
+        $byYear = $this->groupByYear($combined);
+        foreach ($byYear as &$yearRows) {
+            $this->numberRows($yearRows);
+        }
+        unset($yearRows);
+
+        $byLocation = $this->groupByLocation($combined);
+        foreach ($byLocation as &$locationRows) {
+            $this->numberRows($locationRows);
+        }
+        unset($locationRows);
+
         $this->numberRows($phase1);
         $this->numberRows($phase2);
         $this->numberRows($phase3);
@@ -126,21 +151,26 @@ final class HomestayDetailsPackService
 
         return [
             'meta' => [
-                'title' => 'Homestay details — Phase 1 + 2 + 3',
+                'title' => 'Homestay details — Phase 1 + 2 + 3 · all ages',
                 'district' => $districtLabel,
                 'district_id' => $districtId,
                 'district_slug' => $district?->slug ?? 'all',
                 'onboard_scope' => $onboardScope,
                 'onboard_scope_label' => $this->scopeLabel($onboardScope),
+                'age_filter' => 'All ages',
                 'as_of' => now()->timezone(config('app.timezone'))->format('d M Y, g:i A T'),
                 'rules' => [
                     'Sector filter: Homestay',
+                    'Age: all ages (Age column from DOB as of today; blank/invalid DOB shown as —)',
                     'Phase 2/3: business_category = Homestay (exact, case-insensitive)',
                     'Phase 1: business_desp is Homestay / Home stay (strict label only)',
                     'Onboard scope: '.$this->scopeLabel($onboardScope),
+                    'Year sheets: Indian FY of application/submission date (Apr–Mar)',
+                    'Location sheets after Combined: Kalsi / Chakrata (Dehradun block or village) · Tehri (Tehri Garhwal district or place) · Nainital (district or place)',
                     'Phase 1 onboarded = tblapplication.onboard=yes',
                     'Phase 2 onboarded = rbi_onboarded_applicants with non-empty status (FY 2025–26 submission window)',
                     'Phase 3 onboarded = locked MIS onboarding batch member',
+                    'Services: Phase 1 JIT + Phase 2 rbi_services_assigned + Phase 3 service cases',
                     'District filter: '.$districtLabel,
                 ],
             ],
@@ -152,11 +182,16 @@ final class HomestayDetailsPackService
                 'phase1_onboarded' => $this->countOnboarded($phase1),
                 'phase2_onboarded' => $this->countOnboarded($phase2),
                 'phase3_onboarded' => $this->countOnboarded($phase3),
+                'combined_service_taken' => $this->countServiceTaken($combined),
+                'by_year_totals' => $this->yearSummary($byYear),
+                'by_location_totals' => $this->locationSummary($byLocation),
             ],
             'combined' => $combined,
             'phase1' => $phase1,
             'phase2' => $phase2,
             'phase3' => $phase3,
+            'by_year' => $byYear,
+            'by_location' => $byLocation,
         ];
     }
 
@@ -179,6 +214,7 @@ final class HomestayDetailsPackService
             [],
             ['District', (string) ($meta['district'] ?? '')],
             ['Onboard filter', (string) ($meta['onboard_scope_label'] ?? '')],
+            ['Age filter', (string) ($meta['age_filter'] ?? 'All ages')],
             ['Generated at', (string) ($meta['as_of'] ?? '')],
             [],
             ['Rules'],
@@ -196,9 +232,43 @@ final class HomestayDetailsPackService
             (int) ($summary['combined_total'] ?? 0),
             (int) ($summary['phase1_onboarded'] ?? 0) + (int) ($summary['phase2_onboarded'] ?? 0) + (int) ($summary['phase3_onboarded'] ?? 0),
         ];
+        $summaryRows[] = [];
+        $summaryRows[] = ['Of which service taken (Combined)', (int) ($summary['combined_service_taken'] ?? 0)];
+        $summaryRows[] = [];
+        $summaryRows[] = ['Location', 'Total rows', 'Of which onboarded', 'Service taken'];
+        foreach (($summary['by_location_totals'] ?? []) as $locLine) {
+            $summaryRows[] = [
+                (string) ($locLine['location'] ?? ''),
+                (int) ($locLine['total'] ?? 0),
+                (int) ($locLine['onboarded'] ?? 0),
+                (int) ($locLine['service_taken'] ?? 0),
+            ];
+        }
+        $summaryRows[] = [];
+        $summaryRows[] = ['Fiscal year', 'Total rows', 'Of which onboarded', 'Service taken'];
+        foreach (($summary['by_year_totals'] ?? []) as $yearLine) {
+            $summaryRows[] = [
+                (string) ($yearLine['year'] ?? ''),
+                (int) ($yearLine['total'] ?? 0),
+                (int) ($yearLine['onboarded'] ?? 0),
+                (int) ($yearLine['service_taken'] ?? 0),
+            ];
+        }
 
         $writer->addSheet('Summary', $summaryRows);
         $writer->addSheet('Combined', $this->detailSheetRows($pack['combined'] ?? []));
+        $byLocation = is_array($pack['by_location'] ?? null) ? $pack['by_location'] : [];
+        foreach (self::LOCATION_SHEETS as $location) {
+            $writer->addSheet($location, $this->detailSheetRows($byLocation[$location] ?? []));
+        }
+        $byYear = is_array($pack['by_year'] ?? null) ? $pack['by_year'] : [];
+        foreach (self::YEARS as $fy) {
+            $writer->addSheet($fy, $this->detailSheetRows($byYear[$fy] ?? []));
+        }
+        $unknownYear = $byYear['Unknown'] ?? [];
+        if ($unknownYear !== []) {
+            $writer->addSheet('Unknown year', $this->detailSheetRows($unknownYear));
+        }
         $writer->addSheet('Phase 1', $this->detailSheetRows($pack['phase1'] ?? []));
         $writer->addSheet('Phase 2', $this->detailSheetRows($pack['phase2'] ?? []));
         $writer->addSheet('Phase 3', $this->detailSheetRows($pack['phase3'] ?? []));
@@ -212,8 +282,8 @@ final class HomestayDetailsPackService
     private function detailSheetRows(array $details): array
     {
         $headers = [
-            'Sr No', 'Phase', 'Onboarded Status',
-            'Application No', 'Applicant Name', 'Guardian Name', 'Gender', 'DOB',
+            'Sr No', 'Phase', 'Fiscal Year', 'Onboarded Status',
+            'Application No', 'Applicant Name', 'Guardian Name', 'Gender', 'DOB', 'Age',
             'Phone', 'Alt Mobile', 'Email', 'Category', 'Caste', 'Education',
             'District', 'Hub', 'Block', 'Village', 'Pincode',
             'Is SHG Member', 'SHG Name', 'Lakhpati',
@@ -226,6 +296,7 @@ final class HomestayDetailsPackService
             'Migrated For Employment',
             'Submitted By Name', 'Submitted By Mobile', 'Department Name', 'Info Source', 'Resource Name',
             'Submission Date', 'Batch', 'Onboarded At', 'Source Note',
+            'Service Taken',
             'Marketing Service', 'Marketing Details',
             'Access To Finance Service', 'Access To Finance Details',
             'Training Service', 'Training Details',
@@ -295,6 +366,17 @@ final class HomestayDetailsPackService
             'enterprise_name', 'Occupationtype', 'idea',
         ]);
 
+        $homestayIds = [];
+        foreach ($rows as $row) {
+            if ($this->isPhase1HomestayLabel(trim((string) ($row->business_desp ?? '')))) {
+                $id = (int) ($row->ID ?? 0);
+                if ($id > 0) {
+                    $homestayIds[] = $id;
+                }
+            }
+        }
+        $servicesById = $this->phase1ServicesByApplicationIds($homestayIds);
+
         $out = [];
         foreach ($rows as $row) {
             $desp = trim((string) ($row->business_desp ?? ''));
@@ -311,8 +393,10 @@ final class HomestayDetailsPackService
             $registered = $this->normalizeYesNo((string) ($row->registered ?? ''));
             $stage = $this->resolveBusinessStage($registered, $turnoverNum, '');
             $onboardedAt = $row->onboarding_date ?: ($row->onboard_date ?? null);
+            $p1Id = (int) ($row->ID ?? 0);
+            $services = $servicesById[$p1Id] ?? $this->emptyServiceFields();
 
-            $out[] = array_merge($this->emptyServiceFields(), [
+            $out[] = array_merge($services, [
                 'phase' => 'Phase 1',
                 'is_onboarded' => $isOnboarded,
                 'onboarded_status' => $isOnboarded ? 'Onboarded (onboard=yes)' : 'Non-onboarded',
@@ -684,6 +768,7 @@ final class HomestayDetailsPackService
                 : (string) ($row->hub_name ?? '');
 
             $out[] = array_merge($this->emptyServiceFields(), [
+                '_cfa_id' => $cfaId,
                 'phase' => 'Phase 3',
                 'is_onboarded' => $isOnboarded,
                 'onboarded_status' => $isOnboarded ? 'Onboarded (locked batch)' : 'Non-onboarded',
@@ -739,6 +824,23 @@ final class HomestayDetailsPackService
                 'source_note' => $sourceNote,
             ]);
         }
+
+        $cfaIds = [];
+        foreach ($out as $row) {
+            $id = (int) ($row['_cfa_id'] ?? 0);
+            if ($id > 0) {
+                $cfaIds[] = $id;
+            }
+        }
+        $servicesByCfa = $this->phase3ServicesByCfaIds($cfaIds);
+        foreach ($out as &$row) {
+            $cfaId = (int) ($row['_cfa_id'] ?? 0);
+            if ($cfaId > 0 && isset($servicesByCfa[$cfaId])) {
+                $row = array_merge($row, $servicesByCfa[$cfaId]);
+            }
+            unset($row['_cfa_id']);
+        }
+        unset($row);
 
         return $out;
     }
@@ -859,6 +961,251 @@ final class HomestayDetailsPackService
     }
 
     /**
+     * Age column, fiscal year from submission date, service-taken flag.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function finalizeAgeYearAndServices(array $rows): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            $age = $this->ageFromDob($row['dob'] ?? null);
+            $row['age'] = $age ?? '—';
+            $row['fiscal_year'] = $this->fiscalYearFromDisplayDate($row['submission_date'] ?? null);
+            $row = $this->withServiceTaken($row);
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function groupByYear(array $rows): array
+    {
+        $byYear = [];
+        foreach (self::YEARS as $fy) {
+            $byYear[$fy] = [];
+        }
+        $byYear['Unknown'] = [];
+
+        foreach ($rows as $row) {
+            $fy = (string) ($row['fiscal_year'] ?? 'Unknown');
+            if (! isset($byYear[$fy])) {
+                $byYear['Unknown'][] = $row;
+
+                continue;
+            }
+            $byYear[$fy][] = $row;
+        }
+
+        return $byYear;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function groupByLocation(array $rows): array
+    {
+        $byLocation = [];
+        foreach (self::LOCATION_SHEETS as $location) {
+            $byLocation[$location] = [];
+        }
+
+        foreach ($rows as $row) {
+            foreach (self::LOCATION_SHEETS as $location) {
+                if ($this->rowMatchesLocation($row, $location)) {
+                    $byLocation[$location][] = $row;
+                }
+            }
+        }
+
+        return $byLocation;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function rowMatchesLocation(array $row, string $location): bool
+    {
+        $district = $this->normalizedPlace((string) ($row['district'] ?? ''));
+        $place = $this->normalizedPlace(implode(' ', [
+            (string) ($row['block'] ?? ''),
+            (string) ($row['village'] ?? ''),
+            (string) ($row['hub'] ?? ''),
+        ]));
+        $all = trim($district.' '.$place);
+
+        return match ($location) {
+            'Kalsi' => $this->placeHasToken($place, 'kalsi') || $this->placeHasToken($all, 'kalsi'),
+            'Chakrata' => $this->placeHasToken($place, 'chakrata') || $this->placeHasToken($all, 'chakrata'),
+            'Tehri' => $this->placeHasToken($district, 'tehri') || $this->placeHasToken($place, 'tehri'),
+            'Nainital' => $this->placeHasToken($district, 'nainital') || $this->placeHasToken($place, 'nainital'),
+            default => false,
+        };
+    }
+
+    private function normalizedPlace(string $raw): string
+    {
+        $s = mb_strtolower(trim($raw));
+        $s = str_replace(['_', '-', '/', ',', '.'], ' ', $s);
+
+        return trim(preg_replace('/\s+/', ' ', $s) ?? $s);
+    }
+
+    private function placeHasToken(string $haystack, string $token): bool
+    {
+        if ($haystack === '' || $token === '') {
+            return false;
+        }
+
+        return preg_match('/\b'.preg_quote($token, '/').'\b/u', $haystack) === 1;
+    }
+
+    /**
+     * @param  array<string, list<array<string, mixed>>>  $byLocation
+     * @return list<array{location: string, total: int, onboarded: int, service_taken: int}>
+     */
+    private function locationSummary(array $byLocation): array
+    {
+        $out = [];
+        foreach (self::LOCATION_SHEETS as $location) {
+            $rows = $byLocation[$location] ?? [];
+            $out[] = [
+                'location' => $location,
+                'total' => count($rows),
+                'onboarded' => $this->countOnboarded($rows),
+                'service_taken' => $this->countServiceTaken($rows),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, list<array<string, mixed>>>  $byYear
+     * @return list<array{year: string, total: int, onboarded: int, service_taken: int}>
+     */
+    private function yearSummary(array $byYear): array
+    {
+        $out = [];
+        $keys = array_merge(self::YEARS, ['Unknown']);
+        foreach ($keys as $fy) {
+            $rows = $byYear[$fy] ?? [];
+            if ($fy === 'Unknown' && $rows === []) {
+                continue;
+            }
+            $out[] = [
+                'year' => $fy,
+                'total' => count($rows),
+                'onboarded' => $this->countOnboarded($rows),
+                'service_taken' => $this->countServiceTaken($rows),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function countServiceTaken(array $rows): int
+    {
+        $n = 0;
+        foreach ($rows as $row) {
+            if (strcasecmp((string) ($row['service_taken'] ?? ''), 'Yes') === 0) {
+                $n++;
+            }
+        }
+
+        return $n;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function withServiceTaken(array $row): array
+    {
+        $all = trim((string) ($row['all_services'] ?? ''));
+        $hasNamed = $all !== '' && ! in_array(strtoupper($all), ['NA', 'N/A', '—', '-'], true);
+        $taken = $hasNamed
+            || strcasecmp((string) ($row['marketing_service'] ?? ''), 'Yes') === 0
+            || strcasecmp((string) ($row['finance_service'] ?? ''), 'Yes') === 0
+            || strcasecmp((string) ($row['training_service'] ?? ''), 'Yes') === 0;
+        $row['service_taken'] = $taken ? 'Yes' : 'No';
+
+        return $row;
+    }
+
+    private function ageFromDob(mixed $raw): ?int
+    {
+        $s = trim((string) $raw);
+        if ($s === '' || $s === '—' || str_starts_with($s, '0000-00-00')) {
+            return null;
+        }
+
+        $today = Carbon::now('Asia/Kolkata')->startOfDay();
+        $dob = null;
+        foreach (['Y-m-d', 'd-m-Y', 'd/m/Y', 'Y/m/d', 'd M Y', 'Y-m-d H:i:s'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat('!'.$format, $s, 'Asia/Kolkata');
+            } catch (\Throwable) {
+                $parsed = false;
+            }
+            if ($parsed === false) {
+                continue;
+            }
+            if ($parsed->format($format) !== $s) {
+                continue;
+            }
+            $dob = $parsed->startOfDay();
+            break;
+        }
+
+        if ($dob === null) {
+            try {
+                $dob = Carbon::parse($s, 'Asia/Kolkata')->startOfDay();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        if ($dob->greaterThan($today) || $dob->year < 1905) {
+            return null;
+        }
+
+        $age = (int) $dob->age;
+        if ($age < 0 || $age > 120) {
+            return null;
+        }
+
+        return $age;
+    }
+
+    private function fiscalYearFromDisplayDate(mixed $value): string
+    {
+        $s = trim((string) $value);
+        if ($s === '' || $s === '—') {
+            return 'Unknown';
+        }
+
+        try {
+            $d = Carbon::parse($s, 'Asia/Kolkata');
+        } catch (\Throwable) {
+            return 'Unknown';
+        }
+
+        $start = $d->month >= 4 ? $d->year : $d->year - 1;
+
+        return sprintf('%d-%02d', $start, ($start + 1) % 100);
+    }
+
+    /**
      * @param  list<int>  $applicationIds
      * @return array<int, array<string, string>>
      */
@@ -878,6 +1225,67 @@ final class HomestayDetailsPackService
         $out = [];
         foreach ($grouped as $appId => $serviceRows) {
             $out[(int) $appId] = $this->summarizePhase2Services($serviceRows->all());
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<int>  $applicationIds
+     * @return array<int, array<string, string>>
+     */
+    private function phase1ServicesByApplicationIds(array $applicationIds): array
+    {
+        if ($applicationIds === [] || ! $this->legacyPhase1HasTable('rbi_services_assigned_jit')) {
+            return [];
+        }
+
+        $grouped = DB::connection('legacy_phase1')
+            ->table('rbi_services_assigned_jit')
+            ->whereIn('legacy_app_id', $applicationIds)
+            ->orderBy('service_name')
+            ->get(['legacy_app_id as application_id', 'service_name', 'category'])
+            ->groupBy('application_id');
+
+        $out = [];
+        foreach ($grouped as $appId => $serviceRows) {
+            $out[(int) $appId] = $this->summarizePhase2Services($serviceRows->all());
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<int>  $cfaIds
+     * @return array<int, array<string, string>>
+     */
+    private function phase3ServicesByCfaIds(array $cfaIds): array
+    {
+        if ($cfaIds === [] || ! Schema::hasTable('service_cases')) {
+            return [];
+        }
+
+        $query = DB::table('service_cases as sc')
+            ->whereIn('sc.cfa_submission_id', $cfaIds)
+            ->where('sc.status', '!=', 'cancelled');
+
+        if (Schema::hasTable('services')) {
+            $query->leftJoin('services as s', 's.id', '=', 'sc.service_id');
+            $select = ['sc.cfa_submission_id as application_id', 's.name as service_name'];
+            if (Schema::hasTable('service_categories') && Schema::hasColumn('services', 'service_category_id')) {
+                $query->leftJoin('service_categories as scc', 'scc.id', '=', 's.service_category_id');
+                $select[] = 'scc.name as category';
+            }
+            $query->orderBy('s.name');
+        } else {
+            $select = ['sc.cfa_submission_id as application_id', 'sc.status as service_name'];
+        }
+
+        $grouped = $query->get($select)->groupBy('application_id');
+
+        $out = [];
+        foreach ($grouped as $cfaId => $serviceRows) {
+            $out[(int) $cfaId] = $this->summarizePhase2Services($serviceRows->all());
         }
 
         return $out;
@@ -961,6 +1369,7 @@ final class HomestayDetailsPackService
     private function emptyServiceFields(): array
     {
         return [
+            'service_taken' => 'No',
             'marketing_service' => 'No',
             'marketing_details' => 'NA',
             'finance_service' => 'No',
@@ -1125,6 +1534,15 @@ final class HomestayDetailsPackService
         try {
             return Schema::connection('legacy')->hasTable('rbi_applications')
                 && Schema::connection('legacy')->hasTable('rbi_applicant_details');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function legacyPhase1HasTable(string $table): bool
+    {
+        try {
+            return Schema::connection('legacy_phase1')->hasTable($table);
         } catch (\Throwable) {
             return false;
         }

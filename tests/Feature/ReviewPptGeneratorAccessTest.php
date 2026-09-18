@@ -15,6 +15,7 @@ class ReviewPptGeneratorAccessTest extends TestCase
 
     public function test_state_admin_can_open_review_ppt_page(): void
     {
+        $this->enableReviewPpt();
         $this->seedFiscalYear();
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
 
@@ -27,6 +28,7 @@ class ReviewPptGeneratorAccessTest extends TestCase
 
     public function test_hub_admin_can_open_review_ppt_on_admin_and_hub_urls(): void
     {
+        $this->enableReviewPpt();
         $this->seedFiscalYear();
         [$hubAdmin] = $this->createHubAdminWithDistricts(['almora', 'nainital']);
 
@@ -45,12 +47,47 @@ class ReviewPptGeneratorAccessTest extends TestCase
 
     public function test_district_staff_cannot_open_review_ppt(): void
     {
+        $this->enableReviewPpt();
         $this->seedFiscalYear();
         $staff = User::factory()->create(['role' => 'district_staff', 'is_active' => true]);
 
         $this->actingAs($staff)
             ->get(route('admin.review-ppt.index'))
             ->assertForbidden();
+    }
+
+    public function test_review_ppt_is_blocked_for_state_and_hub_admins_while_disabled(): void
+    {
+        $this->seedFiscalYear();
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        [$hubAdmin] = $this->createHubAdminWithDistricts(['almora', 'nainital']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.review-ppt.index'))
+            ->assertForbidden();
+
+        $this->actingAs($hubAdmin)
+            ->get(route('admin.review-ppt.index'))
+            ->assertForbidden();
+
+        $this->actingAs($hubAdmin)
+            ->get(route('hub.review-ppt.index'))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('Review PowerPoint');
+
+        $this->actingAs($hubAdmin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('Review PowerPoint');
+    }
+
+    private function enableReviewPpt(): void
+    {
+        config(['features.review_ppt' => true]);
     }
 
     /** @param list<string> $slugs */

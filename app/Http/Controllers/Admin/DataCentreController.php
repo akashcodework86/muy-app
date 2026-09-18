@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\District;
 use App\Models\FiscalYear;
+use App\Services\DataCentre\ApplicationAnalysisService;
 use App\Services\DataCentre\DataCentreFilter;
 use App\Services\DataCentre\ProgramDataCentreService;
 use App\Services\Exports\DistrictFullProgressPackService;
@@ -24,6 +25,7 @@ class DataCentreController extends Controller
 {
     public function __construct(
         private readonly ProgramDataCentreService $service,
+        private readonly ApplicationAnalysisService $analysis,
         private readonly Phase3ShgCboReapPackDataService $shgCboReapPack,
         private readonly Phase3ShgCboReapPackExcelExport $shgCboReapExcel,
         private readonly OnboardedShgCboDistrictPackService $onboardedShgCboPack,
@@ -37,8 +39,46 @@ class DataCentreController extends Controller
     public function index(Request $request): View
     {
         [$viewMode, $dataScope] = $this->resolveParams($request);
+        $analysisPhase = $this->resolveAnalysisPhase($request, $viewMode);
         $filter = $this->resolveFilter($request, $viewMode, $dataScope);
         $phase3Fy = FiscalYear::phase3Default();
+        $analysisFy = $viewMode === 'analysis'
+            ? ($this->analysis->fiscalYearForPhase($analysisPhase) ?? $phase3Fy)
+            : $phase3Fy;
+
+        if ($viewMode === 'analysis') {
+            $data = $this->analysis->build($analysisPhase, $dataScope, $filter);
+            $yearwise = [
+                'generated_at' => '',
+                'years' => [],
+                'rows' => [],
+                'totals' => [],
+                'note' => '',
+            ];
+
+            return view('admin.data-centre.index', array_merge($data, [
+                'filter' => $filter,
+                'phase3_fy' => $phase3Fy,
+                'analysis_fy' => $analysisFy,
+                'districts' => District::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+                'fiscal_month_options' => DataCentreFilter::fiscalMonthOptions($analysisFy),
+                'fy_quarter_periods' => $analysisFy?->fiscalQuarterPeriodsForJs() ?? [],
+                'filter_form_dates' => $filter->formDates($analysisFy),
+                'yearwise' => $yearwise,
+                'yi_fy' => null,
+                'yi_district_id' => null,
+                'summary' => [],
+                'cfa_by_district' => [],
+                'gender_state' => [],
+                'gender_district' => [],
+                'education_state' => [],
+                'education_district' => [],
+                'age_state' => [],
+                'age_district' => [],
+                'employment_state' => [],
+            ]));
+        }
+
         $data = $this->service->build($viewMode, $dataScope, $filter);
 
         $yiFy = trim((string) $request->query('yi_fy', ''));
@@ -78,6 +118,9 @@ class DataCentreController extends Controller
         return view('admin.data-centre.index', array_merge($data, [
             'filter' => $filter,
             'phase3_fy' => $phase3Fy,
+            'analysis_fy' => $phase3Fy,
+            'analysis_phase' => 'combined',
+            'analysis_phase_label' => ApplicationAnalysisService::phaseLabel('combined'),
             'districts' => District::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'fiscal_month_options' => DataCentreFilter::fiscalMonthOptions($phase3Fy),
             'fy_quarter_periods' => $phase3Fy?->fiscalQuarterPeriodsForJs() ?? [],
@@ -94,11 +137,13 @@ class DataCentreController extends Controller
     public function refresh(Request $request): RedirectResponse
     {
         $this->service->bustCache();
+        $this->analysis->bustCache();
         $this->yearwiseIndicators->bustDataCentreCache();
 
         [$viewMode, $dataScope] = $this->resolveParams($request);
+        $analysisPhase = $this->resolveAnalysisPhase($request, $viewMode);
         $filter = $this->resolveFilter($request, $viewMode, $dataScope);
-        $params = $this->routeParams($viewMode, $dataScope, $filter);
+        $params = $this->routeParams($viewMode, $dataScope, $filter, $analysisPhase);
         foreach (['yi_fy', 'yi_district_id'] as $key) {
             $val = $request->input($key, $request->query($key));
             if ($val !== null && $val !== '') {
@@ -500,9 +545,12 @@ class DataCentreController extends Controller
     /** @return array{0: string, 1: string} */
     private function resolveParams(Request $request): array
     {
-        $viewMode = $request->query('view') === 'rbiphase3' || $request->input('view') === 'rbiphase3'
-            ? 'rbiphase3'
-            : 'all';
+        $view = (string) ($request->query('view', $request->input('view', 'all')));
+        $viewMode = match ($view) {
+            'rbiphase3' => 'rbiphase3',
+            'analysis' => 'analysis',
+            default => 'all',
+        };
         $dataScope = $request->query('scope') === 'onboarded' || $request->input('scope') === 'onboarded'
             ? 'onboarded'
             : 'all';
@@ -510,24 +558,38 @@ class DataCentreController extends Controller
         return [$viewMode, $dataScope];
     }
 
+    private function resolveAnalysisPhase(Request $request, string $viewMode): string
+    {
+        if ($viewMode !== 'analysis') {
+            return 'combined';
+        }
+
+        $phase = (string) ($request->query('phase', $request->input('phase', 'combined')));
+
+        return in_array($phase, ApplicationAnalysisService::PHASES, true) ? $phase : 'combined';
+    }
+
     private function resolveFilter(Request $request, string $viewMode, string $dataScope): DataCentreFilter
     {
-        if ($viewMode !== 'rbiphase3') {
+        if (! in_array($viewMode, ['rbiphase3', 'analysis'], true)) {
             return DataCentreFilter::empty();
         }
 
-        $filter = DataCentreFilter::fromRequest($request);
-
-        return $filter;
+        return DataCentreFilter::fromRequest($request);
     }
 
     /** @return array<string, int|string> */
-    private function routeParams(string $viewMode, string $dataScope, ?DataCentreFilter $filter = null): array
+    private function routeParams(string $viewMode, string $dataScope, ?DataCentreFilter $filter = null, string $analysisPhase = 'combined'): array
     {
         $filter ??= DataCentreFilter::empty();
         $params = [];
         if ($viewMode === 'rbiphase3') {
             $params['view'] = 'rbiphase3';
+            $params = array_merge($params, $filter->queryParams());
+        }
+        if ($viewMode === 'analysis') {
+            $params['view'] = 'analysis';
+            $params['phase'] = $analysisPhase;
             $params = array_merge($params, $filter->queryParams());
         }
         if ($dataScope === 'onboarded') {

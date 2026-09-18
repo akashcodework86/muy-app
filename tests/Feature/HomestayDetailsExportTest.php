@@ -19,23 +19,30 @@ class HomestayDetailsExportTest extends TestCase
     {
         $district = $this->createDistrict('homestay-dist', 'Homestay Dist');
 
-        $this->seedPhase3Homestay($district, 'HS-ON-1', 'Onboarded Homestay', true);
-        $this->seedPhase3Homestay($district, 'HS-NON-1', 'Non Homestay Person', false);
+        $this->seedPhase3Homestay($district, 'HS-ON-1', 'Onboarded Homestay', true, '2002-06-01');
+        $this->seedPhase3Homestay($district, 'HS-NON-1', 'Non Homestay Person', false, '2004-01-15');
+        $this->seedPhase3Homestay($district, 'HS-OLD-1', 'Older Homestay Person', false, '1985-03-10');
         $this->seedPhase3Other($district, 'AG-1', 'Agri Person');
 
         $svc = app(HomestayDetailsPackService::class);
 
         $all = $svc->build((int) $district->id, null, 'all');
-        $this->assertSame(2, $all['summary']['phase3_total']);
-        $this->assertSame(2, $all['summary']['combined_total']);
+        $this->assertSame(3, $all['summary']['phase3_total']);
+        $this->assertSame(3, $all['summary']['combined_total']);
+        $this->assertSame('2026-27', $all['phase3'][0]['fiscal_year']);
+        $this->assertArrayHasKey('age', $all['phase3'][0]);
+        $this->assertArrayHasKey('service_taken', $all['phase3'][0]);
+        $names = array_column($all['combined'], 'applicant_name');
+        $this->assertContains('Older Homestay Person', $names);
 
         $on = $svc->build((int) $district->id, null, 'onboarded');
         $this->assertSame(1, $on['summary']['phase3_total']);
         $this->assertSame('Onboarded Homestay', $on['phase3'][0]['applicant_name']);
 
         $non = $svc->build((int) $district->id, null, 'non_onboarded');
-        $this->assertSame(1, $non['summary']['phase3_total']);
-        $this->assertSame('Non Homestay Person', $non['phase3'][0]['applicant_name']);
+        $this->assertSame(2, $non['summary']['phase3_total']);
+        $this->assertContains('Non Homestay Person', array_column($non['phase3'], 'applicant_name'));
+        $this->assertContains('Older Homestay Person', array_column($non['phase3'], 'applicant_name'));
     }
 
     public function test_pack_writes_xlsx_with_expected_sheets(): void
@@ -57,7 +64,7 @@ class HomestayDetailsExportTest extends TestCase
         $this->assertTrue($zip->open($path) === true);
         $workbook = $zip->getFromName('xl/workbook.xml');
         $this->assertIsString($workbook);
-        foreach (['Summary', 'Combined', 'Phase 1', 'Phase 2', 'Phase 3'] as $sheet) {
+        foreach (['Summary', 'Combined', 'Kalsi', 'Chakrata', 'Tehri', 'Nainital', '2020-21', '2025-26', '2026-27', 'Phase 1', 'Phase 2', 'Phase 3'] as $sheet) {
             $this->assertStringContainsString($sheet, $workbook);
         }
         $combined = $zip->getFromName('xl/worksheets/sheet2.xml');
@@ -65,6 +72,31 @@ class HomestayDetailsExportTest extends TestCase
         $this->assertStringContainsString('Sheet Homestay', $combined);
         $zip->close();
         @unlink($path);
+    }
+
+    public function test_pack_splits_kalsi_chakrata_tehri_nainital_sheets(): void
+    {
+        $dehradun = $this->createDistrict('dehradun-hs', 'Dehradun');
+        $tehri = $this->createDistrict('tehri-garhwal-hs', 'Tehri Garhwal');
+        $nainital = $this->createDistrict('nainital-hs', 'Nainital');
+
+        $this->seedPhase3Homestay($dehradun, 'HS-KALSI-1', 'Kalsi Homestay', false, '2004-01-15', 'Kalsi');
+        $this->seedPhase3Homestay($dehradun, 'HS-CHAK-1', 'Chakrata Homestay', false, '2003-03-01', 'Chakrata');
+        $this->seedPhase3Homestay($tehri, 'HS-TEHRI-1', 'Tehri Homestay', false, '2002-06-01', 'Chamba');
+        $this->seedPhase3Homestay($nainital, 'HS-NAI-1', 'Nainital Homestay', false, '2005-08-20', 'Ramgarh');
+        $this->seedPhase3Homestay($dehradun, 'HS-OTHER-1', 'Other Block Homestay', false, '2004-02-02', 'Raipur');
+
+        $pack = app(HomestayDetailsPackService::class)->build(null, null, 'all');
+
+        $this->assertContains('Kalsi Homestay', array_column($pack['by_location']['Kalsi'] ?? [], 'applicant_name'));
+        $this->assertContains('Chakrata Homestay', array_column($pack['by_location']['Chakrata'] ?? [], 'applicant_name'));
+        $this->assertContains('Tehri Homestay', array_column($pack['by_location']['Tehri'] ?? [], 'applicant_name'));
+        $this->assertContains('Nainital Homestay', array_column($pack['by_location']['Nainital'] ?? [], 'applicant_name'));
+        $this->assertNotContains('Other Block Homestay', array_column($pack['by_location']['Kalsi'] ?? [], 'applicant_name'));
+        $this->assertNotContains('Other Block Homestay', array_column($pack['by_location']['Chakrata'] ?? [], 'applicant_name'));
+        $this->assertNotContains('Other Block Homestay', array_column($pack['by_location']['Tehri'] ?? [], 'applicant_name'));
+        $this->assertNotContains('Other Block Homestay', array_column($pack['by_location']['Nainital'] ?? [], 'applicant_name'));
+        $this->assertContains('Other Block Homestay', array_column($pack['combined'], 'applicant_name'));
     }
 
     public function test_state_admin_can_download_homestay_excel(): void
@@ -87,7 +119,7 @@ class HomestayDetailsExportTest extends TestCase
         $this->assertStringContainsString('homestay-details-', (string) $response->headers->get('content-disposition'));
     }
 
-    private function seedPhase3Homestay(District $district, string $appNo, string $name, bool $onboarded): void
+    private function seedPhase3Homestay(District $district, string $appNo, string $name, bool $onboarded, string $dob = '2002-06-01', string $block = 'Block A'): void
     {
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
             'district_id' => $district->id,
@@ -98,9 +130,10 @@ class HomestayDetailsExportTest extends TestCase
             'payload' => json_encode([
                 'business_category' => 'Homestay',
                 'gender' => 'female',
-                'block' => 'Block A',
+                'block' => $block,
                 'is_registered' => 'Yes',
                 'turnover_last_fy' => '120000',
+                'dob' => $dob,
             ]),
             'created_at' => now(),
             'updated_at' => now(),

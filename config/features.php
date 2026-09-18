@@ -33,4 +33,14 @@ return [
     */
     'training_package_extra_sessions' => env('FEATURE_TRAINING_PACKAGE_EXTRA_SESSIONS', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Review PowerPoint generator
+    |--------------------------------------------------------------------------
+    | Hides the Review PowerPoint nav item for hub and admin and blocks the
+    | generator routes while the export is paused. Set FEATURE_REVIEW_PPT=true
+    | in .env and run `php artisan config:clear` to restore access.
+    */
+    'review_ppt' => env('FEATURE_REVIEW_PPT', false),
+
 ];

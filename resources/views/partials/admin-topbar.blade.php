@@ -797,9 +797,11 @@
                     <a href="{{ route('admin.data-centre.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'data-centre') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Program Data Centre</span>
                     </a>
+                    @if (config('features.review_ppt'))
                     <a href="{{ route('admin.review-ppt.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'review-ppt') is-active @endif" role="menuitem">
                         {!! $i('doc') !!}<span>Review PowerPoint</span>
                     </a>
+                    @endif
                     <a href="{{ route('admin.homestay-survey.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'homestay-survey') is-active @endif" role="menuitem">
                         {!! $i('doc') !!}<span>Homestay Survey</span>
                     </a>
@@ -1233,9 +1235,11 @@
                     <a href="{{ route('hub.legacy-data.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'legacy-data') is-active @endif" role="menuitem">
                         {!! $i('database') !!}<span>Legacy Data (read-only)</span>
                     </a>
+                    @if (config('features.review_ppt'))
                     <a href="{{ route('hub.review-ppt.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'review-ppt') is-active @endif" role="menuitem">
                         {!! $i('doc') !!}<span>Review PowerPoint</span>
                     </a>
+                    @endif
                     <a href="{{ route('library.documents.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'documents') is-active @endif" role="menuitem">
                         {!! $i('book') !!}<span>Documents</span>
                     </a>
