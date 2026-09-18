@@ -81,6 +81,7 @@
         str_starts_with($r, 'spoc.legacy-data') => 'legacy-data',
         str_starts_with($r, 'admin.homestay-survey') => 'homestay-survey',
         str_starts_with($r, 'admin.cfa') => 'cfa',
+        str_starts_with($r, 'admin.onboarding-priority') => 'onboarding-priority',
         str_starts_with($r, 'admin.phase1-cfa') => 'phase1-cfa',
         str_starts_with($r, 'admin.phase2-cfa') => 'phase2-cfa',
         str_starts_with($r, 'admin.onboarded-2025-26') => 'onboarded-2025-26',
@@ -148,12 +149,14 @@
         str_starts_with($r, 'admin.batches') => 'admin-batches',
         str_starts_with($r, 'hub.batches') => 'hub-batches',
         str_starts_with($r, 'hub.applications') => 'hub-applications',
+        str_starts_with($r, 'hub.onboarding-priority') => 'onboarding-priority',
         str_starts_with($r, 'hub.staff-performance') => 'hub-staff-performance',
         str_starts_with($r, 'hub.pending-actions') => 'hub-pending-actions',
         str_starts_with($r, 'hub.onboarding-insight') => 'hub-onboarding-insight',
         $r === 'staff.monthly-targets' => 'staff-targets',
         str_starts_with($r, 'staff.services') => 'staff-services',
         str_starts_with($r, 'staff.applications') => 'staff-apps',
+        str_starts_with($r, 'staff.onboarding-priority') => 'onboarding-priority',
         str_starts_with($r, 'staff.phase1-data') => 'staff-phase1-data',
         str_starts_with($r, 'staff.phase2-data') => 'staff-phase2-data',
         str_starts_with($r, 'staff.batches') => 'staff-batches',
@@ -368,7 +371,8 @@
     $targetsAllocationActive = in_array($activeNav, ['targets-official-state-monthly', 'targets-official-district-monthly', 'targets-official-hub-distribution-monthly', 'targets-reap-incubatee'], true);
     $fyTargetsGroupActive = in_array($activeNav, ['fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
-    $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'onboarded', 'onboarded-2025-26', 'phase3-services'], true);
+    $showOnboardingPriorityNav = $u && \App\Support\OnboardingPriorityAccess::canView($u);
+    $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'onboarded', 'onboarded-2025-26', 'phase3-services', 'onboarding-priority'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'incubatee-bills-dashboard', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['case-study-shortlists', 'additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey', 'review-ppt'], true);
     $staffFieldWorkNavKeys = [
@@ -385,12 +389,12 @@
         || $staffNavTechnicalTraining
         || $staffNavEapEdp
         || $staffNavDistrictWorkshop;
-    $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'onboarded-2025-26', 'staff-batches', 'legacy-data'], true);
+    $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'onboarded-2025-26', 'staff-batches', 'legacy-data', 'onboarding-priority'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
     $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true);
     $staffMoreGroupActive = $staffFieldWorkActive || $activeNav === 'documents';
 
-    $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'onboarded-2025-26', 'hub-onboarding-insight'], true);
+    $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'onboarded-2025-26', 'hub-onboarding-insight', 'onboarding-priority'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
     $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'incubatee-bills-dashboard'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents', 'legacy-data', 'review-ppt'], true);
@@ -481,6 +485,11 @@
                     @if ($hasAdminCfaIndex)
                         <a href="{{ route('admin.cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'cfa') is-active @endif" role="menuitem">
                             {!! $i('doc') !!}<span>CFA applications</span>
+                        </a>
+                    @endif
+                    @if ($showOnboardingPriorityNav)
+                        <a href="{{ route('admin.onboarding-priority.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarding-priority') is-active @endif" role="menuitem">
+                            {!! $i('bars') !!}<span>Onboarding priority</span>
                         </a>
                     @endif
                     <a href="{{ route('admin.phase1-cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'phase1-cfa') is-active @endif" role="menuitem">
@@ -1109,6 +1118,11 @@
                     <a href="{{ route('hub.applications.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-applications') is-active @endif" role="menuitem">
                         {!! $i('inbox') !!}<span>CFA applications</span>
                     </a>
+                    @if ($showOnboardingPriorityNav)
+                        <a href="{{ route('hub.onboarding-priority.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarding-priority') is-active @endif" role="menuitem">
+                            {!! $i('bars') !!}<span>Onboarding priority</span>
+                        </a>
+                    @endif
                     <a href="{{ route('hub.batches.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-batches') is-active @endif" role="menuitem">
                         {!! $i('batches') !!}<span>Batch manager</span>
                     </a>
@@ -1270,6 +1284,11 @@
                     <a href="{{ route('staff.applications') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-apps') is-active @endif" role="menuitem">
                         {!! $i('inbox') !!}<span>Applications</span>
                     </a>
+                    @if ($showOnboardingPriorityNav)
+                        <a href="{{ route('staff.onboarding-priority.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarding-priority') is-active @endif" role="menuitem">
+                            {!! $i('bars') !!}<span>Onboarding priority</span>
+                        </a>
+                    @endif
                     @if ($staffHasAssignedDistrict)
                     <a href="{{ route('staff.phase1-data') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-phase1-data') is-active @endif" role="menuitem">
                         {!! $i('database') !!}<span>CFA (FY 2024-25 Data)</span>

@@ -88,6 +88,7 @@ use App\Http\Controllers\MentorshipRequestStaffController;
 use App\Http\Controllers\MuyNewsletterController;
 use App\Http\Controllers\MuyNewsletterLandingController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OnboardingPriorityController;
 use App\Http\Controllers\PartnerOutreachLandingController;
 use App\Http\Controllers\PitchDeckPreparationController;
 use App\Http\Controllers\PitchDeckPreparationLandingController;
@@ -299,6 +300,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('applications.export-single');
         Route::get('applications/{cfa_submission}', [StaffPortalController::class, 'showCfaSubmission'])->name('applications.show');
         Route::get('applications/{cfa_submission}/edit', [StaffPortalController::class, 'editCfaSubmission'])->name('applications.edit');
+        Route::get('onboarding-priority', [OnboardingPriorityController::class, 'index'])->name('onboarding-priority.index');
+        Route::get('onboarding-priority/export', [OnboardingPriorityController::class, 'export'])->name('onboarding-priority.export');
         Route::get('onboarded', [OnboardedApplicantController::class, 'index'])->name('onboarded.index');
         Route::get('onboarded/export', [OnboardedApplicantController::class, 'export'])->name('onboarded.export');
         Route::get('onboarded-2025-26', [Phase2OnboardedApplicantController::class, 'index'])->name('onboarded-2025-26.index');
@@ -1089,6 +1092,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('cfa-applications', [CfaSubmissionController::class, 'index'])->name('cfa.index');
         Route::get('cfa-applications/export', [CfaSubmissionController::class, 'export'])->name('cfa.export');
         Route::get('cfa-applications/{cfa_submission}', [CfaSubmissionController::class, 'show'])->name('cfa.show');
+        Route::get('onboarding-priority', [OnboardingPriorityController::class, 'index'])->name('onboarding-priority.index');
+        Route::get('onboarding-priority/export', [OnboardingPriorityController::class, 'export'])->name('onboarding-priority.export');
         Route::get('cfa-applications-phase1-legacy', [LegacyPhase1CfaApplicationController::class, 'index'])->name('phase1-cfa.index');
         Route::get('cfa-applications-phase1-legacy/export', [LegacyPhase1CfaApplicationController::class, 'export'])->name('phase1-cfa.export');
         Route::get('cfa-applications-phase2-legacy', [LegacyPhase2CfaApplicationController::class, 'index'])->name('phase2-cfa.index');
@@ -1499,6 +1504,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::get('review-ppt-generator/preview', [ReviewPptGeneratorController::class, 'preview'])->name('review-ppt.preview');
             Route::get('review-ppt-generator/download', [ReviewPptGeneratorController::class, 'download'])->name('review-ppt.download');
         });
+        Route::get('onboarding-priority', [OnboardingPriorityController::class, 'index'])->name('onboarding-priority.index');
+        Route::get('onboarding-priority/export', [OnboardingPriorityController::class, 'export'])->name('onboarding-priority.export');
         Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
         Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
