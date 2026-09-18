@@ -23,7 +23,8 @@ class ReviewPptSelection
         public readonly string $periodLabel,
     ) {}
 
-    public static function fromRequest(Request $request, FiscalYear $fiscalYear): self
+    /** @param list<string>|null $allowedSlugs */
+    public static function fromRequest(Request $request, FiscalYear $fiscalYear, ?array $allowedSlugs = null): self
     {
         $request->validate([
             'period_kind' => ['nullable', 'in:quarter,month,custom'],
@@ -90,11 +91,12 @@ class ReviewPptSelection
         $scope = (string) $request->query('district_scope', 'all');
         $kumaon = config('review_ppt.kumaon', []);
         $garhwal = config('review_ppt.garhwal', []);
+        $pool = $allowedSlugs ?? array_merge($kumaon, $garhwal);
         $districtSlugs = match ($scope) {
-            'all' => array_merge($kumaon, $garhwal),
-            'kumaon' => $kumaon,
-            'garhwal' => $garhwal,
-            default => in_array($scope, array_merge($kumaon, $garhwal), true) ? [$scope] : [],
+            'all' => $pool,
+            'kumaon' => array_values(array_intersect($kumaon, $pool)),
+            'garhwal' => array_values(array_intersect($garhwal, $pool)),
+            default => in_array($scope, $pool, true) ? [$scope] : [],
         };
         if ($districtSlugs === []) {
             throw ValidationException::withMessages(['district_scope' => 'Choose a valid Uttarakhand district or region.']);

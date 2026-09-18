@@ -43,5 +43,16 @@ class AccelerationServicesOptionsTest extends TestCase
         $this->assertNotContains('utdb', $keys);
         $this->assertNotContains('utdb_registration', $keys);
         $this->assertContains('business_formalization', $keys);
+        $this->assertContains('support_muy_incubatee_reap', $keys);
+        $this->assertTrue(AccelerationServicesOptions::requiresAlwaysMedia('support_muy_incubatee_reap'));
+        $reapSchema = AccelerationItemSchemas::forKey('support_muy_incubatee_reap');
+        $this->assertNotEmpty($reapSchema);
+        $this->assertSame(
+            ['reap_sector', 'reap_amount', 'reap_activity'],
+            array_values(array_map(
+                static fn (array $field): string => (string) ($field['key'] ?? ''),
+                array_filter($reapSchema, static fn (array $field): bool => ($field['key'] ?? '') !== 'service_item_date'),
+            )),
+        );
     }
 }

@@ -29,6 +29,7 @@ final class AccelerationServicesOptions
             ['key' => 'coaching_mentorship', 'label' => 'One to One Coaching & Mentorship (Specialized Mentorship Support)'],
             ['key' => 'funding_investment_support', 'label' => 'Convergence — Funding and Investment Support'],
             ['key' => 'business_model_refinement', 'label' => 'Business Model Refinement'],
+            ['key' => 'support_muy_incubatee_reap', 'label' => 'Support to MUY Incubatee through REAP'],
             ['key' => 'market_linkage', 'label' => 'Market Linkage'],
             ['key' => 'industry_connections', 'label' => 'Building Industry Connections'],
         ],
@@ -154,6 +155,7 @@ final class AccelerationServicesOptions
         return in_array($baseKey, array_merge([
             'business_formalization',
             'funding_investment_support',
+            'support_muy_incubatee_reap',
         ], self::legalLicensingItemKeys()), true);
     }
 

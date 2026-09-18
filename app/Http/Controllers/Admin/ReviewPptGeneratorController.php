@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\FiscalYear;
 use App\Models\District;
+use App\Models\FiscalYear;
+use App\Models\User;
 use App\Services\ReviewPpt\ReviewPptDataService;
 use App\Services\ReviewPpt\ReviewPptSelection;
 use App\Services\ReviewPpt\ReviewPptTemplateExport;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -22,8 +23,10 @@ class ReviewPptGeneratorController extends Controller
         private readonly ReviewPptTemplateExport $templateExport,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $user = $request->user();
+        $allowedSlugs = $this->allowedDistrictSlugs($user);
         $fiscalYear = $this->fiscalYear();
         $months = [];
         $firstMonth = $fiscalYear->starts_on->copy()->startOfMonth();
@@ -47,8 +50,8 @@ class ReviewPptGeneratorController extends Controller
         if ($defaultFrom->lt($fiscalYear->starts_on)) {
             $defaultFrom = $fiscalYear->starts_on->copy()->startOfDay();
         }
-        $slugs = array_merge(config('review_ppt.kumaon', []), config('review_ppt.garhwal', []));
-        $districtNames = District::query()->whereIn('slug', $slugs)->pluck('name', 'slug');
+        $districtNames = District::query()->whereIn('slug', $allowedSlugs)->pluck('name', 'slug');
+        $routePrefix = $this->routePrefix($request);
 
         return view('admin.review-ppt.index', [
             'months' => $months,
@@ -57,15 +60,25 @@ class ReviewPptGeneratorController extends Controller
             'defaultFrom' => $defaultFrom->toDateString(),
             'defaultQuarter' => $defaultQuarter,
             'districtNames' => $districtNames,
+            'allowedSlugs' => $allowedSlugs,
             'fiscalYear' => $fiscalYear,
-            'pageUrl' => route('admin.review-ppt.index'),
+            'routePrefix' => $routePrefix,
+            'pageUrl' => route($routePrefix.'.index'),
+            'roleLabel' => match ($user?->role) {
+                'hub_admin' => 'Hub Admin',
+                'state_admin' => 'State Admin',
+                default => 'Admin',
+            },
+            'scopeAllLabel' => count($allowedSlugs) === 13
+                ? 'All 13 districts · statewide'
+                : 'All hub districts ('.count($allowedSlugs).')',
         ]);
     }
 
     public function download(Request $request): BinaryFileResponse
     {
         $fiscalYear = $this->fiscalYear();
-        $selection = ReviewPptSelection::fromRequest($request, $fiscalYear);
+        $selection = ReviewPptSelection::fromRequest($request, $fiscalYear, $this->allowedDistrictSlugs($request->user()));
         set_time_limit(240);
         $data = $this->reportData($fiscalYear, $selection);
         $outputPath = tempnam(sys_get_temp_dir(), 'muy-review-');
@@ -86,7 +99,7 @@ class ReviewPptGeneratorController extends Controller
     public function preview(Request $request): JsonResponse
     {
         $fiscalYear = $this->fiscalYear();
-        $selection = ReviewPptSelection::fromRequest($request, $fiscalYear);
+        $selection = ReviewPptSelection::fromRequest($request, $fiscalYear, $this->allowedDistrictSlugs($request->user()));
         set_time_limit(240);
         $data = $this->reportData($fiscalYear, $selection);
         $totals = [];
@@ -124,5 +137,25 @@ class ReviewPptGeneratorController extends Controller
     private function fiscalYear(): FiscalYear
     {
         return FiscalYear::query()->where('code', '2026-27')->firstOrFail();
+    }
+
+    private function routePrefix(Request $request): string
+    {
+        return $request->routeIs('hub.*') ? 'hub.review-ppt' : 'admin.review-ppt';
+    }
+
+    /** @return list<string> */
+    private function allowedDistrictSlugs(?User $user): array
+    {
+        $all = array_values(array_merge(config('review_ppt.kumaon', []), config('review_ppt.garhwal', [])));
+        if ($user?->role === 'state_admin') {
+            return $all;
+        }
+
+        $hubSlugs = $user?->hub?->districts()->orderBy('sort_order')->pluck('slug')->all() ?? [];
+        $slugs = array_values(array_intersect($all, $hubSlugs));
+        abort_if($slugs === [], 403, 'No review districts are assigned to this hub.');
+
+        return $slugs;
     }
 }

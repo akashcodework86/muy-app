@@ -372,6 +372,7 @@ class AccelerationServiceRecorder
                             $message = match (true) {
                                 $baseKey === 'business_formalization' => 'Upload registration documents / photos for Business Formalization.',
                                 $baseKey === 'funding_investment_support' => 'Upload scheme application / sanction documents for Convergence — Funding and Investment Support.',
+                                $baseKey === 'support_muy_incubatee_reap' => 'Upload REAP support documents for Support to MUY Incubatee through REAP.',
                                 AccelerationServicesOptions::isLegalLicensingKey($key) => 'Upload license / registration documents for '.$label.'.',
                                 AccelerationServicesOptions::isMarketLinkageKey($key) || $baseKey === AccelerationServicesOptions::BUYER_SELLER_MEET_KEY => 'Upload proof of order / PO documents when Order / PO value is filled for '.$label.'.',
                                 default => 'Upload documents for '.$label.'.',

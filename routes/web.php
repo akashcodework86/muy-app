@@ -130,25 +130,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-/**
- * Unlisted public review PowerPoint generator.
- *
- * These routes intentionally live outside the authenticated portal groups so
- * anyone who has the direct link can build the report. They are deliberately
- * not linked from any application menu.
- */
-Route::prefix('admin/review-ppt-generator')->name('admin.review-ppt.')->group(function (): void {
-    Route::get('/', [ReviewPptGeneratorController::class, 'index'])
-        ->middleware('throttle:60,1')
-        ->name('index');
-    Route::get('preview', [ReviewPptGeneratorController::class, 'preview'])
-        ->middleware('throttle:20,1')
-        ->name('preview');
-    Route::get('download', [ReviewPptGeneratorController::class, 'download'])
-        ->middleware('throttle:10,1')
-        ->name('download');
-});
-
 Route::get('/assets/mascot/lakhpati-didi.png', function () {
     $path = public_path('lakhpati_didi.png');
     abort_unless(is_file($path), 404);
@@ -1018,6 +999,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('funding-partners-outreach/{fundingPartnerOutreach}', [FundingSchematicPartnerOutreachController::class, 'destroy'])->middleware('throttle:30,1')->name('funding-partners-outreach.destroy');
     });
 
+    Route::middleware('review_ppt')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('review-ppt-generator', [ReviewPptGeneratorController::class, 'index'])->name('review-ppt.index');
+        Route::get('review-ppt-generator/preview', [ReviewPptGeneratorController::class, 'preview'])->name('review-ppt.preview');
+        Route::get('review-ppt-generator/download', [ReviewPptGeneratorController::class, 'download'])->name('review-ppt.download');
+    });
+
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
         Route::get('case-study-shortlists/{caseStudyShortlist}/profile', [CaseStudyShortlistController::class, 'show'])->name('case-study-shortlists.show');
@@ -1507,6 +1494,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('hub_admin')->prefix('hub')->name('hub.')->group(function () {
+        Route::get('review-ppt-generator', [ReviewPptGeneratorController::class, 'index'])->name('review-ppt.index');
+        Route::get('review-ppt-generator/preview', [ReviewPptGeneratorController::class, 'preview'])->name('review-ppt.preview');
+        Route::get('review-ppt-generator/download', [ReviewPptGeneratorController::class, 'download'])->name('review-ppt.download');
         Route::get('legacy-data', [LegacyDataController::class, 'index'])->name('legacy-data.index');
         Route::get('legacy-data/export', [LegacyDataController::class, 'export'])->name('legacy-data.export');
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');

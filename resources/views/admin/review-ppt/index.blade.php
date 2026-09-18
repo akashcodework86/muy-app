@@ -14,7 +14,7 @@
     <header class="review-ppt-header">
         <div class="review-ppt-header-inner">
             <div class="review-ppt-brand">Mukhyamantri Udyamshala Yojana</div>
-            <div class="review-ppt-meta">Review PowerPoint · FY {{ $fiscalYear->code }}</div>
+            <div class="review-ppt-meta">Review PowerPoint · FY {{ $fiscalYear->code }} · {{ $roleLabel }}</div>
         </div>
     </header>
     <main class="review-ppt-main">
@@ -24,7 +24,7 @@
             <h2>Download the district review</h2>
             <p>Choose a quarter, month, or custom date range. Select the district scope and whether figures show only that period or the FY cumulative position.</p>
 
-            <form class="review-ppt-form" method="get" action="{{ route('admin.review-ppt.download') }}" id="review-ppt-form">
+            <form class="review-ppt-form" method="get" action="{{ route($routePrefix.'.download') }}" id="review-ppt-form">
                 <div>
                     <label for="period_kind">Reporting period</label>
                     <select id="period_kind" name="period_kind">
@@ -56,16 +56,31 @@
                 <div>
                     <label for="district_scope">District scope</label>
                     <select id="district_scope" name="district_scope">
-                        <option value="all">All 13 districts · statewide</option>
-                        <option value="kumaon">Kumaon region</option>
-                        <option value="garhwal">Garhwal region</option>
-                        @foreach (['kumaon' => 'Kumaon districts', 'garhwal' => 'Garhwal districts'] as $region => $heading)
-                            <optgroup label="{{ $heading }}">
-                                @foreach (config('review_ppt.'.$region, []) as $slug)
+                        <option value="all">{{ $scopeAllLabel }}</option>
+                        @php
+                            $kumaonSlugs = array_values(array_intersect(config('review_ppt.kumaon', []), $allowedSlugs));
+                            $garhwalSlugs = array_values(array_intersect(config('review_ppt.garhwal', []), $allowedSlugs));
+                        @endphp
+                        @if (count($kumaonSlugs) > 1)
+                            <option value="kumaon">Kumaon region</option>
+                        @endif
+                        @if (count($garhwalSlugs) > 1)
+                            <option value="garhwal">Garhwal region</option>
+                        @endif
+                        @if ($kumaonSlugs !== [])
+                            <optgroup label="Kumaon districts">
+                                @foreach ($kumaonSlugs as $slug)
                                     <option value="{{ $slug }}">{{ $districtNames[$slug] ?? ucwords(str_replace('-', ' ', $slug)) }}</option>
                                 @endforeach
                             </optgroup>
-                        @endforeach
+                        @endif
+                        @if ($garhwalSlugs !== [])
+                            <optgroup label="Garhwal districts">
+                                @foreach ($garhwalSlugs as $slug)
+                                    <option value="{{ $slug }}">{{ $districtNames[$slug] ?? ucwords(str_replace('-', ' ', $slug)) }}</option>
+                                @endforeach
+                            </optgroup>
+                        @endif
                     </select>
                 </div>
                 <div>
@@ -84,7 +99,7 @@
                 <button type="submit" id="review-ppt-submit">Download PowerPoint</button>
             </form>
 
-            <div class="review-ppt-note">Targets use the saved monthly allocations for the selected counting window; custom partial-month ranges include that month’s full target. Achievements use actual dates. The All 13 selection keeps the original five-slide design; region or district selections retain only relevant regional slides and editable tables.</div>
+            <div class="review-ppt-note">Targets use the saved monthly allocations for the selected counting window; custom partial-month ranges include that month’s full target. Achievements use actual dates. Statewide All 13 keeps the original five-slide design; hub, region, or district selections retain only relevant regional slides and editable tables.</div>
             <div class="review-ppt-url">Bookmark this page: <a href="{{ $pageUrl }}">{{ $pageUrl }}</a></div>
         </section>
     </div>
@@ -141,7 +156,7 @@
                 live.textContent = 'Calculating from MIS…';
                 try {
                     const query = new URLSearchParams(new FormData(form));
-                    const response = await fetch(`{{ route('admin.review-ppt.preview') }}?${query}`, {headers:{'Accept':'application/json'}});
+                    const response = await fetch(`{{ route($routePrefix.'.preview') }}?${query}`, {headers:{'Accept':'application/json'}});
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.message || Object.values(result.errors || {})[0]?.[0] || 'Could not load MIS totals.');
                     live.textContent = `${result.totals.map(row => `${row.name}: ${row.achievement.toLocaleString()} achieved / ${row.target.toLocaleString()} target`).join(' · ')}. Through ${result.through}; ${result.slides} slides.`;

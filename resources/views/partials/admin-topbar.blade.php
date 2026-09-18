@@ -74,7 +74,9 @@
         str_starts_with($r, 'admin.data-centre') => 'data-centre',
         str_starts_with($r, 'admin.yearwise-indicators-plus') => 'yearwise-indicators-plus',
         str_starts_with($r, 'admin.legacy-data') => 'legacy-data',
+        str_starts_with($r, 'admin.review-ppt') => 'review-ppt',
         str_starts_with($r, 'hub.legacy-data') => 'legacy-data',
+        str_starts_with($r, 'hub.review-ppt') => 'review-ppt',
         str_starts_with($r, 'staff.legacy-data') => 'legacy-data',
         str_starts_with($r, 'spoc.legacy-data') => 'legacy-data',
         str_starts_with($r, 'admin.homestay-survey') => 'homestay-survey',
@@ -368,7 +370,7 @@
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'onboarded', 'onboarded-2025-26', 'phase3-services'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'incubatee-bills-dashboard', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
-    $opsGroupActive = in_array($activeNav, ['case-study-shortlists', 'additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey'], true);
+    $opsGroupActive = in_array($activeNav, ['case-study-shortlists', 'additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey', 'review-ppt'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
         'staff-training-packages-submit', 'staff-training-packages-dashboard',
@@ -391,7 +393,7 @@
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'onboarded-2025-26', 'hub-onboarding-insight'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
     $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'incubatee-bills-dashboard'], true);
-    $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents', 'legacy-data'], true);
+    $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents', 'legacy-data', 'review-ppt'], true);
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
     $spocSynergiesActive = in_array($activeNav, ['stakeholder-consultation-workshops-submit', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard'], true);
@@ -794,6 +796,9 @@
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Analytics &amp; Reports</p>
                     <a href="{{ route('admin.data-centre.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'data-centre') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Program Data Centre</span>
+                    </a>
+                    <a href="{{ route('admin.review-ppt.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'review-ppt') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Review PowerPoint</span>
                     </a>
                     <a href="{{ route('admin.homestay-survey.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'homestay-survey') is-active @endif" role="menuitem">
                         {!! $i('doc') !!}<span>Homestay Survey</span>
@@ -1227,6 +1232,9 @@
                     @endif
                     <a href="{{ route('hub.legacy-data.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'legacy-data') is-active @endif" role="menuitem">
                         {!! $i('database') !!}<span>Legacy Data (read-only)</span>
+                    </a>
+                    <a href="{{ route('hub.review-ppt.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'review-ppt') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Review PowerPoint</span>
                     </a>
                     <a href="{{ route('library.documents.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'documents') is-active @endif" role="menuitem">
                         {!! $i('book') !!}<span>Documents</span>

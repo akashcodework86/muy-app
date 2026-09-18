@@ -64,6 +64,7 @@ final class AccelerationItemSchemas
             'coaching_mentorship' => self::coachingMentorship(),
             'funding_investment_support' => self::fundingConvergence(),
             'business_model_refinement' => self::businessModelRefinement(),
+            'support_muy_incubatee_reap' => self::supportMuyIncubateeReap(),
             'market_linkage' => self::marketLinkage(),
             'industry_connections' => self::industryConnections(),
             AccelerationServicesOptions::BUYER_SELLER_MEET_KEY => self::buyerSellerMeet(),
@@ -503,6 +504,17 @@ final class AccelerationItemSchemas
     }
 
     /** @return list<array<string, mixed>> */
+    private static function supportMuyIncubateeReap(): array
+    {
+        $reapFields = array_values(array_filter(
+            ConvergenceReapSupport::reapDetailSchema(),
+            static fn (array $field): bool => ($field['type'] ?? '') !== ServiceFieldTypes::FILE,
+        ));
+
+        return array_merge(self::dateField(), $reapFields);
+    }
+
+    /** @return list<array<string, mixed>> */
     private static function businessModelRefinement(): array
     {
         return array_merge(self::dateField(), [
@@ -841,6 +853,7 @@ final class AccelerationItemSchemas
         return in_array($baseKey, array_merge([
             'business_formalization',
             'funding_investment_support',
+            'support_muy_incubatee_reap',
             'market_linkage',
             AccelerationServicesOptions::BUYER_SELLER_MEET_KEY,
         ], AccelerationServicesOptions::legalLicensingItemKeys()), true);
@@ -879,6 +892,8 @@ final class AccelerationItemSchemas
                 ?: trim((string) ($payload['reference_number'] ?? '')),
             'funding_investment_support' => self::payloadOptionLabel($schema, $payload, 'scheme_name')
                 ?: trim((string) ($payload['scheme_name'] ?? '')),
+            'support_muy_incubatee_reap' => ConvergenceReapSupport::reapSectorLabel($payload[ConvergenceReapSupport::REAP_SECTOR_KEY] ?? null)
+                .' · '.ConvergenceReapSupport::reapAmountLabel($payload[ConvergenceReapSupport::REAP_AMOUNT_KEY] ?? null),
             'market_linkage' => trim((string) ($payload['partner_or_buyer'] ?? ''))
                 ?: self::payloadOptionLabel($schema, $payload, 'market_type'),
             AccelerationServicesOptions::BUYER_SELLER_MEET_KEY => trim((string) ($payload['buyer_name'] ?? ''))

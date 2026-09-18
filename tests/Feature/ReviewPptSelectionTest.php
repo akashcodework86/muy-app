@@ -53,4 +53,23 @@ class ReviewPptSelectionTest extends TestCase
         $this->assertSame([1, 5], [$selection->targetFromMonth, $selection->targetToMonth]);
         $this->assertCount(6, $selection->districtSlugs);
     }
+
+    public function test_allowed_slugs_limit_all_scope_and_reject_other_districts(): void
+    {
+        Carbon::setTestNow('2026-09-15 12:00:00');
+        $fy = new FiscalYear(['code' => '2026-27', 'starts_on' => '2026-04-02', 'ends_on' => '2027-04-01']);
+
+        $selection = ReviewPptSelection::fromRequest(Request::create('/review', 'GET', [
+            'period_kind' => 'quarter', 'quarter' => 2,
+            'count_mode' => 'period', 'district_scope' => 'all',
+        ]), $fy, ['almora', 'nainital']);
+
+        $this->assertSame(['almora', 'nainital'], $selection->districtSlugs);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        ReviewPptSelection::fromRequest(Request::create('/review', 'GET', [
+            'period_kind' => 'quarter', 'quarter' => 2,
+            'count_mode' => 'period', 'district_scope' => 'dehradun',
+        ]), $fy, ['almora', 'nainital']);
+    }
 }
