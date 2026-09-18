@@ -20,7 +20,10 @@ class OnboardingPriorityController extends Controller
         $user = $request->user();
         abort_unless(OnboardingPriorityAccess::canView($user), 403);
 
-        $stage = trim((string) $request->query('stage', ''));
+        $stage = trim((string) $request->query('stage', 'seed'));
+        if ($stage === '') {
+            $stage = 'seed';
+        }
         $districtId = $request->integer('district_id') ?: null;
         $search = trim((string) $request->query('q', ''));
 
@@ -39,7 +42,10 @@ class OnboardingPriorityController extends Controller
         $user = $request->user();
         abort_unless(OnboardingPriorityAccess::canView($user), 403);
 
-        $stage = trim((string) $request->query('stage', ''));
+        $stage = trim((string) $request->query('stage', 'seed'));
+        if ($stage === '') {
+            $stage = 'seed';
+        }
         $districtId = $request->integer('district_id') ?: null;
         $search = trim((string) $request->query('q', ''));
         $rows = $this->listService->exportRowsForUser($user, $stage, $districtId, $search);
@@ -53,7 +59,7 @@ class OnboardingPriorityController extends Controller
             }
 
             fputcsv($out, [
-                'Rank', 'Application no', 'Applicant', 'District', 'Block', 'Stage',
+                'Stage rank', 'Application no', 'Applicant', 'District', 'Block', 'Stage',
                 'Priority score', 'Scalability', 'Economic', 'Social', 'Vision', 'Innovation', 'Environmental',
                 'Top drivers', 'Submitted',
             ]);
@@ -61,7 +67,7 @@ class OnboardingPriorityController extends Controller
             foreach ($rows as $row) {
                 $dims = $row['dimensions'] ?? [];
                 fputcsv($out, [
-                    $row['rank'] ?? '',
+                    $row['rank_label'] ?? $row['rank'] ?? '',
                     $row['application_no'] ?? '',
                     $row['applicant_name'] ?? '',
                     $row['district_name'] ?? '',
@@ -96,6 +102,7 @@ class OnboardingPriorityController extends Controller
 
         return match ($user->role) {
             'state_admin' => route('admin.cfa.show', $submission),
+            'hub_admin' => route('hub.batches.cfa.show', $submission),
             'district_staff' => route('staff.applications.show', $submission),
             default => null,
         };

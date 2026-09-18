@@ -37,14 +37,18 @@ final class OnboardingPriorityListService
         int $perPage = 50,
     ): array {
         $districtIds = OnboardingPriorityAccess::visibleDistrictIds($user);
-        $activeStage = in_array($stageFilter, ['seed', 'early', 'growth'], true) ? $stageFilter : '';
+        $activeStage = match (true) {
+            $stageFilter === 'all' => 'all',
+            in_array($stageFilter, ['seed', 'early', 'growth'], true) => $stageFilter,
+            default => 'seed',
+        };
         $districtFilter = $this->resolveDistrictFilter($districtFilter, $districtIds);
         $fiscalYear = FiscalYear::phase3Default();
 
         $query = $this->baseQuery($districtIds, $districtFilter, $fiscalYear, $search);
         $submissions = $query->get(['id', 'application_no', 'applicant_name', 'phone', 'district_id', 'payload', 'created_at']);
 
-        $scored = [];
+        $allScored = [];
         $stageCounts = ['seed' => 0, 'early' => 0, 'growth' => 0, 'unknown' => 0, 'all' => 0];
 
         foreach ($submissions as $submission) {
@@ -58,11 +62,7 @@ final class OnboardingPriorityListService
             }
             $stageCounts['all']++;
 
-            if ($activeStage !== '' && $stage !== $activeStage) {
-                continue;
-            }
-
-            $scored[] = [
+            $allScored[] = [
                 'id' => (int) $submission->id,
                 'application_no' => (string) $submission->application_no,
                 'applicant_name' => (string) $submission->applicant_name,
@@ -79,19 +79,43 @@ final class OnboardingPriorityListService
             ];
         }
 
-        usort($scored, static function (array $a, array $b): int {
-            $byScore = $b['score'] <=> $a['score'];
-            if ($byScore !== 0) {
-                return $byScore;
+        $stageRankMeta = $this->stageRankMeta($allScored);
+
+        $scored = array_values(array_filter(
+            $allScored,
+            static fn (array $row): bool => $activeStage === 'all' || $row['stage_key'] === $activeStage,
+        ));
+
+        foreach ($scored as &$row) {
+            $meta = $stageRankMeta[$row['id']] ?? ['rank' => null, 'label' => '—'];
+            $row['stage_rank'] = $meta['rank'];
+            $row['rank_label'] = $meta['label'];
+            $row['rank'] = $meta['rank'];
+        }
+        unset($row);
+
+        usort($scored, function (array $a, array $b) use ($activeStage): int {
+            if ($activeStage === 'all') {
+                $stageOrder = ['seed' => 0, 'early' => 1, 'growth' => 2];
+                $aStage = $stageOrder[$a['stage_key']] ?? 99;
+                $bStage = $stageOrder[$b['stage_key']] ?? 99;
+                if ($aStage !== $bStage) {
+                    return $aStage <=> $bStage;
+                }
+
+                $byStageRank = ($a['stage_rank'] ?? 999) <=> ($b['stage_rank'] ?? 999);
+                if ($byStageRank !== 0) {
+                    return $byStageRank;
+                }
+            } else {
+                $byScore = $b['score'] <=> $a['score'];
+                if ($byScore !== 0) {
+                    return $byScore;
+                }
             }
 
             return strcmp((string) $a['application_no'], (string) $b['application_no']);
         });
-
-        foreach ($scored as $index => &$row) {
-            $row['rank'] = $index + 1;
-        }
-        unset($row);
 
         $page = max(1, (int) request()->query('page', 1));
         $total = count($scored);
@@ -202,5 +226,40 @@ final class OnboardingPriorityListService
         }
 
         return $query->get(['id', 'name']);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array<int, array{rank: int|null, label: string}>
+     */
+    private function stageRankMeta(array $rows): array
+    {
+        $grouped = [];
+        foreach ($rows as $row) {
+            $grouped[(string) ($row['stage_key'] ?? 'unknown')][] = $row;
+        }
+
+        $meta = [];
+        foreach ($grouped as $stageKey => $stageRows) {
+            usort($stageRows, static function (array $a, array $b): int {
+                $byScore = $b['score'] <=> $a['score'];
+                if ($byScore !== 0) {
+                    return $byScore;
+                }
+
+                return strcmp((string) $a['application_no'], (string) $b['application_no']);
+            });
+
+            $labelPrefix = ucfirst($stageKey);
+            foreach ($stageRows as $index => $row) {
+                $rank = $index + 1;
+                $meta[(int) $row['id']] = [
+                    'rank' => $rank,
+                    'label' => $labelPrefix.' #'.$rank,
+                ];
+            }
+        }
+
+        return $meta;
     }
 }

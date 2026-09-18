@@ -80,9 +80,111 @@ class OnboardingPriorityListTest extends TestCase
         ]);
 
         $this->actingAs($hubAdmin)
-            ->get(route('hub.onboarding-priority.index'))
+            ->get(route('hub.onboarding-priority.index', ['stage' => 'early']))
             ->assertOk()
-            ->assertSee('APP-HUB');
+            ->assertSee('APP-HUB')
+            ->assertSee(route('hub.batches.cfa.show', CfaSubmission::query()->where('application_no', 'APP-HUB')->firstOrFail()), false);
+    }
+
+    public function test_defaults_to_seed_stage_tab(): void
+    {
+        [$district, $fy] = $this->seedDistrictAndFy();
+        $im = $this->createIncubationManager($district);
+        $this->createSubmission($district, $fy, 'APP-SEED-DEFAULT', [
+            'form_stage' => 'Seed',
+            'training_received' => 'Yes',
+            'financial_support' => 'Yes',
+            'migrated_for_employment' => 'Yes',
+            'empwomen' => 'Yes',
+            'expectations' => ['a', 'b'],
+            'techuse' => 'WhatsApp',
+            'sustainability' => 'Yes',
+        ]);
+        $this->createSubmission($district, $fy, 'APP-EARLY-HIDDEN', [
+            'form_stage' => 'Early',
+            'is_registered' => 'Yes',
+            'business_age' => '0',
+            'loan_taken' => 'No',
+            'regular_buyer' => 'No',
+            'training_received' => 'No',
+            'current_employment' => 'No',
+            'turnover_last_fy' => '0',
+            'financial_support' => 'No',
+            'migrated_for_employment' => 'No',
+            'empwomen' => 'No',
+            'expectations' => ['a'],
+            'techuse' => 'WhatsApp',
+            'sustainability' => 'No',
+        ]);
+
+        $this->actingAs($im)
+            ->get(route('staff.onboarding-priority.index'))
+            ->assertOk()
+            ->assertSee('APP-SEED-DEFAULT')
+            ->assertDontSee('APP-EARLY-HIDDEN');
+    }
+
+    public function test_all_stages_view_shows_stage_wise_rank_labels(): void
+    {
+        [$district, $fy] = $this->seedDistrictAndFy();
+        $im = $this->createIncubationManager($district);
+        $this->createSubmission($district, $fy, 'APP-SEED-RANK', [
+            'form_stage' => 'Seed',
+            'training_received' => 'Yes',
+            'financial_support' => 'Yes',
+            'migrated_for_employment' => 'Yes',
+            'empwomen' => 'Yes',
+            'expectations' => ['a', 'b', 'c', 'd', 'e', 'g'],
+            'techuse' => 'Website',
+            'sustainability' => 'Yes',
+        ]);
+        $this->createSubmission($district, $fy, 'APP-GROWTH-RANK', [
+            'form_stage' => 'Growth',
+            'is_registered' => 'Yes',
+            'business_age' => '>24 months',
+            'loan_taken' => 'No',
+            'regular_buyer' => 'No',
+            'training_received' => 'No',
+            'current_employment' => 'No',
+            'turnover_last_fy' => '700000',
+            'financial_support' => 'No',
+            'migrated_for_employment' => 'No',
+            'empwomen' => 'No',
+            'expectations' => ['a'],
+            'techuse' => 'WhatsApp',
+            'sustainability' => 'No',
+        ]);
+
+        $this->actingAs($im)
+            ->get(route('staff.onboarding-priority.index', ['stage' => 'all']))
+            ->assertOk()
+            ->assertSee('Seed #1', false)
+            ->assertSee('Growth #1', false)
+            ->assertSee('Stage rank', false);
+    }
+
+    public function test_breakdown_shows_all_dimension_labels(): void
+    {
+        [$district, $fy] = $this->seedDistrictAndFy();
+        $im = $this->createIncubationManager($district);
+        $this->createSubmission($district, $fy, 'APP-BREAKDOWN', [
+            'form_stage' => 'Seed',
+            'training_received' => 'Yes',
+            'financial_support' => 'Yes',
+            'migrated_for_employment' => 'Yes',
+            'empwomen' => 'Yes',
+            'expectations' => ['a', 'b'],
+            'techuse' => 'WhatsApp',
+            'sustainability' => 'Yes',
+        ]);
+
+        $this->actingAs($im)
+            ->get(route('staff.onboarding-priority.index'))
+            ->assertOk()
+            ->assertSee('Vision &amp; clarity', false)
+            ->assertSee('Innovation &amp; technology', false)
+            ->assertSee('Environmental impact', false)
+            ->assertSee('Breakdown', false);
     }
 
     public function test_state_admin_can_open_statewide_priority_list(): void
