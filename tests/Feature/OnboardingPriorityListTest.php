@@ -207,7 +207,72 @@ class OnboardingPriorityListTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.onboarding-priority.index'))
             ->assertOk()
+            ->assertSee('All districts', false)
             ->assertSee('APP-STATE');
+    }
+
+    public function test_hub_admin_defaults_to_all_hub_districts(): void
+    {
+        [$district, $fy] = $this->seedDistrictAndFy();
+        District::query()->create([
+            'hub_id' => $district->hub_id,
+            'slug' => 'priority-district-b',
+            'name' => 'Priority District B',
+            'sort_order' => 2,
+        ]);
+        $hub = Hub::query()->find($district->hub_id);
+        $hubAdmin = User::factory()->create([
+            'role' => 'hub_admin',
+            'hub_id' => $hub->id,
+            'is_active' => true,
+        ]);
+        $this->createSubmission($district, $fy, 'APP-HUB-DISTRICT', [
+            'form_stage' => 'Early',
+            'is_registered' => 'Yes',
+            'business_age' => '7-12 months',
+            'loan_taken' => 'No',
+            'regular_buyer' => 'No',
+            'training_received' => 'Yes',
+            'current_employment' => 'No',
+            'turnover_last_fy' => '50000',
+            'financial_support' => 'Yes',
+            'migrated_for_employment' => 'Yes',
+            'empwomen' => 'Yes',
+            'expectations' => ['a', 'b', 'c'],
+            'techuse' => 'Social media',
+            'sustainability' => 'Yes',
+        ]);
+
+        $this->actingAs($hubAdmin)
+            ->get(route('hub.onboarding-priority.index', ['stage' => 'early']))
+            ->assertOk()
+            ->assertSee('All districts', false)
+            ->assertSee('APP-HUB-DISTRICT');
+    }
+
+    public function test_priority_list_paginates_one_hundred_per_page(): void
+    {
+        [$district, $fy] = $this->seedDistrictAndFy();
+        $im = $this->createIncubationManager($district);
+
+        for ($i = 1; $i <= 105; $i++) {
+            $this->createSubmission($district, $fy, sprintf('APP-PAGE-%03d', $i), [
+                'form_stage' => 'Seed',
+                'training_received' => 'Yes',
+                'financial_support' => 'Yes',
+                'migrated_for_employment' => 'Yes',
+                'empwomen' => 'Yes',
+                'expectations' => ['a', 'b'],
+                'techuse' => 'WhatsApp',
+                'sustainability' => 'Yes',
+            ]);
+        }
+
+        $this->actingAs($im)
+            ->get(route('staff.onboarding-priority.index'))
+            ->assertOk()
+            ->assertSee('100 per page', false)
+            ->assertSee('Showing 1–100 of 105', false);
     }
 
     public function test_onboarding_priority_route_names_are_registered(): void

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CfaSubmission;
 use App\Services\Onboarding\OnboardingPriorityListService;
 use App\Support\OnboardingPriorityAccess;
 use Illuminate\Http\Request;
@@ -91,19 +90,14 @@ class OnboardingPriorityController extends Controller
 
     private function showUrl(?\App\Models\User $user, int $cfaId): ?string
     {
-        if (! $user || ! CfaSubmission::query()->whereKey($cfaId)->exists()) {
-            return null;
-        }
-
-        $submission = CfaSubmission::query()->find($cfaId);
-        if ($submission === null) {
+        if (! $user || $cfaId <= 0) {
             return null;
         }
 
         return match ($user->role) {
-            'state_admin' => route('admin.cfa.show', $submission),
-            'hub_admin' => route('hub.batches.cfa.show', $submission),
-            'district_staff' => route('staff.applications.show', $submission),
+            'state_admin' => route('admin.cfa.show', $cfaId),
+            'hub_admin' => route('hub.batches.cfa.show', $cfaId),
+            'district_staff' => route('staff.applications.show', $cfaId),
             default => null,
         };
     }

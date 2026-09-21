@@ -20,24 +20,26 @@
             'district_id' => $districtFilter ?: null,
         ]);
         $showStageRankLabel = $activeStage === 'all';
+        $showDistrictFilter = ! empty($showDistrictFilter);
     @endphp
 
     <style>
-        .op-shell{max-width:1180px}.op-note{margin:0 0 1rem;padding:.75rem 1rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;color:#1e3a5f;font-size:.88rem;line-height:1.5}.op-toolbar{display:flex;flex-wrap:wrap;gap:.55rem;align-items:center;margin:0 0 1rem}.op-tabs{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 1rem}.op-tab{border:1px solid #d4d4d8;background:#fff;color:#18181b;padding:.42rem .72rem;border-radius:999px;font-size:.82rem;font-weight:600;text-decoration:none;display:inline-block}.op-tab.is-active{background:#18181b;border-color:#18181b;color:#fff}.op-table-wrap{overflow-x:auto}.op-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e4e7;border-radius:10px;font-size:.84rem}.op-table th,.op-table td{padding:.65rem .7rem;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top}.op-table th{background:#f8fafc;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b}.op-score{font-weight:800;color:#0f766e;font-size:1rem}.op-stage{display:inline-block;padding:.15rem .45rem;border-radius:999px;background:#f1f5f9;color:#334155;font-size:.72rem;font-weight:700;text-transform:uppercase}.op-rank{font-weight:700;color:#0f172a;white-space:nowrap}.op-drivers{color:#64748b;font-size:.78rem;line-height:1.45}.op-dim{font-size:.72rem;color:#64748b;white-space:nowrap}.op-btn{display:inline-block;padding:.45rem .8rem;background:#18181b;color:#fff;border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;border:0;cursor:pointer}.op-btn--secondary{background:#fff;color:#18181b;border:1px solid #d4d4d8}.op-btn--ghost{background:transparent;color:#475569;border:1px solid #cbd5e1;padding:.28rem .55rem;font-size:.76rem}.op-field{padding:.42rem .6rem;border:1px solid #d4d4d8;border-radius:8px;font:inherit;font-size:.85rem}.op-row-detail td{background:#f8fafc;padding:0 !important;border-bottom:1px solid #e2e8f0}.op-breakdown{padding:.75rem 1rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.55rem .85rem}.op-breakdown__item{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.55rem .65rem}.op-breakdown__label{display:block;font-size:.72rem;color:#64748b;margin-bottom:.15rem}.op-breakdown__value{font-size:.88rem;font-weight:700;color:#0f172a}
+        .op-shell{max-width:1180px}.op-note{margin:0 0 1rem;padding:.75rem 1rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;color:#1e3a5f;font-size:.88rem;line-height:1.5}.op-toolbar{display:flex;flex-wrap:wrap;gap:.55rem;align-items:center;margin:0 0 1rem}.op-tabs{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 1rem}.op-tab{border:1px solid #d4d4d8;background:#fff;color:#18181b;padding:.42rem .72rem;border-radius:999px;font-size:.82rem;font-weight:600;text-decoration:none;display:inline-block}.op-tab.is-active{background:#18181b;border-color:#18181b;color:#fff}.op-table-wrap{overflow-x:auto}.op-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4e4e7;border-radius:10px;font-size:.84rem}.op-table th,.op-table td{padding:.65rem .7rem;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top}.op-table th{background:#f8fafc;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b}.op-score{font-weight:800;color:#0f766e;font-size:1rem}.op-stage{display:inline-block;padding:.15rem .45rem;border-radius:999px;background:#f1f5f9;color:#334155;font-size:.72rem;font-weight:700;text-transform:uppercase}.op-rank{font-weight:700;color:#0f172a;white-space:nowrap}.op-drivers{color:#64748b;font-size:.78rem;line-height:1.45}.op-dim{font-size:.72rem;color:#64748b;white-space:nowrap}.op-btn{display:inline-block;padding:.45rem .8rem;background:#18181b;color:#fff;border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;border:0;cursor:pointer}.op-btn--secondary{background:#fff;color:#18181b;border:1px solid #d4d4d8}.op-btn--ghost{background:transparent;color:#475569;border:1px solid #cbd5e1;padding:.28rem .55rem;font-size:.76rem}.op-field{padding:.42rem .6rem;border:1px solid #d4d4d8;border-radius:8px;font:inherit;font-size:.85rem}.op-row-detail td{background:#f8fafc;padding:0 !important;border-bottom:1px solid #e2e8f0}.op-breakdown{padding:.75rem 1rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.55rem .85rem}.op-breakdown__item{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.55rem .65rem}.op-breakdown__label{display:block;font-size:.72rem;color:#64748b;margin-bottom:.15rem}.op-breakdown__value{font-size:.88rem;font-weight:700;color:#0f172a}.op-pager{margin-top:1rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;justify-content:space-between;color:#64748b;font-size:.84rem}
     </style>
 
     <div class="op-shell">
         <div class="op-note">
             Rankings use the <strong>PMC Priority Matrix (Aug 2025)</strong> on CFA data. Compare applicants <strong>within the same stage</strong> only.
             Seed-stage NA fields receive full weight. Onboarding decisions stay manual — this list is a guide.
+            Showing 100 per page (all districts by default).
         </div>
 
         <form method="get" action="{{ route($routePrefix.'.index') }}" class="op-toolbar">
             <input type="hidden" name="stage" value="{{ $activeStage }}">
             <input class="op-field" type="search" name="q" value="{{ $searchQuery }}" placeholder="Search app no, name, phone" style="min-width:14rem;flex:1;max-width:24rem;">
-            @if ($districts->count() > 1)
+            @if ($showDistrictFilter)
                 <select class="op-field" name="district_id">
-                    <option value="">All districts</option>
+                    <option value="" @selected($districtFilter === null)>All districts</option>
                     @foreach ($districts as $district)
                         <option value="{{ $district->id }}" @selected($districtFilter === (int) $district->id)>{{ $district->name }}</option>
                     @endforeach
@@ -126,7 +128,13 @@
         </div>
 
         @if ($rows->hasPages())
-            <div style="margin-top:1rem;">{{ $rows->links() }}</div>
+            <div class="op-pager">
+                <div>
+                    Showing {{ $rows->firstItem() }}–{{ $rows->lastItem() }} of {{ number_format($rows->total()) }}
+                    · {{ $rows->perPage() }} per page
+                </div>
+                <div>{{ $rows->links() }}</div>
+            </div>
         @endif
     </div>
 
