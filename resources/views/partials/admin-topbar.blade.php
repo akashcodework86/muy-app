@@ -33,6 +33,7 @@
     $canSubmitLineDepartmentMeetings = $u && \App\Support\LineDepartmentMeetingAccess::canSubmit($u);
     $canViewLineDepartmentMeetings = $u && \App\Support\LineDepartmentMeetingAccess::canViewDashboard($u);
     $canViewMentorshipRequests = $u && \App\Support\MentorshipRequestAccess::canViewDashboard($u);
+    $canManageIncubateeMeetings = $u && \App\Support\IncubateeMeetingAccess::canViewDashboard($u);
     $canSubmitCommunityOrgOutreach = $u && \App\Support\CommunityOrgOutreachAccess::canSubmit($u);
     $canSubmitPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canSubmit($u);
     $canViewPitchDeckPreparation = $u && \App\Support\PitchDeckPreparationAccess::canViewDashboard($u);
@@ -310,6 +311,14 @@
         str_starts_with($r, 'hub.mentorship-requests') => 'mentorship-requests-dashboard',
         str_starts_with($r, 'admin.mentorship-requests') => 'mentorship-requests-dashboard',
         str_starts_with($r, 'spoc.mentorship-requests') => 'mentorship-requests-dashboard',
+        str_starts_with($r, 'staff.service-requests') => 'service-requests-dashboard',
+        str_starts_with($r, 'hub.service-requests') => 'service-requests-dashboard',
+        str_starts_with($r, 'admin.service-requests') => 'service-requests-dashboard',
+        str_starts_with($r, 'spoc.service-requests') => 'service-requests-dashboard',
+        str_starts_with($r, 'staff.incubatee-meetings') => 'incubatee-meetings-dashboard',
+        str_starts_with($r, 'hub.incubatee-meetings') => 'incubatee-meetings-dashboard',
+        str_starts_with($r, 'admin.incubatee-meetings') => 'incubatee-meetings-dashboard',
+        str_starts_with($r, 'spoc.incubatee-meetings') => 'incubatee-meetings-dashboard',
         str_starts_with($r, 'admin.line-department-meetings.show') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'admin.line-department-meetings.destroy') => 'line-department-meetings-dashboard',
         str_starts_with($r, 'spoc.pitch-deck-preparations.create') => 'pitch-deck-preparations-submit',
@@ -373,7 +382,7 @@
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $showOnboardingPriorityNav = $u && \App\Support\OnboardingPriorityAccess::canView($u);
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'onboarded', 'onboarded-2025-26', 'phase3-services', 'onboarding-priority'], true);
-    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'incubatee-bills-dashboard', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
+    $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'incubatee-bills-dashboard', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['case-study-shortlists', 'additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey', 'review-ppt'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
@@ -391,16 +400,16 @@
         || $staffNavDistrictWorkshop;
     $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'onboarded-2025-26', 'staff-batches', 'legacy-data', 'onboarding-priority'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
-    $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true);
+    $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true);
     $staffMoreGroupActive = $staffFieldWorkActive || $activeNav === 'documents';
 
     $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'onboarded-2025-26', 'hub-onboarding-insight', 'onboarding-priority'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
-    $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'incubatee-bills-dashboard'], true);
+    $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard', 'incubatee-bills-dashboard'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents', 'legacy-data', 'review-ppt'], true);
     $spocAssignTargetActive = $activeNav === 'training-package-month-plans';
     $spocCapacityBuildingActive = in_array($activeNav, ['capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard'], true);
-    $spocSynergiesActive = in_array($activeNav, ['stakeholder-consultation-workshops-submit', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard'], true);
+    $spocSynergiesActive = in_array($activeNav, ['stakeholder-consultation-workshops-submit', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard'], true);
     $spocPitchDeckActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard'], true);
     $approvalQueueNavActive = $activeNav === 'approval-queue';
     $spocFundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard', 'demo-days-submit', 'demo-days-dashboard', 'funding-partners-outreach-submit', 'funding-partners-outreach-dashboard'], true);
@@ -441,7 +450,7 @@
     // Helper to render an icon as a labelled wrapper span (keeps markup short below).
     $i = fn ($key) => '<span class="admin-topbar__link-ico" aria-hidden="true">'.($ico[$key] ?? '').'</span>';
 @endphp
-<header class="admin-topbar @if ($showHubNav) admin-topbar--hub @endif @if ($showStaffNav) admin-topbar--staff @endif">
+<header class="admin-topbar @if ($showHubNav) admin-topbar--hub @endif @if ($showStaffNav) admin-topbar--staff @endif @if ($showIncubateeNav) admin-topbar--incubatee @endif">
     <div class="admin-topbar__inner @if ($showHubNav) admin-topbar__inner--hub @endif @if ($showStaffNav) admin-topbar__inner--staff @endif">
         <a href="{{ route('dashboard') }}" class="admin-brand @if ($showHubNav) admin-brand--hub @endif @if ($showStaffNav) admin-brand--staff @endif" title="Mukhyamantri Udyamshala Yojana">
             <span class="admin-brand__logo-wrap">
@@ -702,18 +711,26 @@
                                 </div>
                             </div>
                             @endif
-                    @if ($canViewMentorshipRequests)
-                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif">
-                        <span class="admin-topbar__dropdown-subtrigger">
-                            {!! $i('mentor') !!}<span>Mentorship requests (5.2)</span>
-                        </span>
-                        <div class="admin-topbar__dropdown-subpanel" role="menu">
-                            <a href="{{ route('admin.mentorship-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif" role="menuitem">
-                                {!! $i('bars') !!}<span>View dashboard</span>
-                            </a>
                         </div>
                     </div>
                     @endif
+                    @if ($canViewMentorshipRequests)
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard'], true)) is-active @endif">
+                        <span class="admin-topbar__dropdown-subtrigger">
+                            {!! $i('users') !!}<span>Incubatee dashboard</span>
+                        </span>
+                        <div class="admin-topbar__dropdown-subpanel" role="menu">
+                            <a href="{{ route('admin.mentorship-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('mentor') !!}<span>Mentorship requests</span>
+                            </a>
+                            <a href="{{ route('admin.service-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-requests-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>Service requests</span>
+                            </a>
+                            @if ($canManageIncubateeMeetings)
+                            <a href="{{ route('admin.incubatee-meetings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'incubatee-meetings-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('calendar') !!}<span>Incubatee meetings</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                     @endif
@@ -1030,14 +1047,22 @@
                     </div>
                     @endif
                     @if ($canViewMentorshipRequests)
-                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif">
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
-                            {!! $i('mentor') !!}<span>Mentorship requests (5.2)</span>
+                            {!! $i('users') !!}<span>Incubatee dashboard</span>
                         </span>
                         <div class="admin-topbar__dropdown-subpanel" role="menu">
                             <a href="{{ route('spoc.mentorship-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif" role="menuitem">
-                                {!! $i('bars') !!}<span>View dashboard</span>
+                                {!! $i('mentor') !!}<span>Mentorship requests</span>
                             </a>
+                            <a href="{{ route('spoc.service-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-requests-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>Service requests</span>
+                            </a>
+                            @if ($canManageIncubateeMeetings)
+                            <a href="{{ route('spoc.incubatee-meetings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'incubatee-meetings-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('calendar') !!}<span>Incubatee meetings</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                     @endif
@@ -1199,14 +1224,22 @@
                     </div>
                     @endif
                     @if ($canViewMentorshipRequests)
-                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif">
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
-                            {!! $i('mentor') !!}<span>Mentorship requests (5.2)</span>
+                            {!! $i('users') !!}<span>Incubatee dashboard</span>
                         </span>
                         <div class="admin-topbar__dropdown-subpanel" role="menu">
                             <a href="{{ route('hub.mentorship-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif" role="menuitem">
-                                {!! $i('bars') !!}<span>View dashboard</span>
+                                {!! $i('mentor') !!}<span>Mentorship requests</span>
                             </a>
+                            <a href="{{ route('hub.service-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-requests-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>Service requests</span>
+                            </a>
+                            @if ($canManageIncubateeMeetings)
+                            <a href="{{ route('hub.incubatee-meetings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'incubatee-meetings-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('calendar') !!}<span>Incubatee meetings</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                     @endif
@@ -1389,14 +1422,22 @@
                     </div>
                     @endif
                     @if ($canViewMentorshipRequests)
-                    <div class="admin-topbar__dropdown-subgroup @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif">
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
-                            {!! $i('mentor') !!}<span>Mentorship requests (5.2)</span>
+                            {!! $i('users') !!}<span>Incubatee dashboard</span>
                         </span>
                         <div class="admin-topbar__dropdown-subpanel" role="menu">
                             <a href="{{ route('staff.mentorship-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mentorship-requests-dashboard') is-active @endif" role="menuitem">
-                                {!! $i('bars') !!}<span>View dashboard</span>
+                                {!! $i('mentor') !!}<span>Mentorship requests</span>
                             </a>
+                            <a href="{{ route('staff.service-requests.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'service-requests-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('doc') !!}<span>Service requests</span>
+                            </a>
+                            @if ($canManageIncubateeMeetings)
+                            <a href="{{ route('staff.incubatee-meetings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'incubatee-meetings-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('calendar') !!}<span>Incubatee meetings</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                     @endif
@@ -1421,16 +1462,19 @@
         @if ($showIncubateeNav)
         <nav class="admin-topbar__nav" aria-label="Incubatee">
             <a href="{{ route('incubatee.dashboard') }}" class="admin-topbar__link @if ($activeNav === 'incubatee' && request()->routeIs('incubatee.dashboard')) is-active @endif">
-                {!! $i('dashboard') !!}<span class="admin-topbar__link-text">Dashboard</span>
+                {!! $i('dashboard') !!}<span class="admin-topbar__link-text">{{ __('incubatee.nav.dashboard') }}</span>
             </a>
             <a href="{{ route('incubatee.mentorship.index') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.mentorship.*')) is-active @endif">
-                {!! $i('mentor') !!}<span class="admin-topbar__link-text">Request mentorship</span>
+                {!! $i('mentor') !!}<span class="admin-topbar__link-text">{{ __('incubatee.nav.mentorship') }}</span>
+            </a>
+            <a href="{{ route('incubatee.service-requests.index') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.service-requests.*')) is-active @endif">
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">{{ __('incubatee.nav.service_request') }}</span>
             </a>
             <a href="{{ route('incubatee.udmita-kosh') }}" class="admin-topbar__link @if (request()->routeIs('incubatee.udmita-kosh')) is-active @endif">
-                {!! $i('book') !!}<span class="admin-topbar__link-text">Udmita Kosh</span>
+                {!! $i('book') !!}<span class="admin-topbar__link-text">{{ __('incubatee.nav.udyamita_kosh') }}</span>
             </a>
             <a href="{{ route('incubatee.documents.index') }}" class="admin-topbar__link @if ($activeNav === 'documents') is-active @endif">
-                {!! $i('doc') !!}<span class="admin-topbar__link-text">Documents</span>
+                {!! $i('doc') !!}<span class="admin-topbar__link-text">{{ __('incubatee.nav.documents') }}</span>
             </a>
         </nav>
         @endif
@@ -1444,6 +1488,9 @@
         </button>
 
         <div class="admin-topbar__right">
+            @if ($showIncubateeNav)
+                @include('incubatee.partials.lang-toggle')
+            @endif
             @include('partials.live-ops-drawer')
 
             @if (!empty($showNotificationBell))

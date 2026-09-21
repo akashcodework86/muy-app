@@ -23,7 +23,7 @@ class DocumentLibraryController extends Controller
         $role = (string) ($request->user()->role ?? '');
         abort_if($role !== Document::ROLE_INCUBATEE, 403);
 
-        return $this->renderIndex($request, 'incubatee.documents.index', $role, 'Document repository');
+        return $this->renderIndex($request, 'incubatee.documents.index', $role, __('incubatee.docs_intro'));
     }
 
     public function download(Request $request, Document $document)

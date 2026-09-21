@@ -2,17 +2,12 @@
 
 @section('body_class', 'admin-app-body--dashboard')
 
-@section('title', 'Udmita Kosh')
+@section('title', __('incubatee.kosh.title'))
 
-@section('heading', 'Udmita Kosh')
+@section('heading', __('incubatee.kosh.heading'))
 
 @php
     $totalVideos = collect($categories)->sum(fn ($c) => count($c['videos'] ?? []));
-    $docsByType = collect($documents)->groupBy('type')->map->count();
-    $pdfCount = $docsByType['PDF'] ?? 0;
-    $pptCount = $docsByType['PPT'] ?? 0;
-    $xlsxCount = $docsByType['XLSX'] ?? 0;
-    $totalDocs = collect($documents)->count();
 @endphp
 
 @push('styles')
@@ -90,18 +85,18 @@
     @keyframes ukHalo { to { transform: rotate(360deg); } }
     .uk-mascot__img {
         position: relative;
-        width: 170px;
-        height: 170px;
+        width: 168px;
+        height: 210px;
         object-fit: contain;
-        object-position: center bottom;
-        border-radius: 999px;
+        object-position: center;
+        border-radius: 28px;
         border: 3px solid rgba(255, 255, 255, 0.95);
         background:
-            radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.95) 0%, rgba(254, 243, 199, 0.95) 55%, rgba(196, 181, 253, 0.85) 100%);
+            radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.98) 0%, rgba(254, 243, 199, 0.95) 52%, rgba(196, 181, 253, 0.88) 100%);
         box-shadow: 0 18px 32px rgba(0, 0, 0, 0.3);
         animation: ukFloat 6s ease-in-out infinite;
         display: block;
-        padding: 6px 6px 0;
+        padding: 10px 8px 4px;
     }
     .uk-mascot__img.is-broken {
         background: linear-gradient(135deg, #fde68a, #5eead4);
@@ -109,7 +104,7 @@
         font-weight: 800;
         font-size: 2.4rem;
         text-align: center;
-        line-height: 164px;
+        line-height: 200px;
         font-family: inherit;
         padding: 0;
     }
@@ -462,10 +457,10 @@
         pointer-events: none;
     }
     .uk-card__thumb--starting-business { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 60%, #0d9488 100%); }
-    .uk-card__thumb--finance-funding { background: linear-gradient(135deg, #047857 0%, #059669 55%, #fbbf24 100%); }
-    .uk-card__thumb--marketing { background: linear-gradient(135deg, #db2777 0%, #f97316 60%, #facc15 100%); }
-    .uk-card__thumb--legal-compliance { background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%); }
-    .uk-card__thumb--pitch-growth { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #06b6d4 100%); }
+    .uk-card__thumb--market-sales { background: linear-gradient(135deg, #db2777 0%, #f97316 60%, #facc15 100%); }
+    .uk-card__thumb--money-stock { background: linear-gradient(135deg, #047857 0%, #059669 55%, #fbbf24 100%); }
+    .uk-card__thumb--banking-schemes { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #06b6d4 100%); }
+    .uk-card__thumb--legal-rules { background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%); }
 
     .uk-card__thumb-cat {
         position: absolute;
@@ -634,129 +629,102 @@
     }
     .uk-coming h3 { margin: 0 0 0.35rem; font-size: 0.95rem; font-weight: 700; }
     .uk-coming p { margin: 0; font-size: 0.85rem; color: #64748b; line-height: 1.5; }
+
+    @media (max-width: 720px) {
+        .uk-shell { gap: 0.9rem; min-width: 0; overflow-x: hidden; }
+        .uk-side { padding: 1.1rem 0.9rem 1rem; }
+        .uk-mascot__img { width: 120px; height: 154px; }
+        .uk-mascot__img.is-broken { line-height: 146px; font-size: 2rem; }
+        .uk-hero { padding: 1.15rem 1rem 1.1rem; }
+        .uk-hero__h { font-size: 1.2rem; overflow-wrap: anywhere; }
+        .uk-section__head { flex-wrap: wrap; }
+        .uk-section__count { margin-left: 0; }
+        .uk-section__title { overflow-wrap: anywhere; }
+        .uk-grid, .uk-docs { grid-template-columns: 1fr; }
+        .uk-card__title { -webkit-line-clamp: 3; overflow-wrap: anywhere; }
+        .uk-navlink__title, .uk-navlink__sub { overflow-wrap: anywhere; }
+    }
 </style>
 @endpush
 
 @section('content')
 <div class="uk-shell">
-    <aside class="uk-side" aria-label="Udmita Kosh sidebar">
+    <aside class="uk-side" aria-label="{{ __('incubatee.kosh.heading') }}">
         <div class="uk-mascot">
             <div class="uk-mascot__stage">
                 <img
                     class="uk-mascot__img"
-                    src="{{ route('assets.mascot.lakhpati-didi') }}?v={{ time() }}"
-                    alt="Lakhpati Didi mascot"
+                    src="{{ asset('images/UdyamiDidi.png') }}"
+                    alt="{{ __('incubatee.kosh.alt_mascot') }}"
                     loading="eager"
-                    onerror="this.classList.add('is-broken'); this.setAttribute('alt','LD');"
+                    onerror="this.classList.add('is-broken'); this.setAttribute('alt','UD');"
                 >
             </div>
-            <p class="uk-mascot__name">Lakhpati Didi</p>
-            <p class="uk-mascot__tag">आपकी सीखने की साथी</p>
-            <span class="uk-mascot__hi">Namaste, {{ explode(' ', (string) $user->name)[0] ?? 'friend' }}!</span>
+            <p class="uk-mascot__name">{{ __('incubatee.kosh.mascot') }}</p>
+            <p class="uk-mascot__tag">{{ __('incubatee.kosh.mascot_tag') }}</p>
+            <span class="uk-mascot__hi">{{ __('incubatee.kosh.namaste', ['name' => explode(' ', (string) $user->name)[0] ?? 'friend']) }}</span>
         </div>
 
         <div class="uk-quickstats">
             <div class="uk-quickstats__cell">
                 <b>{{ $totalVideos }}</b>
-                <span>Videos</span>
-            </div>
-            <div class="uk-quickstats__cell">
-                <b>{{ $totalDocs }}</b>
-                <span>Documents</span>
+                <span>{{ __('incubatee.kosh.videos') }}</span>
             </div>
             <div class="uk-quickstats__cell">
                 <b>{{ count($categories) }}</b>
-                <span>Modules</span>
+                <span>{{ __('incubatee.kosh.modules') }}</span>
             </div>
             <div class="uk-quickstats__cell">
                 <b>Hindi</b>
-                <span>Subtitles</span>
+                <span>{{ __('incubatee.kosh.subtitles') }}</span>
+            </div>
+            <div class="uk-quickstats__cell">
+                <b>{{ app()->getLocale() === 'hi' ? 'हिन्दी' : 'EN' }}</b>
+                <span>{{ __('incubatee.nav.lang_hi') }}</span>
             </div>
         </div>
 
-        <p class="uk-side__kicker">Learning modules</p>
+        <p class="uk-side__kicker">{{ __('incubatee.kosh.learning') }}</p>
         <ul class="uk-navlist">
             @foreach ($categories as $cat)
                 <li>
                     <a class="uk-navlink" href="#cat-{{ $cat['slug'] }}" data-target="cat-{{ $cat['slug'] }}">
                         <span class="uk-navlink__emoji">{{ $cat['emoji'] }}</span>
                         <span class="uk-navlink__body">
-                            <span class="uk-navlink__title">{{ $cat['title'] }}</span>
-                            <span class="uk-navlink__sub">{{ $cat['hindi'] }}</span>
+                            <span class="uk-navlink__title">{{ app()->getLocale() === 'hi' ? ($cat['hindi'] ?? $cat['title']) : $cat['title'] }}</span>
+                            <span class="uk-navlink__sub">{{ app()->getLocale() === 'hi' ? $cat['title'] : $cat['hindi'] }}</span>
                         </span>
                         <span class="uk-count">{{ count($cat['videos']) }}</span>
                     </a>
                 </li>
             @endforeach
-            <li>
-                <a class="uk-navlink" href="#downloads" data-target="downloads">
-                    <span class="uk-navlink__emoji">📂</span>
-                    <span class="uk-navlink__body">
-                        <span class="uk-navlink__title">Downloads</span>
-                        <span class="uk-navlink__sub">PDF · PPT · XLSX</span>
-                    </span>
-                    <span class="uk-count">{{ $totalDocs }}</span>
-                </a>
-            </li>
         </ul>
 
-        <p class="uk-side__kicker">Resource types</p>
+        <p class="uk-side__kicker">{{ __('incubatee.kosh.resource_types') }}</p>
         <ul class="uk-navlist" style="margin-bottom:1rem;">
             <li>
                 <a class="uk-navlink" href="#cat-{{ $categories[0]['slug'] ?? '' }}">
                     <span class="uk-navlink__emoji">🎥</span>
                     <span class="uk-navlink__body">
-                        <span class="uk-navlink__title">Videos</span>
-                        <span class="uk-navlink__sub">Hindi tutorials</span>
+                        <span class="uk-navlink__title">{{ __('incubatee.kosh.videos') }}</span>
+                        <span class="uk-navlink__sub">{{ __('incubatee.kosh.hindi_tutorials') }}</span>
                     </span>
                     <span class="uk-count">{{ $totalVideos }}</span>
-                </a>
-            </li>
-            <li>
-                <a class="uk-navlink" href="#downloads">
-                    <span class="uk-navlink__emoji">📄</span>
-                    <span class="uk-navlink__body">
-                        <span class="uk-navlink__title">PDF guides</span>
-                        <span class="uk-navlink__sub">Read anywhere</span>
-                    </span>
-                    <span class="uk-count">{{ $pdfCount }}</span>
-                </a>
-            </li>
-            <li>
-                <a class="uk-navlink" href="#downloads">
-                    <span class="uk-navlink__emoji">📊</span>
-                    <span class="uk-navlink__body">
-                        <span class="uk-navlink__title">PPT decks</span>
-                        <span class="uk-navlink__sub">Slide templates</span>
-                    </span>
-                    <span class="uk-count">{{ $pptCount }}</span>
-                </a>
-            </li>
-            <li>
-                <a class="uk-navlink" href="#downloads">
-                    <span class="uk-navlink__emoji">📈</span>
-                    <span class="uk-navlink__body">
-                        <span class="uk-navlink__title">Spreadsheets</span>
-                        <span class="uk-navlink__sub">Plug-and-play</span>
-                    </span>
-                    <span class="uk-count">{{ $xlsxCount }}</span>
                 </a>
             </li>
         </ul>
 
         <div class="uk-tip">
-            <b>💡 Didi ki tip</b>
-            <span>Roz 15 minute sikhne se mahino mein bada farq padta hai. Ek module se shuru karo!</span>
+            <b>💡 {{ __('incubatee.kosh.tip_title') }}</b>
+            <span>{{ __('incubatee.kosh.tip') }}</span>
         </div>
     </aside>
 
     <main class="uk-main">
         <section class="uk-hero">
-            <span class="uk-hero__eyebrow">Self-learning library</span>
-            <h2 class="uk-hero__h">Udmita Kosh — <em>knowledge for every founder</em></h2>
-            <p class="uk-hero__sub">
-                A curated library of videos, documents and templates — in Hindi and English — to help you go from an idea to a running business. Watch, download and learn at your own pace.
-            </p>
+            <span class="uk-hero__eyebrow">{{ __('incubatee.kosh.eyebrow') }}</span>
+            <h2 class="uk-hero__h">{!! __('incubatee.kosh.hero') !!}</h2>
+            <p class="uk-hero__sub">{{ __('incubatee.kosh.hero_sub') }}</p>
         </section>
 
         @foreach ($categories as $cat)
@@ -764,18 +732,20 @@
                 <header class="uk-section__head">
                     <span class="uk-section__emoji">{{ $cat['emoji'] }}</span>
                     <h2 class="uk-section__title">
-                        {{ $cat['title'] }}
-                        <small>{{ $cat['hindi'] }}</small>
+                        {{ app()->getLocale() === 'hi' ? ($cat['hindi'] ?? $cat['title']) : $cat['title'] }}
+                        <small>{{ app()->getLocale() === 'hi' ? $cat['title'] : $cat['hindi'] }}</small>
                     </h2>
-                    <span class="uk-section__count">{{ count($cat['videos']) }} videos</span>
+                    <span class="uk-section__count">{{ __('incubatee.kosh.videos_count', ['count' => count($cat['videos'])]) }}</span>
                 </header>
-                <p class="uk-section__desc">{{ $cat['description'] }}</p>
+                <p class="uk-section__desc">{{ app()->getLocale() === 'hi' ? ($cat['description_hi'] ?? $cat['description']) : $cat['description'] }}</p>
 
                 <div class="uk-grid">
                     @foreach ($cat['videos'] as $v)
                         @php
-                            $searchQ = urlencode($v['title'].' '.($v['channel'] ?? '').' Hindi');
-                            $ytUrl = 'https://www.youtube.com/results?search_query='.$searchQ;
+                            $vTitle = app()->getLocale() === 'hi'
+                                ? ($v['title'] ?? $v['title_en'] ?? '')
+                                : ($v['title_en'] ?? $v['title'] ?? '');
+                            $ytUrl = $v['url'] ?? ('https://www.youtube.com/playlist?list='.($v['playlist_id'] ?? ''));
                         @endphp
                         <article class="uk-card">
                             <a
@@ -783,24 +753,21 @@
                                 href="{{ $ytUrl }}"
                                 target="_blank"
                                 rel="noopener"
-                                aria-label="Watch {{ $v['title'] }} on YouTube"
+                                aria-label="{{ __('incubatee.kosh.watch', ['title' => $vTitle]) }}"
                             >
-                                <span class="uk-card__thumb-cat">{{ $cat['emoji'] }} {{ $cat['title'] }}</span>
+                                <span class="uk-card__thumb-cat">{{ $cat['emoji'] }} {{ __('incubatee.kosh.playlist') }}</span>
                                 <span class="uk-card__play" aria-hidden="true">
                                     <span class="uk-card__play-bg">
                                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
                                     </span>
                                 </span>
-                                @if(!empty($v['duration']))
-                                    <span class="uk-card__duration">{{ $v['duration'] }}</span>
-                                @endif
                             </a>
                             <div class="uk-card__body">
-                                <span class="uk-tag">Video · Hindi</span>
-                                <h3 class="uk-card__title">{{ $v['title'] }}</h3>
+                                <span class="uk-tag">{{ __('incubatee.kosh.video_hi') }}</span>
+                                <h3 class="uk-card__title">{{ $vTitle }}</h3>
                                 <div class="uk-card__meta">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                                    <span>{{ $v['channel'] }}</span>
+                                    <span>{{ __('incubatee.kosh.youtube_playlist') }}</span>
                                 </div>
                             </div>
                         </article>
@@ -809,35 +776,9 @@
             </section>
         @endforeach
 
-        <section class="uk-section" id="downloads">
-            <header class="uk-section__head">
-                <span class="uk-section__emoji">📂</span>
-                <h2 class="uk-section__title">
-                    Downloads & Templates
-                    <small>टेम्पलेट और गाइड</small>
-                </h2>
-                <span class="uk-section__count">{{ $totalDocs }} files</span>
-            </header>
-            <p class="uk-section__desc">Handy PDFs, spreadsheets and slide templates you can download and use right away.</p>
-
-            <div class="uk-docs">
-                @foreach ($documents as $doc)
-                    @php $badgeClass = 'uk-doc__badge--' . strtolower($doc['type'] === 'XLSX' ? 'xlsx' : ($doc['type'] === 'PDF' ? 'pdf' : ($doc['type'] === 'PPT' ? 'ppt' : 'doc'))); @endphp
-                    <a class="uk-doc" href="{{ $doc['url'] }}" target="_blank" rel="noopener">
-                        <span class="uk-doc__badge {{ $badgeClass }}">{{ $doc['type'] }}</span>
-                        <div class="uk-doc__body">
-                            <h3 class="uk-doc__title">{{ $doc['title'] }}</h3>
-                            <p class="uk-doc__meta">{{ $doc['type'] }} · {{ $doc['size'] }}</p>
-                            <p class="uk-doc__desc">{{ $doc['description'] }}</p>
-                        </div>
-                    </a>
-                @endforeach
-            </div>
-        </section>
-
         <div class="uk-coming">
-            <h3>More modules coming soon</h3>
-            <p>Admin team will keep adding new videos, case studies and expert sessions here. Check back every week.</p>
+            <h3>{{ __('incubatee.kosh.coming') }}</h3>
+            <p>{{ __('incubatee.kosh.coming_p') }}</p>
         </div>
     </main>
 </div>

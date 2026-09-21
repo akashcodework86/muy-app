@@ -12,15 +12,21 @@ class LearnController extends Controller
     {
         $categories = array_map(static function (array $category): array {
             $videos = array_map(static function (array $video): array {
-                $id = (string) ($video['youtube_id'] ?? '');
+                $playlistId = (string) ($video['playlist_id'] ?? $video['youtube_id'] ?? '');
+                $url = (string) ($video['url'] ?? '');
 
                 return [
                     'title' => $video['title'] ?? '',
+                    'title_en' => $video['title_en'] ?? '',
                     'channel' => $video['channel'] ?? '',
-                    'youtube_id' => $id,
+                    'youtube_id' => $playlistId,
+                    'playlist_id' => $playlistId,
                     'duration' => $video['duration'] ?? '',
-                    'url' => $id !== '' ? 'https://www.youtube.com/watch?v='.$id : null,
-                    'thumbnail' => $id !== '' ? 'https://i.ytimg.com/vi/'.$id.'/hqdefault.jpg' : null,
+                    'kind' => $video['kind'] ?? 'playlist',
+                    'url' => $url !== ''
+                        ? $url
+                        : ($playlistId !== '' ? 'https://www.youtube.com/playlist?list='.$playlistId : null),
+                    'thumbnail' => null,
                 ];
             }, $category['videos'] ?? []);
 

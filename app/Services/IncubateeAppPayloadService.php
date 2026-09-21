@@ -37,10 +37,7 @@ class IncubateeAppPayloadService
         $hubName = $batch?->hub?->name;
         $membership = $submission->onboardingBatchMembership;
 
-        $emailFromPayload = $payload['email'] ?? null;
-        $displayEmail = (is_scalar($emailFromPayload) && trim((string) $emailFromPayload) !== '')
-            ? (string) $emailFromPayload
-            : ($user->email ?? '—');
+        $displayEmail = $submission->applicantEmail() ?? '—';
 
         $mentorshipRequests = MentorshipRequest::query()
             ->where('cfa_submission_id', $submission->id)

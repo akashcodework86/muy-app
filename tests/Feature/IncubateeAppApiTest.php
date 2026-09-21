@@ -134,6 +134,7 @@ class IncubateeAppApiTest extends TestCase
         $this->getJson('/api/incubatee/learn')
             ->assertOk()
             ->assertJsonPath('categories.0.slug', 'starting-business')
+            ->assertJsonPath('categories.0.videos.0.url', 'https://www.youtube.com/playlist?list=PLGd-uiTAXX5o')
             ->assertJsonStructure([
                 'categories' => [
                     ['slug', 'title', 'title_hi', 'videos' => [['youtube_id', 'url']]],

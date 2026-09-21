@@ -61,6 +61,20 @@ class NotificationController extends Controller
         }
 
         $cfaId = $data['cfa_submission_id'] ?? null;
+        $serviceRequestId = $data['incubatee_service_request_id'] ?? null;
+        if ($serviceRequestId) {
+            $url = match ($request->user()->role) {
+                'state_admin' => route('admin.service-requests.show', $serviceRequestId),
+                'district_staff' => route('staff.service-requests.show', $serviceRequestId),
+                'hub_admin' => route('hub.service-requests.show', $serviceRequestId),
+                'state_staff' => route('spoc.service-requests.show', $serviceRequestId),
+                default => null,
+            };
+            if ($url) {
+                return redirect()->to($url);
+            }
+        }
+
         $mentorshipRequestId = $data['mentorship_request_id'] ?? null;
         if ($mentorshipRequestId && $cfaId) {
             $url = match ($request->user()->role) {

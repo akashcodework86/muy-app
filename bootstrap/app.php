@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureHubAdmin;
 use App\Http\Middleware\EnsureReviewPptAccess;
 use App\Http\Middleware\EnsureIncubatee;
 use App\Http\Middleware\EnsureIncubateeApi;
+use App\Http\Middleware\SetIncubateeLocale;
 use App\Http\Middleware\EnsurePrimaryStateAdmin;
 use App\Http\Middleware\EnsureStateAdmin;
 use App\Http\Middleware\EnsureStateStaff;
@@ -48,6 +49,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->appendToGroup('web', TrackUserPresence::class);
+        $middleware->appendToGroup('web', SetIncubateeLocale::class);
+        $middleware->encryptCookies(except: [
+            \App\Support\IncubateeLocale::COOKIE,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (TokenMismatchException $e, Request $request) {

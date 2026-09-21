@@ -438,6 +438,23 @@
         flex-shrink: 0;
         margin-left: auto;
     }
+    .inc-lang { margin: 0; }
+    .inc-lang__btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.28rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        background: rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #64748b;
+    }
+    .inc-lang__opt.is-on { color: #3730a3; }
+    .inc-lang__sep { color: #cbd5e1; font-weight: 500; }
     .admin-topbar__details--notifications {
         position: relative;
     }
@@ -681,6 +698,86 @@
         box-sizing: border-box;
         overflow-x: clip;
         min-width: 0;
+    }
+    @media (min-width: 1024px) {
+        .admin-app-body--incubatee .admin-main {
+            width: 80%;
+            max-width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp .inc-lang__btn {
+        border-color: rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.16);
+        color: rgba(255, 255, 255, 0.85);
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp .inc-lang__opt.is-on {
+        color: #fde68a;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp .inc-lang__sep {
+        color: rgba(255, 255, 255, 0.45);
+    }
+
+    /* Incubatee header — same indigo/violet as Mentorship hub hero */
+    .admin-app-body--incubatee.admin-app-body--dashboard .admin-topbar,
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar,
+    .admin-app-body--incubatee .admin-topbar--incubatee {
+        background:
+            radial-gradient(circle at 85% 0%, rgba(253, 224, 71, 0.35), transparent 50%),
+            radial-gradient(circle at 10% 100%, rgba(94, 234, 212, 0.3), transparent 55%),
+            linear-gradient(135deg, #4338ca 0%, #7c3aed 55%, #c026d3 100%) !important;
+        border-bottom: none !important;
+        box-shadow: 0 18px 40px rgba(49, 46, 129, 0.25) !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-brand__name {
+        background: none !important;
+        -webkit-text-fill-color: #fff !important;
+        color: #fff !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-brand__sub {
+        background: rgba(255, 255, 255, 0.16) !important;
+        border-color: rgba(255, 255, 255, 0.28) !important;
+        color: #fef3c7 !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link {
+        color: rgba(255, 255, 255, 0.94) !important;
+        border-color: transparent !important;
+        background: transparent !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link:hover {
+        color: #fff !important;
+        background: rgba(255, 255, 255, 0.16) !important;
+        border-color: rgba(255, 255, 255, 0.22) !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link.is-active,
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link.is-active.admin-topbar__dropdown-trigger {
+        color: #4338ca !important;
+        background: #fff !important;
+        border-color: transparent !important;
+        box-shadow: 0 4px 14px rgba(49, 46, 129, 0.22) !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link-ico,
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link:hover .admin-topbar__link-ico {
+        color: inherit !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__link.is-active .admin-topbar__link-ico {
+        color: #4338ca !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__hamburger {
+        border-color: rgba(255, 255, 255, 0.32) !important;
+        background: rgba(255, 255, 255, 0.16) !important;
+        color: #fff !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__avatar {
+        background: linear-gradient(135deg, #4338ca, #c026d3) !important;
+        box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(192, 38, 211, 0.35) !important;
+    }
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__settings,
+    .admin-app-body--incubatee.admin-app-body--state-theme-revamp.admin-app-body--dashboard .admin-topbar__notif-summary {
+        background: rgba(255, 255, 255, 0.16) !important;
+        border-color: rgba(255, 255, 255, 0.32) !important;
+        color: #fff !important;
     }
     .admin-page-head {
         margin-bottom: 1.25rem;
@@ -2188,5 +2285,11 @@
         .admin-brand__name { display: none; }
         .admin-brand__sub  { display: none; }
         .admin-topbar__inner { padding: 0.5rem 0.65rem; }
+        .admin-main { padding: 1rem 0.75rem 2rem; }
+        .admin-page-head h1 { font-size: 1.15rem; overflow-wrap: anywhere; }
+        .admin-page-head .admin-page-meta { overflow-wrap: anywhere; }
+        .inc-lang__btn { padding: 0.22rem 0.45rem; font-size: 0.68rem; }
+        .admin-topbar__avatar,
+        .admin-topbar__avatar--photo { width: 30px; height: 30px; }
     }
 </style>

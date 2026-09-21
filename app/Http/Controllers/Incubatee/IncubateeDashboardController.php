@@ -4,10 +4,20 @@ namespace App\Http\Controllers\Incubatee;
 
 use App\Http\Controllers\Controller;
 use App\Models\CfaSubmission;
+use App\Models\IncubateeMeeting;
+use App\Models\IncubateeServiceRequest;
 use App\Models\MentorshipRequest;
 use App\Models\ServiceCase;
+use App\Models\ServiceCaseAttachment;
+use App\Support\BmcService;
+use App\Support\IncubateeLocale;
+use App\Support\IncubateeServiceCatalog;
+use App\Support\ServiceCaseAttachmentFile;
 use App\Support\UdmitaKoshCatalog;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class IncubateeDashboardController extends Controller
 {
@@ -17,7 +27,8 @@ class IncubateeDashboardController extends Controller
             'cfaSubmission.district',
             'cfaSubmission.fiscalYear',
             'cfaSubmission.onboardingBatchMembership.batch.hub',
-            'cfaSubmission.serviceCases.service',
+            'cfaSubmission.serviceCases.service.deliverable',
+            'cfaSubmission.serviceCases.attachments',
         ]);
 
         /** @var CfaSubmission|null $submission */
@@ -27,13 +38,13 @@ class IncubateeDashboardController extends Controller
         }
 
         $cases = $submission->serviceCases;
-        $approvedCases = $cases->where('status', ServiceCase::STATUS_APPROVED);
-        $completed = $approvedCases->count();
-        $open = $cases->whereIn('status', [
-            ServiceCase::STATUS_DRAFT,
-            ServiceCase::STATUS_PENDING_APPROVAL,
-            ServiceCase::STATUS_SENT_BACK,
-        ])->count();
+        $bmcCases = $cases
+            ->filter(fn (ServiceCase $case) => BmcService::isBmc($case->service))
+            ->sortByDesc(fn (ServiceCase $case) => $case->delivered_on ?? $case->approved_at ?? $case->updated_at)
+            ->values();
+        $bmcCase = $bmcCases->first(
+            fn (ServiceCase $case) => $case->status === ServiceCase::STATUS_APPROVED
+        ) ?? $bmcCases->first();
 
         $payload = is_array($submission->payload) ? $submission->payload : [];
         $batch = $submission->onboardingBatchMembership?->batch;
@@ -50,10 +61,7 @@ class IncubateeDashboardController extends Controller
             return (string) json_encode($value, JSON_UNESCAPED_UNICODE);
         };
 
-        $emailFromPayload = $payload['email'] ?? null;
-        $displayEmail = (is_scalar($emailFromPayload) && trim((string) $emailFromPayload) !== '')
-            ? (string) $emailFromPayload
-            : ($user->email ?? '—');
+        $displayEmail = $submission->applicantEmail() ?? '—';
 
         $membership = $submission->onboardingBatchMembership;
         $mentorshipRequests = MentorshipRequest::query()
@@ -67,57 +75,76 @@ class IncubateeDashboardController extends Controller
             ->where('cfa_submission_id', $submission->id)
             ->count();
 
-        $firstCompletedCase = $approvedCases
-            ->sortBy(fn ($c) => $c->delivered_on ?? $c->approved_at ?? $c->updated_at)
-            ->first();
+        $serviceRequests = IncubateeServiceRequest::query()
+            ->where('cfa_submission_id', $submission->id)
+            ->with('service')
+            ->latest('id')
+            ->limit(20)
+            ->get();
+
+        $allMeetings = IncubateeMeeting::query()
+            ->with('createdBy')
+            ->orderBy('scheduled_at')
+            ->get();
+        $upcomingMeetings = $allMeetings
+            ->filter(fn (IncubateeMeeting $meeting) => $meeting->isUpcoming())
+            ->values();
+        $historyMeetings = $allMeetings
+            ->reject(fn (IncubateeMeeting $meeting) => $meeting->isUpcoming())
+            ->sortByDesc(fn (IncubateeMeeting $meeting) => $meeting->scheduled_at?->getTimestamp() ?? 0)
+            ->values();
+
+        $bmcReady = $bmcCase && $bmcCase->status === ServiceCase::STATUS_APPROVED;
+        $bmcAt = $bmcCase?->delivered_on ?? $bmcCase?->approved_at ?? $bmcCase?->updated_at;
+        $hubSuffix = $hubName ? ' · '.$hubName : '';
 
         $journey = [
             [
                 'key' => 'cfa',
                 'icon' => '📝',
-                'title' => 'CFA application submitted',
+                'title' => __('incubatee.journey.cfa_title'),
                 'at' => $submission->created_at,
                 'detail' => $submission->application_no
-                    ? 'Application '.$submission->application_no.' filed.'
-                    : 'Your CFA application was filed.',
+                    ? __('incubatee.journey.cfa_detail', ['no' => $submission->application_no])
+                    : __('incubatee.journey.cfa_detail_plain'),
                 'status' => 'done',
             ],
             [
                 'key' => 'onboarded',
                 'icon' => '🎉',
-                'title' => 'Onboarded into batch',
+                'title' => __('incubatee.journey.onboarded_title'),
                 'at' => $batch?->onboarding_date ?? $membership?->created_at,
                 'detail' => $batch?->name
-                    ? 'Joined '.$batch->name.($hubName ? ' · '.$hubName : '').'.'
-                    : 'Waiting to be onboarded into a hub batch.',
+                    ? __('incubatee.journey.onboarded_detail', ['batch' => $batch->name, 'hub' => $hubSuffix])
+                    : __('incubatee.journey.onboarded_waiting'),
                 'status' => $batch ? 'done' : 'upcoming',
             ],
             [
                 'key' => 'mentorship',
                 'icon' => '🤝',
-                'title' => 'First mentorship requested',
+                'title' => __('incubatee.journey.mentorship_title'),
                 'at' => $firstMentorshipAt,
                 'detail' => $firstMentorshipAt
-                    ? $mentorshipCount.' mentorship '.($mentorshipCount === 1 ? 'request' : 'requests').' sent so far.'
-                    : 'Ask your hub for help whenever you need guidance.',
+                    ? __('incubatee.journey.mentorship_detail', ['count' => $mentorshipCount])
+                    : __('incubatee.journey.mentorship_waiting'),
                 'status' => $firstMentorshipAt ? 'done' : 'current',
             ],
             [
-                'key' => 'first-service',
-                'icon' => '🛠️',
-                'title' => 'First service delivered',
-                'at' => $firstCompletedCase?->delivered_on ?? $firstCompletedCase?->approved_at,
-                'detail' => $firstCompletedCase
-                    ? ($firstCompletedCase->service?->name ?? 'A service').' delivered by your hub team.'
-                    : 'Your hub will log your first supported service here.',
-                'status' => $firstCompletedCase ? 'done' : 'upcoming',
+                'key' => 'bmc',
+                'icon' => '🧩',
+                'title' => __('incubatee.journey.bmc_title'),
+                'at' => $bmcReady ? $bmcAt : null,
+                'detail' => $bmcReady
+                    ? __('incubatee.journey.bmc_detail')
+                    : __('incubatee.journey.bmc_waiting'),
+                'status' => $bmcReady ? 'done' : 'upcoming',
             ],
             [
                 'key' => 'milestones',
                 'icon' => '🏆',
-                'title' => 'Milestones & growth',
+                'title' => __('incubatee.journey.milestones_title'),
                 'at' => null,
-                'detail' => 'Product launches, revenue wins and pitch milestones — coming soon.',
+                'detail' => __('incubatee.journey.milestones_detail'),
                 'status' => 'upcoming',
             ],
         ];
@@ -131,14 +158,51 @@ class IncubateeDashboardController extends Controller
             'displayProduct' => $scalar($payload['product'] ?? ($payload['business_category'] ?? null)),
             'batch' => $batch,
             'hubName' => $hubName,
-            'serviceCases' => $approvedCases->values(),
-            'servicesCompletedCount' => $completed,
-            'servicesOpenCount' => $open,
-            'serviceCasesTotalCount' => $cases->count(),
+            'bmcCase' => $bmcCase,
+            'bmcAttachments' => $bmcCase?->attachments ?? collect(),
             'journey' => $journey,
             'mentorshipCount' => $mentorshipCount,
             'mentorshipRequests' => $mentorshipRequests,
+            'serviceRequests' => $serviceRequests,
+            'upcomingMeetings' => $upcomingMeetings,
+            'historyMeetings' => $historyMeetings,
+            'serviceGroups' => IncubateeServiceCatalog::grouped(),
         ]);
+    }
+
+    public function switchLanguage(Request $request): RedirectResponse
+    {
+        $locale = $request->validate([
+            'locale' => ['required', 'in:hi,en'],
+        ])['locale'];
+
+        $request->session()->put(IncubateeLocale::COOKIE, $locale);
+
+        return back()->withCookie(cookie(
+            IncubateeLocale::COOKIE,
+            $locale,
+            60 * 24 * 365,
+            '/',
+            null,
+            false,
+            false,
+            false,
+            'lax'
+        ));
+    }
+
+    public function viewBmcDocument(Request $request, ServiceCaseAttachment $attachment): StreamedResponse
+    {
+        $this->assertOwnBmcAttachment($request, $attachment);
+
+        return ServiceCaseAttachmentFile::respond($attachment, false);
+    }
+
+    public function downloadBmcDocument(Request $request, ServiceCaseAttachment $attachment): StreamedResponse
+    {
+        $this->assertOwnBmcAttachment($request, $attachment);
+
+        return ServiceCaseAttachmentFile::respond($attachment, true);
     }
 
     public function udmitaKosh(): View
@@ -146,7 +210,17 @@ class IncubateeDashboardController extends Controller
         return view('incubatee.udmita-kosh', [
             'user' => auth()->user(),
             'categories' => UdmitaKoshCatalog::categories(),
-            'documents' => UdmitaKoshCatalog::resourceDocuments(),
         ]);
+    }
+
+    private function assertOwnBmcAttachment(Request $request, ServiceCaseAttachment $attachment): void
+    {
+        $submission = $request->user()?->cfaSubmission;
+        abort_unless($submission, 404);
+
+        $attachment->loadMissing('serviceCase.service.deliverable');
+        $case = $attachment->serviceCase;
+        abort_unless($case && (int) $case->cfa_submission_id === (int) $submission->id, 403);
+        abort_unless(BmcService::isBmc($case->service), 403);
     }
 }

@@ -77,10 +77,10 @@ class MentorshipRequestController extends Controller
         );
 
         if ($count > 0) {
-            return back()->with('status', 'Mentorship request sent to '.$count.' team member(s) (state, hub, and district staff).');
+            return back()->with('status', __('incubatee.mentorship_page.sent', ['count' => $count]));
         }
 
-        return back()->with('status', 'Your request was saved. No recipients were found in the system — please contact your hub.');
+        return back()->with('status', __('incubatee.mentorship_page.saved_no_recipients'));
     }
 
     public function cancel(Request $request, MentorshipRequest $mentorshipRequest): RedirectResponse
@@ -115,6 +115,6 @@ class MentorshipRequestController extends Controller
             }
         }
 
-        return back()->with('status', 'Your mentorship request was cancelled.');
+        return back()->with('status', __('incubatee.mentorship_page.cancelled'));
     }
 }

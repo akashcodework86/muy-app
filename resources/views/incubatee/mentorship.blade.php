@@ -2,9 +2,9 @@
 
 @section('body_class', 'admin-app-body--dashboard')
 
-@section('title', 'Request mentorship')
+@section('title', __('incubatee.mentorship_page.title'))
 
-@section('heading', 'Request mentorship')
+@section('heading', __('incubatee.mentorship_page.title'))
 
 @php
     /** @var \App\Models\User $user */
@@ -15,10 +15,10 @@
     $applicationNo = $submission->application_no ?? null;
     $firstName = trim((string) strtok((string) ($user->name ?? ''), ' ')) ?: 'there';
     $statusStyles = [
-        'pending' => ['bg' => '#fef3c7', 'fg' => '#92400e', 'label' => 'Pending'],
-        'scheduled' => ['bg' => '#e0e7ff', 'fg' => '#3730a3', 'label' => 'Scheduled'],
-        'done' => ['bg' => '#dcfce7', 'fg' => '#166534', 'label' => 'Done'],
-        'cancelled' => ['bg' => '#fee2e2', 'fg' => '#991b1b', 'label' => 'Cancelled'],
+        'pending' => ['bg' => '#fef3c7', 'fg' => '#92400e', 'label' => __('incubatee.mentorship_page.status_pending')],
+        'scheduled' => ['bg' => '#e0e7ff', 'fg' => '#3730a3', 'label' => __('incubatee.mentorship_page.status_scheduled')],
+        'done' => ['bg' => '#dcfce7', 'fg' => '#166534', 'label' => __('incubatee.mentorship_page.status_done')],
+        'cancelled' => ['bg' => '#fee2e2', 'fg' => '#991b1b', 'label' => __('incubatee.mentorship_page.status_cancelled')],
     ];
 @endphp
 
@@ -284,9 +284,9 @@
     @endif
 
     <section class="mnt-hero">
-        <span class="mnt-hero__kicker">Mentorship hub</span>
-        <h2 class="mnt-hero__h">Namaste {{ $firstName }}, <b>ask for expert guidance</b> in a minute.</h2>
-        <p class="mnt-hero__sub">Pick the area where you need help, drop your question or goal, and your district hub, staff and the state team will be notified together. You stay focused — we route it to the right mentor.</p>
+        <span class="mnt-hero__kicker">{{ __('incubatee.mentorship_page.kicker') }}</span>
+        <h2 class="mnt-hero__h">{!! __('incubatee.mentorship_page.hero', ['name' => e($firstName)]) !!}</h2>
+        <p class="mnt-hero__sub">{{ __('incubatee.mentorship_page.sub') }}</p>
         <div class="mnt-hero__meta">
             @if ($applicationNo)
                 <span class="mnt-hero__chip">CFA {{ $applicationNo }}</span>
@@ -294,13 +294,13 @@
             @if ($districtName)
                 <span class="mnt-hero__chip">{{ $districtName }}</span>
             @endif
-            <span class="mnt-hero__chip">5 focus areas · Financial · Marketing · Legal · Technical · Strategy</span>
+            <span class="mnt-hero__chip">{{ __('incubatee.mentorship_page.areas') }}</span>
         </div>
     </section>
 
     <section class="mnt-card">
-        <h3 class="mnt-card__title">New mentorship request</h3>
-        <p class="mnt-card__lead">Choose the category that matches your need — you can add context in the message below.</p>
+        <h3 class="mnt-card__title">{{ __('incubatee.mentorship_page.new') }}</h3>
+        <p class="mnt-card__lead">{{ __('incubatee.mentorship_page.lead') }}</p>
 
         <form method="post" action="{{ route('incubatee.mentorship-requests.store') }}" id="mntForm">
             @csrf
@@ -315,67 +315,68 @@
                         aria-pressed="{{ old('category') === $slug ? 'true' : 'false' }}"
                     >
                         @include('incubatee.partials.mentorship-icon', ['slug' => $slug])
-                        <span class="mnt-cat__label">{{ $meta['label'] }}</span>
-                        <span class="mnt-cat__hint">{{ $meta['hint'] }}</span>
+                        <span class="mnt-cat__label">{{ app()->getLocale() === 'hi' ? ($meta['label_hi'] ?? $meta['label']) : $meta['label'] }}</span>
+                        <span class="mnt-cat__hint">{{ app()->getLocale() === 'hi' ? ($meta['hint_hi'] ?? $meta['hint']) : $meta['hint'] }}</span>
                     </button>
                 @endforeach
             </div>
 
             <div class="mnt-field">
-                <label for="mntComment">Your message <span style="color:#94a3b8; font-weight: 500;">(optional, up to 2000 chars)</span></label>
+                <label for="mntComment">{!! __('incubatee.mentorship_page.message') !!}</label>
                 <textarea
                     id="mntComment"
                     name="comment"
                     maxlength="2000"
-                    placeholder="Describe what you need — your goal, specific question, timeline, or decision you're stuck on."
+                    placeholder="{{ __('incubatee.mentorship_page.placeholder') }}"
                 >{{ old('comment') }}</textarea>
                 <span class="mnt-field__hint" id="mntCounter">0 / 2000</span>
             </div>
 
             <div class="mnt-actions">
-                <span class="mnt-actions__note">Your hub admin, district staff, and the state team will be notified.</span>
-                <button type="submit" class="mnt-submit" id="mntSubmit">Send request</button>
+                <span class="mnt-actions__note">{{ __('incubatee.mentorship_page.notify_note') }}</span>
+                <button type="submit" class="mnt-submit" id="mntSubmit">{{ __('incubatee.send_request') }}</button>
             </div>
         </form>
     </section>
 
     <section class="mnt-card">
-        <h3 class="mnt-card__title">Your previous requests</h3>
-        <p class="mnt-card__lead">Latest 50 requests linked to your CFA profile.</p>
+        <h3 class="mnt-card__title">{{ __('incubatee.mentorship_page.history') }}</h3>
+        <p class="mnt-card__lead">{{ __('incubatee.mentorship_page.history_lead') }}</p>
 
         @if ($requests->isEmpty())
-            <div class="mnt-hist__empty">No mentorship requests yet. Send your first one above.</div>
+            <div class="mnt-hist__empty">{{ __('incubatee.mentorship_page.history_empty') }}</div>
         @else
             <div class="mnt-hist__list">
                 @foreach ($requests as $r)
                     @php
                         $meta = $categories[$r->category] ?? ['label' => ucwords(str_replace('_', ' ', (string) $r->category))];
+                        $label = app()->getLocale() === 'hi' ? ($meta['label_hi'] ?? $meta['label']) : ($meta['label'] ?? $r->category);
                         $style = $statusStyles[$r->status] ?? ['bg' => '#e2e8f0', 'fg' => '#334155', 'label' => ucfirst((string) $r->status)];
                     @endphp
                     <article class="mnt-hist__row">
                         <div class="mnt-hist__top">
                             <span class="mnt-hist__cat">
                                 @include('incubatee.partials.mentorship-icon', ['slug' => $r->category])
-                                {{ $meta['label'] }}
+                                {{ $label }}
                             </span>
                             <span class="mnt-hist__status" style="background: {{ $style['bg'] }}; color: {{ $style['fg'] }};">{{ $style['label'] }}</span>
-                            <span class="mnt-hist__date">{{ optional($r->created_at)->diffForHumans() }} · {{ optional($r->created_at)->format('d M Y, h:i A') }}</span>
+                            <span class="mnt-hist__date">{{ \App\Support\Ist::datetime($r->created_at) }}</span>
                         </div>
                         @if (filled($r->comment))
                             <div class="mnt-hist__msg">{{ $r->comment }}</div>
                         @endif
                         @if ($r->session)
                             <p style="margin:0.35rem 0 0;font-size:0.8rem;color:#475569">
-                                Session: {{ $r->session->scheduled_at?->format('d M Y, h:i A') }}
+                                {{ __('incubatee.mentorship_page.session') }}: {{ \App\Support\Ist::datetime($r->session->scheduled_at) }}
                                 @if ($r->session->meeting_link && ! $r->isCancelled())
-                                    · <a href="{{ $r->session->meeting_link }}" target="_blank" rel="noopener">Join meeting</a>
+                                    · <a href="{{ $r->session->meeting_link }}" target="_blank" rel="noopener">{{ __('incubatee.join_meeting') }}</a>
                                 @endif
                             </p>
                         @endif
                         @if ($r->incubateeCanCancel())
-                            <form method="post" action="{{ route('incubatee.mentorship-requests.cancel', $r) }}" style="margin-top:0.5rem" onsubmit="return confirm('Cancel this mentorship request?');">
+                            <form method="post" action="{{ route('incubatee.mentorship-requests.cancel', $r) }}" style="margin-top:0.5rem" onsubmit="return confirm(@json(__('incubatee.cancel_confirm')));">
                                 @csrf
-                                <button type="submit" style="background:none;border:0;color:#b91c1c;font-size:0.78rem;font-weight:600;cursor:pointer;padding:0">Cancel request</button>
+                                <button type="submit" style="background:none;border:0;color:#b91c1c;font-size:0.78rem;font-weight:600;cursor:pointer;padding:0">{{ __('incubatee.mentorship_page.cancel_request') }}</button>
                             </form>
                         @endif
                     </article>
@@ -417,11 +418,11 @@
     form?.addEventListener('submit', function (e) {
         if (!field.value.trim()) {
             e.preventDefault();
-            alert('Please select a mentorship category first.');
+            alert(@json(__('incubatee.select_category')));
             return;
         }
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Sending…';
+        submitBtn.textContent = @json(__('incubatee.mentorship_page.sending'));
     });
 })();
 </script>

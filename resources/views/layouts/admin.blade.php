@@ -6,14 +6,17 @@
     <title>@yield('title', 'Admin') — {{ config('app.name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
     @include('partials.admin-shell-styles')
     @if(\App\Support\StateAdminTheme::appliesToRole(auth()->user()?->role))
         <style>@include('dashboards.state-admin._theme-styles') @include('dashboards.state-admin._sad-layout-styles')</style>
     @endif
+    @if(app()->getLocale() === 'hi')
+        <style>body.admin-app-body { font-family: 'Noto Sans Devanagari', 'DM Sans', sans-serif; }</style>
+    @endif
     @stack('styles')
 </head>
-<body class="admin-app-body @if(in_array(auth()->user()?->role, ['state_admin', 'hub_admin', 'district_staff'], true)) admin-app-body--dashboard @endif @if(auth()->user()?->role === 'state_admin') admin-app-body--state-premium admin-app-body--state-theme-{{ $stateAdminTheme ?? 'revamp' }} @endif @if(auth()->user()?->role === 'hub_admin') admin-app-body--hub-premium admin-app-body--hub-admin admin-app-body--state-theme-{{ $stateAdminTheme ?? 'revamp' }} @endif @if(auth()->user()?->role === 'district_staff') admin-app-body--staff-premium admin-app-body--state-theme-{{ $stateAdminTheme ?? 'revamp' }} @endif @yield('body_class')">
+<body class="admin-app-body @if(in_array(auth()->user()?->role, ['state_admin', 'hub_admin', 'district_staff', 'incubatee'], true)) admin-app-body--dashboard @endif @if(auth()->user()?->role === 'state_admin') admin-app-body--state-premium admin-app-body--state-theme-{{ $stateAdminTheme ?? 'revamp' }} @endif @if(auth()->user()?->role === 'hub_admin') admin-app-body--hub-premium admin-app-body--hub-admin admin-app-body--state-theme-{{ $stateAdminTheme ?? 'revamp' }} @endif @if(auth()->user()?->role === 'district_staff') admin-app-body--staff-premium admin-app-body--state-theme-{{ $stateAdminTheme ?? 'revamp' }} @endif @if(auth()->user()?->role === 'incubatee') admin-app-body--incubatee admin-app-body--state-premium admin-app-body--state-theme-{{ $stateAdminTheme ?? 'revamp' }} @endif @yield('body_class')">
     @include('partials.admin-topbar')
     <main class="admin-main">
         <div class="admin-page-head">

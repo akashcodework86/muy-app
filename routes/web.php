@@ -74,7 +74,10 @@ use App\Http\Controllers\Hub\HubPendingActionsController;
 use App\Http\Controllers\Hub\HubStaffPerformanceController;
 use App\Http\Controllers\IncubateeBillDashboardController;
 use App\Http\Controllers\Incubatee\IncubateeDashboardController;
+use App\Http\Controllers\Incubatee\IncubateeServiceRequestController;
 use App\Http\Controllers\Incubatee\MentorshipRequestController;
+use App\Http\Controllers\IncubateeMeetingStaffController;
+use App\Http\Controllers\IncubateeServiceRequestStaffController;
 use App\Http\Controllers\LakhpatiTechnicalTrainingController;
 use App\Http\Controllers\LineDepartmentMeetingController;
 use App\Http\Controllers\LineDepartmentMeetingLandingController;
@@ -219,8 +222,13 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('incubatee')->prefix('incubatee')->name('incubatee.')->group(function () {
         Route::get('dashboard', [IncubateeDashboardController::class, 'index'])->name('dashboard');
+        Route::post('language', [IncubateeDashboardController::class, 'switchLanguage'])
+            ->middleware('throttle:30,1')
+            ->name('language');
         Route::get('udmita-kosh', [IncubateeDashboardController::class, 'udmitaKosh'])->name('udmita-kosh');
         Route::get('documents', [DocumentLibraryController::class, 'incubateeIndex'])->name('documents.index');
+        Route::get('bmc-documents/{attachment}', [IncubateeDashboardController::class, 'viewBmcDocument'])->name('bmc-documents.view');
+        Route::get('bmc-documents/{attachment}/download', [IncubateeDashboardController::class, 'downloadBmcDocument'])->name('bmc-documents.download');
         Route::get('mentorship', [MentorshipRequestController::class, 'index'])->name('mentorship.index');
         Route::post('mentorship-requests', [MentorshipRequestController::class, 'store'])
             ->middleware('throttle:15,1')
@@ -228,6 +236,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('mentorship-requests/{mentorshipRequest}/cancel', [MentorshipRequestController::class, 'cancel'])
             ->middleware('throttle:15,1')
             ->name('mentorship-requests.cancel');
+        Route::get('service-requests', [IncubateeServiceRequestController::class, 'index'])->name('service-requests.index');
+        Route::post('service-requests', [IncubateeServiceRequestController::class, 'store'])
+            ->middleware('throttle:15,1')
+            ->name('service-requests.store');
+        Route::post('service-requests/{serviceRequest}/cancel', [IncubateeServiceRequestController::class, 'cancel'])
+            ->middleware('throttle:15,1')
+            ->name('service-requests.cancel');
     });
 
     Route::middleware('training_package_month_plan_manager')
@@ -573,6 +588,30 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('mentorship-requests.complete.store');
         Route::get('mentorship-requests/sessions/{mentorshipSession}/proof', [MentorshipRequestStaffController::class, 'proof'])->name('mentorship-requests.proof');
         Route::get('mentorship-requests/{mentorshipRequest}', [MentorshipRequestStaffController::class, 'show'])->name('mentorship-requests.show');
+
+        Route::get('service-requests/dashboard', [IncubateeServiceRequestStaffController::class, 'dashboard'])->name('service-requests.dashboard');
+        Route::get('service-requests/{serviceRequest}', [IncubateeServiceRequestStaffController::class, 'show'])->name('service-requests.show');
+        Route::post('service-requests/{serviceRequest}/status', [IncubateeServiceRequestStaffController::class, 'updateStatus'])
+            ->middleware('throttle:30,1')
+            ->name('service-requests.status');
+
+        Route::get('incubatee-meetings/dashboard', [IncubateeMeetingStaffController::class, 'dashboard'])->name('incubatee-meetings.dashboard');
+        Route::get('incubatee-meetings/create', [IncubateeMeetingStaffController::class, 'create'])->name('incubatee-meetings.create');
+        Route::post('incubatee-meetings', [IncubateeMeetingStaffController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.store');
+        Route::get('incubatee-meetings/{incubateeMeeting}/edit', [IncubateeMeetingStaffController::class, 'edit'])->name('incubatee-meetings.edit');
+        Route::put('incubatee-meetings/{incubateeMeeting}', [IncubateeMeetingStaffController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.update');
+        Route::post('incubatee-meetings/{incubateeMeeting}/cancel', [IncubateeMeetingStaffController::class, 'cancel'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.cancel');
+        Route::get('incubatee-meetings/{incubateeMeeting}/complete', [IncubateeMeetingStaffController::class, 'completeForm'])->name('incubatee-meetings.complete');
+        Route::post('incubatee-meetings/{incubateeMeeting}/complete', [IncubateeMeetingStaffController::class, 'completeStore'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.complete.store');
+        Route::get('incubatee-meetings/{incubateeMeeting}/proof', [IncubateeMeetingStaffController::class, 'proof'])->name('incubatee-meetings.proof');
 
         Route::get('batches', [BatchReadOnlyController::class, 'index'])->name('batches.index');
         Route::get('batches/legacy/{legacy_batch}', [BatchReadOnlyController::class, 'showLegacy'])
@@ -959,6 +998,30 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('mentorship-requests.complete.store');
         Route::get('mentorship-requests/sessions/{mentorshipSession}/proof', [MentorshipRequestStaffController::class, 'proof'])->name('mentorship-requests.proof');
         Route::get('mentorship-requests/{mentorshipRequest}', [MentorshipRequestStaffController::class, 'show'])->name('mentorship-requests.show');
+
+        Route::get('service-requests/dashboard', [IncubateeServiceRequestStaffController::class, 'dashboard'])->name('service-requests.dashboard');
+        Route::get('service-requests/{serviceRequest}', [IncubateeServiceRequestStaffController::class, 'show'])->name('service-requests.show');
+        Route::post('service-requests/{serviceRequest}/status', [IncubateeServiceRequestStaffController::class, 'updateStatus'])
+            ->middleware('throttle:30,1')
+            ->name('service-requests.status');
+
+        Route::get('incubatee-meetings/dashboard', [IncubateeMeetingStaffController::class, 'dashboard'])->name('incubatee-meetings.dashboard');
+        Route::get('incubatee-meetings/create', [IncubateeMeetingStaffController::class, 'create'])->name('incubatee-meetings.create');
+        Route::post('incubatee-meetings', [IncubateeMeetingStaffController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.store');
+        Route::get('incubatee-meetings/{incubateeMeeting}/edit', [IncubateeMeetingStaffController::class, 'edit'])->name('incubatee-meetings.edit');
+        Route::put('incubatee-meetings/{incubateeMeeting}', [IncubateeMeetingStaffController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.update');
+        Route::post('incubatee-meetings/{incubateeMeeting}/cancel', [IncubateeMeetingStaffController::class, 'cancel'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.cancel');
+        Route::get('incubatee-meetings/{incubateeMeeting}/complete', [IncubateeMeetingStaffController::class, 'completeForm'])->name('incubatee-meetings.complete');
+        Route::post('incubatee-meetings/{incubateeMeeting}/complete', [IncubateeMeetingStaffController::class, 'completeStore'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.complete.store');
+        Route::get('incubatee-meetings/{incubateeMeeting}/proof', [IncubateeMeetingStaffController::class, 'proof'])->name('incubatee-meetings.proof');
 
         Route::get('pitch-deck-preparations/incubatees/search', [PitchDeckPreparationController::class, 'searchIncubatees'])
             ->name('pitch-deck-preparations.incubatees.search');
@@ -1431,6 +1494,30 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('mentorship-requests/sessions/{mentorshipSession}/proof', [MentorshipRequestStaffController::class, 'proof'])->name('mentorship-requests.proof');
         Route::get('mentorship-requests/{mentorshipRequest}', [MentorshipRequestStaffController::class, 'show'])->name('mentorship-requests.show');
 
+        Route::get('service-requests/dashboard', [IncubateeServiceRequestStaffController::class, 'dashboard'])->name('service-requests.dashboard');
+        Route::get('service-requests/{serviceRequest}', [IncubateeServiceRequestStaffController::class, 'show'])->name('service-requests.show');
+        Route::post('service-requests/{serviceRequest}/status', [IncubateeServiceRequestStaffController::class, 'updateStatus'])
+            ->middleware('throttle:30,1')
+            ->name('service-requests.status');
+
+        Route::get('incubatee-meetings/dashboard', [IncubateeMeetingStaffController::class, 'dashboard'])->name('incubatee-meetings.dashboard');
+        Route::get('incubatee-meetings/create', [IncubateeMeetingStaffController::class, 'create'])->name('incubatee-meetings.create');
+        Route::post('incubatee-meetings', [IncubateeMeetingStaffController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.store');
+        Route::get('incubatee-meetings/{incubateeMeeting}/edit', [IncubateeMeetingStaffController::class, 'edit'])->name('incubatee-meetings.edit');
+        Route::put('incubatee-meetings/{incubateeMeeting}', [IncubateeMeetingStaffController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.update');
+        Route::post('incubatee-meetings/{incubateeMeeting}/cancel', [IncubateeMeetingStaffController::class, 'cancel'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.cancel');
+        Route::get('incubatee-meetings/{incubateeMeeting}/complete', [IncubateeMeetingStaffController::class, 'completeForm'])->name('incubatee-meetings.complete');
+        Route::post('incubatee-meetings/{incubateeMeeting}/complete', [IncubateeMeetingStaffController::class, 'completeStore'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.complete.store');
+        Route::get('incubatee-meetings/{incubateeMeeting}/proof', [IncubateeMeetingStaffController::class, 'proof'])->name('incubatee-meetings.proof');
+
         Route::get('pitch-deck-preparations/dashboard', [PitchDeckPreparationController::class, 'dashboard'])->name('pitch-deck-preparations.dashboard');
         Route::get('pitch-deck-preparations', PitchDeckPreparationLandingController::class)->name('pitch-deck-preparations.index');
         Route::get('pitch-deck-preparations/export', [PitchDeckPreparationController::class, 'export'])->name('pitch-deck-preparations.export');
@@ -1594,6 +1681,30 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->name('mentorship-requests.complete.store');
         Route::get('mentorship-requests/sessions/{mentorshipSession}/proof', [MentorshipRequestStaffController::class, 'proof'])->name('mentorship-requests.proof');
         Route::get('mentorship-requests/{mentorshipRequest}', [MentorshipRequestStaffController::class, 'show'])->name('mentorship-requests.show');
+
+        Route::get('service-requests/dashboard', [IncubateeServiceRequestStaffController::class, 'dashboard'])->name('service-requests.dashboard');
+        Route::get('service-requests/{serviceRequest}', [IncubateeServiceRequestStaffController::class, 'show'])->name('service-requests.show');
+        Route::post('service-requests/{serviceRequest}/status', [IncubateeServiceRequestStaffController::class, 'updateStatus'])
+            ->middleware('throttle:30,1')
+            ->name('service-requests.status');
+
+        Route::get('incubatee-meetings/dashboard', [IncubateeMeetingStaffController::class, 'dashboard'])->name('incubatee-meetings.dashboard');
+        Route::get('incubatee-meetings/create', [IncubateeMeetingStaffController::class, 'create'])->name('incubatee-meetings.create');
+        Route::post('incubatee-meetings', [IncubateeMeetingStaffController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.store');
+        Route::get('incubatee-meetings/{incubateeMeeting}/edit', [IncubateeMeetingStaffController::class, 'edit'])->name('incubatee-meetings.edit');
+        Route::put('incubatee-meetings/{incubateeMeeting}', [IncubateeMeetingStaffController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.update');
+        Route::post('incubatee-meetings/{incubateeMeeting}/cancel', [IncubateeMeetingStaffController::class, 'cancel'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.cancel');
+        Route::get('incubatee-meetings/{incubateeMeeting}/complete', [IncubateeMeetingStaffController::class, 'completeForm'])->name('incubatee-meetings.complete');
+        Route::post('incubatee-meetings/{incubateeMeeting}/complete', [IncubateeMeetingStaffController::class, 'completeStore'])
+            ->middleware('throttle:30,1')
+            ->name('incubatee-meetings.complete.store');
+        Route::get('incubatee-meetings/{incubateeMeeting}/proof', [IncubateeMeetingStaffController::class, 'proof'])->name('incubatee-meetings.proof');
 
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');

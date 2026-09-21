@@ -53,7 +53,11 @@ final class StateAdminServiceNavIndex
             self::push($items, 'menu:line-dept-meetings', 'Line dept meetings (12.2)', 'Synergies Across Line Departments', 'menu', self::url('admin.line-department-meetings.dashboard'), ['12.2']);
         }
         if (MentorshipRequestAccess::canViewDashboard($user)) {
-            self::push($items, 'menu:mentorship', 'Mentorship requests (5.2)', 'Synergies Across Line Departments', 'menu', self::url('admin.mentorship-requests.dashboard'), ['5.2']);
+            self::push($items, 'menu:mentorship', 'Mentorship requests', 'Incubatee dashboard', 'menu', self::url('admin.mentorship-requests.dashboard'), ['5.2', 'mentorship']);
+            self::push($items, 'menu:service-requests', 'Service requests', 'Incubatee dashboard', 'menu', self::url('admin.service-requests.dashboard'), ['service request']);
+        }
+        if (IncubateeMeetingAccess::canViewDashboard($user)) {
+            self::push($items, 'menu:incubatee-meetings', 'Incubatee meetings', 'Incubatee dashboard', 'menu', self::url('admin.incubatee-meetings.dashboard'), ['meeting', 'incubatee meeting']);
         }
 
         self::push($items, 'menu:social-media', 'Social Media Post (10.1)', 'Branding, Communication & Knowledge Management', 'menu', self::url('admin.social-media-posts.dashboard'), ['10.1']);

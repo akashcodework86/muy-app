@@ -64,4 +64,17 @@ class CfaSubmission extends Model
     {
         return $this->hasMany(IncubateeBill::class, 'cfa_submission_id')->orderByDesc('bill_date')->orderByDesc('id');
     }
+
+    public function applicantEmail(): ?string
+    {
+        $payload = is_array($this->payload) ? $this->payload : [];
+        foreach (['email', 'Email'] as $key) {
+            $raw = $payload[$key] ?? null;
+            if (is_scalar($raw) && trim((string) $raw) !== '') {
+                return trim((string) $raw);
+            }
+        }
+
+        return null;
+    }
 }
