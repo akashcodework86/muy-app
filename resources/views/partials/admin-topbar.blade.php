@@ -380,7 +380,8 @@
     $targetsAllocationActive = in_array($activeNav, ['targets-official-state-monthly', 'targets-official-district-monthly', 'targets-official-hub-distribution-monthly', 'targets-reap-incubatee'], true);
     $fyTargetsGroupActive = in_array($activeNav, ['fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
-    $showOnboardingPriorityNav = $u && \App\Support\OnboardingPriorityAccess::canView($u);
+    $onboardingPriorityIndexUrl = \App\Support\OnboardingPriorityAccess::indexUrl($u);
+    $showOnboardingPriorityNav = is_string($onboardingPriorityIndexUrl) && $onboardingPriorityIndexUrl !== '';
     $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'onboarded', 'onboarded-2025-26', 'phase3-services', 'onboarding-priority'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'incubatee-bills-dashboard', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['case-study-shortlists', 'additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey', 'review-ppt'], true);
@@ -497,7 +498,7 @@
                         </a>
                     @endif
                     @if ($showOnboardingPriorityNav)
-                        <a href="{{ route('admin.onboarding-priority.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarding-priority') is-active @endif" role="menuitem">
+                        <a href="{{ $onboardingPriorityIndexUrl }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarding-priority') is-active @endif" role="menuitem">
                             {!! $i('bars') !!}<span>Onboarding priority</span>
                         </a>
                     @endif
@@ -1144,7 +1145,7 @@
                         {!! $i('inbox') !!}<span>CFA applications</span>
                     </a>
                     @if ($showOnboardingPriorityNav)
-                        <a href="{{ route('hub.onboarding-priority.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarding-priority') is-active @endif" role="menuitem">
+                        <a href="{{ $onboardingPriorityIndexUrl }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarding-priority') is-active @endif" role="menuitem">
                             {!! $i('bars') !!}<span>Onboarding priority</span>
                         </a>
                     @endif
@@ -1318,7 +1319,7 @@
                         {!! $i('inbox') !!}<span>Applications</span>
                     </a>
                     @if ($showOnboardingPriorityNav)
-                        <a href="{{ route('staff.onboarding-priority.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarding-priority') is-active @endif" role="menuitem">
+                        <a href="{{ $onboardingPriorityIndexUrl }}" class="admin-topbar__dropdown-item @if ($activeNav === 'onboarding-priority') is-active @endif" role="menuitem">
                             {!! $i('bars') !!}<span>Onboarding priority</span>
                         </a>
                     @endif

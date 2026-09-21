@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\District;
 use App\Models\User;
+use Illuminate\Support\Facades\Route;
 
 final class OnboardingPriorityAccess
 {
@@ -29,6 +30,27 @@ final class OnboardingPriorityAccess
             'district_staff' => 'staff.onboarding-priority',
             default => 'staff.onboarding-priority',
         };
+    }
+
+    public static function indexRouteName(?User $user): ?string
+    {
+        if (! self::canView($user)) {
+            return null;
+        }
+
+        $name = self::routePrefix($user).'.index';
+
+        return Route::has($name) ? $name : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $parameters
+     */
+    public static function indexUrl(?User $user, array $parameters = []): ?string
+    {
+        $name = self::indexRouteName($user);
+
+        return $name ? route($name, $parameters) : null;
     }
 
     /**

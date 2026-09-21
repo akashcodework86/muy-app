@@ -8,7 +8,9 @@ use App\Models\District;
 use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\User;
+use App\Support\OnboardingPriorityAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class OnboardingPriorityListTest extends TestCase
@@ -206,6 +208,34 @@ class OnboardingPriorityListTest extends TestCase
             ->get(route('admin.onboarding-priority.index'))
             ->assertOk()
             ->assertSee('APP-STATE');
+    }
+
+    public function test_onboarding_priority_route_names_are_registered(): void
+    {
+        foreach ([
+            'admin.onboarding-priority.index',
+            'admin.onboarding-priority.export',
+            'hub.onboarding-priority.index',
+            'hub.onboarding-priority.export',
+            'staff.onboarding-priority.index',
+            'staff.onboarding-priority.export',
+        ] as $name) {
+            $this->assertTrue(Route::has($name), $name.' should be registered');
+        }
+    }
+
+    public function test_incubation_manager_dashboard_does_not_crash_and_links_to_priority_list(): void
+    {
+        [$district] = $this->seedDistrictAndFy();
+        $im = $this->createIncubationManager($district);
+
+        $this->assertNotNull(OnboardingPriorityAccess::indexUrl($im));
+
+        $this->actingAs($im)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Onboarding priority', false)
+            ->assertSee(route('staff.onboarding-priority.index'), false);
     }
 
     /** @return array{0: District, 1: FiscalYear} */
