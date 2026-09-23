@@ -35,12 +35,11 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Review PowerPoint generator
+    | Review PowerPoint generator (state admin + hub admin)
     |--------------------------------------------------------------------------
-    | Hides the Review PowerPoint nav item for hub and admin and blocks the
-    | generator routes while the export is paused. Set FEATURE_REVIEW_PPT=true
-    | in .env and run `php artisan config:clear` to restore access.
+    | Nav link visibility only. Routes stay available for authorized roles.
+    | Set FEATURE_REVIEW_PPT=false in .env to hide the nav item.
     */
-    'review_ppt' => env('FEATURE_REVIEW_PPT', false),
+    'review_ppt' => env('FEATURE_REVIEW_PPT', true),
 
 ];

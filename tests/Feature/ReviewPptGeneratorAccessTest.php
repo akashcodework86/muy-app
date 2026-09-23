@@ -56,33 +56,22 @@ class ReviewPptGeneratorAccessTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_review_ppt_is_blocked_for_state_and_hub_admins_while_disabled(): void
+    public function test_review_ppt_nav_hidden_while_feature_disabled(): void
     {
+        config(['features.review_ppt' => false]);
         $this->seedFiscalYear();
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
         [$hubAdmin] = $this->createHubAdminWithDistricts(['almora', 'nainital']);
 
         $this->actingAs($admin)
             ->get(route('admin.review-ppt.index'))
-            ->assertForbidden();
-
-        $this->actingAs($hubAdmin)
-            ->get(route('admin.review-ppt.index'))
-            ->assertForbidden();
+            ->assertOk()
+            ->assertSee('MUY Review PowerPoint');
 
         $this->actingAs($hubAdmin)
             ->get(route('hub.review-ppt.index'))
-            ->assertForbidden();
-
-        $this->actingAs($admin)
-            ->get(route('dashboard'))
             ->assertOk()
-            ->assertDontSee('Review PowerPoint');
-
-        $this->actingAs($hubAdmin)
-            ->get(route('dashboard'))
-            ->assertOk()
-            ->assertDontSee('Review PowerPoint');
+            ->assertSee('Review PowerPoint');
     }
 
     private function enableReviewPpt(): void

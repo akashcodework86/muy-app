@@ -10,10 +10,6 @@ class EnsureReviewPptAccess
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! config('features.review_ppt', false)) {
-            abort(403);
-        }
-
         $user = $request->user();
         $role = $user?->role;
         if ($role === 'state_admin') {
