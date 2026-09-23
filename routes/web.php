@@ -55,6 +55,7 @@ use App\Http\Controllers\CapacityBuildingStakeholdersLandingController;
 use App\Http\Controllers\CaseStudyEntryController;
 use App\Http\Controllers\CaseStudyEntryLandingController;
 use App\Http\Controllers\CaseStudyShortlistController;
+use App\Http\Controllers\CfaSearchController;
 use App\Http\Controllers\CommunityOrganizationOutreachController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliverablesReportController;
@@ -204,6 +205,15 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::get('documents', [DocumentLibraryController::class, 'internalIndex'])->name('library.documents.index');
     Route::get('documents/{document}/download', [DocumentLibraryController::class, 'download'])->name('library.documents.download');
+
+    Route::get('cfa-search', [CfaSearchController::class, 'index'])->name('cfa.search');
+    Route::get('cfa-search/current/{cfa_submission}', [CfaSearchController::class, 'showCurrent'])->name('cfa.search.current');
+    Route::get('cfa-search/phase1/{legacyId}', [CfaSearchController::class, 'showPhase1'])
+        ->whereNumber('legacyId')
+        ->name('cfa.search.phase1');
+    Route::get('cfa-search/phase2/{legacyId}', [CfaSearchController::class, 'showPhase2'])
+        ->whereNumber('legacyId')
+        ->name('cfa.search.phase2');
 
     Route::middleware('staff_daily_check_in')->prefix('check-in')->name('staff-daily-check-in.')->group(function (): void {
         Route::get('/', [StaffCheckInController::class, 'index'])->name('index');

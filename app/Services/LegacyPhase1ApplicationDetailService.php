@@ -99,6 +99,50 @@ class LegacyPhase1ApplicationDetailService
         ];
     }
 
+    /**
+     * @return array{
+     *   viewRow: array<string, string>,
+     *   legacy_phase1_id: int,
+     *   tblapplication: array<string, mixed>,
+     *   services: list<array{label: string, detail: ?string}>,
+     *   district_mismatch_warning: ?string
+     * }|null
+     */
+    public function tryBuildFromLegacyId(int $legacyId): ?array
+    {
+        if ($legacyId <= 0 || ! $this->legacyAvailable()) {
+            return null;
+        }
+
+        try {
+            $row = $this->fetchRowById($legacyId);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if ($row === null) {
+            return null;
+        }
+
+        $legacyId = (int) ($row->ID ?? 0);
+        if ($legacyId <= 0) {
+            return null;
+        }
+
+        $legacyDistrictKey = trim((string) ($row->FatherName ?? ''));
+        $resolvedDistrict = LegacyPhase1DistrictResolver::canonicalNameForLegacyFatherName($legacyDistrictKey)
+            ?? ($legacyDistrictKey !== '' ? $legacyDistrictKey : null);
+        $rowArray = (array) $row;
+
+        return [
+            'viewRow' => $this->buildViewRow($row, $resolvedDistrict),
+            'legacy_phase1_id' => $legacyId,
+            'tblapplication' => $rowArray,
+            'services' => $this->extractServices($rowArray),
+            'district_mismatch_warning' => null,
+        ];
+    }
+
     private function isPhase1Source(string $source): bool
     {
         return in_array(mb_strtolower(trim($source)), ['legacy_phase1', 'rbiphase1'], true);

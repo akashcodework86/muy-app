@@ -81,6 +81,7 @@
         str_starts_with($r, 'staff.legacy-data') => 'legacy-data',
         str_starts_with($r, 'spoc.legacy-data') => 'legacy-data',
         str_starts_with($r, 'admin.homestay-survey') => 'homestay-survey',
+        str_starts_with($r, 'cfa.search') => 'cfa-search',
         str_starts_with($r, 'admin.cfa') => 'cfa',
         str_starts_with($r, 'admin.onboarding-priority') => 'onboarding-priority',
         str_starts_with($r, 'admin.phase1-cfa') => 'phase1-cfa',
@@ -382,7 +383,7 @@
     $teamPerformanceActive = in_array($activeNav, ['deliverables', 'staff', 'state-staff', 'service-spocs', 'pending-actions', 'spoc-approval-audit', 'state-tasks', 'team-performance', 'team-directory', 'attendance', 'staff-daily-check-ins', 'live-map', 'field-coordinator-report'], true);
     $onboardingPriorityIndexUrl = \App\Support\OnboardingPriorityAccess::indexUrl($u);
     $showOnboardingPriorityNav = is_string($onboardingPriorityIndexUrl) && $onboardingPriorityIndexUrl !== '';
-    $cfaGroupActive = in_array($activeNav, ['cfa', 'phase1-cfa', 'phase2-cfa', 'onboarded', 'onboarded-2025-26', 'phase3-services', 'onboarding-priority'], true);
+    $cfaGroupActive = in_array($activeNav, ['cfa-search', 'cfa', 'phase1-cfa', 'phase2-cfa', 'onboarded', 'onboarded-2025-26', 'phase3-services', 'onboarding-priority'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'incubatee-bills-dashboard', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $opsGroupActive = in_array($activeNav, ['case-study-shortlists', 'additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey', 'review-ppt'], true);
     $staffFieldWorkNavKeys = [
@@ -399,12 +400,12 @@
         || $staffNavTechnicalTraining
         || $staffNavEapEdp
         || $staffNavDistrictWorkshop;
-    $staffCfaGroupActive = in_array($activeNav, ['staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'onboarded-2025-26', 'staff-batches', 'legacy-data', 'onboarding-priority'], true);
+    $staffCfaGroupActive = in_array($activeNav, ['cfa-search', 'staff-apps', 'staff-phase1-data', 'staff-phase2-data', 'onboarded', 'onboarded-2025-26', 'staff-batches', 'legacy-data', 'onboarding-priority'], true);
     $staffTargetsGroupActive = in_array($activeNav, ['staff-targets', 'fy-targets-state', 'fy-targets-district', 'fy-targets-hub'], true);
     $staffServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'staff-services', 'market-linkages-submit', 'market-linkages-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'acceleration-services-submit', 'acceleration-services-dashboard', 'field-coordinator-report'], true);
     $staffMoreGroupActive = $staffFieldWorkActive || $activeNav === 'documents';
 
-    $hubCfaGroupActive = in_array($activeNav, ['hub-applications', 'hub-batches', 'onboarded', 'onboarded-2025-26', 'hub-onboarding-insight', 'onboarding-priority'], true);
+    $hubCfaGroupActive = in_array($activeNav, ['cfa-search', 'hub-applications', 'hub-batches', 'onboarded', 'onboarded-2025-26', 'hub-onboarding-insight', 'onboarding-priority'], true);
     $hubPerformanceGroupActive = in_array($activeNav, ['deliverables', 'hub-staff-performance', 'field-coordinator-report', 'hub-pending-actions'], true);
     $hubServiceGroupActive = in_array($activeNav, ['case-study-shortlists', 'community-org-outreach-submit', 'community-org-outreach-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'line-department-meetings-submit', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard', 'incubatee-bills-dashboard'], true);
     $hubMoreGroupActive = in_array($activeNav, ['staff-daily-check-in', 'documents', 'legacy-data', 'review-ppt'], true);
@@ -425,6 +426,7 @@
     $ico = [
         'dashboard'   => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
         'cfa'         => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4" width="12" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 11h6M9 14h6M9 17h4"/></svg>',
+        'search'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
         'targets'     => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/></svg>',
         'catalog'     => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>',
         'more'        => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
@@ -492,6 +494,9 @@
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Applications</p>
+                    <a href="{{ route('cfa.search') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'cfa-search') is-active @endif" role="menuitem">
+                        {!! $i('search') !!}<span>Search CFA</span>
+                    </a>
                     @if ($hasAdminCfaIndex)
                         <a href="{{ route('admin.cfa.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'cfa') is-active @endif" role="menuitem">
                             {!! $i('doc') !!}<span>CFA applications</span>
@@ -884,6 +889,9 @@
                 {!! $i('pin') !!}<span class="admin-topbar__link-text">Daily attendance</span>
             </a>
             @endif
+            <a href="{{ route('cfa.search') }}" class="admin-topbar__link @if ($activeNav === 'cfa-search') is-active @endif">
+                {!! $i('search') !!}<span class="admin-topbar__link-text">Search CFA</span>
+            </a>
             <a href="{{ route('spoc.onboarded.index') }}" class="admin-topbar__link @if ($activeNav === 'onboarded') is-active @endif">
                 {!! $i('batches') !!}<span class="admin-topbar__link-text">Onboarded</span>
             </a>
@@ -1141,6 +1149,9 @@
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Applications &amp; onboarding</p>
+                    <a href="{{ route('cfa.search') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'cfa-search') is-active @endif" role="menuitem">
+                        {!! $i('search') !!}<span>Search CFA</span>
+                    </a>
                     <a href="{{ route('hub.applications.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'hub-applications') is-active @endif" role="menuitem">
                         {!! $i('inbox') !!}<span>CFA applications</span>
                     </a>
@@ -1315,6 +1326,9 @@
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Applications &amp; data</p>
+                    <a href="{{ route('cfa.search') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'cfa-search') is-active @endif" role="menuitem">
+                        {!! $i('search') !!}<span>Search CFA</span>
+                    </a>
                     <a href="{{ route('staff.applications') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-apps') is-active @endif" role="menuitem">
                         {!! $i('inbox') !!}<span>Applications</span>
                     </a>

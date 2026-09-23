@@ -80,6 +80,54 @@ class LegacyPhase2ApplicationDetailService
         ];
     }
 
+    /**
+     * @return array{
+     *   viewRow: array<string, string>,
+     *   legacy_application_id: int,
+     *   rbi_applications: array<string, mixed>,
+     *   rbi_applicant_details: array<string, mixed>,
+     *   district_mismatch_warning: ?string
+     * }|null
+     */
+    public function tryBuildFromLegacyId(int $legacyAppId): ?array
+    {
+        if ($legacyAppId <= 0 || ! $this->legacyAvailable()) {
+            return null;
+        }
+
+        try {
+            $row = $this->fetchJoinedRow($legacyAppId);
+        } catch (\Throwable) {
+            return null;
+        }
+        if ($row === null) {
+            return null;
+        }
+
+        $serviceRows = $this->servicesByApplicationIds([$legacyAppId])[$legacyAppId] ?? [];
+        $viewRow = $this->buildPhase2ViewRow($row, $serviceRows);
+
+        try {
+            $appFull = DB::connection('legacy')->table('rbi_applications')->where('id', $legacyAppId)->first();
+            $detailFull = DB::connection('legacy')
+                ->table('rbi_applicant_details')
+                ->where('application_id', $legacyAppId)
+                ->orderByDesc('id')
+                ->first();
+        } catch (\Throwable) {
+            $appFull = null;
+            $detailFull = null;
+        }
+
+        return [
+            'viewRow' => $viewRow,
+            'legacy_application_id' => $legacyAppId,
+            'rbi_applications' => $appFull ? (array) $appFull : [],
+            'rbi_applicant_details' => $detailFull ? (array) $detailFull : [],
+            'district_mismatch_warning' => null,
+        ];
+    }
+
     private function normDistrict(string $s): string
     {
         $s = trim(preg_replace('/\s+/u', ' ', $s) ?? '');
