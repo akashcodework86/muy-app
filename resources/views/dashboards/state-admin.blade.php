@@ -1242,7 +1242,10 @@
             $bizMixTotal = (int) array_sum($businessMix['values'] ?? []);
             $onboardedProductMix = $onboardedProductMix ?? ['total' => 0, 'specified' => 0, 'missing' => 0, 'distinct' => 0, 'items' => []];
             $onboardedProductItems = $onboardedProductMix['items'] ?? [];
-            $topOnboardedProducts = array_slice($onboardedProductItems, 0, 10);
+            $topOnboardedProducts = array_slice(array_values(array_filter(
+                $onboardedProductItems,
+                fn (array $item): bool => ($item['product'] ?? '') !== 'Not specified'
+            )), 0, 10);
             $bizIconMap = [
                 'agri allied' => 'fa-wheat-awn',
                 'food processing' => 'fa-utensils',
@@ -1998,7 +2001,7 @@
                     <span class="cg-card__tag">{{ number_format((int) ($onboardedProductMix['total'] ?? 0)) }} onboarded</span>
                 </div>
                 <div class="cg-product-summary">
-                    <span>{{ number_format((int) ($onboardedProductMix['distinct'] ?? 0)) }} products</span>
+                    <span>{{ number_format((int) ($onboardedProductMix['distinct'] ?? 0)) }} specified products</span>
                     <span>{{ number_format((int) ($onboardedProductMix['specified'] ?? 0)) }} specified</span>
                     <span>{{ number_format((int) ($onboardedProductMix['missing'] ?? 0)) }} not specified</span>
                 </div>
@@ -2024,7 +2027,7 @@
 
                     @if (count($onboardedProductItems) > 10)
                         <details class="cg-product-details">
-                            <summary>View all products ({{ number_format(count($onboardedProductItems)) }})</summary>
+                            <summary>View complete breakup ({{ number_format(count($onboardedProductItems)) }})</summary>
                             <div class="cg-product-details__body">
                                 @foreach ($onboardedProductItems as $idx => $item)
                                     <div class="cg-biz-row">
