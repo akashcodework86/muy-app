@@ -33,7 +33,8 @@
         <div class="mlc-note">
             Deliverable <strong>6.3 — Incubatees linked to online/offline Market</strong>.
             Universe = <strong>onboarded</strong> incubatees: Phase 3 locked batches (FY 2026-27) plus Phase 2 legacy onboarded (FY 2025-26) when you choose <strong>All FYs</strong> or <strong>2025-26</strong>.
-            <strong>Linked</strong> = approved market linkage (module + legacy service cases). Pending = submitted, awaiting approval.
+            <strong>FY 2025-26</strong> uses Phase 2 partner records (rbiphase2) — linked or not linked only; no approval workflow.
+            <strong>FY 2026-27</strong> linked = approved market linkage; pending = submitted, awaiting approval.
         </div>
 
         <div class="mlc-stats">

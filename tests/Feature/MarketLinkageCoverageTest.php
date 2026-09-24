@@ -100,6 +100,37 @@ class MarketLinkageCoverageTest extends TestCase
             ->assertDontSee('APP-FY-2627');
     }
 
+    public function test_fy_2025_26_phase3_row_does_not_show_pending_approval(): void
+    {
+        $district = $this->createDistrict();
+        $fy2526 = FiscalYear::query()->firstOrCreate(
+            ['code' => '2025-26'],
+            ['name' => 'FY 2025-26', 'starts_on' => '2025-04-01', 'ends_on' => '2026-03-31', 'is_active' => false],
+        );
+        $cfaId = $this->seedOnboardedApplicant($district, 'APP-PEND-2526', 'Pending FY', fiscalYearId: (int) $fy2526->id);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        MarketLinkageSubmission::query()->create([
+            'submitted_by_user_id' => $admin->id,
+            'submitted_by_name' => 'State Admin',
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'cfa_submission_id' => $cfaId,
+            'incubatee_name' => 'Pending FY',
+            'application_no' => 'APP-PEND-2526',
+            'status' => ServiceCase::STATUS_PENDING_APPROVAL,
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.market-linkages.coverage.index', ['fiscal_year' => '2025-26']))
+            ->assertOk()
+            ->assertSee('APP-PEND-2526')
+            ->assertSee('Not linked', false)
+            ->assertDontSee('Pending approval');
+    }
+
     public function test_district_staff_is_scoped_to_own_district(): void
     {
         $hub = Hub::query()->create(['slug' => 'cov-hub', 'name' => 'Cov Hub', 'sort_order' => 1]);

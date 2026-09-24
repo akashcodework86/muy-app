@@ -7,6 +7,7 @@ use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\User;
 use App\Services\LegacyApplicationServiceCaseSupport;
+use App\Support\LegacyPhase2MarketLinkageCoverageSupport;
 use App\Support\MarketLinkageUnifiedListingSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -17,6 +18,7 @@ final class MarketLinkageCoverageService
 {
     public function __construct(
         private readonly LegacyApplicationServiceCaseSupport $legacyApplications,
+        private readonly LegacyPhase2MarketLinkageCoverageSupport $legacyPhase2Linkage,
     ) {}
     /**
      * @return array{
@@ -284,9 +286,8 @@ final class MarketLinkageCoverageService
         $result = [];
         foreach ($rows as $row) {
             $key = 'c:'.(int) $row->cfa_submission_id;
-            $coverageStatus = isset($approvedKeys[$key])
-                ? 'linked'
-                : (isset($pendingKeys[$key]) ? 'pending' : 'not_linked');
+            $fyCode = (string) ($row->fy_code ?? $defaultFyCode);
+            $coverageStatus = $this->resolvePhase3CoverageStatus($key, $fyCode, $approvedKeys, $pendingKeys);
 
             $modes = $modeMap[$key] ?? [];
 
@@ -325,7 +326,9 @@ final class MarketLinkageCoverageService
      */
     private function fetchLegacyPhase2OnboardedRows(array $scope, array $filters, array $approvedKeys, array $pendingKeys, array $modeMap): array
     {
-        $result = [];
+        unset($pendingKeys);
+
+        $candidates = [];
         $sectorFilter = mb_strtolower(trim((string) ($filters['sector'] ?? '')));
         $blockFilter = mb_strtolower(trim((string) ($filters['block'] ?? '')));
         $search = trim((string) ($filters['q'] ?? ''));
@@ -354,36 +357,79 @@ final class MarketLinkageCoverageService
                     continue;
                 }
 
-                $key = 'l:'.$legacyApplicationId;
-                $coverageStatus = isset($approvedKeys[$key])
-                    ? 'linked'
-                    : (isset($pendingKeys[$key]) ? 'pending' : 'not_linked');
-                $modes = $modeMap[$key] ?? [];
-
-                $result[] = [
-                    'cfa_submission_id' => 0,
-                    'application_no' => (string) ($legacyRow['application_no'] ?? ''),
-                    'applicant_name' => (string) ($legacyRow['name'] ?? ''),
-                    'phone' => (string) ($legacyRow['phone'] ?? ''),
+                $candidates[] = [
+                    'legacy_row' => $legacyRow,
+                    'district' => $district,
                     'district_id' => $districtId,
-                    'district_name' => (string) $district->name,
-                    'hub_name' => (string) ($district->hub?->name ?? '—'),
-                    'batch_name' => trim((string) ($legacyRow['onboarding_batch_name'] ?? '')) ?: 'Phase 2 onboarded',
-                    'fy_code' => '2025-26',
+                    'block_name' => $blockName,
                     'sector' => $sector,
-                    'block_name' => $blockName !== '' ? $blockName : '—',
-                    'coverage_status' => $coverageStatus,
-                    'coverage_label' => match ($coverageStatus) {
-                        'linked' => 'Linked (6.3)',
-                        'pending' => 'Pending approval',
-                        default => 'Not linked',
-                    },
-                    'linkage_mode' => $modes !== [] ? implode(', ', $modes) : '—',
+                    'legacy_application_id' => $legacyApplicationId,
                 ];
             }
         }
 
+        if ($candidates === []) {
+            return [];
+        }
+
+        $legacyModeMap = $this->legacyPhase2Linkage->linkedModeMapForLegacyApplicationIds(
+            array_column($candidates, 'legacy_application_id'),
+        );
+
+        $result = [];
+        foreach ($candidates as $candidate) {
+            $legacyApplicationId = (int) $candidate['legacy_application_id'];
+            $legacyRow = $candidate['legacy_row'];
+            $district = $candidate['district'];
+            $districtId = (int) $candidate['district_id'];
+            $blockName = (string) $candidate['block_name'];
+            $sector = (string) $candidate['sector'];
+            $key = 'l:'.$legacyApplicationId;
+
+            $modes = $legacyModeMap[$legacyApplicationId] ?? [];
+            if ($modes === [] && isset($modeMap[$key])) {
+                $modes = $modeMap[$key];
+            }
+
+            $linked = $modes !== [] || isset($approvedKeys[$key]);
+            $coverageStatus = $linked ? 'linked' : 'not_linked';
+
+            $result[] = [
+                'cfa_submission_id' => 0,
+                'application_no' => (string) ($legacyRow['application_no'] ?? ''),
+                'applicant_name' => (string) ($legacyRow['name'] ?? ''),
+                'phone' => (string) ($legacyRow['phone'] ?? ''),
+                'district_id' => $districtId,
+                'district_name' => (string) $district->name,
+                'hub_name' => (string) ($district->hub?->name ?? '—'),
+                'batch_name' => trim((string) ($legacyRow['onboarding_batch_name'] ?? '')) ?: 'Phase 2 onboarded',
+                'fy_code' => '2025-26',
+                'sector' => $sector,
+                'block_name' => $blockName !== '' ? $blockName : '—',
+                'coverage_status' => $coverageStatus,
+                'coverage_label' => $linked ? 'Linked (6.3)' : 'Not linked',
+                'linkage_mode' => $modes !== [] ? implode(', ', $modes) : '—',
+            ];
+        }
+
         return $result;
+    }
+
+    /**
+     * @param  array<string, true>  $approvedKeys
+     * @param  array<string, true>  $pendingKeys
+     */
+    private function resolvePhase3CoverageStatus(string $key, string $fyCode, array $approvedKeys, array $pendingKeys): string
+    {
+        if (isset($approvedKeys[$key])) {
+            return 'linked';
+        }
+
+        if ($fyCode === '2025-26') {
+            return 'not_linked';
+        }
+
+        return isset($pendingKeys[$key]) ? 'pending' : 'not_linked';
     }
 
     /**
