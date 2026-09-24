@@ -70,7 +70,7 @@ class MarketLinkageCoverageTest extends TestCase
             ->assertDontSee('APP-SEC-B');
     }
 
-    public function test_fiscal_year_filter_limits_phase3_rows(): void
+    public function test_phase3_cohort_uses_locked_batch_date_instead_of_cfa_fiscal_year(): void
     {
         $district = $this->createDistrict();
         $fy2627 = FiscalYear::query()->firstOrCreate(
@@ -83,24 +83,36 @@ class MarketLinkageCoverageTest extends TestCase
         );
 
         $this->seedOnboardedApplicant($district, 'APP-FY-2627', 'Current FY', fiscalYearId: (int) $fy2627->id);
-        $this->seedOnboardedApplicant($district, 'APP-FY-2526', 'Previous FY', fiscalYearId: (int) $fy2526->id);
+        $this->seedOnboardedApplicant($district, 'APP-STALE-FY', 'Current Batch With Stale FY', fiscalYearId: (int) $fy2526->id);
+
+        $seededApplications = DB::table('onboarding_batch_cfa as obc')
+            ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+            ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
+            ->where('ob.status', 'locked')
+            ->where('ob.locked_at', '>=', '2026-04-01')
+            ->orderBy('cs.application_no')
+            ->pluck('cs.application_no')
+            ->all();
+        $this->assertSame(['APP-FY-2627', 'APP-STALE-FY'], $seededApplications);
 
         $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
 
-        $this->actingAs($admin)
+        $currentResponse = $this->actingAs($admin)
             ->get(route('admin.market-linkages.coverage.index', ['fiscal_year' => '2026-27']))
-            ->assertOk()
-            ->assertSee('APP-FY-2627')
-            ->assertDontSee('APP-FY-2526');
+            ->assertOk();
+        $currentApplications = collect($currentResponse->viewData('rows')->items())->pluck('application_no')->all();
+        sort($currentApplications);
+        $this->assertSame(['APP-FY-2627', 'APP-STALE-FY'], $currentApplications);
 
-        $this->actingAs($admin)
+        $legacyResponse = $this->actingAs($admin)
             ->get(route('admin.market-linkages.coverage.index', ['fiscal_year' => '2025-26']))
-            ->assertOk()
-            ->assertSee('APP-FY-2526')
-            ->assertDontSee('APP-FY-2627');
+            ->assertOk();
+        $legacyApplications = collect($legacyResponse->viewData('rows')->items())->pluck('application_no')->all();
+        $this->assertNotContains('APP-FY-2627', $legacyApplications);
+        $this->assertNotContains('APP-STALE-FY', $legacyApplications);
     }
 
-    public function test_fy_2025_26_phase3_row_does_not_show_pending_approval(): void
+    public function test_fy_2025_26_does_not_mix_phase3_rows_into_legacy_cohort(): void
     {
         $district = $this->createDistrict();
         $fy2526 = FiscalYear::query()->firstOrCreate(
@@ -123,12 +135,12 @@ class MarketLinkageCoverageTest extends TestCase
             'submitted_at' => now(),
         ]);
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->get(route('admin.market-linkages.coverage.index', ['fiscal_year' => '2025-26']))
-            ->assertOk()
-            ->assertSee('APP-PEND-2526')
-            ->assertSee('Not linked', false)
-            ->assertDontSee('Pending approval');
+            ->assertOk();
+        $applications = collect($response->viewData('rows')->items())->pluck('application_no')->all();
+        $this->assertNotContains('APP-PEND-2526', $applications);
+        $this->assertSame(0, (int) $response->viewData('summary')['pending']);
     }
 
     public function test_district_staff_is_scoped_to_own_district(): void

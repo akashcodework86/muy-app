@@ -20,6 +20,7 @@ final class MarketLinkageCoverageService
         private readonly LegacyApplicationServiceCaseSupport $legacyApplications,
         private readonly LegacyPhase2MarketLinkageCoverageSupport $legacyPhase2Linkage,
     ) {}
+
     /**
      * @return array{
      *     rows: LengthAwarePaginator<int, array<string, mixed>>,
@@ -230,15 +231,50 @@ final class MarketLinkageCoverageService
     private function fetchOnboardedRows(array $scope, array $filters, array $approvedKeys, array $pendingKeys, array $modeMap): array
     {
         $fiscalYear = (string) ($filters['fiscal_year'] ?? 'all');
-        $rows = [];
+        $phase3Rows = [];
 
         if ($this->includesPhase3Onboarded($fiscalYear)) {
-            $rows = array_merge($rows, $this->fetchPhase3OnboardedRows($scope, $filters, $approvedKeys, $pendingKeys, $modeMap));
+            $phase3Rows = $this->fetchPhase3OnboardedRows($scope, $filters, $approvedKeys, $pendingKeys, $modeMap);
         }
 
+        $legacyRows = [];
         if ($this->includesLegacyPhase2Onboarded($fiscalYear)) {
-            $rows = array_merge($rows, $this->fetchLegacyPhase2OnboardedRows($scope, $filters, $approvedKeys, $pendingKeys, $modeMap));
+            $legacyRows = $this->fetchLegacyPhase2OnboardedRows($scope, $filters, $approvedKeys, $pendingKeys, $modeMap);
+
+            // A few legacy applicants were carried into the Phase 3 tables. Treat an
+            // application number as one incubatee across programme years so the All
+            // FY total is a true union instead of counting the migrated row twice.
+            $currentRowsForIdentity = $phase3Rows;
+            if ($currentRowsForIdentity === []) {
+                $currentFilters = array_merge($filters, ['fiscal_year' => '2026-27']);
+                $currentRowsForIdentity = $this->fetchPhase3OnboardedRows(
+                    $scope,
+                    $currentFilters,
+                    $approvedKeys,
+                    $pendingKeys,
+                    $modeMap,
+                );
+            }
+
+            $currentApplicationKeys = [];
+            foreach ($currentRowsForIdentity as $row) {
+                $identity = $this->applicationIdentity((string) ($row['application_no'] ?? ''));
+                if ($identity !== '') {
+                    $currentApplicationKeys[$identity] = true;
+                }
+            }
+
+            $legacyRows = array_values(array_filter(
+                $legacyRows,
+                function (array $row) use ($currentApplicationKeys): bool {
+                    $identity = $this->applicationIdentity((string) ($row['application_no'] ?? ''));
+
+                    return $identity === '' || ! isset($currentApplicationKeys[$identity]);
+                },
+            ));
         }
+
+        $rows = array_merge($phase3Rows, $legacyRows);
 
         usort($rows, static fn (array $a, array $b): int => strcasecmp((string) $a['applicant_name'], (string) $b['applicant_name']));
 
@@ -263,10 +299,9 @@ final class MarketLinkageCoverageService
         $sectorLegacy = PotentialLakhpatiOnboardingSql::payloadJson('$.sector');
         $blockJson = PotentialLakhpatiOnboardingSql::payloadJson('$.block');
 
-        $defaultFyCode = FiscalYear::phase3Default()?->code ?? '2026-27';
+        $defaultFyCode = '2026-27';
 
         $rows = $query
-            ->leftJoin('fiscal_years as fy', 'fy.id', '=', 'cs.fiscal_year_id')
             ->orderBy('cs.applicant_name')
             ->selectRaw("
                 cs.id as cfa_submission_id,
@@ -277,7 +312,7 @@ final class MarketLinkageCoverageService
                 d.name as district_name,
                 h.name as hub_name,
                 ob.name as batch_name,
-                COALESCE(fy.code, ?) as fy_code,
+                ? as fy_code,
                 COALESCE({$sectorPrimary}, {$sectorAlt}, {$sectorLegacy}, '') as sector,
                 COALESCE({$blockJson}, '') as block_name
             ", [$defaultFyCode])
@@ -286,8 +321,7 @@ final class MarketLinkageCoverageService
         $result = [];
         foreach ($rows as $row) {
             $key = 'c:'.(int) $row->cfa_submission_id;
-            $fyCode = (string) ($row->fy_code ?? $defaultFyCode);
-            $coverageStatus = $this->resolvePhase3CoverageStatus($key, $fyCode, $approvedKeys, $pendingKeys);
+            $coverageStatus = $this->resolvePhase3CoverageStatus($key, $approvedKeys, $pendingKeys);
 
             $modes = $modeMap[$key] ?? [];
 
@@ -419,14 +453,10 @@ final class MarketLinkageCoverageService
      * @param  array<string, true>  $approvedKeys
      * @param  array<string, true>  $pendingKeys
      */
-    private function resolvePhase3CoverageStatus(string $key, string $fyCode, array $approvedKeys, array $pendingKeys): string
+    private function resolvePhase3CoverageStatus(string $key, array $approvedKeys, array $pendingKeys): string
     {
         if (isset($approvedKeys[$key])) {
             return 'linked';
-        }
-
-        if ($fyCode === '2025-26') {
-            return 'not_linked';
         }
 
         return isset($pendingKeys[$key]) ? 'pending' : 'not_linked';
@@ -533,7 +563,7 @@ final class MarketLinkageCoverageService
 
     private function includesPhase3Onboarded(string $fiscalYear): bool
     {
-        return in_array($fiscalYear, ['all', '2026-27', '2025-26'], true);
+        return in_array($fiscalYear, ['all', '2026-27'], true);
     }
 
     private function includesLegacyPhase2Onboarded(string $fiscalYear): bool
@@ -547,29 +577,21 @@ final class MarketLinkageCoverageService
     private function applyPhase3FiscalYearFilter($query, array $filters): void
     {
         $fiscalYear = (string) ($filters['fiscal_year'] ?? 'all');
-        if ($fiscalYear === 'all') {
-            return;
-        }
-
-        $fyId = FiscalYear::query()->where('code', $fiscalYear)->value('id');
-        if ($fyId === null) {
+        if (! in_array($fiscalYear, ['all', '2026-27'], true)) {
             $query->whereRaw('1 = 0');
 
             return;
         }
 
-        $fyId = (int) $fyId;
+        // Keep this cohort definition identical to the State Dashboard's Total
+        // Onboarding metric. CFA fiscal_year_id is submission metadata and can be
+        // stale on records that were actually onboarded in a Phase 3 locked batch.
+        $query->where('ob.locked_at', '>=', (string) config('program_deliverables.phase3_floor_date', '2026-04-01'));
+    }
 
-        if ($fiscalYear === '2026-27') {
-            $query->where(function ($inner) use ($fyId): void {
-                $inner->where('cs.fiscal_year_id', $fyId)
-                    ->orWhereNull('cs.fiscal_year_id');
-            });
-
-            return;
-        }
-
-        $query->where('cs.fiscal_year_id', $fyId);
+    private function applicationIdentity(string $applicationNo): string
+    {
+        return mb_strtolower((string) preg_replace('/[^a-z0-9]+/i', '', trim($applicationNo)));
     }
 
     /**
@@ -708,7 +730,7 @@ final class MarketLinkageCoverageService
         $user->loadMissing(['hub', 'district']);
 
         $fySuffix = match ($fiscalYear) {
-            '2025-26' => ' · FY 2025-26 (Phase 2 legacy + Phase 3)',
+            '2025-26' => ' · FY 2025-26 (Phase 2 legacy)',
             '2026-27' => ' · FY 2026-27 (Phase 3 batches)',
             default => ' · all FYs (Phase 3 batches + Phase 2 legacy 2025-26)',
         };
