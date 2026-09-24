@@ -13,6 +13,7 @@ use App\Support\PotentialLakhpatiOnboardingSql;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 final class MarketLinkageCoverageService
 {
@@ -363,6 +364,7 @@ final class MarketLinkageCoverageService
         unset($pendingKeys);
 
         $candidates = [];
+        $pendingCandidates = [];
         $sectorFilter = mb_strtolower(trim((string) ($filters['sector'] ?? '')));
         $blockFilter = mb_strtolower(trim((string) ($filters['block'] ?? '')));
         $search = trim((string) ($filters['q'] ?? ''));
@@ -376,11 +378,6 @@ final class MarketLinkageCoverageService
             $legacyRows = $this->legacyApplications->onboardedIncubateesForLaravelDistrict($districtId, $search);
             foreach ($legacyRows as $legacyRow) {
                 $blockName = trim((string) ($legacyRow['block_name'] ?? ''));
-                $sector = 'Not recorded';
-
-                if ($sectorFilter !== '' && mb_strtolower($sector) !== $sectorFilter) {
-                    continue;
-                }
 
                 if ($blockFilter !== '' && mb_strtolower($blockName) !== $blockFilter) {
                     continue;
@@ -391,15 +388,41 @@ final class MarketLinkageCoverageService
                     continue;
                 }
 
-                $candidates[] = [
+                $pendingCandidates[] = [
                     'legacy_row' => $legacyRow,
                     'district' => $district,
                     'district_id' => $districtId,
                     'block_name' => $blockName,
-                    'sector' => $sector,
                     'legacy_application_id' => $legacyApplicationId,
                 ];
             }
+        }
+
+        if ($pendingCandidates === []) {
+            return [];
+        }
+
+        $categoryMap = $this->legacyBusinessCategoryMap(
+            array_column($pendingCandidates, 'legacy_application_id'),
+        );
+
+        $candidates = [];
+        foreach ($pendingCandidates as $pending) {
+            $legacyApplicationId = (int) $pending['legacy_application_id'];
+            $sector = $this->formatLegacySector($categoryMap[$legacyApplicationId] ?? null);
+
+            if (! $this->legacySectorMatchesFilter($sector, $sectorFilter)) {
+                continue;
+            }
+
+            $candidates[] = [
+                'legacy_row' => $pending['legacy_row'],
+                'district' => $pending['district'],
+                'district_id' => $pending['district_id'],
+                'block_name' => $pending['block_name'],
+                'sector' => $sector,
+                'legacy_application_id' => $legacyApplicationId,
+            ];
         }
 
         if ($candidates === []) {
@@ -680,7 +703,11 @@ final class MarketLinkageCoverageService
                 ->all();
         }
 
-        return collect($sectors)->sort()->values()->all();
+        if ($this->includesLegacyPhase2Onboarded((string) ($filters['fiscal_year'] ?? 'all'))) {
+            $sectors = array_merge($sectors, $this->legacyOnboardedSectorOptions($scope, $filters));
+        }
+
+        return collect($sectors)->unique()->sort()->values()->all();
     }
 
     /**
@@ -746,5 +773,87 @@ final class MarketLinkageCoverageService
         unset($scope);
 
         return 'Statewide · onboarded incubatees'.$fySuffix;
+    }
+
+    /**
+     * @param  list<int>  $legacyApplicationIds
+     * @return array<int, string>
+     */
+    private function legacyBusinessCategoryMap(array $legacyApplicationIds): array
+    {
+        $legacyApplicationIds = array_values(array_unique(array_filter(
+            array_map(static fn ($id) => (int) $id, $legacyApplicationIds),
+            static fn (int $id): bool => $id > 0,
+        )));
+
+        if ($legacyApplicationIds === [] || ! $this->legacyPhase2ApplicationsReadable()) {
+            return [];
+        }
+
+        $map = [];
+        foreach (array_chunk($legacyApplicationIds, 400) as $chunk) {
+            foreach (DB::connection('legacy')
+                ->table('rbi_applications')
+                ->whereIn('id', $chunk)
+                ->get(['id', 'business_category']) as $row) {
+                $map[(int) $row->id] = trim((string) ($row->business_category ?? ''));
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  array{hub_id: int|null, district_ids: list<int>|null}  $scope
+     * @param  array<string, mixed>  $filters
+     * @return list<string>
+     */
+    private function legacyOnboardedSectorOptions(array $scope, array $filters): array
+    {
+        $legacyApplicationIds = [];
+        foreach ($this->legacyDistrictIds($scope, array_merge($filters, ['sector' => ''])) as $districtId) {
+            foreach ($this->legacyApplications->onboardedIncubateesForLaravelDistrict($districtId) as $legacyRow) {
+                $legacyApplicationIds[] = (int) ($legacyRow['legacy_application_id'] ?? 0);
+            }
+        }
+
+        $sectors = [];
+        foreach ($this->legacyBusinessCategoryMap($legacyApplicationIds) as $category) {
+            $sector = $this->formatLegacySector($category);
+            if ($sector !== 'Not recorded') {
+                $sectors[] = $sector;
+            }
+        }
+
+        return $sectors;
+    }
+
+    private function formatLegacySector(?string $businessCategory): string
+    {
+        $trimmed = trim((string) $businessCategory);
+
+        return $trimmed !== '' ? $trimmed : 'Not recorded';
+    }
+
+    private function legacySectorMatchesFilter(string $sector, string $sectorFilter): bool
+    {
+        if ($sectorFilter === '') {
+            return true;
+        }
+
+        return mb_strtolower(trim($sector)) === $sectorFilter;
+    }
+
+    private function legacyPhase2ApplicationsReadable(): bool
+    {
+        try {
+            if ((string) config('database.connections.legacy.database', '') === '') {
+                return false;
+            }
+
+            return Schema::connection('legacy')->hasTable('rbi_applications');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }
