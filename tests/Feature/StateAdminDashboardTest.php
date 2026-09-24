@@ -3,7 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\StateAdminDashboardService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use ReflectionClass;
 use Tests\TestCase;
 
 class StateAdminDashboardTest extends TestCase
@@ -24,6 +28,8 @@ class StateAdminDashboardTest extends TestCase
             ->assertSee('Approved field activity photos', false)
             ->assertSee('data-sad-pulse-tab="pace"', false)
             ->assertSee('Daily 14d')
+            ->assertSee('Top Products — Onboarded Incubatees')
+            ->assertSee('No onboarded product data yet')
             ->assertSee('CFA', false)
             ->assertDontSee('Classic theme')
             ->assertDontSee('FY 2026-27');
@@ -61,5 +67,72 @@ class StateAdminDashboardTest extends TestCase
             ->get(route('admin.cfa.index'))
             ->assertOk()
             ->assertSee('admin-app-body--state-theme-legacy', false);
+    }
+
+    public function test_onboarded_product_mix_uses_locked_phase_three_batches_and_normalizes_products(): void
+    {
+        $now = now();
+        $hubId = DB::table('hubs')->insertGetId([
+            'slug' => 'test-hub', 'name' => 'Test Hub', 'sort_order' => 1,
+            'created_at' => $now, 'updated_at' => $now,
+        ]);
+        $districtId = DB::table('districts')->insertGetId([
+            'hub_id' => $hubId, 'slug' => 'test-district', 'name' => 'Test District', 'sort_order' => 1,
+            'created_at' => $now, 'updated_at' => $now,
+        ]);
+
+        $makeCfa = function (string $applicationNo, array $payload) use ($districtId, $now): int {
+            return DB::table('cfa_submissions')->insertGetId([
+                'application_no' => $applicationNo,
+                'district_id' => $districtId,
+                'source' => 'test',
+                'applicant_name' => $applicationNo,
+                'phone' => '9999999999',
+                'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        };
+
+        $includedIds = [
+            $makeCfa('PROD-1', ['product' => 'Pickle']),
+            $makeCfa('PROD-2', ['product' => ' pickle ']),
+            $makeCfa('PROD-3', ['product' => 'Others', 'other_product' => 'Chocolate Making']),
+            $makeCfa('PROD-4', []),
+        ];
+        $makeCfa('NOT-ONBOARDED', ['product' => 'Pickle']);
+
+        $batchId = DB::table('onboarding_batches')->insertGetId([
+            'hub_id' => $hubId,
+            'district_id' => $districtId,
+            'name' => 'Locked Phase 3 batch',
+            'target_size' => 4,
+            'status' => 'locked',
+            'locked_at' => '2026-08-01 10:00:00',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        foreach ($includedIds as $cfaId) {
+            DB::table('onboarding_batch_cfa')->insert([
+                'onboarding_batch_id' => $batchId,
+                'cfa_submission_id' => $cfaId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $service = (new ReflectionClass(StateAdminDashboardService::class))->newInstanceWithoutConstructor();
+        $method = new \ReflectionMethod(StateAdminDashboardService::class, 'onboardedProductMix');
+        $method->setAccessible(true);
+        $mix = $method->invoke($service, Carbon::create(2026, 4, 1)->startOfDay());
+
+        $counts = collect($mix['items'])->pluck('count', 'product');
+        $this->assertSame(4, $mix['total']);
+        $this->assertSame(3, $mix['specified']);
+        $this->assertSame(1, $mix['missing']);
+        $this->assertSame(2, $mix['distinct']);
+        $this->assertSame(2, $counts['Pickle']);
+        $this->assertSame(1, $counts['Chocolate Making']);
+        $this->assertSame(1, $counts['Not specified']);
     }
 }

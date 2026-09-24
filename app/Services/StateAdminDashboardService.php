@@ -48,6 +48,7 @@ class StateAdminDashboardService
         $onbGrowthCount = 0;
         $stateOnboardingProgressPct = null;
         $stateOnboardingByDistrict = [];
+        $onboardedProductMix = $this->emptyOnboardedProductMix();
         $stateCfaThisFy = (int) (clone $phase3Scope)->count();
         $stateProgressPct = null;
         $stateCfaTrend = $this->stateDailyTrend14($phase3FloorDate, $activeFyId);
@@ -196,6 +197,7 @@ class StateAdminDashboardService
         if ($stateOnboardingTarget !== null && $stateOnboardingTarget > 0) {
             $stateOnboardingProgressPct = (int) round(($stateOnboardingAchieved / $stateOnboardingTarget) * 100);
         }
+        $onboardedProductMix = $this->onboardedProductMix($phase3FloorDate);
 
         $staffTotal = User::query()->where('role', 'district_staff')->count();
         $staffActive = User::query()->where('role', 'district_staff')->where('is_active', true)->count();
@@ -418,6 +420,7 @@ class StateAdminDashboardService
             'onbGrowthCount' => $onbGrowthCount,
             'stateOnboardingProgressPct' => $stateOnboardingProgressPct,
             'stateOnboardingByDistrict' => $stateOnboardingByDistrict,
+            'onboardedProductMix' => $onboardedProductMix,
             'stateCfaThisFy' => $stateCfaThisFy,
             'stateProgressPct' => $stateProgressPct,
             'stateCfaTrend' => $stateCfaTrend,
@@ -1615,6 +1618,110 @@ class StateAdminDashboardService
         }
 
         return ['labels' => $labels, 'values' => $values];
+    }
+
+    /**
+     * Product breakup for the exact locked-batch scope used by Total Onboarding.
+     *
+     * @return array{total: int, specified: int, missing: int, distinct: int, items: list<array{product: string, count: int, pct: float}>}
+     */
+    private function onboardedProductMix(Carbon $phase3FloorDate): array
+    {
+        if (
+            ! Schema::hasTable('onboarding_batch_cfa')
+            || ! Schema::hasTable('onboarding_batches')
+            || ! Schema::hasTable('cfa_submissions')
+        ) {
+            return $this->emptyOnboardedProductMix();
+        }
+
+        $canonicalLabels = [];
+        foreach ((array) config('cfa.products_by_category', []) as $products) {
+            foreach ((array) $products as $product) {
+                if (! is_string($product) || trim($product) === '' || in_array(strtolower(trim($product)), ['other', 'others'], true)) {
+                    continue;
+                }
+                $canonicalLabels[$this->productGroupingKey($product)] = trim($product);
+            }
+        }
+
+        $counts = [];
+        $labels = [];
+        try {
+            DB::table('onboarding_batch_cfa as obc')
+                ->join('onboarding_batches as ob', 'ob.id', '=', 'obc.onboarding_batch_id')
+                ->join('cfa_submissions as cs', 'cs.id', '=', 'obc.cfa_submission_id')
+                ->where('ob.status', 'locked')
+                ->whereNotNull('ob.locked_at')
+                ->where('ob.locked_at', '>=', $phase3FloorDate)
+                ->select('obc.id', 'cs.payload')
+                ->orderBy('obc.id')
+                ->cursor()
+                ->each(function ($row) use (&$counts, &$labels, $canonicalLabels): void {
+                    $payload = is_array($row->payload ?? null)
+                        ? $row->payload
+                        : json_decode((string) ($row->payload ?? ''), true);
+                    $payload = is_array($payload) ? $payload : [];
+
+                    $product = is_scalar($payload['product'] ?? null) ? trim((string) $payload['product']) : '';
+                    if (in_array(strtolower($product), ['other', 'others'], true)) {
+                        $product = is_scalar($payload['other_product'] ?? null)
+                            ? trim((string) $payload['other_product'])
+                            : '';
+                    }
+
+                    $key = $this->productGroupingKey($product);
+                    if ($key === '' || in_array($key, ['other', 'others', 'na', 'none', 'null', 'not specified'], true)) {
+                        $key = '__not_specified__';
+                        $label = 'Not specified';
+                    } else {
+                        $label = $canonicalLabels[$key] ?? $product;
+                    }
+
+                    $labels[$key] ??= $label;
+                    $counts[$key] = ($counts[$key] ?? 0) + 1;
+                });
+        } catch (\Throwable) {
+            return $this->emptyOnboardedProductMix();
+        }
+
+        arsort($counts);
+        $total = (int) array_sum($counts);
+        $missing = (int) ($counts['__not_specified__'] ?? 0);
+        $items = [];
+        foreach ($counts as $key => $count) {
+            $items[] = [
+                'product' => (string) ($labels[$key] ?? 'Not specified'),
+                'count' => (int) $count,
+                'pct' => $total > 0 ? round(((int) $count / $total) * 100, 1) : 0.0,
+            ];
+        }
+
+        return [
+            'total' => $total,
+            'specified' => max(0, $total - $missing),
+            'missing' => $missing,
+            'distinct' => max(0, count($items) - ($missing > 0 ? 1 : 0)),
+            'items' => $items,
+        ];
+    }
+
+    private function productGroupingKey(string $value): string
+    {
+        $value = html_entity_decode(trim($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $value = mb_strtolower($value, 'UTF-8');
+        $value = str_replace(['&', '–', '—', '−'], [' and ', '-', '-', '-'], $value);
+        $value = preg_replace('/[^\pL\pN]+/u', ' ', $value) ?? $value;
+
+        return trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
+    }
+
+    /**
+     * @return array{total: int, specified: int, missing: int, distinct: int, items: array<int, never>}
+     */
+    private function emptyOnboardedProductMix(): array
+    {
+        return ['total' => 0, 'specified' => 0, 'missing' => 0, 'distinct' => 0, 'items' => []];
     }
 
     /**

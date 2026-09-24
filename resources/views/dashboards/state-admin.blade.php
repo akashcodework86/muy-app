@@ -780,6 +780,21 @@
         .cg-biz-track { height: 6px; border-radius: 999px; background: #f2f2f7; overflow: hidden; margin-top: 0.25rem; }
         .cg-biz-fill  { height: 100%; border-radius: 999px; }
         .cg-biz-nums  { font-weight: 800; color: var(--cg-text); white-space: nowrap; }
+        .cg-product-summary {
+            display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.7rem;
+        }
+        .cg-product-summary span {
+            padding: 0.28rem 0.55rem; border-radius: 999px; background: #f2f7f7;
+            color: var(--cg-sub); font-size: 0.68rem; font-weight: 700;
+        }
+        .cg-product-details { margin-top: 0.65rem; border-top: 1px solid var(--cg-border); padding-top: 0.55rem; }
+        .cg-product-details summary {
+            cursor: pointer; color: var(--cg-teal-dark); font-size: 0.75rem; font-weight: 800;
+            list-style-position: inside; user-select: none;
+        }
+        .cg-product-details__body {
+            margin-top: 0.65rem; max-height: 26rem; overflow-y: auto; padding-right: 0.3rem;
+        }
 
         /* === STAGE MIX === */
         .cg-stage-mix {
@@ -1225,6 +1240,9 @@
                 ->values();
 
             $bizMixTotal = (int) array_sum($businessMix['values'] ?? []);
+            $onboardedProductMix = $onboardedProductMix ?? ['total' => 0, 'specified' => 0, 'missing' => 0, 'distinct' => 0, 'items' => []];
+            $onboardedProductItems = $onboardedProductMix['items'] ?? [];
+            $topOnboardedProducts = array_slice($onboardedProductItems, 0, 10);
             $bizIconMap = [
                 'agri allied' => 'fa-wheat-awn',
                 'food processing' => 'fa-utensils',
@@ -1965,6 +1983,59 @@
                             </div>
                         @endforeach
                     </div>
+                @endif
+            </div>
+
+            {{-- Product mix is restricted to the same locked-batch scope as Total Onboarding. --}}
+            <div class="cg-card cg-card--full">
+                <div class="cg-card__head">
+                    <div>
+                        <h2 class="cg-card__title">
+                            <i class="fa-solid fa-box-open" aria-hidden="true"></i> Top Products — Onboarded Incubatees
+                        </h2>
+                        <p class="cg-card__hint">Locked onboarding batches · {{ $fyLabel }}</p>
+                    </div>
+                    <span class="cg-card__tag">{{ number_format((int) ($onboardedProductMix['total'] ?? 0)) }} onboarded</span>
+                </div>
+                <div class="cg-product-summary">
+                    <span>{{ number_format((int) ($onboardedProductMix['distinct'] ?? 0)) }} products</span>
+                    <span>{{ number_format((int) ($onboardedProductMix['specified'] ?? 0)) }} specified</span>
+                    <span>{{ number_format((int) ($onboardedProductMix['missing'] ?? 0)) }} not specified</span>
+                </div>
+                @if ($topOnboardedProducts === [])
+                    <div class="cg-empty">No onboarded product data yet</div>
+                @else
+                    <div style="columns: 2; gap: 1.25rem; column-fill: balance;">
+                        @foreach ($topOnboardedProducts as $idx => $item)
+                            @php
+                                $productPct = (float) ($item['pct'] ?? 0);
+                                $productColour = $businessMix['colors'][$idx % max(1, count($businessMix['colors'] ?? []))] ?? '#26a69a';
+                            @endphp
+                            <div class="cg-biz-row" style="break-inside: avoid;">
+                                <span class="cg-biz-rank">#{{ $idx + 1 }}</span>
+                                <div style="min-width:0;">
+                                    <div class="cg-biz-label" title="{{ $item['product'] }}">{{ $item['product'] }}</div>
+                                    <div class="cg-biz-track"><div class="cg-biz-fill" style="width:{{ min(100, $productPct) }}%;background:{{ $productColour }};"></div></div>
+                                </div>
+                                <span class="cg-biz-nums">{{ number_format($productPct, 1) }}% · {{ number_format((int) ($item['count'] ?? 0)) }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    @if (count($onboardedProductItems) > 10)
+                        <details class="cg-product-details">
+                            <summary>View all products ({{ number_format(count($onboardedProductItems)) }})</summary>
+                            <div class="cg-product-details__body">
+                                @foreach ($onboardedProductItems as $idx => $item)
+                                    <div class="cg-biz-row">
+                                        <span class="cg-biz-rank">#{{ $idx + 1 }}</span>
+                                        <div class="cg-biz-label" title="{{ $item['product'] }}">{{ $item['product'] }}</div>
+                                        <span class="cg-biz-nums">{{ number_format((float) ($item['pct'] ?? 0), 1) }}% · {{ number_format((int) ($item['count'] ?? 0)) }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </details>
+                    @endif
                 @endif
             </div>
         </section>
