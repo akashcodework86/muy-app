@@ -348,9 +348,11 @@
         str_starts_with($r, 'staff.market-linkages.create') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.store') => 'market-linkages-submit',
         str_starts_with($r, 'staff.market-linkages.dashboard') => 'market-linkages-dashboard',
+        str_starts_with($r, 'staff.market-linkages.coverage') => 'market-linkage-coverage',
         str_starts_with($r, 'staff.market-linkages.partners') => 'market-linkage-partners',
         str_starts_with($r, 'staff.market-linkages.show') => 'market-linkages-dashboard',
         str_starts_with($r, 'admin.market-linkages.dashboard') => 'market-linkage-dashboard',
+        str_starts_with($r, 'admin.market-linkages.coverage') => 'market-linkage-coverage',
         str_starts_with($r, 'admin.market-linkages.partners') => 'market-linkage-partners',
         str_starts_with($r, 'admin.market-linkages.show') => 'market-linkage-dashboard',
         str_starts_with($r, 'hub.community-org-outreach.create') => 'community-org-outreach-submit',
@@ -362,6 +364,7 @@
         str_starts_with($r, 'staff.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'staff.community-org-outreach.show') => 'community-org-outreach-dashboard',
         str_starts_with($r, 'hub.market-linkages.dashboard') => 'market-linkage-dashboard',
+        str_starts_with($r, 'hub.market-linkages.coverage') => 'market-linkage-coverage',
         str_starts_with($r, 'hub.market-linkages.partners') => 'market-linkage-partners',
         str_starts_with($r, 'hub.market-linkages.show') => 'market-linkage-dashboard',
         str_starts_with($r, 'admin.community-org-outreach.dashboard') => 'community-org-outreach-dashboard',
@@ -790,6 +793,9 @@
                         <div class="admin-topbar__dropdown-subpanel" role="menu">
                             <a href="{{ route('admin.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>Market Linkage</span>
+                            </a>
+                            <a href="{{ route('admin.market-linkages.coverage.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-coverage') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Linkage coverage (6.3)</span>
                             </a>
                             <a href="{{ route('admin.market-linkages.partners') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-partners') is-active @endif" role="menuitem">
                                 {!! $i('pin') !!}<span>All partners (all phases)</span>
@@ -1263,6 +1269,9 @@
                             <a href="{{ route('hub.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>View dashboard</span>
                             </a>
+                            <a href="{{ route('hub.market-linkages.coverage.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-coverage') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Linkage coverage (6.3)</span>
+                            </a>
                             <a href="{{ route('hub.market-linkages.partners') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-partners') is-active @endif" role="menuitem">
                                 {!! $i('pin') !!}<span>All partners (all phases)</span>
                             </a>
@@ -1380,6 +1389,9 @@
                     </a>
                     <a href="{{ route('staff.market-linkages.dashboard') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['market-linkages-submit', 'market-linkages-dashboard'], true)) is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>Market linkage</span>
+                    </a>
+                    <a href="{{ route('staff.market-linkages.coverage.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-coverage') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>Linkage coverage (6.3)</span>
                     </a>
                     <a href="{{ route('staff.market-linkages.partners') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'market-linkage-partners') is-active @endif" role="menuitem">
                         {!! $i('pin') !!}<span>All partners (all phases)</span>

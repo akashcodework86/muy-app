@@ -1,0 +1,139 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\District;
+use App\Models\Hub;
+use App\Models\MarketLinkagePartner;
+use App\Models\MarketLinkageSubmission;
+use App\Models\ServiceCase;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
+
+class MarketLinkageCoverageTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_state_admin_sees_linked_and_not_linked_counts(): void
+    {
+        $district = $this->createDistrict();
+        $linkedId = $this->seedOnboardedApplicant($district, 'APP-LINKED', 'Linked One', ['business_category' => 'Handicraft']);
+        $this->seedOnboardedApplicant($district, 'APP-MISSING', 'Missing One', ['business_category' => 'Agriculture']);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $submission = MarketLinkageSubmission::query()->create([
+            'submitted_by_user_id' => $admin->id,
+            'submitted_by_name' => 'State Admin',
+            'district_id' => $district->id,
+            'district_name' => $district->name,
+            'cfa_submission_id' => $linkedId,
+            'incubatee_name' => 'Linked One',
+            'application_no' => 'APP-LINKED',
+            'status' => ServiceCase::STATUS_APPROVED,
+            'submitted_at' => now(),
+            'approved_at' => now(),
+        ]);
+        MarketLinkagePartner::query()->create([
+            'market_linkage_submission_id' => $submission->id,
+            'partner_name' => 'Local Buyer',
+            'linkage_mode' => 'offline',
+            'linkage_date' => '2026-05-01',
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.market-linkages.coverage.index'))
+            ->assertOk()
+            ->assertSee('Market linkage coverage')
+            ->assertSee('Not linked (1)', false)
+            ->assertSee('Linked (1)', false)
+            ->assertSee('APP-MISSING')
+            ->assertSee('APP-LINKED');
+    }
+
+    public function test_sector_filter_limits_rows(): void
+    {
+        $district = $this->createDistrict();
+        $this->seedOnboardedApplicant($district, 'APP-SEC-A', 'Alpha', ['business_category' => 'Handicraft']);
+        $this->seedOnboardedApplicant($district, 'APP-SEC-B', 'Beta', ['business_category' => 'Agriculture']);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.market-linkages.coverage.index', ['sector' => 'Handicraft']))
+            ->assertOk()
+            ->assertSee('APP-SEC-A')
+            ->assertDontSee('APP-SEC-B');
+    }
+
+    public function test_district_staff_is_scoped_to_own_district(): void
+    {
+        $hub = Hub::query()->create(['slug' => 'cov-hub', 'name' => 'Cov Hub', 'sort_order' => 1]);
+        $d1 = District::query()->create(['hub_id' => $hub->id, 'slug' => 'cov-d1', 'name' => 'Cov D1', 'sort_order' => 1]);
+        $d2 = District::query()->create(['hub_id' => $hub->id, 'slug' => 'cov-d2', 'name' => 'Cov D2', 'sort_order' => 2]);
+        $this->seedOnboardedApplicant($d1, 'APP-D1', 'District One');
+        $this->seedOnboardedApplicant($d2, 'APP-D2', 'District Two');
+
+        $staff = User::factory()->create([
+            'role' => 'district_staff',
+            'district_id' => $d1->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.market-linkages.coverage.index'))
+            ->assertOk()
+            ->assertSee('APP-D1')
+            ->assertDontSee('APP-D2');
+    }
+
+    private function createDistrict(): District
+    {
+        $hub = Hub::query()->create(['slug' => 'ml-cov-hub', 'name' => 'ML Cov Hub', 'sort_order' => 1]);
+
+        return District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'ml-cov-district',
+            'name' => 'ML Cov District',
+            'sort_order' => 1,
+        ]);
+    }
+
+    /** @param  array<string, mixed>  $payloadExtra */
+    private function seedOnboardedApplicant(District $district, string $applicationNo, string $name, array $payloadExtra = []): int
+    {
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => $applicationNo,
+            'applicant_name' => $name,
+            'phone' => '9876543210',
+            'source' => 'phase3',
+            'payload' => json_encode($payloadExtra),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $batchId = (int) DB::table('onboarding_batches')->insertGetId([
+            'hub_id' => $district->hub_id,
+            'district_id' => $district->id,
+            'name' => $district->name.'-batch',
+            'target_size' => 1,
+            'status' => 'locked',
+            'locked_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('onboarding_batch_cfa')->insert([
+            'onboarding_batch_id' => $batchId,
+            'cfa_submission_id' => $cfaId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $cfaId;
+    }
+}

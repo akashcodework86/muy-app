@@ -86,6 +86,7 @@ use App\Http\Controllers\LineDepartmentMeetingLandingController;
 use App\Http\Controllers\LiveOpsController;
 use App\Http\Controllers\MarketingPartnerOutreachController;
 use App\Http\Controllers\MarketLinkageController;
+use App\Http\Controllers\MarketLinkageCoverageController;
 use App\Http\Controllers\MarketLinkagePartnerDirectoryController;
 use App\Http\Controllers\MediaCampaignController;
 use App\Http\Controllers\MediaCampaignLandingController;
@@ -667,6 +668,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             ->middleware('throttle:30,1')
             ->name('market-linkages.destroy');
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
+        Route::get('market-linkages/coverage', [MarketLinkageCoverageController::class, 'index'])->name('market-linkages.coverage.index');
+        Route::get('market-linkages/coverage/export', [MarketLinkageCoverageController::class, 'export'])->name('market-linkages.coverage.export');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
         Route::get('market-linkages/partners', [MarketLinkagePartnerDirectoryController::class, 'index'])->name('market-linkages.partners');
         Route::get('market-linkages/partners/export', [MarketLinkagePartnerDirectoryController::class, 'export'])->name('market-linkages.partners.export');
@@ -1555,6 +1558,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('funding-partners-outreach/{fundingPartnerOutreach}', [FundingSchematicPartnerOutreachController::class, 'destroy'])->middleware('throttle:30,1')->name('funding-partners-outreach.destroy');
 
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
+        Route::get('market-linkages/coverage', [MarketLinkageCoverageController::class, 'index'])->name('market-linkages.coverage.index');
+        Route::get('market-linkages/coverage/export', [MarketLinkageCoverageController::class, 'export'])->name('market-linkages.coverage.export');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
         Route::get('market-linkages/partners', [MarketLinkagePartnerDirectoryController::class, 'index'])->name('market-linkages.partners');
         Route::get('market-linkages/partners/export', [MarketLinkagePartnerDirectoryController::class, 'export'])->name('market-linkages.partners.export');
@@ -1719,6 +1724,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('incubatee-meetings/{incubateeMeeting}/proof', [IncubateeMeetingStaffController::class, 'proof'])->name('incubatee-meetings.proof');
 
         Route::get('market-linkages/dashboard', [MarketLinkageController::class, 'dashboard'])->name('market-linkages.dashboard');
+        Route::get('market-linkages/coverage', [MarketLinkageCoverageController::class, 'index'])->name('market-linkages.coverage.index');
+        Route::get('market-linkages/coverage/export', [MarketLinkageCoverageController::class, 'export'])->name('market-linkages.coverage.export');
         Route::get('market-linkages/export', [MarketLinkageController::class, 'export'])->name('market-linkages.export');
         Route::get('market-linkages/partners', [MarketLinkagePartnerDirectoryController::class, 'index'])->name('market-linkages.partners');
         Route::get('market-linkages/partners/export', [MarketLinkagePartnerDirectoryController::class, 'export'])->name('market-linkages.partners.export');

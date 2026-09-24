@@ -31,6 +31,21 @@ CASE
 END
 SQL;
 
+    public static function incubateeKeySql(): string
+    {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return <<<'SQL'
+CASE
+    WHEN mls.cfa_submission_id IS NOT NULL THEN 'c:' || mls.cfa_submission_id
+    WHEN mls.legacy_application_id IS NOT NULL THEN 'l:' || mls.legacy_application_id
+    ELSE 's:' || mls.id
+END
+SQL;
+        }
+
+        return self::INCUBATEE_KEY_SQL;
+    }
+
     public static function isMarketLinkServiceId(int $serviceId): bool
     {
         if ($serviceId < 1) {
@@ -147,6 +162,104 @@ SQL;
     }
 
     /**
+     * Approved market-link incubatee keys (cfa / legacy), per deliverable 6.3 rules.
+     *
+     * @param  list<int>|null  $districtIds
+     * @return array<string, true>
+     */
+    public static function approvedLinkedIncubateeKeySet(?array $districtIds): array
+    {
+        if ($districtIds === []) {
+            return [];
+        }
+
+        $map = self::buildUnifiedIncubateeModeMap($districtIds, true, null, null, true);
+
+        return array_fill_keys(array_keys($map), true);
+    }
+
+    /**
+     * @param  list<int>|null  $districtIds
+     * @return array<string, list<string>>
+     */
+    public static function approvedLinkedIncubateeModeMap(?array $districtIds): array
+    {
+        if ($districtIds === []) {
+            return [];
+        }
+
+        return self::buildUnifiedIncubateeModeMap($districtIds, true, null, null, true);
+    }
+
+    /**
+     * Incubatee keys with in-flight market linkage (not yet approved).
+     *
+     * @param  list<int>|null  $districtIds
+     * @return array<string, true>
+     */
+    public static function pendingMarketLinkageIncubateeKeySet(?array $districtIds, array $approvedKeys = []): array
+    {
+        if ($districtIds === []) {
+            return [];
+        }
+
+        $pending = [];
+
+        if (Schema::hasTable('market_linkage_submissions') && MarketLinkageSubmission::supportsWorkflow()) {
+            $query = DB::table('market_linkage_submissions as mls')
+                ->where('mls.status', ServiceCase::STATUS_PENDING_APPROVAL)
+                ->where(function ($w): void {
+                    $w->whereNotNull('mls.cfa_submission_id')
+                        ->orWhereNotNull('mls.legacy_application_id');
+                });
+
+            self::applyMarketLinkageDistrictAndStatusScopes($query, $districtIds, false);
+
+            foreach ($query->get(['cfa_submission_id', 'legacy_application_id']) as $row) {
+                $key = self::incubateeKeyFromIds(
+                    isset($row->cfa_submission_id) ? (int) $row->cfa_submission_id : null,
+                    isset($row->legacy_application_id) ? (int) $row->legacy_application_id : null,
+                );
+                if ($key === null || isset($approvedKeys[$key])) {
+                    continue;
+                }
+                $pending[$key] = true;
+            }
+        }
+
+        $serviceIds = self::marketLinkServiceIds();
+        if ($serviceIds !== [] && Schema::hasTable('service_cases')) {
+            $query = DB::table('service_cases as sc')
+                ->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
+                ->whereIn('sc.service_id', $serviceIds)
+                ->where('sc.status', ServiceCase::STATUS_PENDING_APPROVAL)
+                ->where(function ($w): void {
+                    $w->whereNotNull('sc.cfa_submission_id')
+                        ->orWhereNotNull('sc.legacy_application_id');
+                })
+                ->select('sc.cfa_submission_id', 'sc.legacy_application_id');
+
+            if ($districtIds !== null) {
+                app(LegacyApplicationServiceCaseSupport::class)
+                    ->applyAchievementDistrictScopeToServiceCaseQuery($query, $districtIds);
+            }
+
+            foreach ($query->get() as $row) {
+                $key = self::incubateeKeyFromIds(
+                    isset($row->cfa_submission_id) ? (int) $row->cfa_submission_id : null,
+                    isset($row->legacy_application_id) ? (int) $row->legacy_application_id : null,
+                );
+                if ($key === null || isset($approvedKeys[$key])) {
+                    continue;
+                }
+                $pending[$key] = true;
+            }
+        }
+
+        return $pending;
+    }
+
+    /**
      * @param  list<int>|null  $districtIds
      * @return list<array{service: string, count: int, share_pct: int}>
      */
@@ -194,7 +307,7 @@ SQL;
         $incubatees = [];
 
         if (Schema::hasTable('market_linkage_submissions') && Schema::hasTable('market_linkage_partners')) {
-            $keySql = self::INCUBATEE_KEY_SQL;
+            $keySql = self::incubateeKeySql();
 
             $query = DB::table('market_linkage_submissions as mls')
                 ->join('districts as d', 'd.id', '=', 'mls.district_id')
@@ -393,7 +506,7 @@ SQL;
             return [];
         }
 
-        $keySql = self::INCUBATEE_KEY_SQL;
+        $keySql = self::incubateeKeySql();
 
         $query = DB::table('market_linkage_submissions as mls')
             ->join('market_linkage_partners as mlp', 'mlp.market_linkage_submission_id', '=', 'mls.id')
