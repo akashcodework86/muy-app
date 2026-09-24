@@ -49,6 +49,8 @@ class MarketLinkageCoverageTest extends TestCase
             ->get(route('admin.market-linkages.coverage.index'))
             ->assertOk()
             ->assertSee('Market linkage coverage')
+            ->assertSee('Clear filters')
+            ->assertDontSee('Universe =')
             ->assertSee('Not linked (1)', false)
             ->assertSee('Linked (1)', false)
             ->assertSee('APP-MISSING')
