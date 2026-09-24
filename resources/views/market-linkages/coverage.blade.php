@@ -21,6 +21,7 @@
             'sector' => $filters['sector'] ?: null,
             'block' => $filters['block'] ?: null,
             'q' => $filters['q'] ?: null,
+            'fiscal_year' => ($activeFiscalYear ?? 'all') !== 'all' ? ($activeFiscalYear ?? null) : null,
         ]);
     @endphp
 
@@ -31,7 +32,7 @@
     <div class="mlc-shell">
         <div class="mlc-note">
             Deliverable <strong>6.3 — Incubatees linked to online/offline Market</strong>.
-            Universe = <strong>onboarded</strong> incubatees (locked batches).
+            Universe = <strong>onboarded</strong> incubatees: Phase 3 locked batches (FY 2026-27) plus Phase 2 legacy onboarded (FY 2025-26) when you choose <strong>All FYs</strong> or <strong>2025-26</strong>.
             <strong>Linked</strong> = approved market linkage (module + legacy service cases). Pending = submitted, awaiting approval.
         </div>
 
@@ -45,6 +46,12 @@
         <form method="get" action="{{ route($routePrefix.'.index') }}" class="mlc-toolbar">
             <input type="hidden" name="coverage" value="{{ $activeCoverage }}">
             <input class="mlc-field" type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Search app no, name, phone" style="min-width:12rem;flex:1;max-width:20rem;">
+            <select class="mlc-field" name="fiscal_year">
+                <option value="all" @selected(($activeFiscalYear ?? 'all') === 'all')>All FYs</option>
+                @foreach ($fiscalYears as $fy)
+                    <option value="{{ $fy->code }}" @selected(($activeFiscalYear ?? 'all') === $fy->code)>FY {{ $fy->code }}</option>
+                @endforeach
+            </select>
             @if ($hubs->count() > 1)
                 <select class="mlc-field" name="hub_id">
                     <option value="">All hubs</option>
@@ -103,7 +110,7 @@
                         <tr>
                             <td>
                                 <strong>{{ $row['application_no'] }}</strong>
-                                <div class="mlc-dim">{{ $row['batch_name'] }}</div>
+                                <div class="mlc-dim">{{ $row['batch_name'] }} · FY {{ $row['fy_code'] ?? '—' }}</div>
                             </td>
                             <td>
                                 {{ $row['applicant_name'] }}

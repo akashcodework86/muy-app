@@ -27,6 +27,7 @@ class MarketLinkageCoverageController extends Controller
             'block' => trim((string) $request->query('block', '')),
             'q' => trim((string) $request->query('q', '')),
             'coverage' => trim((string) $request->query('coverage', 'all')),
+            'fiscal_year' => trim((string) $request->query('fiscal_year', 'all')),
         ];
 
         $data = $this->coverageService->paginatedForUser($user, $filters);
@@ -49,6 +50,7 @@ class MarketLinkageCoverageController extends Controller
             'block' => trim((string) $request->query('block', '')),
             'q' => trim((string) $request->query('q', '')),
             'coverage' => trim((string) $request->query('coverage', 'all')),
+            'fiscal_year' => trim((string) $request->query('fiscal_year', 'all')),
         ];
 
         $rows = $this->coverageService->exportRowsForUser($user, $filters);
@@ -61,7 +63,7 @@ class MarketLinkageCoverageController extends Controller
             }
 
             fputcsv($out, [
-                'Application no', 'Applicant', 'Phone', 'District', 'Hub', 'Block', 'Sector', 'Batch',
+                'Application no', 'Applicant', 'Phone', 'District', 'Hub', 'Block', 'Sector', 'Batch', 'FY',
                 'Market linkage status', 'Linkage mode',
             ]);
 
@@ -75,6 +77,7 @@ class MarketLinkageCoverageController extends Controller
                     $row['block_name'] ?? '',
                     $row['sector'] ?? '',
                     $row['batch_name'] ?? '',
+                    $row['fy_code'] ?? '',
                     $row['coverage_label'] ?? '',
                     $row['linkage_mode'] ?? '',
                 ]);
@@ -95,7 +98,11 @@ class MarketLinkageCoverageController extends Controller
 
     private function showUrl(?\App\Models\User $user, int $cfaId): ?string
     {
-        if (! $user || ! CfaSubmission::query()->whereKey($cfaId)->exists()) {
+        if ($cfaId < 1 || ! $user) {
+            return null;
+        }
+
+        if (! CfaSubmission::query()->whereKey($cfaId)->exists()) {
             return null;
         }
 

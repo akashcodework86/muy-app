@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\District;
+use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\MarketLinkagePartner;
 use App\Models\MarketLinkageSubmission;
@@ -69,6 +70,36 @@ class MarketLinkageCoverageTest extends TestCase
             ->assertDontSee('APP-SEC-B');
     }
 
+    public function test_fiscal_year_filter_limits_phase3_rows(): void
+    {
+        $district = $this->createDistrict();
+        $fy2627 = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            ['name' => 'FY 2026-27', 'starts_on' => '2026-04-01', 'ends_on' => '2027-03-31', 'is_active' => true],
+        );
+        $fy2526 = FiscalYear::query()->firstOrCreate(
+            ['code' => '2025-26'],
+            ['name' => 'FY 2025-26', 'starts_on' => '2025-04-01', 'ends_on' => '2026-03-31', 'is_active' => false],
+        );
+
+        $this->seedOnboardedApplicant($district, 'APP-FY-2627', 'Current FY', fiscalYearId: (int) $fy2627->id);
+        $this->seedOnboardedApplicant($district, 'APP-FY-2526', 'Previous FY', fiscalYearId: (int) $fy2526->id);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.market-linkages.coverage.index', ['fiscal_year' => '2026-27']))
+            ->assertOk()
+            ->assertSee('APP-FY-2627')
+            ->assertDontSee('APP-FY-2526');
+
+        $this->actingAs($admin)
+            ->get(route('admin.market-linkages.coverage.index', ['fiscal_year' => '2025-26']))
+            ->assertOk()
+            ->assertSee('APP-FY-2526')
+            ->assertDontSee('APP-FY-2627');
+    }
+
     public function test_district_staff_is_scoped_to_own_district(): void
     {
         $hub = Hub::query()->create(['slug' => 'cov-hub', 'name' => 'Cov Hub', 'sort_order' => 1]);
@@ -103,10 +134,18 @@ class MarketLinkageCoverageTest extends TestCase
     }
 
     /** @param  array<string, mixed>  $payloadExtra */
-    private function seedOnboardedApplicant(District $district, string $applicationNo, string $name, array $payloadExtra = []): int
+    private function seedOnboardedApplicant(District $district, string $applicationNo, string $name, array $payloadExtra = [], ?int $fiscalYearId = null): int
     {
+        if ($fiscalYearId === null) {
+            $fiscalYearId = (int) (FiscalYear::phase3Default()?->id ?? FiscalYear::query()->firstOrCreate(
+                ['code' => '2026-27'],
+                ['name' => 'FY 2026-27', 'starts_on' => '2026-04-01', 'ends_on' => '2027-03-31', 'is_active' => true],
+            )->id);
+        }
+
         $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
             'district_id' => $district->id,
+            'fiscal_year_id' => $fiscalYearId,
             'application_no' => $applicationNo,
             'applicant_name' => $name,
             'phone' => '9876543210',

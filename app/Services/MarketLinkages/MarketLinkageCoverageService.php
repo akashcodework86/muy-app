@@ -3,8 +3,10 @@
 namespace App\Services\MarketLinkages;
 
 use App\Models\District;
+use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\User;
+use App\Services\LegacyApplicationServiceCaseSupport;
 use App\Support\MarketLinkageUnifiedListingSupport;
 use App\Support\PotentialLakhpatiOnboardingSql;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -13,6 +15,9 @@ use Illuminate\Support\Facades\DB;
 
 final class MarketLinkageCoverageService
 {
+    public function __construct(
+        private readonly LegacyApplicationServiceCaseSupport $legacyApplications,
+    ) {}
     /**
      * @return array{
      *     rows: LengthAwarePaginator<int, array<string, mixed>>,
@@ -23,7 +28,9 @@ final class MarketLinkageCoverageService
      *     sectors: list<string>,
      *     blocks: list<string>,
      *     scopeLabel: string,
-     *     activeCoverage: string
+     *     activeCoverage: string,
+     *     fiscalYears: Collection<int, FiscalYear>,
+     *     activeFiscalYear: string
      * }
      */
     public function paginatedForUser(User $user, array $filters, int $perPage = 50): array
@@ -70,8 +77,10 @@ final class MarketLinkageCoverageService
             'districts' => $this->districtOptions($scope, (int) ($filters['hub_id'] ?? 0)),
             'sectors' => $this->sectorOptions($scope, $filters),
             'blocks' => $this->blockOptions($scope, $filters),
-            'scopeLabel' => $this->scopeLabel($user, $scope),
+            'scopeLabel' => $this->scopeLabel($user, $scope, (string) ($filters['fiscal_year'] ?? 'all')),
             'activeCoverage' => $activeCoverage,
+            'fiscalYears' => FiscalYear::forUiDropdown(),
+            'activeFiscalYear' => (string) ($filters['fiscal_year'] ?? 'all'),
         ];
     }
 
@@ -80,9 +89,26 @@ final class MarketLinkageCoverageService
      */
     public function exportRowsForUser(User $user, array $filters): array
     {
-        $pack = $this->paginatedForUser($user, $filters, perPage: 100000);
+        $scope = $this->resolveScope($user);
+        $filters = $this->normalizeFilters($filters, $scope);
+        $districtIds = $this->effectiveDistrictIds($scope, $filters);
 
-        return $pack['rows']->items();
+        $modeMap = MarketLinkageUnifiedListingSupport::approvedLinkedIncubateeModeMap($districtIds);
+        $approvedKeys = array_fill_keys(array_keys($modeMap), true);
+        $pendingKeys = MarketLinkageUnifiedListingSupport::pendingMarketLinkageIncubateeKeySet($districtIds, $approvedKeys);
+
+        $allRows = $this->fetchOnboardedRows($scope, $filters, $approvedKeys, $pendingKeys, $modeMap);
+        $activeCoverage = (string) ($filters['coverage'] ?? 'all');
+
+        return array_values(array_filter(
+            $allRows,
+            static fn (array $row): bool => match ($activeCoverage) {
+                'linked' => $row['coverage_status'] === 'linked',
+                'not_linked' => $row['coverage_status'] === 'not_linked',
+                'pending' => $row['coverage_status'] === 'pending',
+                default => true,
+            },
+        ));
     }
 
     /**
@@ -134,6 +160,11 @@ final class MarketLinkageCoverageService
             }
         }
 
+        $fiscalYear = trim((string) ($filters['fiscal_year'] ?? 'all'));
+        if (! in_array($fiscalYear, ['all', ...FiscalYear::UI_SELECTABLE_CODES], true)) {
+            $fiscalYear = 'all';
+        }
+
         return [
             'hub_id' => $hubId > 0 ? $hubId : null,
             'district_id' => $districtId > 0 ? $districtId : null,
@@ -141,6 +172,7 @@ final class MarketLinkageCoverageService
             'block' => trim((string) ($filters['block'] ?? '')),
             'q' => trim((string) ($filters['q'] ?? '')),
             'coverage' => $coverage,
+            'fiscal_year' => $fiscalYear,
         ];
     }
 
@@ -195,6 +227,32 @@ final class MarketLinkageCoverageService
      */
     private function fetchOnboardedRows(array $scope, array $filters, array $approvedKeys, array $pendingKeys, array $modeMap): array
     {
+        $fiscalYear = (string) ($filters['fiscal_year'] ?? 'all');
+        $rows = [];
+
+        if ($this->includesPhase3Onboarded($fiscalYear)) {
+            $rows = array_merge($rows, $this->fetchPhase3OnboardedRows($scope, $filters, $approvedKeys, $pendingKeys, $modeMap));
+        }
+
+        if ($this->includesLegacyPhase2Onboarded($fiscalYear)) {
+            $rows = array_merge($rows, $this->fetchLegacyPhase2OnboardedRows($scope, $filters, $approvedKeys, $pendingKeys, $modeMap));
+        }
+
+        usort($rows, static fn (array $a, array $b): int => strcasecmp((string) $a['applicant_name'], (string) $b['applicant_name']));
+
+        return $rows;
+    }
+
+    /**
+     * @param  array{hub_id: int|null, district_ids: list<int>|null}  $scope
+     * @param  array<string, mixed>  $filters
+     * @param  array<string, true>  $approvedKeys
+     * @param  array<string, true>  $pendingKeys
+     * @param  array<string, list<string>>  $modeMap
+     * @return list<array<string, mixed>>
+     */
+    private function fetchPhase3OnboardedRows(array $scope, array $filters, array $approvedKeys, array $pendingKeys, array $modeMap): array
+    {
         $query = $this->onboardedBaseQuery($scope);
         $this->applyFilters($query, $filters, $scope);
 
@@ -203,7 +261,10 @@ final class MarketLinkageCoverageService
         $sectorLegacy = PotentialLakhpatiOnboardingSql::payloadJson('$.sector');
         $blockJson = PotentialLakhpatiOnboardingSql::payloadJson('$.block');
 
+        $defaultFyCode = FiscalYear::phase3Default()?->code ?? '2026-27';
+
         $rows = $query
+            ->leftJoin('fiscal_years as fy', 'fy.id', '=', 'cs.fiscal_year_id')
             ->orderBy('cs.applicant_name')
             ->selectRaw("
                 cs.id as cfa_submission_id,
@@ -214,9 +275,10 @@ final class MarketLinkageCoverageService
                 d.name as district_name,
                 h.name as hub_name,
                 ob.name as batch_name,
+                COALESCE(fy.code, ?) as fy_code,
                 COALESCE({$sectorPrimary}, {$sectorAlt}, {$sectorLegacy}, '') as sector,
                 COALESCE({$blockJson}, '') as block_name
-            ")
+            ", [$defaultFyCode])
             ->get();
 
         $result = [];
@@ -237,6 +299,7 @@ final class MarketLinkageCoverageService
                 'district_name' => (string) ($row->district_name ?? '—'),
                 'hub_name' => (string) ($row->hub_name ?? '—'),
                 'batch_name' => (string) ($row->batch_name ?? '—'),
+                'fy_code' => (string) ($row->fy_code ?? $defaultFyCode),
                 'sector' => trim((string) ($row->sector ?? '')) ?: 'Not recorded',
                 'block_name' => trim((string) ($row->block_name ?? '')) ?: '—',
                 'coverage_status' => $coverageStatus,
@@ -247,6 +310,77 @@ final class MarketLinkageCoverageService
                 },
                 'linkage_mode' => $modes !== [] ? implode(', ', $modes) : '—',
             ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array{hub_id: int|null, district_ids: list<int>|null}  $scope
+     * @param  array<string, mixed>  $filters
+     * @param  array<string, true>  $approvedKeys
+     * @param  array<string, true>  $pendingKeys
+     * @param  array<string, list<string>>  $modeMap
+     * @return list<array<string, mixed>>
+     */
+    private function fetchLegacyPhase2OnboardedRows(array $scope, array $filters, array $approvedKeys, array $pendingKeys, array $modeMap): array
+    {
+        $result = [];
+        $sectorFilter = mb_strtolower(trim((string) ($filters['sector'] ?? '')));
+        $blockFilter = mb_strtolower(trim((string) ($filters['block'] ?? '')));
+        $search = trim((string) ($filters['q'] ?? ''));
+
+        foreach ($this->legacyDistrictIds($scope, $filters) as $districtId) {
+            $district = District::query()->with('hub')->find($districtId);
+            if ($district === null) {
+                continue;
+            }
+
+            $legacyRows = $this->legacyApplications->onboardedIncubateesForLaravelDistrict($districtId, $search);
+            foreach ($legacyRows as $legacyRow) {
+                $blockName = trim((string) ($legacyRow['block_name'] ?? ''));
+                $sector = 'Not recorded';
+
+                if ($sectorFilter !== '' && mb_strtolower($sector) !== $sectorFilter) {
+                    continue;
+                }
+
+                if ($blockFilter !== '' && mb_strtolower($blockName) !== $blockFilter) {
+                    continue;
+                }
+
+                $legacyApplicationId = (int) ($legacyRow['legacy_application_id'] ?? 0);
+                if ($legacyApplicationId < 1) {
+                    continue;
+                }
+
+                $key = 'l:'.$legacyApplicationId;
+                $coverageStatus = isset($approvedKeys[$key])
+                    ? 'linked'
+                    : (isset($pendingKeys[$key]) ? 'pending' : 'not_linked');
+                $modes = $modeMap[$key] ?? [];
+
+                $result[] = [
+                    'cfa_submission_id' => 0,
+                    'application_no' => (string) ($legacyRow['application_no'] ?? ''),
+                    'applicant_name' => (string) ($legacyRow['name'] ?? ''),
+                    'phone' => (string) ($legacyRow['phone'] ?? ''),
+                    'district_id' => $districtId,
+                    'district_name' => (string) $district->name,
+                    'hub_name' => (string) ($district->hub?->name ?? '—'),
+                    'batch_name' => trim((string) ($legacyRow['onboarding_batch_name'] ?? '')) ?: 'Phase 2 onboarded',
+                    'fy_code' => '2025-26',
+                    'sector' => $sector,
+                    'block_name' => $blockName !== '' ? $blockName : '—',
+                    'coverage_status' => $coverageStatus,
+                    'coverage_label' => match ($coverageStatus) {
+                        'linked' => 'Linked (6.3)',
+                        'pending' => 'Pending approval',
+                        default => 'Not linked',
+                    },
+                    'linkage_mode' => $modes !== [] ? implode(', ', $modes) : '—',
+                ];
+            }
         }
 
         return $result;
@@ -346,7 +480,74 @@ final class MarketLinkageCoverageService
             });
         }
 
+        $this->applyPhase3FiscalYearFilter($query, $filters);
+
         unset($scope);
+    }
+
+    private function includesPhase3Onboarded(string $fiscalYear): bool
+    {
+        return in_array($fiscalYear, ['all', '2026-27', '2025-26'], true);
+    }
+
+    private function includesLegacyPhase2Onboarded(string $fiscalYear): bool
+    {
+        return in_array($fiscalYear, ['all', '2025-26'], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyPhase3FiscalYearFilter($query, array $filters): void
+    {
+        $fiscalYear = (string) ($filters['fiscal_year'] ?? 'all');
+        if ($fiscalYear === 'all') {
+            return;
+        }
+
+        $fyId = FiscalYear::query()->where('code', $fiscalYear)->value('id');
+        if ($fyId === null) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $fyId = (int) $fyId;
+
+        if ($fiscalYear === '2026-27') {
+            $query->where(function ($inner) use ($fyId): void {
+                $inner->where('cs.fiscal_year_id', $fyId)
+                    ->orWhereNull('cs.fiscal_year_id');
+            });
+
+            return;
+        }
+
+        $query->where('cs.fiscal_year_id', $fyId);
+    }
+
+    /**
+     * @param  array{hub_id: int|null, district_ids: list<int>|null}  $scope
+     * @param  array<string, mixed>  $filters
+     * @return list<int>
+     */
+    private function legacyDistrictIds(array $scope, array $filters): array
+    {
+        $effective = $this->effectiveDistrictIds($scope, $filters);
+        if ($effective === []) {
+            return [];
+        }
+
+        if ($effective !== null) {
+            return $effective;
+        }
+
+        $query = District::query()->orderBy('name');
+        if (! empty($filters['hub_id'])) {
+            $query->where('hub_id', (int) $filters['hub_id']);
+        }
+
+        return $query->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 
     /**
@@ -391,21 +592,27 @@ final class MarketLinkageCoverageService
      */
     private function sectorOptions(array $scope, array $filters): array
     {
-        $query = $this->onboardedBaseQuery($scope);
-        $this->applyFilters($query, array_merge($filters, ['sector' => '', 'block' => '']), $scope);
+        $sectors = [];
 
-        $sectorPrimary = PotentialLakhpatiOnboardingSql::payloadJson('$.business_category');
-        $sectorAlt = PotentialLakhpatiOnboardingSql::payloadJson('$.app_business_category');
-        $sectorLegacy = PotentialLakhpatiOnboardingSql::payloadJson('$.sector');
+        if ($this->includesPhase3Onboarded((string) ($filters['fiscal_year'] ?? 'all'))) {
+            $query = $this->onboardedBaseQuery($scope);
+            $this->applyFilters($query, array_merge($filters, ['sector' => '', 'block' => '']), $scope);
 
-        return $query
-            ->selectRaw("DISTINCT TRIM(COALESCE({$sectorPrimary}, {$sectorAlt}, {$sectorLegacy}, '')) as sector")
-            ->orderBy('sector')
-            ->pluck('sector')
-            ->map(fn ($value) => trim((string) $value))
-            ->filter(fn (string $value) => $value !== '')
-            ->values()
-            ->all();
+            $sectorPrimary = PotentialLakhpatiOnboardingSql::payloadJson('$.business_category');
+            $sectorAlt = PotentialLakhpatiOnboardingSql::payloadJson('$.app_business_category');
+            $sectorLegacy = PotentialLakhpatiOnboardingSql::payloadJson('$.sector');
+
+            $sectors = $query
+                ->selectRaw("DISTINCT TRIM(COALESCE({$sectorPrimary}, {$sectorAlt}, {$sectorLegacy}, '')) as sector")
+                ->orderBy('sector')
+                ->pluck('sector')
+                ->map(fn ($value) => trim((string) $value))
+                ->filter(fn (string $value) => $value !== '')
+                ->values()
+                ->all();
+        }
+
+        return collect($sectors)->sort()->values()->all();
     }
 
     /**
@@ -415,36 +622,61 @@ final class MarketLinkageCoverageService
      */
     private function blockOptions(array $scope, array $filters): array
     {
-        $query = $this->onboardedBaseQuery($scope);
-        $this->applyFilters($query, array_merge($filters, ['block' => '']), $scope);
+        $blocks = [];
 
-        $blockJson = PotentialLakhpatiOnboardingSql::payloadJson('$.block');
+        if ($this->includesPhase3Onboarded((string) ($filters['fiscal_year'] ?? 'all'))) {
+            $query = $this->onboardedBaseQuery($scope);
+            $this->applyFilters($query, array_merge($filters, ['block' => '']), $scope);
 
-        return $query
-            ->selectRaw("DISTINCT TRIM(COALESCE({$blockJson}, '')) as block_name")
-            ->orderBy('block_name')
-            ->pluck('block_name')
-            ->map(fn ($value) => trim((string) $value))
-            ->filter(fn (string $value) => $value !== '')
-            ->values()
-            ->all();
+            $blockJson = PotentialLakhpatiOnboardingSql::payloadJson('$.block');
+
+            $blocks = $query
+                ->selectRaw("DISTINCT TRIM(COALESCE({$blockJson}, '')) as block_name")
+                ->orderBy('block_name')
+                ->pluck('block_name')
+                ->map(fn ($value) => trim((string) $value))
+                ->filter(fn (string $value) => $value !== '')
+                ->values()
+                ->all();
+        }
+
+        if ($this->includesLegacyPhase2Onboarded((string) ($filters['fiscal_year'] ?? 'all'))) {
+            foreach ($this->legacyDistrictIds($scope, array_merge($filters, ['block' => ''])) as $districtId) {
+                foreach ($this->legacyApplications->onboardedIncubateesForLaravelDistrict($districtId) as $legacyRow) {
+                    $block = trim((string) ($legacyRow['block_name'] ?? ''));
+                    if ($block !== '') {
+                        $blocks[] = $block;
+                    }
+                }
+            }
+        }
+
+        return collect($blocks)->unique()->sort()->values()->all();
     }
 
     /**
      * @param  array{hub_id: int|null, district_ids: list<int>|null}  $scope
      */
-    private function scopeLabel(User $user, array $scope): string
+    private function scopeLabel(User $user, array $scope, string $fiscalYear): string
     {
         $user->loadMissing(['hub', 'district']);
 
+        $fySuffix = match ($fiscalYear) {
+            '2025-26' => ' · FY 2025-26 (Phase 2 legacy + Phase 3)',
+            '2026-27' => ' · FY 2026-27 (Phase 3 batches)',
+            default => ' · all FYs (Phase 3 batches + Phase 2 legacy 2025-26)',
+        };
+
         if ($user->role === 'hub_admin') {
-            return trim((string) ($user->hub?->name ?? 'Hub')).' · onboarded incubatees';
+            return trim((string) ($user->hub?->name ?? 'Hub')).' · onboarded incubatees'.$fySuffix;
         }
 
         if ($user->role === 'district_staff') {
-            return trim((string) ($user->district?->name ?? 'District')).' · onboarded incubatees';
+            return trim((string) ($user->district?->name ?? 'District')).' · onboarded incubatees'.$fySuffix;
         }
 
-        return 'Statewide · locked onboarding batches';
+        unset($scope);
+
+        return 'Statewide · onboarded incubatees'.$fySuffix;
     }
 }
