@@ -1994,7 +1994,9 @@
                 <div class="cg-card__head">
                     <div>
                         <h2 class="cg-card__title">
-                            <i class="fa-solid fa-box-open" aria-hidden="true"></i> Top Products — Onboarded Incubatees
+                            <a href="{{ route('admin.product-analytics.index') }}" style="color:inherit;text-decoration:none;">
+                                <i class="fa-solid fa-box-open" aria-hidden="true"></i> Top Products — Onboarded Incubatees
+                            </a>
                         </h2>
                         <p class="cg-card__hint">Locked onboarding batches · {{ $fyLabel }}</p>
                     </div>
@@ -2017,7 +2019,7 @@
                             <div class="cg-biz-row" style="break-inside: avoid;">
                                 <span class="cg-biz-rank">#{{ $idx + 1 }}</span>
                                 <div style="min-width:0;">
-                                    <div class="cg-biz-label" title="{{ $item['product'] }}">{{ $item['product'] }}</div>
+                                    <a class="cg-biz-label" href="{{ route('admin.product-analytics.index', ['product' => $item['key'] ?? '']) }}" title="Open {{ $item['product'] }} analytics" style="display:block;text-decoration:none;">{{ $item['product'] }}</a>
                                     <div class="cg-biz-track"><div class="cg-biz-fill" style="width:{{ min(100, $productPct) }}%;background:{{ $productColour }};"></div></div>
                                 </div>
                                 <span class="cg-biz-nums">{{ number_format($productPct, 1) }}% · {{ number_format((int) ($item['count'] ?? 0)) }}</span>
@@ -2039,6 +2041,9 @@
                             </div>
                         </details>
                     @endif
+                    <div style="margin-top:0.75rem;text-align:right;">
+                        <a href="{{ route('admin.product-analytics.index') }}" class="cg-card__tag" style="text-decoration:none;">Open Product Analytics →</a>
+                    </div>
                 @endif
             </div>
         </section>

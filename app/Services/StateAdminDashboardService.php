@@ -1623,7 +1623,7 @@ class StateAdminDashboardService
     /**
      * Product breakup for the exact locked-batch scope used by Total Onboarding.
      *
-     * @return array{total: int, specified: int, missing: int, distinct: int, items: list<array{product: string, count: int, pct: float}>}
+     * @return array{total: int, specified: int, missing: int, distinct: int, items: list<array{key: string, product: string, count: int, pct: float}>}
      */
     private function onboardedProductMix(Carbon $phase3FloorDate): array
     {
@@ -1691,6 +1691,7 @@ class StateAdminDashboardService
         $items = [];
         foreach ($counts as $key => $count) {
             $items[] = [
+                'key' => (string) $key,
                 'product' => (string) ($labels[$key] ?? 'Not specified'),
                 'count' => (int) $count,
                 'pct' => $total > 0 ? round(((int) $count / $total) * 100, 1) : 0.0,

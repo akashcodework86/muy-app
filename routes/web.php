@@ -33,6 +33,7 @@ use App\Http\Controllers\Admin\Phase3331ShgMembersPackExportController;
 use App\Http\Controllers\Admin\Phase3ServiceCasesController;
 use App\Http\Controllers\Admin\Phase3ShgCboReapPackExportController;
 use App\Http\Controllers\Admin\ProgrammeStructureWipeController;
+use App\Http\Controllers\Admin\ProductAnalyticsController;
 use App\Http\Controllers\Admin\ReapIncubateeTargetsController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceModuleSettingsController;
@@ -1082,6 +1083,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('product-analytics', [ProductAnalyticsController::class, 'index'])->name('product-analytics.index');
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
         Route::get('case-study-shortlists/{caseStudyShortlist}/profile', [CaseStudyShortlistController::class, 'show'])->name('case-study-shortlists.show');
         Route::get('case-study-shortlists/{caseStudyShortlist}/documents/{documentSource}/{documentId}', [CaseStudyShortlistController::class, 'downloadServiceDocument'])->whereNumber('documentId')->name('case-study-shortlists.documents.download');
