@@ -64,6 +64,8 @@ class CfaSearchTest extends TestCase
             ->assertSee('Anita Rawat')
             ->assertSee('MUY-SEARCH-11')
             ->assertSee('Current MIS')
+            ->assertSee('Onboard status')
+            ->assertSee('No')
             ->assertDontSee('Other Person');
 
         $this->actingAs($staff)
@@ -77,6 +79,48 @@ class CfaSearchTest extends TestCase
             ->assertOk()
             ->assertSee('Anita Rawat')
             ->assertDontSee('Other Person');
+    }
+
+    public function test_search_shows_yes_when_cfa_is_in_onboarding_batch(): void
+    {
+        $staff = User::factory()->create(['role' => 'district_staff', 'is_active' => true]);
+        $district = $this->createDistrict();
+        $fy = $this->createFiscalYear();
+
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'fiscal_year_id' => $fy->id,
+            'application_no' => 'MUY-ONB-99',
+            'applicant_name' => 'Onboarded Search User',
+            'phone' => '9888777666',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $batchId = (int) DB::table('onboarding_batches')->insertGetId([
+            'hub_id' => $district->hub_id,
+            'district_id' => $district->id,
+            'name' => $district->name.'-batch',
+            'target_size' => 1,
+            'status' => 'locked',
+            'locked_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('onboarding_batch_cfa')->insert([
+            'onboarding_batch_id' => $batchId,
+            'cfa_submission_id' => $cfaId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('cfa.search', ['q' => 'Onboarded Search']))
+            ->assertOk()
+            ->assertSee('Onboarded Search User')
+            ->assertSee('>Yes<', false);
     }
 
     public function test_state_admin_can_open_current_cfa_details_from_search(): void

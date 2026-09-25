@@ -5,6 +5,7 @@ namespace App\Services\Cfa;
 use App\Models\CfaSubmission;
 use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
 use App\Services\LegacyPhase1\LegacyPhase1ListQuery;
+use App\Services\LegacyPhase2\LegacyPhase2DistrictResolver;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -24,7 +25,8 @@ class CfaUniversalSearchService
      *   applicant_name: string,
      *   phone: string,
      *   district: string,
-     *   url: string
+     *   url: string,
+     *   onboard: string
      * }>
      */
     public function search(string $raw): array
@@ -60,7 +62,7 @@ class CfaUniversalSearchService
         $like = $this->likeTerm($query);
 
         $rows = CfaSubmission::query()
-            ->with('district:id,name')
+            ->with(['district:id,name', 'onboardingBatchMembership:id,cfa_submission_id'])
             ->where(function ($q) use ($like, $query): void {
                 $q->where('applicant_name', 'like', $like)
                     ->orWhere('phone', 'like', $like)
@@ -82,6 +84,7 @@ class CfaUniversalSearchService
             'phone' => trim((string) ($row->phone ?? '')),
             'district' => trim((string) ($row->district?->name ?? '')),
             'url' => route('cfa.search.current', $row),
+            'onboard' => $row->onboardingBatchMembership !== null ? 'yes' : 'no',
         ])->all();
     }
 
@@ -128,6 +131,7 @@ class CfaUniversalSearchService
                 'phone' => trim((string) ($enriched->mobile_number ?? '')),
                 'district' => trim((string) ($enriched->district_name ?? '')),
                 'url' => route('cfa.search.phase1', $id),
+                'onboard' => ($enriched->onboard_status ?? '') === 'onboarded' ? 'yes' : 'no',
             ];
         })->filter(fn (array $row): bool => $row['id'] > 0)->values()->all();
     }
@@ -152,12 +156,19 @@ class CfaUniversalSearchService
                     GROUP BY application_id
                 ) as d_pick'), 'd_pick.max_id', '=', 'd.id')
                 ->join('rbi_applications as a', 'a.id', '=', 'd.application_id')
+                ->leftJoin(DB::raw('(
+                    SELECT application_id, MAX(id) AS max_id
+                    FROM rbi_onboarded_applicants
+                    GROUP BY application_id
+                ) as oa_pick'), 'oa_pick.application_id', '=', 'a.id')
+                ->leftJoin('rbi_onboarded_applicants as oa', 'oa.id', '=', 'oa_pick.max_id')
                 ->select([
                     'a.id as legacy_id',
                     'a.application_no',
                     'd.applicant_name',
                     'd.phone',
                     'd.district',
+                    'oa.status as onboard_status_db',
                 ])
                 ->where(function (Builder $q) use ($like, $query): void {
                     $q->where('d.applicant_name', 'like', $like)
@@ -189,6 +200,9 @@ class CfaUniversalSearchService
                 'phone' => trim((string) ($row->phone ?? '')),
                 'district' => trim((string) ($row->district ?? '')),
                 'url' => route('cfa.search.phase2', $id),
+                'onboard' => LegacyPhase2DistrictResolver::isOnboardedFromStatus(
+                    is_string($row->onboard_status_db ?? null) ? (string) $row->onboard_status_db : null
+                ) ? 'yes' : 'no',
             ];
         })->filter(fn (array $row): bool => $row['id'] > 0)->values()->all();
     }

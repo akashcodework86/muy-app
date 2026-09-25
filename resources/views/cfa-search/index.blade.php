@@ -99,6 +99,7 @@
                         <th>Application no.</th>
                         <th>Mobile</th>
                         <th>District</th>
+                        <th>Onboard status</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -113,12 +114,19 @@
                             <td>{{ $row['phone'] !== '' ? $row['phone'] : '—' }}</td>
                             <td>{{ $row['district'] !== '' ? $row['district'] : '—' }}</td>
                             <td>
+                                @if (($row['onboard'] ?? 'no') === 'yes')
+                                    <span class="p1l-pill p1l-pill--onboard-yes">Yes</span>
+                                @else
+                                    <span class="p1l-pill p1l-pill--onboard-no">No</span>
+                                @endif
+                            </td>
+                            <td>
                                 <a class="cfa-search-open" href="{{ $row['url'] }}?q={{ urlencode($q) }}">View details</a>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="p1l-empty">No CFA matched “{{ $q }}” in current MIS, FY 2024-25, or FY 2025-26.</td>
+                            <td colspan="7" class="p1l-empty">No CFA matched “{{ $q }}” in current MIS, FY 2024-25, or FY 2025-26.</td>
                         </tr>
                     @endforelse
                 </tbody>
