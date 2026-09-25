@@ -396,7 +396,7 @@ class StateAdminDashboardService
 
         $fieldHighlights = $this->approvedFieldActivityHighlights($activeFy, $phase3FloorDate);
 
-        $stateFyPaceChart = $this->stateFyPaceChart(
+        $stateFyPaceChart = app(\App\Support\FyPaceChartBuilder::class)->build(
             $activeFy,
             $phase3FloorDate,
             $activeFyId,

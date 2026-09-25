@@ -511,6 +511,38 @@
             margin-top: 0.2rem;
             font-weight: 600;
         }
+        .sad-pulse-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin: 0.45rem 0 0.35rem;
+        }
+        .sad-pulse-tab {
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 0.62rem;
+            font-weight: 700;
+            padding: 0.28rem 0.5rem;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+        .sad-pulse-tab:hover { background: #eef2f7; }
+        .sad-pulse-tab.is-active {
+            background: var(--sad-teal, #26a69a);
+            border-color: var(--sad-teal, #26a69a);
+            color: #fff;
+        }
+        .admin-app-body--state-theme-legacy .sad-pulse-tab.is-active {
+            background: #d04a02;
+            border-color: #d04a02;
+        }
+        .sad-pulse-hint {
+            margin: 0 0 0.35rem;
+            font-size: 0.62rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
         .sad-chart-box { height: 168px; position: relative; }
         .sad-chart-box--tall { height: min(420px, 55vh); }
         .sad-stage-row {
@@ -1657,7 +1689,7 @@
                             </svg>
                             <div>
                                 <div class="sad-ring-meta__big">{{ number_format($cfaFyN) }}</div>
-                                <div class="sad-ring-meta__lbl">CFA this FY ? {{ $fyLabel }}</div>
+                                <div class="sad-ring-meta__lbl">CFA this FY · {{ $fyLabel }}</div>
                                 @if ($sparkLine)
                                     <div class="sad-spark" title="30-day CFA volume: {{ number_format($sparkSum) }} total">
                                         <svg viewBox="0 0 {{ $sparkW }} {{ $sparkH }}" preserveAspectRatio="none">
@@ -1674,9 +1706,28 @@
                                 @endif
                             </div>
                         </div>
-                        <div class="sad-chart-box" style="margin-top:0.5rem;">
+                        <div class="sad-pulse-tabs" role="tablist" aria-label="Hub pulse chart views">
+                            <button type="button" class="sad-pulse-tab is-active" data-sad-pulse-tab="pace" aria-selected="true">Pace %</button>
+                            <button type="button" class="sad-pulse-tab" data-sad-pulse-tab="cfa" aria-selected="false">CFA</button>
+                            <button type="button" class="sad-pulse-tab" data-sad-pulse-tab="onboarding" aria-selected="false">Onboarding</button>
+                            <button type="button" class="sad-pulse-tab" data-sad-pulse-tab="daily" aria-selected="false">Daily 14d</button>
+                        </div>
+                        <p class="sad-pulse-hint" data-sad-pulse-hint>
+                            Hub cumulative achievement vs prorated FY target — 100% line means on pace.
+                            @php
+                                $paceCfaTarget = $stateFyPaceChart['cfa_target'] ?? null;
+                                $paceOnbTarget = $stateFyPaceChart['onboarding_target'] ?? null;
+                            @endphp
+                            @if ($paceCfaTarget)
+                                CFA target {{ number_format((int) $paceCfaTarget) }}@if ($paceOnbTarget) · Onboard target {{ number_format((int) $paceOnbTarget) }}@endif.
+                            @endif
+                        </p>
+                        <div class="sad-chart-box" style="margin-top:0.35rem;">
                             <canvas id="stateTrendCurveChart" aria-label="CFA per day in hub"></canvas>
                         </div>
+                        @if (($stateCfaTrend['labels'] ?? []) === [])
+                            <p class="sad-card__hint" style="margin-top:0.35rem;">No CFA intake in the last 14 days for this hub.</p>
+                        @endif
                         <p class="sad-card__hint" style="margin-top:0.45rem;margin-bottom:0.35rem;">Stage mix (saved forms)</p>
                         <div class="sad-stage-row">
                             <span>Seed</span>

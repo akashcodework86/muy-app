@@ -12,6 +12,7 @@ use App\Models\MentorshipRequest;
 use App\Models\ServiceCase;
 use App\Models\User;
 use App\Services\Cfa\CfaSubmissionListQuery;
+use App\Support\FyPaceChartBuilder;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -351,6 +352,17 @@ class HubAdminDashboardService
             $phase3FloorDate,
         );
 
+        $stateFyPaceChart = app(FyPaceChartBuilder::class)->build(
+            $activeFy,
+            $phase3FloorDate,
+            $activeFyId,
+            $hubCfaTargetSum !== null ? (int) $hubCfaTargetSum : null,
+            $hubOnboardingTarget > 0 ? (int) $hubOnboardingTarget : null,
+            ['labels' => $trendLabels, 'values' => $trendValues],
+            $insights['onboardingTrend'] ?? ['labels' => [], 'values' => []],
+            $districtIds,
+        );
+
         return [
             'hub' => $hub,
             'districtsInHub' => count($districtIds),
@@ -419,6 +431,7 @@ class HubAdminDashboardService
                 'labels' => $trendLabels,
                 'values' => $trendValues,
             ],
+            'stateFyPaceChart' => $stateFyPaceChart,
             'districtsCount' => count($districtIds),
             'deliverablesCount' => Deliverable::query()->where('is_active', true)->count(),
         ];

@@ -156,7 +156,9 @@ class HubAdminDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('District CFA vs target')
             ->assertSee('Full FY')
-            ->assertSee('data-sad-dt-tab="m1"', false);
+            ->assertSee('data-sad-dt-tab="m1"', false)
+            ->assertSee('data-sad-pulse-tab="daily"', false)
+            ->assertSee('Hub pulse');
     }
 
     private function createOutreachVisit(

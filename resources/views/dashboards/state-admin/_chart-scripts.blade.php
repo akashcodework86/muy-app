@@ -260,9 +260,9 @@
             options.plugins.legend = { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10 } };
         }
 
-        const chartLabels = mode === 'daily'
-            ? dailyLabels
-            : (paceChart.labels || []);
+        const chartLabels = (hasMonthly && mode !== 'daily')
+            ? (paceChart.labels || [])
+            : dailyLabels;
 
         if (!chartLabels.length) return;
 
@@ -274,7 +274,8 @@
     };
 
     if (stEl && ((paceChart.labels || []).length || trendLabels.length)) {
-        renderPulseChart('pace');
+        const pulseInitialMode = (paceChart.labels || []).length ? 'pace' : 'daily';
+        renderPulseChart(pulseInitialMode);
         document.querySelectorAll('[data-sad-pulse-tab]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 renderPulseChart(btn.getAttribute('data-sad-pulse-tab'));
