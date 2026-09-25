@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\LegacyDataController;
 use App\Http\Controllers\Admin\LegacyPhase1CfaApplicationController;
 use App\Http\Controllers\Admin\LegacyPhase2CfaApplicationController;
 use App\Http\Controllers\Admin\MediaGalleryController;
+use App\Http\Controllers\Admin\MisAssistantController;
 use App\Http\Controllers\Admin\MigrationRunController;
 use App\Http\Controllers\Admin\MonthlyProgressReportController;
 use App\Http\Controllers\Admin\ReviewPptGeneratorController;
@@ -1086,6 +1087,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('state_admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('mis-assistant', [MisAssistantController::class, 'index'])->name('mis-assistant.index');
+        Route::post('mis-assistant/ask', [MisAssistantController::class, 'ask'])
+            ->middleware('throttle:30,1')
+            ->name('mis-assistant.ask');
         Route::get('product-analytics', [ProductAnalyticsController::class, 'index'])->name('product-analytics.index');
         Route::get('case-study-shortlists', [CaseStudyShortlistController::class, 'index'])->name('case-study-shortlists.index');
         Route::get('case-study-shortlists/{caseStudyShortlist}/profile', [CaseStudyShortlistController::class, 'show'])->name('case-study-shortlists.show');

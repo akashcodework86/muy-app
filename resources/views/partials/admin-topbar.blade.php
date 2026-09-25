@@ -372,6 +372,7 @@
         str_starts_with($r, 'spoc.service-cases') => 'approval-queue',
         str_starts_with($r, 'spoc.market-linkages') => 'approval-queue',
         str_starts_with($r, 'spoc.field-mis-approvals.show') => 'approval-queue',
+        str_starts_with($r, 'admin.mis-assistant') => 'mis-assistant',
         str_starts_with($r, 'spoc.community-org-outreach.show') => 'approval-queue',
         str_starts_with($r, 'spoc.community-org-outreach.document') => 'approval-queue',
         str_starts_with($r, 'spoc.community-org-outreach.photo') => 'approval-queue',
@@ -388,7 +389,7 @@
     $showOnboardingPriorityNav = is_string($onboardingPriorityIndexUrl) && $onboardingPriorityIndexUrl !== '';
     $cfaGroupActive = in_array($activeNav, ['cfa-search', 'cfa', 'phase1-cfa', 'phase2-cfa', 'onboarded', 'onboarded-2025-26', 'phase3-services', 'onboarding-priority'], true);
     $serviceGroupActive = in_array($activeNav, ['service-catalog', 'phase3-services', 'incubatee-bills-dashboard', 'staff-training-packages-submit', 'staff-training-packages-dashboard', 'staff-technical-trainings-submit', 'staff-technical-trainings-dashboard', 'staff-lakhpati-technical-trainings-submit', 'staff-lakhpati-technical-trainings-dashboard', 'staff-eap-edp-sessions-submit', 'staff-eap-edp-sessions-dashboard', 'staff-district-workshop-sessions-submit', 'staff-district-workshop-sessions-dashboard', 'block-workshops-dashboard', 'social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'capacity-building-stakeholders-submit', 'capacity-building-stakeholders-dashboard', 'stakeholder-consultation-workshops-dashboard', 'line-department-meetings-dashboard', 'mentorship-requests-dashboard', 'service-requests-dashboard', 'incubatee-meetings-dashboard', 'pitch-deck-preparations-dashboard', 'market-linkage-dashboard', 'market-linkage-partners', 'community-org-outreach-dashboard', 'partner-outreach-submit', 'partner-outreach-dashboard', 'ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
-    $opsGroupActive = in_array($activeNav, ['case-study-shortlists', 'additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey', 'review-ppt'], true);
+    $opsGroupActive = in_array($activeNav, ['mis-assistant', 'case-study-shortlists', 'additional-state-admins', 'designations', 'hub-batch-compliance', 'admin-batches', 'service-module-settings', 'staff-phase3-attendance-nav', 'admin-documents', 'data-centre', 'legacy-data', 'media-gallery', 'homestay-survey', 'review-ppt'], true);
     $staffFieldWorkNavKeys = [
         'staff-attendance', 'staff-attendance-view',
         'staff-training-packages-submit', 'staff-training-packages-dashboard',
@@ -832,6 +833,9 @@
                 </summary>
                 <div class="admin-topbar__dropdown-panel" role="menu">
                     <p class="admin-topbar__dropdown-kicker" role="presentation">Analytics &amp; Reports</p>
+                    <a href="{{ route('admin.mis-assistant.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'mis-assistant') is-active @endif" role="menuitem">
+                        {!! $i('search') !!}<span>MIS Data Assistant</span>
+                    </a>
                     <a href="{{ route('admin.data-centre.index') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'data-centre') is-active @endif" role="menuitem">
                         {!! $i('bars') !!}<span>Program Data Centre</span>
                     </a>

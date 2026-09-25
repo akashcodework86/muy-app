@@ -37,6 +37,11 @@
         @endif
         @yield('content')
     </main>
+    @if(auth()->user()?->role === 'state_admin' && !request()->routeIs('admin.mis-assistant.*'))
+        <a href="{{ route('admin.mis-assistant.index') }}" aria-label="Open MIS Data Assistant" title="Ask MIS Data Assistant" style="position:fixed;right:22px;bottom:22px;z-index:80;display:inline-flex;align-items:center;gap:.5rem;padding:.72rem .95rem;border-radius:999px;background:linear-gradient(135deg,#4338ca,#0f766e);color:#fff;text-decoration:none;font-weight:800;font-size:.78rem;box-shadow:0 10px 28px rgba(30,41,59,.25)">
+            <span aria-hidden="true" style="font-size:1rem">✦</span> Ask MIS
+        </a>
+    @endif
     @include('partials.app-footer')
     @stack('scripts')
 </body>
