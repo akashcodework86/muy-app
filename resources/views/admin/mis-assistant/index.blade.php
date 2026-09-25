@@ -23,19 +23,19 @@
 <div class="mia-shell">
     <section class="mia-card" aria-label="MIS assistant chat">
         <header class="mia-hero">
-            <div><h2>Ask your programme data</h2><p>Hindi, English or Hinglish · live verified MIS counts</p></div>
+            <div><h2>Ask about programme data</h2><p>Ask in Hindi, English or Hinglish · answers are always in English</p></div>
             <span class="mia-live">● READ ONLY</span>
         </header>
         <div class="mia-chat" id="miaChat" aria-live="polite">
             <div class="mia-msg">
                 <div class="mia-avatar">AI</div>
-                <div class="mia-bubble">Namaste! CFA, onboarding, services, market linkage aur staff data ke baare mein poochhiye. District, FY, month aur “date-wise / district-wise” bhi likh sakte hain.</div>
+                <div class="mia-bubble">Hello! Ask me about CFA applications, onboarding, services, market linkages or staff data. You can include a district, financial year, month, or request a date-wise or district-wise breakdown.</div>
             </div>
         </div>
         <div class="mia-compose">
             <form class="mia-form" id="miaForm">
                 @csrf
-                <input class="mia-input" id="miaQuestion" name="question" maxlength="500" autocomplete="off" placeholder="Example: August 2026 mein district-wise CFA count batao" aria-label="Ask a data question">
+                <input class="mia-input" id="miaQuestion" name="question" maxlength="500" autocomplete="off" placeholder="Example: Show the district-wise CFA count for August 2026" aria-label="Ask a data question">
                 <button class="mia-send" id="miaSend" type="submit">Ask MIS</button>
             </form>
             <p class="mia-disclaimer">Answers are generated from read-only MIS queries. Always use the matching-records link for audit.</p>
@@ -45,11 +45,11 @@
         <section class="mia-card mia-side-card">
             <h3>Try a question</h3>
             <div class="mia-prompts">
-                <button class="mia-prompt" type="button">FY 2026-27 mein total onboarded kitne hain?</button>
-                <button class="mia-prompt" type="button">August 2026 ka district-wise CFA count batao</button>
-                <button class="mia-prompt" type="button">Pending approval services ka service-wise breakup</button>
-                <button class="mia-prompt" type="button">Online market linkages district-wise dikhao</button>
-                <button class="mia-prompt" type="button">Aaj kitne CFA forms receive hue?</button>
+                <button class="mia-prompt" type="button">How many incubatees were onboarded in FY 2026-27?</button>
+                <button class="mia-prompt" type="button">Show the district-wise CFA count for August 2026</button>
+                <button class="mia-prompt" type="button">Show the service-wise breakdown of pending approvals</button>
+                <button class="mia-prompt" type="button">Show online market linkages by district</button>
+                <button class="mia-prompt" type="button">How many CFA forms were received today?</button>
             </div>
         </section>
         <section class="mia-card mia-side-card">

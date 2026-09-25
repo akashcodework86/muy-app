@@ -404,11 +404,11 @@ class MisAssistantService
         return [
             'ok' => true,
             'intent' => $intent,
-            'answer' => number_format($total).' '.$metric.' मिले — '.$scope.'.',
+            'answer' => 'Found '.number_format($total).' '.$metric.' for '.$scope.'.',
             'metric' => $metric,
             'total' => $total,
             'rows' => $rows,
-            'group_label' => $group ? Str::of($group)->replace('_', ' ')->title()->toString().' wise breakup' : null,
+            'group_label' => $group ? 'Breakdown by '.Str::of($group)->replace('_', ' ')->title()->toString() : null,
             'filters' => $filters,
             'source_url' => $url,
             'source_label' => 'View matching MIS records',
@@ -442,10 +442,10 @@ class MisAssistantService
         return [
             'ok' => false,
             'intent' => 'unknown',
-            'answer' => 'Is question ka verified MIS source identify nahi hua. CFA, onboarding, services, market linkage ya staff ka metric aur required period/district mention karein.',
+            'answer' => 'I could not identify a verified MIS source for this question. Please mention a CFA, onboarding, service, market-linkage or staff metric, along with the required period or district.',
             'metric' => null, 'total' => null, 'rows' => [], 'group_label' => null,
             'filters' => $this->filterLabels($context), 'source_url' => null, 'source_label' => null,
-            'note' => 'Main value guess nahi karunga. Example: “21 August se till date district-wise CFA count”.',
+            'note' => 'I will not guess a value. Example: “Show the district-wise CFA count from 21 August to date.”',
         ];
     }
 }

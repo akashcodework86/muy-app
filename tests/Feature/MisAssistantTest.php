@@ -19,7 +19,7 @@ class MisAssistantTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.mis-assistant.index'))
             ->assertOk()
-            ->assertSee('Ask your programme data')
+            ->assertSee('Ask about programme data')
             ->assertSee('READ ONLY');
     }
 
@@ -39,7 +39,7 @@ class MisAssistantTest extends TestCase
             $mock->shouldReceive('answer')->once()->with('Aaj kitne forms aaye?')->andReturn([
                 'ok' => true,
                 'intent' => 'cfa',
-                'answer' => '11 CFA applications मिले.',
+                'answer' => 'Found 11 CFA applications.',
                 'metric' => 'CFA applications',
                 'total' => 11,
                 'rows' => [],
