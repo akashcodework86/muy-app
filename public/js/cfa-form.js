@@ -124,8 +124,11 @@
             }
 
             if (!res.ok || data.ok === false) {
-                phoneDuplicateTaken = false;
-                hideMobileDuplicateError();
+                phoneDuplicateTaken = true;
+                showMobileDuplicateError(
+                    data.message || 'The mobile number could not be verified right now. Please try again later.',
+                    null
+                );
                 checkSectionAComplete();
                 return;
             }
@@ -139,8 +142,11 @@
             }
         } catch (err) {
             phoneCheckLoading = false;
-            phoneDuplicateTaken = false;
-            hideMobileDuplicateError();
+            phoneDuplicateTaken = true;
+            showMobileDuplicateError(
+                'The mobile number could not be verified right now. Please check your connection and try again.',
+                null
+            );
         }
         checkSectionAComplete();
         updateCounter();

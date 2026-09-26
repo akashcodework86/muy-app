@@ -7,13 +7,14 @@ use App\Models\CfaSubmission;
 use App\Models\District;
 use App\Models\DistrictBlock;
 use App\Models\FiscalYear;
+use App\Services\ActivityLogger;
 use App\Services\CfaApplicationNumberGenerator;
 use App\Services\CfaBusinessStageService;
+use App\Services\CfaPhoneRegistryService;
 use App\Services\CfaSubmissionValidator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
@@ -24,7 +25,7 @@ class PublicCfaWalkInController extends Controller
         $districts = District::query()->orderBy('name')->get();
 
         return view('public.cfa.public', [
-            'districts'          => $districts,
+            'districts' => $districts,
             'productsByCategory' => config('cfa.products_by_category'),
         ]);
     }
@@ -54,7 +55,7 @@ class PublicCfaWalkInController extends Controller
     /**
      * Live phone-duplicate check (no token required for public form).
      */
-    public function checkPhone(Request $request): JsonResponse
+    public function checkPhone(Request $request, CfaPhoneRegistryService $phoneRegistry): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'phone' => ['required', 'regex:/^[6-9]\d{9}$/'],
@@ -62,105 +63,49 @@ class PublicCfaWalkInController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'ok'        => false,
+                'ok' => false,
                 'available' => null,
-                'errors'    => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        $phone = $validator->validated()['phone'];
+        $result = $phoneRegistry->inspect($validator->validated()['phone']);
 
-        $duplicate = null;
-
-        $newRow = CfaSubmission::query()
-            ->where('phone', $phone)
-            ->orderByDesc('id')
-            ->first();
-        if ($newRow) {
-            $fyName = $newRow->fiscal_year_id
-                ? FiscalYear::query()->whereKey($newRow->fiscal_year_id)->value('name')
-                : null;
-            $duplicate = [
-                'name' => $newRow->applicant_name ?: null,
-                'phase' => 'Current MUY',
-                'fy' => $fyName,
-                'source' => 'cfa_submissions',
-            ];
+        if ($result['unavailable_sources'] !== [] && $result['duplicate'] === null) {
+            return response()->json([
+                'ok' => false,
+                'available' => false,
+                'message' => 'The mobile number could not be verified right now. Please try again later.',
+            ], 503);
         }
-
-        $legacyRow = null;
-        if (config('database.connections.legacy.database', '') !== '') {
-            try {
-                $legacyRow = DB::connection('legacy')
-                    ->table('rbi_applicant_details')
-                    ->where('phone', $phone)
-                    ->select(['applicant_name'])
-                    ->orderByDesc('application_id')
-                    ->first();
-            } catch (\Exception $e) {
-                // Legacy DB unavailable — skip silently
-            }
-        }
-
-        if ($duplicate === null && $legacyRow) {
-            $duplicate = [
-                'name' => $legacyRow->applicant_name ?: null,
-                'phase' => 'Legacy Phase 2',
-                'fy' => '2025-26',
-                'source' => 'rbi_applicant_details',
-            ];
-        }
-
-        $phase1Row = null;
-        if (config('database.connections.legacy_phase1.database', '') !== '') {
-            try {
-                $phase1Row = DB::connection('legacy_phase1')
-                    ->table('tblapplication')
-                    ->where('MobileNumber', $phone)
-                    ->select(['FullName'])
-                    ->orderByDesc('ID')
-                    ->first();
-            } catch (\Exception $e) {
-                // Phase 1 DB unavailable — skip silently
-            }
-        }
-
-        if ($duplicate === null && $phase1Row) {
-            $duplicate = [
-                'name' => $phase1Row->FullName ?: null,
-                'phase' => 'Legacy Phase 1',
-                'fy' => '2024-25',
-                'source' => 'tblapplication',
-            ];
-        }
-
-        $exists = $duplicate !== null;
 
         return response()->json([
-            'ok'        => true,
-            'available' => ! $exists,
-            'message'   => $exists
+            'ok' => true,
+            'available' => $result['available'],
+            'message' => $result['duplicate'] !== null
                 ? 'This mobile number is already registered for an application. / यह मोबाइल नंबर पहले से पंजीकृत है।'
                 : null,
-            'duplicate' => $duplicate,
+            'duplicate' => $result['duplicate'],
         ]);
     }
 
     public function store(
         Request $request,
         CfaSubmissionValidator $cfaValidator,
+        CfaPhoneRegistryService $phoneRegistry,
         CfaBusinessStageService $stageService,
         CfaApplicationNumberGenerator $applicationNumbers,
-        \App\Services\ActivityLogger $activity,
+        ActivityLogger $activity,
     ): RedirectResponse {
         $this->normalizeEmptySelects($request);
 
         $validated = $cfaValidator->validatePublic($request);
+        $phoneRegistry->assertAvailableForNewCfa($validated['phone']);
 
         // Resolve district model from validated district name
         $district = District::query()->where('name', $validated['district'])->firstOrFail();
 
-        $turnover  = CfaBusinessStageService::parseTurnover($validated['turnover_last_fy']);
+        $turnover = CfaBusinessStageService::parseTurnover($validated['turnover_last_fy']);
         $stageInfo = $stageService->compute($validated['is_registered'], $turnover);
 
         $applicationNo = $applicationNumbers->generateForDistrict($district, $validated['block']);
@@ -172,18 +117,18 @@ class PublicCfaWalkInController extends Controller
 
         $applicantDisplay = match ($validated['category']) {
             'Individual' => $validated['applicant_name'],
-            default      => $validated['shg_cbo_name'] ?? '',
+            default => $validated['shg_cbo_name'] ?? '',
         };
 
         $payload = array_merge($validated, [
-            'form_stage'                => $stageInfo['stage'],
-            'criteria_matched'          => $stageInfo['criteria_matched'],
-            'stage_logic_lines'         => $stageInfo['logic_lines'],
+            'form_stage' => $stageInfo['stage'],
+            'criteria_matched' => $stageInfo['criteria_matched'],
+            'stage_logic_lines' => $stageInfo['logic_lines'],
             'registration_type_resolved' => $validated['is_registered'] === 'Yes' ? $regType : null,
-            'referral_staff_name'       => null,
-            'referral_staff_email'      => null,
-            'submitted_at'              => now()->toIso8601String(),
-            'source'                    => 'public_form',
+            'referral_staff_name' => null,
+            'referral_staff_email' => null,
+            'submitted_at' => now()->toIso8601String(),
+            'source' => 'public_form',
         ]);
         $payload['consent'] = true;
 
@@ -195,17 +140,17 @@ class PublicCfaWalkInController extends Controller
             ->first();
 
         $submission = CfaSubmission::query()->create([
-            'application_no'    => $applicationNo,
-            'fiscal_year_id'    => $fy?->id,
-            'district_id'       => $district->id,
-            'lgd_state_code'    => config('cfa.lgd_state_code'),
+            'application_no' => $applicationNo,
+            'fiscal_year_id' => $fy?->id,
+            'district_id' => $district->id,
+            'lgd_state_code' => config('cfa.lgd_state_code'),
             'lgd_district_code' => $district->lgd_district_code,
-            'lgd_block_code'    => $blockRow?->lgd_block_code,
-            'referral_user_id'  => null,
-            'source'            => 'public_form',
-            'applicant_name'    => $applicantDisplay,
-            'phone'             => $validated['phone'],
-            'payload'           => $payload,
+            'lgd_block_code' => $blockRow?->lgd_block_code,
+            'referral_user_id' => null,
+            'source' => 'public_form',
+            'applicant_name' => $applicantDisplay,
+            'phone' => $validated['phone'],
+            'payload' => $payload,
         ]);
 
         $activity->log(

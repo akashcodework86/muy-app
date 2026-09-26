@@ -14,13 +14,14 @@ use App\Models\User;
 use App\Services\AdminAuditLogger;
 use App\Services\Cfa\CfaSubmissionListQuery;
 use App\Services\CfaBusinessStageService;
+use App\Services\CfaPhoneRegistryService;
 use App\Services\CfaSubmissionAuditSnapshot;
 use App\Services\CfaSubmissionValidator;
 use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
 use App\Services\LegacyPhase1\LegacyPhase1ListQuery;
+use App\Services\LegacyPhase1ApplicationDetailService;
 use App\Services\LegacyPhase2\LegacyPhase2DistrictResolver;
 use App\Services\LegacyPhase2\LegacyPhase2ListQuery;
-use App\Services\LegacyPhase1ApplicationDetailService;
 use App\Services\LegacyPhase2ApplicationDetailService;
 use App\Services\StaffMonthlyTargetsDashboardService;
 use Illuminate\Database\Eloquent\Builder;
@@ -443,6 +444,7 @@ class StaffPortalController extends Controller
         Request $request,
         CfaSubmission $cfa_submission,
         CfaSubmissionValidator $cfaValidator,
+        CfaPhoneRegistryService $phoneRegistry,
         CfaBusinessStageService $stageService,
         AdminAuditLogger $auditLogger,
     ): RedirectResponse {
@@ -454,6 +456,7 @@ class StaffPortalController extends Controller
         $beforeSnapshot = CfaSubmissionAuditSnapshot::compact($cfa_submission);
 
         $validated = $cfaValidator->validate($request, $staff, $cfa_submission);
+        $phoneRegistry->assertAvailable($validated['phone'], (int) $cfa_submission->id);
 
         $turnover = CfaBusinessStageService::parseTurnover($validated['turnover_last_fy']);
         $stageInfo = $stageService->compute($validated['is_registered'], $turnover);
@@ -508,8 +511,11 @@ class StaffPortalController extends Controller
             ->with('status', 'Application updated.');
     }
 
-    public function checkPhoneForEdit(Request $request, CfaSubmission $cfa_submission): JsonResponse
-    {
+    public function checkPhoneForEdit(
+        Request $request,
+        CfaSubmission $cfa_submission,
+        CfaPhoneRegistryService $phoneRegistry,
+    ): JsonResponse {
         $this->assertOwnReferral($request, $cfa_submission);
 
         $validator = Validator::make($request->all(), [
@@ -524,82 +530,23 @@ class StaffPortalController extends Controller
             ], 422);
         }
 
-        $phone = $validator->validated()['phone'];
-        $duplicate = null;
+        $result = $phoneRegistry->inspect($validator->validated()['phone'], (int) $cfa_submission->id);
 
-        $newRow = CfaSubmission::query()
-            ->where('phone', $phone)
-            ->where('id', '!=', $cfa_submission->id)
-            ->orderByDesc('id')
-            ->first();
-
-        if ($newRow) {
-            $fyName = $newRow->fiscal_year_id
-                ? FiscalYear::query()->whereKey($newRow->fiscal_year_id)->value('name')
-                : null;
-            $duplicate = [
-                'name' => $newRow->applicant_name ?: null,
-                'phase' => 'Current MUY',
-                'fy' => $fyName,
-                'source' => 'cfa_submissions',
-            ];
+        if ($result['unavailable_sources'] !== [] && $result['duplicate'] === null) {
+            return response()->json([
+                'ok' => false,
+                'available' => false,
+                'message' => 'The mobile number could not be verified right now. Please try again later.',
+            ], 503);
         }
-
-        $legacyRow = null;
-        if (config('database.connections.legacy.database', '') !== '') {
-            try {
-                $legacyRow = DB::connection('legacy')
-                    ->table('rbi_applicant_details')
-                    ->where('phone', $phone)
-                    ->select(['applicant_name'])
-                    ->orderByDesc('application_id')
-                    ->first();
-            } catch (\Exception $e) {
-                // Legacy DB unavailable — skip silently
-            }
-        }
-
-        if ($duplicate === null && $legacyRow) {
-            $duplicate = [
-                'name' => $legacyRow->applicant_name ?: null,
-                'phase' => 'Legacy Phase 2',
-                'fy' => '2025-26',
-                'source' => 'rbi_applicant_details',
-            ];
-        }
-
-        $phase1Row = null;
-        if (config('database.connections.legacy_phase1.database', '') !== '') {
-            try {
-                $phase1Row = DB::connection('legacy_phase1')
-                    ->table('tblapplication')
-                    ->where('MobileNumber', $phone)
-                    ->select(['FullName'])
-                    ->orderByDesc('ID')
-                    ->first();
-            } catch (\Exception $e) {
-                // Phase 1 DB unavailable — skip silently
-            }
-        }
-
-        if ($duplicate === null && $phase1Row) {
-            $duplicate = [
-                'name' => $phase1Row->FullName ?: null,
-                'phase' => 'Legacy Phase 1',
-                'fy' => '2024-25',
-                'source' => 'tblapplication',
-            ];
-        }
-
-        $exists = $duplicate !== null;
 
         return response()->json([
             'ok' => true,
-            'available' => ! $exists,
-            'message' => $exists
+            'available' => $result['available'],
+            'message' => $result['duplicate'] !== null
                 ? 'This mobile number is already registered for an application. / यह मोबाइल नंबर पहले से पंजीकृत है।'
                 : null,
-            'duplicate' => $duplicate,
+            'duplicate' => $result['duplicate'],
         ]);
     }
 

@@ -7,13 +7,14 @@ use App\Models\CfaSubmission;
 use App\Models\DistrictBlock;
 use App\Models\FiscalYear;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use App\Services\CfaApplicationNumberGenerator;
 use App\Services\CfaBusinessStageService;
+use App\Services\CfaPhoneRegistryService;
 use App\Services\CfaSubmissionValidator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
@@ -49,7 +50,7 @@ class CfaApplyController extends Controller
     /**
      * Live check: mobile already used on any CFA submission (JSON for the public form).
      */
-    public function checkPhone(Request $request, string $token): JsonResponse
+    public function checkPhone(Request $request, string $token, CfaPhoneRegistryService $phoneRegistry): JsonResponse
     {
         $staff = User::query()
             ->where('referral_token', $token)
@@ -73,83 +74,23 @@ class CfaApplyController extends Controller
             ], 422);
         }
 
-        $phone = $validator->validated()['phone'];
+        $result = $phoneRegistry->inspect($validator->validated()['phone']);
 
-        $duplicate = null;
-
-        // Check new CFA submissions table
-        $newRow = CfaSubmission::query()
-            ->where('phone', $phone)
-            ->orderByDesc('id')
-            ->first();
-        if ($newRow) {
-            $fyName = $newRow->fiscal_year_id
-                ? FiscalYear::query()->whereKey($newRow->fiscal_year_id)->value('name')
-                : null;
-            $duplicate = [
-                'name' => $newRow->applicant_name ?: null,
-                'phase' => 'Current MUY',
-                'fy' => $fyName,
-                'source' => 'cfa_submissions',
-            ];
+        if ($result['unavailable_sources'] !== [] && $result['duplicate'] === null) {
+            return response()->json([
+                'ok' => false,
+                'available' => false,
+                'message' => 'The mobile number could not be verified right now. Please try again later.',
+            ], 503);
         }
-
-        // Check old Phase 2 legacy database (rbi_applicant_details)
-        $legacyRow = null;
-        if (config('database.connections.legacy.database', '') !== '') {
-            try {
-                $legacyRow = DB::connection('legacy')
-                    ->table('rbi_applicant_details')
-                    ->where('phone', $phone)
-                    ->select(['applicant_name'])
-                    ->orderByDesc('application_id')
-                    ->first();
-            } catch (\Exception $e) {
-                // Legacy DB unavailable — skip silently
-            }
-        }
-
-        if ($duplicate === null && $legacyRow) {
-            $duplicate = [
-                'name' => $legacyRow->applicant_name ?: null,
-                'phase' => 'Legacy Phase 2',
-                'fy' => '2025-26',
-                'source' => 'rbi_applicant_details',
-            ];
-        }
-
-        $phase1Row = null;
-        if (config('database.connections.legacy_phase1.database', '') !== '') {
-            try {
-                $phase1Row = DB::connection('legacy_phase1')
-                    ->table('tblapplication')
-                    ->where('MobileNumber', $phone)
-                    ->select(['FullName'])
-                    ->orderByDesc('ID')
-                    ->first();
-            } catch (\Exception $e) {
-                // Phase 1 DB unavailable — skip silently
-            }
-        }
-
-        if ($duplicate === null && $phase1Row) {
-            $duplicate = [
-                'name' => $phase1Row->FullName ?: null,
-                'phase' => 'Legacy Phase 1',
-                'fy' => '2024-25',
-                'source' => 'tblapplication',
-            ];
-        }
-
-        $exists = $duplicate !== null;
 
         return response()->json([
             'ok' => true,
-            'available' => ! $exists,
-            'message' => $exists
+            'available' => $result['available'],
+            'message' => $result['duplicate'] !== null
                 ? 'This mobile number is already registered for an application. / यह मोबाइल नंबर पहले से पंजीकृत है।'
                 : null,
-            'duplicate' => $duplicate,
+            'duplicate' => $result['duplicate'],
         ]);
     }
 
@@ -157,9 +98,10 @@ class CfaApplyController extends Controller
         Request $request,
         string $token,
         CfaSubmissionValidator $cfaValidator,
+        CfaPhoneRegistryService $phoneRegistry,
         CfaBusinessStageService $stageService,
         CfaApplicationNumberGenerator $applicationNumbers,
-        \App\Services\ActivityLogger $activity,
+        ActivityLogger $activity,
     ): RedirectResponse {
         $staff = User::query()
             ->where('referral_token', $token)
@@ -171,6 +113,7 @@ class CfaApplyController extends Controller
         $this->normalizeEmptySelects($request);
 
         $validated = $cfaValidator->validate($request, $staff);
+        $phoneRegistry->assertAvailableForNewCfa($validated['phone']);
 
         $turnover = CfaBusinessStageService::parseTurnover($validated['turnover_last_fy']);
         $stageInfo = $stageService->compute($validated['is_registered'], $turnover);
@@ -250,14 +193,14 @@ class CfaApplyController extends Controller
     public function thanks(): View
     {
         return view('public.cfa.thanks', [
-            'applicationNo'   => session('application_no'),
-            'source'          => session('source', 'public'),
-            'referralToken'   => session('referral_token'),
-            'thanksName'      => session('thanks_name'),
-            'thanksDistrict'  => session('thanks_district'),
-            'thanksBlock'     => session('thanks_block'),
-            'thanksSector'    => session('thanks_sector'),
-            'thanksProduct'   => session('thanks_product'),
+            'applicationNo' => session('application_no'),
+            'source' => session('source', 'public'),
+            'referralToken' => session('referral_token'),
+            'thanksName' => session('thanks_name'),
+            'thanksDistrict' => session('thanks_district'),
+            'thanksBlock' => session('thanks_block'),
+            'thanksSector' => session('thanks_sector'),
+            'thanksProduct' => session('thanks_product'),
         ]);
     }
 

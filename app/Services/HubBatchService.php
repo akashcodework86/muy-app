@@ -539,8 +539,24 @@ class HubBatchService
             ->where('district_id', $districtId)
             ->where('fiscal_year_id', $fyId)
             ->whereDoesntHave('onboardingBatchMembership')
+            ->whereNotExists(function ($sub): void {
+                $sub->selectRaw('1')
+                    ->from('cfa_submissions as phone_match')
+                    ->join('onboarding_batch_cfa as phone_obc', 'phone_obc.cfa_submission_id', '=', 'phone_match.id')
+                    ->whereColumn('phone_match.phone', 'cfa_submissions.phone')
+                    ->whereColumn('phone_match.id', '!=', 'cfa_submissions.id');
+            })
             ->whereDoesntHave('draftBatchMembership', function ($q) {
                 $q->whereHas('batch', fn ($b) => $b->where('status', 'draft'));
+            })
+            ->whereNotExists(function ($sub): void {
+                $sub->selectRaw('1')
+                    ->from('cfa_submissions as draft_phone_match')
+                    ->join('onboarding_batch_draft_cfa as phone_draft', 'phone_draft.cfa_submission_id', '=', 'draft_phone_match.id')
+                    ->join('onboarding_batches as phone_draft_batch', 'phone_draft_batch.id', '=', 'phone_draft.onboarding_batch_id')
+                    ->where('phone_draft_batch.status', 'draft')
+                    ->whereColumn('draft_phone_match.phone', 'cfa_submissions.phone')
+                    ->whereColumn('draft_phone_match.id', '!=', 'cfa_submissions.id');
             })
             ->whereNotExists(function ($sub) use ($hubId, $districtId) {
                 $sub->selectRaw('1')
@@ -610,12 +626,20 @@ class HubBatchService
             $lockedBatch = $cfa->onboardingBatchMembership?->batch;
             $draftBatch = $cfa->draftBatchMembership?->batch;
             $choiceState = $choiceStates->get((int) $cfa->id)?->state;
+            $phoneConflict = $this->phoneOnboardingConflict((int) $cfa->id);
 
             if ($lockedBatch !== null) {
                 $status = 'onboarded';
                 $label = 'Already onboarded';
                 $detail = 'Included in '.$lockedBatch->name.'.';
                 $batchId = (int) $lockedBatch->id;
+            } elseif ($phoneConflict !== null) {
+                $status = $phoneConflict['type'] === 'locked' ? 'phone_onboarded' : 'phone_in_draft';
+                $label = $phoneConflict['type'] === 'locked'
+                    ? 'Mobile already onboarded'
+                    : 'Mobile already in another draft';
+                $detail = 'The same mobile number is linked to '.$phoneConflict['application_no'].' in '.$phoneConflict['batch_name'].'.';
+                $batchId = (int) $phoneConflict['batch_id'];
             } elseif ($draftBatch !== null && $draftBatch->status === 'draft') {
                 $batchId = (int) $draftBatch->id;
                 if ($currentDraftId > 0 && $batchId === $currentDraftId) {
@@ -1350,6 +1374,10 @@ class HubBatchService
         if (! $cfa || (int) $cfa->district_id !== (int) $batch->district_id) {
             return ['ok' => false, 'error' => 'Applicant district does not match batch'];
         }
+        $phoneConflict = $this->phoneOnboardingConflict($cfaId);
+        if ($phoneConflict !== null) {
+            return ['ok' => false, 'error' => 'This mobile number is already linked to '.$phoneConflict['application_no'].' in '.$phoneConflict['batch_name'].'.'];
+        }
 
         try {
             if ($batch->isDraft()) {
@@ -1578,6 +1606,15 @@ class HubBatchService
                 return ['ok' => false, 'error' => 'Set exactly '.$batch->target_size.' members before re-locking (currently '.$cur.').'];
             }
 
+            $phoneError = $this->batchPhoneConflictMessage(
+                $batch->batchCfas()->pluck('cfa_submission_id')->map(fn ($id) => (int) $id)->all(),
+                $batch->id,
+                null,
+            );
+            if ($phoneError !== null) {
+                return ['ok' => false, 'error' => $phoneError];
+            }
+
             $batch->update([
                 'edit_unlocked_at' => null,
                 'edit_unlocked_by_request_id' => null,
@@ -1590,6 +1627,12 @@ class HubBatchService
         $cur = $this->draftMemberCount($batchId);
         if ($cur !== (int) $batch->target_size) {
             return ['ok' => false, 'error' => 'Add exactly '.$batch->target_size.' CFA before locking (currently '.$cur.').'];
+        }
+
+        $draftIds = $batch->draftCfas()->pluck('cfa_submission_id')->map(fn ($id) => (int) $id)->all();
+        $phoneError = $this->batchPhoneConflictMessage($draftIds, null, $batch->id);
+        if ($phoneError !== null) {
+            return ['ok' => false, 'error' => $phoneError];
         }
 
         try {
@@ -1617,6 +1660,89 @@ class HubBatchService
         }
 
         return ['ok' => true, 'data' => ['batch_id' => $batchId]];
+    }
+
+    /**
+     * Find another CFA with the same phone that is already locked or in a draft.
+     *
+     * @return array{type: string, batch_id: int, batch_name: string, application_no: string}|null
+     */
+    private function phoneOnboardingConflict(
+        int $cfaId,
+        ?int $ignoreLockedBatchId = null,
+        ?int $ignoreDraftBatchId = null,
+    ): ?array {
+        $phone = trim((string) CfaSubmission::query()->whereKey($cfaId)->value('phone'));
+        if ($phone === '') {
+            return null;
+        }
+
+        $locked = DB::table('cfa_submissions as duplicate_cfa')
+            ->join('onboarding_batch_cfa as duplicate_obc', 'duplicate_obc.cfa_submission_id', '=', 'duplicate_cfa.id')
+            ->join('onboarding_batches as duplicate_batch', 'duplicate_batch.id', '=', 'duplicate_obc.onboarding_batch_id')
+            ->where('duplicate_cfa.phone', $phone)
+            ->where('duplicate_cfa.id', '!=', $cfaId)
+            ->when($ignoreLockedBatchId !== null, fn ($q) => $q->where('duplicate_batch.id', '!=', $ignoreLockedBatchId))
+            ->select(['duplicate_batch.id as batch_id', 'duplicate_batch.name as batch_name', 'duplicate_cfa.application_no'])
+            ->first();
+
+        if ($locked) {
+            return [
+                'type' => 'locked',
+                'batch_id' => (int) $locked->batch_id,
+                'batch_name' => (string) $locked->batch_name,
+                'application_no' => (string) $locked->application_no,
+            ];
+        }
+
+        $draft = DB::table('cfa_submissions as duplicate_cfa')
+            ->join('onboarding_batch_draft_cfa as duplicate_draft', 'duplicate_draft.cfa_submission_id', '=', 'duplicate_cfa.id')
+            ->join('onboarding_batches as duplicate_batch', 'duplicate_batch.id', '=', 'duplicate_draft.onboarding_batch_id')
+            ->where('duplicate_batch.status', 'draft')
+            ->where('duplicate_cfa.phone', $phone)
+            ->where('duplicate_cfa.id', '!=', $cfaId)
+            ->when($ignoreDraftBatchId !== null, fn ($q) => $q->where('duplicate_batch.id', '!=', $ignoreDraftBatchId))
+            ->select(['duplicate_batch.id as batch_id', 'duplicate_batch.name as batch_name', 'duplicate_cfa.application_no'])
+            ->first();
+
+        if (! $draft) {
+            return null;
+        }
+
+        return [
+            'type' => 'draft',
+            'batch_id' => (int) $draft->batch_id,
+            'batch_name' => (string) $draft->batch_name,
+            'application_no' => (string) $draft->application_no,
+        ];
+    }
+
+    /** @param list<int> $cfaIds */
+    private function batchPhoneConflictMessage(
+        array $cfaIds,
+        ?int $ignoreLockedBatchId,
+        ?int $ignoreDraftBatchId,
+    ): ?string {
+        $rows = CfaSubmission::query()
+            ->whereIn('id', $cfaIds)
+            ->get(['id', 'application_no', 'phone']);
+
+        $duplicatePhone = $rows
+            ->filter(fn (CfaSubmission $row) => trim((string) $row->phone) !== '')
+            ->groupBy('phone')
+            ->first(fn (Collection $matches) => $matches->count() > 1);
+        if ($duplicatePhone instanceof Collection) {
+            return 'The batch contains multiple CFA records using mobile '.$duplicatePhone->first()->phone.'. Remove the duplicate before locking.';
+        }
+
+        foreach ($rows as $row) {
+            $conflict = $this->phoneOnboardingConflict((int) $row->id, $ignoreLockedBatchId, $ignoreDraftBatchId);
+            if ($conflict !== null) {
+                return 'Mobile '.$row->phone.' is already linked to '.$conflict['application_no'].' in '.$conflict['batch_name'].'.';
+            }
+        }
+
+        return null;
     }
 
     private function requestUnlock(int $hubId, User $user, array $input, ?Request $request): array
