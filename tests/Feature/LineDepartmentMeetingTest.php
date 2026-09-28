@@ -226,6 +226,42 @@ class LineDepartmentMeetingTest extends TestCase
         $this->assertFalse($meeting->hasMeetingMedia());
     }
 
+    public function test_state_admin_sees_delete_after_view_and_can_delete_meeting(): void
+    {
+        $stateAdmin = User::factory()->create([
+            'role' => 'state_admin',
+            'is_active' => true,
+        ]);
+        $meeting = LineDepartmentMeeting::query()->create([
+            'submitted_by_user_id' => $stateAdmin->id,
+            'submitted_by_name' => $stateAdmin->name,
+            'meeting_date' => '2026-09-15',
+            'meeting_level' => 'state',
+            'meeting_mode' => 'physical',
+            'department_name' => 'Rural Development',
+            'official_name' => 'Test Official',
+            'official_designation' => 'Director',
+            'muy_staff_present' => '',
+            'meeting_purpose' => 'convergence',
+            'agenda_remark_outcome' => 'Coordination meeting held.',
+            'agenda_summary' => '',
+            'outcome_decision' => '',
+            'proof_media_json' => [],
+            'status' => ServiceCase::STATUS_APPROVED,
+        ]);
+
+        $this->actingAs($stateAdmin)
+            ->get(route('admin.line-department-meetings.dashboard'))
+            ->assertOk()
+            ->assertSeeInOrder(['View', 'Delete']);
+
+        $this->actingAs($stateAdmin)
+            ->delete(route('admin.line-department-meetings.destroy', $meeting))
+            ->assertRedirect(route('admin.line-department-meetings.dashboard'));
+
+        $this->assertDatabaseMissing('line_department_meetings', ['id' => $meeting->id]);
+    }
+
     public function test_program_deliverables_counts_meetings_for_indicator_12_2(): void
     {
         $fy = FiscalYear::query()->firstOrCreate(

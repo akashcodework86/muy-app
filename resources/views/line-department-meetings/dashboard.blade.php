@@ -5,6 +5,10 @@
 
 @push('styles')
 @include('stakeholder-consultation-workshops.partials.list-styles')
+<style>
+    .ldm-list-row-actions { display:flex; align-items:center; gap:0.65rem; white-space:nowrap; }
+    .ldm-list-delete-btn { border:0; padding:0; background:transparent; color:#b91c1c; font:inherit; text-decoration:underline; cursor:pointer; }
+</style>
 @endpush
 
 @section('content')
@@ -80,14 +84,24 @@
                             <td>{{ $row->submitted_by_name }}</td>
                             @include('partials.mis-field-workflow-dashboard-cells', ['row' => $row])
                             <td>
-                                <a href="{{ route($showRoute, $row) }}">View</a>
-                                @include('partials.mis-field-workflow-row-actions', [
-                                    'row' => $row,
-                                    'editRoute' => $editRoute,
-                                    'destroyRoute' => $destroyRoute,
-                                    'editClass' => '',
-                                    'withdrawClass' => '',
-                                ])
+                                <div class="ldm-list-row-actions">
+                                    <a href="{{ route($showRoute, $row) }}">View</a>
+                                    @if (($currentRole ?? '') === 'state_admin')
+                                        <form method="post" action="{{ route($destroyRoute, $row) }}" onsubmit="return confirm('Delete this meeting permanently?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="ldm-list-delete-btn">Delete</button>
+                                        </form>
+                                    @else
+                                        @include('partials.mis-field-workflow-row-actions', [
+                                            'row' => $row,
+                                            'editRoute' => $editRoute,
+                                            'destroyRoute' => $destroyRoute,
+                                            'editClass' => '',
+                                            'withdrawClass' => '',
+                                        ])
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
