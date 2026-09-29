@@ -71,6 +71,9 @@ final class AccelerationItemSchemas
             'tbi_graphic_era' => self::partnershipSchema(),
             'uplift_foundation' => self::partnershipSchema(),
             'sse_india' => self::partnershipSchema(),
+            'iim_kashipur' => self::partnershipSchema(),
+            'clear_trip' => self::partnershipSchema(),
+            'issa_foundation' => self::partnershipSchema(),
         ];
     }
 

@@ -41,6 +41,8 @@ final class AccelerationServicesOptions
             ['key' => 'uplift_foundation', 'label' => 'Uplift Foundation'],
             ['key' => 'sse_india', 'label' => 'SSE India'],
             ['key' => 'iim_kashipur', 'label' => 'IIM Kashipur'],
+            ['key' => 'clear_trip', 'label' => 'Clear Trip'],
+            ['key' => 'issa_foundation', 'label' => 'ISSA Foundation'],
         ],
     ];
 
