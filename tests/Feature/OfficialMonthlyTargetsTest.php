@@ -8,6 +8,8 @@ use App\Models\FiscalYear;
 use App\Models\Hub;
 use App\Models\OfficialDistrictMonthlyTarget;
 use App\Models\OfficialStateMonthlyTarget;
+use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\AppSettingsService;
 use App\Services\OfficialMonthlyTargetCodeResolver;
@@ -85,6 +87,64 @@ class OfficialMonthlyTargetsTest extends TestCase
         $this->assertNotSame($parent->id, $child->id);
         $this->assertSame('onboarding', $parent->code);
         $this->assertSame('potential_lakhpati_onboarding', $child->code);
+    }
+
+    public function test_gst_and_fssai_use_service_catalog_row_when_mis_code_row_has_no_targets(): void
+    {
+        $fy = FiscalYear::query()->create([
+            'code' => '2026-27',
+            'name' => 'FY 2026-27',
+            'starts_on' => '2026-04-01',
+            'ends_on' => '2027-03-31',
+            'is_active' => true,
+        ]);
+        $category = ServiceCategory::query()->create([
+            'slug' => 'legal-licensing',
+            'name' => 'Legal & Licensing',
+            'sort_order' => 1,
+        ]);
+
+        $cases = [
+            ['4.2.4', 'GST Registration', 'gst', 'GST Registration', 'g_s_t', 'GST', 'svc_g_s_t', 350],
+            ['4.2.2', 'FSSAI', 'fssai', 'FSSAI', 'f_s_s_a_i_registration_renewal', 'FSSAI Registration/Renewal', 'svc_f_s_s_a_i_registration_renewal', 750],
+        ];
+
+        $sort = 180;
+        foreach ($cases as [$serial, $indicator, $misCode, $misName, $serviceCode, $serviceName, $svcCode, $total]) {
+            Deliverable::query()->create([
+                'sort_order' => $sort++,
+                'code' => $misCode,
+                'name' => $misName,
+                'mis_entry_label' => $misName,
+                'is_active' => true,
+            ]);
+            $catalog = Deliverable::query()->create([
+                'sort_order' => $sort++,
+                'code' => $svcCode,
+                'name' => $serviceName,
+                'mis_entry_label' => $serviceName,
+                'is_active' => true,
+            ]);
+            Service::query()->create([
+                'service_category_id' => $category->id,
+                'deliverable_id' => $catalog->id,
+                'code' => $serviceCode,
+                'name' => $serviceName,
+                'sort_order' => 1,
+                'is_active' => true,
+            ]);
+            OfficialStateMonthlyTarget::query()->create([
+                'fiscal_year_id' => $fy->id,
+                'deliverable_id' => $catalog->id,
+                'month_number' => 3,
+                'target_count' => $total,
+            ]);
+
+            $resolved = app(OfficialMonthlyTargetCodeResolver::class)
+                ->deliverableForMisSerial($serial, $indicator);
+
+            $this->assertSame($catalog->id, (int) $resolved->id, $serial.' should use '.$svcCode);
+        }
     }
 
     public function test_apply_district_block_from_official_config_matches_state_total_for_onboarding(): void
