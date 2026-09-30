@@ -78,6 +78,62 @@ class PitchDeckPreparationTest extends TestCase
         $this->assertTrue(Storage::exists((string) $row->deck_file_path));
     }
 
+    public function test_store_accepts_pptx_detected_as_zip_and_legacy_ppt(): void
+    {
+        Storage::fake();
+
+        [$district, , $pptxCfaId] = $this->createOnboardedCfa();
+        $pptCfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'application_no' => '40803998',
+            'applicant_name' => 'Second Incubatee',
+            'phone' => '9000000098',
+            'payload' => json_encode(['form_stage' => 'seed']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $anjali = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Anjali Sood',
+            'is_active' => true,
+        ]);
+
+        $template = base_path('resources/templates/review-ppt/muy-review-2026.pptx');
+        $pptx = UploadedFile::fake()
+            ->createWithContent('incubatee.pptx', (string) file_get_contents($template))
+            ->mimeType('application/zip');
+        $ppt = UploadedFile::fake()
+            ->createWithContent('incubatee.ppt', "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1PowerPoint Document")
+            ->mimeType('application/x-ole-storage');
+
+        $this->actingAs($anjali)
+            ->post(route('spoc.pitch-deck-preparations.store'), [
+                'cfa_submission_id' => $pptxCfaId,
+                'prepared_on' => now()->toDateString(),
+                'deck_file' => $pptx,
+            ])
+            ->assertRedirect(route('spoc.pitch-deck-preparations.dashboard'))
+            ->assertSessionHas('status');
+
+        $this->actingAs($anjali)
+            ->post(route('spoc.pitch-deck-preparations.store'), [
+                'cfa_submission_id' => $pptCfaId,
+                'prepared_on' => now()->toDateString(),
+                'deck_file' => $ppt,
+            ])
+            ->assertRedirect(route('spoc.pitch-deck-preparations.dashboard'))
+            ->assertSessionHas('status');
+
+        $this->assertDatabaseCount('pitch_deck_preparations', 2);
+        $this->assertTrue(
+            PitchDeckPreparation::query()->where('deck_file_name', 'incubatee.pptx')->exists()
+        );
+        $this->assertTrue(
+            PitchDeckPreparation::query()->where('deck_file_name', 'incubatee.ppt')->exists()
+        );
+    }
+
     public function test_duplicate_incubatee_is_blocked(): void
     {
         Storage::fake();

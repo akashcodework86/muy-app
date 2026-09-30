@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PitchDeckPreparation;
+use App\Rules\PitchDeckFile;
 use App\Services\PitchDeckIncubateeCatalogService;
 use App\Services\PitchDeckUnifiedDashboardService;
 use App\Support\PitchDeckCombinedDeliverablesSupport;
@@ -340,15 +341,14 @@ class PitchDeckPreparationController extends Controller
             'prepared_for' => ['nullable', 'string', 'max:191'],
             'support_mode' => ['nullable', 'string', Rule::in($modes)],
             'remarks' => ['nullable', 'string', 'max:5000'],
-            'deck_file' => array_filter([
+            'deck_file' => array_values(array_filter([
                 $requireFile ? 'required' : 'nullable',
                 'file',
-                'mimes:pdf,ppt,pptx',
                 'max:20480',
-            ]),
+                new PitchDeckFile,
+            ])),
         ], [
             'deck_file.required' => 'Upload the pitch deck file (PDF or PPT).',
-            'deck_file.mimes' => 'Pitch deck must be PDF or PowerPoint (PPT/PPTX).',
         ]);
     }
 
