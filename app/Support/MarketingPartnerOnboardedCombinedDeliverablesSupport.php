@@ -215,6 +215,7 @@ final class MarketingPartnerOnboardedCombinedDeliverablesSupport
             ->whereIn('sc.service_id', $serviceIds)
             ->whereIn('sc.status', [ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_COMPLETED]);
 
+        self::applyExcludedServiceCaseScope($query);
         self::applyDistrictScope($query, $districtIds);
         self::applyPeriodScope($query, $periodFrom, $periodTo, $dateExpr);
 
@@ -358,11 +359,29 @@ final class MarketingPartnerOnboardedCombinedDeliverablesSupport
      */
     private static function serviceCasesBaseQuery(array $serviceIds)
     {
-        return DB::table('service_cases as sc')
+        $query = DB::table('service_cases as sc')
             ->join('services as s', 's.id', '=', 'sc.service_id')
             ->leftJoin('cfa_submissions as cs', 'cs.id', '=', 'sc.cfa_submission_id')
             ->whereIn('sc.service_id', $serviceIds)
             ->whereIn('sc.status', [ServiceCase::STATUS_APPROVED, ServiceCase::STATUS_COMPLETED]);
+
+        self::applyExcludedServiceCaseScope($query);
+
+        return $query;
+    }
+
+    private static function applyExcludedServiceCaseScope($query): void
+    {
+        $excluded = array_values(array_unique(array_filter(array_map(
+            static fn ($id): int => (int) $id,
+            (array) config('partner_outreach.onboarded_excluded_service_case_ids', []),
+        ))));
+
+        if ($excluded === []) {
+            return;
+        }
+
+        $query->whereNotIn('sc.id', $excluded);
     }
 
     /**

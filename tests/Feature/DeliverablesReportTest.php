@@ -4103,12 +4103,34 @@ class DeliverablesReportTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        ServiceCase::query()->create([
+        $counted = ServiceCase::query()->create([
             'cfa_submission_id' => $cfaId,
             'service_id' => $service->id,
             'status' => ServiceCase::STATUS_APPROVED,
             'approved_at' => '2026-06-15 10:00:00',
             'reference_number' => 'MoU with Test Partner',
+        ]);
+
+        $excludedCfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Excluded Partner',
+            'application_no' => 'MPO-EXCL',
+            'phone' => '9999999901',
+            'payload' => json_encode([]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $excluded = ServiceCase::query()->create([
+            'cfa_submission_id' => $excludedCfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'approved_at' => '2026-06-16 10:00:00',
+            'reference_number' => 'Meeting only',
+        ]);
+
+        config([
+            'partner_outreach.onboarded_excluded_service_case_ids' => [(int) $excluded->id],
         ]);
 
         $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
@@ -4129,6 +4151,10 @@ class DeliverablesReportTest extends TestCase
             $breakdown['by_service'][0]['service'] ?? null,
         );
         $this->assertSame(1, $breakdown['by_service'][0]['count'] ?? null);
+        $this->assertSame([(int) $counted->id], array_map(
+            static fn (array $row): int => (int) ($row['id'] ?? 0),
+            $breakdown['records'] ?? [],
+        ));
     }
 
     public function test_market_linkage_partner_names_no_longer_count_toward_partner_outreach_deliverable(): void
