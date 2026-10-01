@@ -2448,12 +2448,12 @@ class DeliverablesReportTest extends TestCase
         $this->seedLockedOnboarding($hub, $district, [
             'applicant_name' => 'SHG Group',
             'source' => 'phase3',
-            'payload' => ['category' => 'SHG'],
+            'payload' => ['category' => 'SHG', 'gender' => 'Female'],
         ]);
         $this->seedLockedOnboarding($hub, $district, [
             'applicant_name' => 'Member Individual',
             'source' => 'phase3',
-            'payload' => ['category' => 'Individual', 'is_member' => 'Yes'],
+            'payload' => ['category' => 'Individual', 'is_member' => 'Yes', 'gender' => 'male'],
         ]);
         $this->seedLockedOnboarding($hub, $district, [
             'applicant_name' => 'Lakhpati Only',
@@ -2481,6 +2481,10 @@ class DeliverablesReportTest extends TestCase
         $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '2.1.1');
         $this->assertSame(2, $breakdown['total']);
         $this->assertSame('Potential Lakhpati Didi/ SHG/CBO onboardings', $breakdown['source_type_label']);
+        $this->assertEqualsCanonicalizing(
+            ['Female', 'Male'],
+            collect($breakdown['records'])->pluck('gender')->all(),
+        );
     }
 
     public function test_program_deliverables_2_1_1_counts_legacy_lakhpati_and_member_yes(): void

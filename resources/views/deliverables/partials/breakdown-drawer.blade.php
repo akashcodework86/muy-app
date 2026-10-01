@@ -670,6 +670,7 @@
         const isMarketIncubatees = _sourceType === 'market_linkage_incubatees';
         const isPitchDeckCombined = _sourceType === 'pitch_deck_combined';
         const isMarketingPartnerOnboardedCombined = _sourceType === 'marketing_partner_onboarded_count';
+        const isPotentialLakhpati = _sourceType === 'potential_lakhpati_onboarding_count';
 
         const isFPPage = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const pageSize = (isFPPage || isBst) ? PAGE_SIZE_PARTICIPANTS : PAGE_SIZE_DEFAULT;
@@ -802,6 +803,26 @@
                     <th>Application no.</th><th>Incubatee</th><th>District</th><th>Partner(s)</th><th>Mode</th><th>Submitted</th>
                 </tr></thead>
                 <tbody>${rowsHtml || '<tr><td colspan="7">No linked incubatees found.</td></tr>'}</tbody>
+            </table>`;
+        } else if (isPotentialLakhpati) {
+            const rowsHtml = pageRecords.map((row, i) => {
+                const sr = globalOffset + i + 1;
+                return `<tr>
+                    <td style="text-align:center;color:#94a3b8;font-weight:700;font-size:0.75rem;">${sr}</td>
+                    <td>${escapeHtml(row.reference)}</td>
+                    <td>${escapeHtml(row.applicant)}</td>
+                    <td>${escapeHtml(row.gender || '—')}</td>
+                    <td>${escapeHtml(row.district)}</td>
+                    <td>${escapeHtml(row.service)}</td>
+                    <td>${escapeHtml(row.date)}</td>
+                </tr>`;
+            }).join('');
+            tableHtml = `<table class="dlv-table">
+                <thead><tr>
+                    <th style="width:2rem;text-align:center;">#</th>
+                    <th>Reference</th><th>Applicant</th><th>Gender</th><th>District</th><th>Service</th><th>Date</th>
+                </tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="7">No records found.</td></tr>'}</tbody>
             </table>`;
         } else if (isPitchDeckCombined || isMarketingPartnerOnboardedCombined) {
             const rowsHtml = pageRecords.map((row, i) => {

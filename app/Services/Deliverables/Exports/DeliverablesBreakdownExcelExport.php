@@ -223,7 +223,7 @@ class DeliverablesBreakdownExcelExport
             ])->all();
         } elseif ($sourceType === 'market_linkage_incubatees') {
             return $this->marketLinkageRecordTable($breakdown);
-        } elseif ($sourceType === 'reap_support_services') {
+        } elseif (in_array($sourceType, ['potential_lakhpati_onboarding_count', 'reap_support_services'], true)) {
             $headers = ['#', 'Reference', 'Applicant', 'Gender', 'District', 'Hub', 'Service', 'Status', 'Date'];
             $rows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
                 $idx + 1,

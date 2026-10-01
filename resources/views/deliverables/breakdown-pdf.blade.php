@@ -89,7 +89,10 @@
 
     <div class="section">
         <h2>Records</h2>
-        @php $isMarketIncubatees = ($breakdown['source_type'] ?? '') === 'market_linkage_incubatees'; @endphp
+        @php
+            $isMarketIncubatees = ($breakdown['source_type'] ?? '') === 'market_linkage_incubatees';
+            $isPotentialLakhpati = ($breakdown['source_type'] ?? '') === 'potential_lakhpati_onboarding_count';
+        @endphp
         <table class="data">
             @if ($isMarketIncubatees)
                 <thead>
@@ -144,6 +147,22 @@
                         @endforeach
                     @empty
                         <tr><td colspan="13" class="muted">No records found.</td></tr>
+                    @endforelse
+                </tbody>
+            @elseif ($isPotentialLakhpati)
+                <thead><tr><th>Reference</th><th>Applicant</th><th>Gender</th><th>District</th><th>Service</th><th>Date</th></tr></thead>
+                <tbody>
+                    @forelse ($breakdown['records'] ?? [] as $item)
+                        <tr>
+                            <td>{{ $item['reference'] ?? '' }}</td>
+                            <td>{{ $item['applicant'] ?? '' }}</td>
+                            <td>{{ $item['gender'] ?? '' }}</td>
+                            <td>{{ $item['district'] ?? '' }}</td>
+                            <td>{{ $item['service'] ?? '' }}</td>
+                            <td>{{ $item['date'] ?? '' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="muted">No records found.</td></tr>
                     @endforelse
                 </tbody>
             @else

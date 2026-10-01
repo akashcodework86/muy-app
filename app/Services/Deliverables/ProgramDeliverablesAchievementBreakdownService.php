@@ -944,6 +944,8 @@ class ProgramDeliverablesAchievementBreakdownService
         $query->whereRaw(PotentialLakhpatiOnboardingSql::qualifiesSql());
 
         $monthExpr = $this->monthKeySql('ob.onboarding_date');
+        $genderJson = PotentialLakhpatiOnboardingSql::payloadJson('$.gender');
+        $legacyIdJson = PotentialLakhpatiOnboardingSql::payloadJson('$.legacy_application_id');
 
         $rows = (clone $query)
             ->selectRaw("
@@ -961,27 +963,94 @@ class ProgramDeliverablesAchievementBreakdownService
                 'cs.id',
                 'cs.application_no',
                 'cs.applicant_name',
+                'cs.source',
                 'd.name as district_name',
                 'h.name as hub_name',
                 'ob.onboarding_date',
                 'ob.name as batch_name',
             ])
+            ->selectRaw("{$genderJson} as gender")
+            ->selectRaw("{$legacyIdJson} as legacy_application_id")
             ->orderByDesc('ob.onboarding_date')
-            ->get()
-            ->map(fn ($row) => [
+            ->get();
+
+        return $this->aggregateGroupedRows(
+            $rows,
+            includeService: false,
+            records: $this->mapPotentialLakhpatiOnboardingRecords($records),
+        );
+    }
+
+    /**
+     * Gender comes from the CFA payload. Legacy Phase 2 rows often leave that
+     * field empty, so those fall back to the legacy applicant record.
+     *
+     * @param  Collection<int, object>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function mapPotentialLakhpatiOnboardingRecords(Collection $rows): array
+    {
+        $pendingLegacyIds = [];
+        $pendingAppNos = [];
+
+        $mapped = $rows->map(function ($row) use (&$pendingLegacyIds, &$pendingAppNos): array {
+            $gender = IncubateeAttendeeCounts::normalizeGender((string) ($row->gender ?? ''));
+            $source = strtolower(trim((string) ($row->source ?? '')));
+            $isLegacy = in_array($source, ['legacy_phase2', 'rbiphase2'], true);
+            $legacyId = (int) ($row->legacy_application_id ?? 0);
+            $appNo = trim((string) ($row->application_no ?? ''));
+
+            if ($gender === '' && $isLegacy) {
+                if ($legacyId > 0) {
+                    $pendingLegacyIds[] = $legacyId;
+                }
+                if ($appNo !== '') {
+                    $pendingAppNos[] = $appNo;
+                }
+            }
+
+            return [
                 'id' => (int) $row->id,
                 'reference' => (string) ($row->application_no ?: $row->batch_name ?: '—'),
                 'applicant' => (string) ($row->applicant_name ?: '—'),
+                'gender' => $gender,
                 'district' => (string) ($row->district_name ?: '—'),
                 'hub' => (string) ($row->hub_name ?: '—'),
                 'service' => 'Potential Lakhpati / SHG / CBO onboarding',
                 'spoc' => '—',
                 'status' => 'Locked',
                 'date' => $row->onboarding_date ? Carbon::parse($row->onboarding_date)->format('d M Y') : '—',
-            ])
-            ->all();
+                '_legacy' => $isLegacy,
+                '_legacy_id' => $legacyId,
+                '_app_no' => $appNo,
+            ];
+        })->all();
 
-        return $this->aggregateGroupedRows($rows, includeService: false, records: $records);
+        $byId = [];
+        $byNo = [];
+        if ($pendingLegacyIds !== [] || $pendingAppNos !== []) {
+            $byId = $this->legacyServiceCases->applicantSnapshotsByLegacyApplicationIds($pendingLegacyIds);
+            $byNo = $this->legacyServiceCases->applicantSnapshotsByLegacyApplicationNumbers($pendingAppNos);
+        }
+
+        foreach ($mapped as &$record) {
+            if (($record['gender'] ?? '') === '' && ($record['_legacy'] ?? false)) {
+                $legacyId = (int) ($record['_legacy_id'] ?? 0);
+                $appKey = mb_strtolower((string) ($record['_app_no'] ?? ''));
+                $snapshot = $legacyId > 0 ? ($byId[$legacyId] ?? null) : null;
+                if (! is_array($snapshot) && $appKey !== '') {
+                    $snapshot = $byNo[$appKey] ?? null;
+                }
+                if (is_array($snapshot)) {
+                    $record['gender'] = IncubateeAttendeeCounts::normalizeGender((string) ($snapshot['gender'] ?? ''));
+                }
+            }
+
+            unset($record['_legacy'], $record['_legacy_id'], $record['_app_no']);
+        }
+        unset($record);
+
+        return $mapped;
     }
 
     /**
