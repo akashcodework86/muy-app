@@ -12,6 +12,7 @@ class PitchDeckPreparation extends Model
     protected $fillable = [
         'cfa_submission_id',
         'legacy_application_id',
+        'legacy_phase1_application_id',
         'district_id',
         'incubatee_name',
         'application_no',
@@ -53,6 +54,10 @@ class PitchDeckPreparation extends Model
 
         if ($this->legacy_application_id) {
             return 'Phase 2 legacy';
+        }
+
+        if ($this->legacy_phase1_application_id) {
+            return 'Phase 1';
         }
 
         return '—';

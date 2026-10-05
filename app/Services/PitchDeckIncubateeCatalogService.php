@@ -3,12 +3,17 @@
 namespace App\Services;
 
 use App\Models\CfaSubmission;
+use App\Models\District;
 use App\Models\PitchDeckPreparation;
+use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class PitchDeckIncubateeCatalogService
 {
+    /** @var array<string, int>|null */
+    private ?array $districtIdsByName = null;
+
     public function __construct(
         private readonly LegacyApplicationServiceCaseSupport $legacyApplications,
     ) {}
@@ -39,6 +44,15 @@ class PitchDeckIncubateeCatalogService
             $results[] = $row;
         }
 
+        foreach ($this->listPhase1Onboarded($limit) as $row) {
+            $phase1Id = (int) ($row['legacy_phase1_application_id'] ?? 0);
+            if ($phase1Id < 1 || isset($seen['phase1:'.$phase1Id])) {
+                continue;
+            }
+            $seen['phase1:'.$phase1Id] = true;
+            $results[] = $row;
+        }
+
         usort($results, fn (array $a, array $b): int => strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? '')));
 
         return array_slice($results, 0, $limit);
@@ -47,7 +61,7 @@ class PitchDeckIncubateeCatalogService
     /**
      * @return list<array<string, mixed>>
      */
-    public function search(string $term, int $limit = 5): array
+    public function search(string $term, int $limit = 15): array
     {
         $term = trim($term);
         if (mb_strlen($term) < 2) {
@@ -56,35 +70,36 @@ class PitchDeckIncubateeCatalogService
 
         $existingCfa = $this->existingCfaIds();
         $existingLegacy = $this->existingLegacyIds();
+        $existingPhase1 = $this->existingPhase1Ids();
+
+        $buckets = [
+            $this->markRecorded($this->searchCfa($term, $limit), 'cfa_submission_id', $existingCfa),
+            $this->markRecorded($this->searchLegacy($term, $limit), 'legacy_application_id', $existingLegacy),
+            $this->markRecorded($this->searchPhase1($term, $limit), 'legacy_phase1_application_id', $existingPhase1),
+        ];
 
         $results = [];
         $seen = [];
-
-        foreach ($this->searchCfa($term, $limit * 2) as $row) {
-            $cfaId = (int) ($row['cfa_submission_id'] ?? 0);
-            if ($cfaId < 1 || isset($seen['cfa:'.$cfaId])) {
-                continue;
-            }
-            $seen['cfa:'.$cfaId] = true;
-            $results[] = array_merge($row, [
-                'already_recorded' => isset($existingCfa[$cfaId]),
-            ]);
-            if (count($results) >= $limit) {
-                return $results;
-            }
+        $max = 0;
+        foreach ($buckets as $bucket) {
+            $max = max($max, count($bucket));
         }
 
-        foreach ($this->searchLegacy($term, $limit * 2) as $row) {
-            $legacyId = (int) ($row['legacy_application_id'] ?? 0);
-            if ($legacyId < 1 || isset($seen['legacy:'.$legacyId])) {
-                continue;
-            }
-            $seen['legacy:'.$legacyId] = true;
-            $results[] = array_merge($row, [
-                'already_recorded' => isset($existingLegacy[$legacyId]),
-            ]);
-            if (count($results) >= $limit) {
-                break;
+        for ($i = 0; $i < $max; $i++) {
+            foreach ($buckets as $bucket) {
+                if (! isset($bucket[$i])) {
+                    continue;
+                }
+                $row = $bucket[$i];
+                $key = (string) ($row['key'] ?? '');
+                if ($key === '' || isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $results[] = $row;
+                if (count($results) >= $limit) {
+                    return $results;
+                }
             }
         }
 
@@ -94,7 +109,7 @@ class PitchDeckIncubateeCatalogService
     /**
      * @return array{name: string, application_no: ?string, district_id: int}|null
      */
-    public function resolveSelection(int $cfaSubmissionId, int $legacyApplicationId): ?array
+    public function resolveSelection(int $cfaSubmissionId, int $legacyApplicationId, int $legacyPhase1ApplicationId = 0): ?array
     {
         if ($cfaSubmissionId > 0) {
             $submission = CfaSubmission::query()->whereKey($cfaSubmissionId)->first();
@@ -121,6 +136,23 @@ class PitchDeckIncubateeCatalogService
                 'name' => (string) ($row->applicant_name ?? ''),
                 'application_no' => $row->application_no ? (string) $row->application_no : null,
                 'district_id' => (int) ($districtId ?? 0),
+            ];
+        }
+
+        if ($legacyPhase1ApplicationId > 0) {
+            $row = $this->phase1ApplicantById($legacyPhase1ApplicationId);
+            if ($row === null) {
+                return null;
+            }
+
+            $districtName = LegacyPhase1DistrictResolver::canonicalNameForLegacyFatherName(
+                isset($row->FatherName) ? (string) $row->FatherName : null
+            );
+
+            return [
+                'name' => trim((string) ($row->FullName ?? '')),
+                'application_no' => trim((string) ($row->ApplicationNumber ?? '')) ?: null,
+                'district_id' => $this->districtIdForName($districtName),
             ];
         }
 
@@ -165,12 +197,24 @@ class PitchDeckIncubateeCatalogService
 
         $cfaProfiles = $this->cfaProfilesById($cfaIds);
         $legacyProfiles = $this->legacyProfilesById($legacyIds);
+        $phase1Ids = [];
+        if (Schema::hasColumn('pitch_deck_preparations', 'legacy_phase1_application_id')) {
+            $phase1Ids = $items
+                ->pluck('legacy_phase1_application_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+        }
+        $phase1Profiles = $this->phase1ProfilesById($phase1Ids);
 
         $profiles = [];
         foreach ($items as $preparation) {
             $prepId = (int) $preparation->id;
             $cfaId = (int) ($preparation->cfa_submission_id ?? 0);
             $legacyId = (int) ($preparation->legacy_application_id ?? 0);
+            $phase1Id = (int) ($preparation->legacy_phase1_application_id ?? 0);
 
             if ($cfaId > 0 && isset($cfaProfiles[$cfaId])) {
                 $profiles[$prepId] = $cfaProfiles[$cfaId];
@@ -180,6 +224,12 @@ class PitchDeckIncubateeCatalogService
 
             if ($legacyId > 0 && isset($legacyProfiles[$legacyId])) {
                 $profiles[$prepId] = $legacyProfiles[$legacyId];
+
+                continue;
+            }
+
+            if ($phase1Id > 0 && isset($phase1Profiles[$phase1Id])) {
+                $profiles[$prepId] = $phase1Profiles[$phase1Id];
 
                 continue;
             }
@@ -357,6 +407,38 @@ class PitchDeckIncubateeCatalogService
     }
 
     /**
+     * @return array<int, true>
+     */
+    private function existingPhase1Ids(): array
+    {
+        if (! Schema::hasTable('pitch_deck_preparations') || ! Schema::hasColumn('pitch_deck_preparations', 'legacy_phase1_application_id')) {
+            return [];
+        }
+
+        return PitchDeckPreparation::query()
+            ->whereNotNull('legacy_phase1_application_id')
+            ->pluck('legacy_phase1_application_id')
+            ->mapWithKeys(fn ($id) => [(int) $id => true])
+            ->all();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array<int, true>  $existingIds
+     * @return list<array<string, mixed>>
+     */
+    private function markRecorded(array $rows, string $idKey, array $existingIds): array
+    {
+        return array_map(function (array $row) use ($idKey, $existingIds): array {
+            $id = (int) ($row[$idKey] ?? 0);
+
+            return array_merge($row, [
+                'already_recorded' => $id > 0 && isset($existingIds[$id]),
+            ]);
+        }, $rows);
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function listCfaOnboarded(int $limit): array
@@ -431,6 +513,7 @@ class PitchDeckIncubateeCatalogService
                 'source' => 'Phase 2 legacy',
                 'cfa_submission_id' => 0,
                 'legacy_application_id' => (int) $row->application_id,
+                'legacy_phase1_application_id' => 0,
                 'name' => (string) ($row->applicant_name ?? ''),
                 'application_no' => (string) ($row->application_no ?? ''),
                 'phone' => (string) ($row->phone ?? ''),
@@ -494,6 +577,7 @@ class PitchDeckIncubateeCatalogService
             'source' => 'Phase 3 CFA',
             'cfa_submission_id' => (int) $sub->id,
             'legacy_application_id' => 0,
+            'legacy_phase1_application_id' => 0,
             'name' => (string) $sub->applicant_name,
             'application_no' => (string) ($sub->application_no ?? ''),
             'phone' => (string) ($sub->phone ?? ''),
@@ -576,6 +660,7 @@ class PitchDeckIncubateeCatalogService
                 'source' => 'Phase 2 legacy',
                 'cfa_submission_id' => 0,
                 'legacy_application_id' => (int) $row->application_id,
+                'legacy_phase1_application_id' => 0,
                 'name' => (string) ($row->applicant_name ?? ''),
                 'application_no' => (string) ($row->application_no ?? ''),
                 'phone' => (string) ($row->phone ?? ''),
@@ -609,5 +694,202 @@ class PitchDeckIncubateeCatalogService
                 'a.application_no',
             ])
             ->first();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function listPhase1Onboarded(int $limit): array
+    {
+        if (! $this->phase1Available()) {
+            return [];
+        }
+
+        try {
+            $rows = DB::connection('legacy_phase1')
+                ->table('tblapplication')
+                ->whereRaw('LOWER(TRIM(onboard)) = ?', ['yes'])
+                ->orderBy('FullName')
+                ->limit($limit)
+                ->get($this->phase1SelectColumns());
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return $rows
+            ->map(fn (object $row): array => $this->mapPhase1Row($row))
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function searchPhase1(string $term, int $limit): array
+    {
+        if (! $this->phase1Available()) {
+            return [];
+        }
+
+        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term).'%';
+        $digits = preg_replace('/\D+/', '', $term) ?? '';
+
+        try {
+            $rows = DB::connection('legacy_phase1')
+                ->table('tblapplication')
+                ->where(function ($query) use ($like, $digits): void {
+                    $query->where('FullName', 'like', $like)
+                        ->orWhere('ApplicationNumber', 'like', $like)
+                        ->orWhere('FatherName', 'like', $like)
+                        ->orWhere('City', 'like', $like)
+                        ->orWhere('State', 'like', $like)
+                        ->orWhere('hub', 'like', $like)
+                        ->orWhereRaw('CAST(MobileNumber AS CHAR) LIKE ?', [$like]);
+                    if (strlen($digits) >= 4) {
+                        $query->orWhereRaw('CAST(MobileNumber AS CHAR) LIKE ?', ['%'.$digits.'%']);
+                    }
+                })
+                ->orderBy('FullName')
+                ->limit($limit)
+                ->get($this->phase1SelectColumns());
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return $rows
+            ->map(fn (object $row): array => $this->mapPhase1Row($row))
+            ->all();
+    }
+
+    /**
+     * @param  list<int>  $phase1Ids
+     * @return array<int, array<string, mixed>>
+     */
+    private function phase1ProfilesById(array $phase1Ids): array
+    {
+        if ($phase1Ids === [] || ! $this->phase1Available()) {
+            return [];
+        }
+
+        try {
+            $rows = DB::connection('legacy_phase1')
+                ->table('tblapplication')
+                ->whereIn('ID', $phase1Ids)
+                ->get($this->phase1SelectColumns());
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $profiles = [];
+        foreach ($rows as $row) {
+            $mapped = $this->mapPhase1Row($row);
+            $id = (int) ($mapped['legacy_phase1_application_id'] ?? 0);
+            if ($id < 1) {
+                continue;
+            }
+            $profiles[$id] = $mapped;
+        }
+
+        return $profiles;
+    }
+
+    private function phase1ApplicantById(int $legacyPhase1ApplicationId): ?object
+    {
+        if ($legacyPhase1ApplicationId < 1 || ! $this->phase1Available()) {
+            return null;
+        }
+
+        try {
+            return DB::connection('legacy_phase1')
+                ->table('tblapplication')
+                ->where('ID', $legacyPhase1ApplicationId)
+                ->first(['ID', 'FullName', 'ApplicationNumber', 'FatherName']);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function phase1SelectColumns(): array
+    {
+        return [
+            'ID',
+            'ApplicationNumber',
+            'FullName',
+            'MobileNumber',
+            'FatherName',
+            'hub',
+            'State',
+            'City',
+            'gender',
+            'idea',
+            'onboard',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapPhase1Row(object $row): array
+    {
+        $id = (int) ($row->ID ?? 0);
+        $district = LegacyPhase1DistrictResolver::canonicalNameForLegacyFatherName(
+            isset($row->FatherName) ? (string) $row->FatherName : null
+        ) ?? trim((string) ($row->FatherName ?? ''));
+        $isOnboarded = LegacyPhase1DistrictResolver::isOnboardedRaw(
+            isset($row->onboard) ? (string) $row->onboard : null
+        );
+
+        return [
+            'key' => 'phase1:'.$id,
+            'source' => 'Phase 1',
+            'cfa_submission_id' => 0,
+            'legacy_application_id' => 0,
+            'legacy_phase1_application_id' => $id,
+            'name' => trim((string) ($row->FullName ?? '')),
+            'application_no' => trim((string) ($row->ApplicationNumber ?? '')),
+            'phone' => trim((string) ($row->MobileNumber ?? '')),
+            'district' => $district,
+            'hub' => trim((string) ($row->hub ?? '')),
+            'block' => trim((string) ($row->State ?? '')),
+            'village' => trim((string) ($row->City ?? '')),
+            'gender' => trim((string) ($row->gender ?? '')),
+            'business_category' => trim((string) ($row->idea ?? '')),
+            'is_onboarded' => $isOnboarded,
+            'onboarding_status' => $isOnboarded ? 'Onboarded' : 'Not onboarded',
+            'onboarding_batch_name' => '',
+            'already_recorded' => false,
+        ];
+    }
+
+    private function phase1Available(): bool
+    {
+        if ((string) config('database.connections.legacy_phase1.database', '') === '') {
+            return false;
+        }
+
+        try {
+            return Schema::connection('legacy_phase1')->hasTable('tblapplication');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function districtIdForName(?string $name): int
+    {
+        $key = mb_strtolower(trim((string) $name));
+        if ($key === '' || ! Schema::hasTable('districts')) {
+            return 0;
+        }
+
+        if ($this->districtIdsByName === null) {
+            $this->districtIdsByName = [];
+            foreach (District::query()->get(['id', 'name']) as $district) {
+                $this->districtIdsByName[mb_strtolower(trim((string) $district->name))] = (int) $district->id;
+            }
+        }
+
+        return (int) ($this->districtIdsByName[$key] ?? 0);
     }
 }

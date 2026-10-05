@@ -86,6 +86,7 @@
     $isEdit = !empty($row);
     $oldCfa = (int) old('cfa_submission_id', $isEdit ? (int) ($row->cfa_submission_id ?? 0) : 0);
     $oldLegacy = (int) old('legacy_application_id', $isEdit ? (int) ($row->legacy_application_id ?? 0) : 0);
+    $oldPhase1 = (int) old('legacy_phase1_application_id', $isEdit ? (int) ($row->legacy_phase1_application_id ?? 0) : 0);
 @endphp
 <div class="pdp-shell">
     @if (!empty($migrationMissing))
@@ -133,12 +134,14 @@
                             value="{{ $row->incubatee_name }}@if($row->application_no) · {{ $row->application_no }}@endif · {{ $row->incubateeSourceLabel() }}">
                         <input type="hidden" name="cfa_submission_id" value="{{ $oldCfa }}">
                         <input type="hidden" name="legacy_application_id" value="{{ $oldLegacy }}">
+                        <input type="hidden" name="legacy_phase1_application_id" value="{{ $oldPhase1 }}">
                     @else
                         <input type="text" id="pdpIncubateeSearch" class="pdp-search" autocomplete="off"
                             placeholder="Search by name, phone, or application number…"
                             value="{{ old('incubatee_label') }}">
                         <input type="hidden" name="cfa_submission_id" id="pdpCfaId" value="{{ $oldCfa ?: '' }}">
                         <input type="hidden" name="legacy_application_id" id="pdpLegacyId" value="{{ $oldLegacy ?: '' }}">
+                        <input type="hidden" name="legacy_phase1_application_id" id="pdpPhase1Id" value="{{ $oldPhase1 ?: '' }}">
                         <input type="hidden" name="incubatee_key" id="pdpIncubateeKey" value="{{ old('incubatee_key') }}">
                         <div class="pdp-picker">
                             <div class="pdp-picker__col">
@@ -147,7 +150,7 @@
                                     <span id="pdpResultsCount" class="pdp-picker__count" hidden>0</span>
                                 </div>
                                 <div id="pdpResults" class="pdp-picker__body pdp-picker__body--results" role="listbox" aria-label="Applicant search results">
-                                    <p class="pdp-picker__empty">Type at least 2 characters to search all Phase 3 CFA and Phase 2 applicants.</p>
+                                    <p class="pdp-picker__empty">Type at least 2 characters to search Phase 1, Phase 2, and Phase 3 applicants.</p>
                                 </div>
                             </div>
                             <div class="pdp-picker__col">
@@ -157,7 +160,7 @@
                                 </div>
                             </div>
                         </div>
-                        <p class="pdp-hint">Shows up to 5 matches. Hover to preview; click to select. Refine your search for more specific results.</p>
+                        <p class="pdp-hint">Shows up to 15 matches across Phase 1, Phase 2, and Phase 3. Hover to preview; click to select.</p>
                         @error('incubatee_key')<p class="pdp-hint" style="color:#b91c1c;">{{ $message }}</p>@enderror
                     @endif
                 </div>
@@ -214,6 +217,7 @@
     const detailHead = document.getElementById('pdpDetailHead');
     const cfaInput = document.getElementById('pdpCfaId');
     const legacyInput = document.getElementById('pdpLegacyId');
+    const phase1Input = document.getElementById('pdpPhase1Id');
     const keyInput = document.getElementById('pdpIncubateeKey');
     const searchUrl = @json(route($searchRoute));
     let timer = null;
@@ -283,6 +287,7 @@
         selectedItem = null;
         cfaInput.value = '';
         legacyInput.value = '';
+        phase1Input.value = '';
         keyInput.value = '';
     }
 
@@ -369,6 +374,7 @@
         hoverIndex = typeof idx === 'number' ? idx : hoverIndex;
         cfaInput.value = item.cfa_submission_id ? String(item.cfa_submission_id) : '';
         legacyInput.value = item.legacy_application_id ? String(item.legacy_application_id) : '';
+        phase1Input.value = item.legacy_phase1_application_id ? String(item.legacy_phase1_application_id) : '';
         keyInput.value = item.key || '';
         searchInput.value = (item.name || '') + (item.application_no ? ' · ' + item.application_no : '');
         highlightRows();
@@ -400,7 +406,7 @@
         if (q.length < 2) {
             lastResults = [];
             updateResultsCount(0);
-            resultsPanel.innerHTML = '<p class="pdp-picker__empty">Type at least 2 characters to search all Phase 3 CFA and Phase 2 applicants.</p>';
+            resultsPanel.innerHTML = '<p class="pdp-picker__empty">Type at least 2 characters to search Phase 1, Phase 2, and Phase 3 applicants.</p>';
             renderDetail(null);
             return;
         }

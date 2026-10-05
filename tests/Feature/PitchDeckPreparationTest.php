@@ -24,6 +24,7 @@ use App\Services\StateMonthlyTargetIndicatorBootstrapService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -377,6 +378,70 @@ class PitchDeckPreparationTest extends TestCase
         ]);
     }
 
+    public function test_phase1_applicants_are_searchable_and_can_be_saved(): void
+    {
+        if (! $this->phase1DatabaseAvailable()) {
+            $this->markTestSkipped('Phase 1 database is not available.');
+        }
+
+        Storage::fake();
+
+        $hub = Hub::query()->create(['slug' => 'pdp-p1-hub', 'name' => 'Hub', 'sort_order' => 1]);
+        District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'pdp-p1-pauri',
+            'name' => 'Pauri Garhwal',
+            'sort_order' => 1,
+        ]);
+
+        $anjali = User::factory()->create([
+            'role' => 'state_staff',
+            'name' => 'Anjali Sood',
+            'is_active' => true,
+        ]);
+
+        $phones = [
+            '9911140226' => 'Atul Rawat',
+            '7895760354' => 'Pushpa Preetam Lingwal',
+            '9758276622' => 'Harshita Suyal',
+            '97582 76622' => 'Harshita Suyal',
+        ];
+
+        foreach ($phones as $phone => $name) {
+            $rows = $this->actingAs($anjali)
+                ->getJson(route('spoc.pitch-deck-preparations.incubatees.search', ['q' => $phone]))
+                ->assertOk()
+                ->json('results');
+
+            $match = collect($rows)->first(fn (array $row): bool => ($row['name'] ?? '') === $name);
+            $this->assertNotNull($match, $name.' should be searchable as '.$phone);
+            $this->assertSame('Phase 1', $match['source']);
+            $this->assertGreaterThan(0, (int) $match['legacy_phase1_application_id']);
+            $this->assertSame(0, (int) $match['cfa_submission_id']);
+            $this->assertSame(0, (int) $match['legacy_application_id']);
+        }
+
+        $atul = collect($this->actingAs($anjali)
+            ->getJson(route('spoc.pitch-deck-preparations.incubatees.search', ['q' => '9911140226']))
+            ->json('results'))
+            ->firstWhere('name', 'Atul Rawat');
+
+        $this->actingAs($anjali)
+            ->post(route('spoc.pitch-deck-preparations.store'), [
+                'legacy_phase1_application_id' => $atul['legacy_phase1_application_id'],
+                'prepared_on' => now()->toDateString(),
+                'deck_file' => UploadedFile::fake()->create('deck.pdf', 100, 'application/pdf'),
+            ])
+            ->assertRedirect(route('spoc.pitch-deck-preparations.dashboard'))
+            ->assertSessionHas('status');
+
+        $this->assertDatabaseHas('pitch_deck_preparations', [
+            'legacy_phase1_application_id' => $atul['legacy_phase1_application_id'],
+            'incubatee_name' => 'Atul Rawat',
+            'application_no' => '123457373',
+        ]);
+    }
+
     public function test_deliverables_count_combines_services_and_state_team(): void
     {
         Storage::fake();
@@ -492,6 +557,31 @@ class PitchDeckPreparationTest extends TestCase
     /**
      * @return array{0: District, 1: OnboardingBatch, 2: int}
      */
+    private function phase1DatabaseAvailable(): bool
+    {
+        if ((string) config('database.connections.legacy_phase1.driver') === 'sqlite') {
+            config([
+                'database.connections.legacy_phase1.driver' => 'mysql',
+                'database.connections.legacy_phase1.host' => env('PHASE1_DB_HOST', '127.0.0.1'),
+                'database.connections.legacy_phase1.port' => env('PHASE1_DB_PORT', '3306'),
+                'database.connections.legacy_phase1.database' => env('PHASE1_DB_DATABASE', 'ukrbiin_rbi'),
+                'database.connections.legacy_phase1.username' => env('PHASE1_DB_USERNAME', 'root'),
+                'database.connections.legacy_phase1.password' => env('PHASE1_DB_PASSWORD', ''),
+            ]);
+            DB::purge('legacy_phase1');
+        }
+
+        if ((string) config('database.connections.legacy_phase1.database', '') === '') {
+            return false;
+        }
+
+        try {
+            return Schema::connection('legacy_phase1')->hasTable('tblapplication');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     private function createOnboardedCfa(): array
     {
         $hub = Hub::query()->create(['slug' => 'pdp-hub', 'name' => 'Hub', 'sort_order' => 1]);

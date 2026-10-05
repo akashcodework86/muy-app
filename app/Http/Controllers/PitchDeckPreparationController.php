@@ -57,13 +57,18 @@ class PitchDeckPreparationController extends Controller
 
         $validated = $this->validateSubmission($request, requireFile: true);
         $snapshot = $this->resolveIncubateeOrFail($validated);
-        $this->assertNotDuplicate((int) ($validated['cfa_submission_id'] ?? 0), (int) ($validated['legacy_application_id'] ?? 0));
+        $this->assertNotDuplicate(
+            (int) ($validated['cfa_submission_id'] ?? 0),
+            (int) ($validated['legacy_application_id'] ?? 0),
+            (int) ($validated['legacy_phase1_application_id'] ?? 0),
+        );
 
         $fileMeta = $this->storeDeckFile($request->file('deck_file'));
 
         PitchDeckPreparation::query()->create([
             'cfa_submission_id' => (int) ($validated['cfa_submission_id'] ?? 0) ?: null,
             'legacy_application_id' => (int) ($validated['legacy_application_id'] ?? 0) ?: null,
+            'legacy_phase1_application_id' => (int) ($validated['legacy_phase1_application_id'] ?? 0) ?: null,
             'district_id' => (int) $snapshot['district_id'],
             'incubatee_name' => (string) $snapshot['name'],
             'application_no' => $snapshot['application_no'],
@@ -189,12 +194,14 @@ class PitchDeckPreparationController extends Controller
         $this->assertNotDuplicate(
             (int) ($validated['cfa_submission_id'] ?? 0),
             (int) ($validated['legacy_application_id'] ?? 0),
+            (int) ($validated['legacy_phase1_application_id'] ?? 0),
             ignoreId: (int) $pitchDeckPreparation->id,
         );
 
         $updates = [
             'cfa_submission_id' => (int) ($validated['cfa_submission_id'] ?? 0) ?: null,
             'legacy_application_id' => (int) ($validated['legacy_application_id'] ?? 0) ?: null,
+            'legacy_phase1_application_id' => (int) ($validated['legacy_phase1_application_id'] ?? 0) ?: null,
             'district_id' => (int) $snapshot['district_id'],
             'incubatee_name' => (string) $snapshot['name'],
             'application_no' => $snapshot['application_no'],
@@ -335,6 +342,7 @@ class PitchDeckPreparationController extends Controller
         return $request->validate([
             'cfa_submission_id' => ['nullable', 'integer', 'min:0'],
             'legacy_application_id' => ['nullable', 'integer', 'min:0'],
+            'legacy_phase1_application_id' => ['nullable', 'integer', 'min:0'],
             'prepared_on' => $existingPreparedOn !== null
                 ? TodayOnlyDate::rulesAllowingExisting($existingPreparedOn)
                 : TodayOnlyDate::rules(),
@@ -360,14 +368,16 @@ class PitchDeckPreparationController extends Controller
     {
         $cfaId = (int) ($validated['cfa_submission_id'] ?? 0);
         $legacyId = (int) ($validated['legacy_application_id'] ?? 0);
+        $phase1Id = (int) ($validated['legacy_phase1_application_id'] ?? 0);
+        $selected = ($cfaId > 0 ? 1 : 0) + ($legacyId > 0 ? 1 : 0) + ($phase1Id > 0 ? 1 : 0);
 
-        if (($cfaId > 0) === ($legacyId > 0)) {
+        if ($selected !== 1) {
             throw ValidationException::withMessages([
-                'incubatee_key' => 'Select exactly one incubatee (Phase 3 CFA or Phase 2 legacy).',
+                'incubatee_key' => 'Select exactly one incubatee from Phase 1, Phase 2, or Phase 3.',
             ]);
         }
 
-        $snapshot = $this->incubateeCatalog->resolveSelection($cfaId, $legacyId);
+        $snapshot = $this->incubateeCatalog->resolveSelection($cfaId, $legacyId, $phase1Id);
         if ($snapshot === null || (int) ($snapshot['district_id'] ?? 0) < 1) {
             throw ValidationException::withMessages([
                 'incubatee_key' => 'Invalid incubatee selection.',
@@ -377,16 +387,19 @@ class PitchDeckPreparationController extends Controller
         return $snapshot;
     }
 
-    private function assertNotDuplicate(int $cfaId, int $legacyId, int $ignoreId = 0): void
+    private function assertNotDuplicate(int $cfaId, int $legacyId, int $phase1Id = 0, int $ignoreId = 0): void
     {
         $exists = PitchDeckPreparation::query()
             ->when($ignoreId > 0, fn ($q) => $q->where('id', '!=', $ignoreId))
-            ->where(function ($q) use ($cfaId, $legacyId): void {
+            ->where(function ($q) use ($cfaId, $legacyId, $phase1Id): void {
                 if ($cfaId > 0) {
                     $q->orWhere('cfa_submission_id', $cfaId);
                 }
                 if ($legacyId > 0) {
                     $q->orWhere('legacy_application_id', $legacyId);
+                }
+                if ($phase1Id > 0 && Schema::hasColumn('pitch_deck_preparations', 'legacy_phase1_application_id')) {
+                    $q->orWhere('legacy_phase1_application_id', $phase1Id);
                 }
             })
             ->exists();
