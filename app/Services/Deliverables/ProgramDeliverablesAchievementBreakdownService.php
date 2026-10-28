@@ -200,7 +200,7 @@ class ProgramDeliverablesAchievementBreakdownService
         }
 
         if (strtolower(trim((string) ($source['code'] ?? ''))) === 'buyer_seller_meets') {
-            return $this->emptyBreakdown();
+            return $this->buyerSellerMeetEntriesBreakdown();
         }
 
         return $this->serviceCaseBreakdown($source);
@@ -280,6 +280,15 @@ class ProgramDeliverablesAchievementBreakdownService
         return \App\Support\MediaCampaignEntriesDeliverablesSupport::breakdown(
             $this->periodFrom,
             $this->periodTo,
+        );
+    }
+
+    private function buyerSellerMeetEntriesBreakdown(): array
+    {
+        return \App\Support\BuyerSellerMeetEntriesDeliverablesSupport::breakdown(
+            $this->periodFrom,
+            $this->periodTo,
+            $this->districtIds,
         );
     }
 

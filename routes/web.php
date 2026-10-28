@@ -91,6 +91,7 @@ use App\Http\Controllers\MarketLinkageController;
 use App\Http\Controllers\MarketLinkageCoverageController;
 use App\Http\Controllers\MarketLinkagePartnerDirectoryController;
 use App\Http\Controllers\MediaCampaignController;
+use App\Http\Controllers\BuyerSellerMeetController;
 use App\Http\Controllers\MediaCampaignLandingController;
 use App\Http\Controllers\MentorshipRequestStaffController;
 use App\Http\Controllers\MuyNewsletterController;
@@ -887,6 +888,15 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('media-campaigns/{mediaCampaign}', [MediaCampaignController::class, 'show'])->name('media-campaigns.show');
         Route::delete('media-campaigns/{mediaCampaign}', [MediaCampaignController::class, 'destroy'])->middleware('throttle:30,1')->name('media-campaigns.destroy');
 
+        Route::get('buyer-seller-meets/create', [BuyerSellerMeetController::class, 'create'])->name('buyer-seller-meets.create');
+        Route::post('buyer-seller-meets', [BuyerSellerMeetController::class, 'store'])->middleware('throttle:30,1')->name('buyer-seller-meets.store');
+        Route::get('buyer-seller-meets/incubatees/search', [BuyerSellerMeetController::class, 'searchIncubatees'])->name('buyer-seller-meets.incubatees.search');
+        Route::get('buyer-seller-meets/dashboard', [BuyerSellerMeetController::class, 'dashboard'])->name('buyer-seller-meets.dashboard');
+        Route::get('buyer-seller-meets/export', [BuyerSellerMeetController::class, 'export'])->name('buyer-seller-meets.export');
+        Route::get('buyer-seller-meets/{buyerSellerMeet}/photo', [BuyerSellerMeetController::class, 'downloadPhoto'])->name('buyer-seller-meets.photo');
+        Route::get('buyer-seller-meets/{buyerSellerMeet}/attendance', [BuyerSellerMeetController::class, 'downloadAttendance'])->name('buyer-seller-meets.attendance');
+        Route::get('buyer-seller-meets/{buyerSellerMeet}', [BuyerSellerMeetController::class, 'show'])->name('buyer-seller-meets.show');
+
         Route::get('partner-outreach/create', [MarketingPartnerOutreachController::class, 'create'])->name('partner-outreach.create');
         Route::post('partner-outreach', [MarketingPartnerOutreachController::class, 'store'])
             ->middleware('throttle:30,1')
@@ -1459,6 +1469,15 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('media-campaigns/{mediaCampaign}/document', [MediaCampaignController::class, 'downloadDocument'])->name('media-campaigns.document');
         Route::get('media-campaigns/{mediaCampaign}/attachment', [MediaCampaignController::class, 'downloadAttachment'])->name('media-campaigns.attachment');
         Route::get('media-campaigns/{mediaCampaign}', [MediaCampaignController::class, 'show'])->name('media-campaigns.show');
+
+        Route::get('buyer-seller-meets/dashboard', [BuyerSellerMeetController::class, 'dashboard'])->name('buyer-seller-meets.dashboard');
+        Route::get('buyer-seller-meets/export', [BuyerSellerMeetController::class, 'export'])->name('buyer-seller-meets.export');
+        Route::get('buyer-seller-meets/{buyerSellerMeet}/edit', [BuyerSellerMeetController::class, 'edit'])->name('buyer-seller-meets.edit');
+        Route::put('buyer-seller-meets/{buyerSellerMeet}', [BuyerSellerMeetController::class, 'update'])->middleware('throttle:30,1')->name('buyer-seller-meets.update');
+        Route::delete('buyer-seller-meets/{buyerSellerMeet}', [BuyerSellerMeetController::class, 'destroy'])->middleware('throttle:30,1')->name('buyer-seller-meets.destroy');
+        Route::get('buyer-seller-meets/{buyerSellerMeet}/photo', [BuyerSellerMeetController::class, 'downloadPhoto'])->name('buyer-seller-meets.photo');
+        Route::get('buyer-seller-meets/{buyerSellerMeet}/attendance', [BuyerSellerMeetController::class, 'downloadAttendance'])->name('buyer-seller-meets.attendance');
+        Route::get('buyer-seller-meets/{buyerSellerMeet}', [BuyerSellerMeetController::class, 'show'])->name('buyer-seller-meets.show');
 
         Route::get('partner-outreach/dashboard', [MarketingPartnerOutreachController::class, 'dashboard'])->name('partner-outreach.dashboard');
         Route::get('partner-outreach', PartnerOutreachLandingController::class)->name('partner-outreach.index');

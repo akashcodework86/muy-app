@@ -236,6 +236,13 @@
         str_starts_with($r, 'spoc.media-campaigns.show') => 'media-campaigns-dashboard',
         str_starts_with($r, 'admin.media-campaigns.dashboard') => 'media-campaigns-dashboard',
         str_starts_with($r, 'admin.media-campaigns.show') => 'media-campaigns-dashboard',
+        str_starts_with($r, 'spoc.buyer-seller-meets.create') => 'buyer-seller-meets-submit',
+        str_starts_with($r, 'spoc.buyer-seller-meets.store') => 'buyer-seller-meets-submit',
+        str_starts_with($r, 'spoc.buyer-seller-meets.dashboard') => 'buyer-seller-meets-dashboard',
+        str_starts_with($r, 'spoc.buyer-seller-meets.show') => 'buyer-seller-meets-dashboard',
+        str_starts_with($r, 'admin.buyer-seller-meets.dashboard') => 'buyer-seller-meets-dashboard',
+        str_starts_with($r, 'admin.buyer-seller-meets.show') => 'buyer-seller-meets-dashboard',
+        str_starts_with($r, 'admin.buyer-seller-meets.edit') => 'buyer-seller-meets-dashboard',
         str_starts_with($r, 'spoc.partner-outreach.create') => 'partner-outreach-submit',
         str_starts_with($r, 'spoc.partner-outreach.index') => 'partner-outreach-submit',
         str_starts_with($r, 'spoc.partner-outreach.store') => 'partner-outreach-submit',
@@ -420,7 +427,7 @@
     $approvalQueueNavActive = $activeNav === 'approval-queue';
     $spocFundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-submit', 'pitch-deck-preparations-dashboard', 'demo-days-submit', 'demo-days-dashboard', 'funding-partners-outreach-submit', 'funding-partners-outreach-dashboard'], true);
     $spocPartnerOutreachActive = in_array($activeNav, ['partner-outreach-submit', 'partner-outreach-dashboard'], true);
-    $spocBrandingCommunicationActive = in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard'], true);
+    $spocBrandingCommunicationActive = in_array($activeNav, ['social-media-posts-submit', 'social-media-posts-dashboard', 'case-study-entries-submit', 'case-study-entries-dashboard', 'muy-newsletters-submit', 'muy-newsletters-dashboard', 'media-campaigns-submit', 'media-campaigns-dashboard', 'buyer-seller-meets-submit', 'buyer-seller-meets-dashboard'], true);
     $spocBaPartnersOutreachActive = in_array($activeNav, ['ba-partners-outreach-submit', 'ba-partners-outreach-dashboard'], true);
     $spocAccelerationServicesActive = in_array($activeNav, ['acceleration-services-submit', 'acceleration-services-dashboard'], true);
     $fundingSchematicActive = in_array($activeNav, ['pitch-deck-preparations-dashboard', 'demo-days-dashboard', 'funding-partners-outreach-dashboard'], true);
@@ -744,7 +751,7 @@
                         </div>
                     </div>
                     @endif
-                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['social-media-posts-dashboard', 'case-study-entries-dashboard', 'muy-newsletters-dashboard', 'media-campaigns-dashboard'], true)) is-active @endif">
+                    <div class="admin-topbar__dropdown-subgroup @if (in_array($activeNav, ['social-media-posts-dashboard', 'case-study-entries-dashboard', 'muy-newsletters-dashboard', 'media-campaigns-dashboard', 'buyer-seller-meets-dashboard'], true)) is-active @endif">
                         <span class="admin-topbar__dropdown-subtrigger">
                             {!! $i('book') !!}<span>Branding, Communication &amp; Knowledge Management</span>
                         </span>
@@ -761,6 +768,9 @@
                             </a>
                             <a href="{{ route('admin.media-campaigns.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'media-campaigns-dashboard') is-active @endif" role="menuitem">
                                 {!! $i('bars') !!}<span>IEC &amp; Promotional Activities for MUY (10.4)</span>
+                            </a>
+                            <a href="{{ route('admin.buyer-seller-meets.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'buyer-seller-meets-dashboard') is-active @endif" role="menuitem">
+                                {!! $i('bars') !!}<span>Buyer-Seller Meet (10.5)</span>
                             </a>
                             @endif
                         </div>
@@ -960,6 +970,9 @@
                     </a>
                     <a href="{{ route('spoc.media-campaigns.create') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['media-campaigns-submit', 'media-campaigns-dashboard'], true)) is-active @endif" role="menuitem">
                         {!! $i('doc') !!}<span>IEC &amp; Promotional Activities for MUY (10.4)</span>
+                    </a>
+                    <a href="{{ route('spoc.buyer-seller-meets.create') }}" class="admin-topbar__dropdown-item @if (in_array($activeNav, ['buyer-seller-meets-submit', 'buyer-seller-meets-dashboard'], true)) is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>Buyer-Seller Meet (10.5)</span>
                     </a>
                     @endif
                 </div>

@@ -1111,8 +1111,7 @@ class ProgramDeliverablesReportService
         }
 
         if ($code === 'buyer_seller_meets') {
-            // 10.5 is not fed from Acceleration 7.2 Buyer-Seller ticks.
-            return 0;
+            return $this->buyerSellerMeetEntriesCount();
         }
 
         if ($code === 'acceleration_services') {
@@ -1247,6 +1246,14 @@ class ProgramDeliverablesReportService
     private function mediaCampaignEntriesCount(): int
     {
         return \App\Support\MediaCampaignEntriesDeliverablesSupport::countEntries(
+            $this->periodFrom,
+            $this->periodTo,
+        );
+    }
+
+    private function buyerSellerMeetEntriesCount(): int
+    {
+        return \App\Support\BuyerSellerMeetEntriesDeliverablesSupport::countEntries(
             $this->periodFrom,
             $this->periodTo,
         );

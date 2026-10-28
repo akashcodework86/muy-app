@@ -34,4 +34,7 @@ return [
     'media_campaign_max_attachments' => 5,
 
     'case_study_max_attachments' => 10,
+
+    'buyer_seller_meet_max_photos' => 10,
+    'buyer_seller_meet_max_attendance_files' => 5,
 ];
