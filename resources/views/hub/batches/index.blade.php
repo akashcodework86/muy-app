@@ -279,6 +279,8 @@
                         <button type="button" class="hb-btn hb-btn--ghost" id="btnClearSelection">Clear</button>
                         <button type="button" class="hb-btn hb-btn--ghost" id="btnAutoSelectMix">Auto-select for ideal mix</button>
                         <button type="button" class="hb-btn hb-btn--primary" id="btnAddSelected">Add selected</button>
+                        <button type="button" class="hb-btn hb-btn--ghost" id="btnImportExcel">Import from Excel</button>
+                        <a class="hb-btn hb-btn--ghost" href="{{ route('hub.batches.import.template') }}" style="text-decoration:none">Download template</a>
                         <span class="hb-pool-tools__note" id="poolBulkStatus">0 selected</span>
                     </div>
                     <div class="hb-table-wrap">
@@ -375,6 +377,44 @@
         </div>
     </div>
 
+    <div class="hb-modal-bg" id="modalBatchImport">
+        <div class="hb-modal" style="max-width:70rem;max-height:92vh;overflow:auto">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+                <div>
+                    <h3 style="margin:0">Import CFA from Excel</h3>
+                    <p style="margin:0.25rem 0 0;color:var(--muted);font-size:0.8rem">Preview first. Nothing is added until you confirm.</p>
+                </div>
+                <button type="button" id="batchImportClose" style="border:0;background:none;font-size:1.5rem;cursor:pointer">&times;</button>
+            </div>
+            <div id="batchImportForm" style="margin-top:1rem">
+                <input type="file" id="batchImportFile" class="hb-input" accept=".xlsx,.csv">
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.65rem;margin-top:0.75rem">
+                    <input class="hb-input" id="batchImportAppHeader" placeholder="Application header override (optional)">
+                    <input class="hb-input" id="batchImportMobileHeader" placeholder="Mobile header override (optional)">
+                    <input class="hb-input" id="batchImportNameHeader" placeholder="Name header override (optional)">
+                </div>
+                <div style="display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:0.85rem;font-size:0.85rem">
+                    <label><input type="checkbox" id="batchImportAllYears" checked> Search in all pool years</label>
+                    <label><input type="checkbox" id="batchImportStopFull" checked> Stop when draft is full</label>
+                    <label><input type="checkbox" id="batchImportDryRun"> Dry run only</label>
+                </div>
+                <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                    <button type="button" class="hb-btn hb-btn--ghost" id="batchImportCancel">Cancel</button>
+                    <button type="button" class="hb-btn hb-btn--primary" id="batchImportPreview">Preview import</button>
+                </div>
+            </div>
+            <div id="batchImportProgress" style="display:none;margin-top:1rem;padding:0.8rem;background:#eff6ff;border-radius:8px">Processing file…</div>
+            <div id="batchImportResults" style="display:none;margin-top:1rem">
+                <div id="batchImportSummary" style="font-weight:700;margin-bottom:0.75rem"></div>
+                <div class="hb-table-wrap" style="max-height:360px"><table class="hb-table"><thead><tr><th>Row</th><th>Application</th><th>Name / Mobile</th><th>Status</th><th>Reason</th><th>Pool FY</th><th>Portal ID</th></tr></thead><tbody id="batchImportResultBody"></tbody></table></div>
+                <div style="display:flex;gap:0.75rem;margin-top:1rem;flex-wrap:wrap">
+                    <button type="button" class="hb-btn hb-btn--ghost" id="batchImportExport">Export results CSV</button>
+                    <button type="button" class="hb-btn hb-btn--primary" id="batchImportCommit">Add approved rows to draft</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="hb-modal-bg" id="modalRatioGap">
         <div class="hb-modal">
             <h3 style="margin:0 0 0.5rem">Onboarding mix (contract)</h3>
@@ -443,6 +483,8 @@
     (function () {
         const CSRF = @json(csrf_token());
         const API_URL = @json(route('hub.batches.api'));
+        const IMPORT_PREVIEW_URL = @json(route('hub.batches.import.preview'));
+        const IMPORT_COMMIT_URL = @json(route('hub.batches.import.commit'));
         const UPLOAD_URL = @json(route('hub.batches.upload-cdo'));
         const LETTER_VIEW_URL_TEMPLATE = @json(route('hub.batches.onboarding-letter', ['batch' => '__BATCH_ID__']));
         let currentDistrictId = 0;
@@ -461,6 +503,73 @@
         let openedBatchDetailId = 0;
         let batchDetailData = null;
         let detailFilters = { stage: '', category: '' };
+        let latestImport = null;
+
+        function closeBatchImport() {
+            document.getElementById('modalBatchImport').classList.remove('is-open');
+        }
+
+        function importSummaryText(s) {
+            return `Processed: ${s.processed || 0} · Ready/Added: ${(s.would_add || 0) + (s.added || 0)} · Already in draft: ${s.already_in_draft || 0} · Not found: ${s.not_found || 0} · Errors: ${s.errors || 0} · Draft: ${s.draft_count || 0}/${s.draft_target || 0}`;
+        }
+
+        function renderImportResults(data) {
+            latestImport = data;
+            document.getElementById('batchImportProgress').style.display = 'none';
+            document.getElementById('batchImportResults').style.display = 'block';
+            document.getElementById('batchImportSummary').textContent = importSummaryText(data.summary || {});
+            document.getElementById('batchImportResultBody').innerHTML = (data.results || []).map(r => `<tr>
+                <td>${esc(r.excel_row)}</td><td>${esc(r.application_no)}${r.duplicate_app_no_in_file ? '<br><strong style="color:#b45309">Duplicate in file</strong>' : ''}</td>
+                <td>${esc(r.name)}<br><span style="color:var(--muted)">${esc(r.mobile)}</span></td><td><strong>${esc(r.status)}</strong></td>
+                <td>${esc(r.reason)}</td><td>${esc(r.pool_year || '—')}</td><td>${esc(r.matched_application_no || r.matched_id || '—')}</td></tr>`).join('');
+            document.getElementById('batchImportCommit').style.display = document.getElementById('batchImportDryRun').checked || !data.token ? 'none' : '';
+        }
+
+        async function previewBatchImport() {
+            const file = document.getElementById('batchImportFile').files[0];
+            if (!currentBatchId) return alert('Create or resume a draft first.');
+            if (!file) return alert('Choose an .xlsx or .csv file.');
+            const form = new FormData();
+            form.append('batch_id', currentBatchId);
+            form.append('file', file);
+            form.append('fiscal_year_id', selectedFiscalYearId);
+            form.append('all_pool_years', document.getElementById('batchImportAllYears').checked ? '1' : '0');
+            form.append('stop_when_full', document.getElementById('batchImportStopFull').checked ? '1' : '0');
+            form.append('application_header', document.getElementById('batchImportAppHeader').value);
+            form.append('mobile_header', document.getElementById('batchImportMobileHeader').value);
+            form.append('name_header', document.getElementById('batchImportNameHeader').value);
+            document.getElementById('batchImportProgress').style.display = 'block';
+            document.getElementById('batchImportResults').style.display = 'none';
+            try {
+                const response = await fetch(IMPORT_PREVIEW_URL, { method:'POST', headers:{'Accept':'application/json','X-CSRF-TOKEN':CSRF,'X-Requested-With':'XMLHttpRequest'}, body:form });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Preview failed.');
+                renderImportResults(data);
+            } catch (e) {
+                document.getElementById('batchImportProgress').style.display = 'none'; alert(e.message);
+            }
+        }
+
+        async function commitBatchImport() {
+            if (!latestImport?.token) return;
+            const btn = document.getElementById('batchImportCommit'); btn.disabled = true; btn.textContent = 'Adding…';
+            try {
+                const response = await fetch(IMPORT_COMMIT_URL, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF,'X-Requested-With':'XMLHttpRequest'}, body:JSON.stringify({token:latestImport.token}) });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Import failed.');
+                renderImportResults(data); await loadDraft(); await loadPool();
+                btn.style.display = 'none';
+            } catch (e) { alert(e.message); }
+            finally { btn.disabled = false; btn.textContent = 'Add approved rows to draft'; }
+        }
+
+        function exportImportResults() {
+            const rows = latestImport?.results || [];
+            const quote = v => `"${String(v ?? '').replaceAll('"','""')}"`;
+            const cols = ['excel_row','application_no','mobile','name','duplicate_app_no_in_file','status','reason','pool_year','matched_id','matched_application_no'];
+            const csv = [cols.join(','), ...rows.map(r => cols.map(c => quote(r[c])).join(','))].join('\r\n');
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = 'hub-batch-import-results.csv'; a.click(); URL.revokeObjectURL(a.href);
+        }
 
         function idealMixFromN(N) {
             N = Math.max(0, parseInt(N, 10) || 0);
@@ -1542,6 +1651,17 @@
         document.getElementById('btnCloseBatchDetail').addEventListener('click', closeBatchDetail);
         document.getElementById('unlockReqCancel').addEventListener('click', closeUnlockRequest);
         document.getElementById('unlockReqSubmit').addEventListener('click', submitUnlockRequest);
+        document.getElementById('btnImportExcel').addEventListener('click', () => {
+            if (!currentBatchId) return alert('Create or resume a draft batch first.');
+            latestImport = null;
+            document.getElementById('batchImportResults').style.display = 'none';
+            document.getElementById('modalBatchImport').classList.add('is-open');
+        });
+        document.getElementById('batchImportClose').addEventListener('click', closeBatchImport);
+        document.getElementById('batchImportCancel').addEventListener('click', closeBatchImport);
+        document.getElementById('batchImportPreview').addEventListener('click', previewBatchImport);
+        document.getElementById('batchImportCommit').addEventListener('click', commitBatchImport);
+        document.getElementById('batchImportExport').addEventListener('click', exportImportResults);
         document.getElementById('btnProvisionIncubatees')?.addEventListener('click', async () => {
             const btn = document.getElementById('btnProvisionIncubatees');
             const bid = parseInt(btn?.dataset.batchId || '0', 10);
