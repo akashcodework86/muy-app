@@ -325,9 +325,9 @@ class HubBatchService
                     $q->orWhere('duplicate_cfa.id', $cfaSubmissionId);
                 }
                 if ($applicationNo !== '') {
-                    $q->orWhereRaw('UPPER(REPLACE(duplicate_cfa.application_no, " ", "")) = ?', [$applicationNo]);
+                    $q->orWhereRaw("UPPER(REPLACE(duplicate_cfa.application_no, ' ', '')) = ?", [$applicationNo]);
                     foreach (HubBatchImportNormalizer::applicationVariants($applicationNo) as $variant) {
-                        $q->orWhereRaw('UPPER(REPLACE(duplicate_cfa.application_no, " ", "")) = ?', [$variant]);
+                        $q->orWhereRaw("UPPER(REPLACE(duplicate_cfa.application_no, ' ', '')) = ?", [$variant]);
                     }
                 }
                 if ($phone !== '') {
@@ -367,7 +367,6 @@ class HubBatchService
             $row = DB::connection('legacy')
                 ->table('rbi_onboarded_applicants as oa')
                 ->join('rbi_applications as a', 'a.id', '=', 'oa.application_id')
-                ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
                 ->whereNotNull('oa.application_id')
                 ->select(['a.application_no'])
                 ->where(function ($q) use ($applicationNo, $phone, $legacyApplicationId): void {
@@ -375,13 +374,18 @@ class HubBatchService
                         $q->orWhere('a.id', $legacyApplicationId);
                     }
                     if ($applicationNo !== '') {
-                        $q->orWhereRaw('UPPER(REPLACE(a.application_no, " ", "")) = ?', [$applicationNo]);
+                        $q->orWhereRaw("UPPER(REPLACE(a.application_no, ' ', '')) = ?", [$applicationNo]);
                         foreach (HubBatchImportNormalizer::applicationVariants($applicationNo) as $variant) {
-                            $q->orWhereRaw('UPPER(REPLACE(a.application_no, " ", "")) = ?', [$variant]);
+                            $q->orWhereRaw("UPPER(REPLACE(a.application_no, ' ', '')) = ?", [$variant]);
                         }
                     }
                     if ($phone !== '') {
-                        $q->orWhereRaw($this->sqlNormalizedPhoneColumn('d.phone').' = ?', [$phone]);
+                        $q->orWhereExists(function ($sub) use ($phone): void {
+                            $sub->selectRaw('1')
+                                ->from('rbi_applicant_details as d2')
+                                ->whereColumn('d2.application_id', 'a.id')
+                                ->whereRaw($this->sqlNormalizedPhoneColumn('d2.phone').' = ?', [$phone]);
+                        });
                     }
                 })
                 ->limit(1)
@@ -425,9 +429,9 @@ class HubBatchService
                         $q->orWhere('ID', $legacyPhase1Id);
                     }
                     if ($applicationNo !== '') {
-                        $q->orWhereRaw('UPPER(REPLACE(ApplicationNumber, " ", "")) = ?', [$applicationNo]);
+                        $q->orWhereRaw("UPPER(REPLACE(ApplicationNumber, ' ', '')) = ?", [$applicationNo]);
                         foreach (HubBatchImportNormalizer::applicationVariants($applicationNo) as $variant) {
-                            $q->orWhereRaw('UPPER(REPLACE(ApplicationNumber, " ", "")) = ?', [$variant]);
+                            $q->orWhereRaw("UPPER(REPLACE(ApplicationNumber, ' ', '')) = ?", [$variant]);
                         }
                     }
                     if ($phone !== '') {
@@ -455,7 +459,7 @@ class HubBatchService
 
     private function sqlNormalizedPhoneColumn(string $column): string
     {
-        return 'RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE('.$column.', ""), " ", ""), "-", ""), "+", ""), ".", ""), ",", ""), 10)';
+        return "RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE({$column}, ''), ' ', ''), '-', ''), '+', ''), '.', ''), ',', ''), 10)";
     }
 
     /**
