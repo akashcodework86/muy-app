@@ -36,10 +36,6 @@ class HubBatchService
 
     private ?Collection $lockedIdentityRows = null;
 
-    private ?Collection $legacyPhase2OnboardedRows = null;
-
-    private ?Collection $legacyPhase1OnboardedRows = null;
-
     public function __construct(
         private AdminAuditLogger $auditLogger
     ) {}
@@ -284,54 +280,182 @@ class HubBatchService
         $legacyPhase2Id = (int) ($cfa->payload['legacy_application_id'] ?? 0);
         $legacyPhase1Id = (int) ($cfa->payload['legacy_phase1_id'] ?? 0);
 
-        $local = $this->lockedIdentityRows()
-            ->when($ignoreLockedBatchId !== null, fn (Collection $rows) => $rows->where('batch_id', '!=', $ignoreLockedBatchId))
-            ->first(function (object $row) use ($cfaSubmissionId, $applicationNo, $phone): bool {
-                if ((int) $row->cfa_submission_id === $cfaSubmissionId) {
-                    return true;
-                }
-
-                return ($applicationNo !== '' && HubBatchImportNormalizer::applicationNo($row->application_no) === $applicationNo)
-                    || ($phone !== '' && HubBatchImportNormalizer::phone($row->phone) === $phone);
-            });
-        if ($local) {
-            return [
-                'type' => 'locked',
-                'batch_id' => (int) $local->batch_id,
-                'batch_name' => (string) $local->batch_name,
-                'application_no' => (string) $local->application_no,
-            ];
+        $local = $this->findHubLockedOnboardingConflict($cfaSubmissionId, $applicationNo, $phone, $ignoreLockedBatchId);
+        if ($local !== null) {
+            return $local;
         }
 
-        $phase2 = $this->legacyPhase2OnboardedRows()->first(function (object $row) use ($applicationNo, $phone, $legacyPhase2Id): bool {
-            return ($legacyPhase2Id > 0 && (int) $row->legacy_id === $legacyPhase2Id)
-                || ($applicationNo !== '' && HubBatchImportNormalizer::applicationNo($row->application_no) === $applicationNo)
-                || ($phone !== '' && HubBatchImportNormalizer::phone($row->phone) === $phone);
-        });
-        if ($phase2) {
+        $phase2 = $this->findLegacyPhase2OnboardingConflict($applicationNo, $phone, $legacyPhase2Id);
+        if ($phase2 !== null) {
+            return $phase2;
+        }
+
+        $phase1 = $this->findLegacyPhase1OnboardingConflict($applicationNo, $phone, $legacyPhase1Id);
+        if ($phase1 !== null) {
+            return $phase1;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{type: string, batch_id: int, batch_name: string, application_no: string}|null
+     */
+    private function findHubLockedOnboardingConflict(
+        int $cfaSubmissionId,
+        string $applicationNo,
+        string $phone,
+        ?int $ignoreLockedBatchId,
+    ): ?array {
+        if ($cfaSubmissionId <= 0 && $applicationNo === '' && $phone === '') {
+            return null;
+        }
+
+        $row = DB::table('cfa_submissions as duplicate_cfa')
+            ->join('onboarding_batch_cfa as duplicate_obc', 'duplicate_obc.cfa_submission_id', '=', 'duplicate_cfa.id')
+            ->join('onboarding_batches as duplicate_batch', 'duplicate_batch.id', '=', 'duplicate_obc.onboarding_batch_id')
+            ->select([
+                'duplicate_cfa.application_no',
+                'duplicate_batch.id as batch_id',
+                'duplicate_batch.name as batch_name',
+            ])
+            ->when($ignoreLockedBatchId !== null, fn ($q) => $q->where('duplicate_batch.id', '!=', $ignoreLockedBatchId))
+            ->where(function ($q) use ($cfaSubmissionId, $applicationNo, $phone): void {
+                if ($cfaSubmissionId > 0) {
+                    $q->orWhere('duplicate_cfa.id', $cfaSubmissionId);
+                }
+                if ($applicationNo !== '') {
+                    $q->orWhereRaw('UPPER(REPLACE(duplicate_cfa.application_no, " ", "")) = ?', [$applicationNo]);
+                    foreach (HubBatchImportNormalizer::applicationVariants($applicationNo) as $variant) {
+                        $q->orWhereRaw('UPPER(REPLACE(duplicate_cfa.application_no, " ", "")) = ?', [$variant]);
+                    }
+                }
+                if ($phone !== '') {
+                    $q->orWhereRaw($this->sqlNormalizedPhoneColumn('duplicate_cfa.phone').' = ?', [$phone]);
+                }
+            })
+            ->orderByDesc('duplicate_obc.id')
+            ->first();
+
+        if (! $row) {
+            return null;
+        }
+
+        return [
+            'type' => 'locked',
+            'batch_id' => (int) $row->batch_id,
+            'batch_name' => (string) $row->batch_name,
+            'application_no' => (string) $row->application_no,
+        ];
+    }
+
+    /**
+     * @return array{type: string, batch_id: int, batch_name: string, application_no: string}|null
+     */
+    private function findLegacyPhase2OnboardingConflict(string $applicationNo, string $phone, int $legacyApplicationId): ?array
+    {
+        if ((string) config('database.connections.legacy.database', '') === '') {
+            return null;
+        }
+
+        try {
+            if (! Schema::connection('legacy')->hasTable('rbi_onboarded_applicants')
+                || ! Schema::connection('legacy')->hasTable('rbi_applications')) {
+                return null;
+            }
+
+            $row = DB::connection('legacy')
+                ->table('rbi_onboarded_applicants as oa')
+                ->join('rbi_applications as a', 'a.id', '=', 'oa.application_id')
+                ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
+                ->whereNotNull('oa.application_id')
+                ->select(['a.application_no'])
+                ->where(function ($q) use ($applicationNo, $phone, $legacyApplicationId): void {
+                    if ($legacyApplicationId > 0) {
+                        $q->orWhere('a.id', $legacyApplicationId);
+                    }
+                    if ($applicationNo !== '') {
+                        $q->orWhereRaw('UPPER(REPLACE(a.application_no, " ", "")) = ?', [$applicationNo]);
+                        foreach (HubBatchImportNormalizer::applicationVariants($applicationNo) as $variant) {
+                            $q->orWhereRaw('UPPER(REPLACE(a.application_no, " ", "")) = ?', [$variant]);
+                        }
+                    }
+                    if ($phone !== '') {
+                        $q->orWhereRaw($this->sqlNormalizedPhoneColumn('d.phone').' = ?', [$phone]);
+                    }
+                })
+                ->limit(1)
+                ->first();
+
+            if (! $row) {
+                return null;
+            }
+
             return [
                 'type' => 'legacy_phase2',
                 'batch_id' => 0,
                 'batch_name' => 'Legacy Phase 2 onboarding',
-                'application_no' => (string) $phase2->application_no,
+                'application_no' => (string) ($row->application_no ?? ''),
             ];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array{type: string, batch_id: int, batch_name: string, application_no: string}|null
+     */
+    private function findLegacyPhase1OnboardingConflict(string $applicationNo, string $phone, int $legacyPhase1Id): ?array
+    {
+        if ((string) config('database.connections.legacy_phase1.database', '') === '') {
+            return null;
         }
 
-        $phase1 = $this->legacyPhase1OnboardedRows()->first(function (object $row) use ($applicationNo, $phone, $legacyPhase1Id): bool {
-            return ($legacyPhase1Id > 0 && (int) $row->legacy_id === $legacyPhase1Id)
-                || ($applicationNo !== '' && HubBatchImportNormalizer::applicationNo($row->application_no) === $applicationNo)
-                || ($phone !== '' && HubBatchImportNormalizer::phone($row->phone) === $phone);
-        });
-        if ($phase1) {
+        try {
+            if (! Schema::connection('legacy_phase1')->hasTable('tblapplication')) {
+                return null;
+            }
+
+            $row = DB::connection('legacy_phase1')
+                ->table('tblapplication')
+                ->whereRaw('LOWER(TRIM(onboard)) = ?', ['yes'])
+                ->select(['ApplicationNumber as application_no'])
+                ->where(function ($q) use ($applicationNo, $phone, $legacyPhase1Id): void {
+                    if ($legacyPhase1Id > 0) {
+                        $q->orWhere('ID', $legacyPhase1Id);
+                    }
+                    if ($applicationNo !== '') {
+                        $q->orWhereRaw('UPPER(REPLACE(ApplicationNumber, " ", "")) = ?', [$applicationNo]);
+                        foreach (HubBatchImportNormalizer::applicationVariants($applicationNo) as $variant) {
+                            $q->orWhereRaw('UPPER(REPLACE(ApplicationNumber, " ", "")) = ?', [$variant]);
+                        }
+                    }
+                    if ($phone !== '') {
+                        $q->orWhereRaw($this->sqlNormalizedPhoneColumn('MobileNumber').' = ?', [$phone]);
+                    }
+                })
+                ->orderByDesc('ID')
+                ->limit(1)
+                ->first();
+
+            if (! $row) {
+                return null;
+            }
+
             return [
                 'type' => 'legacy_phase1',
                 'batch_id' => 0,
                 'batch_name' => 'Legacy Phase 1 onboarding',
-                'application_no' => (string) $phase1->application_no,
+                'application_no' => (string) ($row->application_no ?? ''),
             ];
+        } catch (\Throwable) {
+            return null;
         }
+    }
 
-        return null;
+    private function sqlNormalizedPhoneColumn(string $column): string
+    {
+        return 'RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE('.$column.', ""), " ", ""), "-", ""), "+", ""), ".", ""), ",", ""), 10)';
     }
 
     /**
@@ -1760,55 +1884,6 @@ class HubBatchService
             ->join('onboarding_batches as duplicate_batch', 'duplicate_batch.id', '=', 'duplicate_obc.onboarding_batch_id')
             ->select(['duplicate_cfa.id as cfa_submission_id', 'duplicate_cfa.application_no', 'duplicate_cfa.phone', 'duplicate_batch.id as batch_id', 'duplicate_batch.name as batch_name'])
             ->get();
-    }
-
-    private function legacyPhase2OnboardedRows(): Collection
-    {
-        if ($this->legacyPhase2OnboardedRows !== null) {
-            return $this->legacyPhase2OnboardedRows;
-        }
-
-        try {
-            if ((string) config('database.connections.legacy.database', '') === ''
-                || ! Schema::connection('legacy')->hasTable('rbi_onboarded_applicants')
-                || ! Schema::connection('legacy')->hasTable('rbi_applications')
-                || ! Schema::connection('legacy')->hasTable('rbi_applicant_details')) {
-                return $this->legacyPhase2OnboardedRows = collect();
-            }
-
-            // Any row in rbi_onboarded_applicants counts as onboarded (same rule as legacy pool list).
-            return $this->legacyPhase2OnboardedRows = DB::connection('legacy')
-                ->table('rbi_onboarded_applicants as oa')
-                ->join('rbi_applications as a', 'a.id', '=', 'oa.application_id')
-                ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
-                ->whereNotNull('oa.application_id')
-                ->select(['a.id as legacy_id', 'a.application_no', 'd.phone'])
-                ->get();
-        } catch (\Throwable) {
-            return $this->legacyPhase2OnboardedRows = collect();
-        }
-    }
-
-    private function legacyPhase1OnboardedRows(): Collection
-    {
-        if ($this->legacyPhase1OnboardedRows !== null) {
-            return $this->legacyPhase1OnboardedRows;
-        }
-
-        try {
-            if ((string) config('database.connections.legacy_phase1.database', '') === ''
-                || ! Schema::connection('legacy_phase1')->hasTable('tblapplication')) {
-                return $this->legacyPhase1OnboardedRows = collect();
-            }
-
-            return $this->legacyPhase1OnboardedRows = DB::connection('legacy_phase1')
-                ->table('tblapplication')
-                ->whereRaw('LOWER(TRIM(onboard)) = ?', ['yes'])
-                ->select(['ID as legacy_id', 'ApplicationNumber as application_no', 'MobileNumber as phone'])
-                ->get();
-        } catch (\Throwable) {
-            return $this->legacyPhase1OnboardedRows = collect();
-        }
     }
 
     private function phoneOnboardingConflict(
