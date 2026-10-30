@@ -17,6 +17,7 @@ use App\Models\OnboardingBatchEditRequest;
 use App\Models\User;
 use App\Notifications\HubBatchUnlockRequestedNotification;
 use App\Services\LegacyPhase1\LegacyPhase1DistrictResolver;
+use App\Support\HubBatchImportNormalizer;
 use App\Support\IncubateeLoginPhone;
 use App\Support\TodayOnlyDate;
 use Carbon\Carbon;
@@ -32,6 +33,12 @@ use Illuminate\Validation\ValidationException;
 class HubBatchService
 {
     public const DOC_CDO = 'cdo_signed';
+
+    private ?Collection $lockedIdentityRows = null;
+
+    private ?Collection $legacyPhase2OnboardedRows = null;
+
+    private ?Collection $legacyPhase1OnboardedRows = null;
 
     public function __construct(
         private AdminAuditLogger $auditLogger
@@ -256,6 +263,75 @@ class HubBatchService
             ->where('cfa_submission_id', $cfaSubmissionId)
             ->where('onboarding_batch_id', '!=', $exceptBatchId)
             ->exists();
+    }
+
+    /**
+     * Find an existing onboarding record for the same person, including legacy
+     * onboarding sources. Identity comparisons use normalized application number
+     * and mobile so a mirrored/duplicate CFA row cannot be onboarded twice.
+     *
+     * @return array{type: string, batch_id: int, batch_name: string, application_no: string}|null
+     */
+    public function onboardingConflictForCfa(int $cfaSubmissionId, ?int $ignoreLockedBatchId = null): ?array
+    {
+        $cfa = CfaSubmission::query()->find($cfaSubmissionId);
+        if (! $cfa) {
+            return null;
+        }
+
+        $applicationNo = HubBatchImportNormalizer::applicationNo($cfa->application_no);
+        $phone = HubBatchImportNormalizer::phone($cfa->phone);
+        $legacyPhase2Id = (int) ($cfa->payload['legacy_application_id'] ?? 0);
+        $legacyPhase1Id = (int) ($cfa->payload['legacy_phase1_id'] ?? 0);
+
+        $local = $this->lockedIdentityRows()
+            ->when($ignoreLockedBatchId !== null, fn (Collection $rows) => $rows->where('batch_id', '!=', $ignoreLockedBatchId))
+            ->first(function (object $row) use ($cfaSubmissionId, $applicationNo, $phone): bool {
+                if ((int) $row->cfa_submission_id === $cfaSubmissionId) {
+                    return true;
+                }
+
+                return ($applicationNo !== '' && HubBatchImportNormalizer::applicationNo($row->application_no) === $applicationNo)
+                    || ($phone !== '' && HubBatchImportNormalizer::phone($row->phone) === $phone);
+            });
+        if ($local) {
+            return [
+                'type' => 'locked',
+                'batch_id' => (int) $local->batch_id,
+                'batch_name' => (string) $local->batch_name,
+                'application_no' => (string) $local->application_no,
+            ];
+        }
+
+        $phase2 = $this->legacyPhase2OnboardedRows()->first(function (object $row) use ($applicationNo, $phone, $legacyPhase2Id): bool {
+            return ($legacyPhase2Id > 0 && (int) $row->legacy_id === $legacyPhase2Id)
+                || ($applicationNo !== '' && HubBatchImportNormalizer::applicationNo($row->application_no) === $applicationNo)
+                || ($phone !== '' && HubBatchImportNormalizer::phone($row->phone) === $phone);
+        });
+        if ($phase2) {
+            return [
+                'type' => 'legacy_phase2',
+                'batch_id' => 0,
+                'batch_name' => 'Legacy Phase 2 onboarding',
+                'application_no' => (string) $phase2->application_no,
+            ];
+        }
+
+        $phase1 = $this->legacyPhase1OnboardedRows()->first(function (object $row) use ($applicationNo, $phone, $legacyPhase1Id): bool {
+            return ($legacyPhase1Id > 0 && (int) $row->legacy_id === $legacyPhase1Id)
+                || ($applicationNo !== '' && HubBatchImportNormalizer::applicationNo($row->application_no) === $applicationNo)
+                || ($phone !== '' && HubBatchImportNormalizer::phone($row->phone) === $phone);
+        });
+        if ($phase1) {
+            return [
+                'type' => 'legacy_phase1',
+                'batch_id' => 0,
+                'batch_name' => 'Legacy Phase 1 onboarding',
+                'application_no' => (string) $phase1->application_no,
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -567,14 +643,18 @@ class HubBatchService
                     ->whereIn('c.state', ['reject', 'later']);
             });
 
-        $rows = $query->orderByDesc('id')->limit(200)->get()->map(fn (CfaSubmission $c) => [
-            'id' => $c->id,
-            'application_no' => $c->application_no ?? (string) $c->id,
-            'applicant_name' => $c->applicant_name,
-            'stage' => strtoupper((string) ($c->payload['form_stage'] ?? $c->payload['stage'] ?? '—')),
-            'eligible' => true,
-            'eligibility_status' => 'eligible',
-        ])->values()->all();
+        $rows = $query->orderByDesc('id')
+            ->limit(200)
+            ->get()
+            ->reject(fn (CfaSubmission $c) => $this->onboardingConflictForCfa((int) $c->id) !== null)
+            ->map(fn (CfaSubmission $c) => [
+                'id' => $c->id,
+                'application_no' => $c->application_no ?? (string) $c->id,
+                'applicant_name' => $c->applicant_name,
+                'stage' => strtoupper((string) ($c->payload['form_stage'] ?? $c->payload['stage'] ?? '—')),
+                'eligible' => true,
+                'eligibility_status' => 'eligible',
+            ])->values()->all();
 
         return ['ok' => true, 'data' => ['candidates' => $rows]];
     }
@@ -634,8 +714,9 @@ class HubBatchService
                 $detail = 'Included in '.$lockedBatch->name.'.';
                 $batchId = (int) $lockedBatch->id;
             } elseif ($phoneConflict !== null) {
-                $status = $phoneConflict['type'] === 'locked' ? 'phone_onboarded' : 'phone_in_draft';
-                $label = $phoneConflict['type'] === 'locked'
+                $isOnboardedConflict = $phoneConflict['type'] !== 'draft';
+                $status = $isOnboardedConflict ? 'phone_onboarded' : 'phone_in_draft';
+                $label = $isOnboardedConflict
                     ? 'Mobile already onboarded'
                     : 'Mobile already in another draft';
                 $detail = 'The same mobile number is linked to '.$phoneConflict['application_no'].' in '.$phoneConflict['batch_name'].'.';
@@ -858,6 +939,7 @@ class HubBatchService
 
         return $localRows
             ->reject(fn (CfaSubmission $c) => isset($exclude[(int) $c->id]))
+            ->reject(fn (CfaSubmission $c) => $this->onboardingConflictForCfa((int) $c->id) !== null)
             ->take($limit)
             ->map(fn (CfaSubmission $c) => [
                 'id' => $c->id,
@@ -1364,8 +1446,12 @@ class HubBatchService
         if ($currentCount >= $batch->target_size) {
             return ['ok' => false, 'error' => 'Batch is full. Increase target size from Edit batch, or lock this batch.'];
         }
-        if ($this->cfaIsOnboardedLocked($cfaId)) {
-            return ['ok' => false, 'error' => 'Already in a locked batch'];
+        $onboardingConflict = $this->onboardingConflictForCfa($cfaId);
+        if ($onboardingConflict !== null) {
+            return [
+                'ok' => false,
+                'error' => 'Already onboarded as '.$onboardingConflict['application_no'].' in '.$onboardingConflict['batch_name'].'.',
+            ];
         }
         if ($this->cfaInOtherDraft($cfaId, $batchId)) {
             return ['ok' => false, 'error' => 'In another draft batch'];
@@ -1667,43 +1753,88 @@ class HubBatchService
      *
      * @return array{type: string, batch_id: int, batch_name: string, application_no: string}|null
      */
+    private function lockedIdentityRows(): Collection
+    {
+        return $this->lockedIdentityRows ??= DB::table('cfa_submissions as duplicate_cfa')
+            ->join('onboarding_batch_cfa as duplicate_obc', 'duplicate_obc.cfa_submission_id', '=', 'duplicate_cfa.id')
+            ->join('onboarding_batches as duplicate_batch', 'duplicate_batch.id', '=', 'duplicate_obc.onboarding_batch_id')
+            ->select(['duplicate_cfa.id as cfa_submission_id', 'duplicate_cfa.application_no', 'duplicate_cfa.phone', 'duplicate_batch.id as batch_id', 'duplicate_batch.name as batch_name'])
+            ->get();
+    }
+
+    private function legacyPhase2OnboardedRows(): Collection
+    {
+        if ($this->legacyPhase2OnboardedRows !== null) {
+            return $this->legacyPhase2OnboardedRows;
+        }
+
+        try {
+            if ((string) config('database.connections.legacy.database', '') === ''
+                || ! Schema::connection('legacy')->hasTable('rbi_onboarded_applicants')
+                || ! Schema::connection('legacy')->hasTable('rbi_applications')
+                || ! Schema::connection('legacy')->hasTable('rbi_applicant_details')) {
+                return $this->legacyPhase2OnboardedRows = collect();
+            }
+
+            return $this->legacyPhase2OnboardedRows = DB::connection('legacy')
+                ->table('rbi_onboarded_applicants as oa')
+                ->join('rbi_applications as a', 'a.id', '=', 'oa.application_id')
+                ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
+                ->whereNotNull('oa.status')
+                ->where('oa.status', '!=', '')
+                ->select(['a.id as legacy_id', 'a.application_no', 'd.phone'])
+                ->get();
+        } catch (\Throwable) {
+            return $this->legacyPhase2OnboardedRows = collect();
+        }
+    }
+
+    private function legacyPhase1OnboardedRows(): Collection
+    {
+        if ($this->legacyPhase1OnboardedRows !== null) {
+            return $this->legacyPhase1OnboardedRows;
+        }
+
+        try {
+            if ((string) config('database.connections.legacy_phase1.database', '') === ''
+                || ! Schema::connection('legacy_phase1')->hasTable('tblapplication')) {
+                return $this->legacyPhase1OnboardedRows = collect();
+            }
+
+            return $this->legacyPhase1OnboardedRows = DB::connection('legacy_phase1')
+                ->table('tblapplication')
+                ->whereRaw('LOWER(TRIM(onboard)) = ?', ['yes'])
+                ->select(['ID as legacy_id', 'ApplicationNumber as application_no', 'MobileNumber as phone'])
+                ->get();
+        } catch (\Throwable) {
+            return $this->legacyPhase1OnboardedRows = collect();
+        }
+    }
+
     private function phoneOnboardingConflict(
         int $cfaId,
         ?int $ignoreLockedBatchId = null,
         ?int $ignoreDraftBatchId = null,
     ): ?array {
-        $phone = trim((string) CfaSubmission::query()->whereKey($cfaId)->value('phone'));
-        if ($phone === '') {
-            return null;
+        $onboardingConflict = $this->onboardingConflictForCfa($cfaId, $ignoreLockedBatchId);
+        if ($onboardingConflict !== null) {
+            return $onboardingConflict;
         }
 
-        $locked = DB::table('cfa_submissions as duplicate_cfa')
-            ->join('onboarding_batch_cfa as duplicate_obc', 'duplicate_obc.cfa_submission_id', '=', 'duplicate_cfa.id')
-            ->join('onboarding_batches as duplicate_batch', 'duplicate_batch.id', '=', 'duplicate_obc.onboarding_batch_id')
-            ->where('duplicate_cfa.phone', $phone)
-            ->where('duplicate_cfa.id', '!=', $cfaId)
-            ->when($ignoreLockedBatchId !== null, fn ($q) => $q->where('duplicate_batch.id', '!=', $ignoreLockedBatchId))
-            ->select(['duplicate_batch.id as batch_id', 'duplicate_batch.name as batch_name', 'duplicate_cfa.application_no'])
-            ->first();
-
-        if ($locked) {
-            return [
-                'type' => 'locked',
-                'batch_id' => (int) $locked->batch_id,
-                'batch_name' => (string) $locked->batch_name,
-                'application_no' => (string) $locked->application_no,
-            ];
+        $phone = HubBatchImportNormalizer::phone(CfaSubmission::query()->whereKey($cfaId)->value('phone'));
+        if ($phone === '') {
+            return null;
         }
 
         $draft = DB::table('cfa_submissions as duplicate_cfa')
             ->join('onboarding_batch_draft_cfa as duplicate_draft', 'duplicate_draft.cfa_submission_id', '=', 'duplicate_cfa.id')
             ->join('onboarding_batches as duplicate_batch', 'duplicate_batch.id', '=', 'duplicate_draft.onboarding_batch_id')
             ->where('duplicate_batch.status', 'draft')
-            ->where('duplicate_cfa.phone', $phone)
             ->where('duplicate_cfa.id', '!=', $cfaId)
             ->when($ignoreDraftBatchId !== null, fn ($q) => $q->where('duplicate_batch.id', '!=', $ignoreDraftBatchId))
-            ->select(['duplicate_batch.id as batch_id', 'duplicate_batch.name as batch_name', 'duplicate_cfa.application_no'])
-            ->first();
+            ->select(['duplicate_batch.id as batch_id', 'duplicate_batch.name as batch_name', 'duplicate_cfa.application_no', 'duplicate_cfa.phone'])
+            ->get()
+            ->first(fn (object $row) => HubBatchImportNormalizer::phone($row->phone) === $phone);
 
         if (! $draft) {
             return null;

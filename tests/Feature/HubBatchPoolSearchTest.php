@@ -136,7 +136,7 @@ class HubBatchPoolSearchTest extends TestCase
             'fiscal_year_id' => $fiscalYear->id,
             'district_id' => $district->id,
             'applicant_name' => 'Duplicate Applicant',
-            'phone' => '9876501234',
+            'phone' => '+91 98765 01234',
             'payload' => ['form_stage' => 'early'],
         ]);
         $lockedBatch = OnboardingBatch::query()->create([
@@ -153,6 +153,21 @@ class HubBatchPoolSearchTest extends TestCase
         ]);
 
         $service = app(HubBatchService::class);
+        $identityConflict = $service->onboardingConflictForCfa((int) $duplicate->id);
+        $this->assertNotNull($identityConflict);
+        $this->assertSame('PHONE-ORIGINAL', $identityConflict['application_no']);
+
+        $sameApplication = CfaSubmission::query()->create([
+            'application_no' => ' PHONE-ORIGINAL ',
+            'fiscal_year_id' => $fiscalYear->id,
+            'district_id' => $district->id,
+            'applicant_name' => 'Application Number Duplicate',
+            'phone' => '9000000000',
+            'payload' => ['form_stage' => 'seed'],
+        ]);
+        $applicationConflict = $service->onboardingConflictForCfa((int) $sameApplication->id);
+        $this->assertNotNull($applicationConflict);
+        $this->assertSame('PHONE-ORIGINAL', $applicationConflict['application_no']);
         $browse = $service->handleApi('pool_list', $manager, [
             'district_id' => $district->id,
             'fiscal_year_id' => $fiscalYear->id,

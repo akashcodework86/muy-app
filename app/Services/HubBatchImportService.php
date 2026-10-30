@@ -198,6 +198,13 @@ class HubBatchImportService
 
     private function eligibility(User $user, OnboardingBatch $batch, CfaSubmission $cfa): array
     {
+        $onboardingConflict = $this->batches->onboardingConflictForCfa((int) $cfa->id);
+        if ($onboardingConflict !== null) {
+            return [
+                'status' => 'skipped_onboarded',
+                'reason' => 'Already onboarded as '.$onboardingConflict['application_no'].' in '.$onboardingConflict['batch_name'].'.',
+            ];
+        }
         if (OnboardingBatchDraftCfa::query()->where('onboarding_batch_id', $batch->id)->where('cfa_submission_id', $cfa->id)->exists()) {
             return ['status' => 'skipped_already_in_draft', 'reason' => 'Already in this draft.'];
         }
