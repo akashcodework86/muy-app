@@ -299,6 +299,49 @@ class HubBatchService
     }
 
     /**
+     * Read-only probe for hub batch import preview (database names only, no secrets).
+     *
+     * @return array<string, mixed>
+     */
+    public function onboardingEnvironmentProbe(): array
+    {
+        $legacyDb = trim((string) config('database.connections.legacy.database', ''));
+        $phase1Db = trim((string) config('database.connections.legacy_phase1.database', ''));
+        $probe = [
+            'legacy_database' => $legacyDb !== '' ? $legacyDb : '(not set — set LEGACY_DB_DATABASE in .env)',
+            'phase1_database' => $phase1Db !== '' ? $phase1Db : '(not set — set PHASE1_DB_DATABASE in .env)',
+            'hub_locked_onboarded_count' => (int) DB::table('onboarding_batch_cfa')->count(),
+        ];
+
+        if ($legacyDb !== '') {
+            try {
+                $probe['legacy_onboarded_table'] = Schema::connection('legacy')->hasTable('rbi_onboarded_applicants');
+                if ($probe['legacy_onboarded_table']) {
+                    $probe['legacy_onboarded_rows'] = (int) DB::connection('legacy')->table('rbi_onboarded_applicants')->count();
+                }
+            } catch (\Throwable $e) {
+                $probe['legacy_error'] = $e->getMessage();
+            }
+        }
+
+        if ($phase1Db !== '') {
+            try {
+                $probe['phase1_table'] = Schema::connection('legacy_phase1')->hasTable('tblapplication');
+                if ($probe['phase1_table']) {
+                    $probe['phase1_onboarded_yes'] = (int) DB::connection('legacy_phase1')
+                        ->table('tblapplication')
+                        ->whereRaw('LOWER(TRIM(onboard)) = ?', ['yes'])
+                        ->count();
+                }
+            } catch (\Throwable $e) {
+                $probe['phase1_error'] = $e->getMessage();
+            }
+        }
+
+        return $probe;
+    }
+
+    /**
      * @return array{type: string, batch_id: int, batch_name: string, application_no: string}|null
      */
     private function findHubLockedOnboardingConflict(
@@ -380,10 +423,9 @@ class HubBatchService
                         }
                     }
                     if ($phone !== '') {
-                        $q->orWhereExists(function ($sub) use ($phone): void {
-                            $sub->selectRaw('1')
-                                ->from('rbi_applicant_details as d2')
-                                ->whereColumn('d2.application_id', 'a.id')
+                        $q->orWhereIn('a.id', function ($sub) use ($phone): void {
+                            $sub->from('rbi_applicant_details as d2')
+                                ->select('d2.application_id')
                                 ->whereRaw($this->sqlNormalizedPhoneColumn('d2.phone').' = ?', [$phone]);
                         });
                     }

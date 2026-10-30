@@ -510,7 +510,18 @@
         }
 
         function importSummaryText(s) {
-            return `Processed: ${s.processed || 0} · Ready/Added: ${(s.would_add || 0) + (s.added || 0)} · Already onboarded: ${s.skipped_onboarded || 0} · Already in draft: ${s.already_in_draft || 0} · Not found: ${s.not_found || 0} · Errors: ${s.errors || 0} · Draft: ${s.draft_count || 0}/${s.draft_target || 0}`;
+            let line = `Processed: ${s.processed || 0} · Ready/Added: ${(s.would_add || 0) + (s.added || 0)} · Already onboarded: ${s.skipped_onboarded || 0} · Already in draft: ${s.already_in_draft || 0} · Not found: ${s.not_found || 0} · Errors: ${s.errors || 0} · Draft: ${s.draft_count || 0}/${s.draft_target || 0}`;
+            const p = s.onboarding_probe;
+            if (p) {
+                line += ` · Legacy DB: ${p.legacy_database} · Phase1 DB: ${p.phase1_database}`;
+                if (p.legacy_onboarded_rows != null) {
+                    line += ` · Legacy onboarded rows: ${p.legacy_onboarded_rows}`;
+                }
+                if (p.hub_locked_onboarded_count != null) {
+                    line += ` · Hub locked CFA count: ${p.hub_locked_onboarded_count}`;
+                }
+            }
+            return line;
         }
 
         function renderImportResults(data) {

@@ -46,13 +46,15 @@ class HubBatchLegacyOnboardedConflictTest extends TestCase
             'name' => 'Almora',
             'sort_order' => 1,
         ]);
-        $fiscalYear = FiscalYear::query()->create([
-            'code' => '2025-26',
-            'name' => 'FY 2025-26',
-            'starts_on' => '2025-04-02',
-            'ends_on' => '2026-04-01',
-            'is_active' => true,
-        ]);
+        $fiscalYear = FiscalYear::query()->firstOrCreate(
+            ['code' => '2025-26'],
+            [
+                'name' => 'FY 2025-26',
+                'starts_on' => '2025-04-02',
+                'ends_on' => '2026-04-01',
+                'is_active' => true,
+            ]
+        );
         $cfa = CfaSubmission::query()->create([
             'application_no' => '40809999',
             'fiscal_year_id' => $fiscalYear->id,

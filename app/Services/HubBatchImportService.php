@@ -247,6 +247,7 @@ class HubBatchImportService
             'errors' => collect($results)->whereIn('status', ['error', 'identifier_conflict', 'ambiguous'])->count(),
             'draft_count' => $count,
             'draft_target' => $target,
+            'onboarding_probe' => $this->batches->onboardingEnvironmentProbe(),
         ];
     }
 
