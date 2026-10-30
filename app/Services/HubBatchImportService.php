@@ -242,6 +242,7 @@ class HubBatchImportService
             'added' => (int) ($statuses['added'] ?? 0),
             'would_add' => (int) ($statuses['would_add'] ?? 0),
             'already_in_draft' => (int) ($statuses['skipped_already_in_draft'] ?? 0),
+            'skipped_onboarded' => (int) ($statuses['skipped_onboarded'] ?? 0),
             'not_found' => (int) ($statuses['not_found'] ?? 0),
             'errors' => collect($results)->whereIn('status', ['error', 'identifier_conflict', 'ambiguous'])->count(),
             'draft_count' => $count,

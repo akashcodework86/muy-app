@@ -510,7 +510,7 @@
         }
 
         function importSummaryText(s) {
-            return `Processed: ${s.processed || 0} · Ready/Added: ${(s.would_add || 0) + (s.added || 0)} · Already in draft: ${s.already_in_draft || 0} · Not found: ${s.not_found || 0} · Errors: ${s.errors || 0} · Draft: ${s.draft_count || 0}/${s.draft_target || 0}`;
+            return `Processed: ${s.processed || 0} · Ready/Added: ${(s.would_add || 0) + (s.added || 0)} · Already onboarded: ${s.skipped_onboarded || 0} · Already in draft: ${s.already_in_draft || 0} · Not found: ${s.not_found || 0} · Errors: ${s.errors || 0} · Draft: ${s.draft_count || 0}/${s.draft_target || 0}`;
         }
 
         function renderImportResults(data) {

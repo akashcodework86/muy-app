@@ -1776,12 +1776,12 @@ class HubBatchService
                 return $this->legacyPhase2OnboardedRows = collect();
             }
 
+            // Any row in rbi_onboarded_applicants counts as onboarded (same rule as legacy pool list).
             return $this->legacyPhase2OnboardedRows = DB::connection('legacy')
                 ->table('rbi_onboarded_applicants as oa')
                 ->join('rbi_applications as a', 'a.id', '=', 'oa.application_id')
                 ->leftJoin('rbi_applicant_details as d', 'd.application_id', '=', 'a.id')
-                ->whereNotNull('oa.status')
-                ->where('oa.status', '!=', '')
+                ->whereNotNull('oa.application_id')
                 ->select(['a.id as legacy_id', 'a.application_no', 'd.phone'])
                 ->get();
         } catch (\Throwable) {
