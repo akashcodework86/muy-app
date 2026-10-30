@@ -17,9 +17,10 @@ class HubBatchImportNormalizerTest extends TestCase
         $this->assertSame('90C0000C', Normalizer::applicationNo(' 90c 0000c '));
     }
 
-    public function test_known_application_number_variants_are_generated_after_exact_form(): void
+    public function test_rbi_prefixed_application_numbers_generate_identity_keys(): void
     {
-        $this->assertContains('A0C0000C', Normalizer::applicationVariants('90C0000C'));
-        $this->assertContains('A080000C', Normalizer::applicationVariants('4080000C'));
+        $keys = Normalizer::applicationIdentityKeys('RBI1770186398');
+        $this->assertContains('RBI1770186398', $keys);
+        $this->assertContains('1770186398', $keys);
     }
 }

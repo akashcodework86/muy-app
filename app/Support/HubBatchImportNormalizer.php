@@ -19,16 +19,36 @@ class HubBatchImportNormalizer
     /** @return list<string> */
     public static function applicationVariants(mixed $value): array
     {
+        $keys = self::applicationIdentityKeys($value);
         $raw = self::applicationNo($value);
-        $variants = [];
-        if (preg_match('/^[94]0C/', $raw)) {
-            $variants[] = 'A0C'.substr($raw, 3);
-        }
-        if ($raw === '4080000C') {
-            $variants[] = 'A080000C';
+
+        return array_values(array_unique(array_filter($keys, fn ($v) => $v !== $raw)));
+    }
+
+    /** @return list<string> */
+    public static function applicationIdentityKeys(mixed $value): array
+    {
+        $raw = self::applicationNo($value);
+        if ($raw === '') {
+            return [];
         }
 
-        return array_values(array_unique(array_filter($variants, fn ($v) => $v !== $raw)));
+        $keys = [$raw];
+        if (preg_match('/^(RBI+|UKRBI+)/', $raw)) {
+            $keys[] = (string) preg_replace('/^(RBI+|UKRBI+)/', '', $raw);
+        }
+        $digits = preg_replace('/\D+/', '', $raw) ?? '';
+        if ($digits !== '' && ! in_array($digits, $keys, true)) {
+            $keys[] = $digits;
+        }
+        if (preg_match('/^[94]0C/', $raw)) {
+            $keys[] = 'A0C'.substr($raw, 3);
+        }
+        if ($raw === '4080000C') {
+            $keys[] = 'A080000C';
+        }
+
+        return array_values(array_unique(array_filter($keys)));
     }
 
     public static function name(mixed $value): string

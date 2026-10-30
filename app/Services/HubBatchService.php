@@ -368,13 +368,11 @@ class HubBatchService
                     $q->orWhere('duplicate_cfa.id', $cfaSubmissionId);
                 }
                 if ($applicationNo !== '') {
-                    $q->orWhereRaw("UPPER(REPLACE(duplicate_cfa.application_no, ' ', '')) = ?", [$applicationNo]);
-                    foreach (HubBatchImportNormalizer::applicationVariants($applicationNo) as $variant) {
-                        $q->orWhereRaw("UPPER(REPLACE(duplicate_cfa.application_no, ' ', '')) = ?", [$variant]);
-                    }
+                    $this->applyApplicationIdentityOrClauses($q, 'duplicate_cfa.application_no', $applicationNo);
                 }
                 if ($phone !== '') {
-                    $q->orWhereRaw($this->sqlNormalizedPhoneColumn('duplicate_cfa.phone').' = ?', [$phone]);
+                    $q->orWhereRaw($this->sqlNormalizedPhoneColumn('duplicate_cfa.phone').' = ?', [$phone])
+                        ->orWhere('duplicate_cfa.phone', 'like', '%'.$phone);
                 }
             })
             ->orderByDesc('duplicate_obc.id')
@@ -417,21 +415,21 @@ class HubBatchService
                         $q->orWhere('a.id', $legacyApplicationId);
                     }
                     if ($applicationNo !== '') {
-                        $q->orWhereRaw("UPPER(REPLACE(a.application_no, ' ', '')) = ?", [$applicationNo]);
-                        foreach (HubBatchImportNormalizer::applicationVariants($applicationNo) as $variant) {
-                            $q->orWhereRaw("UPPER(REPLACE(a.application_no, ' ', '')) = ?", [$variant]);
-                        }
+                        $this->applyApplicationIdentityOrClauses($q, 'a.application_no', $applicationNo);
                     }
                     if ($phone !== '') {
-                        $q->orWhereIn('a.id', function ($sub) use ($phone): void {
-                            $sub->from('rbi_applicant_details as d2')
-                                ->select('d2.application_id')
-                                ->whereRaw($this->sqlNormalizedPhoneColumn('d2.phone').' = ?', [$phone]);
-                        });
+                        $phoneAppIds = $this->legacyApplicationIdsForNormalizedPhone($phone);
+                        if ($phoneAppIds !== []) {
+                            $q->orWhereIn('a.id', $phoneAppIds);
+                        }
                     }
                 })
                 ->limit(1)
                 ->first();
+
+            if (! $row) {
+                $row = $this->findLegacyPhase2OnboardingConflictByIdentity($applicationNo, $phone, $legacyApplicationId);
+            }
 
             if (! $row) {
                 return null;
@@ -471,13 +469,11 @@ class HubBatchService
                         $q->orWhere('ID', $legacyPhase1Id);
                     }
                     if ($applicationNo !== '') {
-                        $q->orWhereRaw("UPPER(REPLACE(ApplicationNumber, ' ', '')) = ?", [$applicationNo]);
-                        foreach (HubBatchImportNormalizer::applicationVariants($applicationNo) as $variant) {
-                            $q->orWhereRaw("UPPER(REPLACE(ApplicationNumber, ' ', '')) = ?", [$variant]);
-                        }
+                        $this->applyApplicationIdentityOrClauses($q, 'ApplicationNumber', $applicationNo);
                     }
                     if ($phone !== '') {
-                        $q->orWhereRaw($this->sqlNormalizedPhoneColumn('MobileNumber').' = ?', [$phone]);
+                        $q->orWhereRaw($this->sqlNormalizedPhoneColumn('MobileNumber').' = ?', [$phone])
+                            ->orWhere('MobileNumber', 'like', '%'.$phone);
                     }
                 })
                 ->orderByDesc('ID')
@@ -502,6 +498,73 @@ class HubBatchService
     private function sqlNormalizedPhoneColumn(string $column): string
     {
         return "RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE({$column}, ''), ' ', ''), '-', ''), '+', ''), '.', ''), ',', ''), 10)";
+    }
+
+    /** @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder  $query */
+    private function applyApplicationIdentityOrClauses($query, string $column, string $applicationNo): void
+    {
+        foreach (HubBatchImportNormalizer::applicationIdentityKeys($applicationNo) as $key) {
+            $query->orWhereRaw("UPPER(REPLACE({$column}, ' ', '')) = ?", [$key]);
+            if (strlen($key) >= 5) {
+                $query->orWhere($column, 'like', '%'.$key);
+            }
+        }
+    }
+
+    /** @return list<int> */
+    private function legacyApplicationIdsForNormalizedPhone(string $phone): array
+    {
+        if ($phone === '') {
+            return [];
+        }
+
+        return DB::connection('legacy')
+            ->table('rbi_applicant_details')
+            ->where(function ($q) use ($phone): void {
+                $q->whereRaw($this->sqlNormalizedPhoneColumn('phone').' = ?', [$phone])
+                    ->orWhere('phone', 'like', '%'.$phone);
+            })
+            ->pluck('application_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** @return object{application_no?: string|null}|null */
+    private function findLegacyPhase2OnboardingConflictByIdentity(string $applicationNo, string $phone, int $legacyApplicationId): ?object
+    {
+        $base = DB::connection('legacy')
+            ->table('rbi_onboarded_applicants as oa')
+            ->join('rbi_applications as a', 'a.id', '=', 'oa.application_id')
+            ->whereNotNull('oa.application_id')
+            ->select(['a.application_no']);
+
+        if ($legacyApplicationId > 0) {
+            $row = (clone $base)->where('a.id', $legacyApplicationId)->first();
+            if ($row) {
+                return $row;
+            }
+        }
+
+        if ($applicationNo !== '') {
+            $row = (clone $base)->where(function ($q) use ($applicationNo): void {
+                $this->applyApplicationIdentityOrClauses($q, 'a.application_no', $applicationNo);
+            })->first();
+            if ($row) {
+                return $row;
+            }
+        }
+
+        if ($phone !== '') {
+            $phoneAppIds = $this->legacyApplicationIdsForNormalizedPhone($phone);
+            if ($phoneAppIds !== []) {
+                return (clone $base)->whereIn('a.id', $phoneAppIds)->first();
+            }
+        }
+
+        return null;
     }
 
     /**
