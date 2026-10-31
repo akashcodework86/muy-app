@@ -50,30 +50,52 @@ class DeliverablesBreakdownExcelExport
             $achievementPct,
         );
 
+        $isReap = (string) ($breakdown['source_type'] ?? '') === 'reap_support_services';
+
         $this->writeDataSheet(
             $spreadsheet,
             'By District',
-            ['District', 'Hub', 'Target', 'Achievement', 'Achievement %', 'Share %'],
-            collect($breakdown['by_district'] ?? [])->map(fn ($item) => [
-                DeliverablesExcelSupport::sanitizeCell($item['district'] ?? ''),
-                DeliverablesExcelSupport::sanitizeCell($item['hub'] ?? ''),
-                $item['target'] ?? '',
-                (int) ($item['achievement'] ?? $item['count'] ?? 0),
-                isset($item['achievement_pct']) && $item['achievement_pct'] !== null ? ((int) $item['achievement_pct']).'%' : '',
-                ((int) ($item['share_pct'] ?? 0)).'%',
-            ])->all(),
+            $isReap
+                ? ['District', 'Hub', 'Target', 'Normal REAP', 'REAP from acceleration', 'Achievement', 'Achievement %', 'Share %']
+                : ['District', 'Hub', 'Target', 'Achievement', 'Achievement %', 'Share %'],
+            collect($breakdown['by_district'] ?? [])->map(function ($item) use ($isReap) {
+                $achievement = (int) ($item['achievement'] ?? $item['count'] ?? 0);
+                $row = [
+                    DeliverablesExcelSupport::sanitizeCell($item['district'] ?? ''),
+                    DeliverablesExcelSupport::sanitizeCell($item['hub'] ?? ''),
+                    $item['target'] ?? '',
+                ];
+                if ($isReap) {
+                    $row[] = array_key_exists('normal_count', $item) ? (int) $item['normal_count'] : $achievement;
+                    $row[] = (int) ($item['acceleration_count'] ?? 0);
+                }
+                $row[] = $achievement;
+                $row[] = isset($item['achievement_pct']) && $item['achievement_pct'] !== null ? ((int) $item['achievement_pct']).'%' : '';
+                $row[] = ((int) ($item['share_pct'] ?? 0)).'%';
+
+                return $row;
+            })->all(),
             centerFromColumn: 'C',
         );
 
         $this->writeDataSheet(
             $spreadsheet,
             'By Month',
-            ['Month', 'Count', 'Share %'],
-            collect($breakdown['by_month'] ?? [])->map(fn ($item) => [
-                DeliverablesExcelSupport::sanitizeCell($item['month'] ?? ''),
-                (int) ($item['count'] ?? 0),
-                ((int) ($item['share_pct'] ?? 0)).'%',
-            ])->all(),
+            $isReap
+                ? ['Month', 'Normal REAP', 'REAP from acceleration', 'Count', 'Share %']
+                : ['Month', 'Count', 'Share %'],
+            collect($breakdown['by_month'] ?? [])->map(function ($item) use ($isReap) {
+                $count = (int) ($item['count'] ?? 0);
+                $row = [DeliverablesExcelSupport::sanitizeCell($item['month'] ?? '')];
+                if ($isReap) {
+                    $row[] = array_key_exists('normal_count', $item) ? (int) $item['normal_count'] : $count;
+                    $row[] = (int) ($item['acceleration_count'] ?? 0);
+                }
+                $row[] = $count;
+                $row[] = ((int) ($item['share_pct'] ?? 0)).'%';
+
+                return $row;
+            })->all(),
             centerFromColumn: 'B',
         );
 
@@ -81,12 +103,21 @@ class DeliverablesBreakdownExcelExport
             $this->writeDataSheet(
                 $spreadsheet,
                 'By Service',
-                ['Service', 'Count', 'Share %'],
-                collect($breakdown['by_service'])->map(fn ($item) => [
-                    DeliverablesExcelSupport::sanitizeCell($item['service'] ?? ''),
-                    (int) ($item['count'] ?? 0),
-                    ((int) ($item['share_pct'] ?? 0)).'%',
-                ])->all(),
+                $isReap
+                    ? ['Service', 'Normal REAP', 'REAP from acceleration', 'Count', 'Share %']
+                    : ['Service', 'Count', 'Share %'],
+                collect($breakdown['by_service'])->map(function ($item) use ($isReap) {
+                    $count = (int) ($item['count'] ?? 0);
+                    $row = [DeliverablesExcelSupport::sanitizeCell($item['service'] ?? '')];
+                    if ($isReap) {
+                        $row[] = array_key_exists('normal_count', $item) ? (int) $item['normal_count'] : $count;
+                        $row[] = (int) ($item['acceleration_count'] ?? 0);
+                    }
+                    $row[] = $count;
+                    $row[] = ((int) ($item['share_pct'] ?? 0)).'%';
+
+                    return $row;
+                })->all(),
                 centerFromColumn: 'B',
             );
         }
@@ -135,6 +166,10 @@ class DeliverablesBreakdownExcelExport
             ['Target', $target !== null ? (string) $target : '-'],
             ['Achievement', (string) (int) ($breakdown['total'] ?? 0)],
             ['Achievement %', $achievementPct !== null ? $achievementPct.'%' : '-'],
+            ...((string) ($breakdown['source_type'] ?? '') === 'reap_support_services' ? [
+                ['Normal REAP', (string) (int) ($breakdown['normal_total'] ?? 0)],
+                ['REAP from acceleration', (string) (int) ($breakdown['acceleration_total'] ?? 0)],
+            ] : []),
             ['Source', DeliverablesExcelSupport::sanitizeCell($breakdown['source_type_label'] ?? '')],
             ['Generated at', now()->timezone(config('app.timezone'))->format('d M Y, g:i A T')],
         ]);
@@ -223,7 +258,21 @@ class DeliverablesBreakdownExcelExport
             ])->all();
         } elseif ($sourceType === 'market_linkage_incubatees') {
             return $this->marketLinkageRecordTable($breakdown);
-        } elseif (in_array($sourceType, ['potential_lakhpati_onboarding_count', 'reap_support_services'], true)) {
+        } elseif ($sourceType === 'reap_support_services') {
+            $headers = ['#', 'Reference', 'Applicant', 'Gender', 'District', 'Hub', 'Source', 'Service', 'Status', 'Date'];
+            $rows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
+                $idx + 1,
+                DeliverablesExcelSupport::sanitizeCell($item['reference'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['applicant'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['gender'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['district'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['hub'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['reap_source_label'] ?? 'Normal REAP'),
+                DeliverablesExcelSupport::sanitizeCell($item['service'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['status'] ?? ''),
+                DeliverablesExcelSupport::sanitizeCell($item['date'] ?? ''),
+            ])->all();
+        } elseif ($sourceType === 'potential_lakhpati_onboarding_count') {
             $headers = ['#', 'Reference', 'Applicant', 'Gender', 'District', 'Hub', 'Service', 'Status', 'Date'];
             $rows = collect($breakdown['records'] ?? [])->values()->map(fn ($item, $idx) => [
                 $idx + 1,

@@ -341,11 +341,11 @@ final class Phase3ShgCboReapPackExcelExport
         $sheet->setTitle($this->safeTitle('8.2 Detail'));
 
         $headers = [
-            'S.N.', 'Case ID', 'CFA ID', 'Application No', 'Incubatee', 'District', 'Hub',
+            'S.N.', 'Case ID', 'CFA ID', 'Application No', 'Incubatee', 'Source', 'District', 'Hub',
             'Service', 'Code', 'Sector', 'Amount', 'Bucket', 'Activity', 'Status', 'Date',
         ];
         $keys = [
-            'sn', 'case_id', 'cfa_id', 'application_no', 'applicant', 'district', 'hub',
+            'sn', 'case_id', 'cfa_id', 'application_no', 'applicant', 'source', 'district', 'hub',
             'service', 'service_code', 'sector', 'amount', 'bucket', 'activity', 'status', 'date',
         ];
 

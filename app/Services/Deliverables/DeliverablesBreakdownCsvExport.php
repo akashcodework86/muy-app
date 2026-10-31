@@ -30,44 +30,70 @@ class DeliverablesBreakdownCsvExport
             fputcsv($out, ['Scope', $meta['scope_label'] ?? '']);
             fputcsv($out, ['Period', $meta['period_label'] ?? '']);
             fputcsv($out, ['Target', $target !== null ? $target : '-']);
+            $isReap = (string) ($breakdown['source_type'] ?? '') === 'reap_support_services';
+
             fputcsv($out, ['Achievement', (int) ($breakdown['total'] ?? 0)]);
             fputcsv($out, ['Achievement %', $achievementPct !== null ? $achievementPct.'%' : '-']);
+            if ($isReap) {
+                fputcsv($out, ['Normal REAP', (int) ($breakdown['normal_total'] ?? 0)]);
+                fputcsv($out, ['REAP from acceleration', (int) ($breakdown['acceleration_total'] ?? 0)]);
+            }
             fputcsv($out, ['Source', $breakdown['source_type_label'] ?? '']);
             fputcsv($out, []);
 
-            fputcsv($out, ['District', 'Hub', 'Target', 'Achievement', 'Achievement %', 'Share %']);
+            fputcsv($out, $isReap
+                ? ['District', 'Hub', 'Target', 'Normal REAP', 'REAP from acceleration', 'Achievement', 'Achievement %', 'Share %']
+                : ['District', 'Hub', 'Target', 'Achievement', 'Achievement %', 'Share %']);
             foreach ($breakdown['by_district'] ?? [] as $item) {
                 $target = $item['target'] ?? null;
                 $achievementPct = $item['achievement_pct'] ?? null;
-                fputcsv($out, [
+                $achievement = (int) ($item['achievement'] ?? $item['count'] ?? 0);
+                $districtRow = [
                     $item['district'] ?? '',
                     $item['hub'] ?? '',
                     $target !== null && $target !== '' ? (int) $target : '',
-                    (int) ($item['achievement'] ?? $item['count'] ?? 0),
-                    $achievementPct !== null ? ((int) $achievementPct).'%' : '',
-                    ((int) ($item['share_pct'] ?? 0)).'%',
-                ]);
+                ];
+                if ($isReap) {
+                    $districtRow[] = array_key_exists('normal_count', $item) ? (int) $item['normal_count'] : $achievement;
+                    $districtRow[] = (int) ($item['acceleration_count'] ?? 0);
+                }
+                $districtRow[] = $achievement;
+                $districtRow[] = $achievementPct !== null ? ((int) $achievementPct).'%' : '';
+                $districtRow[] = ((int) ($item['share_pct'] ?? 0)).'%';
+                fputcsv($out, $districtRow);
             }
             fputcsv($out, []);
 
-            fputcsv($out, ['Month', 'Count', 'Share %']);
+            fputcsv($out, $isReap
+                ? ['Month', 'Normal REAP', 'REAP from acceleration', 'Count', 'Share %']
+                : ['Month', 'Count', 'Share %']);
             foreach ($breakdown['by_month'] ?? [] as $item) {
-                fputcsv($out, [
-                    $item['month'] ?? '',
-                    (int) ($item['count'] ?? 0),
-                    ((int) ($item['share_pct'] ?? 0)).'%',
-                ]);
+                $count = (int) ($item['count'] ?? 0);
+                $monthRow = [$item['month'] ?? ''];
+                if ($isReap) {
+                    $monthRow[] = array_key_exists('normal_count', $item) ? (int) $item['normal_count'] : $count;
+                    $monthRow[] = (int) ($item['acceleration_count'] ?? 0);
+                }
+                $monthRow[] = $count;
+                $monthRow[] = ((int) ($item['share_pct'] ?? 0)).'%';
+                fputcsv($out, $monthRow);
             }
             fputcsv($out, []);
 
             if (($breakdown['by_service'] ?? []) !== []) {
-                fputcsv($out, ['Service', 'Count', 'Share %']);
+                fputcsv($out, $isReap
+                    ? ['Service', 'Normal REAP', 'REAP from acceleration', 'Count', 'Share %']
+                    : ['Service', 'Count', 'Share %']);
                 foreach ($breakdown['by_service'] as $item) {
-                    fputcsv($out, [
-                        $item['service'] ?? '',
-                        (int) ($item['count'] ?? 0),
-                        ((int) ($item['share_pct'] ?? 0)).'%',
-                    ]);
+                    $count = (int) ($item['count'] ?? 0);
+                    $serviceRow = [$item['service'] ?? ''];
+                    if ($isReap) {
+                        $serviceRow[] = array_key_exists('normal_count', $item) ? (int) $item['normal_count'] : $count;
+                        $serviceRow[] = (int) ($item['acceleration_count'] ?? 0);
+                    }
+                    $serviceRow[] = $count;
+                    $serviceRow[] = ((int) ($item['share_pct'] ?? 0)).'%';
+                    fputcsv($out, $serviceRow);
                 }
                 fputcsv($out, []);
             }
@@ -180,7 +206,24 @@ class DeliverablesBreakdownCsvExport
                         ]);
                     }
                 }
-            } elseif (in_array($sourceType, ['potential_lakhpati_onboarding_count', 'reap_support_services'], true)) {
+            } elseif ($sourceType === 'reap_support_services') {
+                fputcsv($out, ['#', 'Reference', 'Applicant', 'Gender', 'District', 'Hub', 'Source', 'Service', 'Status', 'Date']);
+                $idx = 1;
+                foreach ($breakdown['records'] ?? [] as $item) {
+                    fputcsv($out, [
+                        $idx++,
+                        $item['reference'] ?? '',
+                        $item['applicant'] ?? '',
+                        $item['gender'] ?? '',
+                        $item['district'] ?? '',
+                        $item['hub'] ?? '',
+                        $item['reap_source_label'] ?? 'Normal REAP',
+                        $item['service'] ?? '',
+                        $item['status'] ?? '',
+                        $item['date'] ?? '',
+                    ]);
+                }
+            } elseif ($sourceType === 'potential_lakhpati_onboarding_count') {
                 fputcsv($out, ['#', 'Reference', 'Applicant', 'Gender', 'District', 'Hub', 'Service', 'Status', 'Date']);
                 $idx = 1;
                 foreach ($breakdown['records'] ?? [] as $item) {

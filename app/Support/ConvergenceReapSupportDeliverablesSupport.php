@@ -20,7 +20,8 @@ final class ConvergenceReapSupportDeliverablesSupport
             return 0;
         }
 
-        return (int) self::scopedQuery($districtIds, $periodFrom, $periodTo)->count();
+        return (int) self::scopedQuery($districtIds, $periodFrom, $periodTo)->count()
+            + AccelerationReapDeliverablesSupport::countItems($districtIds, $periodFrom, $periodTo);
     }
 
     /**

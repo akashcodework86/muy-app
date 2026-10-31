@@ -703,7 +703,16 @@ final class Phase3ShgCboReapPackDataService
             ->all();
 
         $deliverablesTotal = ConvergenceReapSupportDeliverablesSupport::countCases($districtIds, $periodFrom, $periodTo);
-        $details = $this->reap82CaseDetails($districtIds, $periodFrom, $periodTo);
+        $details = array_merge(
+            $this->reap82CaseDetails($districtIds, $periodFrom, $periodTo),
+            \App\Support\AccelerationReapDeliverablesSupport::packDetailRows($districtIds, $periodFrom, $periodTo),
+        );
+        $sn = 0;
+        foreach ($details as &$detail) {
+            $sn++;
+            $detail['sn'] = $sn;
+        }
+        unset($detail);
 
         $buckets = ReapIncubateeTargets::emptyBucketCounts();
         $buckets['unbucketed'] = 0;
@@ -718,7 +727,21 @@ final class Phase3ShgCboReapPackDataService
             }
             $cfaId = (int) ($row['cfa_id'] ?? 0);
             if ($cfaId > 0) {
-                $uniqueCfa[$cfaId] = true;
+                $uniqueCfa['cfa:'.$cfaId] = true;
+            }
+            $incubateeKey = trim((string) ($row['incubatee_key'] ?? ''));
+            if ($incubateeKey !== '') {
+                $uniqueCfa['accel:'.$incubateeKey] = true;
+            }
+        }
+
+        $normalCases = 0;
+        $accelerationCases = 0;
+        foreach ($details as $row) {
+            if (($row['source'] ?? '') === \App\Support\AccelerationReapDeliverablesSupport::SOURCE_LABEL) {
+                $accelerationCases++;
+            } else {
+                $normalCases++;
             }
         }
 
@@ -726,6 +749,8 @@ final class Phase3ShgCboReapPackDataService
         $grand = $statewide['grand_totals'] ?? null;
 
         $summary = [
+            ['section' => '8.2 Support to MUY Incubatee through REAP', 'metric' => 'Normal REAP', 'count' => $normalCases],
+            ['section' => '8.2 Support to MUY Incubatee through REAP', 'metric' => 'REAP from acceleration', 'count' => $accelerationCases],
             ['section' => '8.2 Support to MUY Incubatee through REAP', 'metric' => '8.2 Total cases (deliverables scope)', 'count' => count($details)],
             ['section' => '8.2 Support to MUY Incubatee through REAP', 'metric' => 'Deliverables verify count', 'count' => $deliverablesTotal],
             ['section' => '8.2 Support to MUY Incubatee through REAP', 'metric' => 'Unique incubatees', 'count' => count($uniqueCfa)],
@@ -834,6 +859,7 @@ final class Phase3ShgCboReapPackDataService
                 'activity' => (string) ($row->reap_activity ?: '—'),
                 'status' => (string) ($row->status ?: '—'),
                 'date' => $achievedAt ? Carbon::parse($achievedAt)->format('d M Y') : '—',
+                'source' => \App\Support\AccelerationReapDeliverablesSupport::NORMAL_LABEL,
             ];
         }
 

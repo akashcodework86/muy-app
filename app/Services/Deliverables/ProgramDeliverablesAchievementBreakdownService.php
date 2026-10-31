@@ -133,6 +133,18 @@ class ProgramDeliverablesAchievementBreakdownService
         $sourceTypeLabel = $this->sourceTypeLabel($sourceType, $source);
 
         $insights = $this->buildInsights($total, $byDistrict, $byMonth, $breakdown['by_service'] ?? []);
+        if ($sourceType === 'reap_support_services') {
+            array_unshift($insights, [
+                'label' => 'Normal REAP',
+                'value' => number_format((int) ($breakdown['normal_total'] ?? 0)),
+                'tone' => 'primary',
+            ], [
+                'label' => 'REAP from acceleration',
+                'value' => number_format((int) ($breakdown['acceleration_total'] ?? 0)),
+                'tone' => 'info',
+            ]);
+        }
+
         if ($sourceType === 'market_linkage_incubatees') {
             $offline = (int) ($breakdown['offline_incubatees'] ?? 0);
             $online = (int) ($breakdown['online_incubatees'] ?? 0);
@@ -182,6 +194,8 @@ class ProgramDeliverablesAchievementBreakdownService
             'online_incubatees' => $breakdown['online_incubatees'] ?? null,
             'records' => $breakdown['records'] ?? [],
             'insights' => $insights,
+            'normal_total' => $breakdown['normal_total'] ?? null,
+            'acceleration_total' => $breakdown['acceleration_total'] ?? null,
         ];
     }
 
@@ -1572,7 +1586,163 @@ class ProgramDeliverablesAchievementBreakdownService
 
     private function reapSupportServicesBreakdown(): array
     {
-        return $this->serviceCaseBreakdown(['type' => 'reap_support_services']);
+        $breakdown = $this->serviceCaseBreakdown(['type' => 'reap_support_services']);
+        $acceleration = \App\Support\AccelerationReapDeliverablesSupport::contribution(
+            $this->districtIds,
+            $this->periodFrom,
+            $this->periodTo,
+        );
+
+        $normalTotal = (int) ($breakdown['total'] ?? 0);
+        $accelerationTotal = (int) ($acceleration['total'] ?? 0);
+        $total = $normalTotal + $accelerationTotal;
+
+        $records = [];
+        foreach ($breakdown['records'] ?? [] as $record) {
+            if (! is_array($record)) {
+                continue;
+            }
+            $record['reap_source'] = 'normal';
+            $record['reap_source_label'] = \App\Support\AccelerationReapDeliverablesSupport::NORMAL_LABEL;
+            $records[] = $record;
+        }
+        foreach ($acceleration['records'] ?? [] as $record) {
+            if (is_array($record)) {
+                $records[] = $record;
+            }
+        }
+        usort(
+            $records,
+            fn (array $a, array $b): int => strcmp((string) ($b['_sort_date'] ?? ''), (string) ($a['_sort_date'] ?? ''))
+                ?: ((int) ($b['id'] ?? 0) <=> (int) ($a['id'] ?? 0)),
+        );
+
+        $breakdown['normal_total'] = $normalTotal;
+        $breakdown['acceleration_total'] = $accelerationTotal;
+        $breakdown['total'] = $total;
+        $breakdown['by_district'] = $this->mergeReapCountRows(
+            $breakdown['by_district'] ?? [],
+            $acceleration['by_district'] ?? [],
+            'district',
+            $total,
+        );
+        $breakdown['by_month'] = $this->mergeReapCountRows(
+            $breakdown['by_month'] ?? [],
+            $acceleration['by_month'] ?? [],
+            'month',
+            $total,
+        );
+        $breakdown['by_service'] = $this->annotateReapServiceRows(
+            $breakdown['by_service'] ?? [],
+            $accelerationTotal,
+            $total,
+        );
+        $breakdown['records'] = $records;
+
+        return $breakdown;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $normalRows
+     * @param  list<array<string, mixed>>  $accelerationRows
+     * @return list<array<string, mixed>>
+     */
+    private function mergeReapCountRows(array $normalRows, array $accelerationRows, string $labelKey, int $total): array
+    {
+        $merged = [];
+
+        foreach ($normalRows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $key = $labelKey === 'month'
+                ? (string) ($row['month_key'] ?? $row['month'] ?? '')
+                : mb_strtolower(trim((string) ($row['district'] ?? '')));
+            if ($key === '') {
+                continue;
+            }
+            $count = (int) ($row['count'] ?? 0);
+            $merged[$key] = $row;
+            $merged[$key]['normal_count'] = $count;
+            $merged[$key]['acceleration_count'] = 0;
+            $merged[$key]['count'] = $count;
+        }
+
+        foreach ($accelerationRows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $key = $labelKey === 'month'
+                ? (string) ($row['month_key'] ?? '')
+                : mb_strtolower(trim((string) ($row['district'] ?? '')));
+            if ($key === '') {
+                continue;
+            }
+            $count = (int) ($row['count'] ?? 0);
+            if (! isset($merged[$key])) {
+                $merged[$key] = $row;
+                $merged[$key]['normal_count'] = 0;
+                $merged[$key]['acceleration_count'] = 0;
+            }
+            $merged[$key]['acceleration_count'] = (int) ($merged[$key]['acceleration_count'] ?? 0) + $count;
+            $merged[$key]['count'] = (int) ($merged[$key]['normal_count'] ?? 0) + (int) $merged[$key]['acceleration_count'];
+            if ($labelKey === 'district' && trim((string) ($merged[$key]['hub'] ?? '')) === '') {
+                $merged[$key]['hub'] = '—';
+            }
+        }
+
+        if ($labelKey === 'month') {
+            ksort($merged);
+        } else {
+            uasort(
+                $merged,
+                fn (array $a, array $b): int => ((int) ($b['count'] ?? 0) <=> (int) ($a['count'] ?? 0))
+                    ?: strcmp((string) ($a['district'] ?? ''), (string) ($b['district'] ?? '')),
+            );
+        }
+
+        $out = [];
+        foreach ($merged as $row) {
+            $count = (int) ($row['count'] ?? 0);
+            $row['achievement'] = $count;
+            $row['share_pct'] = $total > 0 ? (int) round(($count / $total) * 100) : 0;
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function annotateReapServiceRows(array $rows, int $accelerationTotal, int $total): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $count = (int) ($row['count'] ?? 0);
+            $row['normal_count'] = $count;
+            $row['acceleration_count'] = 0;
+            $row['share_pct'] = $total > 0 ? (int) round(($count / $total) * 100) : 0;
+            $out[] = $row;
+        }
+
+        if ($accelerationTotal > 0) {
+            $out[] = [
+                'service' => \App\Support\AccelerationReapDeliverablesSupport::SOURCE_LABEL,
+                'count' => $accelerationTotal,
+                'normal_count' => 0,
+                'acceleration_count' => $accelerationTotal,
+                'share_pct' => $total > 0 ? (int) round(($accelerationTotal / $total) * 100) : 0,
+                'applied_amount' => 0,
+                'sanctioned_amount' => 0,
+            ];
+        }
+
+        return $out;
     }
 
     private function pitchDeckPreparationsBreakdown(): array
@@ -1928,7 +2098,7 @@ class ProgramDeliverablesAchievementBreakdownService
         $out = [];
         foreach ($counts as $monthKey => $count) {
             try {
-                $label = Carbon::createFromFormat('Y-m', $monthKey)->format('M Y');
+                $label = Carbon::createFromFormat('!Y-m', $monthKey)->format('M Y');
             } catch (\Throwable) {
                 $label = $monthKey;
             }
@@ -1981,13 +2151,13 @@ class ProgramDeliverablesAchievementBreakdownService
                 continue;
             }
 
-            $out[] = $this->districtBifurcationRow(
+            $out[] = $this->applyReapSplitCounts($this->districtBifurcationRow(
                 $name,
                 (string) ($existing['hub'] ?? $district->hub?->name ?: '—'),
                 $target,
                 $achievement,
                 $total,
-            );
+            ), is_array($existing) ? $existing : null);
         }
 
         foreach ($byDistrict as $row) {
@@ -1995,13 +2165,13 @@ class ProgramDeliverablesAchievementBreakdownService
             if ($name === '' || isset($coveredNames[$name])) {
                 continue;
             }
-            $out[] = $this->districtBifurcationRow(
+            $out[] = $this->applyReapSplitCounts($this->districtBifurcationRow(
                 $name,
                 (string) ($row['hub'] ?? '—'),
                 null,
                 (int) ($row['count'] ?? 0),
                 $total,
-            );
+            ), $row);
         }
 
         usort(
@@ -2054,6 +2224,23 @@ class ProgramDeliverablesAchievementBreakdownService
                 : null,
             'share_pct' => $total > 0 ? (int) round(($achievement / $total) * 100) : 0,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, mixed>|null  $existing
+     * @return array<string, mixed>
+     */
+    private function applyReapSplitCounts(array $row, ?array $existing): array
+    {
+        if ($existing === null || ! array_key_exists('normal_count', $existing)) {
+            return $row;
+        }
+
+        $row['normal_count'] = (int) $existing['normal_count'];
+        $row['acceleration_count'] = (int) ($existing['acceleration_count'] ?? 0);
+
+        return $row;
     }
 
     /**

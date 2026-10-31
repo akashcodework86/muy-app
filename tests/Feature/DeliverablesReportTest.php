@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Deliverable;
+use App\Support\AccelerationServicesApproval;
 use App\Models\District;
 use App\Models\DistrictDeliverableTarget;
 use App\Models\FieldCoordinatorAttendanceReport;
@@ -5102,6 +5103,247 @@ class DeliverablesReportTest extends TestCase
         $this->assertStringContainsString('Gender', $csv);
         $this->assertStringContainsString('Female', $csv);
         $this->assertStringContainsString('Reap Gender Applicant', $csv);
+    }
+
+    public function test_reap_support_counts_approved_acceleration_items_separately(): void
+    {
+        $fy = FiscalYear::query()->firstOrCreate(
+            ['code' => '2026-27'],
+            [
+                'name' => 'FY 2026-27',
+                'starts_on' => '2026-04-01',
+                'ends_on' => '2027-03-31',
+                'is_active' => true,
+            ]
+        );
+
+        $hub = Hub::query()->create(['slug' => 'reap-accel-hub', 'name' => 'Accel Hub', 'sort_order' => 94]);
+        $district = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'reap-accel-district',
+            'name' => 'Reap Accel District',
+            'sort_order' => 94,
+        ]);
+        $otherDistrict = District::query()->create([
+            'hub_id' => $hub->id,
+            'slug' => 'reap-accel-other',
+            'name' => 'Other Accel District',
+            'sort_order' => 93,
+        ]);
+
+        $category = ServiceCategory::query()->create([
+            'slug' => 'convergence-with-line-departments',
+            'name' => 'Schematic Convergence',
+            'sort_order' => 94,
+        ]);
+        $service = Service::query()->create([
+            'service_category_id' => $category->id,
+            'code' => 'p_m_e_g_p',
+            'name' => 'PMEGP',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+        $cfaId = (int) DB::table('cfa_submissions')->insertGetId([
+            'district_id' => $district->id,
+            'applicant_name' => 'Normal Reap Person',
+            'phone' => '9999999901',
+            'payload' => json_encode(['gender' => 'female']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        ServiceCase::query()->create([
+            'cfa_submission_id' => $cfaId,
+            'service_id' => $service->id,
+            'status' => ServiceCase::STATUS_APPROVED,
+            'reference_number' => 'SC-REAP-ACCEL',
+            'submitted_at' => '2026-05-10 09:00:00',
+            'payload' => ['through_reap' => '1'],
+        ]);
+
+        $maker = User::factory()->create(['role' => 'state_staff', 'is_active' => true]);
+        $approvedId = $this->insertAccelerationReapSession($maker->id, $fy->id, [
+            'district_name' => 'Reap Accel District',
+            'applicant_name' => 'Approved Accel Person',
+            'application_no' => 'ACC-REAP-1',
+            'incubatee_key' => 'p1:accel-1',
+            'legacy_phase1_application_id' => 9101,
+            'service_date' => '2026-05-01',
+            'status' => AccelerationServicesApproval::STATUS_APPROVED,
+            'final_approved_at' => '2026-06-15 11:00:00',
+        ]);
+        DB::table('acceleration_service_items')->insert([
+            [
+                'session_id' => $approvedId,
+                'section' => 'support',
+                'item_key' => 'support_muy_incubatee_reap',
+                'item_label' => 'Support to MUY Incubatee through REAP',
+                'payload' => json_encode([
+                    'service_item_date' => '2026-05-02',
+                    'reap_sector' => 'farm',
+                    'reap_amount' => '1_lakh',
+                ]),
+                'is_custom' => false,
+                'is_buyer_seller_meet' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'session_id' => $approvedId,
+                'section' => 'support',
+                'item_key' => 'support_muy_incubatee_reap__2',
+                'item_label' => 'Support to MUY Incubatee through REAP',
+                'payload' => json_encode(['service_item_date' => '2026-05-03']),
+                'is_custom' => false,
+                'is_buyer_seller_meet' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'session_id' => $approvedId,
+                'section' => 'service_detail',
+                'item_key' => 'market_linkage',
+                'item_label' => 'Market Linkage',
+                'payload' => json_encode(['service_item_date' => '2026-05-04']),
+                'is_custom' => false,
+                'is_buyer_seller_meet' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $otherId = $this->insertAccelerationReapSession($maker->id, $fy->id, [
+            'district_name' => 'Other Accel District',
+            'applicant_name' => 'Other Accel Person',
+            'application_no' => 'ACC-REAP-2',
+            'incubatee_key' => 'p1:accel-2',
+            'legacy_phase1_application_id' => 9102,
+            'service_date' => '2026-04-02',
+            'status' => AccelerationServicesApproval::STATUS_APPROVED,
+            'final_approved_at' => null,
+        ]);
+        DB::table('acceleration_service_items')->insert([
+            'session_id' => $otherId,
+            'section' => 'support',
+            'item_key' => 'support_muy_incubatee_reap',
+            'item_label' => 'Support to MUY Incubatee through REAP',
+            'payload' => json_encode(['service_item_date' => '2026-05-20']),
+            'is_custom' => false,
+            'is_buyer_seller_meet' => false,
+            'created_at' => '2026-04-03 08:00:00',
+            'updated_at' => '2026-04-03 08:00:00',
+        ]);
+
+        $pendingId = $this->insertAccelerationReapSession($maker->id, $fy->id, [
+            'district_name' => 'Reap Accel District',
+            'applicant_name' => 'Pending Accel Person',
+            'application_no' => 'ACC-REAP-3',
+            'incubatee_key' => 'p1:accel-3',
+            'legacy_phase1_application_id' => 9103,
+            'service_date' => '2026-05-08',
+            'status' => AccelerationServicesApproval::STATUS_PENDING_REVIEW,
+            'final_approved_at' => null,
+        ]);
+        DB::table('acceleration_service_items')->insert([
+            'session_id' => $pendingId,
+            'section' => 'support',
+            'item_key' => 'support_muy_incubatee_reap',
+            'item_label' => 'Support to MUY Incubatee through REAP',
+            'payload' => json_encode(['service_item_date' => '2026-05-08']),
+            'is_custom' => false,
+            'is_buyer_seller_meet' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $admin = User::factory()->create(['role' => 'state_admin', 'is_active' => true]);
+        $scope = ProgramDeliverablesScope::forUser($admin);
+        $filter = new ProgramDeliverablesFilter($fy->id, null, null, null, null, null);
+        $report = app(ProgramDeliverablesReportService::class)->build($filter, $scope);
+        $row = collect($report['rows'])->firstWhere('serial', '8.2');
+        $this->assertNotNull($row);
+        $this->assertSame(4, $row['achievement']);
+
+        $breakdown = app(ProgramDeliverablesAchievementBreakdownService::class)->build($filter, $scope, '8.2');
+        $this->assertSame(4, $breakdown['total']);
+        $this->assertSame(1, $breakdown['normal_total']);
+        $this->assertSame(3, $breakdown['acceleration_total']);
+
+        $home = collect($breakdown['by_district'])->firstWhere('district', 'Reap Accel District');
+        $this->assertNotNull($home);
+        $this->assertSame(1, $home['normal_count']);
+        $this->assertSame(2, $home['acceleration_count']);
+        $this->assertSame(3, $home['achievement']);
+        $this->assertSame('Accel Hub', $home['hub']);
+
+        $other = collect($breakdown['by_district'])->firstWhere('district', 'Other Accel District');
+        $this->assertNotNull($other);
+        $this->assertSame(0, $other['normal_count']);
+        $this->assertSame(1, $other['acceleration_count']);
+        $this->assertSame('—', $other['hub']);
+
+        $may = collect($breakdown['by_month'])->firstWhere('month', 'May 2026');
+        $june = collect($breakdown['by_month'])->firstWhere('month', 'Jun 2026');
+        $this->assertNotNull($may);
+        $this->assertSame(1, $may['normal_count']);
+        $this->assertSame(1, $may['acceleration_count']);
+        $this->assertSame(2, $may['count']);
+        $this->assertNotNull($june);
+        $this->assertSame(0, $june['normal_count']);
+        $this->assertSame(2, $june['acceleration_count']);
+
+        $sources = collect($breakdown['records'])->pluck('reap_source_label', 'applicant');
+        $this->assertSame('Normal REAP', $sources['Normal Reap Person']);
+        $this->assertSame('REAP from acceleration', $sources['Approved Accel Person']);
+        $this->assertSame('REAP from acceleration', $sources['Other Accel Person']);
+        $this->assertArrayNotHasKey('Pending Accel Person', $sources->all());
+
+        $services = collect($breakdown['by_service'])->keyBy('service');
+        $this->assertSame(0, $services['REAP from acceleration']['normal_count']);
+        $this->assertSame(3, $services['REAP from acceleration']['acceleration_count']);
+
+        $scoped = new ProgramDeliverablesFilter($fy->id, $district->id, null, null, null, null);
+        $scopedReport = app(ProgramDeliverablesReportService::class)->build($scoped, $scope);
+        $scopedRow = collect($scopedReport['rows'])->firstWhere('serial', '8.2');
+        $this->assertSame(3, $scopedRow['achievement']);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.deliverables.breakdown.export.csv', [
+                'fiscal_year_id' => $fy->id,
+                'serial' => '8.2',
+            ]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Normal REAP', $csv);
+        $this->assertStringContainsString('REAP from acceleration', $csv);
+        $this->assertStringContainsString('Approved Accel Person', $csv);
+        $this->assertStringNotContainsString('Pending Accel Person', $csv);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function insertAccelerationReapSession(int $userId, int $fiscalYearId, array $overrides): int
+    {
+        return (int) DB::table('acceleration_service_sessions')->insertGetId(array_merge([
+            'service_date' => '2026-05-01',
+            'fiscal_year_id' => $fiscalYearId,
+            'legacy_phase1_application_id' => 9000,
+            'incubatee_key' => 'p1:9000',
+            'incubatee_source' => 'phase1',
+            'applicant_name' => 'Accel Person',
+            'application_no' => 'ACC-REAP',
+            'district_name' => 'Reap Accel District',
+            'onboard_label' => 'Onboarded',
+            'counts_for_7_2' => false,
+            'is_draft' => false,
+            'status' => AccelerationServicesApproval::STATUS_APPROVED,
+            'submitted_by_user_id' => $userId,
+            'submitted_by_name' => 'Maker',
+            'final_approved_at' => null,
+            'created_at' => '2026-05-01 08:00:00',
+            'updated_at' => '2026-05-01 08:00:00',
+        ], $overrides));
     }
 
     public function test_staff_services_index_reap_support_8_2_filter_shows_unified_label(): void

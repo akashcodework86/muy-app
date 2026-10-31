@@ -507,17 +507,25 @@
         _sourceType = data.source_type || '';
 
         const districtRows = data.by_district || [];
+        const isReap = data.source_type === 'reap_support_services';
+        const reapParts = (row) => {
+            const achievement = Number(row.achievement ?? row.count ?? 0);
+            const normal = row.normal_count == null ? achievement : Number(row.normal_count);
+            const acceleration = row.acceleration_count == null ? 0 : Number(row.acceleration_count);
+            return { achievement, normal, acceleration };
+        };
         const districtTable = districtRows.length ? `<table class="dlv-table">
-            <thead><tr><th>District</th><th>Hub</th><th>Target</th><th>Achievement</th><th>Achievement %</th><th>Share</th></tr></thead>
+            <thead><tr><th>District</th><th>Hub</th><th>Target</th>${isReap ? '<th>Normal REAP</th><th>REAP from acceleration</th>' : ''}<th>Achievement</th><th>Achievement %</th><th>Share</th></tr></thead>
             <tbody>${districtRows.map((row) => {
-                const achievement = Number(row.achievement ?? row.count ?? 0);
+                const parts = reapParts(row);
                 const target = row.target == null || row.target === '' ? null : Number(row.target);
-                const pct = row.achievement_pct != null ? row.achievement_pct + '%' : (target > 0 ? Math.round((achievement / target) * 100) + '%' : '—');
+                const pct = row.achievement_pct != null ? row.achievement_pct + '%' : (target > 0 ? Math.round((parts.achievement / target) * 100) + '%' : '—');
                 return `<tr>
                     <td>${escapeHtml(row.district || '')}</td>
                     <td>${escapeHtml(row.hub || '—')}</td>
                     <td>${target != null ? fmt(target) : '—'}</td>
-                    <td>${fmt(achievement)}</td>
+                    ${isReap ? `<td>${fmt(parts.normal)}</td><td>${fmt(parts.acceleration)}</td>` : ''}
+                    <td>${fmt(parts.achievement)}</td>
                     <td>${pct}</td>
                     <td>${fmt(row.share_pct || 0)}%</td>
                 </tr>`;
@@ -538,9 +546,12 @@
             return `<a class="dlv-insight dlv-insight--${item.tone || 'primary'} dlv-insight--clickable" href="${escapeHtml(recordsHref(filter))}">${inner}</a>`;
         }).join('');
 
-        const monthRows = (data.by_month || []).map((row) => `
-            <tr><td>${row.month}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td></tr>
-        `).join('');
+        const monthRows = (data.by_month || []).map((row) => {
+            const parts = reapParts(row);
+            return isReap
+                ? `<tr><td>${row.month}</td><td>${fmt(parts.normal)}</td><td>${fmt(parts.acceleration)}</td><td>${fmt(parts.achievement)}</td><td>${row.share_pct}%</td></tr>`
+                : `<tr><td>${row.month}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td></tr>`;
+        }).join('');
 
         const hasAmountSummary = data.applied_amount_total != null || data.sanctioned_amount_total != null;
         const amountCards = hasAmountSummary ? `
@@ -558,7 +569,7 @@
             <div class="dlv-section">
                 <h3 class="dlv-section__title">${data.source_type === 'market_linkage_incubatees' ? 'Online / offline split (incubatees)' : 'Service bifurcation'}</h3>
                 <table class="dlv-table">
-                    <thead><tr><th>Service</th><th>Count</th><th>Share</th><th>Applied Amount</th><th>Sanctioned Amount</th></tr></thead>
+                    <thead><tr><th>Service</th>${isReap ? '<th>Normal REAP</th><th>REAP from acceleration</th>' : ''}<th>Count</th><th>Share</th><th>Applied Amount</th><th>Sanctioned Amount</th></tr></thead>
                     <tbody>${(data.by_service || []).map((row) => {
                         const modeFilter = (data.source_type === 'market_linkage_incubatees' && ['offline', 'online'].includes(String(row.service || '').toLowerCase()))
                             ? String(row.service).toLowerCase()
@@ -567,7 +578,9 @@
                         const rowAttrs = href
                             ? ` class="dlv-filter-row" data-dlv-records-href="${escapeHtml(href)}" title="Open ${escapeHtml(row.service)} list"`
                             : '';
-                        return `<tr${rowAttrs}><td>${href ? `<a href="${escapeHtml(href)}" style="color:inherit;font-weight:700;">${escapeHtml(row.service)}</a>` : escapeHtml(row.service)}</td><td>${fmt(row.count)}</td><td>${row.share_pct}%</td><td>${fmtCurrency(row.applied_amount || 0)}</td><td>${fmtCurrency(row.sanctioned_amount || 0)}</td></tr>`;
+                        const parts = reapParts(row);
+                        const splitCells = isReap ? `<td>${fmt(parts.normal)}</td><td>${fmt(parts.acceleration)}</td>` : '';
+                        return `<tr${rowAttrs}><td>${href ? `<a href="${escapeHtml(href)}" style="color:inherit;font-weight:700;">${escapeHtml(row.service)}</a>` : escapeHtml(row.service)}</td>${splitCells}<td>${fmt(row.count)}</td><td>${row.share_pct}%</td><td>${fmtCurrency(row.applied_amount || 0)}</td><td>${fmtCurrency(row.sanctioned_amount || 0)}</td></tr>`;
                     }).join('')}</tbody>
                 </table>
             </div>
@@ -581,6 +594,14 @@
                     <div class="dlv-stat-card__label">Achievement</div>
                     <div class="dlv-stat-card__value">${fmt(data.total)}</div>
                 </div>
+                ${isReap ? `<div class="dlv-stat-card">
+                    <div class="dlv-stat-card__label">Normal REAP</div>
+                    <div class="dlv-stat-card__value">${fmt(data.normal_total || 0)}</div>
+                </div>
+                <div class="dlv-stat-card">
+                    <div class="dlv-stat-card__label">REAP from acceleration</div>
+                    <div class="dlv-stat-card__value">${fmt(data.acceleration_total || 0)}</div>
+                </div>` : ''}
                 <div class="dlv-stat-card">
                     <div class="dlv-stat-card__label">Target</div>
                     <div class="dlv-stat-card__value">${data.target != null ? fmt(data.target) : '—'}</div>
@@ -599,8 +620,8 @@
             <div class="dlv-section">
                 <h3 class="dlv-section__title">Monthly trend</h3>
                 <table class="dlv-table">
-                    <thead><tr><th>Month</th><th>Count</th><th>Share</th></tr></thead>
-                    <tbody>${monthRows || '<tr><td colspan="3">No monthly data.</td></tr>'}</tbody>
+                    <thead><tr><th>Month</th>${isReap ? '<th>Normal REAP</th><th>REAP from acceleration</th>' : ''}<th>Count</th><th>Share</th></tr></thead>
+                    <tbody>${monthRows || `<tr><td colspan="${isReap ? 5 : 3}">No monthly data.</td></tr>`}</tbody>
                 </table>
             </div>
             ${serviceSection}
@@ -671,6 +692,7 @@
         const isPitchDeckCombined = _sourceType === 'pitch_deck_combined';
         const isMarketingPartnerOnboardedCombined = _sourceType === 'marketing_partner_onboarded_count';
         const isPotentialLakhpati = _sourceType === 'potential_lakhpati_onboarding_count';
+        const isReap = _sourceType === 'reap_support_services';
 
         const isFPPage = _sourceType === 'field_work_participants' || _sourceType === 'field_visit_participants';
         const pageSize = (isFPPage || isBst) ? PAGE_SIZE_PARTICIPANTS : PAGE_SIZE_DEFAULT;
@@ -803,6 +825,27 @@
                     <th>Application no.</th><th>Incubatee</th><th>District</th><th>Partner(s)</th><th>Mode</th><th>Submitted</th>
                 </tr></thead>
                 <tbody>${rowsHtml || '<tr><td colspan="7">No linked incubatees found.</td></tr>'}</tbody>
+            </table>`;
+        } else if (isReap) {
+            const rowsHtml = pageRecords.map((row, i) => {
+                const sr = globalOffset + i + 1;
+                return `<tr>
+                    <td style="text-align:center;color:#94a3b8;font-weight:700;font-size:0.75rem;">${sr}</td>
+                    <td>${escapeHtml(row.reference)}</td>
+                    <td>${escapeHtml(row.applicant)}</td>
+                    <td>${escapeHtml(row.gender || '—')}</td>
+                    <td>${escapeHtml(row.district)}</td>
+                    <td>${escapeHtml(row.reap_source_label || 'Normal REAP')}</td>
+                    <td>${escapeHtml(row.service)}</td>
+                    <td>${escapeHtml(row.date)}</td>
+                </tr>`;
+            }).join('');
+            tableHtml = `<table class="dlv-table">
+                <thead><tr>
+                    <th style="width:2rem;text-align:center;">#</th>
+                    <th>Reference</th><th>Applicant</th><th>Gender</th><th>District</th><th>Source</th><th>Service</th><th>Date</th>
+                </tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="8">No records found.</td></tr>'}</tbody>
             </table>`;
         } else if (isPotentialLakhpati) {
             const rowsHtml = pageRecords.map((row, i) => {
