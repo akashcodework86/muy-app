@@ -503,9 +503,13 @@ class HubBatchService
     /** @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder  $query */
     private function applyApplicationIdentityOrClauses($query, string $column, string $applicationNo): void
     {
+        // Ending-digit match stays on the full number only. A shortened key such as
+        // 0403002 must not treat 40403002 as the same application.
+        $fullNumber = HubBatchImportNormalizer::applicationNo($applicationNo);
+
         foreach (HubBatchImportNormalizer::applicationIdentityKeys($applicationNo) as $key) {
             $query->orWhereRaw("UPPER(REPLACE({$column}, ' ', '')) = ?", [$key]);
-            if (strlen($key) >= 5) {
+            if ($key === $fullNumber && strlen($key) >= 5) {
                 $query->orWhere($column, 'like', '%'.$key);
             }
         }
@@ -766,23 +770,11 @@ class HubBatchService
             return ['ok' => false, 'error' => 'Invalid district'];
         }
         $q = trim((string) ($input['q'] ?? ''));
-        $requestedFyId = (int) ($input['fiscal_year_id'] ?? 0);
-        $fyId = $requestedFyId > 0
-            ? (int) FiscalYear::query()->whereKey($requestedFyId)->value('id')
-            : ($this->activeFiscalYearId() ?? 0);
-        if ($requestedFyId > 0 && $fyId <= 0) {
-            return ['ok' => false, 'error' => 'Invalid fiscal year'];
-        }
-        $fy = $fyId > 0 ? FiscalYear::query()->find($fyId) : null;
-        if (! $fy) {
-            return ['ok' => false, 'error' => 'Fiscal year not found'];
-        }
+        $poolFilter = trim((string) ($input['pool_filter'] ?? ''));
         $district = District::query()->find($districtId);
         if (! $district) {
             return ['ok' => false, 'error' => 'District not found'];
         }
-
-        $poolFilter = trim((string) ($input['pool_filter'] ?? ''));
         if ($poolFilter === 'phase1-2021-2024') {
             return [
                 'ok' => true,
@@ -800,6 +792,21 @@ class HubBatchService
                 'ok' => true,
                 'data' => ['candidates' => $this->poolListFromLegacyPhase1($hubId, $district, $q)],
             ];
+        }
+        if ($poolFilter === 'all') {
+            return $this->poolListAllYears($hubId, $district, $q);
+        }
+
+        $requestedFyId = (int) ($input['fiscal_year_id'] ?? 0);
+        $fyId = $requestedFyId > 0
+            ? (int) FiscalYear::query()->whereKey($requestedFyId)->value('id')
+            : ($this->activeFiscalYearId() ?? 0);
+        if ($requestedFyId > 0 && $fyId <= 0) {
+            return ['ok' => false, 'error' => 'Invalid fiscal year'];
+        }
+        $fy = $fyId > 0 ? FiscalYear::query()->find($fyId) : null;
+        if (! $fy) {
+            return ['ok' => false, 'error' => 'Fiscal year not found'];
         }
 
         $phase1Candidates = $this->poolListFromLegacyPhase1($hubId, $district, $q);
@@ -838,6 +845,26 @@ class HubBatchService
         ];
     }
 
+    /**
+     * Local CFA rows from every fiscal year, plus the same Phase 1 rows already
+     * merged into a single-year pool. FY 2025-26 stays on its own filter.
+     *
+     * @return array{ok: bool, error?: string, data?: mixed}
+     */
+    private function poolListAllYears(int $hubId, District $district, string $q): array
+    {
+        $phase1Candidates = $this->poolListFromLegacyPhase1($hubId, $district, $q);
+        $primary = $this->poolListFromLocal($hubId, (int) $district->id, 0, $q);
+
+        return [
+            'ok' => true,
+            'data' => ['candidates' => $this->mergePoolCandidates(
+                $primary['data']['candidates'] ?? [],
+                $phase1Candidates
+            )],
+        ];
+    }
+
     private function poolListFromLocal(int $hubId, int $districtId, int $fyId, string $q): array
     {
         if ($q !== '') {
@@ -846,7 +873,7 @@ class HubBatchService
 
         $query = CfaSubmission::query()
             ->where('district_id', $districtId)
-            ->where('fiscal_year_id', $fyId)
+            ->when($fyId > 0, fn ($query) => $query->where('fiscal_year_id', $fyId))
             ->whereDoesntHave('onboardingBatchMembership')
             ->whereNotExists(function ($sub): void {
                 $sub->selectRaw('1')
@@ -977,7 +1004,7 @@ class HubBatchService
                 $status = 'different_district';
                 $label = 'Different district';
                 $detail = 'This CFA belongs to '.($cfa->district?->name ?? 'another district').'.';
-            } elseif ((int) $cfa->fiscal_year_id !== $fyId) {
+            } elseif ($fyId > 0 && (int) $cfa->fiscal_year_id !== $fyId) {
                 $status = 'different_fiscal_year';
                 $label = 'Different fiscal year';
                 $detail = 'This CFA belongs to '.($cfa->fiscalYear?->code ?? 'another fiscal year').'.';

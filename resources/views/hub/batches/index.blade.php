@@ -259,13 +259,14 @@
                         <div>
                             <label style="font-size:0.72rem;color:var(--muted);display:block;margin-bottom:0.28rem">Pool filter</label>
                             <select id="selFiscalYear" class="hb-select">
+                                <option value="all" selected>All</option>
                                 <optgroup label="Phase 1 (RBI)">
                                     <option value="phase1-2021-2024">2021–2024</option>
                                     <option value="phase1-all">All</option>
                                 </optgroup>
                                 <optgroup label="MIS fiscal year">
                                     @foreach ($fiscalYears as $fy)
-                                        <option value="{{ $fy->id }}" @selected((int) $selectedFiscalYearId === (int) $fy->id)>{{ $fy->code }}</option>
+                                        <option value="{{ $fy->id }}">{{ $fy->code }}</option>
                                     @endforeach
                                 </optgroup>
                             </select>
@@ -491,8 +492,9 @@
         let currentBatchId = 0;
         let blocked = @json($stats['blocked']);
         let searchTimer = null;
-        let selectedFiscalYearId = parseInt(@json($selectedFiscalYearId), 10) || 0;
-        let selectedPoolFilter = '';
+        const defaultFiscalYearId = parseInt(@json($selectedFiscalYearId), 10) || 0;
+        let selectedFiscalYearId = 0;
+        let selectedPoolFilter = 'all';
         let mixState = { seed: 0, early: 0, growth: 0, unknown: 0, count: 0, targetN: 0 };
         let latestPoolRows = [];
         let latestDraftMembers = [];
@@ -543,7 +545,7 @@
             const form = new FormData();
             form.append('batch_id', currentBatchId);
             form.append('file', file);
-            form.append('fiscal_year_id', selectedFiscalYearId);
+            form.append('fiscal_year_id', selectedPoolFilter === 'all' ? defaultFiscalYearId : selectedFiscalYearId);
             form.append('all_pool_years', document.getElementById('batchImportAllYears').checked ? '1' : '0');
             form.append('stop_when_full', document.getElementById('batchImportStopFull').checked ? '1' : '0');
             form.append('application_header', document.getElementById('batchImportAppHeader').value);
@@ -1463,7 +1465,7 @@
         document.getElementById('inpDraftSearch').addEventListener('input', () => renderDraftMembers());
         document.getElementById('selFiscalYear').addEventListener('change', (e) => {
             const value = String(e.target.value || '');
-            if (value.startsWith('phase1-')) {
+            if (value === 'all' || value.startsWith('phase1-')) {
                 selectedPoolFilter = value;
                 selectedFiscalYearId = 0;
             } else {
