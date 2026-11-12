@@ -22,6 +22,7 @@
     .tp-field input[type="text"],
     .tp-field input[type="date"],
     .tp-field input[type="file"],
+    .tp-field select,
     .tp-field textarea { width:100%; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:8px; padding:0.58rem 0.7rem; font-size:0.88rem; background:#fff; }
     .tp-field textarea { min-height:5.5rem; resize:vertical; }
     .tp-field input[type="file"] { padding:0.45rem 0.55rem; background:#f8fafc; }
@@ -84,20 +85,30 @@
 
     <div class="tp-card">
         <h3 class="tp-card__title">Submission Form</h3>
-        <form method="post" action="{{ route('staff.technical-trainings.store') }}" enctype="multipart/form-data">
+        <form method="post" action="{{ $formAction ?? route('staff.technical-trainings.store') }}" enctype="multipart/form-data">
             @csrf
             <div class="tp-grid">
                 <div class="tp-field">
                     <label>Session Taken By</label>
-                    <input type="text" class="tp-readonly" value="{{ $user->name }}" readonly>
+                    <input type="text" class="tp-readonly" value="{{ $submitterLabel ?? $user->name }}" readonly>
                 </div>
                 <div class="tp-field">
                     <label>Date of Session *</label>
                     <x-activity-date-input name="session_date" />
                 </div>
                 <div class="tp-field">
-                    <label>District</label>
-                    <input type="text" class="tp-readonly" value="{{ $user->district?->name ?? 'Not assigned' }}" readonly>
+                    <label>{{ !empty($statewideEntry) ? 'District *' : 'District' }}</label>
+                    @if (!empty($statewideEntry))
+                        <select name="district_id" id="tpSessionDistrict" required>
+                            <option value="">Select district</option>
+                            @foreach (($districts ?? []) as $district)
+                                <option value="{{ $district->id }}" @selected((int) old('district_id', $selectedDistrictId ?? 0) === (int) $district->id)>{{ $district->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="tp-field-hint">This is the district the session is counted under. You can still add incubatees from any district.</p>
+                    @else
+                        <input type="text" class="tp-readonly" value="{{ $user->district?->name ?? 'Not assigned' }}" readonly>
+                    @endif
                 </div>
                 <div class="tp-field">
                     <label>Training Batch (optional custom)</label>
@@ -125,14 +136,24 @@
             <div class="tp-section">
                 <h4 class="tp-section__title">Manual Attendance Selection * (required)</h4>
                 <div class="tp-two-col">
-                    <div class="tp-col">
-                        <p class="tp-note">
-                            rbiphase3 applicants in district: <strong>{{ (int) ($totalApplicantCount ?? $incubatees->count()) }}</strong>
-                        </p>
+                <div class="tp-col">
+                    @if (!empty($statewideEntry))
+                        <label for="tpBrowseDistrict" style="font-size:0.82rem;font-weight:700;color:#0f172a;">Show applicants from</label>
+                        <select id="tpBrowseDistrict">
+                            <option value="">Select a district</option>
+                            @foreach (($districts ?? []) as $district)
+                                <option value="{{ $district->id }}">{{ $district->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="tp-note">Switch districts to add people from anywhere. People you already selected stay selected.</p>
+                    @endif
+                    <p class="tp-note">
+                        rbiphase3 applicants in district: <strong id="tpApplicantCount">{{ (int) ($totalApplicantCount ?? $incubatees->count()) }}</strong>
+                    </p>
                         <input id="tpSearch" class="tp-search" type="text" placeholder="Search applicants by name, application no., or phone">
                         <div class="tp-list" id="tpSourceList">
                             @forelse ($incubatees as $row)
-                                <label class="tp-item" data-search="{{ strtolower($row['name'].' '.$row['application_no'].' '.$row['phone'].' '.($row['onboard_label'] ?? '')) }}">
+                                <label class="tp-item" data-search="{{ strtolower($row['name'].' '.$row['application_no'].' '.$row['phone'].' '.($row['onboard_label'] ?? '').' '.($row['district_name'] ?? '')) }}">
                                     <input type="checkbox" class="tp-check" value="{{ $row['incubatee_id'] }}" @checked(in_array((int) $row['incubatee_id'], $oldSelectedIds, true))>
                                     <div>
                                         <h4>{{ $row['name'] ?: 'Unnamed' }}</h4>
@@ -145,11 +166,11 @@
                                                 <span class="tp-pill tp-pill--muted">{{ $row['onboard_label'] ?? 'Not onboarded' }}</span>
                                             @endif
                                         </div>
-                                        <div class="tp-meta">Phone: {{ $row['phone'] ?: 'NA' }} | Block: {{ $row['block_name'] ?: 'NA' }} | Village: {{ $row['village'] ?: 'NA' }}</div>
+                                        <div class="tp-meta">Phone: {{ $row['phone'] ?: 'NA' }} | Block: {{ $row['block_name'] ?: 'NA' }} | Village: {{ $row['village'] ?: 'NA' }}@if (!empty($statewideEntry) && !empty($row['district_name'])) | District: {{ $row['district_name'] }}@endif</div>
                                     </div>
                                 </label>
                             @empty
-                                <p class="tp-selected-empty">No rbiphase3 applicants found for your district.</p>
+                                <p class="tp-selected-empty">{{ !empty($statewideEntry) ? 'Select a district to load applicants.' : 'No rbiphase3 applicants found for your district.' }}</p>
                             @endforelse
                         </div>
                     </div>
@@ -163,7 +184,7 @@
             <div id="tpHiddenInputs"></div>
             <div class="tp-actions">
                 <button class="tp-submit" type="submit">Submit attendance</button>
-                <a class="tp-link" href="{{ route('staff.technical-trainings.dashboard') }}">View dashboard</a>
+                <a class="tp-link" href="{{ $dashboardUrl ?? route('staff.technical-trainings.dashboard') }}">View dashboard</a>
             </div>
         </form>
     </div>
@@ -188,6 +209,11 @@
     const mediaInput = document.getElementById('tpMediaInput');
     const mediaPreview = document.getElementById('tpMediaPreview');
     const selectedMap = new Map();
+    const applicantsUrl = @json($applicantsUrl ?? null);
+    const oldSelectedIds = @json(array_values(array_map('intval', (array) ($oldSelectedIds ?? []))));
+    const browseDistrict = document.getElementById('tpBrowseDistrict');
+    const sessionDistrict = document.getElementById('tpSessionDistrict');
+    const applicantCount = document.getElementById('tpApplicantCount');
 
     function sourceCardForCheckbox(el) {
         return el && el.closest('.tp-item') ? el.closest('.tp-item') : null;
@@ -229,9 +255,12 @@
             removeBtn.textContent = 'Remove';
             removeBtn.className = 'tp-btn-remove';
             removeBtn.addEventListener('click', function () {
-                const linkedCheckbox = checks.find((c) => String(c.value || '') === String(selectedId));
-                if (linkedCheckbox) {
-                    linkedCheckbox.checked = false;
+                if (sourceList) {
+                    sourceList.querySelectorAll('.tp-check').forEach(function (box) {
+                        if (String(box.value || '') === String(selectedId)) {
+                            box.checked = false;
+                        }
+                    });
                 }
                 selectedMap.delete(String(selectedId));
                 renderSelected();
@@ -254,14 +283,21 @@
         });
     }
 
+    if (sourceList) {
+        sourceList.addEventListener('change', function (event) {
+            const el = event.target;
+            if (!el || !el.classList || !el.classList.contains('tp-check')) {
+                return;
+            }
+            syncMapFromCheckbox(el);
+            renderSelected();
+        });
+    }
+
     checks.forEach((el) => {
         if (el.checked) {
             syncMapFromCheckbox(el);
         }
-        el.addEventListener('change', function () {
-            syncMapFromCheckbox(el);
-            renderSelected();
-        });
     });
 
     if (search && sourceList) {
@@ -399,6 +435,100 @@
         mediaInput.addEventListener('change', function () {
             addFiles(this.files);
         });
+    }
+
+    function applicantCard(row) {
+        const label = document.createElement('label');
+        label.className = 'tp-item';
+        const districtName = row.district_name || '';
+        label.setAttribute('data-search', [row.name, row.application_no, row.phone, row.onboard_label, districtName].join(' ').toLowerCase());
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.className = 'tp-check';
+        input.value = String(row.incubatee_id || '');
+        if (selectedMap.has(input.value) || oldSelectedIds.indexOf(Number(row.incubatee_id)) !== -1) {
+            input.checked = true;
+        }
+        const body = document.createElement('div');
+        const title = document.createElement('h4');
+        title.textContent = row.name || 'Unnamed';
+        const meta = document.createElement('div');
+        meta.className = 'tp-meta';
+        meta.textContent = 'App: ' + (row.application_no || 'NA') + ' | ' + (row.onboard_label || '');
+        const place = document.createElement('div');
+        place.className = 'tp-meta';
+        place.textContent = 'Phone: ' + (row.phone || 'NA') + ' | Block: ' + (row.block_name || 'NA') + ' | Village: ' + (row.village || 'NA') + (districtName ? ' | District: ' + districtName : '');
+        body.appendChild(title);
+        body.appendChild(meta);
+        body.appendChild(place);
+        label.appendChild(input);
+        label.appendChild(body);
+        if (input.checked) {
+            syncMapFromCheckbox(input);
+        }
+        return label;
+    }
+
+    async function loadApplicants(districtId) {
+        if (!applicantsUrl || !sourceList) {
+            return;
+        }
+        sourceList.innerHTML = '<p class="tp-selected-empty">Loading applicants...</p>';
+        if (!districtId) {
+            sourceList.innerHTML = '<p class="tp-selected-empty">Select a district to load applicants.</p>';
+            if (applicantCount) {
+                applicantCount.textContent = '0';
+            }
+            return;
+        }
+        const params = new URLSearchParams();
+        params.set('district_id', String(districtId));
+        oldSelectedIds.forEach(function (id) {
+            params.append('ids[]', String(id));
+        });
+        selectedMap.forEach(function (_card, id) {
+            params.append('ids[]', String(id));
+        });
+        const response = await fetch(applicantsUrl + '?' + params.toString(), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!response.ok) {
+            sourceList.innerHTML = '<p class="tp-selected-empty">Could not load applicants.</p>';
+            return;
+        }
+        const data = await response.json();
+        const rows = Array.isArray(data.rows) ? data.rows : [];
+        sourceList.innerHTML = '';
+        if (!rows.length) {
+            sourceList.innerHTML = '<p class="tp-selected-empty">No rbiphase3 applicants found for this district.</p>';
+        } else {
+            rows.forEach(function (row) {
+                sourceList.appendChild(applicantCard(row));
+            });
+        }
+        if (applicantCount) {
+            applicantCount.textContent = String(data.total || rows.length);
+        }
+        renderSelected();
+    }
+
+    if (browseDistrict) {
+        browseDistrict.addEventListener('change', function () {
+            loadApplicants(this.value);
+        });
+    }
+
+    if (sessionDistrict && browseDistrict) {
+        sessionDistrict.addEventListener('change', function () {
+            if (this.value && browseDistrict.value !== this.value) {
+                browseDistrict.value = this.value;
+                loadApplicants(this.value);
+            }
+        });
+        if (sessionDistrict.value) {
+            browseDistrict.value = sessionDistrict.value;
+            loadApplicants(sessionDistrict.value);
+        }
     }
 
     renderSelected();

@@ -150,8 +150,8 @@
                 @if (!empty($exportRoute))
                     <a href="{{ route($exportRoute, request()->query()) }}" class="tp-btn--secondary">Excel Export</a>
                 @endif
-                @if (auth()->user()->role === 'district_staff')
-                    <a href="{{ route('staff.technical-trainings.create') }}" class="tp-btn--secondary">New entry</a>
+                @if (!empty($createRoute))
+                    <a href="{{ route($createRoute) }}" class="tp-btn--secondary">New entry</a>
                 @endif
             </div>
         </form>
@@ -213,8 +213,10 @@
                             } }}">View</a>
                             @include('partials.mis-field-workflow-row-actions', [
                                 'row' => $row,
-                                'editRoute' => 'staff.technical-trainings.edit',
-                                'destroyRoute' => 'staff.technical-trainings.destroy',
+                                'editRoute' => $editRoute ?? 'staff.technical-trainings.edit',
+                                'destroyRoute' => $destroyRoute ?? 'staff.technical-trainings.destroy',
+                                'ownerCanManageApproved' => $ownerCanManageApproved ?? false,
+                                'editLabel' => $editLabel ?? null,
                             ])
                         </div>
                     </td>

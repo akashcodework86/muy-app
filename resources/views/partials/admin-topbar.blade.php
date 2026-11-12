@@ -16,6 +16,7 @@
     $staffNavTechnicalTraining = $appSettings->isEnabled('staff_nav.technical_training.visible');
     $staffNavEapEdp = $appSettings->isEnabled('staff_nav.eap_edp_session.visible');
     $staffNavDistrictWorkshop = $appSettings->isEnabled('staff_nav.district_workshop.visible');
+    $canSubmitTechnicalTrainingStatewide = $u && \App\Support\TechnicalTrainingStatewideAccess::allows($u);
     $canSubmitSocialMediaPost = $u && \App\Support\SocialMediaPostAccess::canSubmit($u);
     $canSubmitBrandingCommunication = $u && \App\Support\BrandingCommunicationAccess::canSubmit($u);
     $canViewBrandingCommunication = $u && \App\Support\BrandingCommunicationAccess::canViewDashboard($u);
@@ -174,6 +175,8 @@
         str_starts_with($r, 'admin.training-packages.show') => 'staff-training-packages-dashboard',
         str_starts_with($r, 'staff.technical-trainings.create') => 'staff-technical-trainings-submit',
         str_starts_with($r, 'staff.technical-trainings.edit') => 'staff-technical-trainings-submit',
+        str_starts_with($r, 'spoc.technical-trainings.create') => 'staff-technical-trainings-submit',
+        str_starts_with($r, 'spoc.technical-trainings.edit') => 'staff-technical-trainings-submit',
         str_starts_with($r, 'staff.technical-trainings.dashboard') => 'staff-technical-trainings-dashboard',
         str_starts_with($r, 'staff.technical-trainings.show') => 'staff-technical-trainings-dashboard',
         str_starts_with($r, 'spoc.technical-trainings.dashboard') => 'staff-technical-trainings-dashboard',
@@ -933,6 +936,21 @@
             <a href="{{ route('spoc.deliverables.index') }}" class="admin-topbar__link @if ($activeNav === 'deliverables') is-active @endif">
                 {!! $i('bars') !!}<span class="admin-topbar__link-text">Deliverables</span>
             </a>
+            @if ($canSubmitTechnicalTrainingStatewide)
+            <details class="admin-topbar__details">
+                <summary class="admin-topbar__link admin-topbar__dropdown-trigger @if (in_array($activeNav, ['staff-technical-trainings-submit', 'staff-technical-trainings-dashboard'], true)) is-active @endif">
+                    {!! $i('calendar') !!}<span class="admin-topbar__link-text">Technical training</span>
+                </summary>
+                <div class="admin-topbar__dropdown-panel" role="menu">
+                    <a href="{{ route('spoc.technical-trainings.create') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-technical-trainings-submit') is-active @endif" role="menuitem">
+                        {!! $i('doc') !!}<span>New entry</span>
+                    </a>
+                    <a href="{{ route('spoc.technical-trainings.dashboard') }}" class="admin-topbar__dropdown-item @if ($activeNav === 'staff-technical-trainings-dashboard') is-active @endif" role="menuitem">
+                        {!! $i('bars') !!}<span>View dashboard</span>
+                    </a>
+                </div>
+            </details>
+            @endif
             @include('partials.fy-targets-nav-dropdown', ['fyTargetsNavPrefix' => $showStateStaffNav ? 'spoc' : null])
             @if ($canManageTrainingPackageMonthPlans)
             <details class="admin-topbar__details">

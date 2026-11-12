@@ -115,7 +115,7 @@
                 default => route('staff.technical-trainings.export-single', $row),
             } }}">Excel Export</a>
             @if ($canEdit)
-                <a class="tp-show-btn tp-show-btn--secondary" href="{{ route('staff.technical-trainings.edit', $row) }}">Edit Entry</a>
+                <a class="tp-show-btn tp-show-btn--secondary" href="{{ route($editRoute ?? 'staff.technical-trainings.edit', $row) }}">Edit Entry</a>
             @endif
             <a class="tp-show-btn tp-show-btn--secondary" href="{{ match ($currentRole) {
                 'state_admin' => route('admin.technical-trainings.dashboard'),

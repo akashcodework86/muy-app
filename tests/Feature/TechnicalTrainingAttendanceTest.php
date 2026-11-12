@@ -351,6 +351,76 @@ class TechnicalTrainingAttendanceTest extends TestCase
         $this->assertStringContainsString('Export brief', $response->streamedContent());
     }
 
+    public function test_named_state_staff_can_save_any_district_without_approval(): void
+    {
+        $sessionDistrict = $this->createDistrict('session-district', 'Session District');
+        $otherDistrict = $this->createDistrict('other-district', 'Other District');
+        $aadil = User::factory()->create([
+            'name' => 'Aadil Ishrat',
+            'email' => 'aadil.ishrat@pwc.com',
+            'role' => 'state_staff',
+            'is_active' => true,
+        ]);
+        $incubateeId = $this->seedPhase3Applicant($otherDistrict, 'Other District Applicant');
+
+        $this->actingAs($aadil)
+            ->get(route('spoc.technical-trainings.create'))
+            ->assertOk()
+            ->assertSee('stateadmin(Aadil Ishrat)', false)
+            ->assertSee('Session District', false)
+            ->assertSee('Other District', false)
+            ->assertSee('Show applicants from', false);
+
+        $this->actingAs($aadil)->post(route('spoc.technical-trainings.store'), [
+            'session_date' => now()->toDateString(),
+            'district_id' => $sessionDistrict->id,
+            'session_name' => 'Statewide packaging session',
+            'selected_incubatees' => [$incubateeId],
+        ])->assertRedirect(route('spoc.technical-trainings.dashboard'));
+
+        $entry = TechnicalTraining::query()->firstOrFail();
+        $this->assertSame(ServiceCase::STATUS_APPROVED, $entry->status);
+        $this->assertSame('stateadmin(Aadil Ishrat)', $entry->submitted_by_name);
+        $this->assertSame($sessionDistrict->id, (int) $entry->district_id);
+        $this->assertSame([$incubateeId], array_map('intval', (array) $entry->selected_incubatee_ids));
+        $this->assertNull($entry->spoc_user_id);
+
+        $this->actingAs($aadil)
+            ->get(route('spoc.technical-trainings.dashboard'))
+            ->assertOk()
+            ->assertSee('stateadmin(Aadil Ishrat)', false)
+            ->assertSee('Statewide packaging session', false);
+    }
+
+    public function test_other_state_staff_cannot_create_technical_training(): void
+    {
+        $other = User::factory()->create([
+            'name' => 'Other Spoc',
+            'email' => 'other.spoc@pwc.com',
+            'role' => 'state_staff',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($other)
+            ->get(route('spoc.technical-trainings.create'))
+            ->assertForbidden();
+    }
+
+    public function test_manoj_kandpal_can_open_technical_training_entry(): void
+    {
+        $manoj = User::factory()->create([
+            'name' => 'Manoj Kandpal',
+            'email' => 'manoj.kandpal@pwc.com',
+            'role' => 'state_staff',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($manoj)
+            ->get(route('spoc.technical-trainings.create'))
+            ->assertOk()
+            ->assertSee('stateadmin(Manoj Kandpal)', false);
+    }
+
     /**
      * @param  list<int>  $incubateeIds
      */

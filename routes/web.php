@@ -817,6 +817,18 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('training-packages/{trainingPackage}/export', [TrainingPackageAttendanceController::class, 'exportSingle'])->name('training-packages.export-single');
         Route::get('training-packages/{trainingPackage}/attachment', [TrainingPackageAttendanceController::class, 'downloadAttachment'])
             ->name('training-packages.attachment');
+        Route::get('technical-trainings/applicants', [TechnicalTrainingAttendanceController::class, 'applicants'])->name('technical-trainings.applicants');
+        Route::get('technical-trainings/create', [TechnicalTrainingAttendanceController::class, 'create'])->name('technical-trainings.create');
+        Route::post('technical-trainings', [TechnicalTrainingAttendanceController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('technical-trainings.store');
+        Route::get('technical-trainings/{technicalTraining}/edit', [TechnicalTrainingAttendanceController::class, 'edit'])->name('technical-trainings.edit');
+        Route::put('technical-trainings/{technicalTraining}', [TechnicalTrainingAttendanceController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('technical-trainings.update');
+        Route::delete('technical-trainings/{technicalTraining}', [TechnicalTrainingAttendanceController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('technical-trainings.destroy');
         Route::get('technical-trainings/dashboard', [TechnicalTrainingAttendanceController::class, 'dashboard'])->name('technical-trainings.dashboard');
         Route::get('technical-trainings/export', [TechnicalTrainingAttendanceController::class, 'export'])->name('technical-trainings.export');
         Route::get('technical-trainings/{technicalTraining}', [TechnicalTrainingAttendanceController::class, 'show'])->name('technical-trainings.show');
